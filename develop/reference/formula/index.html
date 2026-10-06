@@ -288,7 +288,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8201e2a</code>. What is described
+  <code>301713a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -361,7 +361,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="equilibrium">
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>98</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>101</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr id="virial">
     <td><a href="/vaft/develop/reference/formula/virial/">virial</a></td>
@@ -508,7 +508,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 395 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 398 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -598,6 +598,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="engineering_exponents_from_dimensionless_coeffs equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#engineering_exponents_from_dimensionless_coeffs"><code>engineering_exponents_from_dimensionless_coeffs</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Engineering exponents $(\alpha_I, \alpha_B, \alpha_P, \alpha_n, \alpha_R)$ from dimensionless indices.
 </td></tr>
+  <tr data-ref-row="estimated_q95 equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#estimated_q95"><code>estimated_q95</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Estimated $q_{95}$ from global shape, plasma current and toroidal field.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="exact_volume_from_RZ_contour equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#exact_volume_from_RZ_contour"><code>exact_volume_from_RZ_contour</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Plasma volume from a closed $(R, Z)$ contour by Green’s theorem.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="flux_perturbation_from_normal_displacement equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#flux_perturbation_from_normal_displacement"><code>flux_perturbation_from_normal_displacement</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Ideal (flux-frozen) perturbed flux of a displacement normal to the flux surfaces.
@@ -691,6 +693,10 @@ which documents the conventions and cites every entry.</p>
   <tr data-ref-row="q_from_phi equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#q_from_phi"><code>q_from_phi</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Safety factor $q$ as the flux derivative $d\Phi/d\psi$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="q_from_rhoN equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#q_from_rhoN"><code>q_from_rhoN</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Safety factor from the toroidal-flux label $\rho_N(\psi_N)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="q_star_cylindrical equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#q_star_cylindrical"><code>q_star_cylindrical</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Menard’s cylindrical safety factor $q^* = \pi a^2 B_0(1+\kappa^2)/(\mu_0 R_0 I_p)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="q_star_kink equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#q_star_kink"><code>q_star_kink</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Freidberg’s kink safety factor $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I_p)$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="r_at_z_extremum_from_RZ_contour equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#r_at_z_extremum_from_RZ_contour"><code>r_at_z_extremum_from_RZ_contour</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Major radius where a closed contour reaches its highest or lowest point.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -1624,7 +1630,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 03:20:48 +0000"
+        "time": "2026-10-06 04:29:31 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

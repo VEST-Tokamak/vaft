@@ -288,7 +288,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8201e2a</code>. What is described
+  <code>301713a</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -349,8 +349,39 @@ every row; select the desired time slices in the DataFrame before plotting.</p>
 <h2 id="transport-summary-hierarchy">Transport summary hierarchy</h2>
 
 <p><code class="language-plaintext highlighter-rouge">equilibrium_global</code> and <code class="language-plaintext highlighter-rouge">core_profiles</code> describe their respective time
-slices. <code class="language-plaintext highlighter-rouge">neoclassical</code> currently summarizes bootstrap current from canonical
-<code class="language-plaintext highlighter-rouge">core_profiles</code>. <code class="language-plaintext highlighter-rouge">turbulent_transport</code> summarizes anomalous models already
+slices. <code class="language-plaintext highlighter-rouge">neoclassical</code> summarizes bootstrap current from canonical
+<code class="language-plaintext highlighter-rouge">core_profiles</code>, one row per slice. Each row also carries the NEO <code class="language-plaintext highlighter-rouge">core_transport</code>
+slice that corresponds to it (#1655):</p>
+
+<ul>
+  <li><strong>Status column.</strong> <code class="language-plaintext highlighter-rouge">transport_match_status</code> names the result.</li>
+  <li>
+    <table>
+      <tbody>
+        <tr>
+          <td><strong>When the descriptors fill.</strong> The flux descriptors (<code class="language-plaintext highlighter-rouge">q_e</code>/<code class="language-plaintext highlighter-rouge">q_i</code>/<code class="language-plaintext highlighter-rouge">gamma_e</code> point counts, finite <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> coverage,</td>
+          <td>peak</td>
+          <td>, <code class="language-plaintext highlighter-rouge">transport_rho_grid_*</code>) are filled only when the status is <code class="language-plaintext highlighter-rouge">matched</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </li>
+  <li><strong>When a row is <code class="language-plaintext highlighter-rouge">matched</code>.</strong> All of these must hold:
+    <ul>
+      <li>exactly one <code class="language-plaintext highlighter-rouge">core_transport</code> model is neoclassical (identifier 5);</li>
+      <li>exactly one of its slices lies within 1 us of the bootstrap slice’s own time;</li>
+      <li>both IDSs name NEO as producer, with the same revision when both record one.</li>
+    </ul>
+  </li>
+  <li><strong>Failure statuses.</strong> <code class="language-plaintext highlighter-rouge">bootstrap_time_unknown</code>, <code class="language-plaintext highlighter-rouge">no_neoclassical_model</code>, <code class="language-plaintext highlighter-rouge">ambiguous_models</code>, <code class="language-plaintext highlighter-rouge">no_slice_at_time</code>, <code class="language-plaintext highlighter-rouge">ambiguous_slices</code>, <code class="language-plaintext highlighter-rouge">producer_mismatch</code> and <code class="language-plaintext highlighter-rouge">no_flux_grid</code>.</li>
+  <li><strong>No fallbacks.</strong> The first model and the nearest time are never chosen.</li>
+  <li><strong>Unmatched rows.</strong> They keep their bootstrap columns.</li>
+  <li><strong>State identity.</strong> The NEO mappers store no resolved-state identity in either IDS (only the stage manifest carries <code class="language-plaintext highlighter-rouge">state_sha256</code>), so the state is matched through time and producer.</li>
+  <li><strong>Missing versus zero.</strong> Unmatched rows leave every flux descriptor missing (NaN), point counts included; a 0 count means a matched slice without that channel.</li>
+  <li><strong>Source.</strong> The <code class="language-plaintext highlighter-rouge">source</code> column records the occurrence. The preset key stays <code class="language-plaintext highlighter-rouge">(shot, cp_index)</code>, as before, so an upsert of tables from two sources into one file still replaces by <code class="language-plaintext highlighter-rouge">(shot, cp_index)</code>. Keep one file per source, or pass <code class="language-plaintext highlighter-rouge">key_columns</code> with <code class="language-plaintext highlighter-rouge">source</code> to <code class="language-plaintext highlighter-rouge">export_summary</code>.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">turbulent_transport</code> summarizes anomalous models already
 stored in canonical <code class="language-plaintext highlighter-rouge">core_transport</code>: one row per shot, model entry, and time
 slice. It reads no TGLF or CGYRO native output and does not combine models.</p>
 
@@ -1385,7 +1416,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 03:20:48 +0000"
+        "time": "2026-10-06 04:29:31 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
