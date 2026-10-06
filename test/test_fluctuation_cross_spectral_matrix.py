@@ -55,8 +55,10 @@ def test_frequency_mask_excludes_slow_record_without_zero_filling():
     slow = np.arange(8_000) / 40_000
     x = np.sin(2 * np.pi * 2_000 * fast) + np.sin(2 * np.pi * 30_000 * fast)
     y = np.sin(2 * np.pi * 2_000 * slow)
+    # The fast grid is the caller's explicit choice; the default keeps the slow one.
     result = cross_spectral_matrix([_record("fast", fast, x),
-                                    _record("slow", slow, y, band=10_000)], nperseg=240)
+                                    _record("slow", slow, y, band=10_000)],
+                                   sample_rate=120_000, nperseg=240)
     low = int(np.argmin(abs(result.frequency - 2_000)))
     high = int(np.argmin(abs(result.frequency - 30_000)))
     assert result.sample_rate == pytest.approx(120_000)
@@ -99,6 +101,32 @@ def test_explicit_normalization_scales_and_invalid_options():
         cross_spectral_matrix(records, normalization="user", user_scales={"x": 1})
     with pytest.raises(ValueError, match="unique"):
         cross_spectral_matrix([records[0], records[0]])
+
+
+def test_default_grid_keeps_the_slow_record_native_and_its_raw_density_unbiased():
+    """Mixed rates default to the slowest grid, as cross_spectrogram does.
+
+    Linear upsampling of the slow record onto the fast grid rolled its raw
+    auto-density off by sinc^4 inside its declared band (0.67x at a quarter
+    of its rate) while ``valid`` said True.  White noise has a flat density,
+    so the Welch estimate on the slow record's own samples is the reference.
+    """
+    rng = np.random.default_rng(7)
+    fs_fast, fs_slow = 200_000, 50_000
+    fast = np.arange(40_000) / fs_fast
+    slow = np.arange(10_000) / fs_slow
+    noise = rng.standard_normal(slow.size)
+    result = cross_spectral_matrix([_record("fast", fast, rng.standard_normal(fast.size)),
+                                    _record("slow", slow, noise)], nperseg=64)
+    assert result.sample_rate == pytest.approx(fs_slow)
+    assert [item.operation for item in result.resampling] == ["anti_alias_resample", "identity"]
+    assert result.frequency[-1] == pytest.approx(fs_slow / 2)
+    quarter = int(np.argmin(abs(result.frequency - fs_slow / 4)))
+    assert result.valid[quarter, :, 1].all()
+    _, reference = signal.welch(noise, fs=fs_slow, nperseg=64, noverlap=0, detrend="constant")
+    assert np.nanmean(result.raw_csd[quarter, :, 1, 1].real) == pytest.approx(
+        reference[quarter], rel=0.10
+    )
 
 
 def test_requested_rate_reduction_filters_fast_only_alias_and_records_cutoff():
