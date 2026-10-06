@@ -1218,6 +1218,109 @@ The pillar names are the four README sections.
 The diagrams are built from the concept primitives in `vaft.diagram._concept`: `box`, `connector`, `band`,
 and `database`, a drum drawn as polylines. They use the `concept …` and `connector …` styles of the template.
 
+## Research infrastructure: four levels of integration, the community and ownership
+
+Why VAFT is built the way it is, in four levels (#1641, #1636, #1638, #1640). Each level is a pair of figures
+from one builder: `organization="fragmented"` draws the problem and `organization="integrated"` the
+architecture that answers it. The pair grammar is shared:
+
+- the fragmented figure draws research paths as dashed silos, joined only by red, dashed ad-hoc links;
+- the integrated figure draws the same entities around the shared layer that replaces those links;
+- both carry the level tag at the top left and numbered notes at the bottom, set as columns of text. The
+  fragmented figure lists what goes wrong, each in plain words with its technical term and, where there is
+  one, a reference: ^n plain words *(technical term)* [reference]. The integrated figure lists what answers
+  each one, under the same number;
+- the numbers are cited like footnotes, as a grey superscript after the text they belong to. In the figure
+  they mark where a symptom arises and which part of the architecture answers it, and they run in the order
+  the problem figure cites them.
+
+```python
+vaft.diagram.scientific_representation("fragmented")             # level 1, #1641
+vaft.diagram.scientific_representation()                         # "integrated" is the default
+vaft.diagram.experimental_research_infrastructure("fragmented")  # level 2, #1636
+vaft.diagram.scientific_credibility("fragmented")                # level 3, #1638
+vaft.diagram.research_modality_architecture("fragmented")        # level 4, #1640
+vaft.diagram.fusion_research_ecosystem()                         # #1643, "full" or "presentation"
+vaft.diagram.scientific_ownership_architecture()                 # #1645
+```
+
+Read in order, the figures make one argument. A Common Data Model answers the representation problem
+(`experiment_modeling_theory_data_network`). It is not enough on its own: a research infrastructure also
+needs a FAIR repository and a research framework. Reproducibility is not enough either: a result also needs
+traceable justification. The same science must then serve every researcher, interface and environment. The
+managed pipeline is `scientific_workflow`, and the VEST implementation is `vest_data_platform`.
+
+| Level | Question | Without | With |
+| --- | --- | --- | --- |
+| 1 Representation | What does this information mean? | One quantity held five ways, and each of four layers fragments on its own: the spoken term ("Ip", "plasma current"), the stored name (a DAQ channel, a NetCDF variable, a struct field), the structure and the encoding. Stored names are mapped pairwise by hand | Format and structure mappings feed the Common Data Model (IMAS), which owns meaning. Taxonomy, strict aliases and discovery connect researchers and agents to it. Storage and access (local or remote; eager, lazy, partial, cached) sit beside it |
+| 2 Infrastructure | How is a state produced, stored and reused? | Five silos, each running source → ad-hoc step → activity with private calibration copies; the reconstruction is copied by hand into other paths | Sources and activities meet only in three complementary capabilities: the Common Data Model, the FAIR Scientific Data Repository and the Research Framework |
+| 3 Credibility | Why should this result be trusted for this use? | Locally reasonable steps lose evidence, ending in an apparently precise result. Twelve losses, each with a plain label and the literature term (parametric entanglement, fortuitous agreement, primacy hierarchy, domain of applicability, ...) | Provenance, uncertainty and assumptions feed one credibility and traceability structure, which verification, validation and sensitivity examine. The assessment is a profile, not a score, and yields a qualified scientific state |
+| 4 Modality & portability | Can every researcher, language and environment use the same science? | The science is copied into a GUI, a notebook, a MATLAB workflow and HPC scripts, and AI gets no capability interface | Sibling interfaces (Python, Jupyter, CLI, GUI, documentation, MCP for agents) sit over shared public APIs and one modular core. Below it are language and runtime interoperability (MATLAB and Julia bindings marked as future) and portable execution. The versioned lifecycle runs beside them |
+
+The figures keep several distinctions visible, and the tests check them:
+
+- HDF5 is a serialization format, not the scientific model. It is the only technology the level-1 figure
+  names, and no storage service is named at all;
+- provenance is not validity, numerical verification is not physical applicability, and a surrogate's
+  training domain is checked apart from its physics model;
+- GUI, CLI and MCP are interfaces, never part of the core;
+- external solvers keep their own platform limits.
+
+`fusion_research_ecosystem` asks a different question: who does fusion research, what they do, and which
+shared scientific states connect it (#1643). The `"full"` figure shows research roles a person may combine,
+with graduate researchers and learners across every activity. Planning leads to a planned shot and a planned
+simulation run. Experiment and simulation are parallel, epistemically distinct producers. Comparison,
+validation and synthesis yield qualified states and feed new questions back to planning. Knowledge is
+preserved and transferred, and the states serve generic research contexts; only the reference
+implementation, VEST, is named. The `"presentation"` figure is a one-slide projection of the same model,
+and a test checks that every item it draws stands for items of the full figure.
+
+`scientific_ownership_architecture` shows where scientific logic lives as research software matures (#1645).
+Research groups Studies by membership, not by execution order, and neither executes anything. A workflow or
+notebook composes computation and matures reusable logic out of itself. Data and the database, and Formula,
+Process, Code and learned models, produce results and evidence. Validation interprets that evidence, and an
+optional use policy decides what a workflow does about it. The Actor contract is an optional overlay, off
+every edge. The graduation rule promotes matured logic by meaning. [Computational
+layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed view of the computation band.
+
+Related issues: #1090 (the concept family), #1550 (the VEST workflow), #497 (placement of canonical visuals),
+#248, #252, #1505, #1626-#1629 (provenance, contracts and applicability), #1077, #1165, #1170, #1639,
+#1642, #669 (ownership, Study, Research, learned models), #1174, #1086, #188, #1423, #1002, #1012, #1013,
+#1016 (interfaces and runtimes).
+
+References for the terminology in the level-3 and community figures:
+
+- R. Fischer and A. Dinklage, Integrated data analysis of fusion diagnostics by means of the Bayesian
+  probability theory, Rev. Sci. Instrum. 75, 4237 (2004): data inconsistency, parametric entanglement,
+  diagnostic interdependencies, complex error propagation.
+- P. W. Terry et al., Validation in fusion research: towards guidelines and best practices, Phys. Plasmas 15,
+  062503 (2008): qualification, fortuitous agreement, primacy hierarchy.
+- M. Greenwald, Verification and validation for magnetic fusion, Phys. Plasmas 17, 058101 (2010).
+- W3C, PROV-DM: the PROV data model, W3C Recommendation (2013).
+- M. D. Wilkinson et al., The FAIR guiding principles for scientific data management and stewardship,
+  Sci. Data 3, 160018 (2016).
+- D. Lin et al., The TRUST principles for digital repositories, Sci. Data 7, 144 (2020).
+- F. Imbeaux et al., Design and first applications of the ITER integrated modelling & analysis suite,
+  Nucl. Fusion 55, 123006 (2015).
+- ITER Organization, ITER Research Plan within the Staged Approach, ITR-18-03 (2018).
+- ITER Physics Basis, Nucl. Fusion 39, 2137 (1999); Progress in the ITER Physics Basis, Nucl. Fusion 47, S1 (2007).
+
+![Fragmented scientific representation]({{ '/assets/diagrams/scientific_representation_fragmented.svg' | relative_url }})
+![One scientific meaning, many representations and names]({{ '/assets/diagrams/scientific_representation.svg' | relative_url }})
+![Fragmented experimental research]({{ '/assets/diagrams/experimental_research_infrastructure_fragmented.svg' | relative_url }})
+![Integrated research infrastructure]({{ '/assets/diagrams/experimental_research_infrastructure.svg' | relative_url }})
+![Unqualified scientific inference]({{ '/assets/diagrams/scientific_credibility_fragmented.svg' | relative_url }})
+![Qualified scientific state]({{ '/assets/diagrams/scientific_credibility.svg' | relative_url }})
+![Locked-in research software]({{ '/assets/diagrams/research_modality_architecture_fragmented.svg' | relative_url }})
+![One modular scientific core, many ways to research]({{ '/assets/diagrams/research_modality_architecture.svg' | relative_url }})
+![The fusion-research ecosystem]({{ '/assets/diagrams/fusion_research_ecosystem.svg' | relative_url }})
+![Connecting the activities of fusion research]({{ '/assets/diagrams/fusion_research_ecosystem_presentation.svg' | relative_url }})
+![Scientific ownership and maturation]({{ '/assets/diagrams/scientific_ownership_architecture.svg' | relative_url }})
+
+The content is the data at the top of each section of `vaft.diagram._research_concepts` (`INFRA_*`,
+`CREDIBILITY_*`, `MODALITY_*`, `REPRESENTATION_*`, `ECOSYSTEM_*`, `PRESENTATION_*`, `OWNERSHIP_*`), so a
+figure is changed by editing data.
+
 ## The VEST data platform
 
 The VEST data platform as a database-centred scientific workflow (#1550), laid out as a cross about the

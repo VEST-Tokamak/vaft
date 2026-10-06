@@ -34,7 +34,12 @@ modeling (#1085): ``knowledge_basis``, ``computational_realization``,
 ``scientific_workflow``, ``interoperability_layers``,
 ``scientific_provenance_chain``, ``scientific_infrastructure_principles``,
 ``machine_agnostic_architecture``, ``experiment_modeling_theory_data_network``,
-``human_ai_interface`` and ``machine_research_archive``; the VEST data platform
+``human_ai_interface`` and ``machine_research_archive``; research
+infrastructure (#1636, #1638, #1640, #1641, #1643, #1645), fragmented
+against integrated pairs plus the research community and ownership:
+``scientific_representation``, ``experimental_research_infrastructure``,
+``scientific_credibility``, ``research_modality_architecture``,
+``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform
 (#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
@@ -194,6 +199,12 @@ __all__ = [
     "experiment_modeling_theory_data_network",
     "human_ai_interface",
     "machine_research_archive",
+    "scientific_representation",
+    "experimental_research_infrastructure",
+    "scientific_credibility",
+    "research_modality_architecture",
+    "fusion_research_ecosystem",
+    "scientific_ownership_architecture",
     "vest_data_platform",
     "vest_data_platform_overview",
     "tokamak_top_view",
@@ -348,6 +359,12 @@ _LOCATIONS = {
     "experiment_modeling_theory_data_network": "._vaft_concepts",
     "human_ai_interface": "._vaft_concepts",
     "machine_research_archive": "._vaft_concepts",
+    "scientific_representation": "._research_concepts",
+    "experimental_research_infrastructure": "._research_concepts",
+    "scientific_credibility": "._research_concepts",
+    "research_modality_architecture": "._research_concepts",
+    "fusion_research_ecosystem": "._research_concepts",
+    "scientific_ownership_architecture": "._research_concepts",
     "vest_data_platform": "._platform",
     "vest_data_platform_overview": "._platform",
     "tokamak_top_view": "._spatial",
