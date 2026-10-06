@@ -181,6 +181,38 @@ def test_kinetic_overview_omits_an_unavailable_coordinate_instead_of_raising(fix
         build_model("kinetic_overview_profiles", [("h", without_q)], coordinate="rho_tor_norm")
 
 
+def test_kinetic_overview_provenance_labels_come_from_the_manifest(fixture_data):
+    """Source and reference shots are read from the fixture manifest, not literals."""
+    import copy
+
+    from vaft.plot.backend.recipes import build_model
+
+    manifest, ods = fixture_data
+    shots = {name: record["source_shot"] for name, record in manifest["sources"].items()}
+    panels = build_model("kinetic_overview_profiles", [("fixture", ods)])
+    measured = [series for series in panels.models[0].series if series.role == "measurement"]
+    assert measured and all(series.entry == f"shot {shots['thomson_scattering']}" for series in measured)
+    assert f"Kinetic flux: shot {shots['equilibrium']} equilibrium" in panels.suptitle
+    assert f"reference: shot {manifest['geometry_reference']['source_shot']}" in panels.suptitle
+
+    relabelled = copy.deepcopy(manifest)
+    for name in ("thomson_scattering", "charge_exchange", "core_profiles", "equilibrium"):
+        relabelled["sources"][name]["source_shot"] = 48999
+    relabelled["sources"]["langmuir_probes"]["source_shot"] = 42000
+    relabelled["geometry_reference"]["source_shot"] = 39000
+    panels = build_model("kinetic_overview_profiles", [("fixture", ods)], geometry_manifest=relabelled)
+    assert all(
+        series.entry == "shot 48999" and "[shot 48999]" in series.label
+        for panel in panels.models for series in panel.series
+    )
+    assert "Kinetic flux: shot 48999 equilibrium; machine geometry reference: shot 39000" in panels.suptitle
+    assert "48224" not in panels.suptitle
+    radius = build_model("kinetic_overview_profiles", [("fixture", ods)], coordinate="R",
+                         geometry_manifest=relabelled)
+    probe = radius.models[0].series[-1]
+    assert probe.role == "derived" and probe.entry == "shot 42000" and "[shot 42000]" in probe.label
+
+
 def test_probe_only_overview_uses_major_radius_without_invention(fixture_data):
     from omas import ODS
     import vaft.omas

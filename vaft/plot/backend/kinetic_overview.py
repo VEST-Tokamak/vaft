@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import functools
+import re
+from collections.abc import Mapping
+
 import numpy as np
 
 from vaft.plot.backend.access import array, count, get
@@ -49,8 +53,48 @@ def _closest(times, target: float | None) -> int:
     return int(np.nanargmin(abs(axis - target))) if axis.size else 0
 
 
-def _is_composite(ods) -> bool:
-    return _NOTICE.split(" — ")[0] in str(get(ods, "dataset_description.ids_properties.comment", ""))
+@functools.lru_cache(maxsize=1)
+def _packaged_manifest() -> dict | None:
+    """The repository fixture's validated manifest, or None when it is not checked out."""
+    try:
+        from vaft.data import unified_diagnostics_manifest
+
+        return unified_diagnostics_manifest()
+    except (FileNotFoundError, ValueError, OSError):
+        return None
+
+
+def composite_provenance(ods, manifest: Mapping | None = None) -> dict | None:
+    """Reference and source shots of a cross-shot composite; None for a discharge.
+
+    The composite is recognised by the notice in its ``dataset_description``.
+    Its shot numbers are not literals here: they come from the fixture
+    manifest -- the ``geometry_manifest`` option when the caller passes one,
+    otherwise the packaged fixture's -- so a regenerated fixture relabels
+    itself.  A composite with no manifest at hand keeps the geometry
+    reference its notice names and has no source shots to show.
+    """
+    comment = str(get(ods, "dataset_description.ids_properties.comment", ""))
+    if _NOTICE.split(" — ")[0] not in comment:
+        return None
+    if not (isinstance(manifest, Mapping) and manifest.get("kind") == "cross-shot-diagnostic-fixture"):
+        manifest = _packaged_manifest()
+    manifest = manifest or {}
+    sources = {
+        name: int(record["source_shot"])
+        for name, record in manifest.get("sources", {}).items()
+        if isinstance(record, Mapping) and isinstance(record.get("source_shot"), int)
+    }
+    reference = manifest.get("geometry_reference", {}).get("source_shot")
+    if reference is None:
+        found = re.search(r"geometry reference:? shot (\d+)", comment)
+        reference = int(found.group(1)) if found else None
+    return {"reference": reference, "sources": sources}
+
+
+def _shot_label(shot: int | None) -> str:
+    """``"shot N"`` when the manifest names the source; ``"source shot"`` when it cannot."""
+    return f"shot {shot}" if shot is not None else "source shot"
 
 
 def _equilibrium_time_axis(ods) -> np.ndarray | None:
@@ -148,7 +192,7 @@ def _core_coordinate(ods, index: int, coordinate: str,
 
 
 def _diagnostic_points(ods, family: str, signal: str, coordinate: str,
-                       target: float | None, label: str) -> Series | None:
+                       target: float | None, label: str, entry: str) -> Series | None:
     times = array(ods, f"{family}.time")
     time_index = _closest(times, target)
     radii, heights, values, errors = [], [], [], []
@@ -182,15 +226,14 @@ def _diagnostic_points(ods, family: str, signal: str, coordinate: str,
     sigma = np.asarray([value if value is not None else np.nan for value in errors])
     return Series(
         x=x[finite], y=y[finite], yerr=sigma[finite] if np.isfinite(sigma[finite]).any() else None,
-        label=label, role="measurement",
-        entry="shot 48224" if _is_composite(ods) else "",
+        label=label + (f" [{entry}]" if entry else ""), role="measurement", entry=entry,
         channel="Thomson" if family == "thomson_scattering" else "CX impurity ion",
         style={"marker": "o" if family == "thomson_scattering" else "s", "linestyle": "none"},
     )
 
 
 def _core_profile(ods, path: str, coordinate: str, label: str,
-                  target: float | None) -> Series | None:
+                  target: float | None, entry: str) -> Series | None:
     times = array(ods, "core_profiles.time")
     index = _closest(times, target)
     values = array(ods, f"core_profiles.profiles_1d.{index}.{path}")
@@ -200,12 +243,12 @@ def _core_profile(ods, path: str, coordinate: str, label: str,
     finite = np.isfinite(x) & np.isfinite(values)
     if not finite.any():
         return None
-    return Series(x=x[finite], y=values[finite], label=label, role="reconstruction",
-                  entry="shot 48224" if _is_composite(ods) else "", channel="Core profile fit",
+    return Series(x=x[finite], y=values[finite], label=label + (f" [{entry}]" if entry else ""),
+                  role="reconstruction", entry=entry, channel="Core profile fit",
                   style={"linestyle": "-", "linewidth": 1.8})
 
 
-def _langmuir_points(ods, signal: str, label: str) -> Series | None:
+def _langmuir_points(ods, signal: str, label: str, entry: str) -> Series | None:
     radii, values = [], []
     for index in range(count(ods, "langmuir_probes.embedded")):
         prefix = f"langmuir_probes.embedded.{index}"
@@ -220,15 +263,16 @@ def _langmuir_points(ods, signal: str, label: str) -> Series | None:
             eligible &= valid >= 0
         if not eligible.any():
             continue
-        # The composite's probes retain their own 42699 clock. Their central
-        # valid sample is selected independently of the 48224 kinetic clock.
+        # The composite's probes retain their own source-shot clock. Their
+        # central valid sample is selected independently of the kinetic clock.
         selected = np.flatnonzero(eligible)[len(np.flatnonzero(eligible)) // 2]
         radii.append(r)
         values.append(y[selected])
     if not values:
         return None
-    return Series(x=np.asarray(radii), y=np.asarray(values), label=label, role="derived",
-                  entry="shot 42699" if _is_composite(ods) else "", channel="Triple probe",
+    return Series(x=np.asarray(radii), y=np.asarray(values),
+                  label=label + (f" [{entry}]" if entry else ""), role="derived",
+                  entry=entry, channel="Triple probe",
                   style={"marker": "^", "linestyle": "none"})
 
 
@@ -238,8 +282,13 @@ def build_kinetic_overview(ods, *, coordinate: str = "auto", **options) -> Panel
         raise ValueError(f"coordinate must be one of {', '.join(COORDINATES)}")
     if any(options.get(key) is not None for key in ("time", "time_index", "time_slice")):
         raise ValueError("kinetic overview has diagnostic-specific times; select a source plot to choose its time")
-    composite = _is_composite(ods)
-    suffix = " [shot 48224]" if composite else ""
+    provenance = composite_provenance(ods, options.get("geometry_manifest"))
+    composite = provenance is not None
+
+    def entry(source: str) -> str:
+        """The series entry naming the composite's source shot for ``source``."""
+        return _shot_label(provenance["sources"].get(source)) if composite else ""
+
     target = _selected(array(ods, "core_profiles.time"), 0)
     if coordinate == "auto":
         coordinate = _auto_coordinate(ods, target)
@@ -247,22 +296,22 @@ def build_kinetic_overview(ods, *, coordinate: str = "auto", **options) -> Panel
     for quantity, heading, unit, diagnostic_signal, core_signal, probe_signal in _FIELDS:
         series = []
         if quantity in ("n_e", "T_e"):
-            measured = _diagnostic_points(ods, "thomson_scattering", diagnostic_signal,
-                                          coordinate, target, "Thomson measured" + suffix)
+            measured = _diagnostic_points(ods, "thomson_scattering", diagnostic_signal, coordinate,
+                                          target, "Thomson measured", entry("thomson_scattering"))
             if measured is not None:
                 series.append(measured)
         else:
-            measured = _diagnostic_points(ods, "charge_exchange", diagnostic_signal,
-                                          coordinate, target, "CX measured (impurity ion)" + suffix)
+            measured = _diagnostic_points(ods, "charge_exchange", diagnostic_signal, coordinate,
+                                          target, "CX measured (impurity ion)", entry("charge_exchange"))
             if measured is not None:
                 series.append(measured)
         core_path = ("electrons." if quantity in ("n_e", "T_e") else "ion.0.") + core_signal
-        fitted = _core_profile(ods, core_path, coordinate, "Core profile fit" + suffix, target)
+        fitted = _core_profile(ods, core_path, coordinate, "Core profile fit", target,
+                               entry("core_profiles"))
         if fitted is not None:
             series.append(fitted)
         if coordinate in ("R", "r_major") and probe_signal is not None:
-            probe = _langmuir_points(ods, probe_signal,
-                                     "Triple probe derived" + (" [shot 42699]" if composite else ""))
+            probe = _langmuir_points(ods, probe_signal, "Triple probe derived", entry("langmuir_probes"))
             if probe is not None:
                 series.append(probe)
         panels.append(Profile1D(series=tuple(series), coordinate_label=_LABELS[coordinate],
@@ -273,5 +322,6 @@ def build_kinetic_overview(ods, *, coordinate: str = "auto", **options) -> Panel
     return Panels(models=tuple(panels), ncols=2, share_x=True, share_y=False,
                   suptitle="Kinetic profile overview" +
                   ("\n" + _NOTICE +
-                   "\nKinetic flux: shot 48224 equilibrium; machine geometry reference: shot 39915"
+                   f"\nKinetic flux: {entry('equilibrium')} equilibrium; "
+                   f"machine geometry reference: {_shot_label(provenance['reference'])}"
                    if composite else ""))
