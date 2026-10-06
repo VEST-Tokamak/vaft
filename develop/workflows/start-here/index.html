@@ -288,7 +288,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>301713a</code>. What is described
+  <code>470e66c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -561,6 +561,23 @@ above:</p>
 verify with <code class="language-plaintext highlighter-rouge">install/check_gacode.py</code>. VAFT drives NEO for neoclassical transport and the bootstrap
 current, and TGLF for turbulent transport; see
 <a href="https://github.com/VEST-Tokamak/vaft/tree/develop/install/gacode"><code class="language-plaintext highlighter-rouge">install/gacode/</code></a>.</p>
+
+<p>MITIM-fusion (#1588) runs TGLF/NEO from the same GACODE build, but MITIM itself is a Python
+package that needs Python 3.10–3.12 and pulls tensorflow, botorch and torch. It therefore gets an
+environment of its own, and VAFT never imports it. <code class="language-plaintext highlighter-rouge">vaft.code.mitim</code> launches small driver
+scripts with that environment’s interpreter:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>bash <span class="nb">install</span>/install_mitim.sh                 <span class="c"># venv; pins MITIM 5.3.0 from its release tag</span>
+bash <span class="nb">install</span>/install_mitim.sh <span class="nt">--conda</span> <span class="nt">--prefix</span> ~/.conda/envs/mitim
+<span class="nb">export </span><span class="nv">VAFT_MITIM_PYTHON</span><span class="o">=</span>/path/printed/by/the/installer/bin/python
+python <span class="nt">-m</span> vaft.code.mitim.availability        <span class="c"># status, versions, GACODE build</span>
+</code></pre></div></div>
+
+<p>The installer sets <code class="language-plaintext highlighter-rouge">PYTHONNOUSERSITE=1</code>. Without it, pip may use, or uninstall, a matching
+package in <code class="language-plaintext highlighter-rouge">~/.local</code>, which other interpreters of the same Python version share. Only the
+versions in <code class="language-plaintext highlighter-rouge">SUPPORTED_MITIM_VERSIONS</code> are accepted; any other version is reported as
+<code class="language-plaintext highlighter-rouge">unsupported_version</code>. Each run writes its own <code class="language-plaintext highlighter-rouge">$MITIM_CONFIG</code> into the run directory and
+records it, and MITIM’s repository is never edited.</p>
 
 <p>The TGLF-NN surrogate is a different kind of dependency and is worth separating from the rest of this
 section: it needs <strong>no GACODE build and no compiler</strong>. What it needs is pretrained networks, which VAFT
@@ -904,7 +921,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 04:29:31 +0000"
+        "time": "2026-10-06 05:25:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
