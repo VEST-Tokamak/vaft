@@ -656,7 +656,10 @@ def core_transport_from_neo(
     )
 
     _set_time_array(ods, "core_transport.time", time_index, float(time))
-    ods["core_transport.ids_properties.homogeneous_time"] = 1
+    # An IDS the classical mapper (#1654) made heterogeneous stays so: every slice
+    # here also carries its own profiles_1d time, so 0 remains true.
+    if ods.get("core_transport.ids_properties.homogeneous_time", None) != 0:
+        ods["core_transport.ids_properties.homogeneous_time"] = 1
     field = _resolve_b0(ods, None, time=time, time_index=time_index)
     if field is not None:
         _set_time_array(ods, "core_transport.vacuum_toroidal_field.b0", time_index, field)
@@ -691,7 +694,8 @@ def _write_provenance(ods: ODS, native: Any, ids: str, *, conductivity: Any = No
     """
     version = getattr(native, "version", None) or {}
     revision = str(version.get("revision", "")).replace("<", "").replace(">", "")
-    ods[f"{ids}.ids_properties.homogeneous_time"] = 1
+    if ids != "core_transport" or ods.get(f"{ids}.ids_properties.homogeneous_time", None) != 0:
+        ods[f"{ids}.ids_properties.homogeneous_time"] = 1
     ods[f"{ids}.code.name"] = "NEO"
     ods[f"{ids}.code.repository"] = "https://github.com/gafusion/gacode"
     if revision:

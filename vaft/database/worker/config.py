@@ -216,9 +216,9 @@ def _read_yaml(path: Path, what: str) -> dict[str, Any]:
 def load_pipeline_config(config: WorkerConfig) -> dict[str, Any]:
     """The configuration Snakemake will actually run with.
 
-    The Snakefile declares ``configfile: "config.yaml"`` and Snakemake merges
-    ``--configfile`` over it, so a key the deployment's file leaves out falls
-    back to the workflow's.  The worker reproduces that merge, so the runner,
+    The Snakefile loads its own ``config.yaml`` (by the Snakefile's path, #1530)
+    and Snakemake merges ``--configfile`` over it, so a key the deployment's
+    file leaves out falls back to the workflow's.  The worker reproduces that merge, so the runner,
     the harvester and the checks below all see what Snakemake sees.
 
     Checked for the two settings a worker cannot run under: a raw stage that

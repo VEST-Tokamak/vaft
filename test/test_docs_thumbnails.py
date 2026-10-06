@@ -57,7 +57,10 @@ def test_every_registered_plot_has_a_manifest_entry():
     recorded = _manifest(ASSETS)["plots"]
     assert set(recorded) == {spec.name for spec in registry.specs(status=None)}
     for name, entry in recorded.items():
-        assert entry["status"] in ("rendered", "no_sample", "failed"), name
+        assert entry["status"] in docs_thumbnails.STATUSES, name
+        assert (entry["status"] == "no_figure") == (
+            registry.get_spec(name).view in registry.NON_GRAPHICAL_VIEWS
+        ), name
         if entry["status"] == "rendered":
             assert (ASSETS / f"{name}.png").is_file(), name
             assert entry["shot"] in vaft.data.available_samples()
