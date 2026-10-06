@@ -50,10 +50,26 @@ UPSTREAM = {
     "chease": ("efit",),
     "mhd_linear": ("chease",),
     "gpec_ideal": ("chease",),
-    "core_profiles": ("thomson", "ces"),
-    "electron_efit": ("core_profiles", "eddy"),
-    "kinetic_efit": ("core_profiles", "eddy"),
+    "core_profiles": ("thomson", "ces", "efit"),
+    "electron_efit": ("core_profiles", "eddy", "efit"),
+    "kinetic_efit": ("core_profiles", "eddy", "efit"),
     "neoclassical": ("kinetic_efit",),
+}
+
+#: Stage-manifest statuses.  ``unavailable`` is a producer's *normal* outcome
+#: when its input does not exist for the shot (no CES upload before 43017; at
+#: most one of electron/kinetic EFIT applies), not a failure -- pipeline 2
+#: writes ``failed`` for a real failure.
+OK_STATUSES = ("success", "partial")
+UNAVAILABLE_STATUSES = ("unavailable",)
+
+#: Legacy (raw external) directory -> the OMAS stage composed from it.
+LEGACY_STAGE = {
+    "soft_x_rays": "soft_x_rays",
+    "camera_visible": "camera_visible",
+    "camera_visible_fluctuation": "camera_visible_fluctuation",
+    "shotlog": "shotlog",
+    "hard_x_rays": None,
 }
 
 #: Topological order of UPSTREAM, so a stale input is classified first.
@@ -126,7 +142,10 @@ def _scan_product(root: Path, product_dir: Path) -> dict:
     }
     outputs = sorted(p for p in (product_dir / "output").glob("*") if p.is_file())
     if outputs:
-        out = outputs[0]
+        # The stage names its product (efit.json[.gz], soft_x_rays.h5); fall
+        # back to the first file only when no file carries the stage name.
+        named = [p for p in outputs if p.name.split(".")[0] == rel[1]]
+        out = (named or outputs)[0]
         record["output"] = {"name": out.name, "size": out.stat().st_size, "mtime": _mtime(out)}
         stub = _stub_comment(out)
         if stub:
@@ -137,6 +156,19 @@ def _scan_product(root: Path, product_dir: Path) -> dict:
             key: manifest.get(key)
             for key in ("status", "machine_version", "schema_version", "stage")
         }
+        for key in ("reason", "status_reason", "error"):
+            if manifest.get(key):
+                record["manifest"]["reason"] = str(manifest[key])[:300]
+        summary = manifest.get("quality_summary")
+        if isinstance(summary, dict):
+            record["manifest"]["quality_summary"] = {
+                k: v[:12] for k, v in summary.items() if isinstance(v, list) and v
+            }
+        channels = manifest.get("channel_status")
+        if isinstance(channels, dict):
+            record["manifest"]["channel_status"] = {
+                name: value.get("status") for name, value in channels.items() if isinstance(value, dict)
+            }
         output = manifest.get("output")
         if isinstance(output, dict):
             record["manifest"]["sha256"] = output.get("sha256")
@@ -161,7 +193,8 @@ def scan(roots: list[str], shots: list[str]) -> dict:
         if omas.is_dir():
             for stage_dir in sorted(p for p in omas.iterdir() if p.is_dir()):
                 # A shot directory sits at depth 1 (stage), 2 (family) or
-                # 4 (family/refinement/product) below the stage.
+                # 4 (family/refinement/product) below the stage; depth 3 is
+                # scanned too so an unexpected layout is reported, not hidden.
                 for depth in (1, 2, 3, 4):
                     pattern = "/".join(["*"] * (depth - 1) + ["{shot}"])
                     for shot in shots:
@@ -254,7 +287,41 @@ def _newer(a: dict, b: dict) -> bool:
     return a.get("output", {}).get("mtime", "") > b.get("output", {}).get("mtime", "")
 
 
-def _classify(product: dict, by_stage: dict[str, dict], replication) -> tuple[str, str]:
+def _lineage_compatible(a: list[str], b: list[str]) -> bool:
+    """Whether two lineage paths can feed one another (one is a prefix of the other)."""
+    n = min(len(a), len(b))
+    return a[:n] == b[:n]
+
+
+def _upstreams(product: dict, products_in_root: list[dict], stage: str) -> list[dict]:
+    return [
+        p
+        for p in products_in_root
+        if p["stage"] == stage and _lineage_compatible(p["lineage"], product["lineage"])
+    ]
+
+
+def _manifest_reason(product: dict) -> str:
+    manifest = product.get("manifest") or {}
+    parts = []
+    if manifest.get("reason"):
+        parts.append(manifest["reason"])
+    summary = manifest.get("quality_summary") or {}
+    for key in ("unavailable", "missing", "rejected"):
+        if summary.get(key):
+            parts.append(f"{key}: {', '.join(map(str, summary[key][:4]))}")
+    stub = (product.get("output") or {}).get("stub")
+    if stub:
+        parts.append(stub)
+    return "; ".join(parts)
+
+
+def _classify(product: dict, products_in_root: list[dict], replication) -> tuple[str, str]:
+    """Coverage state of one product, judged against its inputs in the same root.
+
+    ``products_in_root`` must already carry ``_state`` for every upstream stage
+    (callers iterate in :data:`UPSTREAM_ORDER`).
+    """
     stage = _stage_of(product)
     entry = replication.get(stage)
     if entry is not None and entry.deferred_to:
@@ -263,24 +330,43 @@ def _classify(product: dict, by_stage: dict[str, dict], replication) -> tuple[st
     if output is None:
         return "server-unavailable", "product directory has no output"
     status = (product.get("manifest") or {}).get("status")
-    if status not in (None, "success", "partial"):
-        detail = f": {output['stub']}" if output.get("stub") else ""
-        return "validation-failed", f"stage manifest status {status!r}{detail}"
+    detail = _manifest_reason(product)
+    if status in UNAVAILABLE_STATUSES:
+        return "input-unavailable", f"stage manifest status {status!r}" + (f": {detail}" if detail else "")
+    if status is not None and status not in OK_STATUSES:
+        return "validation-failed", f"stage manifest status {status!r}" + (f": {detail}" if detail else "")
     if status is None and output.get("stub"):
         return "validation-failed", f"no manifest and placeholder output: {output['stub']}"
     reasons = ["stage manifest status 'partial'"] if status == "partial" else []
     stale = []
     for upstream in UPSTREAM.get(stage, ()):
-        source = by_stage.get(upstream)
-        if source is not None and source.get("_state") == "regeneration-required":
-            stale.append(f"upstream {upstream} is itself stale")
-        elif source is not None and _newer(source, product):
-            stale.append(f"upstream {upstream} ({source['output']['mtime'][:10]}) is newer")
+        for source in _upstreams(product, products_in_root, upstream):
+            label = upstream + (f" ({'/'.join(source['lineage'])})" if source["lineage"] else "")
+            if source.get("_state") == "regeneration-required":
+                stale.append(f"upstream {label} is itself stale")
+            elif source.get("_state") == "validation-failed":
+                stale.append(f"upstream {label} failed validation")
+            elif _newer(source, product):
+                stale.append(f"upstream {label} ({source['output']['mtime'][:10]}) is newer")
     if stale:
         return "regeneration-required", "; ".join(stale + reasons)
     if not (product.get("manifest") or {}).get("commit"):
         reasons.append("provenance gap: manifest records no VAFT commit")
     return "available", "; ".join(reasons)
+
+
+def _ids_state(product: dict, ids: str, state: str, reason: str) -> tuple[str, str]:
+    """Narrow a stage state to one IDS using the manifest's per-channel status."""
+    if state != "available":
+        return state, reason
+    channel = ((product.get("manifest") or {}).get("channel_status") or {}).get(ids)
+    if channel is None or channel == "success":
+        return state, reason
+    if channel == "partial":
+        return state, f"{ids} channel status 'partial'" + (f"; {reason}" if reason else "")
+    if channel in UNAVAILABLE_STATUSES or channel in ("missing", "disabled"):
+        return "input-unavailable", f"{ids} channel status {channel!r}"
+    return "validation-failed", f"{ids} channel status {channel!r}"
 
 
 def report(scan_path: Path, out_yaml: Path, out_md: Path, repo: Path) -> None:
@@ -304,23 +390,23 @@ def report(scan_path: Path, out_yaml: Path, out_md: Path, repo: Path) -> None:
         best: dict[tuple, dict] = {}
         for product in products:
             best[(product["root"], product["stage"], tuple(product["lineage"]))] = product
-        upstream_by_root: dict[str, dict[str, dict]] = {}
-        for (root, stage, _), product in best.items():
-            upstream_by_root.setdefault(root, {})[stage] = product
+        by_root: dict[str, list[dict]] = {}
+        for (root, _, _), product in best.items():
+            by_root.setdefault(root, []).append(product)
         order = list(UPSTREAM_ORDER)
         items = sorted(
             best.items(),
             key=lambda kv: (kv[0][0], order.index(kv[0][1]) if kv[0][1] in order else len(order), kv[0]),
         )
         for (root, stage, lineage), product in items:
-            by_stage = upstream_by_root[root]
             entry = STAGE_REPLICATION.get(stage)
             ids_list = entry.ids if entry is not None else ()
             source = entry.source if entry is not None else None
             occurrence = entry.occurrence if entry is not None else 0
-            state, reason = _classify(product, by_stage, STAGE_REPLICATION)
-            product["_state"] = state
+            stage_state, stage_reason = _classify(product, by_root[root], STAGE_REPLICATION)
+            product["_state"] = stage_state
             for ids in ids_list or ("(stage without IDS)",):
+                state, reason = _ids_state(product, ids, stage_state, stage_reason)
                 rows.append(
                     {
                         "shot": shot,
@@ -342,19 +428,34 @@ def report(scan_path: Path, out_yaml: Path, out_md: Path, repo: Path) -> None:
         for item in data.get("legacy", []):
             if item["shot"] != shot:
                 continue
+            diagnostic = item["diagnostic"]
+            target = LEGACY_STAGE.get(diagnostic, diagnostic)
+            entry = STAGE_REPLICATION.get(target) if target else None
+            ids = entry.ids[0] if entry is not None and entry.ids else diagnostic
+            composed = [
+                p for p in products
+                if p["stage"] == target and p.get("_state") == "available"
+            ]
+            if composed:
+                state, reason = "available", "raw input; composed OMAS product present (" + ", ".join(
+                    sorted({p["path"] for p in composed})) + ")"
+            elif target is None or entry is None:
+                state, reason = "deferred", "raw input; no FileDB stage composes it yet"
+            else:
+                state, reason = "regeneration-required", f"raw input; no valid {target} OMAS product yet"
             rows.append(
                 {
                     "shot": shot,
-                    "ids": item["diagnostic"],
+                    "ids": ids,
                     "source": "legacy",
                     "occurrence": 0,
-                    "stage": "legacy",
+                    "stage": f"legacy:{diagnostic}",
                     "lineage": None,
                     "filedb": item["root"],
                     "output": {"files": len(item["files"]), "size": sum(f["size"] for f in item["files"])},
-                    "state": "regeneration-required",
-                    "reason": "raw legacy input; the OMAS product must be composed from it",
-                    "packaged": item["diagnostic"] in packaged.get(shot, {}).get("ids", {}),
+                    "state": state,
+                    "reason": reason,
+                    "packaged": ids in packaged.get(shot, {}).get("ids", {}),
                 }
             )
         # Packaged IDS with no server product at all.
@@ -371,8 +472,12 @@ def report(scan_path: Path, out_yaml: Path, out_md: Path, repo: Path) -> None:
                     "lineage": None,
                     "filedb": None,
                     "output": None,
-                    "state": "server-unavailable",
-                    "reason": "packaged only; no canonical server product found",
+                    "state": "available" if ids in MACHINE_IDS else "server-unavailable",
+                    "reason": (
+                        "machine description; composed from vaft.machine_mapping"
+                        if ids in MACHINE_IDS
+                        else "packaged only; no canonical server product found"
+                    ),
                     "packaged": True,
                     "packaged_info": info,
                 }
@@ -392,10 +497,26 @@ def report(scan_path: Path, out_yaml: Path, out_md: Path, repo: Path) -> None:
     for ids in stage_ids:
         specs.setdefault(ids, {"registry_keys": [], "mapping_status": {"producer"}, "lifecycle": set()})
     portfolio = []
-    for ids, spec in sorted(specs.items()):
-        available = sorted({r["shot"] for r in rows if r["ids"] == ids and r["state"] == "available"})
+    keys = []
+    for ids in sorted(specs):
+        sources = sorted({
+            (entry.source or "", entry.occurrence)
+            for entry in STAGE_REPLICATION.values() if ids in entry.ids
+        })
+        keys += [(ids, src, occ) for src, occ in sources] or [(ids, None, 0)]
+    for ids, source, occurrence in keys:
+        spec = specs[ids]
+        own = [
+            r for r in rows
+            if r["ids"] == ids and (source is None or (r["source"] or "") == source)
+            and r["source"] != "legacy"
+        ]
+        available = sorted({r["shot"] for r in own if r["state"] == "available"})
         packaged_on = sorted(s for s, p in packaged.items() if ids in p["ids"])
-        stages = sorted(name for name, entry in STAGE_REPLICATION.items() if ids in entry.ids)
+        stages = sorted(
+            name for name, entry in STAGE_REPLICATION.items()
+            if ids in entry.ids and (source is None or (entry.source or "") == source)
+        )
         deferred = [STAGE_REPLICATION[n].deferred_to for n in stages if STAGE_REPLICATION[n].deferred_to]
         mapping = sorted(m for m in spec["mapping_status"] if m)
         if available:
@@ -413,6 +534,8 @@ def report(scan_path: Path, out_yaml: Path, out_md: Path, repo: Path) -> None:
         portfolio.append(
             {
                 "ids": ids,
+                "source": source,
+                "occurrence": occurrence,
                 "registry_keys": spec["registry_keys"],
                 "mapping_status": mapping,
                 "lifecycle": sorted(x for x in spec["lifecycle"] if x),
@@ -443,6 +566,7 @@ def report(scan_path: Path, out_yaml: Path, out_md: Path, repo: Path) -> None:
 
 _ABBREV = {
     "available": "ok",
+    "input-unavailable": "n/a",
     "regeneration-required": "STALE",
     "validation-failed": "FAIL",
     "server-unavailable": "none",
@@ -453,41 +577,52 @@ _ABBREV = {
 def _root_label(root: str | None) -> str:
     if not root:
         return "packaged-only"
-    if "campaign" in root:
+    if root.rstrip("/") == "/srv/vest.filedb":
+        return "production"
+    if root.rstrip("/").endswith("runs/campaign/filedb"):
         return "campaign"
-    return "production"
+    return root.replace("/home/user1", "~")
+
+
+#: Severity order for collapsing several rows into one matrix cell.
+_SEVERITY = ("validation-failed", "regeneration-required", "server-unavailable",
+             "input-unavailable", "deferred", "available")
 
 
 def _matrix(rows: list[dict]) -> list[str]:
-    """One cell per (shot, FileDB root) x stage: state and output date."""
-    stages: list[str] = []
-    cells: dict[tuple, dict[str, str]] = {}
+    """One cell per (shot, FileDB root) x stage[/lineage]; the worst row wins."""
+    columns: list[str] = []
+    cells: dict[tuple, dict[str, tuple]] = {}
+    packaged: dict[tuple, list[str]] = {}
     for r in rows:
-        stage = r["stage"] or "packaged"
-        if r["stage"] == "legacy":
-            stage = f"legacy:{r['ids']}"
-        if stage not in stages:
-            stages.append(stage)
         key = (r["shot"], _root_label(r.get("filedb")))
-        date = ((r.get("output") or {}).get("mtime") or "")[5:10]
-        label = _ABBREV.get(r["state"], r["state"])
-        cell = f"{label} {date}".strip() if r["stage"] not in (None, "legacy") else label
         if r["stage"] is None:
-            cell = "pkg:" + r["ids"]
-            cells.setdefault(key, {}).setdefault(stage, "")
-            cells[key][stage] = (cells[key][stage] + " " + r["ids"]).strip()
+            packaged.setdefault(key, []).append(r["ids"])
             continue
-        if r["stage"] == "legacy":
-            cell = "raw"
-        cells.setdefault(key, {})[stage] = cell
-    order = [s for s in ("diagnostics", "eddy", "efit", "chease", "mhd_linear", "thomson", "ces",
-                         "core_profiles", "electron_efit", "kinetic_efit", "camera_visible", "shotlog")
-             if s in stages]
-    order += sorted(s for s in stages if s not in order)
-    lines = ["| shot | FileDB | " + " | ".join(order) + " |", "|---|---|" + "---|" * len(order)]
-    for (shot, root) in sorted(cells):
-        row = cells[(shot, root)]
-        lines.append(f"| {shot} | {root} | " + " | ".join(row.get(s, "") for s in order) + " |")
+        column = r["stage"]
+        lineage = (r.get("lineage") or "").split("/")
+        if len(lineage) > 1:  # family/refinement/product: one column per product
+            column += "/" + "/".join(lineage[1:])
+        if column not in columns:
+            columns.append(column)
+        date = ((r.get("output") or {}).get("mtime") or "")[5:10]
+        label = "raw" if column.startswith("legacy:") and r["state"] == "available" else _ABBREV.get(r["state"], r["state"])
+        rank = _SEVERITY.index(r["state"]) if r["state"] in _SEVERITY else 0
+        current = cells.setdefault(key, {}).get(column)
+        if current is None or rank < current[0]:
+            cells[key][column] = (rank, f"{label} {date}".strip())
+    preferred = ("diagnostics", "eddy", "efit", "chease", "mhd_linear", "thomson", "ces",
+                 "core_profiles", "electron_efit", "kinetic_efit", "camera_visible", "shotlog")
+    order = [c for p in preferred for c in columns if c == p or c.startswith(p + "/")]
+    order += sorted(c for c in columns if c not in order)
+    lines = ["| shot | FileDB | " + " | ".join(order) + " | packaged-only |",
+             "|---|---|" + "---|" * (len(order) + 1)]
+    for key in sorted(set(cells) | set(packaged)):
+        row = cells.get(key, {})
+        lines.append(
+            f"| {key[0]} | {key[1]} | " + " | ".join(row.get(c, (0, ""))[1] for c in order)
+            + f" | {' '.join(sorted(packaged.get(key, [])))} |"
+        )
     return lines
 
 
@@ -518,12 +653,12 @@ def _markdown(document: dict) -> str:
         "",
         "## Portfolio (registry IDS)",
         "",
-        "| IDS | mapping | stages | server available on | packaged on | state | note |",
-        "|---|---|---|---|---|---|---|",
+        "| IDS | source | occ | mapping | stages | server available on | packaged on | state | note |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for p in document["portfolio"]:
         lines.append(
-            f"| {p['ids']} | {', '.join(p['mapping_status']) or '-'} | {', '.join(p['stages']) or '-'} "
+            f"| {p['ids']} | {p['source'] or '-'} | {p['occurrence']} | {', '.join(p['mapping_status']) or '-'} | {', '.join(p['stages']) or '-'} "
             f"| {', '.join(map(str, p['server_available_on'])) or '-'} "
             f"| {', '.join(map(str, p['packaged_on'])) or '-'} | {p['state']} | {p['note']} |"
         )

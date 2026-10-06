@@ -1,5 +1,5 @@
 {
- "scanned_at": "2026-10-06T07:13:29+00:00",
+ "scanned_at": "2026-10-06T07:34:55+00:00",
  "roots": [
   "/srv/vest.filedb",
   "/home/user1/runs/campaign/filedb"
@@ -69,6 +69,7 @@
     "machine_version": "vest-45967-plus-pf2507",
     "schema_version": 1,
     "stage": "ces",
+    "quality_summary": {},
     "sha256": "cdbcd668642cb660b711ae09289e2f2c3902a2af69447b84a0e9499988d32fc4"
    },
    "shot": 48226
@@ -108,6 +109,23 @@
     "machine_version": "vest-45967-plus-pf2507",
     "schema_version": 1,
     "stage": "core_profiles",
+    "quality_summary": {
+     "missing": [
+      "core_profiles:t=298.0ms",
+      "core_profiles:t=299.0ms",
+      "core_profiles:t=300.0ms",
+      "core_profiles:t=301.0ms",
+      "core_profiles:t=302.0ms",
+      "core_profiles:t=303.0ms",
+      "core_profiles:t=304.0ms",
+      "core_profiles:t=305.0ms",
+      "core_profiles:t=306.0ms",
+      "core_profiles:t=307.0ms"
+     ],
+     "unavailable": [
+      "core_profiles"
+     ]
+    },
     "sha256": "64a34ee77ad87c4e5fb62177c05bfee2b35f048198cf54750975539352ec2542"
    },
    "shot": 48226
@@ -127,6 +145,26 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ],
+     "missing": [
+      "magnetics:field-179"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "partial",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "172ec02a6b85c8f5334fb7e609d627e248ede0f4d2d43833148274efad66ab43"
    },
    "shot": 39915
@@ -146,6 +184,26 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ],
+     "missing": [
+      "magnetics:field-179"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "partial",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "b916ce7eb1e729167bd5ef583205a48386977c9912fd5b3a9283512e393bd1f0"
    },
    "shot": 39916
@@ -165,6 +223,26 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ],
+     "missing": [
+      "magnetics:field-179"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "partial",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "8cee08f592034dc370ba15002d35169648602364ec537a61e2420b1500efcae0"
    },
    "shot": 40600
@@ -184,6 +262,26 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ],
+     "missing": [
+      "magnetics:field-179"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "partial",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "ae78e3a9e49323ebf3285e3fbcc0ec43ea97082d83a032fe1ec666f467bb7874"
    },
    "shot": 41524
@@ -203,6 +301,26 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ],
+     "missing": [
+      "magnetics:field-179"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "partial",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "d4128beb1bf5cce16227b64671f15a0c4db21d43a2649650753ada542244bf08"
    },
    "shot": 41672
@@ -222,6 +340,23 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "success",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10"
    },
    "shot": 42962
@@ -241,6 +376,23 @@
     "machine_version": "vest-43017-45967-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "success",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "6d1dbb04b338760bb7feeebb772b26a6c9764fdac965153506f2177442217fa3"
    },
    "shot": 45531
@@ -260,6 +412,23 @@
     "machine_version": "vest-45968-plus-pf2507",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "success",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "dfec77501a9b36e9fb7286112209e06fe473c4b400cd5385c0edb55a3fec1116"
    },
    "shot": 48224
@@ -279,6 +448,23 @@
     "machine_version": "vest-45968-plus-pf2507",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "success",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "1c9efae5bd088dde2e39b078e46cfa5e54f5a5fd52e2348585315ea221bff27b"
    },
    "shot": 48226
@@ -631,6 +817,12 @@
     "machine_version": "vest-45967-plus-pf2507",
     "schema_version": 1,
     "stage": "electron_efit",
+    "reason": "no core_profiles slice to reconstruct at",
+    "quality_summary": {
+     "unavailable": [
+      "electron_efit"
+     ]
+    },
     "sha256": "74b3028e5295f4b687f782fc81e8714df65d068c21e54eae6a7746d16e128834"
    },
    "shot": 48226
@@ -651,6 +843,12 @@
     "machine_version": "vest-45967-plus-pf2507",
     "schema_version": 1,
     "stage": "kinetic_efit",
+    "reason": "this shot's profiles were built without a measured ion temperature, so it belongs to the other lineage, not kinetic_efit",
+    "quality_summary": {
+     "unavailable": [
+      "kinetic_efit"
+     ]
+    },
     "sha256": "3e824e6c13d2d6cc79d23d51427cb43a7641478fd7f0c2bf7862294fa195ce1b"
    },
    "shot": 48226
@@ -870,6 +1068,7 @@
     "machine_version": "vest-45967-plus-pf2507",
     "schema_version": 1,
     "stage": "thomson",
+    "quality_summary": {},
     "sha256": "b873fe122b281e39f40d17262a7c401baf1fd01e1159bfae86ce770091c67d8d"
    },
    "shot": 48226
@@ -890,6 +1089,12 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "ces",
+    "reason": "FileNotFoundError: [Errno 2] No such file or directory: '/srv/vest.diagnostic/IDS_39915.mat'",
+    "quality_summary": {
+     "unavailable": [
+      "ces"
+     ]
+    },
     "sha256": "1c81aec057f1d3675103d537ab90862c21b8b44230b29c0c443c2343f37735a8"
    },
    "shot": 39915
@@ -910,6 +1115,12 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "ces",
+    "reason": "FileNotFoundError: [Errno 2] No such file or directory: '/srv/vest.diagnostic/IDS_39916.mat'",
+    "quality_summary": {
+     "unavailable": [
+      "ces"
+     ]
+    },
     "sha256": "6a34677574e73248c64d1730fc5758c350550d2543066affce359aaa48783b81"
    },
    "shot": 39916
@@ -930,6 +1141,12 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "ces",
+    "reason": "FileNotFoundError: [Errno 2] No such file or directory: '/srv/vest.diagnostic/IDS_42962.mat'",
+    "quality_summary": {
+     "unavailable": [
+      "ces"
+     ]
+    },
     "sha256": "2e6e0205eab338b47ccd6a73b9fef726089adde233dc2cd0707374a677c39747"
    },
    "shot": 42962
@@ -949,6 +1166,7 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "core_profiles",
+    "quality_summary": {},
     "sha256": "e4473f3dcd4f9269a083bd974fd83385f5ac70e09832d20de9dd2a9bd9b28e2d"
    },
    "shot": 39915
@@ -968,6 +1186,7 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "core_profiles",
+    "quality_summary": {},
     "sha256": "f2220898b1cec979ea812868982cb06fbbe8d0b6c739e610a5c28dde5cbd2dfa"
    },
    "shot": 39916
@@ -987,6 +1206,7 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "core_profiles",
+    "quality_summary": {},
     "sha256": "fb53341b174dc74c7763bf606d30be5cc67922e48846b389c4c4db458e8dc1bf"
    },
    "shot": 42962
@@ -1006,6 +1226,26 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ],
+     "missing": [
+      "magnetics:field-179"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "partial",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "b1c114661ca9aa62f9cf162c681603323b0c220fc03d9725d51524e254eb329d"
    },
    "shot": 39915
@@ -1025,6 +1265,26 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ],
+     "missing": [
+      "magnetics:field-179"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "partial",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "102fed3526a32de8e0f1798cfc7a43aea07e3abc25972cb1201248b352b0e1e5"
    },
    "shot": 39916
@@ -1044,6 +1304,23 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "diagnostics",
+    "quality_summary": {
+     "disabled": [
+      "PF3",
+      "PF4",
+      "PF7",
+      "PF8"
+     ]
+    },
+    "channel_status": {
+     "barometry": "success",
+     "ec_launchers": "success",
+     "langmuir_probes": "success",
+     "magnetics": "success",
+     "pf_active": "success",
+     "spectrometer_uv": "success",
+     "tf": "success"
+    },
     "sha256": "8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10"
    },
    "shot": 42962
@@ -1180,6 +1457,7 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "electron_efit",
+    "quality_summary": {},
     "sha256": "5cdc39024ebaea6d64f31f63046fb69a4250339e03e169ab3d89657b6f7f31bb"
    },
    "shot": 39915
@@ -1199,6 +1477,7 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "electron_efit",
+    "quality_summary": {},
     "sha256": "291759f7ab4725d113421e958c801091b9be80a15b300c2991ba252b59522c53"
    },
    "shot": 39916
@@ -1218,6 +1497,7 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "electron_efit",
+    "quality_summary": {},
     "sha256": "dcfdfce936c8aa86233cea9615c9ba1b1e43a64091421eec6322a3446229b342"
    },
    "shot": 42962
@@ -1238,6 +1518,12 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "kinetic_efit",
+    "reason": "this shot's profiles were built without a measured ion temperature, so it belongs to the other lineage, not kinetic_efit",
+    "quality_summary": {
+     "unavailable": [
+      "kinetic_efit"
+     ]
+    },
     "sha256": "d1d01a6bb146905b8a998aa9bc504af631fcc7756946b8f56e5c36fb8394a339"
    },
    "shot": 39915
@@ -1258,6 +1544,12 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "kinetic_efit",
+    "reason": "this shot's profiles were built without a measured ion temperature, so it belongs to the other lineage, not kinetic_efit",
+    "quality_summary": {
+     "unavailable": [
+      "kinetic_efit"
+     ]
+    },
     "sha256": "d11777256b59db9d4ee1ea8ce0cb7424f958ac71b586b0457683c97e18b85b44"
    },
    "shot": 39916
@@ -1278,6 +1570,12 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "kinetic_efit",
+    "reason": "this shot's profiles were built without a measured ion temperature, so it belongs to the other lineage, not kinetic_efit",
+    "quality_summary": {
+     "unavailable": [
+      "kinetic_efit"
+     ]
+    },
     "sha256": "1994407a0ba3c33364aadcac76ed0ecd2d489f6575d8ed85282ca2cf6ea7f690"
    },
    "shot": 42962
@@ -1297,6 +1595,7 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "thomson",
+    "quality_summary": {},
     "sha256": "79e1a312aa600fe455e8f2e4d1c20761eaed166940e60e1a76ab6cde90e3c48f"
    },
    "shot": 39915
@@ -1316,6 +1615,7 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "thomson",
+    "quality_summary": {},
     "sha256": "b303338f3ca7237cf2ff39578a6b03b4ac0562346b24e20ecee2178c266ac9c8"
    },
    "shot": 39916
@@ -1335,6 +1635,7 @@
     "machine_version": "vest-pre-43017-pf1906",
     "schema_version": 1,
     "stage": "thomson",
+    "quality_summary": {},
     "sha256": "91eae77d39b25d70f400cfece6e0dae794264b7d4f49179b6a75cb12149f5e1d"
    },
    "shot": 42962

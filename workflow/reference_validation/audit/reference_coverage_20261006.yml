@@ -1,7 +1,7 @@
 schema_version: 1
 issue: 1712
 scan:
-  scanned_at: '2026-10-06T07:13:29+00:00'
+  scanned_at: '2026-10-06T07:34:55+00:00'
   roots:
   - /srv/vest.filedb
   - /home/user1/runs/campaign/filedb
@@ -141,7 +141,8 @@ rows:
   sha256: b1c114661ca9aa62f9cf162c681603323b0c220fc03d9725d51524e254eb329d
   machine_version: vest-pre-43017-pf1906
   state: available
-  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  reason: 'magnetics channel status ''partial''; stage manifest status ''partial''; provenance gap: manifest records no VAFT
+    commit'
   packaged: true
 - shot: 39915
   ids: pf_active
@@ -293,8 +294,9 @@ rows:
   manifest_status: unavailable
   sha256: 1c81aec057f1d3675103d537ab90862c21b8b44230b29c0c443c2343f37735a8
   machine_version: vest-pre-43017-pf1906
-  state: validation-failed
-  reason: 'stage manifest status ''unavailable'': VEST charge exchange; machine era vest-pre-43017-pf1906'
+  state: input-unavailable
+  reason: 'stage manifest status ''unavailable'': FileNotFoundError: [Errno 2] No such file or directory: ''/srv/vest.diagnostic/IDS_39915.mat'';
+    unavailable: ces; VEST charge exchange; machine era vest-pre-43017-pf1906'
   packaged: false
 - shot: 39915
   ids: core_profiles
@@ -345,8 +347,9 @@ rows:
   manifest_status: unavailable
   sha256: d1d01a6bb146905b8a998aa9bc504af631fcc7756946b8f56e5c36fb8394a339
   machine_version: vest-pre-43017-pf1906
-  state: validation-failed
-  reason: 'stage manifest status ''unavailable'': VEST kinetic efit; machine era vest-pre-43017-pf1906'
+  state: input-unavailable
+  reason: 'stage manifest status ''unavailable'': this shot''s profiles were built without a measured ion temperature, so
+    it belongs to the other lineage, not kinetic_efit; unavailable: kinetic_efit; VEST kinetic efit; machine era vest-pre-43017-pf1906'
   packaged: true
 - shot: 39915
   ids: magnetics
@@ -363,7 +366,8 @@ rows:
   sha256: 172ec02a6b85c8f5334fb7e609d627e248ede0f4d2d43833148274efad66ab43
   machine_version: vest-pre-43017-pf1906
   state: available
-  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  reason: 'magnetics channel status ''partial''; stage manifest status ''partial''; provenance gap: manifest records no VAFT
+    commit'
   packaged: true
 - shot: 39915
   ids: pf_active
@@ -498,7 +502,7 @@ rows:
   sha256: null
   machine_version: null
   state: regeneration-required
-  reason: upstream efit is itself stale
+  reason: upstream efit (magnetic) is itself stale
   packaged: true
 - shot: 39915
   ids: mhd_linear
@@ -515,7 +519,7 @@ rows:
   sha256: 984e47b060cd2717ffef8905b6f6ca953b7cf4b308c80450d02877fc58e2643f
   machine_version: vest-pre-43017-pf1906
   state: regeneration-required
-  reason: upstream chease is itself stale
+  reason: upstream chease (magnetic) is itself stale
   packaged: false
 - shot: 39915
   ids: ntms
@@ -529,7 +533,7 @@ rows:
   sha256: 984e47b060cd2717ffef8905b6f6ca953b7cf4b308c80450d02877fc58e2643f
   machine_version: vest-pre-43017-pf1906
   state: regeneration-required
-  reason: upstream chease is itself stale
+  reason: upstream chease (magnetic) is itself stale
   packaged: false
 - shot: 39915
   ids: pulse_schedule
@@ -550,30 +554,30 @@ rows:
   reason: 'provenance gap: manifest records no VAFT commit'
   packaged: false
 - shot: 39915
-  ids: shotlog
+  ids: pulse_schedule
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:shotlog
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 1
     size: 12526
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/shotlog/39915)
   packaged: false
 - shot: 39915
   ids: soft_x_rays
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:soft_x_rays
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 5
     size: 199897134
   state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  reason: raw input; no valid soft_x_rays OMAS product yet
   packaged: false
 - shot: 39915
   ids: dataset_description
@@ -583,8 +587,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 39915
@@ -595,8 +599,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 39916
@@ -614,7 +618,8 @@ rows:
   sha256: 102fed3526a32de8e0f1798cfc7a43aea07e3abc25972cb1201248b352b0e1e5
   machine_version: vest-pre-43017-pf1906
   state: available
-  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  reason: 'magnetics channel status ''partial''; stage manifest status ''partial''; provenance gap: manifest records no VAFT
+    commit'
   packaged: false
 - shot: 39916
   ids: pf_active
@@ -766,8 +771,9 @@ rows:
   manifest_status: unavailable
   sha256: 6a34677574e73248c64d1730fc5758c350550d2543066affce359aaa48783b81
   machine_version: vest-pre-43017-pf1906
-  state: validation-failed
-  reason: 'stage manifest status ''unavailable'': VEST charge exchange; machine era vest-pre-43017-pf1906'
+  state: input-unavailable
+  reason: 'stage manifest status ''unavailable'': FileNotFoundError: [Errno 2] No such file or directory: ''/srv/vest.diagnostic/IDS_39916.mat'';
+    unavailable: ces; VEST charge exchange; machine era vest-pre-43017-pf1906'
   packaged: false
 - shot: 39916
   ids: core_profiles
@@ -818,8 +824,9 @@ rows:
   manifest_status: unavailable
   sha256: d11777256b59db9d4ee1ea8ce0cb7424f958ac71b586b0457683c97e18b85b44
   machine_version: vest-pre-43017-pf1906
-  state: validation-failed
-  reason: 'stage manifest status ''unavailable'': VEST kinetic efit; machine era vest-pre-43017-pf1906'
+  state: input-unavailable
+  reason: 'stage manifest status ''unavailable'': this shot''s profiles were built without a measured ion temperature, so
+    it belongs to the other lineage, not kinetic_efit; unavailable: kinetic_efit; VEST kinetic efit; machine era vest-pre-43017-pf1906'
   packaged: false
 - shot: 39916
   ids: magnetics
@@ -836,7 +843,8 @@ rows:
   sha256: b916ce7eb1e729167bd5ef583205a48386977c9912fd5b3a9283512e393bd1f0
   machine_version: vest-pre-43017-pf1906
   state: available
-  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  reason: 'magnetics channel status ''partial''; stage manifest status ''partial''; provenance gap: manifest records no VAFT
+    commit'
   packaged: false
 - shot: 39916
   ids: pf_active
@@ -975,30 +983,30 @@ rows:
   reason: 'provenance gap: manifest records no VAFT commit'
   packaged: false
 - shot: 39916
-  ids: shotlog
+  ids: pulse_schedule
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:shotlog
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 1
     size: 12526
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/shotlog/39916)
   packaged: false
 - shot: 39916
   ids: soft_x_rays
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:soft_x_rays
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 5
     size: 199902229
   state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  reason: raw input; no valid soft_x_rays OMAS product yet
   packaged: false
 - shot: 40600
   ids: magnetics
@@ -1015,7 +1023,8 @@ rows:
   sha256: 8cee08f592034dc370ba15002d35169648602364ec537a61e2420b1500efcae0
   machine_version: vest-pre-43017-pf1906
   state: available
-  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  reason: 'magnetics channel status ''partial''; stage manifest status ''partial''; provenance gap: manifest records no VAFT
+    commit'
   packaged: true
 - shot: 40600
   ids: pf_active
@@ -1154,70 +1163,57 @@ rows:
   reason: 'provenance gap: manifest records no VAFT commit'
   packaged: false
 - shot: 40600
-  ids: camera_visible_fluctuation
+  ids: camera_visible
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:camera_visible_fluctuation
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 4581
     size: 203045733
   state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
-  packaged: false
+  reason: raw input; no valid camera_visible_fluctuation OMAS product yet
+  packaged: true
 - shot: 40600
   ids: hard_x_rays
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:hard_x_rays
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 2
     size: 5804
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: deferred
+  reason: raw input; no FileDB stage composes it yet
   packaged: false
 - shot: 40600
-  ids: shotlog
+  ids: pulse_schedule
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:shotlog
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 1
     size: 10101
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/shotlog/40600)
   packaged: false
 - shot: 40600
   ids: soft_x_rays
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:soft_x_rays
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 3
     size: 41137984
   state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  reason: raw input; no valid soft_x_rays OMAS product yet
   packaged: false
-- shot: 40600
-  ids: camera_visible
-  source: null
-  occurrence: 0
-  stage: null
-  lineage: null
-  filedb: null
-  output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
-  packaged: true
-  packaged_info:
-    n_time: 602
 - shot: 40600
   ids: dataset_description
   source: null
@@ -1226,8 +1222,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 40600
@@ -1238,8 +1234,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 41524
@@ -1257,7 +1253,8 @@ rows:
   sha256: ae78e3a9e49323ebf3285e3fbcc0ec43ea97082d83a032fe1ec666f467bb7874
   machine_version: vest-pre-43017-pf1906
   state: available
-  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  reason: 'magnetics channel status ''partial''; stage manifest status ''partial''; provenance gap: manifest records no VAFT
+    commit'
   packaged: true
 - shot: 41524
   ids: pf_active
@@ -1396,30 +1393,30 @@ rows:
   reason: 'provenance gap: manifest records no VAFT commit'
   packaged: false
 - shot: 41524
-  ids: shotlog
+  ids: pulse_schedule
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:shotlog
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 1
     size: 11430
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/shotlog/41524)
   packaged: false
 - shot: 41524
   ids: soft_x_rays
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:soft_x_rays
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 3
     size: 54313348
   state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  reason: raw input; no valid soft_x_rays OMAS product yet
   packaged: false
 - shot: 41524
   ids: dataset_description
@@ -1429,8 +1426,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 41524
@@ -1441,8 +1438,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 41524
@@ -1453,8 +1450,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 41672
@@ -1472,7 +1469,8 @@ rows:
   sha256: d4128beb1bf5cce16227b64671f15a0c4db21d43a2649650753ada542244bf08
   machine_version: vest-pre-43017-pf1906
   state: available
-  reason: 'stage manifest status ''partial''; provenance gap: manifest records no VAFT commit'
+  reason: 'magnetics channel status ''partial''; stage manifest status ''partial''; provenance gap: manifest records no VAFT
+    commit'
   packaged: true
 - shot: 41672
   ids: pf_active
@@ -1611,30 +1609,30 @@ rows:
   reason: 'provenance gap: manifest records no VAFT commit'
   packaged: false
 - shot: 41672
-  ids: shotlog
+  ids: pulse_schedule
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:shotlog
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 1
     size: 13268
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/shotlog/41672)
   packaged: false
 - shot: 41672
   ids: soft_x_rays
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:soft_x_rays
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 5
     size: 122239240
   state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  reason: raw input; no valid soft_x_rays OMAS product yet
   packaged: false
 - shot: 41672
   ids: dataset_description
@@ -1644,8 +1642,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 41672
@@ -1656,8 +1654,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 41672
@@ -1668,8 +1666,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 42962
@@ -1839,8 +1837,9 @@ rows:
   manifest_status: unavailable
   sha256: 2e6e0205eab338b47ccd6a73b9fef726089adde233dc2cd0707374a677c39747
   machine_version: vest-pre-43017-pf1906
-  state: validation-failed
-  reason: 'stage manifest status ''unavailable'': VEST charge exchange; machine era vest-pre-43017-pf1906'
+  state: input-unavailable
+  reason: 'stage manifest status ''unavailable'': FileNotFoundError: [Errno 2] No such file or directory: ''/srv/vest.diagnostic/IDS_42962.mat'';
+    unavailable: ces; VEST charge exchange; machine era vest-pre-43017-pf1906'
   packaged: false
 - shot: 42962
   ids: core_profiles
@@ -1891,8 +1890,9 @@ rows:
   manifest_status: unavailable
   sha256: 1994407a0ba3c33364aadcac76ed0ecd2d489f6575d8ed85282ca2cf6ea7f690
   machine_version: vest-pre-43017-pf1906
-  state: validation-failed
-  reason: 'stage manifest status ''unavailable'': VEST kinetic efit; machine era vest-pre-43017-pf1906'
+  state: input-unavailable
+  reason: 'stage manifest status ''unavailable'': this shot''s profiles were built without a measured ion temperature, so
+    it belongs to the other lineage, not kinetic_efit; unavailable: kinetic_efit; VEST kinetic efit; machine era vest-pre-43017-pf1906'
   packaged: false
 - shot: 42962
   ids: magnetics
@@ -2068,27 +2068,27 @@ rows:
   ids: camera_visible
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:camera_visible
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 106
     size: 132498695
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/camera_visible/42962)
   packaged: false
 - shot: 42962
-  ids: shotlog
+  ids: pulse_schedule
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:shotlog
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 1
     size: 10735
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/shotlog/42962)
   packaged: false
 - shot: 45531
   ids: magnetics
@@ -2227,30 +2227,30 @@ rows:
   reason: 'provenance gap: manifest records no VAFT commit'
   packaged: false
 - shot: 45531
-  ids: shotlog
+  ids: pulse_schedule
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:shotlog
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 1
     size: 11187
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/shotlog/45531)
   packaged: false
 - shot: 45531
   ids: soft_x_rays
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:soft_x_rays
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 5
     size: 132248771
   state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  reason: raw input; no valid soft_x_rays OMAS product yet
   packaged: true
 - shot: 45531
   ids: dataset_description
@@ -2260,8 +2260,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 45531
@@ -2272,8 +2272,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 48224
@@ -2431,30 +2431,30 @@ rows:
   reason: 'provenance gap: manifest records no VAFT commit'
   packaged: false
 - shot: 48224
-  ids: shotlog
+  ids: pulse_schedule
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:shotlog
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 1
     size: 16798
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/shotlog/48224)
   packaged: false
 - shot: 48224
   ids: soft_x_rays
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:soft_x_rays
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 5
     size: 139041813
   state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  reason: raw input; no valid soft_x_rays OMAS product yet
   packaged: false
 - shot: 48224
   ids: charge_exchange
@@ -2490,8 +2490,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info: {}
 - shot: 48224
@@ -2515,8 +2515,8 @@ rows:
   lineage: null
   filedb: null
   output: null
-  state: server-unavailable
-  reason: packaged only; no canonical server product found
+  state: available
+  reason: machine description; composed from vaft.machine_mapping
   packaged: true
   packaged_info:
     n_time: 1
@@ -2703,8 +2703,9 @@ rows:
   manifest_status: unavailable
   sha256: 64a34ee77ad87c4e5fb62177c05bfee2b35f048198cf54750975539352ec2542
   machine_version: vest-45967-plus-pf2507
-  state: validation-failed
-  reason: stage manifest status 'unavailable'
+  state: input-unavailable
+  reason: 'stage manifest status ''unavailable'': unavailable: core_profiles; missing: core_profiles:t=298.0ms, core_profiles:t=299.0ms,
+    core_profiles:t=300.0ms, core_profiles:t=301.0ms'
   packaged: false
 - shot: 48226
   ids: equilibrium
@@ -2721,8 +2722,9 @@ rows:
   manifest_status: unavailable
   sha256: 74b3028e5295f4b687f782fc81e8714df65d068c21e54eae6a7746d16e128834
   machine_version: vest-45967-plus-pf2507
-  state: validation-failed
-  reason: 'stage manifest status ''unavailable'': VEST electron efit; machine era vest-45967-plus-pf2507'
+  state: input-unavailable
+  reason: 'stage manifest status ''unavailable'': no core_profiles slice to reconstruct at; unavailable: electron_efit; VEST
+    electron efit; machine era vest-45967-plus-pf2507'
   packaged: false
 - shot: 48226
   ids: equilibrium
@@ -2739,8 +2741,9 @@ rows:
   manifest_status: unavailable
   sha256: 3e824e6c13d2d6cc79d23d51427cb43a7641478fd7f0c2bf7862294fa195ce1b
   machine_version: vest-45967-plus-pf2507
-  state: validation-failed
-  reason: 'stage manifest status ''unavailable'': VEST kinetic efit; machine era vest-45967-plus-pf2507'
+  state: input-unavailable
+  reason: 'stage manifest status ''unavailable'': this shot''s profiles were built without a measured ion temperature, so
+    it belongs to the other lineage, not kinetic_efit; unavailable: kinetic_efit; VEST kinetic efit; machine era vest-45967-plus-pf2507'
   packaged: false
 - shot: 48226
   ids: camera_visible
@@ -2780,43 +2783,45 @@ rows:
   ids: camera_visible
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:camera_visible
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 106
     size: 132498703
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/camera_visible/48226)
   packaged: false
 - shot: 48226
-  ids: shotlog
+  ids: pulse_schedule
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:shotlog
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 1
     size: 17477
-  state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  state: available
+  reason: raw input; composed OMAS product present (omas/shotlog/48226)
   packaged: false
 - shot: 48226
   ids: soft_x_rays
   source: legacy
   occurrence: 0
-  stage: legacy
+  stage: legacy:soft_x_rays
   lineage: null
   filedb: /srv/vest.filedb
   output:
     files: 5
     size: 139074013
   state: regeneration-required
-  reason: raw legacy input; the OMAS product must be composed from it
+  reason: raw input; no valid soft_x_rays OMAS product yet
   packaged: false
 portfolio:
 - ids: barometry
+  source: main
+  occurrence: 0
   registry_keys:
   - barometry.gauge
   mapping_status:
@@ -2844,6 +2849,8 @@ portfolio:
   state: available
   note: ''
 - ids: bremsstrahlung_visible
+  source: null
+  occurrence: 0
   registry_keys:
   - bremsstrahlung_visible
   mapping_status:
@@ -2856,15 +2863,31 @@ portfolio:
   state: not-reference-qualified
   note: mapping not implemented
 - ids: camera_visible
-  registry_keys:
+  source: camera-visible-fluctuation
+  occurrence: 0
+  registry_keys: &id014
   - camera_visible
   mapping_status:
   - implemented
   lifecycle:
   - available
   stages:
-  - camera_visible
   - camera_visible_fluctuation
+  server_available_on: []
+  packaged_on:
+  - 40600
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
+- ids: camera_visible
+  source: main
+  occurrence: 0
+  registry_keys: *id014
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - camera_visible
   server_available_on:
   - 42962
   - 48226
@@ -2873,6 +2896,8 @@ portfolio:
   state: available
   note: ''
 - ids: charge_exchange
+  source: main
+  occurrence: 0
   registry_keys:
   - charge_exchange.ces
   - charge_exchange.ion_doppler
@@ -2889,6 +2914,8 @@ portfolio:
   state: available
   note: ''
 - ids: coils_non_axisymmetric
+  source: main/chease
+  occurrence: 1
   registry_keys:
   - coils_non_axisymmetric
   mapping_status:
@@ -2902,13 +2929,28 @@ portfolio:
   state: deferred
   note: 'stage deferred to #95'
 - ids: core_profiles
-  registry_keys: []
+  source: kinetic-efit/neoclassical
+  occurrence: 0
+  registry_keys: &id015 []
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - neoclassical
+  server_available_on: []
+  packaged_on:
+  - 48224
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
+- ids: core_profiles
+  source: main
+  occurrence: 0
+  registry_keys: *id015
   mapping_status:
   - producer
   lifecycle: []
   stages:
   - core_profiles
-  - neoclassical
   server_available_on:
   - 39915
   - 39916
@@ -2918,6 +2960,8 @@ portfolio:
   state: available
   note: ''
 - ids: core_transport
+  source: kinetic-efit/neoclassical
+  occurrence: 0
   registry_keys: []
   mapping_status:
   - producer
@@ -2929,6 +2973,8 @@ portfolio:
   state: regeneration-required
   note: producer exists; no valid server product on an audited shot
 - ids: dataset_description
+  source: null
+  occurrence: 0
   registry_keys:
   - dataset_description
   mapping_status:
@@ -2936,7 +2982,13 @@ portfolio:
   lifecycle:
   - available
   stages: []
-  server_available_on: []
+  server_available_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  - 48224
   packaged_on:
   - 39915
   - 40600
@@ -2945,8 +2997,10 @@ portfolio:
   - 45531
   - 48224
   state: available
-  note: machine description; composed from vaft.machine_mapping
+  note: ''
 - ids: disruption
+  source: null
+  occurrence: 0
   registry_keys:
   - disruption.halo_currents
   mapping_status:
@@ -2959,6 +3013,8 @@ portfolio:
   state: not-reference-qualified
   note: mapping not implemented
 - ids: ec_launchers
+  source: main
+  occurrence: 0
   registry_keys:
   - ech
   mapping_status:
@@ -2986,6 +3042,8 @@ portfolio:
   state: available
   note: ''
 - ids: em_coupling
+  source: null
+  occurrence: 0
   registry_keys:
   - em_coupling
   mapping_status:
@@ -2993,22 +3051,23 @@ portfolio:
   lifecycle:
   - available
   stages: []
-  server_available_on: []
+  server_available_on:
+  - 41524
+  - 41672
   packaged_on:
   - 41524
   - 41672
   state: available
-  note: machine description; composed from vaft.machine_mapping
+  note: ''
 - ids: equilibrium
-  registry_keys: []
+  source: electron-efit
+  occurrence: 0
+  registry_keys: &id016 []
   mapping_status:
   - producer
   lifecycle: []
   stages:
-  - chease
-  - efit
   - electron_efit
-  - kinetic_efit
   server_available_on:
   - 39915
   - 39916
@@ -3020,7 +3079,63 @@ portfolio:
   - 48224
   state: available
   note: ''
+- ids: equilibrium
+  source: kinetic-efit
+  occurrence: 0
+  registry_keys: *id016
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - kinetic_efit
+  server_available_on: []
+  packaged_on:
+  - 39915
+  - 41524
+  - 41672
+  - 48224
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
+- ids: equilibrium
+  source: main
+  occurrence: 0
+  registry_keys: *id016
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - efit
+  server_available_on:
+  - 39915
+  - 39916
+  - 42962
+  packaged_on:
+  - 39915
+  - 41524
+  - 41672
+  - 48224
+  state: available
+  note: ''
+- ids: equilibrium
+  source: main/chease
+  occurrence: 0
+  registry_keys: *id016
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - chease
+  server_available_on: []
+  packaged_on:
+  - 39915
+  - 41524
+  - 41672
+  - 48224
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
 - ids: gas_injection
+  source: null
+  occurrence: 0
   registry_keys:
   - gas_injection
   mapping_status:
@@ -3033,6 +3148,8 @@ portfolio:
   state: not-reference-qualified
   note: mapping not implemented
 - ids: gas_pumping
+  source: null
+  occurrence: 0
   registry_keys:
   - gas_pumping
   mapping_status:
@@ -3045,6 +3162,8 @@ portfolio:
   state: not-reference-qualified
   note: mapping not implemented
 - ids: hard_x_rays
+  source: null
+  occurrence: 0
   registry_keys:
   - hard_x_rays
   mapping_status:
@@ -3057,6 +3176,8 @@ portfolio:
   state: deferred
   note: no FileDB stage produces it yet
 - ids: interferometer
+  source: null
+  occurrence: 0
   registry_keys:
   - interferometer
   mapping_status:
@@ -3069,6 +3190,8 @@ portfolio:
   state: deferred
   note: no FileDB stage produces it yet
 - ids: langmuir_probes
+  source: main
+  occurrence: 0
   registry_keys:
   - langmuir_probes.embedded
   mapping_status:
@@ -3095,7 +3218,9 @@ portfolio:
   state: available
   note: ''
 - ids: magnetics
-  registry_keys:
+  source: impa
+  occurrence: 0
+  registry_keys: &id017
   - magnetics.b_field_pol_probe
   - magnetics.diamagnetic_flux
   - magnetics.flux_loop
@@ -3107,8 +3232,26 @@ portfolio:
   lifecycle:
   - available
   stages:
-  - diagnostics
   - impa
+  server_available_on: []
+  packaged_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
+- ids: magnetics
+  source: main
+  occurrence: 0
+  registry_keys: *id017
+  mapping_status:
+  - implemented
+  lifecycle:
+  - available
+  stages:
+  - diagnostics
   server_available_on:
   - 39915
   - 39916
@@ -3128,7 +3271,23 @@ portfolio:
   state: available
   note: ''
 - ids: mhd_linear
-  registry_keys: []
+  source: main/chease
+  occurrence: 0
+  registry_keys: &id018 []
+  mapping_status:
+  - producer
+  lifecycle: []
+  stages:
+  - gpec_ideal
+  - mhd_linear
+  server_available_on: []
+  packaged_on: []
+  state: regeneration-required
+  note: producer exists; no valid server product on an audited shot
+- ids: mhd_linear
+  source: main/chease
+  occurrence: 1
+  registry_keys: *id018
   mapping_status:
   - producer
   lifecycle: []
@@ -3140,6 +3299,8 @@ portfolio:
   state: regeneration-required
   note: producer exists; no valid server product on an audited shot
 - ids: nbi
+  source: null
+  occurrence: 0
   registry_keys:
   - nbi
   mapping_status:
@@ -3152,6 +3313,8 @@ portfolio:
   state: deferred
   note: no FileDB stage produces it yet
 - ids: ntms
+  source: main/chease
+  occurrence: 0
   registry_keys: []
   mapping_status:
   - producer
@@ -3163,6 +3326,8 @@ portfolio:
   state: regeneration-required
   note: producer exists; no valid server product on an audited shot
 - ids: pf_active
+  source: main
+  occurrence: 0
   registry_keys:
   - pf_active
   mapping_status:
@@ -3190,6 +3355,8 @@ portfolio:
   state: available
   note: ''
 - ids: pf_passive
+  source: main
+  occurrence: 0
   registry_keys:
   - pf_passive
   mapping_status:
@@ -3215,6 +3382,8 @@ portfolio:
   state: available
   note: ''
 - ids: pulse_schedule
+  source: main
+  occurrence: 0
   registry_keys:
   - pulse_schedule
   mapping_status:
@@ -3237,6 +3406,8 @@ portfolio:
   state: available
   note: ''
 - ids: soft_x_rays
+  source: main
+  occurrence: 0
   registry_keys:
   - soft_x_rays
   mapping_status:
@@ -3251,6 +3422,8 @@ portfolio:
   state: regeneration-required
   note: producer exists; no valid server product on an audited shot
 - ids: spectrometer_uv
+  source: main
+  occurrence: 0
   registry_keys:
   - spectrometer_uv
   mapping_status:
@@ -3278,6 +3451,8 @@ portfolio:
   state: available
   note: ''
 - ids: tf
+  source: main
+  occurrence: 0
   registry_keys:
   - tf
   mapping_status:
@@ -3305,6 +3480,8 @@ portfolio:
   state: available
   note: ''
 - ids: thomson_scattering
+  source: main
+  occurrence: 0
   registry_keys:
   - thomson_scattering
   mapping_status:
@@ -3323,6 +3500,8 @@ portfolio:
   state: available
   note: ''
 - ids: wall
+  source: null
+  occurrence: 0
   registry_keys:
   - wall
   mapping_status:
@@ -3330,7 +3509,13 @@ portfolio:
   lifecycle:
   - available
   stages: []
-  server_available_on: []
+  server_available_on:
+  - 39915
+  - 40600
+  - 41524
+  - 41672
+  - 45531
+  - 48224
   packaged_on:
   - 39915
   - 40600
@@ -3339,4 +3524,4 @@ portfolio:
   - 45531
   - 48224
   state: available
-  note: machine description; composed from vaft.machine_mapping
+  note: ''
