@@ -89,6 +89,9 @@ def main(argv: Optional[list[str]] = None) -> int:
                         help="write local_summary.json for an existing run; run nothing")
     parser.add_argument("--gacode-home")
     parser.add_argument("--ti-te-ratio", default="policy")
+    parser.add_argument("--amp", type=float,
+                        help="CGYRO AMP, the initial amplitude of the n>0 modes (default 0.1): "
+                             "a larger seed shortens the linear growth phase")
     parser.add_argument("--allow-es-low-ky", action="store_true",
                         help=f"run ES even though n=1 sits at k_y <= {ES_MIN_KY}")
     args = parser.parse_args(argv)
@@ -132,6 +135,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         n_xi=args.n_xi, n_energy=args.n_energy, delta_t=args.delta_t, max_time=max_time,
         print_step=args.print_step, n_mpi=args.n_mpi, n_omp=args.n_omp,
         restart=args.restart, home=args.gacode_home,
+        extra_parameters={} if args.amp is None else {"AMP": args.amp},
     )
     local = prepare_cgyro_input(state.profile, args.r_over_a)
     workdir = (args.out / key.slug() / f"r{args.r_over_a:.2f}" / args.field_model
