@@ -158,6 +158,58 @@ def test_the_peak_search_skips_the_pre_edge_entries_as_dcon_does(truncated):
     assert validate_stability(dcon=raised)["verification"]["dcon_edge"]["status"] == PASS
 
 
+def _scan_truncated_at(truncated, psiedge: float, nperq: int = 20):
+    """The edge scan DCON would write for ``psiedge`` on the #792 profile.
+
+    The nominal grid is ``INT(q(psiedge)) + i/(nperq*n)`` (sing.f:226-238),
+    with q(psiedge) from DCON's cubic ``sq`` spline; every entry is filled, the
+    pre-edge ones on the first steps past psiedge. Re dW is monotone with its
+    peak on the first entry DCON searches, and ``psilim`` is that entry's psi_N
+    (dcon.F:253-258). Returns the run and DCON's own 0-based ``pre_edge - 1``.
+    """
+    from scipy.interpolate import CubicSpline
+
+    psi, q = np.asarray(truncated.psi_n, float), np.asarray(truncated.q, float)
+    n = int(truncated.n_tor)
+    q_edge = float(CubicSpline(psi, q)(psiedge))
+    qstart = int(q_edge)
+    size = int(np.ceil((q[-1] - qstart) * n * nperq))
+    nominal = qstart + np.arange(size) / (nperq * n)
+    pre_edge = int(np.count_nonzero(nominal < q_edge))
+    psi_scan = np.interp(nominal, q, psi)
+    psi_scan[:pre_edge] = psiedge + 1e-4 * np.arange(pre_edge)
+    dw = -np.linspace(1.0, 2.0, size) + 0j
+    dw[pre_edge] = 5.0
+    scan = dataclasses.replace(truncated.edge_scan, psi_n=psi_scan, q=nominal.copy(), dW=dw)
+    run = dataclasses.replace(truncated, evaluation=dataclasses.replace(truncated.evaluation, psiedge=psiedge),
+                              edge_scan=scan, psilim=float(psi_scan[pre_edge]))
+    return run, pre_edge
+
+
+def test_q_at_psiedge_is_the_cubic_spline_and_a_straddled_nominal_point_is_indeterminate(truncated):
+    # psiedge 0.92617 on this profile: linear q 7.80113, cubic q 7.79946, the
+    # nominal point 7.80 between them, so the linear count starts one entry
+    # late and misses the peak DCON truncated at. Cold review 0.8.0 stability F1.
+    psi, q = np.asarray(truncated.psi_n, float), np.asarray(truncated.q, float)
+    run, pre_edge = _scan_truncated_at(truncated, 0.92617)
+    assert pre_edge == 16 and int(np.count_nonzero(7 + np.arange(run.edge_scan.psi_n.size) / 20 < np.interp(0.92617, psi, q))) == 17
+    edge = validate_stability(dcon=run)["verification"]["dcon_edge"]
+    assert edge["status"] == INDETERMINATE
+    assert edge["q_at_psiedge"] < 7.80 < np.interp(0.92617, psi, q)
+    assert edge["q_at_psiedge"] == pytest.approx(7.7996, abs=1e-4)
+    assert edge["peak_search_start"] == 16 and edge["peak_search_start_bracket"] == [16, 17]
+    assert edge["psi_n_at_dW_peak"][0] == pytest.approx(run.psilim)
+
+
+def test_a_clear_search_start_still_passes_or_fails(truncated):
+    run, pre_edge = _scan_truncated_at(truncated, 0.93)
+    edge = validate_stability(dcon=run)["verification"]["dcon_edge"]
+    assert edge["status"] == PASS and edge["peak_search_start"] == pre_edge and "peak_search_start_bracket" not in edge
+    off = dataclasses.replace(run, psilim=float(run.edge_scan.psi_n[pre_edge + 1]))
+    edge = validate_stability(dcon=off)["verification"]["dcon_edge"]
+    assert edge["status"] == FAIL and edge["psi_n_at_dW_peak"] == pytest.approx(run.psilim)
+
+
 def test_vac_flag_off_means_no_energies_were_requested(full):
     off = dataclasses.replace(full, evaluation=dataclasses.replace(full.evaluation, vac_flag=False),
                               W_t_eigenvalue=None, W_p_eigenvalue=None, W_v_eigenvalue=None)
