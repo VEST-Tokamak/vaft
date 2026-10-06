@@ -88,7 +88,7 @@ def test_different_surface_sets_are_partially_comparable(bench):
     assert row["n_common"] == 3 and row["status"] == "PARTIALLY_COMPARABLE"
 
 
-def test_like_for_like_stride_variants_match_rdcon_truncation(bench):
+def test_stride_variants_take_rdcon_delta_mhigh_setting(bench):
     for variant in bench.STRIDE_VARIANTS:
         assert variant.patches["stride.in"] == {"delta_mhigh": 16}
     assert {v.patches["equil.in"]["mpsi"] for v in bench.STRIDE_VARIANTS} == {256, 512}
@@ -146,3 +146,17 @@ def test_truncation_match_is_recorded(bench):
     other = _out(M, PSI, BASE); other.mhigh = 22
     row, _ = bench.compare_pair((out, out), (other, other))
     assert row["truncation_match"] is False
+
+
+def test_the_summary_counts_truncation_match_and_claims_no_like_for_like_window(bench):
+    # Cold review 0.8.0 stability F3: delta_mhigh=16 in both codes is the same
+    # setting, not the same window (mhigh = n*qmax + 16 with each code's qmax).
+    out = _out(M, PSI, BASE)
+    other = _out(M, PSI, BASE); other.mhigh = 22
+    same, _ = bench.compare_pair((out, out), (out, out))
+    differ, _ = bench.compare_pair((out, out), (other, other))
+    failed, _ = bench.compare_pair((None, None), (out, out))
+    summary = bench.summarize([same, differ, differ, failed], [])
+    assert summary["truncation_match"] == {"true": 1, "false": 2, "unknown": 1}
+    assert "not like-for-like" in summary["stride_truncation"]
+    assert "like-for-like truncation" not in bench.__doc__ and "the like-for-like" not in bench.__doc__

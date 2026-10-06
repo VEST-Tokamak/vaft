@@ -503,7 +503,11 @@ def _dcon_native_xml(result: DconOutput) -> str:
     so that can be re-checked. ``energy_perturbed`` keeps its historical
     ``W_t_eigenvalue[0]``, which is the same entry whenever the labels are in
     order (they are in every DCON output seen so far). Evaluation flags are
-    written as ``1``/``0`` and omitted when unknown.
+    written as ``1``/``0`` and omitted when unknown; they describe the run's
+    namelist, so they are written whether or not a profile block exists, and
+    ``requested_psiedge`` carries DCON's default when the namelist omits the
+    key, exactly as the validation layer reads it
+    (:attr:`~vaft.code.gpec.DconEvaluation.requested_psiedge`).
     """
     parts = [
         "<least_stable"
@@ -530,7 +534,7 @@ def _dcon_native_xml(result: DconOutput) -> str:
         "<edge"
         + _xml_attrs(
             treatment=result.edge_treatment,
-            requested_psiedge=None if evaluation is None else evaluation.psiedge,
+            requested_psiedge=None if evaluation is None else evaluation.requested_psiedge,
             psilim=result.psilim,
             qlim=result.qlim,
         )
@@ -543,19 +547,21 @@ def _dcon_native_xml(result: DconOutput) -> str:
             f'<edge_scan psi_n="{_xml_numbers(scan.psi_n)}" q="{_xml_numbers(scan.q)}"'
             f' dW_re="{_xml_numbers(dw.real)}" dW_im="{_xml_numbers(dw.imag)}"/>'
         )
+    attrs = []
     if result.psi_n is not None:
-        attrs = [f'psi_n="{_xml_numbers(result.psi_n)}"']
+        attrs.append(f'psi_n="{_xml_numbers(result.psi_n)}"')
         for name in ("di", "dr", "ca1"):
             values = getattr(result, name)
             if values is not None:
                 attrs.append(f'{name}="{_xml_numbers(values)}"')
         if result.ca1_evaluated is not None:
             attrs.append(f'ca1_evaluated="{" ".join("1" if v else "0" for v in np.asarray(result.ca1_evaluated, dtype=bool))}"')
-        if evaluation is not None:
-            for name in ("mer_flag", "bal_flag"):
-                value = getattr(evaluation, name)
-                if value is not None:
-                    attrs.append(f'{name}="{1 if value else 0}"')
+    if evaluation is not None:
+        for name in ("mer_flag", "bal_flag"):
+            value = getattr(evaluation, name)
+            if value is not None:
+                attrs.append(f'{name}="{1 if value else 0}"')
+    if attrs:
         parts.append("<local_criteria " + " ".join(attrs) + "/>")
     return "".join(parts)
 
@@ -591,7 +597,11 @@ def extract_dcon_stability(ods: ODS) -> list[dict[str, Any]]:
     * ``edge_treatment``, ``requested_psiedge``, ``psilim``, ``qlim`` and, for a
       truncated run, ``edge_scan`` (``psi_n``, ``q``, complex ``dW``);
     * ``psi_n``, ``D_I``, ``D_R``, ``C_A`` (NaN where not evaluated),
-      ``mercier_evaluated``, ``ballooning_evaluated``;
+      ``mercier_evaluated`` and ``ballooning_evaluated`` (the run's ``mer_flag``
+      / ``bal_flag``, None when the namelist is unknown) and
+      ``ballooning_points_evaluated``, the number of surfaces where DCON
+      integrated the ballooning equation (0 when ``bal_flag`` was on but no
+      surface qualified; None without the mask);
     * summaries: ``max_D_I`` / ``psi_n_at_max_D_I``, ``max_D_R`` /
       ``psi_n_at_max_D_R``, ``min_C_A`` / ``psi_n_at_min_C_A`` over evaluated
       points only.
@@ -676,7 +686,10 @@ def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
     mer = None if criteria is None else _flag(criteria.get("mer_flag"))
     bal = None if criteria is None else _flag(criteria.get("bal_flag"))
     row["mercier_evaluated"] = mer
-    row["ballooning_evaluated"] = None if bal is None or evaluated is None else (bal and bool(evaluated.any()))
+    # The flag is what the namelist asked for, as the validation layer reads it;
+    # how many surfaces the scan then reached is a separate number.
+    row["ballooning_evaluated"] = bal
+    row["ballooning_points_evaluated"] = None if evaluated is None else int(evaluated.sum())
 
     def extremum(values: Optional[np.ndarray], mask: Optional[np.ndarray], largest: bool):
         if values is None or psi is None or values.shape != psi.shape:

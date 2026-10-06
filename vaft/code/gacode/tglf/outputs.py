@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
 import json
+import math
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
@@ -220,11 +221,19 @@ class TglfOutputs:
 
     def to_dict(self) -> dict[str, Any]:
         def encode(value: Any) -> Any:
+            # Strict JSON has no NaN or infinity. NaN marks an absent field and travels
+            # as null, coming back as NaN (np.asarray(None, float) is nan). An infinity
+            # TGLF wrote (Fortran ``Infinity``, a blown-up flux) is a solver value, not
+            # an absent one: it travels as the token "inf"/"-inf", which np.asarray
+            # reads back as the same infinity. A non-finite scalar (``precision``, a
+            # SAT parameter) is tagged like an array so it stays a float on the way back.
             if isinstance(value, np.ndarray):
-                # NaN marks an absent field; strict JSON has no NaN, so it travels as null
-                # and comes back as NaN (np.asarray(None, float) is nan).
-                if value.dtype.kind == "f" and np.isnan(value).any():
-                    return {"__array__": np.where(np.isnan(value), None, value).tolist()}
+                if value.dtype.kind == "f" and not np.isfinite(value).all():
+                    items = value.astype(object)
+                    items[np.isnan(value)] = None
+                    items[np.isposinf(value)] = "inf"
+                    items[np.isneginf(value)] = "-inf"
+                    return {"__array__": items.tolist()}
                 return {"__array__": value.tolist()}
             if isinstance(value, Mapping):
                 return {str(k): encode(v) for k, v in value.items()}
@@ -232,8 +241,11 @@ class TglfOutputs:
                 return list(value)
             if isinstance(value, (np.integer,)):
                 return int(value)
-            if isinstance(value, (np.floating,)):
-                return float(value)
+            if isinstance(value, (float, np.floating)):
+                value = float(value)
+                if not math.isfinite(value):
+                    return {"__float__": repr(value)}  # "nan", "inf" or "-inf"
+                return value
             return value
 
         payload: dict[str, Any] = {"schema": SCHEMA, "schema_version": SCHEMA_VERSION}
@@ -253,7 +265,10 @@ class TglfOutputs:
         def decode(value: Any) -> Any:
             if isinstance(value, Mapping):
                 if "__array__" in value:
-                    return np.asarray(value["__array__"], dtype=float)  # null -> nan
+                    # null -> nan, "inf"/"-inf" -> the infinity encode() wrote
+                    return np.asarray(value["__array__"], dtype=float)
+                if "__float__" in value:
+                    return float(value["__float__"])
                 return {str(k): decode(v) for k, v in value.items()}
             return value
 

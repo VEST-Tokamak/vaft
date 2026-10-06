@@ -30,6 +30,10 @@ from _read_recorder import accessor_reads, assert_models_equal, ods_reads, undec
 from _synthetic_inputs import OPTIONS, SYNTHETIC
 
 NEUTRAL = frozenset({
+    "gyrokinetics_spectrum_growth_rate", "gyrokinetics_spectrum_frequency",
+    "gyrokinetics_spectrum_energy_flux", "gyrokinetics_spectrum_particle_flux",
+    "gyrokinetics_profile_eigenfunction", "gyrokinetics_overview",
+    "turbulent_transport_profile_energy_flux", "turbulent_transport_profile_particle_flux",
     "nbi_profile_electron_heating", "nbi_profile_ion_heating", "nbi_profile_current_drive",
     "interferometer_spectrogram", "passive_structure_time_current",
     "impa_time_field", "impa_time_voltage", "impa_profile_field",
@@ -82,6 +86,8 @@ OMAS_BOUND = frozenset({
     "camera_visible_image_mhd_power", "equilibrium_overview",
     # issue #1180: the slice summaries derive what a g-file omits as the overview does.
     "equilibrium_table_summary", "equilibrium_text_summary",
+    # roadmap #1242 C2: validate_equilibrium deep-copies the ODS for the virial wrapper.
+    "equilibrium_table_validation",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
     # issue #888: the startup views solve vessel currents on a private copy.
     "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",
