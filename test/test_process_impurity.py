@@ -759,3 +759,28 @@ def test_a_preset_s_status_is_kept_not_demoted_to_derived():
         c = composition_from_model({**model, "status": given})
         assert c.status == expected, given
         assert c.input_record["model_status"] == given
+
+
+def test_the_impurity_zeff_workflow_never_uses_the_locale_encoding():
+    """Repository files are read and written as UTF-8 (cold review 0.8.0 delta-absorb-16 F9)."""
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    text_io = re.compile(r"(?<![\w.])open\(|\.read_text\(|\.write_text\(")
+    offenders = []
+    for path in sorted((root / "workflow/impurity_zeff").glob("*.py")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for number, line in enumerate(lines, 1):
+            if not text_io.search(line):
+                continue
+            statement, depth, k = "", 0, number - 1
+            while k < len(lines):                      # the whole call, over continuation lines
+                statement += lines[k]
+                depth += lines[k].count("(") + lines[k].count("{") - lines[k].count(")") - lines[k].count("}")
+                k += 1
+                if depth <= 0:
+                    break
+            if "encoding=" not in statement and '"rb"' not in statement and '"wb"' not in statement:
+                offenders.append(f"{path.name}:{number}: {line.strip()}")
+    assert not offenders, "\n".join(offenders)
