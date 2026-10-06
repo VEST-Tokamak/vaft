@@ -75,6 +75,10 @@ Follow computational ownership, not prestige: a reduced or VAFT-native model is 
 a more advanced Code exists, and an external Code is not wrapped in an Actor merely because its
 capability can be named.
 
+These boundaries say where code *should* live. To see which modules of each layer import which
+today, generated from the source, explore the current implementation in the
+[VAFT dependency explorer]({{ site.baseurl }}/reference/dependency-graph/).
+
 ## When an Actor is justified
 
 Create an Actor only when **all** of the following hold:
