@@ -435,6 +435,11 @@
       "source_sha256": "68590931e8c44c64ecd2d20dcd6eea3fe3f15a92c8aaa89e4d248de881c1694f",
       "svg_sha256": "45c8b7525e207c3eebb70628fa4ba106e7ce612d54c86f7638f2194bb7b4bdee"
     },
+    "interchange_criteria.svg": {
+      "call": "vaft.diagram.interchange_criteria()",
+      "source_sha256": "2029d025ff6e29ddfecbf10638c1d29aba6713058f7962ad87976c1b9442cc31",
+      "svg_sha256": "18d56b078051a676b6aff030d010ca8b3ef079e9cc774a84f63662ec757076ed"
+    },
     "internal_external_kink.svg": {
       "call": "vaft.diagram.internal_external_kink()",
       "source_sha256": "ce4ba4cda39a0018ba772b9ffb6079160d77e5bd6ec2efbc38905aef6de8fcb9",
@@ -634,6 +639,11 @@
       "call": "vaft.diagram.plasma_parameter_inference()",
       "source_sha256": "99b27e5f3c23b95e40feb0043e4aaffb9c66471a611f677a325f1dbee2c9c60c",
       "svg_sha256": "44f7b2787436cbc504bd69de08ac8a291ff85f379eaed60549a83e9a996e8d4e"
+    },
+    "plasma_state_provenance.svg": {
+      "call": "vaft.diagram.plasma_state_provenance()",
+      "source_sha256": "e12e5ab12d4b391fe98fa5c3e4c6b6dfb79a4c735aa15b69cf3725349b98e261",
+      "svg_sha256": "67448f7f3e4f68b77c2690fcfb2cb3466ce80e80844dc4c7e44a1041ebd8b761"
     },
     "plasma_vacuum_wall.svg": {
       "call": "vaft.diagram.plasma_vacuum_wall()",
@@ -919,6 +929,11 @@
       "call": "vaft.diagram.spectroscopy_transitions(term='OI_7770')",
       "source_sha256": "68faacd43d3de1ca9806480f30f29df1bc1e9e356008f756575a397a1dfb22b0",
       "svg_sha256": "162a3d69d60196a4401b3a5e1ee4ffb3658faa66439ca959217fd6f6769f77f5"
+    },
+    "stability_diagnostic_taxonomy.svg": {
+      "call": "vaft.diagram.stability_diagnostic_taxonomy()",
+      "source_sha256": "f8c15734c0160e87a70e9fc1fd501fe2bc5bbc528cc9a0da19819c238f6bb50c",
+      "svg_sha256": "dcf22e420f13b8a6ccd11f3580cd64a394bad1d2e2aa073e412e0ea1ca281c7b"
     },
     "stochastic_layer_isolated.svg": {
       "call": "vaft.diagram.stochastic_layer(regime='isolated')",

@@ -55,6 +55,7 @@ __all__ = [
     "ObservedConfinement",
     "resolve_observed_confinement",
     "assess_predictor_identifiability",
+    "predictor_principal_directions",
     "bootstrap_confinement_scaling",
     "leave_one_group_out_scaling",
     "fit_confinement_scaling_odr",
@@ -975,6 +976,105 @@ def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> di
         "rank": int(np.linalg.matrix_rank(design)),
         "constant": constant,
     }
+
+
+def predictor_principal_directions(predictors: Mapping[str, np.ndarray], *, groups=None) -> dict:
+    """Principal directions of the log predictors: which exponent combinations the data constrain.
+
+    Parameters
+    ----------
+    predictors : Mapping
+        Predictor arrays keyed by name; rows with any non-finite or
+        non-positive value are dropped [any].
+    groups : array-like, optional
+        Group label per row (e.g. shot); when given, the analysis is repeated
+        on the shot means (between-group) and on the within-group deviations
+        [any].
+
+    Returns
+    -------
+    dict
+        ``names`` [-]; ``n`` rows used [-]; ``scale``, the standard deviation
+        of each log predictor [-]; ``singular_values`` of the centred,
+        standardised log design, largest first [-]; ``directions``, the unit
+        right-singular vectors as rows, one per singular value, in that
+        design's coordinates [-]; ``variance_fraction`` per direction [-];
+        ``effective_rank``, the number of directions whose singular value is
+        at least ``0.1`` of the largest [-]; and, with ``groups``, ``between``
+        and ``within``: the spread of the group means and of the within-group
+        deviations *along the same directions*, in the same standardised
+        units, as root-sum-square projections over the rows, so that
+        ``between**2 + within**2`` is each singular value squared [-] [any].
+
+    Raises
+    ------
+    ValueError
+        No predictor, mismatched lengths (``groups`` included), fewer than
+        three usable rows, or a predictor that does not vary.
+
+    Processing steps
+    ----------------
+    1. Take logs, centre and divide each column by its standard deviation.
+    2. Singular-value decompose; a direction with a small singular value is a
+       combination of predictors the sample barely varies, so the matching
+       combination of exponents is poorly determined (PCR diagnostic). With
+       fewer rows than predictors the missing directions are returned with
+       singular value zero: they are the unconstrained ones.
+    3. With ``groups``, split each direction's spread into the part carried by
+       the group means (each row taking its group's mean) and the part carried
+       by the within-group deviations, both with the pooled centring and scale.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Directions are in standardised log coordinates; a direction mixes
+    exponents in units of each predictor's spread, so convert with ``scale``
+    before reading it as a physical scan. It diagnoses the design, not a fit:
+    it says which scan would add information, not which exponent is right.
+
+    Provenance
+    ----------
+    .. [1621] Issue #1621 Secs. 8 and 12: PCR-style identifiability and the
+       weak singular directions that point to the next scan.
+    .. [BKW] D. A. Belsley, E. Kuh and R. E. Welsch, *Regression Diagnostics*,
+       Wiley (1980), Ch. 3.
+    """
+    names = list(predictors)
+    if not names:
+        raise ValueError("at least one predictor is needed")
+    first = _series(names[0], predictors[names[0]])
+    stack = np.vstack([_series(name, predictors[name], first.size) for name in names])
+    if groups is not None and np.asarray(groups).shape != (first.size,):
+        raise ValueError(f"groups has shape {np.asarray(groups).shape}, expected ({first.size},)")
+    keep = np.all(np.isfinite(stack) & (stack > 0), axis=0)
+    logs = np.log(stack[:, keep]).T
+    if logs.shape[0] < 3:
+        raise ValueError("fewer than three usable rows")
+    centre = logs.mean(axis=0)
+    scale = logs.std(axis=0, ddof=1)
+    if np.any(~(scale > 0)):
+        raise ValueError("a predictor does not vary: " + ", ".join(n for n, s in zip(names, scale) if not s > 0))
+    z = (logs - centre) / scale
+    _, sv, vt = np.linalg.svd(z, full_matrices=True)
+    sv = np.concatenate([sv, np.zeros(len(names) - sv.size)])  # fewer rows than predictors
+    vt = vt * np.sign(vt[np.arange(len(vt)), np.argmax(np.abs(vt), axis=1)])[:, None]
+    out = {"names": names, "n": int(logs.shape[0]), "scale": dict(zip(names, map(float, scale))),
+           "singular_values": sv.tolist(), "directions": vt.tolist(),
+           "variance_fraction": (sv**2 / np.sum(sv**2)).tolist(),
+           "effective_rank": int(np.sum(sv >= 0.1 * sv[0]))}
+    if groups is not None:
+        labels = np.asarray(groups)[keep]
+        uniq, inverse = np.unique(labels, return_inverse=True)
+        means = np.vstack([z[inverse == k].mean(axis=0) for k in range(uniq.size)])
+        within = z - means[inverse]
+        # Each row carries its group's mean, so between^2 + within^2 = singular value^2.
+        out["between"] = {"n": int(uniq.size),
+                          "projected": np.sqrt(((means[inverse] @ vt.T) ** 2).sum(axis=0)).tolist()}
+        out["within"] = {"n": int(z.shape[0]), "projected": np.sqrt(((within @ vt.T) ** 2).sum(axis=0)).tolist()}
+    return out
 
 
 def bootstrap_confinement_scaling(
