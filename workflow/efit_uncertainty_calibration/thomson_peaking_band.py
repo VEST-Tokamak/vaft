@@ -16,7 +16,8 @@ script answers it with a parametric bootstrap over the channels:
    positive floor, as the fit would drop them);
 3. refit with the production settings of ``build_core_profiles_ods``
    (``T_e`` polynomial order 2, ``n_e`` exponential order 2);
-4. compute ``p_e(0) / <p_e>_V`` on the equilibrium's volume.
+4. compute ``p_e(0) / <p_e>_V`` on the equilibrium's own grid, exactly as
+   ``sensitivity_pressure`` computes ``peaking_e``.
 
 Per slice: the unperturbed (central) peaking, the 16th/50th/84th percentiles
 over the draws that fitted, and how many did.  Thomson remains a validation
@@ -56,40 +57,48 @@ def _load_ods(path: Path):
         Path(staged.name).unlink(missing_ok=True)
 
 
-def volume_peaking(pressure: Callable[[np.ndarray], np.ndarray], rho: np.ndarray, volume: np.ndarray) -> float:
-    """``p(0) / <p>_V`` with ``<p>_V = int p dV / V``, ``V(rho)`` the enclosed volume."""
-    order = np.argsort(rho)
-    v_axis = np.interp(_AXIS, rho[order], volume[order])
+def profile_peaking(equilibrium, index: int, pressure: Callable[[np.ndarray], np.ndarray]) -> float:
+    """``p(0) / <p>_V`` of a profile given on ``rho_tor_norm``, integrated on the slice's own grid.
+
+    The same definition as ``sensitivity_pressure.member_pressure``'s
+    ``peaking_e``: ``<p>_V = W / 1.5 / V`` from
+    :func:`vaft.validation.kinetic_state.integrated_pressure_ratio`, which needs
+    no volume profile (the magnetics EFIT product carries none).
+    """
+    from vaft.validation.kinetic_state import integrated_pressure_ratio
+
     p_axis = np.asarray(pressure(_AXIS), float)
-    total = float(v_axis[-1] - v_axis[0])
-    if not np.all(np.isfinite(p_axis)) or total <= 0:
+    if not np.all(np.isfinite(p_axis)):
         return math.nan
-    mean = float(np.trapezoid(p_axis, v_axis)) / total
+    full = integrated_pressure_ratio(equilibrium, index, _AXIS, p_axis)
+    if not full.get("available") or not full.get("volume_m3"):
+        return math.nan
+    mean = full["w_e_j"] / 1.5 / full["volume_m3"]
     return float(p_axis[0] / mean) if mean > 0 else math.nan
 
 
 def peaking_band(thomson, equilibrium, time_s: float, *, draws: int = 200, seed: int = 579,
                  fit: Mapping[str, Any] = PRODUCTION_FIT, floor: float = 1e-3,
-                 tolerance_s: float = 5.0e-4) -> dict[str, Any]:
+                 tolerance_s: float = 5.0e-4, equilibrium_index: int | None = None) -> dict[str, Any]:
     """Central value and bootstrap band of the Thomson ``p_e`` peaking at ``time_s``.
 
     ``thomson`` is the Thomson ODS (modified during the call and restored);
     ``equilibrium`` an equilibrium ODS whose slice nearest ``time_s`` maps the
-    channels and gives the volume.
+    channels and gives the volume; ``equilibrium_index`` names the slice
+    instead, for a one-slice ODS made from a g-file.
     """
     from vaft.process import profile
-    from vaft.validation.kinetic_state import rho_tor_norm_of, slice_at_time
+    from vaft.validation.kinetic_state import slice_at_time
 
-    try:
-        index, _offset = slice_at_time(equilibrium, time_s, ids="equilibrium", tolerance_s=tolerance_s)
-    except LookupError as missing:  # EFIT kept no slice here: no geometry to map onto
-        return {"central": math.nan, "n_draws": 0, "reason": f"no equilibrium slice: {missing}"[:160]}
-    coordinate = rho_tor_norm_of(equilibrium, index)
-    rho = np.asarray(coordinate.get("rho_tor_norm", ()), float)
-    volume = np.asarray(equilibrium[f"equilibrium.time_slice.{index}.profiles_1d.volume"], float)
-    if rho.size < 2 or rho.size != volume.size:
-        return {"central": math.nan, "n_draws": 0, "reason": "the equilibrium slice has no rho_tor_norm/volume profile"}
-    mapped = profile.equilibrium_mapping_thomson_scattering(thomson, equilibrium, time=time_s)
+    if equilibrium_index is not None:
+        index = int(equilibrium_index)
+    else:
+        try:
+            index, _offset = slice_at_time(equilibrium, time_s, ids="equilibrium", tolerance_s=tolerance_s)
+        except LookupError as missing:  # EFIT kept no slice here: no geometry to map onto
+            return {"central": math.nan, "n_draws": 0, "reason": f"no equilibrium slice: {missing}"[:160]}
+    mapped = profile.equilibrium_mapping_thomson_scattering(
+        thomson, equilibrium, time=None if equilibrium_index is not None else time_s)
     points = profile._thomson_points(thomson, time_s * 1e3, 1.0)
     k = points["time_index"]
     channels = thomson["thomson_scattering.channel"]
@@ -98,7 +107,7 @@ def peaking_band(thomson, equilibrium, time_s: float, *, draws: int = 200, seed:
 
     def one_peaking() -> float:
         n_e, t_e, *_ = profile.profile_fitting_thomson_scattering(thomson, time_s * 1e3, mapped, **fit)
-        return volume_peaking(lambda x: n_e(x) * t_e(x), rho, volume)
+        return profile_peaking(equilibrium, index, lambda x: n_e(x) * t_e(x))
 
     def write(t_e: np.ndarray, n_e: np.ndarray) -> None:
         for i, (te0, ne0) in enumerate(original):
@@ -134,12 +143,35 @@ def peaking_band(thomson, equilibrium, time_s: float, *, draws: int = 200, seed:
     return result
 
 
+#: The #891 working setting, whose member geometry is preferred.
+WORKING_SETTING = "p2f1_probe_x3.62_loop_x2.15_dia_x16_ip_x4_floor2pct_psiexit"
+
+
+def member_geometry(scan_dirs: Sequence[Path], shot: int, time_s: float) -> tuple[Path | None, str | None]:
+    """A member g-file for the slice: the working setting's, else the first (2,1), else any member's."""
+    time_dir = f"t{int(round(time_s * 1e6)):07d}"
+    candidates = []
+    for scan in scan_dirs:
+        root = Path(scan) / f"shot_{shot}" / time_dir
+        if root.is_dir():
+            candidates.extend(sorted(d for d in root.iterdir() if d.is_dir()))
+    rank = lambda d: (d.name != WORKING_SETTING, not d.name.startswith("p2f1_"), d.name)  # noqa: E731
+    for directory in sorted(candidates, key=rank):
+        gfiles = sorted(directory.glob("g0*"))
+        if gfiles:
+            return gfiles[0], directory.name
+    return None, None
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--filedb", type=Path, required=True,
                         help="FileDB with omas/thomson/<shot> and omas/efit/magnetic/<shot> products")
     parser.add_argument("--slices", type=Path, required=True, help="CSV with shot and time_efit_s columns")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--scan-dirs", type=Path, nargs="*", default=(),
+                        help="weight_scan --output directories: take each slice's geometry from a member "
+                             "g-file (the working setting's when it has one) instead of the FileDB EFIT product")
     parser.add_argument("--draws", type=int, default=200)
     parser.add_argument("--seed", type=int, default=579)
     args = parser.parse_args(argv)
@@ -156,16 +188,30 @@ def main(argv: Sequence[str] | None = None) -> int:
             cache = {shot: (_load_ods(thomson[0]) if thomson else None, _load_ods(efit[0]) if efit else None)}
         thomson, equilibrium = cache[shot]
         row: dict[str, Any] = {"shot": shot, "time_efit_s": time_s}
+        index = None
+        if args.scan_dirs:
+            gfile, setting = member_geometry(args.scan_dirs, shot, time_s)
+            row["geometry"] = setting or "none"
+            if gfile is not None:
+                from vaft.data import read_geqdsk
+
+                equilibrium, index = read_geqdsk(str(gfile)).to_omas(ods=None, time_index=0), 0
+            else:
+                equilibrium = None
+        else:
+            row["geometry"] = "filedb efit product"
         if thomson is None or equilibrium is None:
-            rows.append({**row, "reason": "no thomson or efit product"})
+            rows.append({**row, "reason": "no thomson product or no geometry"})
             continue
         try:
-            row.update(peaking_band(thomson, equilibrium, time_s, draws=args.draws, seed=args.seed))
+            row.update(peaking_band(thomson, equilibrium, time_s, draws=args.draws, seed=args.seed,
+                                    equilibrium_index=index))
         except Exception as error:  # one slice must not stop the table
             row["reason"] = repr(error)[:160]
         rows.append(row)
         print(row, flush=True)
-    columns = ["shot", "time_efit_s", "time_s", "channels", "central", "q16", "q50", "q84", "n_draws", "reason"]
+    columns = ["shot", "time_efit_s", "geometry", "time_s", "channels", "central", "q16", "q50", "q84", "n_draws",
+               "reason"]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")

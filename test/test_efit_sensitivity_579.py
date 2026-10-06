@@ -90,14 +90,23 @@ def test_model_spread_sigma_log_and_the_bimodal_flag(tmp_path, monkeypatch):
     assert row["viable_bimodal"]  # q84/q16 of {1000, 3000} exceeds 2
 
 
-def test_volume_peaking_of_a_parabolic_profile_in_a_cylinder():
+def test_profile_peaking_is_the_axis_value_over_the_integrated_mean(monkeypatch):
+    """Same definition as sensitivity_pressure's peaking_e: p(0) / (W / 1.5 / V)."""
     band = _load("thomson_peaking_band")
-    rho = np.linspace(0.0, 1.0, 201)
-    volume = rho ** 2  # V(rho) of a cylinder, normalised
-    # p = 1 - rho^2 = 1 - V: <p>_V = 1/2, so p(0)/<p>_V = 2.
-    assert band.volume_peaking(lambda x: 1.0 - x ** 2, rho, volume) == pytest.approx(2.0, rel=1e-3)
-    assert band.volume_peaking(lambda x: np.ones_like(x), rho, volume) == pytest.approx(1.0)
-    assert math.isnan(band.volume_peaking(lambda x: np.full_like(x, np.nan), rho, volume))
+    import vaft.validation.kinetic_state as kinetic_state
+
+    seen = {}
+
+    def fake_ratio(equilibrium, index, rho, p_e):
+        seen.update(rho=np.asarray(rho), p_e=np.asarray(p_e))
+        return {"available": True, "w_e_j": 1.5 * 0.5 * 2.0, "volume_m3": 2.0}  # <p>_V = 0.5
+
+    monkeypatch.setattr(kinetic_state, "integrated_pressure_ratio", fake_ratio)
+    assert band.profile_peaking(object(), 0, lambda x: 1.0 - x ** 2) == pytest.approx(2.0)
+    assert seen["rho"][0] == 0.0 and seen["rho"][-1] == 1.0
+    assert math.isnan(band.profile_peaking(object(), 0, lambda x: np.full_like(x, np.nan)))
+    monkeypatch.setattr(kinetic_state, "integrated_pressure_ratio", lambda *a, **k: {"available": False})
+    assert math.isnan(band.profile_peaking(object(), 0, lambda x: 1.0 - x ** 2))
 
 
 def test_the_band_reports_a_missing_equilibrium_slice_instead_of_failing(monkeypatch):
