@@ -55,6 +55,43 @@ ALL_SCALINGS = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L", "ITER89P", "ITE
                 "H98y2", "NSTX2006H", "Kurskiev2022")
 
 
+#: Where each scaling was fitted and for which regime, as a compact label tag:
+#: database ("single" machine, "multi"-machine; "ST" when spherical tokamaks only)
+#: and confinement mode. Goldston 1984 and ITER89-P/97-L are multi-machine L-mode
+#: (neo-Alcator: ohmic) compilations; NSTX 2006 is NSTX alone; Kurskiev 2022 is the
+#: multi-machine ST H-mode set; IPB98(y,2) the ITPA ELMy H-mode set.
+SCALING_TAGS = {
+    "NeoAlcator": ("multi", "ohmic"),
+    "Goldston84OhmicL": ("multi", "ohmic+L"),
+    "Goldston84L": ("multi", "L"),
+    "ITER89P": ("multi", "L"),
+    "ITER97L": ("multi", "L"),
+    "NSTX2006L": ("single ST", "L"),
+    "H98y2": ("multi", "H"),
+    "NSTX2006H": ("single ST", "H"),
+    "Kurskiev2022": ("multi ST", "H"),
+}
+#: Box colour per database tag of SCALING_TAGS.
+DATABASE_COLOURS = {"multi": "#9ecae1", "single ST": "#fdae6b", "multi ST": "#a1d99b"}
+#: Box hatch per confinement mode of SCALING_TAGS. A new mode takes the next unused
+#: pattern of SPARE_HATCHES (dots first), so the encoding extends without a redesign.
+MODE_HATCHES = {"ohmic": "", "ohmic+L": "\\\\", "L": "//", "H": "--"}
+SPARE_HATCHES = ("..", "xx", "oo", "++")
+
+
+def mode_hatch(mode: str) -> str:
+    """Hatch pattern of a confinement mode; an unlisted mode gets a spare pattern, stably."""
+    if mode in MODE_HATCHES:
+        return MODE_HATCHES[mode]
+    return SPARE_HATCHES[sum(map(ord, mode)) % len(SPARE_HATCHES)]
+
+
+def tagged_label(scaling: str) -> str:
+    """'ITER97-L (Kaye 1997)  [multi | L]': the scaling's label with its database and mode."""
+    database, mode = SCALING_TAGS.get(scaling, ("?", "?"))
+    return f"{LABELS.get(scaling, scaling)}  [{database} | {mode}]"
+
+
 def predict_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
     """Predicted tau_E of any scaling, from vaft.data.public or extra_scalings [s]."""
     from vaft.data.public import predict_confinement_time
@@ -225,6 +262,56 @@ def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L")):
     return fig, axes
 
 
+def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, figsize=(9.5, 5.6)):
+    """VEST alone: the H factor against each scaling, one box per scaling.
+
+    ``table`` holds VEST rows only (e.g. the primary selection); a scaling with a
+    density term uses the rows with a Thomson density. The axis names only the
+    scaling: the box colour is where it was fitted and the hatch its confinement
+    mode (SCALING_TAGS), each with its own legend.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Patch
+
+    values, labels, colours, hatches = [], [], [], []
+    for name in scalings:
+        h = h_factor_of(table, name).replace([np.inf, -np.inf], np.nan).dropna()
+        values.append(h.to_numpy(float))
+        database, mode = SCALING_TAGS.get(name, ("?", "?"))
+        labels.append(LABELS.get(name, name))
+        colours.append(DATABASE_COLOURS.get(database, "0.85"))
+        hatches.append(mode_hatch(mode))
+    fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
+    # Top to bottom in the order given (ALL_SCALINGS runs ohmic, L, H).
+    positions = np.arange(len(values))[::-1]
+    boxes = ax.boxplot(values, positions=positions, vert=False, widths=0.6, patch_artist=True,
+                       medianprops=dict(color="k"), flierprops=dict(markersize=3))
+    for patch, colour, hatch in zip(boxes["boxes"], colours, hatches):
+        patch.set_facecolor(colour)
+        patch.set_hatch(hatch)
+    ax.set_yticks(positions, labels, fontsize="small")
+    ax.axvline(1.0, color="k", ls="--", lw=1)
+    ax.set_xscale("log")
+    ax.set_xlabel(r"$H = \tau_{E,th}/\tau_{E,scaling}$")
+    ax.grid(alpha=0.25, which="both", axis="x")
+    ax.set_title("VEST (ohmic): H against each scaling", fontsize="medium")
+    tags = [SCALING_TAGS.get(name, ("?", "?")) for name in scalings]
+    databases = list(dict.fromkeys(db for db, _ in tags))
+    modes = list(dict.fromkeys(mode for _, mode in tags))
+    # Short labels under a "fit database" title: the first legend is placed with
+    # add_artist, which the layout engine does not make room for.
+    fit_handles = [Patch(facecolor=DATABASE_COLOURS.get(db, "0.85"), edgecolor="k", label=db) for db in databases]
+    mode_handles = [Patch(facecolor="white", edgecolor="k", hatch=mode_hatch(m),
+                          label=f"{m}-mode" if len(m) == 1 else m) for m in modes]
+    # Both legends sit outside the axes, right: no H range is free of boxes or outliers.
+    first = ax.legend(handles=fit_handles, fontsize="x-small", loc="upper left", bbox_to_anchor=(1.01, 1.0),
+                      frameon=False, title="fit database", title_fontsize="x-small", alignment="left")
+    ax.add_artist(first)
+    ax.legend(handles=mode_handles, fontsize="x-small", loc="lower left", bbox_to_anchor=(1.01, 0.0),
+              frameon=False, title="regime", title_fontsize="x-small", alignment="left")
+    return fig, ax
+
+
 def exponent_table(closures: pd.DataFrame, nstx: pd.DataFrame, data: str = "primary:A") -> pd.DataFrame:
     """One row per scaling: aI, aB, aP (with errors where fitted) and the completed mu_rho."""
     rows = []
@@ -331,6 +418,8 @@ def slide_figures(table: pd.DataFrame, exponents: pd.DataFrame, *, theme: str = 
             "tau_predicted_vs_measured": predicted_vs_measured_figure(
                 table, SLIDE_SCALINGS, figsize=(width, min(0.52 * width, ceiling)))[0],
             "exponents": exponent_figure(exponents, figsize=(width, ceiling))[0],
+            "vest_h_factor": vest_h_factor_figure(table.loc[table["machine"] == "VEST"],
+                                                  figsize=(width, ceiling))[0],
         }
 
 
@@ -369,6 +458,8 @@ def main(argv=None) -> int:
         "confinement_predicted_vs_measured_all_scalings":
             predicted_vs_measured_figure(by_machine, ALL_SCALINGS, max_groups=MACHINE_GROUPS)[0],
         "confinement_h_factor_all_scalings": h_factor_figure(by_machine, ALL_SCALINGS)[0],
+        # VEST alone against every scaling, tagged by fit database and mode.
+        "confinement_vest_h_factor": vest_h_factor_figure(table.loc[table["machine"] == "VEST"])[0],
     }
     written = []
     for name, fig in figures.items():

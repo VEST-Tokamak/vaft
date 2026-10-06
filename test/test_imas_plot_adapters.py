@@ -55,8 +55,16 @@ def test_native_classes_are_never_patched(entry):
 
 
 def test_every_offered_plot_renders_with_the_contract(entry):
+    from vaft.plot.registry import NON_GRAPHICAL_VIEWS
+    from vaft.plot.renderers.tables import TextView
+
     for row in vaft.imas.available_plots(entry):
-        figure, axes = getattr(vaft.imas, f"plot_{row.name}")(entry)
+        result = getattr(vaft.imas, f"plot_{row.name}")(entry)
+        if row.view in NON_GRAPHICAL_VIEWS:
+            # A table or text view returns text, not a figure (issue #1180).
+            assert isinstance(result, TextView) and result.text()
+            continue
+        figure, axes = result
         assert figure is not None and axes is not None
         plt.close(figure)
 

@@ -1,0 +1,30 @@
+{%- comment -%}
+The shared interactive graph viewer (#1646, #1647).
+
+  include.adapter   which adapter renders the snapshot (assets/graph/<adapter>-graph.js)
+  include.src       the JSON endpoint serving the generated snapshot, relative to the site root
+  include.label     accessible name of the graph
+
+Cytoscape.js is vendored, pinned to the version docs/package.json declares
+(assets/lib/vendor.yml records its checksum); nothing is fetched from a CDN.
+{%- endcomment -%}
+<link rel="stylesheet" href="{{ site.baseurl }}/assets/graph/viewer.css">
+<div class="vg-root" data-vaft-graph="{{ include.adapter }}" data-src="{{ site.baseurl }}{{ include.src }}" data-baseurl="{{ site.baseurl }}" role="region" aria-label="{{ include.label }}">
+  <div class="vg-toolbar">
+    <input type="search" list="vg-search-{{ include.adapter }}" placeholder="Search a module, package or public object" aria-label="Search the graph" data-vg-search>
+    <datalist id="vg-search-{{ include.adapter }}"></datalist>
+    <span class="vg-search-result" data-vg-search-result></span>
+    <span class="vg-count" data-vg-count></span>
+  </div>
+  <div class="vg-layout">
+    <div class="vg-controls" data-vg-controls></div>
+    <div class="vg-stage">
+      <div class="vg-status" data-vg-status>This interactive graph needs JavaScript.</div>
+      <div class="vg-canvas" data-vg-canvas></div>
+    </div>
+    <div class="vg-details" data-vg-details aria-live="polite"></div>
+  </div>
+</div>
+<script src="{{ site.baseurl }}/assets/lib/cytoscape-3.34.3/cytoscape.min.js"></script>
+<script src="{{ site.baseurl }}/assets/graph/{{ include.adapter }}-graph.js"></script>
+<script src="{{ site.baseurl }}/assets/graph/viewer.js"></script>

@@ -3055,6 +3055,194 @@ def kink_safety_factor(R: Union[float, np.ndarray],
 
 
 # ------------------------------------------------------------------
+# Edge-q estimates from global shape (#1583)
+# ------------------------------------------------------------------
+#
+# Thin SI-unit fronts over the coordinate functions of `.boundaries` (#1456),
+# which hold the coefficients and the registered sources once: the START scaling
+# (Akers et al. 2000), the ITER guideline (Post et al. 1991), Menard's cylindrical
+# q* and Freidberg's kink q*. Each quantity keeps its own name; none is q_a.
+
+#: Scalings accepted by :func:`estimated_q95`.
+Q95_SCALINGS = ("start", "iter")
+
+
+def estimated_q95(a: Union[float, np.ndarray],
+                  R0: Union[float, np.ndarray],
+                  B0: Union[float, np.ndarray],
+                  kappa: Union[float, np.ndarray],
+                  delta: Union[float, np.ndarray],
+                  I_p: Union[float, np.ndarray],
+                  *,
+                  scaling: str = "start",
+                  configuration: str = "limiter") -> Union[float, np.ndarray]:
+    r"""Estimated $q_{95}$ from global shape, plasma current and toroidal field.
+
+    $$q_{95} \approx \frac{5a^2B_0}{R_0\,I_p[\mathrm{MA}]}\,
+      \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\,f(A), \qquad A = R_0/a$$
+
+    with $f(A) = 1.17\,C\sqrt{A/(A-1)}$ for ``scaling="start"`` (Akers et al. 2000;
+    $C$ = 1.0 limiter, 0.77 double null) and $f(A) = (1.17-0.65/A)/(1-1/A^2)^2$
+    for ``scaling="iter"`` (Post et al. 1991).
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius (geometric centre of the boundary) [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    delta : float or np.ndarray
+        Triangularity (mean of upper and lower) [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [A].
+    scaling : {"start", "iter"}
+        Aspect-ratio function: the START scaling or the ITER guideline [str].
+    configuration : {"limiter", "double_null"}
+        START only: C = 1.0 or 0.77; must stay ``"limiter"`` for ``"iter"`` [str].
+
+    Returns
+    -------
+    float or np.ndarray
+        Estimated $q_{95}$, NaN where an input is NaN, infinite at zero current [-].
+
+    Raises
+    ------
+    ValueError
+        An unknown ``scaling`` or ``configuration``, ``configuration`` other than
+        ``"limiter"`` with ``scaling="iter"``, or the geometry errors of
+        :func:`vaft.formula.boundaries.start_q95_coordinates`.
+
+    Convention
+    ----------
+    An estimate from global parameters, not an equilibrium $q_{95}$: label it so
+    (``"q95 (START estimate)"``). Both fits are written for the 95 % surface shape.
+    On the 133 VEST Tier A EFIT equilibria, fed the boundary $\kappa$ and $\delta$,
+    the START estimate over the equilibrium $q_{95}$ has median 0.99 (IQR 0.95-1.03)
+    and the ITER one 1.35 (#1580), which is why ``"start"`` is the default for a
+    limited spherical tokamak. The machine default is read from the machine
+    description by :func:`vaft.omas.edge_q.edge_q_estimate`, not here.
+
+    References
+    ----------
+    .. [1] R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227.
+    .. [2] D. E. Post et al., *ITER Physics*, ITER Documentation Series No. 21,
+           IAEA (1991), Table 1-2.
+    """
+    from .boundaries import AKERS_2000_C, iter_q95_coordinates, start_q95_coordinates
+
+    if scaling not in Q95_SCALINGS:
+        raise ValueError(f"scaling must be one of {list(Q95_SCALINGS)}, not {scaling!r}")
+    if configuration not in AKERS_2000_C:
+        raise ValueError(f"configuration must be one of {sorted(AKERS_2000_C)}, not {configuration!r}")
+    current_ma = np.asarray(I_p, dtype=float) * 1e-6
+    if scaling == "iter":
+        if configuration != "limiter":
+            raise ValueError("configuration applies to the START scaling only; the ITER guideline has no C")
+        return iter_q95_coordinates(a, R0, B0, kappa, delta, current_ma)
+    return start_q95_coordinates(a, R0, B0, kappa, delta, current_ma, configuration=configuration)
+
+
+def q_star_cylindrical(a: Union[float, np.ndarray],
+                       R0: Union[float, np.ndarray],
+                       B0: Union[float, np.ndarray],
+                       kappa: Union[float, np.ndarray],
+                       I_p: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Menard's cylindrical safety factor $q^* = \pi a^2 B_0(1+\kappa^2)/(\mu_0 R_0 I_p)$.
+
+    $$q^* = \frac{\pi a^2 B_0\,(1+\kappa^2)}{\mu_0 R_0 I_p}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        Cylindrical safety factor $q^*$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        The geometry errors of :func:`vaft.formula.boundaries.cylindrical_kink_coordinates`.
+
+    Convention
+    ----------
+    A shape-weighted proxy, not $q_a$ and not $q_{95}$: on the VEST Tier A
+    equilibria it is about 0.41 of the equilibrium $q_{95}$ (#1580). SI current;
+    :func:`vaft.formula.boundaries.cylindrical_kink_coordinates` takes MA.
+
+    References
+    ----------
+    .. [1] J. E. Menard et al., Phys. Plasmas 11 (2004) 639; preprint PPPL-3908, p. 9.
+    """
+    from .boundaries import cylindrical_kink_coordinates
+
+    return cylindrical_kink_coordinates(a, R0, B0, kappa, np.asarray(I_p, dtype=float) * 1e-6)
+
+
+def q_star_kink(a: Union[float, np.ndarray],
+                R0: Union[float, np.ndarray],
+                B0: Union[float, np.ndarray],
+                kappa: Union[float, np.ndarray],
+                I_p: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Freidberg's kink safety factor $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I_p)$.
+
+    $$q_* = \frac{2\pi a^2 \kappa B_0}{\mu_0 R_0 I_p}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        Kink safety factor $q_*$ of Eq. (13.160), NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        The geometry errors of :func:`vaft.formula.boundaries.kink_coordinates`.
+
+    Convention
+    ----------
+    The definition with which Freidberg's kink limit $q_* \ge (1+\kappa)/2$ is
+    stated; not $q_a$, not $q_{95}$ (about 0.38 of the VEST equilibrium $q_{95}$,
+    #1580) and not the tuple-returning :func:`kink_safety_factor`. SI current;
+    :func:`vaft.formula.boundaries.kink_coordinates` takes MA.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Plasma Physics and Fusion Energy*, Cambridge University
+           Press (2008), Eq. (13.160), p. 405.
+    """
+    from .boundaries import kink_coordinates
+
+    return kink_coordinates(a, R0, B0, kappa, np.asarray(I_p, dtype=float) * 1e-6)
+
+
+# ------------------------------------------------------------------
 # Plasma beta / energy
 # ------------------------------------------------------------------
 # W_K = (3/2) * (1/(2*mu0) * beta_p * B_pa^2 * V_p)

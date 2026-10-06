@@ -853,6 +853,9 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   stops the worker instead of silently creating a new state file under a literal `${...}` directory.
 - **The worker reproduces Snakemake's config merge.** Snakemake merges `pipeline_config` over the
   workflow's own `config.yaml`, and the worker checks and harvests against that same merged result.
+  The Snakefile locates that `config.yaml` by its own path, so the merge holds for any `--directory`.
+  Before #1530 it resolved against `--directory`, and a run directory with a partial config silently
+  ran on code defaults: EFIT off, `args 65`, no eddy plasma filament.
 - **`stages` narrows what the worker runs and judges.** Omitted, every run requests `rule all`, the
   whole pipeline. `stages: [raw, diagnostics, eddy]` requests only those stages' products, plots and
   replication records, and the shot's verdict is taken from those alone: the constraint and k-file
