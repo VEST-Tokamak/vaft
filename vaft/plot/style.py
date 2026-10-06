@@ -246,19 +246,94 @@ def finalize(
                     figure.tight_layout(pad=pad)
             except Exception:  # pragma: no cover - layout engines can refuse
                 pass
+        try:
+            _contain_3d_axes(figure)
+        except Exception:  # pragma: no cover - a cosmetic step must never fail a render
+            pass
     if show:
         plt.show()
     return figure, axes
 
 
-def save_figure(figure: Figure, path: Any, *, close: bool = True, **savefig_kwargs: Any):
+#: Space kept between a 3-D view's outermost text and the canvas edge, in points.
+_3D_EDGE_PAD_PT = 3.0
+
+
+def _contain_3d_axes(figure: Figure, *, passes: int = 3) -> None:
+    """Pull every 3-D axes in so its tick and axis labels sit inside the canvas.
+
+    ``tight_layout`` measures a 3-D axes by its 2-D box, not by the text the
+    projection throws outside it, so the z label of a default machine view
+    hung 14-33 px past the right edge (issue #1317).  This measures what was
+    actually drawn -- the axes' tight bbox and its three axis labels -- and
+    shrinks the axes' position by the overflow on each side, a few passes,
+    because shrinking the cube also moves the labels.  2-D axes are left as
+    the layout put them.
+    """
+    from matplotlib.transforms import Bbox
+
+    three_d = [axis for axis in figure.axes if getattr(axis, "name", "") == "3d" and axis.get_visible()]
+    if not three_d:
+        return
+    pad = _3D_EDGE_PAD_PT * figure.dpi / 72.0
+    for _ in range(passes):
+        # A pdf/svg canvas, or a bare Figure's FigureCanvasBase, has no
+        # get_renderer(); the figure's own layout renderer works on all of them.
+        figure.draw_without_rendering()
+        renderer = figure._get_renderer()
+        frame = figure.bbox
+        moved = False
+        for axis in three_d:
+            extents = [axis.get_tightbbox(renderer)]
+            extents += [
+                label.get_window_extent(renderer)
+                for label in (axis.xaxis.label, axis.yaxis.label, axis.zaxis.label)
+                if label.get_text() and label.get_visible()
+            ]
+            extents = [extent for extent in extents if extent is not None]
+            if not extents:
+                continue
+            drawn = Bbox.union(extents)
+            over = (
+                max(0.0, frame.x0 + pad - drawn.x0), max(0.0, frame.y0 + pad - drawn.y0),
+                max(0.0, drawn.x1 - (frame.x1 - pad)), max(0.0, drawn.y1 - (frame.y1 - pad)),
+            )
+            if not any(value > 0.5 for value in over):
+                continue
+            box = axis.get_position()
+            left, bottom, right, top = (
+                over[0] / frame.width, over[1] / frame.height, over[2] / frame.width, over[3] / frame.height,
+            )
+            width, height = box.width - left - right, box.height - bottom - top
+            if width <= 0.1 * box.width or height <= 0.1 * box.height:
+                continue  # nothing sensible left to shrink to; keep the layout's box
+            axis.set_position([box.x0 + left, box.y0 + bottom, width, height])
+            moved = True
+        if not moved:
+            return
+
+
+def save_figure(
+    figure: Figure, path: Any, *, close: bool = True, figure_options: Any = None, **savefig_kwargs: Any,
+):
     """Write ``figure`` to ``path`` and release it.
 
     Callers outside :mod:`vaft.plot` use this instead of importing pyplot just to
     close a figure, which keeps rendering confined to this package.
+    ``figure_options`` supplies the export fields of a
+    :class:`vaft.plot.FigureOptions` -- ``dpi`` and ``transparent`` -- the one
+    place they act (issue #1421); an explicit savefig keyword still wins.
     """
     import matplotlib
 
+    if figure_options is not None:
+        from .figure_options import as_figure_options
+
+        export = as_figure_options(figure_options)
+        if export.dpi is not None:
+            savefig_kwargs.setdefault("dpi", export.dpi)
+        if export.transparent is not None:
+            savefig_kwargs.setdefault("transparent", export.transparent)
     savefig_kwargs.setdefault("dpi", 300)
     savefig_kwargs.setdefault("bbox_inches", "tight")
     # Vector output keeps its text as text: TrueType fonts embedded in a PDF

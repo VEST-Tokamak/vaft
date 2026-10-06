@@ -10,6 +10,7 @@ in Jupyter and on the documentation site.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import re
 import shutil
@@ -17,9 +18,9 @@ import subprocess
 import tempfile
 from importlib import resources
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Union
 
-from ._scene import Arrow, Label, Marker, Polyline, Scene
+from ._scene import Arrow, Image, Label, Marker, Polyline, Scene
 
 _BODY_SLOT = "%%VAFT-BODY%%"
 #: Everything between the TikZ source and the committed SVG that is not in the
@@ -65,7 +66,52 @@ def _tikz_item(item) -> str:
         return f"\\draw[{style}] {_xy(item.start)} -- {_xy(item.end)};"
     if isinstance(item, Label):
         return f"\\node[{item.style},anchor={item.anchor}] at {_xy(item.at)} {{{item.text}}};"
+    if isinstance(item, Image):
+        # the hash makes the source -- and so the manifest -- change when the picture does
+        return (f"\\node[inner sep=0pt] at {_xy(item.at)} "
+                f"{{\\vaftimage{{{_num(item.width)}cm}}{{{_num(item.height)}cm}}{{{item.name}}}}};"
+                f" % image sha256={image_sha256(item.name)}")
     raise TypeError(f"not a scene item: {item!r}")
+
+
+_IMAGE_REF = re.compile(r"\\vaftimage\{[^}]*\}\{[^}]*\}\{([A-Za-z0-9_.-]+)\}")
+#: the template's dvisvgm image macro, and what pdflatex uses instead
+_VAFTIMAGE_DVISVGM = ("\\newcommand{\\vaftimage}[3]{\\raisebox{0pt}[#2][0pt]{\\makebox[#1][l]"
+                      "{\\raisebox{#2}{\\special{dvisvgm:img #1 #2 #3}}}}}")
+_VAFTIMAGE_PDF = "\\newcommand{\\vaftimage}[3]{\\includegraphics[width=#1,height=#2]{#3}}"
+
+
+def image_path(name: str) -> Path:
+    """A packaged picture under ``vaft/diagram/images``."""
+    path = Path(str(resources.files("vaft.diagram").joinpath("images", name)))
+    if not path.is_file():
+        raise FileNotFoundError(f"no packaged diagram image {name!r} under vaft/diagram/images")
+    return path
+
+
+def image_sha256(name: str) -> str:
+    return hashlib.sha256(image_path(name).read_bytes()).hexdigest()
+
+
+def _stage_images(document: str, cwd: Path) -> List[str]:
+    """Copy every picture the document includes next to it; their names."""
+    names = sorted(set(_IMAGE_REF.findall(document)))
+    for name in names:
+        shutil.copyfile(image_path(name), cwd / name)
+    return names
+
+
+def _embed_images(svg: str, names: List[str], cwd: Path) -> str:
+    """Inline referenced pictures as data URIs: dvisvgm keeps them as external files."""
+    mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
+    for name in names:
+        data = base64.b64encode((cwd / name).read_bytes()).decode("ascii")
+        uri = f"data:{mime[Path(name).suffix.lower()]};base64,{data}"
+        svg = re.sub(r"""((?:xlink:)?href=)(['"])""" + re.escape(name) + r"\2", lambda m: f"{m.group(1)}{m.group(2)}{uri}{m.group(2)}", svg)
+        # a reference left behind points into a deleted temporary directory: fail rather than ship it
+        if re.search(r"""href=['"]""" + re.escape(name), svg):
+            raise RuntimeError(f"could not inline the picture {name!r}: dvisvgm wrote an unrecognised reference")
+    return svg
 
 
 def template() -> str:
@@ -225,12 +271,13 @@ def render_svg(document: str) -> str:
     with tempfile.TemporaryDirectory(prefix="vaft-diagram-") as tmp:
         cwd = Path(tmp)
         (cwd / "diagram.tex").write_text(document, encoding="utf-8")
+        images = _stage_images(document, cwd)
         _run([tools["latex"], "-interaction=nonstopmode", "-halt-on-error", "diagram.tex"], cwd, "latex")
         # papersize: the box TikZ and standalone computed. --exact-bbox and
         # --bbox=min over-extend the 3-D view by ~90 pt of empty margin.
         _run([tools["dvisvgm"], "--no-fonts", "--bbox=papersize", "--optimize",
               "--output=diagram.svg", "diagram.dvi"], cwd, "dvisvgm")
-        return normalize_svg((cwd / "diagram.svg").read_text(encoding="utf-8"))
+        return normalize_svg(_embed_images((cwd / "diagram.svg").read_text(encoding="utf-8"), images, cwd))
 
 
 def render_pdf(document: str, target: Path) -> None:
@@ -241,8 +288,9 @@ def render_pdf(document: str, target: Path) -> None:
     with tempfile.TemporaryDirectory(prefix="vaft-diagram-") as tmp:
         cwd = Path(tmp)
         # pdflatex cannot use the dvisvgm driver line; drop it for this export.
-        (cwd / "diagram.tex").write_text(document.replace("\\def\\pgfsysdriver{pgfsys-dvisvgm.def}\n", ""),
-                                            encoding="utf-8")
+        (cwd / "diagram.tex").write_text(document.replace("\\def\\pgfsysdriver{pgfsys-dvisvgm.def}\n", "")
+                                         .replace(_VAFTIMAGE_DVISVGM, _VAFTIMAGE_PDF), encoding="utf-8")
+        _stage_images(document, cwd)
         _run([pdflatex, "-interaction=nonstopmode", "-halt-on-error", "diagram.tex"], cwd, "pdflatex")
         shutil.copyfile(cwd / "diagram.pdf", target)
 

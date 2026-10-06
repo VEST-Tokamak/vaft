@@ -381,6 +381,14 @@ def vfit_pf_active_dynamic(
         set_path(ods, f"pf_active.coil.{coil_index}.current.data", current)
 
 
+class UnacquiredPFCircuitError(raw_db.RawSignalUnavailableError):
+    """A PF circuit the computation needs was not recorded for this shot (#1568).
+
+    Its own type so a caller can tell this -- a property of the shot's data,
+    which no rerun changes -- from every other unavailable input.
+    """
+
+
 def unacquired_pf_coils(ods: object) -> list[str]:
     """Names (or ``coil.<i>``) of the PF circuits whose current is not all finite.
 
@@ -421,7 +429,7 @@ def require_acquired_pf_currents(ods: object, shot: int | None, consumer: str) -
     )
     if shot is None:
         raise ValueError(reason)
-    raise raw_db.RawSignalUnavailableError(
+    raise UnacquiredPFCircuitError(
         int(shot), "pf_active", reason, signal_name="PF active coil current"
     )
 
@@ -480,6 +488,7 @@ __all__ = [
     "pf_active_from_raw_database",
     "pf_geometry_version_for_shot",
     "resolve_geometry_asset",
+    "UnacquiredPFCircuitError",
     "require_acquired_pf_currents",
     "unacquired_pf_coils",
     "vfit_pf",

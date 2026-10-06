@@ -1273,6 +1273,43 @@ def build_impa_ods(
     return ods, manifest
 
 
+#: ``eddy_status`` prefix of an eddy stage whose inputs do not exist in the data.
+#: Replication reads it as a result, not a fault (vaft.database.replication).
+EDDY_INPUT_UNAVAILABLE = "skipped: required input unavailable"
+
+
+def eddy_no_output_product(
+    *, shot: int, diagnostics_ods: str | Path, static_ods: str | Path, reason: str
+) -> tuple[ODS, dict[str, Any]]:
+    """The eddy product for a shot with an unrecorded PF circuit (#1568).
+
+    :func:`build_eddy_ods` refuses such a shot, and that stays an error for a
+    direct caller. The routine stage records it instead: a product with no
+    ``pf_passive`` and a manifest saying ``no_output`` and why, so the shot is
+    finished with nothing to compute rather than a failure retried forever.
+    Only an unrecorded circuit takes this path; a missing diagnostics
+    component still fails the stage, because it can be a configuration fault.
+    """
+    diagnostics_path, static_path = Path(diagnostics_ods), Path(static_ods)
+    product = ODS(consistency_check=False)
+    product["dataset_description.data_entry.pulse"] = int(shot)
+    product["dataset_description.ids_properties.homogeneous_time"] = 2
+    product["dataset_description.ids_properties.comment"] = f"eddy produced no output: {reason}"
+    manifest = {
+        "schema_version": 1,
+        "stage": "eddy",
+        "shot": int(shot),
+        "machine_version": machine_era_for_shot(int(shot)).name,
+        "status": "no_output",
+        "eddy_status": f"{EDDY_INPUT_UNAVAILABLE}: {reason}",
+        "input": {
+            "diagnostics_sha256": sha256_file(diagnostics_path),
+            "static_sha256": sha256_file(static_path),
+        },
+    }
+    return product, manifest
+
+
 def build_eddy_ods(
     *,
     shot: int,

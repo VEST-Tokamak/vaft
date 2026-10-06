@@ -244,6 +244,9 @@ PIPELINE = frozenset({
     # fluctuation / transients (#1005): common grid then Welch; floor, runs, path;
     # crossings then rate; trend, window, noise, threshold
     "cross_spectrum",
+    "cross_spectrogram",
+    "cross_spectral_matrix",
+    "coherent_components",
     "track_dominant_frequency",
     "current_quench",
     "current_spike",
@@ -301,6 +304,8 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # #1608: COCOS source profiles versus full-weber Green response orientation.
+    "fit_free_boundary_coils",
     # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
     # the parallel (not perpendicular) Spitzer coefficient; <J.B>, not j_tor
     "observed_resistance",
@@ -613,6 +618,9 @@ CONVENTION_SENSITIVE = frozenset({
     # fluctuation / transients (#1005): the phase is y relative to x, the ridge
     # floor is relative to the map, and the current is measured on its magnitude.
     "cross_spectrum",
+    "cross_spectrogram",
+    "cross_spectral_matrix",
+    "coherent_components",
     "track_dominant_frequency",
     "current_quench",
     "current_spike",

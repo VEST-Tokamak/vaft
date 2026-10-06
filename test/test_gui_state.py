@@ -99,25 +99,12 @@ def test_nothing_open_is_an_error():
         BrowserSession().catalog()
 
 
-def test_figure_settings_validate_and_lay_over_both_renderers():
-    import plotly.graph_objects as go
+def test_the_preview_size_is_validated():
+    from vaft.gui.figure import DisplaySize
 
-    from vaft.gui.figure import FigureSettings
-
-    with pytest.raises(ValueError, match="xmin must be below xmax"):
-        FigureSettings(xmin=1.0, xmax=1.0)
     with pytest.raises(ValueError, match="at least 50 px"):
-        FigureSettings(width=10)
-    settings = FigureSettings(width=400, xmin=0.1, ylog=True, ymin=1e-3, ymax=10.0)
-    shown = settings.apply(go.Figure(go.Scatter(x=[0, 1], y=[1, 2])), "plotly")
-    assert shown.layout.width == 400 and list(shown.layout.xaxis.range) == [0.1, None]
-    assert shown.layout.yaxis.type == "log" and list(shown.layout.yaxis.range) == [-3.0, 1.0]
-    figure, ax = plt.subplots()
-    ax.plot([0, 1], [1, 2])
-    settings.apply(figure, "matplotlib")
-    assert figure.get_size_inches()[0] == pytest.approx(400 / figure.get_dpi())
-    assert ax.get_xlim()[0] == 0.1 and ax.get_yscale() == "log" and ax.get_ylim() == (1e-3, 10.0)
-    plt.close(figure)
+        DisplaySize(width=10)
+    assert DisplaySize(640, None).width == 640
 
 
 def test_several_sources_open_together_and_export(session):

@@ -128,14 +128,11 @@ IMAS/OMAS, FileDB와 고유 산출물, [HSDS](https://github.com/HDFGroup/hsds) 
 
 ![관리되는 과학 처리 파이프라인](docs/assets/diagrams/scientific_workflow.svg)
 
-현재 VEST 배포 구성:
+현재 VEST 배포 구성은 샷별 데이터베이스를 중심으로 합니다. 실험 데이터 처리가 각 샷의 진단 데이터를 기록하고,
+재구성·물리 추론과 시뮬레이션은 같은 샷에서 읽고 다시 기록하며, 사용자는 Python API, CLI, GUI, MCP, 문서를 통해
+로컬 또는 HPC 클러스터에서 접근합니다:
 
-```
-VEST 데이터 분석 플랫폼
-├── 자동화 파이프라인(Snakemake)       ── 실험 → 후처리 → 시뮬레이션
-├── 데이터베이스(IMAS-HSDS)             ── REST API를 통한 샷별 HDF5 저장소
-└── 인터페이스(VAFT)                    ── 데이터 접근, 매핑, 처리, 시각화
-```
+![VEST 데이터 플랫폼](docs/assets/diagrams/vest_data_platform.svg)
 
 ### VEST 데이터베이스에서 사용할 수 있는 IMAS IDS
 
