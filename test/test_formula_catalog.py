@@ -77,7 +77,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "virial": 33,
         "stability": 37,  # +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
-        "atomic": 9,   # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046), +mean square charge (#1565)
+        "atomic": 11,  # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046), +mean square charge, transient abundances, coronal relaxation time (#1565)
         "statistics": 22,
         "magnetics": 2,
         # #781 child A: Romero's exact transformer identities.
