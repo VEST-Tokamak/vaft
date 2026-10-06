@@ -136,6 +136,9 @@ PIPELINE = frozenset({
     "populate_radial_impurity_profiles",
     # impurity (Lane L PR 5): main ion -> lumped charge at the surface -> densities
     "surface_composition_profile",
+    # species (#1567): match -> nuclide/charge/population per ion -> state
+    "species_state_from_core_profiles",
+    "project_species_state",
     # zeff_projection (#1566): R_p of the profile -> root / Lane Z's window objective
     "project_zeff_profile_to_resistive_scalar",
     "project_window_to_resistive_scalar",
@@ -302,6 +305,8 @@ STATEFUL = frozenset({
     "populate_impurity_profiles",
     "populate_radial_impurity_profiles",
     "surface_composition_profile",
+    # species (#1567): a core_profiles slice -> canonical components
+    "species_state_from_core_profiles",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
@@ -644,6 +649,11 @@ CONVENTION_SENSITIVE = frozenset({
     "project_window_to_resistive_scalar",
     "flat_profile_from_resistive",
     "zeff_profile_for_state",
+    # species (#1567): population labels, dilution bases and per-target projection policy
+    "species_state_from_core_profiles",
+    "species_state_from_composition",
+    "composition_moments",
+    "project_species_state",
     # mhd_stability (#940): DCON's signs (D_I, D_R > 0 and C_A, dW < 0 unstable)
     # and its edge-scan peak search.
     "dcon_local_stability",

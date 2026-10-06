@@ -63,6 +63,7 @@ _SUBMODULES = {
     "transport_state": ".transport_state",
     "confinement": ".confinement",
     "impurity": ".impurity",
+    "species": ".species",
     "zeff_projection": ".zeff_projection",
     "mhd_stability": ".mhd_stability",
 }
@@ -122,6 +123,9 @@ _IMPORT_ORDER = (
     # One resolved impurity composition behind every Z_eff (#1565); nothing it
     # exports collides.
     "impurity",
+    # Canonical species/population state and its projections (#1567); nothing it
+    # exports collides.
+    "species",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
     # DCON local-criterion and edge-scan post-processing from the ODS payload
