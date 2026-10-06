@@ -505,6 +505,26 @@ class WorkerState:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    # -- disk guard -------------------------------------------------------
+    def disk_paused(self) -> str | None:
+        """Why the worker paused for disk space, or ``None`` while it runs."""
+        row = self._conn.execute("SELECT value FROM meta WHERE key = 'disk_paused'").fetchone()
+        return None if row is None else str(row[0])
+
+    def set_disk_paused(self, reason: str | None) -> None:
+        """Enter (``reason``) or leave (``None``) the disk pause, with an event."""
+        with self._transaction() as conn:
+            if reason is None:
+                conn.execute("DELETE FROM meta WHERE key = 'disk_paused'")
+                self._event(conn, "disk_resumed")
+            else:
+                conn.execute(
+                    "INSERT INTO meta(key, value) VALUES ('disk_paused', ?) "
+                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (reason,),
+                )
+                self._event(conn, "disk_paused", detail=reason)
+
     def counts(self) -> dict[str, int]:
         rows = self._conn.execute("SELECT state, COUNT(*) FROM shots GROUP BY state").fetchall()
         return {row[0]: int(row[1]) for row in rows}

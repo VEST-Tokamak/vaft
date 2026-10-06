@@ -330,3 +330,25 @@ def test_merging_refuses_records_from_different_initial_states(scan):
     assert scan.check_fingerprints(same) == "x"
     with pytest.raises(RuntimeError, match="different initial states"):
         scan.check_fingerprints(same + [{"setting": "c", "fingerprint": "y"}])
+
+
+def test_the_579_ensemble_is_the_full_grid_around_the_working_setting(scan):
+    settings = scan.sensitivity_settings()
+    assert len(settings) == 120 == len({s["name"] for s in settings})
+    assert {tuple(s["basis"]) for s in settings} == set(scan.SENSITIVITY_BASES)
+    assert {s["dia"] for s in settings} == {None, 4, 16, 64}
+    working = [s for s in settings if s["basis"] == [2, 1] and s["dia"] == 16
+               and (s["probe"], s["loop"]) == (3.62, 2.15)]
+    assert len(working) == 1 and working[0]["psi_exit"] and working[0]["ip"] == 4.0
+    # every setting writes uncertainty scales the writer accepts
+    assert all(scan.uncertainty_scales(s)["bpol_probe"] > 0 for s in settings)
+
+
+def test_a_products_dir_extends_the_reference_set(scan, tmp_path, monkeypatch):
+    (tmp_path / "42962.json.gz").write_bytes(b"")
+    monkeypatch.setattr(scan, "_CONTEXT", {})
+    monkeypatch.setitem(scan._INPUTS, "products_dir", tmp_path)
+    monkeypatch.setitem(scan._INPUTS, "thomson_root", tmp_path)
+    ctx = scan._context(None)
+    assert ctx["products"][42962] == tmp_path / "42962.json.gz"
+    assert 39915 in ctx["products"] and ctx["thomson_root"] == tmp_path
