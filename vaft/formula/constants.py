@@ -10,8 +10,8 @@ fitted prefactors whose meaning is defined by the single function that uses
 each of them, documented there.
 
 The private ``_SCALING_COEFS`` table holds the engineering-unit confinement
-scalings (ITER89P, IPB98(y,2), the two NSTX 2006 fits and the Kurskiev 2022 ST
-fit).  Each entry carries its prefactor, exponents, target density definition,
+scalings (ITER89P, IPB98(y,2), ITER97-L, the two NSTX 2006 fits and the Kurskiev
+2022 ST fit).  Each entry carries its prefactor, exponents, target density definition,
 source reference and unit-convention notes; the table is read by
 :func:`vaft.formula.equilibrium.confinement_time_from_engineering_parameters`,
 which documents the conventions and cites every entry.
@@ -198,6 +198,32 @@ _SCALING_COEFS = {
         ),
     },
 
+    "ITER97L": {
+        "C": 0.023,
+        "exponents": {
+            "Ip_MA": 0.96,    # Plasma current [MA]
+            "Bt": 0.03,       # Toroidal magnetic field [T]
+            "R": 1.83,        # Major radius [m]
+            "epsilon": -0.06,  # Inverse aspect ratio a/R [-]
+            "kappa": 0.64,    # Elongation [-]
+            "n_19": 0.40,     # Line-averaged electron density [10^19 m^-3]
+            "Mi": 0.20,       # Effective ion mass number [amu]
+            "P_MW": -0.73,    # Loss power [MW]
+        },
+        "density_definition": "line_avg",
+        "reference": "S.M. Kaye et al., 1997, Nucl. Fusion 37 1303 (ITER97-L thermal L-mode scaling)",
+        "unit_convention_note": (
+            "Published in the fusion engineering convention: Ip[MA], n_e[1e19 m^-3], P[MW], R[m], B[T]. "
+            "Thermal confinement fitted to the hydrogenic L-mode standard dataset."
+        ),
+        "elongation_note": (
+            "Whether Kaye 1997 regressed on the boundary elongation b/a or the area elongation kappa_a is not "
+            "verified here; the value passed as kappa is used as supplied. Lane D's figures pass the boundary "
+            "elongation (workflow/confinement_scaling/extra_scalings.py); vaft.data.public.predict_confinement_time "
+            "passes kappa_area by default."
+        ),
+    },
+
     "NSTX2006H": {
         "C": 0.0715,
         "exponents": {
@@ -292,4 +318,49 @@ _SCALING_COEFS = {
             "not as a dimensionally universal SI law."
         ),
     },
+}
+
+# -----------------------------------------------------------------------------
+# Energy and power basis of every confinement scaling (issue #1713)
+#
+# A published scaling predicts one specific confinement time: the *thermal*
+# tau_E,th = W_th / P (thermal stored energy only) or the *global* tau_E =
+# W / P (total stored energy, fast ions included).  Its power is one specific
+# power: the loss power P_L = P_heat - dW/dt, the absorbed heating power P_abs,
+# or the total heating power P_heat.  An H factor is only the conventional one
+# when the observed tau_E has the same energy basis as the scaling.
+#
+# energy_basis : "thermal" | "global" | "unaudited"
+# power_basis  : "p_loss" | "p_abs" | "p_heat" | "none" | "unaudited"
+# *_source     : where the assignment comes from.  "unaudited" means the
+#                original paper has not been checked for it; nothing is guessed.
+# -----------------------------------------------------------------------------
+_SCALING_BASES = {
+    "ITER89P": {"energy_basis": "global", "power_basis": "unaudited",
+                "energy_source": "issue #1713 (Yushmanov et al. 1990: total energy confinement)",
+                "power_source": "unaudited: loss power vs total heating power not checked against the paper"},
+    "ITER97L": {"energy_basis": "thermal", "power_basis": "unaudited",
+                "energy_source": "issue #1713 (Kaye et al. 1997: thermal L-mode scaling)",
+                "power_source": "unaudited: loss power vs total heating power not checked against the paper"},
+    "H98y2": {"energy_basis": "thermal", "power_basis": "unaudited",
+              "energy_source": "issue #1713 (ITER Physics Basis 1999, Ch. 2: thermal energy confinement)",
+              "power_source": "unaudited: loss power vs total heating power not checked against the paper"},
+    "NSTX2006H": {"energy_basis": "thermal", "power_basis": "unaudited",
+                  "energy_source": "issue #1713 (Kaye et al. 2006: H-mode thermal scaling)",
+                  "power_source": "unaudited: loss power vs total heating power not checked against the paper"},
+    "NSTX2006L": {"energy_basis": "global", "power_basis": "unaudited",
+                  "energy_source": "issue #1713 (Kaye et al. 2006: L-mode global scaling)",
+                  "power_source": "unaudited: loss power vs total heating power not checked against the paper"},
+    "Kurskiev2022": {"energy_basis": "unaudited", "power_basis": "p_abs",
+                     "energy_source": "unaudited: thermal vs global not checked against the paper",
+                     "power_source": "the paper's absorbed-power dependence (power_note of _SCALING_COEFS)"},
+    "NeoAlcator": {"energy_basis": "unaudited", "power_basis": "none",
+                   "energy_source": "unaudited: Goldston 1984 eq. (3); ohmic data, where thermal and global coincide",
+                   "power_source": "no power term"},
+    "Goldston84L": {"energy_basis": "unaudited", "power_basis": "unaudited",
+                    "energy_source": "unaudited: Goldston 1984 eq. (6)",
+                    "power_source": "unaudited: Goldston 1984 eq. (6)"},
+    "Goldston84OhmicL": {"energy_basis": "unaudited", "power_basis": "unaudited",
+                         "energy_source": "unaudited: Goldston 1984 eq. (11) of eqs. (3) and (6)",
+                         "power_source": "unaudited: as Goldston84L"},
 }

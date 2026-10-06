@@ -114,8 +114,9 @@ def h_factor(
     scaling: str = "H98y2",
     *,
     kappa_column: str = "kappa_area",
+    thermal_as_global=False,
 ) -> pd.Series:
-    """Confinement enhancement factor ``tau_e_th_s / tau_scaling`` per row.
+    """Confinement enhancement factor ``tau_observed / tau_scaling`` per row, on the scaling's energy basis.
 
     Parameters
     ----------
@@ -125,16 +126,61 @@ def h_factor(
         Scaling name, default ``"H98y2"`` [str].
     kappa_column : str, optional
         Elongation column, default ``"kappa_area"`` [str].
+    thermal_as_global : bool or collection of str, optional
+        Where a global (or unaudited-basis) scaling finds no ``tau_e_global_s``,
+        use ``tau_e_th_s`` instead: ``True`` on every row, a collection of
+        machine names on those machines' rows only (e.g. ``{"VEST"}``, an
+        ohmic machine without fast ions; one name may be given as a string);
+        default ``False``, strict [-].
 
     Returns
     -------
     pandas.Series
         H-factor indexed like ``table``; ``NaN`` where the measurement or the
-        prediction is missing [-].
+        prediction is missing, or where the scaling needs a global confinement
+        time the row does not have.  ``attrs`` records ``energy_basis`` and,
+        when thermal times stood in for global ones, ``approximation`` and
+        ``substituted_rows`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``thermal_as_global`` names machines and the table has no ``machine``
+        column.
+
+    Notes
+    -----
+    A thermal scaling (IPB98(y,2), ITER97-L, NSTX 2006 H) is compared with
+    ``tau_e_th_s``, a global one (ITER89-P, NSTX 2006 L) with
+    ``tau_e_global_s`` (#1713): the basis comes from
+    :func:`vaft.formula.equilibrium.confinement_scaling_basis` and the
+    resolution from :func:`vaft.process.confinement.resolve_observed_confinement`.
+    For thermal scalings the result is unchanged from before #1713.
     """
+    from vaft.formula.equilibrium import confinement_scaling_basis
+    from vaft.process.confinement import resolve_observed_confinement
+
     predicted = predict_confinement_time(table, scaling, kappa_column=kappa_column)
-    measured = pd.to_numeric(table["tau_e_th_s"], errors="coerce")
-    return (measured / predicted).rename(f"h_{scaling}")
+    basis = confinement_scaling_basis(scaling).energy_basis
+    thermal = pd.to_numeric(table["tau_e_th_s"], errors="coerce").to_numpy(float)
+    glob = (pd.to_numeric(table["tau_e_global_s"], errors="coerce").to_numpy(float)
+            if "tau_e_global_s" in table else None)
+    strict = resolve_observed_confinement(thermal, basis, tau_global=glob)
+    relaxed = resolve_observed_confinement(thermal, basis, tau_global=glob, thermal_as_global=True)
+    if isinstance(thermal_as_global, bool):
+        allow = np.full(len(table), thermal_as_global)
+    else:
+        # One machine name is one name, not a set of its letters.
+        names = {thermal_as_global} if isinstance(thermal_as_global, str) else set(thermal_as_global)
+        if "machine" not in table:
+            raise ValueError("thermal_as_global names machines, but the table has no 'machine' column")
+        allow = table["machine"].isin(names).to_numpy()
+    tau = np.where(allow, relaxed.tau, strict.tau)
+    out = (pd.Series(tau, index=table.index) / predicted).rename(f"h_{scaling}")
+    substituted = allow & (relaxed.energy_basis_used == "thermal") & (basis != "thermal")
+    out.attrs.update(energy_basis=basis, approximation=relaxed.approximation if substituted.any() else None,
+                     substituted_rows=int(substituted.sum()))
+    return out
 
 
 def confinement_coverage(

@@ -71,3 +71,25 @@ compare it with the recorded checksum.
 The active workflow snapshot was captured independently of the historical
 artifact creation times because the legacy workflow does not record a commit
 identifier in its ODS products. This limitation is explicit in the manifest.
+
+## Reference-portfolio audit (#1712)
+
+`audit_portfolio.py` reports which canonical FileDB products exist for each
+reference shot, and whether each is usable, before any sample is refreshed.
+The scan half uses only the standard library and is read-only, so it can be piped to the
+server's `python3` without touching the production checkout:
+
+```bash
+ssh -p 2222 user1@147.46.36.244 \
+  python3 - scan --root /srv/vest.filedb --root /home/user1/runs/campaign/filedb \
+  --shot 39915 --shot 48224 \
+  < workflow/reference_validation/audit_portfolio.py > server_scan.json
+python workflow/reference_validation/audit_portfolio.py report server_scan.json \
+  --out-yaml reference_coverage.yml --out-md reference_coverage.md
+```
+
+Each FileDB root is judged as its own chain. A product is
+`regeneration-required` when an input stage in the same root is newer, or is itself
+stale. It is `validation-failed` when its stage manifest is not `success`/`partial`.
+A missing VAFT commit is reported as a provenance gap. The dated outputs under
+`audit/` are the 2026-10-06 baseline.

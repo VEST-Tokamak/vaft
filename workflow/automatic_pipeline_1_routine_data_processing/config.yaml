@@ -35,36 +35,12 @@ diagnostics:
 impa:
   enable: false
   run: 1
-vest:
-  magnetics:
-    processing:
-      time_start: 0.0
-      time_end: 0.99996
-      sample_count: 25000
-      fast_sample_rate: 250000.0
-      lowpass_cutoff: 2500.0
-      lowpass_taps: 251
-      default_index_start: 6000
-      default_index_end: 8500
-      default_probe_baseline_end: 8500
-      late_shot_min: 41660
-      transient_shot_min: 41446
-      transient_shot_max: 41451
-      late_index_start: 6500
-      late_index_end: 9000
-      late_probe_baseline_end: 5000
-      flux_baseline_first_start: 3499
-      flux_baseline_first_end: 5000
-      flux_baseline_second_start: 11999
-      flux_baseline_second_end: 15000
-      flux_baseline_late_start: 5999
-      flux_baseline_late_end: 7000
-      flux_baseline_late_loop_numbers:
-      - 9
-      - 10
-      - 11
-      calibration_mode: divide
-      flux_output_per_radian: true
+# Equilibrium-magnetics processing comes from the shot's acquisition era in
+# vaft/machine_mapping/vest.yaml. A `vest.magnetics.processing` mapping here is an
+# override applied on top of that era policy, for parameter scans only: the
+# legacy defaults that used to sit here ran every native-DAQ shot (46404 on)
+# through the slow-DAQ path once this file was loaded (#1541).
+vest: {}
 eddy:
   filament:
     r:
