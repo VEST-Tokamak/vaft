@@ -39,15 +39,21 @@ Rules carried over from #253 and #337
   on this input?" belongs to the process and may stop it; nothing here stops
   anything.
 * **Cost is declared, never paid implicitly** (#1639 §8, §14).  Each piece of
-  evidence names its cost class so a profile can ask for cheap evidence only;
-  this module computes nothing, so importing it costs nothing.
+  evidence names its cost class so a profile can ask for cheap evidence only.
+  Importing this module loads only the status vocabulary; :func:`compose`
+  loads :mod:`vaft.validation.equilibrium` on first call, for
+  ``aggregate_status``.
 
 Evidence roles
 --------------
 Agreement with fitted data is not independent validation (#1639 §4 V).  The
 :data:`EVIDENCE_ROLES` say which part a datum played, and the adapters below
-move a check off the ``independent_validation`` axis when the caller says the
-quantity it compares against was fitted.
+move a check off the ``independent_validation`` axis when the quantity it
+compares against was fitted.  For an equilibrium report that is inferred
+from the report itself: when its ``diagnostic_fit.diamagnetic_flux`` was
+assessed, the diamagnetic flux was a fit constraint (VAFT's EFIT fits it by
+default, ``EFITConfig.use_diamagnetic_flux``), and every check that compares
+against it -- :data:`DIAMAGNETIC_CHECKS` -- is inference, not validation.
 
 Pilots
 ------
@@ -61,6 +67,7 @@ convergence of Pilot C needs no machinery beyond
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Iterable, Mapping
@@ -73,6 +80,7 @@ __all__ = [
     "CHECK_AXES",
     "COST_CLASSES",
     "CRITERIA_AXES",
+    "DIAMAGNETIC_CHECKS",
     "EVIDENCE_ROLES",
     "Evidence",
     "compose",
@@ -132,19 +140,40 @@ CHECK_AXES: Mapping[str, str] = MappingProxyType({
     # problem, not a property of the equilibrium (registry: "never fail").
     "physical_validity.virial_conditioning": "inference",
     # The measured diamagnetic flux against the reconstruction.  Independent
-    # only when the fit did not use it; see ``used_for_inference``.
+    # only when the fit did not use it; see DIAMAGNETIC_CHECKS.
     "physical_validity.diamagnetic_flux": "independent_validation",
+    # Plausibility of the *inferred* state -- beta_p and li inside physical
+    # bounds, a q that keeps its sign, a pressure that is non-negative and
+    # falls outward.  A solve can converge onto an implausible state, so this
+    # is not "was it computed reliably" (N) but "is the inferred state one the
+    # evidence should have produced" (I).  A stated choice, not a default.
+    "physical_validity.virial_parameter_plausibility": "inference",
+    "physical_validity.q_profile": "inference",
+    "physical_validity.pressure_profile": "inference",
 })
 
+#: Checks that compare against the measured diamagnetic flux, directly or
+#: through the closures it feeds.  None is independent validation when the
+#: reconstruction was fitted to that flux.
+DIAMAGNETIC_CHECKS = (
+    "physical_validity.diamagnetic_flux",
+    "independent_validation.diamagnetic_energy",
+    "independent_validation.virial_measured_mu_i",
+)
+
 #: The #891/#1331 study criteria (``workflow/efit_uncertainty_calibration/
-#: criteria.py``, version 2) on the axes.  ``admissible`` is the veto that a
+#: criteria.py``, version 2) on the axes -- the complete mapping, since these
+#: verdicts have no validation category.  ``admissible`` is the veto that a
 #: slice is a reconstruction at all; ``measurement`` is fit quality; ``virial``
-#: tests the pressure integral against the pair_13 closure it did not use;
-#: ``thomson`` compares against a measurement the magnetic fit never saw.
+#: compares two beta_p of the *same* g-file (the pressure integral and the
+#: pair_13 closure), so it is internal consistency of the solution, not
+#: independent evidence; ``thomson`` compares against a measurement the
+#: magnetic fit never saw, and is the only verdict on V -- as criteria v2 keeps
+#: it alone in ``PHYSICAL_CONSISTENCY``.
 CRITERIA_AXES: Mapping[str, str] = MappingProxyType({
     "admissible": "numerical",
     "measurement": "inference",
-    "virial": "independent_validation",
+    "virial": "numerical",
     "grad_shafranov": "numerical",
     "thomson": "independent_validation",
 })
@@ -177,19 +206,46 @@ class Evidence:
         if self.role is not None and self.role not in EVIDENCE_ROLES:
             raise ValueError(f"unknown evidence role {self.role!r}; choose from {EVIDENCE_ROLES}")
         object.__setattr__(self, "status", ValidationStatus(self.status))
-        object.__setattr__(self, "reasons", tuple(str(reason) for reason in self.reasons))
+        reasons = (self.reasons,) if isinstance(self.reasons, str) else self.reasons
+        object.__setattr__(self, "reasons", tuple(str(reason) for reason in reasons))
 
     def as_dict(self) -> dict[str, Any]:
-        """Plain, JSON-ready fields."""
+        """Plain, JSON-ready fields; a non-finite number becomes ``None``."""
         return {
             "axis": self.axis,
             "key": self.key,
             "status": str(self.status),
-            "metrics": dict(self.metrics),
+            "metrics": _plain(dict(self.metrics)),
             "reasons": list(self.reasons),
             "cost": self.cost,
             "role": self.role,
         }
+
+
+def _plain(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(key): _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_plain(item) for item in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
+
+
+def _keys(used_for_inference: Iterable[str], known: Iterable[str]) -> set[str]:
+    """The caller's fitted keys, refused when they cannot mean anything here.
+
+    Failing open would leave fitted data on the independent-validation axis,
+    the one thing this module exists to prevent: a bare string would become a
+    set of characters, and a misspelled key would match nothing.
+    """
+    if isinstance(used_for_inference, str):
+        raise TypeError("used_for_inference takes a collection of check keys, not one string")
+    keys = set(used_for_inference)
+    unknown = sorted(keys - set(known))
+    if unknown:
+        raise ValueError(f"used_for_inference names unknown checks {unknown}")
+    return keys
 
 
 def compose(evidence: Iterable[Evidence]) -> dict[str, ValidationStatus]:
@@ -210,12 +266,6 @@ def compose(evidence: Iterable[Evidence]) -> dict[str, ValidationStatus]:
     return {axis: aggregate_status(by_axis[axis]) for axis in AXES if axis in by_axis}
 
 
-def _role(axis: str, independent: bool) -> str | None:
-    if axis != "independent_validation":
-        return None
-    return "independent_validation" if independent else "used_for_inference"
-
-
 def evidence_from_equilibrium_report(
     report: Mapping[str, Any],
     *,
@@ -231,19 +281,26 @@ def evidence_from_equilibrium_report(
         ``"<category>.<check>"`` so :func:`vaft.validation.registry.describe`
         answers what its numbers mean.
     used_for_inference
-        Check keys whose reference measurement the reconstruction was fitted
-        to.  Such a check cannot be independent validation; it moves to the
-        ``inference`` axis with the role ``used_for_inference``.  VAFT's
-        default EFIT preset fits the diamagnetic flux (#891, #1440), so for its
-        products pass the diamagnetic checks here.
+        Further check keys whose reference measurement the reconstruction was
+        fitted to.  Such a check cannot be independent validation; it moves to
+        the ``inference`` axis with the role ``used_for_inference``.  The
+        :data:`DIAMAGNETIC_CHECKS` move by themselves whenever the report
+        assessed ``diagnostic_fit.diamagnetic_flux``, i.e. whenever the flux
+        was a fit constraint.  Unknown keys are refused.
 
     Returns
     -------
     tuple of Evidence
-        In report order.  The report's per-slice results stay in ``metrics``
-        under ``"by_slice"``; nothing is recomputed.
+        In report order.  ``metrics`` keeps the report entry's ``counts`` and
+        per-slice ``slices`` as they are -- nothing is recomputed -- and
+        ``reasons`` gathers the distinct per-slice reasons.
     """
-    fitted = set(used_for_inference)
+    from .registry import CHECKS
+
+    fitted = _keys(used_for_inference, CHECKS)
+    dia_fit = (report.get("diagnostic_fit") or {}).get("diamagnetic_flux")
+    if isinstance(dia_fit, Mapping) and str(dia_fit.get("status")) != str(ValidationStatus.NOT_AVAILABLE):
+        fitted.update(DIAMAGNETIC_CHECKS)
     evidence = []
     for category in CATEGORIES:
         checks = report.get(category)
@@ -254,13 +311,18 @@ def evidence_from_equilibrium_report(
                 continue
             key = f"{category}.{name}"
             axis = CHECK_AXES.get(key, CATEGORY_AXES[category])
-            independent = key not in fitted
-            if axis == "independent_validation" and not independent:
-                axis = "inference"
+            if key in fitted or category == "diagnostic_fit":
+                role = "used_for_inference"
+                if axis == "independent_validation":
+                    axis = "inference"
+            else:
+                role = "independent_validation" if axis == "independent_validation" else None
             metrics = {k: v for k, v in result.items() if k not in ("status", "reason", "reasons")}
-            reasons = result.get("reasons") or ([result["reason"]] if result.get("reason") else [])
-            role = "used_for_inference" if not independent else _role(axis, True)
-            evidence.append(Evidence(axis, key, result["status"], metrics, tuple(reasons),
+            reasons = list(result.get("reasons") or ([result["reason"]] if result.get("reason") else []))
+            for entry in result.get("slices") or ():
+                if isinstance(entry, Mapping) and entry.get("reason"):
+                    reasons.append(str(entry["reason"]))
+            evidence.append(Evidence(axis, key, result["status"], metrics, tuple(dict.fromkeys(reasons)),
                                      cost="moderate" if category in ("physical_validity", "independent_validation")
                                      else "cheap", role=role))
     return tuple(evidence)
@@ -277,26 +339,29 @@ def evidence_from_efit_criteria(
     validation layer depends on its *shape* and never imports ``workflow/``.
     Each verdict becomes one :class:`Evidence` keyed ``"efit_criteria.<name>"``;
     ``good`` and ``physically_consistent`` are *not* re-derived -- they are the
-    workflow's policy over these verdicts (#1639 §6), and criteria v2 keeps
-    Thomson out of ``good`` exactly as these axes keep it apart.
+    workflow's policy over these verdicts (#1639 §6).  Criteria v2 keeps
+    Thomson out of ``good``; here it is the only verdict on the V axis, so
+    ``compose`` reports it apart from fit quality and internal consistency.
 
     ``used_for_inference`` names verdicts whose reference was fitted, as in
     :func:`evidence_from_equilibrium_report`.
     """
     version = evaluation.get("criteria_version")
-    if version is not None and int(version) != 2:
-        raise ValueError(f"criteria version {version} is not the one these axes describe (2)")
-    fitted = set(used_for_inference)
+    if version is not None and version != 2:
+        raise ValueError(f"criteria version {version!r} is not the one these axes describe (2)")
+    fitted = _keys(used_for_inference, CRITERIA_AXES)
     evidence = []
     for name, verdict in (evaluation.get("verdicts") or {}).items():
         axis = CRITERIA_AXES.get(name)
         if axis is None or not isinstance(verdict, Mapping):
             continue
-        independent = name not in fitted
-        if axis == "independent_validation" and not independent:
-            axis = "inference"
+        if name in fitted or name == "measurement":
+            role = "used_for_inference"
+            if axis == "independent_validation":
+                axis = "inference"
+        else:
+            role = "independent_validation" if axis == "independent_validation" else None
         metrics = {k: v for k, v in verdict.items() if k not in ("status", "reasons")}
-        role = "used_for_inference" if not independent else _role(axis, True)
         evidence.append(Evidence(axis, f"efit_criteria.{name}", verdict.get("status", "not_available"),
                                  metrics, tuple(verdict.get("reasons") or ()), role=role))
     return tuple(evidence)

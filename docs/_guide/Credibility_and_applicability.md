@@ -52,9 +52,12 @@ different statement from *independent validation = fail*.
 - A precondition ("can this algorithm run?") is not credibility ("is the result trustworthy?").
 
 **Fitted data is not independent validation.** Every piece of evidence can carry a role from
-`EVIDENCE_ROLES`, such as `used_for_inference` or `independent_validation`. Pass the checks whose
-reference was fitted in `used_for_inference=`, and the adapters move them off the V axis. VAFT's
-default EFIT preset fits the diamagnetic flux (#891, #1440), so its diamagnetic checks belong there.
+`EVIDENCE_ROLES`, such as `used_for_inference` or `independent_validation`.
+- VAFT's EFIT fits the diamagnetic flux by default (`EFITConfig.use_diamagnetic_flux`; #891,
+  #1440). So when a report assessed `diagnostic_fit.diamagnetic_flux`, every check in
+  `DIAMAGNETIC_CHECKS` moves off the V axis automatically.
+- Name any other fitted check in `used_for_inference=`. An unknown key or a bare string is refused
+  rather than ignored.
 
 ### Cost classes
 
@@ -68,15 +71,18 @@ default EFIT preset fits the diamagnetic flux (#891, #1440), so its diamagnetic 
 
 | pilot | where | what it shows |
 | --- | --- | --- |
-| A: equilibrium reconstruction | `evidence_from_equilibrium_report` | the `validate_equilibrium` report on the axes; fit quality (I), physical consistency (N) and independent validation (V) stay apart |
+| A: equilibrium reconstruction | `evidence_from_equilibrium_report` | the `validate_equilibrium` report on the axes; fit quality and plausibility (I), solution consistency (N) and independent validation (V) stay apart |
 | A: the #891/#1331 study criteria | `evidence_from_efit_criteria` | criteria v2 (#1521); Thomson stays on V and never enters fit quality |
 | B: virial closures | the virial checks inside pilot A | identity residual (N), leave-one-identity-out (V), closure conditioning (I) |
 | C: current moments (#943) | `successive_discrepancy` | relative change of an observable along the moment order |
 | D: asymptotic validity | `vaft.validation.applicability` | ordering margins and contracts, below |
 
-**How the mappings are chosen.** `CATEGORY_AXES` maps each existing validation category to its
-default axis. `CHECK_AXES` and `CRITERIA_AXES` record the checks whose axis differs from their
-category's default, each with its reason in a source comment.
+**How the mappings are chosen.**
+- `CATEGORY_AXES` maps each existing validation category to its default axis.
+- `CHECK_AXES` records the registry checks placed elsewhere, each with its reason in a source
+  comment. For example, plausibility of the inferred state is `inference`, not `numerical`.
+- `CRITERIA_AXES` is the complete mapping for the study criteria. There, `virial` compares two β_p
+  of the same g-file, so it is `numerical`, and only Thomson is on V.
 
 ## Applicability: margins first, labels second
 
@@ -96,7 +102,8 @@ $x_0$:
 
 $$m = \log_{10}(x_0/x) \quad (x \ll x_0), \qquad m = \log_{10}(x/x_0) \quad (x \gg x_0).$$
 
-- $m > 0$: satisfied, with $m$ decades to spare.
+- $m > 0$: on the permitted side, with $m$ decades to spare. `SUPPORTED` means only this:
+  $x = 0.99$ against $x_0 = 1$ is supported with $m = 0.004$, so read the margin, not the label.
 - $m \le 0$: violated.
 - The default $x_0 = 1$ is where the expansion parameter reaches order unity. This is the only
   cutoff applied without a source. Any other threshold must name its source in `threshold_source`,
@@ -108,7 +115,7 @@ $$m = \log_{10}(x_0/x) \quad (x \ll x_0), \qquad m = \log_{10}(x/x_0) \quad (x \
 | --- | --- |
 | `SUPPORTED` | every assumption evaluated and satisfied |
 | `OUTSIDE` | at least one evaluated assumption violated, whatever else is missing |
-| `UNASSESSED` | nothing violated, but some quantity is missing, non-finite or non-positive |
+| `UNASSESSED` | nothing violated, but some quantity is missing, non-finite or non-positive, or the state lacks a field the contract's scope is defined on |
 | `NOT_APPLICABLE` | the state is outside the contract's `applies_to` scope |
 
 There is no `MARGINAL`: a margin band would be a cutoff nobody derived, and the margin itself is

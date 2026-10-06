@@ -44,9 +44,15 @@ drawn boundary say the same thing in the same words:
     at least one evaluated assumption lies on the wrong side;
 ``UNASSESSED``
     nothing is outside, but at least one assumption could not be evaluated --
-    its quantity is missing, non-finite or non-positive;
+    its quantity is missing, non-finite or non-positive -- or the state does
+    not say whether the contract's scope covers it;
 ``NOT_APPLICABLE``
     the contract does not apply to this state (its scope excludes it).
+
+``SUPPORTED`` means only "on the permitted side of the threshold": a state at
+``x = 0.99`` against a threshold of 1 is supported with a margin of 0.004
+decades.  The label carries no notion of *how well* an ordering holds -- read
+the margin for that.
 
 There is no ``MARGINAL``: a margin band would be a cutoff nobody derived.  The
 margin is there for anyone who wants to look at how close a state is.
@@ -59,6 +65,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any, Iterable, Mapping, Sequence
 
 from .model import ValidationStatus
@@ -79,7 +86,7 @@ __all__ = [
 ]
 
 #: Identical to ``vaft.plot.operational_space.APPLICABILITY_STATUSES`` (#1664);
-#: a test asserts it.  Kept here rather than imported because the validation
+#: a test asserts it once that tuple exists on the branch under test.  Kept here rather than imported because the validation
 #: core must not import the plotting layer.
 APPLICABILITY_STATUSES = ("SUPPORTED", "OUTSIDE", "UNASSESSED", "NOT_APPLICABLE")
 
@@ -162,7 +169,8 @@ class ApproximationContract:
 
     ``applies_to`` optionally restricts the contract to states whose named
     fields hold one of the listed values (e.g. ``{"phase": ("flat",)}``); a
-    state outside it is ``NOT_APPLICABLE``, not ``OUTSIDE``.
+    state outside it is ``NOT_APPLICABLE``, not ``OUTSIDE``, and a state that
+    does not carry the field at all is ``UNASSESSED``.
     """
 
     name: str
@@ -179,9 +187,16 @@ class ApproximationContract:
         names = [item.quantity for item in assumptions]
         if len(set(names)) != len(names):
             raise ValueError(f"{self.name}: each quantity may appear once, got {names}")
+        scope = {}
+        for key, allowed in dict(self.applies_to).items():
+            if isinstance(allowed, str) or not isinstance(allowed, (tuple, list, set, frozenset)):
+                raise TypeError(f"{self.name}: applies_to[{key!r}] must be a collection of values, "
+                                f"got {allowed!r}")
+            scope[key] = tuple(allowed)
         object.__setattr__(self, "assumptions", assumptions)
         object.__setattr__(self, "references", tuple(self.references))
         object.__setattr__(self, "limitations", tuple(self.limitations))
+        object.__setattr__(self, "applies_to", MappingProxyType(scope))
 
 
 @dataclass(frozen=True)
@@ -229,6 +244,16 @@ class ContractEvaluation:
         }
 
 
+def _missing(value: Any) -> bool:
+    """``None``, pandas' ``NA``/``NaT`` or any float-convertible NaN."""
+    if value is None or type(value).__name__ in ("NAType", "NaTType"):
+        return True
+    try:
+        return math.isnan(float(value))
+    except (TypeError, ValueError):
+        return False
+
+
 def _float(value: Any) -> float:
     if value is None:
         return math.nan
@@ -266,12 +291,15 @@ def _lookup(state: Any, key: str) -> Any:
     return getattr(state, key, None)
 
 
-def _applies(contract: ApproximationContract, state: Any) -> str:
+def _applies(contract: ApproximationContract, state: Any) -> tuple[str, str]:
+    """``("", "")`` in scope, else the status the scope test decides and why."""
     for key, allowed in contract.applies_to.items():
         value = _lookup(state, key)
-        if value not in tuple(allowed):
-            return f"{key}={value!r} is outside the contract's scope {tuple(allowed)}"
-    return ""
+        if _missing(value):
+            return "UNASSESSED", f"{key} not provided, so the contract's scope {allowed} cannot be decided"
+        if value not in allowed:
+            return "NOT_APPLICABLE", f"{key}={value!r} is outside the contract's scope {allowed}"
+    return "", ""
 
 
 def evaluate_contract(contract: ApproximationContract, state: Any) -> ContractEvaluation:
@@ -283,11 +311,15 @@ def evaluate_contract(contract: ApproximationContract, state: Any) -> ContractEv
     removes the state and never counts as a violation.  The contract status is
     ``OUTSIDE`` if any evaluated assumption is violated (a violation is decided
     whatever else is missing), else ``UNASSESSED`` if any is unevaluated, else
-    ``SUPPORTED``.  A margin exactly at the threshold is not satisfied: the
-    ordering asks for scale separation, which ``x = threshold`` does not give.
+    ``SUPPORTED``.  A margin of exactly zero is on neither side and counts as
+    ``OUTSIDE``.
+
+    A state that does not carry a field ``applies_to`` names is ``UNASSESSED``
+    whatever its margins say -- they are still reported -- because whether
+    they bear on the contract is unknown.
     """
-    out_of_scope = _applies(contract, state)
-    if out_of_scope:
+    scope_status, out_of_scope = _applies(contract, state)
+    if scope_status == "NOT_APPLICABLE":
         results = tuple(
             AssumptionResult(item.quantity, _float(_lookup(state, item.quantity)), math.nan,
                              "NOT_APPLICABLE", out_of_scope)
@@ -301,8 +333,7 @@ def evaluate_contract(contract: ApproximationContract, state: Any) -> ContractEv
         value = _float(raw)
         margin = ordering_margin(value, item.ordering, item.threshold)
         if math.isnan(margin):
-            reason = ("not provided" if raw is None or (isinstance(raw, float) and math.isnan(raw))
-                      else f"value {raw!r} admits no ordering statement")
+            reason = "not provided" if _missing(raw) else f"value {raw!r} admits no ordering statement"
             results.append(AssumptionResult(item.quantity, value, margin, "UNASSESSED", reason))
         elif margin > 0:
             results.append(AssumptionResult(item.quantity, value, margin, "SUPPORTED"))
@@ -315,6 +346,8 @@ def evaluate_contract(contract: ApproximationContract, state: Any) -> ContractEv
     evaluated = [item for item in results if item.status in ("SUPPORTED", "OUTSIDE")]
     limiting = min(evaluated, key=lambda item: item.margin).quantity if evaluated else None
     statuses = {item.status for item in results}
+    if scope_status == "UNASSESSED":
+        return ContractEvaluation(contract.name, "UNASSESSED", tuple(results), limiting, out_of_scope)
     if "OUTSIDE" in statuses:
         status = "OUTSIDE"
     elif "UNASSESSED" in statuses:

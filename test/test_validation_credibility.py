@@ -131,6 +131,31 @@ def test_a_state_outside_the_contract_scope_is_not_applicable():
     assert evaluate_contract(contract, {"phase": "flat", "x": 1e-3}).status == "SUPPORTED"
 
 
+def test_a_state_without_the_scope_field_is_unassessed_not_out_of_scope():
+    contract = ApproximationContract("flat_only", "toy", (OrderingAssumption("x", "small", "a"),),
+                                     applies_to={"phase": ("flat",)})
+    for state in ({"x": 1e-3}, {"x": 1e-3, "phase": float("nan")}, {"x": 1e-3, "phase": None}):
+        result = evaluate_contract(contract, state)
+        assert result.status == "UNASSESSED"
+        assert "phase not provided" in result.reason
+        assert result.assumptions[0].margin == pytest.approx(3.0)  # the margin is still reported
+        assert as_evidence(result).status is ValidationStatus.NOT_AVAILABLE
+
+
+def test_a_scope_given_as_a_bare_string_is_refused():
+    with pytest.raises(TypeError, match="collection"):
+        ApproximationContract("c", "toy", (OrderingAssumption("x", "small", "a"),), applies_to={"phase": "flat"})
+
+
+def test_a_missing_value_is_not_provided_whatever_its_missing_type():
+    import numpy as np
+
+    for raw in (None, float("nan"), np.float32("nan"), pd.NA):
+        result = evaluate_contract(IDEAL, {"lundquist_number": raw})
+        assert result.assumptions[0].reason == "not provided"
+    assert "admits no ordering" in evaluate_contract(IDEAL, {"lundquist_number": -3.0}).assumptions[0].reason
+
+
 def test_a_contract_rejects_duplicate_or_absent_assumptions():
     with pytest.raises(ValueError):
         ApproximationContract("empty", "toy", ())
@@ -226,38 +251,88 @@ def test_compose_keeps_axes_apart_and_missing_evidence_is_not_failure():
     assert "applicability" not in composed
 
 
-def _report() -> dict:
+def _entry(status, **slice_fields):
+    """One check's report entry, in the shape ``validate_equilibrium``'s ``_collect`` builds."""
+    one = {"time_slice": 0, "time": 0.3, "status": status, **slice_fields}
+    return {"status": status, "counts": {status: 1}, "slices": [one]}
+
+
+def _report(*, dia_fitted: bool) -> dict:
+    fit = {"global": _entry("warn", value=3.1)}
+    if dia_fitted:
+        fit["diamagnetic_flux"] = _entry("pass", value=0.4)
     return {
         "status": "warn",
-        "verification": {"convergence": {"status": "pass", "error": 1e-5}},
-        "diagnostic_fit": {"global": {"status": "warn", "value": 3.1}},
+        "verification": {"convergence": _entry("pass", error=1e-5)},
+        "diagnostic_fit": fit,
         "physical_validity": {
-            "virial_conditioning": {"status": "warn", "reason": "denominator near zero"},
-            "diamagnetic_flux": {"status": "pass", "value": 0.02},
-            "q_profile": {"status": "pass"},
+            "virial_conditioning": _entry("warn", reason="denominator near zero"),
+            "diamagnetic_flux": _entry("pass", value=0.02),
+            "q_profile": _entry("pass"),
+            "virial_identity": _entry("pass", value=0.01),
         },
-        "independent_validation": {"thomson_pressure": {"status": "not_available", "reason": "no TS"}},
+        "independent_validation": {
+            "thomson_pressure": _entry("not_available", reason="no TS"),
+            "virial_measured_mu_i": _entry("pass", value=0.1),
+        },
     }
 
 
 def test_the_equilibrium_report_projects_onto_the_axes():
-    evidence = {item.key: item for item in evidence_from_equilibrium_report(_report())}
+    evidence = {item.key: item for item in evidence_from_equilibrium_report(_report(dia_fitted=False))}
     assert evidence["verification.convergence"].axis == "numerical"
-    assert evidence["diagnostic_fit.global"].axis == "inference"
+    assert (evidence["diagnostic_fit.global"].axis, evidence["diagnostic_fit.global"].role) == (
+        "inference", "used_for_inference")
     assert evidence["physical_validity.virial_conditioning"].axis == "inference"
     assert evidence["physical_validity.virial_conditioning"].reasons == ("denominator near zero",)
-    assert evidence["physical_validity.q_profile"].axis == "numerical"
+    assert evidence["physical_validity.q_profile"].axis == "inference"
+    assert evidence["physical_validity.virial_identity"].axis == "numerical"
     dia = evidence["physical_validity.diamagnetic_flux"]
     assert (dia.axis, dia.role) == ("independent_validation", "independent_validation")
     assert evidence["independent_validation.thomson_pressure"].status is ValidationStatus.NOT_AVAILABLE
-    assert evidence["diagnostic_fit.global"].metrics == {"value": 3.1}
+    assert evidence["diagnostic_fit.global"].metrics["counts"] == {"warn": 1}
+    assert evidence["diagnostic_fit.global"].metrics["slices"][0]["value"] == 3.1
+
+
+def test_a_fitted_diamagnetic_flux_takes_every_check_against_it_off_v():
+    evidence = {item.key: item for item in evidence_from_equilibrium_report(_report(dia_fitted=True))}
+    for key in ("physical_validity.diamagnetic_flux", "independent_validation.virial_measured_mu_i"):
+        assert (evidence[key].axis, evidence[key].role) == ("inference", "used_for_inference"), key
+    assert evidence["independent_validation.thomson_pressure"].axis == "independent_validation"
 
 
 def test_fitted_data_is_never_independent_validation():
     evidence = {item.key: item for item in evidence_from_equilibrium_report(
-        _report(), used_for_inference=("physical_validity.diamagnetic_flux",))}
-    dia = evidence["physical_validity.diamagnetic_flux"]
-    assert (dia.axis, dia.role) == ("inference", "used_for_inference")
+        _report(dia_fitted=False), used_for_inference=("independent_validation.thomson_pressure",))}
+    thomson = evidence["independent_validation.thomson_pressure"]
+    assert (thomson.axis, thomson.role) == ("inference", "used_for_inference")
+
+
+@pytest.mark.parametrize("keys, error", [
+    ("physical_validity.diamagnetic_flux", TypeError),
+    (("diamagnetic_flux",), ValueError),
+])
+def test_a_fitted_key_that_cannot_mean_anything_is_refused(keys, error):
+    with pytest.raises(error):
+        evidence_from_equilibrium_report(_report(dia_fitted=False), used_for_inference=keys)
+    with pytest.raises(error):
+        evidence_from_efit_criteria(_criteria_evaluation(), used_for_inference=keys)
+
+
+def test_the_real_report_round_trips_through_the_adapter():
+    import json
+
+    from vaft.omas import sample_ods
+    from vaft.validation import validate_equilibrium
+
+    report = validate_equilibrium(sample_ods(), checks=("verification", "diagnostic_fit"), time_slice=0)
+    evidence = evidence_from_equilibrium_report(report)
+    assert evidence, "the sample report produced no evidence"
+    assert {item.key.split(".", 1)[0] for item in evidence} == {"verification", "diagnostic_fit"}
+    for item in evidence:
+        category, name = item.key.split(".", 1)
+        assert item.status is ValidationStatus(report[category][name]["status"])
+    json.dumps([item.as_dict() for item in evidence], allow_nan=False)
 
 
 def _criteria_evaluation() -> dict:
@@ -275,20 +350,35 @@ def _criteria_evaluation() -> dict:
     }
 
 
-def test_criteria_v2_keeps_thomson_off_the_fit_axes():
+def test_criteria_v2_keeps_thomson_alone_on_v():
     evidence = {item.key: item for item in evidence_from_efit_criteria(_criteria_evaluation())}
     assert evidence["efit_criteria.thomson"].axis == "independent_validation"
     assert evidence["efit_criteria.thomson"].metrics == {"log_ratio": -0.9}
+    # virial compares two beta_p of the same g-file: consistency, not validation.
+    assert evidence["efit_criteria.virial"].axis == "numerical"
+    assert [key for key, item in evidence.items() if item.axis == "independent_validation"] == [
+        "efit_criteria.thomson"]
     composed = compose(evidence.values())
     assert composed["inference"] is ValidationStatus.PASS
-    assert composed["numerical"] is ValidationStatus.PASS
+    assert composed["numerical"] is ValidationStatus.INDETERMINATE  # virial undecided
     assert composed["independent_validation"] is ValidationStatus.FAIL
 
 
-def test_criteria_of_another_version_are_refused():
-    evaluation = dict(_criteria_evaluation(), criteria_version=1)
+@pytest.mark.parametrize("version", [1, 2.7, float("nan")])
+def test_criteria_of_another_version_are_refused(version):
+    evaluation = dict(_criteria_evaluation(), criteria_version=version)
     with pytest.raises(ValueError, match="version"):
         evidence_from_efit_criteria(evaluation)
+
+
+def test_evidence_is_json_ready_and_takes_one_reason_whole():
+    import json
+
+    item = Evidence("applicability", "k", "pass", {"margin": float("nan"), "nested": [float("inf"), 1.0]},
+                    reasons="one reason")
+    assert item.reasons == ("one reason",)
+    assert json.loads(json.dumps(item.as_dict(), allow_nan=False))["metrics"] == {"margin": None,
+                                                                                  "nested": [None, 1.0]}
 
 
 # ---------------------------------------------------------------------------
