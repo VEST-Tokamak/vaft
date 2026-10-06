@@ -247,6 +247,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_impurity.py",
     "test_process_impurity.py",
     "test_vest_core_profiles_policy.py",
+    # Credibility and applicability (lane AP, #1639): the six-axis taxonomy and
+    # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
+    # import checks that keep both off the default processing path. Under 10 s.
+    "test_validation_credibility.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
