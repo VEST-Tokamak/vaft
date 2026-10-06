@@ -26,7 +26,8 @@ from vaft.database.composition import compose_stage_products
 from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
 from vaft.omas.plasma_timing import plasma_timing
 from vaft.omas.vest_upstream import machine_era_for_shot
-from vaft.validation.imas import resolve_signal_time
+from vaft.validation.imas import is_condemned_channel, resolve_signal_time
+from vaft.validation.validity import VALIDITY_SUSPECT
 
 
 LOGGER = logging.getLogger("vaft.generate_constraints_ods")
@@ -293,10 +294,19 @@ def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
     """Why EFIT does not apply to this shot, or ``None`` when the cut is a fault (#205).
 
     The plasma current decides: a shot whose current stays below ``CUTIP``
-    over its *whole* record never carried a plasma EFIT could reconstruct,
-    and that is the result.  When the current does reach ``CUTIP`` somewhere
-    but no selected instant does, the constraint window missed the discharge,
-    and that stays an error.
+    over the whole *diagnostics window* never carried a plasma EFIT could
+    reconstruct, and that is the result.  The window is what the product
+    holds: the mapper stores ``magnetics.ip.0`` on the plasma-analysis grid
+    (0.26-0.36 s on the routine configuration) and crops the Rogowski record
+    to it, so nothing here sees the rest of the shot.  When the current does
+    reach ``CUTIP`` somewhere in the window but no selected instant does, the
+    constraint window missed the discharge, and that stays an error.
+
+    A current that is low because the sensor is dead is not a vacuum shot
+    either: the diagnostics stage condemns such a plasma-current Rogowski in
+    ``magnetics.rogowski_coil.0.current.validity`` (its whole-record verdict,
+    #1373; ``magnetics.ip.0`` itself carries no validity node), and that
+    stays a visible failure too.
 
     The class from :func:`vaft.omas.shot_class.shot_class` -- what the
     new-shot worker records -- is quoted in the reason but its label does not
@@ -308,6 +318,8 @@ def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
     try:
         current = np.asarray(ods["magnetics.ip.0.data"], dtype=float).reshape(-1)
     except Exception:
+        return None
+    if is_condemned_channel(ods, "magnetics.rogowski_coil.0.current", min_validity=VALIDITY_SUSPECT):
         return None
     current = current[np.isfinite(current)]
     if current.size == 0:
@@ -328,7 +340,7 @@ def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
             f"; flags {', '.join(verdict.flags)})" if verdict.flags else ")"
         )
     return (
-        f"peak |Ip| {peak / 1e3:.1f} kA over the whole record, below CUTIP {error.threshold:g} A "
+        f"peak |Ip| {peak / 1e3:.1f} kA over the diagnostics window, below CUTIP {error.threshold:g} A "
         f"(all {error.count} constraint instants below it); {label}"
     )
 

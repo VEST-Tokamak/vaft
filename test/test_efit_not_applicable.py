@@ -107,6 +107,33 @@ def test_a_refused_verdict_still_fails_the_step(monkeypatch, tmp_path):
     assert not (tmp_path / "constraints").exists() or not list((tmp_path / "constraints").iterdir())
 
 
+def test_a_condemned_rogowski_is_a_fault_not_a_verdict():
+    """cold review 0.8.0 delta-absorb-16 F3: a dead or drifting plasma-current
+    Rogowski reads below CUTIP on every shot. The diagnostics stage condemns it
+    in `magnetics.rogowski_coil.0.current.validity` (#1373) -- the mapper writes
+    no `magnetics.ip.0.validity` -- and that is the channel, not the shot."""
+    t = grid()
+    ods = synthetic_ods(ip=pickup_only(t), t=t)
+    ods["magnetics.rogowski_coil.0.current.validity"] = -2
+    error = CONSTRAINTS.NoPlasmaCurrentError("all below", count=3, threshold=15000.0)
+
+    assert CONSTRAINTS._efit_not_applicable(ods, error) is None
+    ods["magnetics.rogowski_coil.0.current.validity"] = 0
+    assert CONSTRAINTS._efit_not_applicable(ods, error) is not None
+
+
+def test_the_verdict_names_the_window_it_was_judged_over():
+    """`magnetics.ip.0` is stored on the analysis grid; the verdict must not
+    claim the whole record (cold review 0.8.0 delta-absorb-16 F3)."""
+    t = grid()
+    ods = synthetic_ods(ip=pickup_only(t), t=t)
+    error = CONSTRAINTS.NoPlasmaCurrentError("all below", count=3, threshold=15000.0)
+
+    reason = CONSTRAINTS._efit_not_applicable(ods, error)
+    assert "over the diagnostics window" in reason
+    assert "whole record" not in reason
+
+
 def test_no_plasma_current_at_all_is_not_a_verdict():
     from omas import ODS
 
