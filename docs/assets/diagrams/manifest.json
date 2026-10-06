@@ -147,7 +147,7 @@
     },
     "current_profile_shapes.svg": {
       "call": "vaft.diagram.current_profile_shapes()",
-      "source_sha256": "70ac68c011628c20310efe07a18a811abc70ccec3b1b16acc3c49e3536b9817b",
+      "source_sha256": "04d63de4003c9a7e95437d4d450121707ee63d8da79451970ec7bd24738f2e80",
       "svg_sha256": "e6279c62c7b2d5e9e082fdae8556f5b070f6fbe488b789bc4b169d9b17efd676"
     },
     "current_sheet.svg": {
@@ -442,7 +442,7 @@
     },
     "interchange_criteria.svg": {
       "call": "vaft.diagram.interchange_criteria()",
-      "source_sha256": "2029d025ff6e29ddfecbf10638c1d29aba6713058f7962ad87976c1b9442cc31",
+      "source_sha256": "b3a6adeec367f07e79ccc83a922b1c9ddeba303b8753631dca041f1d9fee5601",
       "svg_sha256": "18d56b078051a676b6aff030d010ca8b3ef079e9cc774a84f63662ec757076ed"
     },
     "internal_external_kink.svg": {
@@ -657,7 +657,7 @@
     },
     "plasma_state_provenance.svg": {
       "call": "vaft.diagram.plasma_state_provenance()",
-      "source_sha256": "e12e5ab12d4b391fe98fa5c3e4c6b6dfb79a4c735aa15b69cf3725349b98e261",
+      "source_sha256": "dcb1b0cb54241da5e828acc30643b21e4186c2750574cfe70490ecf5d786b65f",
       "svg_sha256": "67448f7f3e4f68b77c2690fcfb2cb3466ce80e80844dc4c7e44a1041ebd8b761"
     },
     "plasma_vacuum_wall.svg": {
@@ -722,17 +722,17 @@
     },
     "q_profile_landmarks_monotonic.svg": {
       "call": "vaft.diagram.q_profile_landmarks(profile='monotonic')",
-      "source_sha256": "f9c796c350483b22e973c13cfd58eb733808621e64e0ffdda01f7f9a1d135291",
+      "source_sha256": "cdc97d51ee5f6bec47a18644f7a1989007588302bc10d1556054e9bb0aa6fe7a",
       "svg_sha256": "3fd31c8b82834a3151116277acea14169cc201e23a3e4df3d9059ee96ee6fc4c"
     },
     "q_profile_landmarks_reversed_shear.svg": {
       "call": "vaft.diagram.q_profile_landmarks(profile='reversed_shear')",
-      "source_sha256": "d462868b260549c692345f531e5fdbad13d9c71fb0d2bb4bc5047f08ef53da93",
+      "source_sha256": "3b89fe23abab30672b4d93d58a0a639d62829de56911205f59e9389f32cebc8b",
       "svg_sha256": "79f2e92b332dfc705c39391c8f81c69c8834dcbbb679363f5e4d4eb2e2160308"
     },
     "q_profile_topologies.svg": {
       "call": "vaft.diagram.q_profile_topologies()",
-      "source_sha256": "a8401255b453ebf4b965d9cca6acd085ce58b582644e1ddd4aeb0893d0f01ec2",
+      "source_sha256": "25f5725033e2de62dc88a2207e80d05990fed87a9a2d45822084319b8a66666b",
       "svg_sha256": "932818a07515baabb5797c4e93db860c72ff1743ea493a62f5b2f7b4c1194608"
     },
     "rational_surface.svg": {
@@ -742,12 +742,12 @@
     },
     "rational_surface_topology_monotonic.svg": {
       "call": "vaft.diagram.rational_surface_topology(profile='monotonic')",
-      "source_sha256": "72e5bde5f4e65474253d671aa957bc82cc887990f1294d65aa90befc524cea4c",
+      "source_sha256": "72d9bfd28d4eac42ac485bf50ae0a6105f661762da226ed57868be8a0c3ebbc5",
       "svg_sha256": "8c763b4357c2f77b0cc12fa65f71186c5da88e5e8b80737927ecdd072e99de5b"
     },
     "rational_surface_topology_reversed_shear.svg": {
       "call": "vaft.diagram.rational_surface_topology(profile='reversed_shear')",
-      "source_sha256": "0b17a7062cdf243b00c5e953f9ba6f53a153dba809cf37adf0e1b62ae2f52f36",
+      "source_sha256": "c2765a53e2f39ea27d3338f3de2a7a4999c8eeac0b434a108b8e33ac5a0dce23",
       "svg_sha256": "cde0ce89a398bc8d8bf6a0d3ed2177709c331bf5775b2bac84105dd02de489d9"
     },
     "refractive_index_vs_X.svg": {
@@ -972,7 +972,7 @@
     },
     "stability_diagnostic_taxonomy.svg": {
       "call": "vaft.diagram.stability_diagnostic_taxonomy()",
-      "source_sha256": "f8c15734c0160e87a70e9fc1fd501fe2bc5bbc528cc9a0da19819c238f6bb50c",
+      "source_sha256": "5e20ad5cbed18d00d812874cec19483e4c8e30dc9c10a9217a4c89a93a40f4d2",
       "svg_sha256": "dcf22e420f13b8a6ccd11f3580cd64a394bad1d2e2aa073e412e0ea1ca281c7b"
     },
     "stochastic_layer_isolated.svg": {
