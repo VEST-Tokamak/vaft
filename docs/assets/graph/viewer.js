@@ -119,7 +119,15 @@
         self.mountGraph();
         self.render();
         // a pasted link that differs only in its hash does not reload the page
-        window.addEventListener('hashchange', function () {
+        window.addEventListener('hashchange', function onHash() {
+          // in-site navigation replaces the page without unloading it: a viewer
+          // whose graph has left the document stops listening and lets go of it
+          if (!document.body.contains(self.root)) {
+            window.removeEventListener('hashchange', onHash);
+            if (self.cy) self.cy.destroy();
+            self.cy = null;
+            return;
+          }
           // an ordinary in-page anchor (#some-heading) is not graph state
           var keys = Object.keys(readHash());
           var mine = self.hashKeys();
