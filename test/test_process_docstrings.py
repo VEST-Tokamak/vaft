@@ -88,6 +88,12 @@ DEFINITIONAL = frozenset({
     # Deleting a sum-over-species leaf from a slice that has no ion species is
     # what the leaf means, not a method borrowed from anywhere.
     "strip_electron_only_pressure",
+    # impurity (#1565): constructors and the provenance-record grammar --
+    # validation and bookkeeping; the algebra they feed is vaft.formula.impurity.
+    "composition_from_fractions",
+    "composition_from_model",
+    "composition_record_origin",
+    "composition_record_text",
     "compute_time_match_atol",
     "find_time_match_index",
     "normalize_atomic_symbol",
@@ -121,6 +127,10 @@ PIPELINE = frozenset({
     "resistive_zeff_sensitivity",
     # transport_state (#1428): times -> Ti hierarchy -> geometry -> composition/convert
     "resolve_transport_state",
+    # impurity (#1565): match time -> choose by precedence -> close at Z_eff -> reduce
+    "resolve_impurity_composition",
+    # impurity (#1565): match -> keep main ion -> dilute -> write species -> zeff
+    "populate_impurity_profiles",
     # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
     "radial_coordinate_map",
     "profile_gradient",
@@ -278,6 +288,8 @@ STATEFUL = frozenset({
     "normalize_by_local_emission",
     # ml (#669): record-level samples -> windows
     "window_dataset",
+    # impurity (#1565): an electron-only or H+ slice -> an explicit, labelled species list
+    "populate_impurity_profiles",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
@@ -602,6 +614,12 @@ CONVENTION_SENSITIVE = frozenset({
     "track_dominant_frequency",
     "current_quench",
     "current_spike",
+    # impurity (#1565): measured > explicit > derived > assumed, and an
+    # unlabelled stored composition ranks with the assumed ones; the writers
+    # label assumed vs derived, never measured.
+    "resolve_impurity_composition",
+    "populate_impurity_profiles",
+    "populate_zeff_profile",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

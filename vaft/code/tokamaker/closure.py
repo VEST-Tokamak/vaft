@@ -11,7 +11,7 @@ from scipy.optimize import linear_sum_assignment
 
 from vaft.data.equilibrium import EquilibriumData
 from vaft.process.equilibrium import (
-    as_equilibrium, convert_cocos, derive_boundary_representation,
+    as_equilibrium, calculate_q_profile_from_psi, convert_cocos, derive_boundary_representation,
     derive_global_descriptors, fit_free_boundary_coils,
 )
 from .bridge import fit_free_boundary_coils_vfixed
@@ -36,6 +36,29 @@ class FixedToFreeResult:
     refined_currents_A: Mapping[str, float] = field(default_factory=dict)
     refinement_status: str | None = None
     refinement_diagnostics: Mapping[str, Any] = field(default_factory=dict)
+    verified_free: TokaMakerResult | None = None
+    verified_comparison: Mapping[str, Any] = field(default_factory=dict)
+    verification_status: str | None = None
+
+
+def _field_q95(eq: EquilibriumData) -> tuple[float | None, str | None]:
+    """Integrate q on the 95% flux contour, independently of stored q tables."""
+    if (eq.psi is None or eq.r is None or eq.z is None or eq.psi_1d is None
+            or eq.f is None or eq.lcfs is None or eq.magnetic_axis is None):
+        return None, '2-D flux, F profile, axis and LCFS required'
+    try:
+        value = calculate_q_profile_from_psi(
+            eq.psi, eq.r, eq.z, (eq.psi_1d, eq.f),
+            psi_axis=eq.psi_axis, psi_boundary=eq.psi_boundary, levels_norm=[.95],
+            axis_rz=eq.magnetic_axis, boundary=(eq.lcfs.r, eq.lcfs.z),
+            cocos=11, sigma_ip=int(np.sign(eq.ip or 1.)),
+            sigma_b0=int(np.sign(eq.bt0 or 1.)))
+        result = float(value[0])
+        if not np.isfinite(result):
+            raise ValueError('nonfinite q95')
+        return result, None
+    except Exception as exc:
+        return None, str(exc)
 
 
 def _distances(points, contour):
@@ -98,8 +121,48 @@ def compare_equilibria(target: EquilibriumData, solved: EquilibriumData) -> dict
     # Ip is authoritative, rather than inferred from profile or Green sources.
     globals_['Ip_A'] = {'target': target.ip, 'solved': solved.ip,
                         'difference': None if target.ip is None or solved.ip is None else solved.ip - target.ip}
+    field_q = [_field_q95(eq) for eq in (target, solved)]
+    globals_['q95_field_integral'] = {
+        'target': field_q[0][0], 'solved': field_q[1][0],
+        'difference': None if any(item[0] is None for item in field_q) else field_q[1][0] - field_q[0][0],
+        'target_reason': field_q[0][1], 'solved_reason': field_q[1][1],
+        'definition': 'independent 95% contour field integral using psi(R,Z) and F(psi)',
+    }
     result['globals'] = globals_
     return result
+
+
+def _native_boundary_comparison(target: EquilibriumData, solved: EquilibriumData,
+                                sidecar: Mapping[str, Any]) -> dict[str, Any]:
+    """Supplement gridded g-file topology with native FE saddle diagnostics."""
+    comparison = compare_equilibria(target, solved)
+    native = np.asarray(sidecar.get('native_active_x_points_m', []), dtype=float).reshape(-1, 2)
+    target_x = np.asarray(comparison['x_points']['target_active_m'], dtype=float).reshape(-1, 2)
+    matched = []
+    if len(native) and len(target_x):
+        distances = np.linalg.norm(target_x[:, None] - native[None], axis=2)
+        i, j = linear_sum_assignment(distances)
+        matched = distances[i, j].tolist()
+    axis_z = target.magnetic_axis[1] if target.magnetic_axis else 0.
+    below, above = np.any(native[:, 1] < axis_z), np.any(native[:, 1] > axis_z)
+    unmatched = len(target_x) != len(native) or any(distance > .01 for distance in matched)
+    if unmatched:
+        topology = 'ambiguous'
+        reason = 'native flux-coincident saddles do not match target active X-points within 10 mm'
+    else:
+        topology = ('double_null' if below and above else 'lower_single_null' if below else
+                    'upper_single_null' if above else 'limited' if not sidecar.get('diverted') else 'ambiguous')
+        reason = sidecar.get('native_x_points_reason')
+    comparison['native_boundary'] = {
+        'source': 'native FE flux-coincident saddles matched to target active X-points, before g-file gridding',
+        'topology': topology, 'active_x_points_m': native.tolist(),
+        'matched_displacements_m': matched,
+        'unmatched_target': len(target_x)-len(matched),
+        'unmatched_solved': len(native)-len(matched),
+        'flux_tolerance_fraction': sidecar.get('native_x_flux_tolerance_fraction'),
+        'target_match_tolerance_m': .01, 'reason': reason,
+    }
+    return comparison
 
 
 def fixed_to_free(
@@ -107,6 +170,7 @@ def fixed_to_free(
     fit_backend: str = 'direct', config: TokaMakerConfig | None = None,
     fit_options: Mapping[str, Any] | None = None,
     refine_shape: bool = False, refinement_options: Mapping[str, Any] | None = None,
+    verify_refinement: bool = False,
 ) -> FixedToFreeResult:
     """Fit PF currents, hold them fixed and solve a true free-boundary equilibrium.
 
@@ -128,6 +192,8 @@ def fixed_to_free(
     """
     if fit_backend not in ('direct', 'tokamaker_vfixed'):
         raise ValueError('fit_backend must be direct or tokamaker_vfixed')
+    if verify_refinement and not refine_shape:
+        raise ValueError('frozen verification requires refine_shape=True')
     eq = convert_cocos(target, 11)
     cfg = config or TokaMakerConfig(profile_mode='equilibrium')
     if cfg.vsc_coil or cfg.split_coils or cfg.exclude_coils or cfg.vessel_currents:
@@ -188,7 +254,8 @@ def fixed_to_free(
         if forward.ok and 'error' not in comparison:
             refine_cfg = replace(refine_cfg, init_equilibrium=solved)
         refined_inputs = prepare_tokamaker_inputs(machine, refine_cfg)
-        refined = run_tokamaker(refined_inputs, refine_cfg, refinement=refinement)
+        refined = run_tokamaker(refined_inputs, refine_cfg, refinement=refinement,
+                                **({'verify_refinement': True} if verify_refinement else {}))
         refinement_status = 'solver_failed'
         if refined.ok:
             refined_currents = dict(refined.scalars.get('coil_currents_A', {}))
@@ -213,6 +280,25 @@ def fixed_to_free(
             except Exception as exc:
                 refined_comparison = {'error': str(exc)}
                 refinement_status = 'comparison_failed'
+    verified = refined.verified_free if refined is not None else None
+    verified_comparison = {}
+    verification_status = None
+    if verify_refinement:
+        verification_status = 'solver_failed'
+        if verified is not None and verified.ok:
+            measured = dict(verified.scalars.get('coil_currents_A', {}))
+            if set(measured) != set(refined_currents) or any(
+                abs(measured[name] - current) > 1e-6 for name, current in refined_currents.items()
+            ):
+                verification_status = 'currents_changed'
+            else:
+                try:
+                    verified_eq = as_equilibrium(verified.gfile, convention=cfg.eqdsk_cocos)
+                    verified_comparison = _native_boundary_comparison(eq, verified_eq, verified.scalars)
+                    verification_status = 'converged'
+                except Exception as exc:
+                    verified_comparison = {'error': str(exc)}
+                    verification_status = 'comparison_failed'
     manifest = {'fit_backend': fit_backend, 'fit_status': fit.status, 'fit_accepted': fit.accepted,
                 'fit': fit.__dict__, 'initial_currents_A': currents, 'realized_currents_A': realized,
                 'current_max_change_A': delta, 'status': status, 'forward_error': forward.error,
@@ -220,11 +306,15 @@ def fixed_to_free(
                 'refinement_status': refinement_status, 'refined_comparison': refined_comparison,
                 'refined_currents_A': refined_currents, 'refinement_diagnostics': refinement_diagnostics,
                 'refined_error': refined.error if refined else None,
+                'verification_status': verification_status,
+                'verified_comparison': verified_comparison,
+                'verified_error': verified.error if verified else None,
                 'coil_mesh_model': 'bounding rectangle per winding half',
                 'profile_mode': cfg.profile_mode}
     (output / 'closure.json').write_text(json.dumps(_json_safe(manifest), indent=2), encoding='utf-8')
     return FixedToFreeResult(fit_backend, fit, forward, currents, realized, delta, comparison, status,
-                             refined, refined_comparison, refined_currents, refinement_status, refinement_diagnostics)
+                             refined, refined_comparison, refined_currents, refinement_status, refinement_diagnostics,
+                             verified, verified_comparison, verification_status)
 
 
 __all__ = ['FixedToFreeResult', 'compare_equilibria', 'fixed_to_free']

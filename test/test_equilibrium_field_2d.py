@@ -189,7 +189,8 @@ def test_the_machine_view_takes_the_same_names(entries):
     assert MACHINE_OVERLAYS == (
         "coils", "passive", "wall", "diagnostics", "magnetics",
         "thomson_scattering", "charge_exchange", "soft_x_rays",
-        "interferometer", "langmuir_probes",
+        "interferometer", "langmuir_probes", "coils_non_axisymmetric",
+        "ec_launchers", "nbi",
     )
     everything = build_model("machine_geometry_poloidal", entries)
     wall_only = build_model("machine_geometry_poloidal", entries, overlay=("wall",))
