@@ -237,6 +237,7 @@ explains each representation.
 vaft.diagram.geometry_ordering_map()
 vaft.diagram.field_line_geometry(geometry="toroidal")   # "cylindrical", "slab"
 vaft.diagram.mode_number_mapping(m=2, n=1)
+vaft.diagram.mhd_mode_geometry_map()
 ```
 
 | Diagram | Concept |
@@ -244,6 +245,7 @@ vaft.diagram.mode_number_mapping(m=2, n=1)
 | `geometry_ordering_map` | Geometries are columns and orderings are bands. Each reduction arrow names what it keeps or drops |
 | `field_line_geometry` | The same $q$ field line on a torus and on the cylinder straightened at $R_0$, and the tilt of the sheared-slab field lines growing with $x$ |
 | `mode_number_mapping` | The cylinder's $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of `local_slab_from_cylinder` is its tangent there |
+| `mhd_mode_geometry_map` | Pressure-driven, current-driven, resonant and $n = 0$ mode families in slab, cylinder and torus. Exact relabelling, limits, analogues and branches are drawn as four different arrows. The text is [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}) |
 
 ## Tokamak geometry and flux coordinates
 
