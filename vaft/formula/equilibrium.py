@@ -2848,6 +2848,55 @@ def peaking_factor(central: float,
 # Plasma Resistance
 # ------------------------------------------------------------------
 
+def resistive_diffusion_time(a, eta):
+    r"""Resistive (current-diffusion) time of a plasma column of minor radius $a$.
+
+    $$\tau_R = \frac{\mu_0 a^2}{\eta}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius, positive [m].
+    eta : float or np.ndarray
+        Parallel resistivity, positive [Ohm m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_R$ [s].
+
+    Raises
+    ------
+    ValueError
+        ``a`` or ``eta`` is not positive.
+
+    Convention
+    ----------
+    No numerical prefactor: the diffusion time of the lowest radial mode of
+    a uniform cylinder is $\tau_R/j_{0,1}^2 \approx \tau_R/5.8$, and other
+    texts quote $\mu_0 a^2/(4\eta)$ or include $\kappa$; compare orders of
+    magnitude, not factors of a few.
+
+    Physical interpretation
+    -----------------------
+    How long the poloidal flux takes to diffuse across the column: a current
+    ramp much faster than $\tau_R$ leaves the current in a skin near the edge.
+    With $\eta \propto T_e^{-3/2}$ (``spitzer_resistivity_from_T_e_Z_eff_ln_Lambda``),
+    a hotter plasma diffuses its current far more slowly.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.9.
+    """
+    a = np.asarray(a, dtype=float)
+    eta = np.asarray(eta, dtype=float)
+    if np.any(a <= 0.0) or np.any(eta <= 0.0):
+        raise ValueError("a and eta must be positive")
+    result = MU0 * a * a / eta
+    return float(result) if np.ndim(result) == 0 else result
+
+
 def spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e: float,
                                                  Z_eff: Optional[float] = None,
                                                  ln_Lambda: Optional[float] = None) -> float:

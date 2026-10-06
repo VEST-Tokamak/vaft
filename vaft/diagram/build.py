@@ -118,6 +118,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for p in ("monotonic", "reversed_shear")},
     **{f"rational_surface_topology_{p}.svg": ("rational_surface_topology", {"profile": p})
        for p in ("monotonic", "reversed_shear")},
+    # current diffusion and current drive (#1605)
+    "current_diffusion.svg": ("current_diffusion", {}),
+    **{f"current_drive_profiles_{d}.svg": ("current_drive_profiles", {"deposition": d})
+       for d in ("off_axis", "on_axis")},
     # canonical field configurations, reconnection topology and ideal-MHD waves (#1063)
     **{f"slab_field_configuration_{k}.svg": ("slab_field_configuration", {"kind": k})
        for k in ("uniform", "sheared", "reversed", "guide")},

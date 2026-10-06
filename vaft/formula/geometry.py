@@ -66,6 +66,7 @@ __all__ = [
     "cylindrical_enclosed_current",
     "cylindrical_poloidal_flux",
     "cylindrical_internal_inductance",
+    "cylindrical_current_diffusion_rate",
     "local_slab_from_cylinder",
     "harris_sheet_field",
     "harris_sheet_current_density",
@@ -686,6 +687,84 @@ def cylindrical_internal_inductance(r, B_theta):
         raise ValueError("B_theta must not vanish at the boundary")
     a = r[-1]
     return float(2.0 * _cumulative_trapezoid(B_theta**2 * r, r)[-1] / (a * a * B_theta[-1] ** 2))
+
+
+def cylindrical_current_diffusion_rate(r, I, eta, j_ni=None):
+    r"""Rate of change of the enclosed current under resistive diffusion of the poloidal field.
+
+    $$\frac{\partial I}{\partial t} = \frac{r}{\mu_0}\frac{\partial}{\partial r}\left[\frac{\eta}{r}\left(\frac{\partial I}{\partial r} - 2\pi r\,j_\mathrm{ni}\right)\right]$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid, starting at the axis and increasing [m].
+    I : np.ndarray
+        Enclosed axial current $I(r)$ on ``r``, zero on the axis [A].
+    eta : np.ndarray
+        Parallel resistivity on ``r``, positive [Ohm m].
+    j_ni : np.ndarray, optional
+        Non-inductive (driven) current density on ``r``; none by default [A/m^2].
+
+    Returns
+    -------
+    np.ndarray
+        $\partial I/\partial t$ on ``r`` [A/s]. Zero on the axis, where
+        $I = 0$ always; NaN at the boundary $r = a$, whose current is set by
+        the external circuit, not by this equation.
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0 with at least three points,
+        an array differs in shape from ``r``, or ``eta`` is not positive.
+
+    Convention
+    ----------
+    Faraday $\partial B_\theta/\partial t = \partial E_z/\partial r$, Ampère
+    $\mu_0 I = 2\pi r B_\theta$ and Ohm's law
+    $E_z = \eta\,(j_z - j_\mathrm{ni})$, with $j_z = (\partial I/\partial r)/2\pi r$
+    the total current density. Conservative finite differences: the
+    bracket is evaluated on the cell faces (midpoints of ``r``), with $\eta$
+    and $j_\mathrm{ni}$ averaged there; second order in the grid spacing.
+
+    Physical interpretation
+    -----------------------
+    The current density relaxes towards $j_z = j_\mathrm{ni} + E_z/\eta$
+    with one $E_z$ across the radius. A driven source therefore persists
+    while the ohmic part around it readjusts; and with no source the
+    relaxed current is $\propto 1/\eta$ -- flat for uniform resistivity,
+    peaked only because a hotter core conducts better.
+
+    Assumptions
+    -----------
+    Straight cylinder at large aspect ratio; resistivity and driven current
+    are prescribed, with no transport, bootstrap or toroidal geometry.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.9 (resistive diffusion of the current).
+    .. [2] F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239,
+           Sec. VI (poloidal flux diffusion).
+    """
+    r = _radial_grid(r)
+    if r.size < 3:
+        raise ValueError("r must hold at least three radii")
+    I = np.asarray(I, dtype=float)
+    eta = np.asarray(eta, dtype=float)
+    j_ni = np.zeros_like(r) if j_ni is None else np.asarray(j_ni, dtype=float)
+    for name, value in (("I", I), ("eta", eta), ("j_ni", j_ni)):
+        if value.shape != r.shape:
+            raise ValueError(f"{name} must have the shape of r, {r.shape}, not {value.shape}")
+    if np.any(eta <= 0.0):
+        raise ValueError("eta must be positive")
+    face = 0.5 * (r[1:] + r[:-1])
+    flux = (0.5 * (eta[1:] + eta[:-1]) / face) * (
+        np.diff(I) / np.diff(r) - 2.0 * np.pi * face * 0.5 * (j_ni[1:] + j_ni[:-1]))
+    rate = np.empty_like(r)
+    rate[1:-1] = r[1:-1] / MU0 * np.diff(flux) / (face[1:] - face[:-1])
+    rate[0], rate[-1] = 0.0, np.nan
+    return rate
 
 
 def local_slab_from_cylinder(m_pol, n_tor, r_0, R0, q_0, s_hat) -> Tuple[float, float, float]:
