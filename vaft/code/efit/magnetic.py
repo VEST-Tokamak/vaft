@@ -1174,9 +1174,23 @@ def collect_efit_outputs(
                 raise ValueError("restart-control SHA-256 must be 64 lowercase hex")
             execution["restart_control_sha256"] = restart_control_sha256
     stale_output_errors: list[str] = []
+    # Outputs belong to this run's k-files only: a g-file an earlier run left
+    # for an instant this run did not attempt is another configuration's
+    # reconstruction, not this one's (#1786).
+    expected_cases = {_efit_case_key(Path(path)) for path in expected_kfiles}
 
     def current_outputs(prefix: str) -> tuple[Path, ...]:
         files = _find_outputs(base, prefix, shot)
+        if expected_cases:
+            kept = []
+            for path in files:
+                if _efit_case_key(path) in expected_cases:
+                    kept.append(path)
+                else:
+                    stale_output_errors.append(
+                        f"EFIT {prefix}-file without a k-file of this run was ignored: {path}"
+                    )
+            files = tuple(kept)
         if not pre_run_output_fingerprints:
             return files
         current: list[Path] = []
@@ -1195,8 +1209,9 @@ def collect_efit_outputs(
     mfiles = current_outputs("m")
     kfiles = tuple(
         sorted(
-            set(_find_outputs(base, "k", shot))
-            | {Path(path) for path in expected_kfiles}
+            {Path(path) for path in expected_kfiles}
+            if expected_kfiles
+            else set(_find_outputs(base, "k", shot))
         )
     )
     logs = (

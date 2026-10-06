@@ -224,6 +224,9 @@ def test_a_rerun_lists_only_its_own_kfiles_and_keeps_the_earlier_ones_aside(tmp_
     kfile_dir = manifest.parent.parent / "kfile"
     stale = kfile_dir / "k039915.00001"  # sorts before every real instant, as the 09-03 files did
     stale.write_text(" &IN1\n TABLE_DIR = '/old/table/'\n /\n", encoding="utf-8")
+    stale_g = manifest.parent.parent / "gfile" / "g039915.00001"  # that earlier run's reconstruction
+    stale_g.parent.mkdir(parents=True, exist_ok=True)
+    stale_g.write_text("an earlier configuration's g-file", encoding="utf-8")
 
     _, second = _run_generate_kfile(tmp_path, "--preset", "statistical_891")
     assert second.returncode == 0, second.stderr[-2000:]
@@ -234,6 +237,8 @@ def test_a_rerun_lists_only_its_own_kfiles_and_keeps_the_earlier_ones_aside(tmp_
     superseded = list((kfile_dir / "superseded").glob("*/k039915.*"))
     assert stale.name in {p.name for p in superseded}  # kept aside, not deleted
     assert len(superseded) == len(first_run) + 1
+    assert not stale_g.exists()  # the collection cannot read it as this run's
+    assert (stale_g.parent / "superseded").is_dir() and list((stale_g.parent / "superseded").glob("*/g039915.00001"))
 
 
 def test_the_efit_collection_payload_of_a_pre_record_product_is_unchanged():

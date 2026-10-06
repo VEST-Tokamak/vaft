@@ -19,25 +19,34 @@ from vaft.code.efit.presets import DEFAULT_PRESET, PRESET_RECORD
 LOGGER = logging.getLogger("vaft.generate_kfile")
 
 
-def supersede_kfiles(kfile_dir: Path, shot: int) -> Path | None:
-    """Move the shot's k-files from an earlier run into ``kfile/superseded/<UTC stamp>/``.
+def supersede_earlier_run(efit_dir: Path, shot: int) -> Path | None:
+    """Move the shot's k-, g-, a- and m-files of an earlier run under ``superseded/<UTC stamp>/``.
 
     The stage used to list its output by globbing ``kfile/``, so k-files of an
     earlier run (another configuration, another Green table, other instants)
-    were run again with the new ones (#1786). EFIT reads the table of the first
-    k-file of a batch, so a stale first file failed every new one, and stale
-    files after a new first file produced g-files that passed as fresh. They
-    are moved, not deleted: they are the record of what the earlier run used.
+    were run again with the new ones, and the collection read every g-file in
+    ``gfile/`` (#1786). EFIT reads the table of the first k-file of a batch, so
+    a stale first file failed every new one; stale files after a new first one
+    produced g-files that passed as fresh. Each kind moves to its own
+    ``<kind>file/superseded/<stamp>/`` (files EFIT left in the run directory
+    itself to ``superseded/<stamp>/``). They are moved, not deleted: they are
+    the record of what the earlier run used.
     """
-    previous = sorted(kfile_dir.glob(f"k0{shot}.*"))
-    if not previous:
-        return None
-    target = kfile_dir / "superseded" / datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-    target.mkdir(parents=True)
-    for path in previous:
-        path.rename(target / path.name)
-    LOGGER.info("Moved %d k-file(s) of an earlier run of shot %s to %s", len(previous), shot, target)
-    return target
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    moved = 0
+    for directory in [efit_dir / f"{kind}file" for kind in "kgam"] + [efit_dir]:
+        previous = [p for kind in "kgam" for p in sorted(directory.glob(f"{kind}0{shot}.*")) if p.is_file()]
+        if not previous:
+            continue
+        target = directory / "superseded" / stamp
+        target.mkdir(parents=True)
+        for path in previous:
+            path.rename(target / path.name)
+        moved += len(previous)
+    if moved:
+        LOGGER.info("Moved %d EFIT file(s) of an earlier run of shot %s under superseded/%s", moved, shot, stamp)
+        return efit_dir
+    return None
 
 
 def main() -> int:
@@ -87,7 +96,7 @@ def main() -> int:
         # No k-file to write (#205); the manifest carries the verdict on.
         args.output.parent.mkdir(parents=True, exist_ok=True)
         (args.output.parent / PRESET_RECORD).unlink(missing_ok=True)
-        supersede_kfiles(args.output.parent.parent / "kfile", args.shot)
+        supersede_earlier_run(args.output.parent.parent, args.shot)
         args.output.write_text(kfile_manifest_text(not_applicable), encoding="utf-8")
         LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, not_applicable)
         return 0
@@ -127,10 +136,9 @@ def main() -> int:
             encoding="utf-8",
         )
     kfile_dir = efit_dir / "kfile"
-    supersede_kfiles(kfile_dir, args.shot)
-    before = set(kfile_dir.glob(f"k0{args.shot}.*"))
-    if before:  # supersede_kfiles must leave nothing behind to be listed as this run's
-        raise RuntimeError(f"k-files of an earlier run remain in {kfile_dir}: {sorted(p.name for p in before)}")
+    # One writer per shot is assumed (the pipeline runs a shot's stages in one
+    # chain); a second concurrent run of the same shot would move this one's files.
+    supersede_earlier_run(efit_dir, args.shot)
     generate_kfile(
         ods,
         args.shot,
@@ -140,8 +148,8 @@ def main() -> int:
         config=scientific_config,
     )
 
-    # Only what this run wrote: the directory was emptied of the shot's k-files above.
-    kfiles = sorted(set(kfile_dir.glob(f"k0{args.shot}.*")) - before)
+    # Only what this run wrote: the shot's earlier files were moved aside above.
+    kfiles = sorted(kfile_dir.glob(f"k0{args.shot}.*"))
     if not kfiles:
         raise FileNotFoundError(f"No kfiles generated under {kfile_dir}")
     args.output.write_text(
