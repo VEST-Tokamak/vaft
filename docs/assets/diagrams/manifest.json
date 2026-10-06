@@ -407,7 +407,7 @@
     },
     "hugill_st.svg": {
       "call": "vaft.diagram.hugill_st()",
-      "source_sha256": "a8b06dea35975c0572da356572176b0d3fa98ba36f1f3449f1e4b0ae3798ceda",
+      "source_sha256": "2d3a089f939062694d32c0aa0e4a0feb95c1abfa177650c7d2ac95b66614c0a9",
       "svg_sha256": "35458972f7dbedb6826c8ef1783897181693d73269044db66531f767f58d0354"
     },
     "human_ai_interface.svg": {
