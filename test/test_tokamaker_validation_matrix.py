@@ -81,9 +81,20 @@ def test_matrix_records_target_failure_for_each_route_and_exits_nonzero(tmp_path
     assert all('target construction failed' in row['error'] for row in records)
 
 
+# The README and measured_matrix.json are excluded from the wheel (#1756), so
+# read them from the repository checkout rather than next to the module.
+STUDY_DIR = Path(__file__).resolve().parents[1] / 'vaft' / 'validation' / 'studies' / 'fixed_free_1608'
+
+
+def _study_file(name):
+    path = STUDY_DIR / name
+    if not path.is_file():
+        pytest.skip(f'{name} is not shipped; run from a repository checkout')
+    return path
+
+
 def _measured_matrix():
-    path = Path(matrix.__file__).with_name('measured_matrix.json')
-    return json.loads(path.read_text(encoding='utf-8'))
+    return json.loads(_study_file('measured_matrix.json').read_text(encoding='utf-8'))
 
 
 def test_committed_measured_matrix_reproduces_its_gate_verdicts():
@@ -107,6 +118,6 @@ def test_readme_states_unrefined_closure_count_and_refinement_current_change():
     assert {r['family'] for r in converged_initially} == {'solovev'}
     largest = max(r['refined']['max_current_change_A'] for r in records)
     assert largest == pytest.approx(109.45e3, rel=1e-3)
-    readme = Path(matrix.__file__).with_name('README.md').read_text(encoding='utf-8')
+    readme = _study_file('README.md').read_text(encoding='utf-8')
     assert 'converges for 4 of the 20 cases' in readme
     assert 'up to 109 kA' in readme
