@@ -55,3 +55,16 @@ def test_validation_matrix_marks_thomson_as_its_own_row():
     assert [t.get_text() for t in ax.get_yticklabels()] == ["convergence", "Thomson (separate)"]
     assert any(line.get_ydata()[0] == 0.5 for line in ax.get_lines())  # the rule line above Thomson
     matplotlib.pyplot.close(fig)
+
+
+def test_selection_funnel_draws_one_bar_per_cohort():
+    funnel = {"rules": ["finite", "dwdt_fraction"], "cohorts": {
+        "good": {"candidates": 3, "selected": 1, "rejected": 2,
+                 "exclusions": [{"rule": "finite", "removed_in_sequence": 1}, {"rule": "dwdt_fraction", "removed_in_sequence": 1}]},
+        "admissible": {"candidates": 2, "selected": 1, "rejected": 1,
+                       "exclusions": [{"rule": "finite", "removed_in_sequence": 0}, {"rule": "dwdt_fraction", "removed_in_sequence": 1}]},
+    }}
+    fig, ax = plots.equilibrium_quality_selection_funnel(funnel)
+    assert [t.get_text().split("\n")[0] for t in ax.get_yticklabels()] == ["good", "admissible-only"]
+    assert any("selected" in t.get_text() for t in ax.texts)
+    matplotlib.pyplot.close(fig)
