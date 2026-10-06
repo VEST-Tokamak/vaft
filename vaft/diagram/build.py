@@ -64,6 +64,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
     "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings (#1627)
+    "ordering_contract_map.svg": ("ordering_contract_map", {}),
     "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
     # tokamak geometry and flux coordinates
     **{f"tokamak_torus_{p}.svg": ("tokamak_torus", {"projection": p}) for p in ("3d", "poloidal")},

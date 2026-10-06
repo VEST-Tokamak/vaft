@@ -220,6 +220,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_mhd_waves.py",
     "test_diagram_mode_geometry.py",
     "test_diagram_nbi.py",
+    "test_diagram_ordering_contracts.py",
     "test_diagram_orderings.py",
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
@@ -308,6 +309,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
     "test_formula_ordering.py",
+    # Ordering contracts (#1627 phase C): the registry against applicability's rules,
+    # the cited kernels against the catalog, and evaluation on synthetic states.
+    "test_validation_orderings.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

@@ -152,3 +152,74 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
     model = {"times": {k: v[1] for k, v in times.items()}, "inputs": {k for k, v in times.items() if v[2]},
              "ratios": ratios, "state": dict(ILLUSTRATIVE_STATE)}
     return Diagram("timescale_hierarchy", Scene(tuple(items)), model=model)
+
+
+# ---------------------------------------------------------------------------
+# which model assumes which ordering
+# ---------------------------------------------------------------------------
+
+#: column symbols for the ordering quantities of vaft.validation.orderings
+_SYMBOLS = {
+    "lundquist_number": "$S$",
+    "ion_skin_depth_over_L": "$d_i/a$",
+    "rho_i_over_LTi": "$\\rho_i/L_{T_i}$",
+    "rho_s_over_LTe": "$\\rho_s/L_{T_e}$",
+    "electron_knudsen_number": "$Kn_e$",
+    "ion_knudsen_number": "$Kn_i$",
+    "electron_magnetization": "$\\Omega_{ce}\\tau_e$",
+    "ion_magnetization": "$\\Omega_{ci}\\tau_i$",
+    "tau_evolution_over_tau_alfven": "$\\tau_{evol}/\\tau_A$",
+    "tau_age_over_tau_resistive": "$\\tau_{age}/\\tau_R$",
+}
+
+_COL, _ROW, _LEFT = 2.0, 1.0, 6.4
+
+
+def ordering_contract_map(*, labels: bool = True) -> Diagram:
+    r"""Which reduced model assumes which ordering, read from the registered contracts.
+
+    Rows are the contracts of ``vaft.validation.orderings.CONTRACTS``, columns
+    the ordering quantities of ``ORDERING_QUANTITIES`` with their scale and
+    scope; a cell says whether the model needs the quantity $\gg 1$ or
+    $\ll 1$. Every threshold is order unity, and evaluating a state gives a
+    continuous margin per cell ($\mp\log_{10}x$), not one valid/invalid flag.
+    """
+    from vaft.validation.orderings import CONTRACTS, ORDERING_QUANTITIES
+
+    labels = _check_labels(labels)
+    columns = list(ORDERING_QUANTITIES)
+    rows = list(CONTRACTS)
+    items: List = []
+    width = len(columns) * _COL
+    for j, key in enumerate(columns):
+        x = _LEFT + (j + 0.5) * _COL
+        q = ORDERING_QUANTITIES[key]
+        items.append(Label((x, 0.55), _SYMBOLS[key], "label", anchor="south", role=f"column:{key}"))
+        items.append(Label((x, 0.5), q.scope.replace("_", "\\\\ "), "small label,align=center", anchor="north",
+                           role=f"column:{key}"))
+    for i, name in enumerate(rows):
+        y = -(i + 0.9) * _ROW
+        c = CONTRACTS[name]
+        if i % 2 == 0:
+            items.append(Polyline.of([(0.0, y - 0.5 * _ROW), (_LEFT + width, y - 0.5 * _ROW),
+                                      (_LEFT + width, y + 0.5 * _ROW), (0.0, y + 0.5 * _ROW)],
+                                     "concept band", role=f"row:{name}", closed=True))
+        items.append(Label((0.15, y), c.physical_model,
+                           "small label,text width=6.0cm,align=left,execute at begin node={\\hyphenpenalty=10000}",
+                           anchor="west",
+                           role=f"row:{name}"))
+        for a in c.assumptions:
+            x = _LEFT + (columns.index(a.quantity) + 0.5) * _COL
+            text, style = ("$\\gg 1$", "concept source") if a.ordering == "large" else ("$\\ll 1$", "concept leaf")
+            items.append(Polyline.of([(x - 0.6, y - 0.32), (x + 0.6, y - 0.32), (x + 0.6, y + 0.32),
+                                      (x - 0.6, y + 0.32)], style, role=f"cell:{name}:{a.quantity}", closed=True))
+            items.append(Label((x, y), text, "label", role=f"cell:{name}:{a.quantity}"))
+    bottom = -(len(rows) + 0.4) * _ROW
+    if labels:
+        items.append(Label((0.5 * (_LEFT + width), bottom - 0.2),
+                           "Each cell is one ordering, evaluated separately: a state gets a margin "
+                           "$m = \\mp\\log_{10}x$ per cell against an order-unity threshold, not one flag",
+                           "note", anchor="north", role="note"))
+    model = {"rows": tuple(rows), "columns": tuple(columns),
+             "cells": {(n, a.quantity): a.ordering for n in rows for a in CONTRACTS[n].assumptions}}
+    return Diagram("ordering_contract_map", Scene(tuple(items)), model=model)

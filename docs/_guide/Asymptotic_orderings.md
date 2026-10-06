@@ -67,13 +67,28 @@ across the VEST database is the ordering atlas of #1629.
 
 ## Ordering contracts
 
-Whether an ordering holds depends on the model that assumes it. Ideal single-fluid MHD needs $S \gg 1$,
-$d_i/L \ll 1$, $\rho_i/L \ll 1$ and $\tau_{evol}/\tau_A \gg 1$ all at once, not $S$ alone. A local collisional
-fluid needs $Kn \ll 1$, and a strongly magnetized one needs $\Omega\tau \gg 1$.
+Whether an ordering holds depends on the model that assumes it. The contracts are registered in
+`vaft.validation.orderings.CONTRACTS` as `ApproximationContract` objects of
+`vaft.validation.applicability` (#1639). They are evaluated with `evaluate_contract` for one state and
+`evaluate_population` for a table, whose columns are the names in `ORDERING_QUANTITIES`.
 
-These contracts will be registered as `ApproximationContract` objects of `vaft.validation.applicability`
-(#1639, PR #1695). They report a continuous ordering margin per assumption ($\mp\log_{10}x$), not a
-valid/invalid flag. They follow in a second #1627 PR once that module is on develop.
+![ordering contracts]({{ '/assets/diagrams/ordering_contract_map.svg' | relative_url }})
+
+| Contract | Needs |
+| --- | --- |
+| `ideal_single_fluid_mhd` | $S \gg 1$, $d_i/a \ll 1$, $\rho_i/L_{T_i} \ll 1$, $\tau_{evol}/\tau_A \gg 1$: four orderings, not $S$ alone |
+| `resistive_mhd` | the same without $S$: resistivity is kept, not ordered out |
+| `local_collisional_fluid` | $Kn_e \ll 1$, $Kn_i \ll 1$ |
+| `strongly_magnetized_fluid` | $\Omega_{ce}\tau_e \gg 1$, $\Omega_{ci}\tau_i \gg 1$ |
+| `flr_small_fluid` | $\rho_i/L_{T_i} \ll 1$, $\rho_s/L_{T_e} \ll 1$ |
+| `quasi_static_equilibrium` | $\tau_{evol}/\tau_A \gg 1$ |
+| `resistively_relaxed_current` | $\tau_{age}/\tau_R \gg 1$. An order-one value is ambiguous, because $\tau_R$ has no geometric factor |
+
+Every threshold is order unity. The result is a continuous margin per ordering,
+$m = \mp\log_{10}x$, and a status per contract (`SUPPORTED`, `OUTSIDE`, `UNASSESSED`, `NOT_APPLICABLE`),
+never a single valid/invalid flag. A quantity a state does not carry is `UNASSESSED`, never a violation.
+Layer orderings ($d_i/\delta$, $\rho_s/\delta$, a layer $S$), reduced-MHD families and gyrokinetic orderings
+need mode- or layer-specific quantities and will be added as their own contracts.
 
 ## References
 
