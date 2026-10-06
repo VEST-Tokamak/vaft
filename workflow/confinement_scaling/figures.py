@@ -72,6 +72,17 @@ SCALING_TAGS = {
 }
 #: Box colour per database tag of SCALING_TAGS.
 DATABASE_COLOURS = {"multi": "#9ecae1", "single ST": "#fdae6b", "multi ST": "#a1d99b"}
+#: Box hatch per confinement mode of SCALING_TAGS. A new mode takes the next unused
+#: pattern of SPARE_HATCHES (dots first), so the encoding extends without a redesign.
+MODE_HATCHES = {"ohmic": "", "ohmic+L": "\\\\", "L": "//", "H": "--"}
+SPARE_HATCHES = ("..", "xx", "oo", "++")
+
+
+def mode_hatch(mode: str) -> str:
+    """Hatch pattern of a confinement mode; an unlisted mode gets a spare pattern, stably."""
+    if mode in MODE_HATCHES:
+        return MODE_HATCHES[mode]
+    return SPARE_HATCHES[sum(map(ord, mode)) % len(SPARE_HATCHES)]
 
 
 def tagged_label(scaling: str) -> str:
@@ -251,40 +262,52 @@ def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L")):
 
 
 def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, figsize=(9.5, 5.6)):
-    """VEST alone: the H factor against each scaling, one box per scaling, tagged by database and mode.
+    """VEST alone: the H factor against each scaling, one box per scaling.
 
-    ``table`` holds VEST rows only (e.g. the primary selection). A scaling with a
-    density term uses the rows with a Thomson density; the row count is shown.
-    Boxes are coloured by where the scaling was fitted (SCALING_TAGS).
+    ``table`` holds VEST rows only (e.g. the primary selection); a scaling with a
+    density term uses the rows with a Thomson density. The axis names only the
+    scaling: the box colour is where it was fitted and the hatch its confinement
+    mode (SCALING_TAGS), each with its own legend.
     """
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
 
-    values, labels, colours = [], [], []
+    values, labels, colours, hatches = [], [], [], []
     for name in scalings:
         h = h_factor_of(table, name).replace([np.inf, -np.inf], np.nan).dropna()
         values.append(h.to_numpy(float))
         database, mode = SCALING_TAGS.get(name, ("?", "?"))
-        labels.append(f"{LABELS.get(name, name)}\n[{database} | {mode}]  n={len(h)}")
-        colours.append(DATABASE_COLOURS.get(SCALING_TAGS.get(name, ("?",))[0], "0.85"))
+        labels.append(LABELS.get(name, name))
+        colours.append(DATABASE_COLOURS.get(database, "0.85"))
+        hatches.append(mode_hatch(mode))
     fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
     # Top to bottom in the order given (ALL_SCALINGS runs ohmic, L, H).
     positions = np.arange(len(values))[::-1]
     boxes = ax.boxplot(values, positions=positions, vert=False, widths=0.6, patch_artist=True,
                        medianprops=dict(color="k"), flierprops=dict(markersize=3))
-    for patch, colour in zip(boxes["boxes"], colours):
+    for patch, colour, hatch in zip(boxes["boxes"], colours, hatches):
         patch.set_facecolor(colour)
+        patch.set_hatch(hatch)
     ax.set_yticks(positions, labels, fontsize="small")
     ax.axvline(1.0, color="k", ls="--", lw=1)
     ax.set_xscale("log")
     ax.set_xlabel(r"$H = \tau_{E,th}/\tau_{E,scaling}$")
     ax.grid(alpha=0.25, which="both", axis="x")
     ax.set_title("VEST (ohmic): H against each scaling", fontsize="medium")
-    shown = {SCALING_TAGS.get(name, ("?",))[0] for name in scalings}
-    handles = [Patch(facecolor=c, edgecolor="k", label=f"{k}-machine fit" if " " not in k else f"{k} fit")
-               for k, c in DATABASE_COLOURS.items() if k in shown]
-    # Upper left: the ohmic and L-mode rows at the top have no boxes at low H.
-    ax.legend(handles=handles, fontsize="x-small", loc="upper left", frameon=False)
+    tags = [SCALING_TAGS.get(name, ("?", "?")) for name in scalings]
+    databases = list(dict.fromkeys(db for db, _ in tags))
+    modes = list(dict.fromkeys(mode for _, mode in tags))
+    # Short labels under a "fit database" title: the first legend is placed with
+    # add_artist, which the layout engine does not make room for.
+    fit_handles = [Patch(facecolor=DATABASE_COLOURS.get(db, "0.85"), edgecolor="k", label=db) for db in databases]
+    mode_handles = [Patch(facecolor="white", edgecolor="k", hatch=mode_hatch(m),
+                          label=f"{m}-mode" if len(m) == 1 else m) for m in modes]
+    # Both legends sit outside the axes, right: no H range is free of boxes or outliers.
+    first = ax.legend(handles=fit_handles, fontsize="x-small", loc="upper left", bbox_to_anchor=(1.01, 1.0),
+                      frameon=False, title="fit database", title_fontsize="x-small", alignment="left")
+    ax.add_artist(first)
+    ax.legend(handles=mode_handles, fontsize="x-small", loc="lower left", bbox_to_anchor=(1.01, 0.0),
+              frameon=False, title="regime", title_fontsize="x-small", alignment="left")
     return fig, ax
 
 
