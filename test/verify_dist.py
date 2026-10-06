@@ -55,6 +55,7 @@ _ALLOWED_DATA_SUFFIXES = {
     # ShotLog era schemas, read at run time by vaft.machine_mapping.pulse_schedule
     # (#995); package-data in pyproject.toml and an explicit include in MANIFEST.in.
     "shotlog/schemas/": (".yaml",),
+    "unified/vest_diagnostics/": (".yaml", ".gz"),
 }
 
 # Issue studies under vaft/validation/studies (#1756): the folders whose
@@ -85,6 +86,8 @@ REQUIRED_FILES = {
     # ``prune vaft/data`` in MANIFEST.in would drop the subpackage from the sdist.
     "vaft/data/public/__init__.py",
     "vaft/data/shotlog/schemas/common.yaml",
+    "vaft/data/unified/vest_diagnostics/manifest.yaml",
+    "vaft/data/unified/vest_diagnostics/omas.json.gz",
     # Runtime data outside vaft/data: ``_allowed_data_file`` never looks there,
     # so only this set notices a distribution that lacks them.
     # The revision-pinned VEST NICE parameters and the compatibility header
@@ -206,7 +209,9 @@ def main() -> None:
     parser.add_argument(
         "dist_dir", type=Path, help="directory containing wheel and sdist artifacts"
     )
-    parser.add_argument("--max-wheel-mib", type=float, default=25.0)
+    # 26 MiB since 2026-10-07: the unified VEST diagnostics fixture (0.93 MiB, read by
+    # vaft.data.resources) ships in the wheel (release 0.8.0 decision).
+    parser.add_argument("--max-wheel-mib", type=float, default=26.0)
     args = parser.parse_args()
 
     wheels = sorted(args.dist_dir.glob("*.whl"))
