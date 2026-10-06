@@ -877,8 +877,8 @@
     },
     "spectroscopy_ionization_stages.svg": {
       "call": "vaft.diagram.spectroscopy_ionization_stages(term='C III')",
-      "source_sha256": "74f21a13faabcb26160edba16ccb9f7524af963e7bc7ed39bd18aae32ff041fa",
-      "svg_sha256": "90b0a8bfbbcd59cc6283d7a10c8bb963e80513d30d5ce587e92f3857df28d8c4"
+      "source_sha256": "4584afebc2b7b2ba778c7d0d02e53e5b4859e554bda09c023b6eb7cd5f39db47",
+      "svg_sha256": "126ad7a01d1d4cfb9389b757cd7d50796072199bab2dee9154c696a989e98dc5"
     },
     "spectroscopy_spectrum.svg": {
       "call": "vaft.diagram.spectroscopy_spectrum()",
