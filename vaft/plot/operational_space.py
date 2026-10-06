@@ -44,6 +44,10 @@ __all__ = ["operational_space_population", "population_overlay", "applicability_
 #: projection (NOT_APPLICABLE). There is no MARGINAL: no cutoff is invented (#1639).
 APPLICABILITY_STATUSES = ("SUPPORTED", "OUTSIDE", "UNASSESSED", "NOT_APPLICABLE")
 
+#: Aspect ratio R/a below which a tokamak is spherical (Peng and Strickler, Nucl. Fusion 26 (1986) 769:
+#: low aspect ratio A <~ 2). A boundary declared for "conventional aspect ratio" is outside its domain there.
+SPHERICAL_ASPECT_RATIO_MAX = 2.0
+
 #: Categorical slots in fixed order (the validated palette of vaft.plot.population).
 CATEGORICAL = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7")
 MARKERS = ("o", "s", "^", "D", "v", "P", "X")
@@ -416,12 +420,16 @@ def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tupl
     Notes
     -----
     OUTSIDE when a plotted value or a fixed input leaves a declared fitted
-    range, or the declared machine class excludes the plotted one; SUPPORTED
-    only on evidence: the machine class is covered *and* at least one declared
-    calibration range was tested on the plotted values; UNASSESSED otherwise
-    (no machine class given, a class that does not decide it, or no range to
-    test). A boundary the projection omits is UNASSESSED when inputs are
-    missing and NOT_APPLICABLE when its quantities are not this plane's.
+    range, or the declared machine class excludes the plotted one, or the
+    class is declared for conventional aspect ratio and the fixed inputs give
+    a spherical one (``R/a`` below :data:`SPHERICAL_ASPECT_RATIO_MAX`);
+    SUPPORTED only on evidence: the machine class is covered (by name, or by
+    a conventional-aspect-ratio declaration met by the fixed ``R/a``) *and*
+    at least one declared calibration range was tested on the plotted
+    values; UNASSESSED otherwise (no machine class given, a class that does
+    not decide it, or no range to test). A boundary the projection omits is
+    UNASSESSED when inputs are missing and NOT_APPLICABLE when its quantities
+    are not this plane's.
     """
     entry = _b.get_boundary(curve.key)
     reasons = []
@@ -448,7 +456,18 @@ def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tupl
             reasons.append(f"{label} {int(beyond.sum())}/{values.size} outside {lo:g}-{hi:g}")
     declared = getattr(entry.applicability, "machine_class", "") or ""
     covered = _machine_coverage(declared, machine_class)
-    if covered is False:
+    aspect = _fixed_aspect_ratio(curve.fixed)
+    if "conventional" in declared.lower() and aspect is not None:
+        # The precondition the registry states, tested on the plotted shape rather than on a class label.
+        if aspect < SPHERICAL_ASPECT_RATIO_MAX:
+            outside = True
+            covered = False
+            reasons.append(f"A = R/a = {aspect:.2f} is spherical (< {SPHERICAL_ASPECT_RATIO_MAX:g}); "
+                           "declared for conventional aspect ratio")
+        elif covered is None:
+            covered = True
+            reasons.append(f"A = R/a = {aspect:.2f} meets the declared conventional aspect ratio")
+    elif covered is False:
         outside = True
         # the class's first phrase ("JET (conventional ...), 1985-88" -> "JET"); the rest stays on the registry entry
         reasons.append("calibrated on " + declared.split("(")[0].split(",")[0].strip())
@@ -463,6 +482,17 @@ def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tupl
         reasons.append("no machine class given for the plotted states" if not machine_class
                        else f"declared class '{declared or 'none'}' does not decide {machine_class}")
     return "UNASSESSED", tuple(reasons)
+
+
+def _fixed_aspect_ratio(fixed: Mapping[str, float]) -> Optional[float]:
+    """R/a from a curve's fixed inputs (``aspect_ratio``, or ``major_radius`` over ``minor_radius``); None if unknown."""
+    if "aspect_ratio" in fixed:
+        aspect = float(fixed["aspect_ratio"])
+    elif "major_radius" in fixed and "minor_radius" in fixed and float(fixed["minor_radius"]) > 0.0:
+        aspect = float(fixed["major_radius"]) / float(fixed["minor_radius"])
+    else:
+        return None
+    return aspect if np.isfinite(aspect) else None
 
 
 #: Omission reasons that mean missing information (UNASSESSED), not a quantity that cannot be drawn here.

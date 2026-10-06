@@ -616,3 +616,36 @@ def test_an_omitted_boundary_is_not_applicable():
     t = pd.DataFrame({"edge_safety_factor_95": [5.0, 6.0], "internal_inductance_li3": [0.5, 0.6]})
     _, ax = operational_space_population(t, "li_qa_wesson", x="edge_safety_factor_95")
     assert {s for s, _ in ax.vaft_applicability.values()} == {"NOT_APPLICABLE"}
+
+
+def test_conventional_aspect_ratio_current_limits_are_outside_for_a_spherical_shape():
+    # The ITER-1991 guideline and Freidberg kink current limits declare "conventional aspect
+    # ratio"; on a spherical-tokamak ip_bt population they were UNASSESSED because only
+    # class keywords and declared ranges were tested, never the stated precondition
+    # (cold review 0.8.0 delta-absorb-16 confinement F2).
+    table = pd.DataFrame({"toroidal_field": [0.15, 0.2], "plasma_current": [0.08, 0.12]})
+    table.attrs["units"] = {"toroidal_field": "T", "plasma_current": "MA"}
+    table.attrs["machine_class"] = "spherical_tokamak"
+    shape = {"minor_radius": 0.27, "major_radius": 0.38, "elongation": 1.5, "triangularity": 0.3}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        _, ax = operational_space_population(table, "ip_bt", boundary_style="inline", boundary_inputs=shape)
+    for key in ("iter_1991_q95_current", "freidberg_2008_kink_current"):
+        status, reasons = ax.vaft_applicability[key]
+        assert status == "OUTSIDE", (key, status, reasons)
+        assert any(r.startswith("A = R/a = 1.41") and "conventional aspect ratio" in r for r in reasons), reasons
+    # The shape decides it even without a machine-class label...
+    from vaft.plot.operational_space import applicability_status
+    curves = {c.key: c for c in ops.overlay_plan("ip_bt", ["iter_1991_q95_current", "freidberg_2008_kink_current"],
+                                                 x_range=(0.1, 0.3), y_range=(0, 0.3), fixed=shape).curves}
+    axes = ("toroidal_field", "plasma_current")
+    assert applicability_status(curves["iter_1991_q95_current"], table, axes, None)[0] == "OUTSIDE"
+    # ...and a conventional shape meets the precondition: Freidberg's tested kappa range then supports it,
+    # the guideline (no declared range) stays unassessed, with the aspect ratio in the reasons.
+    conventional = dict(shape, minor_radius=0.3, major_radius=0.9)
+    curves = {c.key: c for c in ops.overlay_plan("ip_bt", ["iter_1991_q95_current", "freidberg_2008_kink_current"],
+                                                 x_range=(0.1, 0.3), y_range=(0, 1.0), fixed=conventional).curves}
+    status, reasons = applicability_status(curves["freidberg_2008_kink_current"], table, axes, "conventional_tokamak")
+    assert status == "SUPPORTED" and any("A = R/a = 3.00 meets" in r for r in reasons)
+    status, reasons = applicability_status(curves["iter_1991_q95_current"], table, axes, "conventional_tokamak")
+    assert status == "UNASSESSED" and "no calibration range" in reasons[-1]

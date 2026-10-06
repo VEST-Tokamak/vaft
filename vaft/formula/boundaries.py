@@ -1652,7 +1652,9 @@ _ELONGATION = BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation.")
 _FREIDBERG_SOURCE = dict(citation="J. P. Freidberg, Plasma Physics and Fusion Energy, Cambridge University Press (2008)",
                          doi="10.1017/CBO9780511755705")
 _FREIDBERG_APPLICABILITY = dict(
-    machine_class="tokamak, elongated elliptical cross-section",
+    # "conventional aspect ratio" is the large-aspect-ratio ordering of the derivation (the third
+    # assumption), stated in the class so that an evaluator can test the plotted A against it.
+    machine_class="conventional-aspect-ratio tokamak, elongated elliptical cross-section",
     ranges={"elongation": (1.0, 2.0)},
     assumptions=(
         "low-beta external kink from the surface-current model; the coupled-harmonic result is approximate",
@@ -2037,7 +2039,7 @@ _register(Boundary(
     basis="empirical",
     event="disruption",
     applicability=Applicability(
-        machine_class="tokamak",
+        machine_class="conventional-aspect-ratio tokamak",
         ranges={},
         assumptions=(
             "the same guideline applied to the guideline's own q95 formula, as the ITER design does",
@@ -2061,7 +2063,7 @@ _register(Boundary(
     basis="empirical",
     event="disruption",
     applicability=Applicability(
-        machine_class="tokamak",
+        machine_class="conventional-aspect-ratio tokamak",
         assumptions=("'iter_1991_q95_estimate_min' (q95 >= 2.1) written as a maximum current through the "
                      "guideline formula", "conventional aspect ratio; extrapolated at A ~ 1.3",
                      "the formula takes the 95 % surface kappa and delta; LCFS values raise the current limit"),
