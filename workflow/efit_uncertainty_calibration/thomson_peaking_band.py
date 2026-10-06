@@ -12,8 +12,8 @@ script answers it with a parametric bootstrap over the channels:
 1. map the Thomson channels through the slice's magnetic EFIT equilibrium (the
    one ``core_profiles`` was mapped with), matched by time;
 2. perturb every channel's ``T_e`` and ``n_e`` by a Gaussian draw of its own
-   ``data_error_upper`` (draws that go non-positive are clipped to a small
-   positive floor, as the fit would drop them);
+   ``data_error_upper``, unclipped, so the draws are centred on what the
+   central fit sees (a draw the production fit refuses is dropped and counted);
 3. refit with the production settings of ``build_core_profiles_ods``
    (``T_e`` polynomial order 2, ``n_e`` exponential order 2);
 4. compute ``p_e(0) / <p_e>_V`` on the equilibrium's own grid, exactly as
@@ -78,7 +78,7 @@ def profile_peaking(equilibrium, index: int, pressure: Callable[[np.ndarray], np
 
 
 def peaking_band(thomson, equilibrium, time_s: float, *, draws: int = 200, seed: int = 579,
-                 fit: Mapping[str, Any] = PRODUCTION_FIT, floor: float = 1e-3,
+                 fit: Mapping[str, Any] = PRODUCTION_FIT,
                  tolerance_s: float = 5.0e-4, equilibrium_index: int | None = None) -> dict[str, Any]:
     """Central value and bootstrap band of the Thomson ``p_e`` peaking at ``time_s``.
 
@@ -115,7 +115,10 @@ def peaking_band(thomson, equilibrium, time_s: float, *, draws: int = 200, seed:
             te[k], ne[k] = t_e[i], n_e[i]
             channels[i]["t_e.data"], channels[i]["n_e.data"] = te, ne
 
-    result: dict[str, Any] = {"time_s": float(points["time"]), "channels": int(np.isfinite(points["t_e"]).sum())}
+    usable = (np.isfinite(points["t_e"]) & np.isfinite(points["n_e"]) & np.isfinite(points["t_e_std"])
+              & np.isfinite(points["n_e_std"]) & (points["t_e_std"] > 0) & (points["n_e_std"] > 0))
+    # Value and sigma criteria of the fit's own channel filter (positions are mapped above).
+    result: dict[str, Any] = {"time_s": float(points["time"]), "channels": int(usable.sum())}
     try:
         try:
             result["central"] = one_peaking()
@@ -126,7 +129,7 @@ def peaking_band(thomson, equilibrium, time_s: float, *, draws: int = 200, seed:
         for _ in range(int(draws)):
             t_e = points["t_e"] + rng.normal(0.0, 1.0, points["t_e"].size) * np.nan_to_num(points["t_e_std"])
             n_e = points["n_e"] + rng.normal(0.0, 1.0, points["n_e"].size) * np.nan_to_num(points["n_e_std"])
-            write(np.maximum(t_e, floor * np.nanmax(points["t_e"])), np.maximum(n_e, floor * np.nanmax(points["n_e"])))
+            write(t_e, n_e)
             try:
                 value = one_peaking()
             except Exception:  # a draw the production fit refuses is not a peaking
@@ -184,7 +187,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     for shot, time_s in slices:
         if shot not in cache:
             thomson = sorted((root / "thomson" / str(shot) / "output").glob("thomson.json*"))
-            efit = sorted((root / "efit" / "magnetic" / str(shot) / "output").glob("efit.json*"))
+            efit = [] if args.scan_dirs else sorted((root / "efit" / "magnetic" / str(shot) / "output").glob("efit.json*"))
+            # Slices are sorted by shot, so one shot's products are held at a time.
             cache = {shot: (_load_ods(thomson[0]) if thomson else None, _load_ods(efit[0]) if efit else None)}
         thomson, equilibrium = cache[shot]
         row: dict[str, Any] = {"shot": shot, "time_efit_s": time_s}

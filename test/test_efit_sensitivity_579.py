@@ -82,12 +82,12 @@ def test_model_spread_sigma_log_and_the_bimodal_flag(tmp_path, monkeypatch):
     table = tmp_path / "table.json"
     table.write_text(json.dumps({"records": [
         {**_record(WORKING, 1000.0), "scalars": {"wmhd": 1000.0, "betap": 0.5, "li": 1.0}},
-        {**_record(BASIS_12, 3000.0), "scalars": {"wmhd": 3000.0, "betap": 0.5, "li": 1.0}},
+        {**_record(BASIS_12, 4000.0), "scalars": {"wmhd": 4000.0, "betap": 0.5, "li": 1.0}},
     ]}), encoding="utf-8")
     (row,) = spread.build([table], bimodal_ratio=2.0)
     assert row["time_efit_s"] == 0.318 and row["efit_lineage"] == "magnetics"
     assert row["w_mhd_J_viable_n"] == 2
-    assert row["viable_bimodal"]  # q84/q16 of {1000, 3000} exceeds 2
+    assert row["viable_bimodal"]  # q84/q16 of {1000, 4000} is about 3, well above 2
 
 
 def test_profile_peaking_is_the_axis_value_over_the_integrated_mean(monkeypatch):
@@ -143,3 +143,49 @@ def test_compose_products_records_its_sources(tmp_path, monkeypatch):
     assert Path(entry["product"]).is_file() and len(entry["sha256"]) == 64
     assert entry["diagnostics"]["path"].endswith("diagnostics.json.gz")
     assert entry["composition"]["manifest"] is None  # no eddy manifest on disk
+
+
+def test_the_bootstrap_perturbs_what_the_fit_reads_and_restores_it(monkeypatch):
+    """Each draw reaches the fit's channel values; the ODS is unchanged afterwards (cold review)."""
+    band = _load("thomson_peaking_band")
+    from omas import ODS
+    import vaft.process.profile as profile
+
+    thomson = ODS()
+    thomson["thomson_scattering.time"] = np.array([0.317, 0.318])
+    for i in range(3):
+        channel = thomson[f"thomson_scattering.channel.{i}"]
+        channel["t_e.data"] = np.array([10.0, 100.0 + i])
+        channel["n_e.data"] = np.array([1e18, 1e19])
+        channel["t_e.data_error_upper"] = np.array([1.0, 10.0])
+        channel["n_e.data_error_upper"] = np.array([1e17, 1e18])
+    before = [(np.array(thomson[f"thomson_scattering.channel.{i}.t_e.data"]),
+               np.array(thomson[f"thomson_scattering.channel.{i}.n_e.data"])) for i in range(3)]
+    seen, calls = [], {"n": 0}
+
+    def fake_fit(ods, time_ms, mapped, **_kwargs):
+        calls["n"] += 1
+        seen.append(profile._thomson_points(ods, time_ms, 1.0)["t_e"].copy())
+        if calls["n"] == 3:
+            raise RuntimeError("Te fit failed at every order")  # a refused draw
+        return (lambda x: np.ones_like(x), lambda x: np.ones_like(x))
+
+    monkeypatch.setattr(profile, "equilibrium_mapping_thomson_scattering", lambda *a, **k: None)
+    monkeypatch.setattr(profile, "profile_fitting_thomson_scattering", fake_fit)
+    monkeypatch.setattr(band, "profile_peaking", lambda equilibrium, index, pressure: 1.0)
+    out = band.peaking_band(thomson, object(), 0.318, draws=4, equilibrium_index=0)
+    assert out["channels"] == 3 and out["central"] == 1.0
+    assert out["n_draws"] == 3  # one of the four draws was refused, and is counted out
+    np.testing.assert_array_equal(seen[0], [100.0, 101.0, 102.0])  # the central fit sees the measurement
+    assert not np.allclose(seen[1], seen[0])  # a draw sees perturbed values
+    for i, (t_e, n_e) in enumerate(before):
+        np.testing.assert_array_equal(thomson[f"thomson_scattering.channel.{i}.t_e.data"], t_e)
+        np.testing.assert_array_equal(thomson[f"thomson_scattering.channel.{i}.n_e.data"], n_e)
+
+    def failing(*_a, **_k):
+        raise RuntimeError("no fit")
+
+    monkeypatch.setattr(profile, "profile_fitting_thomson_scattering", failing)
+    out = band.peaking_band(thomson, object(), 0.318, draws=2, equilibrium_index=0)
+    assert out["n_draws"] == 0 and "no fit" in out["reason"]
+    np.testing.assert_array_equal(thomson["thomson_scattering.channel.0.t_e.data"], before[0][0])
