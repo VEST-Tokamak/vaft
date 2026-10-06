@@ -33,6 +33,7 @@ from vaft.data.public import (
     vest_summary_to_confinement_table,
 )
 from vaft.data.public import _fetch
+from vaft.data.public.vest_confinement import VEST_SUMMARY_DEFINITIONS
 from vaft.formula import confinement_time_from_engineering_parameters
 
 _HEADER = (
@@ -527,3 +528,24 @@ def test_h_factor_accepts_a_numpy_bool_flag(db5):
     # A number that is not a bool is still refused, with a message that names the parameter.
     with pytest.raises(TypeError, match="thermal_as_global"):
         h_factor(db5, "ITER89P", thermal_as_global=1)
+
+
+def test_vest_summary_definitions_quote_the_stored_energy_factor_the_code_uses():
+    # The summary adapter's provenance strings describe vaft.omas.formula_wrapper's
+    # power balance, which forms W_th = (3/2) <p> V; the p_loss string said 2/3
+    # (cold review 0.8.0 delta-absorb-16 confinement F7).
+    import inspect
+    import re
+    from fractions import Fraction
+
+    from vaft.omas import formula_wrapper
+
+    p_loss = VEST_SUMMARY_DEFINITIONS["p_loss_definition"]
+    tau_e = VEST_SUMMARY_DEFINITIONS["tau_e_definition"]
+    factor = Fraction(re.search(r"W = \((\d+/\d+)\)<p>V", p_loss).group(1))
+    assert factor == Fraction(3, 2)
+    assert float(factor) == float(re.search(r"W_th = ([\d.]+) <p_kinetic> V", tau_e).group(1))
+    # ...and that is the factor the power balance applies.
+    for fn in (formula_wrapper.compute_power_balance, formula_wrapper.compute_tau_E_exp):
+        source = inspect.getsource(fn)
+        assert "(3.0 / 2.0) * volume" in source and "(2.0 / 3.0)" not in source
