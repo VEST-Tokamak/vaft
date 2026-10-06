@@ -110,3 +110,80 @@ def test_no_documentation_links_the_old_deployment_path():
         if "tree/develop/deploy/gui" in page.read_text(encoding="utf-8")
     ]
     assert offenders == []
+
+
+# ---------------------------------------------------------------------------
+# #1756: the issue studies live under vaft/validation/studies; only scripts ship
+# ---------------------------------------------------------------------------
+
+STUDIES = ROOT / "vaft" / "validation" / "studies"
+STUDY_FOLDERS = ("ec_launcher_cad_266", "fixed_free_1608", "nice_issue_666", "nice_issue_666_superseded")
+
+
+def test_the_issue_studies_moved_under_the_validation_package():
+    assert not (ROOT / "validation").exists(), "validation/ must not come back at the repository root"
+    for folder in STUDY_FOLDERS:
+        assert (STUDIES / folder).is_dir(), folder
+    # every folder with scripts is a regular package, so `python -m` reaches it
+    for script in STUDIES.rglob("*.py"):
+        assert (script.parent / "__init__.py").is_file(), script.relative_to(ROOT).as_posix()
+
+
+def test_the_shipped_study_scripts_are_required_and_the_rest_excluded():
+    shipped = {f"vaft/validation/studies/{name}" for name in verify_dist._SHIPPED_STUDY_SCRIPTS}
+    assert shipped <= verify_dist.REQUIRED_FILES
+    on_disk = {
+        path.relative_to(ROOT).as_posix()
+        for folder in verify_dist._SHIPPED_STUDIES
+        for path in (STUDIES / folder).glob("*.py")
+        if path.name != "__init__.py"
+    }
+    assert on_disk == shipped, "a shipped study folder gained or lost a script; update verify_dist"
+
+    config = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    excluded = config["tool"]["setuptools"]["packages"]["find"]["exclude"]
+    manifest = (ROOT / "MANIFEST.in").read_text(encoding="utf-8")
+    for folder in STUDY_FOLDERS:
+        if folder in verify_dist._SHIPPED_STUDIES:
+            assert not any(fnmatch.fnmatch(f"vaft.validation.studies.{folder}", p) for p in excluded), folder
+            continue
+        assert any(fnmatch.fnmatch(f"vaft.validation.studies.{folder}", p) for p in excluded), (
+            f"{folder} is not excluded from the wheel in [tool.setuptools.packages.find]"
+        )
+        assert f"prune vaft/validation/studies/{folder}" in manifest, f"{folder} is not pruned from the sdist"
+    # notes and run records of the shipped folder stay in the repository
+    for name in ("README.md", "measured_matrix.json"):
+        assert (STUDIES / "fixed_free_1608" / name).is_file()
+        assert f"exclude vaft/validation/studies/fixed_free_1608/{name}" in manifest, name
+
+
+def test_verify_dist_refuses_repository_only_study_files(tmp_path):
+    base = verify_dist.REQUIRED_FILES
+    verify_dist._verify_distribution(_wheel_of(tmp_path, base, "studies-ok"))
+    for extra in (
+        "vaft/validation/studies/fixed_free_1608/README.md",
+        "vaft/validation/studies/fixed_free_1608/measured_matrix.json",
+        "vaft/validation/studies/nice_issue_666/__init__.py",
+        "vaft/validation/studies/nice_issue_666/synthetic_equilibria/run_solovev.py",
+        "vaft/validation/studies/ec_launcher_cad_266/extract_launcher_geometry.py",
+        "vaft/validation/studies/nice_issue_666_superseded/README.md",
+    ):
+        with pytest.raises(ValueError, match="repository-only issue-study"):
+            verify_dist._verify_distribution(_wheel_of(tmp_path, base | {extra}, Path(extra).stem))
+    with pytest.raises(ValueError, match="missing required files"):
+        verify_dist._verify_distribution(
+            _wheel_of(tmp_path, base - {"vaft/validation/studies/fixed_free_1608/direct_fit.py"}, "no-direct-fit")
+        )
+
+
+def test_no_reference_to_the_old_study_paths_remains():
+    import subprocess
+
+    out = subprocess.run(
+        ["git", "grep", "-l", "-E", r"(^|[^/a-z_])validation/(ec_launcher_cad_266|fixed_free_1608|nice_issue_666)"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    if out.returncode == 128:  # not a git checkout (an sdist): nothing to scan
+        pytest.skip(out.stderr.strip())
+    offenders = [line for line in out.stdout.split() if not line.startswith("vaft/validation/studies/")]
+    assert offenders == [], offenders

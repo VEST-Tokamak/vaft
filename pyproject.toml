@@ -194,7 +194,14 @@ include = ["vaft*"]
 # keeps it out, since it is not a `vaft*` package, but the exclusion belongs in
 # the file a packaging change is reviewed in rather than resting on an omission
 # -- MANIFEST.in prunes it from the sdist for the same reason.
-exclude = ["docs*"]
+exclude = [
+  "docs*",
+  # Issue studies that do not ship (#1756): the EC launcher CAD extraction
+  # needs cadquery-ocp and a STEP file that is not in the repository; the NICE
+  # #666 folders are notes and dated run records.  fixed_free_1608 ships.
+  "vaft.validation.studies.ec_launcher_cad_266*",
+  "vaft.validation.studies.nice_issue_666*",
+]
 
 [tool.setuptools]
 # Ship only the package data explicitly listed below.  Repository samples stay

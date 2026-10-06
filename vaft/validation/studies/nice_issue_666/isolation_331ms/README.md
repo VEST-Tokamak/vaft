@@ -97,7 +97,7 @@ iterations alone did not resolve the focused failure.
 
 `native_controls.json` records the controlled-run summaries. The accompanying
 scripts reproduce the native controls and independent Green/P1 checks with
-the local source and v5 inputs (`PYTHONPATH=.`). The native-control script
+the local source and v5 inputs (`python -m vaft.validation.studies.nice_issue_666.isolation_331ms.<script>`). The native-control script
 refuses existing output case directories; choose a new ROOT for replay.
 The synthetic source is a forward-mapping control, not a force-balanced
 Grad-Shafranov equilibrium or an EFIT reference.

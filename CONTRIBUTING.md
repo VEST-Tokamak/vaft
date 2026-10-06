@@ -271,6 +271,20 @@ To normalize notebooks manually, run:
 python notebooks/_clean_outputs.py notebooks/*.ipynb
 ```
 
+## Issue studies
+
+A per-issue study -- the scripts that were run and the notes that were written
+while an issue was investigated -- goes under `vaft/validation/studies/<name>/`
+(#1756), as a regular package with an `__init__.py`, so its scripts run from an
+installed tree as `python -m vaft.validation.studies.<name>.<script>` rather
+than as a `PYTHONPATH=.` path run (which imports whichever `vaft` is first on
+the path). `vaft.validation` never imports the studies, and the API catalog
+skips them (`scripts` in `docs/api_inventory.yml`). A new folder does not ship
+in the wheel unless it is added to `[tool.setuptools.packages.find]`,
+`MANIFEST.in` and `test/verify_dist.py` together; notes, run records and
+inputs that are not in the repository never do, and a script that needs such
+a file takes its path as a command-line argument.
+
 ## Running the tests
 
 ```bash

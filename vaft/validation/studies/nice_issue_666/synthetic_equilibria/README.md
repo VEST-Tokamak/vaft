@@ -55,8 +55,8 @@ Reproduce after preparing the pinned baseline case and executable at the paths
 declared in the scripts:
 
 ```bash
-PYTHONPATH=. python validation/nice_issue_666/synthetic_equilibria/run_solovev.py
-PYTHONPATH=. python validation/nice_issue_666/synthetic_equilibria/run_tokamaker.py
+python -m vaft.validation.studies.nice_issue_666.synthetic_equilibria.run_solovev
+python -m vaft.validation.studies.nice_issue_666.synthetic_equilibria.run_tokamaker
 ```
 
 Machine-readable results are written to
