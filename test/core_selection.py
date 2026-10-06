@@ -291,6 +291,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
+    # Credibility and applicability (lane AP, #1639): the six-axis taxonomy and
+    # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
+    # import checks that keep both off the default processing path. Under 10 s.
+    "test_validation_credibility.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
