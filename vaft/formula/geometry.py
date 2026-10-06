@@ -708,9 +708,9 @@ def cylindrical_current_diffusion_rate(r, I, eta, j_ni=None):
     Returns
     -------
     np.ndarray
-        $\partial I/\partial t$ on ``r`` [A/s]. Zero on the axis, where
-        $I = 0$ always; NaN at the boundary $r = a$, whose current is set by
-        the external circuit, not by this equation.
+        $\partial I/\partial t$ on ``r``; zero on the axis, where $I = 0$
+        always, and NaN at the boundary $r = a$, whose current the external
+        circuit sets [A/s].
 
     Raises
     ------
