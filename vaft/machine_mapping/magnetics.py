@@ -756,6 +756,29 @@ def _equilibrium_magnetics_revision(shot: int, name: str) -> tuple[dict[str, Any
     )
 
 
+def _pinned_channel_index(entry: Mapping[str, Any], kind: str, *, context: str) -> int:
+    """The IDS index of the *kind* channel *entry* names, checked against its position.
+
+    ``index`` counts within *kind* (``flux_loop[3]`` is the fourth loop), the
+    way the IDS and the validation layer address channels; ``r`` and ``z`` pin
+    it, so an entry cannot silently move to another sensor when the geometry
+    asset is reordered.
+    """
+    index = int(entry["index"])
+    rows = [row for row in _load_static_channels() if row["kind"] == kind]
+    if not 0 <= index < len(rows):
+        raise VestConfigurationError(f"{context}: {kind} index {index} is out of range")
+    row = rows[index]
+    claimed = (float(entry["r"]), float(entry["z"]))
+    actual = (float(row["r"]), float(row["z"]))
+    if not all(math.isclose(a, b, abs_tol=1e-9) for a, b in zip(actual, claimed)):
+        raise VestConfigurationError(
+            f"{context}: {kind} index {index} is at r={actual[0]}, z={actual[1]}, "
+            f"not at r={claimed[0]}, z={claimed[1]} as the entry names"
+        )
+    return index
+
+
 def _pinned_probe_index(entry: Mapping[str, Any], *, context: str) -> int:
     """The probe index *entry* names, checked against the position it claims."""
     index = int(entry["index"])
@@ -808,14 +831,20 @@ def magnetics_wiring_for_shot(shot: int) -> MagneticsWiring:
 
 
 def known_magnetics_faults(shot: int) -> dict[tuple[str, int], str]:
-    """``{(kind, index): reason}`` for channels vest.yaml records as broken on *shot*."""
+    """``{(kind, index): reason}`` for channels vest.yaml records as broken on *shot*.
+
+    ``probes`` and ``flux_loops`` are separate lists because their indices count
+    within their own IDS array.
+    """
     resolved, _provenance = _equilibrium_magnetics_revision(shot, "known_faults")
-    return {
-        ("b_field_pol_probe", _pinned_probe_index(entry, context="equilibrium_magnetics known_faults")): str(
-            entry["reason"]
-        )
+    context = "equilibrium_magnetics known_faults"
+    faults = {
+        ("b_field_pol_probe", _pinned_probe_index(entry, context=context)): str(entry["reason"])
         for entry in resolved.get("probes") or ()
     }
+    for entry in resolved.get("flux_loops") or ():
+        faults[("flux_loop", _pinned_channel_index(entry, "flux_loop", context=context))] = str(entry["reason"])
+    return faults
 
 
 @lru_cache(maxsize=1)
@@ -1973,6 +2002,15 @@ def _map_rogowski_coils(
     Currents keep their native acquisition timebase, cropped to the analysis
     window, exactly as the flux-loop and Mirnov voltages do (issue #209).
     """
+    # The quality verdict needs the full record (the quiet stretches lie outside
+    # the analysis window the stored current is cropped to), so the loader keeps
+    # what it read for the validity callable instead of reading it twice.
+    plasma_record: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+
+    def load_plasma_rogowski() -> tuple[np.ndarray, np.ndarray]:
+        plasma_record["native"] = vest_plasma_rogowski_current(shot, raw_source=raw_source)
+        return plasma_record["native"]
+
     _map_one_rogowski_coil(
         ods,
         _ROGOWSKI_PLASMA_CURRENT,
@@ -1985,10 +2023,12 @@ def _map_rogowski_coils(
             "before the FL10 compensation that subtracts a proxy for the "
             "induced current in the tungsten limiter around the CS wall"
         ),
-        loader=lambda: vest_plasma_rogowski_current(shot, raw_source=raw_source),
-        # Calibration only, no reconstruction: acquisition validity is all
-        # that can be asserted here.
-        validity=lambda _n: 0,
+        loader=load_plasma_rogowski,
+        # Calibration only, no reconstruction. What can be asserted is whether
+        # the sensor records a current at all: hundreds of kA outside the
+        # discharge window cannot be one (#1373), and is the only evidence
+        # categorical enough to fail the channel.
+        validity=lambda _n: _plasma_rogowski_validity(plasma_record["native"]),
         tstart=tstart,
         tend=tend,
     )
@@ -2010,6 +2050,17 @@ def _map_rogowski_coils(
         tstart=tstart,
         tend=tend,
     )
+
+
+def _plasma_rogowski_validity(native: tuple[np.ndarray, np.ndarray]) -> int:
+    """Whole-record validity of the plasma-current Rogowski (#1373).
+
+    Imported here rather than at module scope: the mapping layer otherwise has
+    no dependency on ``vaft.validation``, and this keeps it that way at import.
+    """
+    from vaft.validation.plasma_current import assess_plasma_rogowski
+
+    return assess_plasma_rogowski(*native).validity
 
 
 def _diamagnetic_current_validity(

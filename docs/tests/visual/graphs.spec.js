@@ -181,3 +181,17 @@ test('selecting a stage shows what it owns and where it is published, offline', 
   await expect(details).toContainText('replicate_eddy_to_hsds');
   expect(remote.filter((url) => /hsds|:5101/.test(url))).toEqual([]);
 });
+
+test('in-site navigation between the explorers leaks no handlers or dividers', async ({ page }) => {
+  await page.goto('workflows/start-here/');
+  for (const label of ['Dependency explorer', 'Pipeline lineage explorer', 'Dependency explorer']) {
+    await page.locator('.book-summary a', { hasText: label }).first().click();
+    await expect(page.locator('.vg-root[data-vg-mounted]')).toHaveCount(1);
+    await expect(count(page)).toContainText(/\d+ nodes/);
+  }
+  const state = await page.evaluate(() => ({
+    mouseup: (jQuery._data(document.body, 'events') || {}).mouseup.length,
+    dividers: document.querySelectorAll('.divider-content-summary').length,
+  }));
+  expect(state).toEqual({ mouseup: 1, dividers: 1 });
+});
