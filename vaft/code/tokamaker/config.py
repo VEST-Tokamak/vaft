@@ -246,6 +246,7 @@ class TokaMakerResult:
     geqdsk: tuple[Any, ...] = ()
     ods: Any = None
     scalars: Mapping[str, Any] = field(default_factory=dict)
+    verified_free: Optional["TokaMakerResult"] = None  # second solve with optimized PF currents frozen
 
     @property
     def ok(self) -> bool:

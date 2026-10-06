@@ -122,6 +122,12 @@
    ".models.series:color=0.35": 3,
    ".models.series:color=0.5": 2
   },
+  "summary_time_romero_balance": {
+   ".models.series:color=#377eb8": 4,
+   ".models.series:color=#4daf4a": 3,
+   ".models.series:color=#984ea3": 1,
+   ".models.series:color=#ff7f00": 2
+  },
   "vacuum_field": {
    ".overlays:color=0.4": 1
   },
