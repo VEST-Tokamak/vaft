@@ -88,6 +88,25 @@ def test_a_window_that_missed_the_discharge_still_fails():
     assert CONSTRAINTS._efit_not_applicable(ods, error) is None
 
 
+def test_light_without_current_is_not_a_vacuum():
+    """H-alpha saw a discharge the current never shows: maybe a dead Ip channel, so fail."""
+    from _plasma_timing_fixtures import light
+
+    t = grid()
+    ods = synthetic_ods(slow=light(t), fast=light(t), ip=pickup_only(t), t=t)
+    error = CONSTRAINTS.NoPlasmaCurrentError("all below", count=3, threshold=15000.0)
+
+    assert CONSTRAINTS._efit_not_applicable(ods, error) is None
+
+
+def test_a_refused_verdict_still_fails_the_step(monkeypatch, tmp_path):
+    """main() re-raises when the cut is a fault: no product, a non-zero exit."""
+    monkeypatch.setattr(CONSTRAINTS, "_efit_not_applicable", lambda ods, error: None)
+    with pytest.raises(CONSTRAINTS.NoPlasmaCurrentError):
+        _run_constraints(monkeypatch, tmp_path, _vacuum())
+    assert not (tmp_path / "constraints").exists() or not list((tmp_path / "constraints").iterdir())
+
+
 def test_no_plasma_current_at_all_is_not_a_verdict():
     from omas import ODS
 
@@ -147,7 +166,11 @@ def test_the_verdict_runs_through_kfile_efit_and_replication(tmp_path):
     assert "not applicable" in _nothing_to_replicate(manifest, "efit")
 
 
-def test_replication_still_refuses_a_skip_that_is_a_fault():
-    manifest = {"status": "no_output", "efit_status": "skipped: EFIT executable unavailable: /x"}
+@pytest.mark.parametrize("reason", [
+    "skipped: EFIT executable unavailable: /x",
+    "skipped: not applicable",  # only the verdict's own form, with its colon
+])
+def test_replication_still_refuses_a_skip_that_is_a_fault(reason):
+    manifest = {"status": "no_output", "efit_status": reason}
     with pytest.raises(ProductNotEligibleError):
         _nothing_to_replicate(manifest, "efit")

@@ -871,7 +871,9 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   `skipped: not applicable: <reason>`, the EFIT stage ends `no_output`, its replication is
   `skipped`, and CHEASE and stability skip for lack of g-files. With EFIT in scope such a shot is
   `partial`, not retried. A shot whose current reaches 15 kA somewhere but at no selected
-  instant still fails: the constraint window missed the discharge.
+  instant still fails: the constraint window missed the discharge. So does one whose H-alpha saw a
+  window while the current stayed low (possibly a dead Ip channel). Vacuum shots the worker gave up
+  on before this change stay `gave_up`; `vaft pipeline-worker retry --shot N` runs them again.
   - Optional branches outside the stage chain (IMPA with `impa.enable: true`) are not scoped; they
     depend only on raw and are never part of the shot's verdict.
   - Set the scope only here, not as `--config stages=...` in `extra_args`: Snakemake would see it

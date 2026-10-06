@@ -299,9 +299,11 @@ def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
     and that stays an error.
 
     The class from :func:`vaft.omas.shot_class.shot_class` -- what the
-    new-shot worker records -- is quoted in the reason but does not decide:
-    on vestserver 48927 (peak 3.3 kA, H-alpha dark) its pulse detector reads
-    the pickup as a ``Plasma`` pulse.
+    new-shot worker records -- is quoted in the reason but its label does not
+    decide: on vestserver 48927 (peak 3.3 kA, H-alpha dark) its pulse detector
+    reads the pickup as a ``Plasma`` pulse.  The light does veto: when H-alpha
+    saw a window, a current that never reached ``CUTIP`` may be a dead Ip
+    channel under a real discharge, and that must stay a visible failure.
     """
     try:
         current = np.asarray(ods["magnetics.ip.0.data"], dtype=float).reshape(-1)
@@ -317,11 +319,14 @@ def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
         from vaft.omas.shot_class import shot_class
 
         verdict = shot_class(ods)
+    except Exception as exc:  # the class is a note here, never the reason to fail
+        label = f"shot_class unavailable ({type(exc).__name__}: {exc})"
+    else:
+        if verdict.optical_window:
+            return None
         label = f"shot_class {verdict.label} ({verdict.reason}" + (
             f"; flags {', '.join(verdict.flags)})" if verdict.flags else ")"
         )
-    except Exception as exc:  # the class is a note here, never the reason to fail
-        label = f"shot_class unavailable ({type(exc).__name__}: {exc})"
     return (
         f"peak |Ip| {peak / 1e3:.1f} kA over the whole record, below CUTIP {error.threshold:g} A "
         f"(all {error.count} constraint instants below it); {label}"
