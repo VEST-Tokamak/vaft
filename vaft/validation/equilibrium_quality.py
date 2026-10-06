@@ -514,15 +514,27 @@ def equilibrium_quality_confinement_funnel(confinement_table, *, quality_column:
     def flags(series):
         return series.map(lambda v: str(v).strip().lower() in ("true", "1", "1.0")).to_numpy(bool)
 
+    if not rules:
+        raise ValueError("the funnel needs at least one confinement rule")
+    missing = [f"rule_{rule}" for rule in rules if f"rule_{rule}" not in confinement_table]
+    if missing:
+        # A rule without its column would credit its removals to no rule.
+        raise KeyError(f"confinement table lacks rule columns {missing}")
     out: dict[str, Any] = {"rules": list(rules), "cohorts": {}}
     labels = confinement_table[quality_column].astype(object).where(confinement_table[quality_column].notna(), "unknown")
     for cohort in [c for c in COHORTS if c in set(labels)] + sorted(set(labels) - set(COHORTS)):
         group = confinement_table[labels == cohort]
-        decision = {rule: flags(group[f"rule_{rule}"]) for rule in rules if f"rule_{rule}" in group}
-        accepted = flags(group["accepted"]) if "accepted" in group else np.logical_and.reduce(list(decision.values()))
+        decision = {rule: flags(group[f"rule_{rule}"]) for rule in rules}
+        exclusions = confinement_exclusion_table(decision)
+        # Selected is what survives every rule -- the exclusion table's own count,
+        # so removed + selected is always the candidates.
+        selected = int(exclusions[-1]["remaining"]) if exclusions else int(len(group))
+        if "accepted" in group and int(flags(group["accepted"]).sum()) != selected:
+            raise ValueError(f"cohort {cohort!r}: 'accepted' keeps {int(flags(group['accepted']).sum())} rows but "
+                             f"the rules {list(rules)} keep {selected}; the table's rule columns are not its decision")
         out["cohorts"][str(cohort)] = {
-            "candidates": int(len(group)), "selected": int(accepted.sum()), "rejected": int(len(group) - accepted.sum()),
-            "exclusions": confinement_exclusion_table(decision) if decision else [],
+            "candidates": int(len(group)), "selected": selected, "rejected": int(len(group) - selected),
+            "exclusions": exclusions,
         }
     return out
 

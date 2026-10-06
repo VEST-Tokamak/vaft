@@ -216,3 +216,25 @@ def test_the_confinement_funnel_counts_with_the_confinement_module():
     removed = {row["rule"]: row["removed_in_sequence"] for row in good["exclusions"]}
     assert removed == {"finite": 1, "ip_min": 0, "dwdt_fraction": 1, "ip_change_per_tau": 0}
     assert funnel["cohorts"]["admissible"]["selected"] == 1
+
+
+def test_the_confinement_funnel_refuses_an_incomplete_or_inconsistent_table():
+    import pandas as pd
+
+    table = pd.DataFrame({
+        "efit_quality": ["good", "good", "good"],
+        "rule_finite": [True, False, True],
+        "rule_ip_min": [True, True, True],
+        "rule_dwdt_fraction": [True, True, True],
+        "rule_ip_change_per_tau": [True, True, True],
+        "accepted": [True, True, True],
+    })
+    # 'accepted' keeps a row the rules remove: the counts would not add up.
+    with pytest.raises(ValueError, match="accepted"):
+        eq.equilibrium_quality_confinement_funnel(table)
+    # A rule without its column would credit its removals to no rule.
+    with pytest.raises(KeyError, match="rule_ip_change_per_tau"):
+        eq.equilibrium_quality_confinement_funnel(table.drop(columns=["rule_ip_change_per_tau", "accepted"]))
+    funnel = eq.equilibrium_quality_confinement_funnel(table.drop(columns=["accepted"]))
+    good = funnel["cohorts"]["good"]
+    assert good["selected"] + sum(row["removed_in_sequence"] for row in good["exclusions"]) == good["candidates"]
