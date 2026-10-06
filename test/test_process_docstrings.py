@@ -134,6 +134,9 @@ PIPELINE = frozenset({
     "populate_radial_impurity_profiles",
     # impurity (Lane L PR 5): main ion -> lumped charge at the surface -> densities
     "surface_composition_profile",
+    # kinetic_closure (#1606): v_c -> tau_s -> n_f, W_f -> p_f; slice -> composition -> pressures
+    "fast_ion_slowing_down_estimate",
+    "infer_kinetic_closure",
     # zeff_projection (#1566): R_p of the profile -> root / Lane Z's window objective
     "project_zeff_profile_to_resistive_scalar",
     "project_window_to_resistive_scalar",
@@ -300,6 +303,8 @@ STATEFUL = frozenset({
     "populate_impurity_profiles",
     "populate_radial_impurity_profiles",
     "surface_composition_profile",
+    # kinetic_closure (#1606): a fitted slice -> derived kinetic densities and pressures
+    "infer_kinetic_closure",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
@@ -635,6 +640,9 @@ CONVENTION_SENSITIVE = frozenset({
     "resolve_radial_composition",
     "populate_radial_impurity_profiles",
     "surface_composition_profile",
+    # kinetic_closure (#1606): thermal and fast never share a field; the legacy fallback
+    "assemble_pressure",
+    "infer_kinetic_closure",
     # zeff_projection (#1566): same model, states and objective on both sides
     "profile_conductivity_model",
     "spitzer_resistive_equivalent_zeff",

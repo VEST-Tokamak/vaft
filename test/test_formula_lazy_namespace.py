@@ -49,6 +49,8 @@ _IMPORT_ORDER = (
     "sol",
     "boundaries",
     "impurity",
+    "fast_ion",
+    "kinetic",
 )
 
 

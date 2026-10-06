@@ -108,6 +108,8 @@ def test_the_catalog_counts_the_known_public_surface():
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
         "boundaries": 13,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580)
         "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
+        "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure (#1606)
+        "kinetic": 2,  # electron collision time and electron-ion energy exchange, multi-species (#1606)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
