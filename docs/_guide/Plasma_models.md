@@ -31,21 +31,14 @@ A VAFT name is never evidence for the physics.
 
 ## 1. Why one "fidelity" axis does not work
 
-The models VAFT drives differ along several independent axes:
-
-- the governing equation for the bulk plasma;
-- which populations, if any, are treated kinetically;
-- how a kinetic response is coupled back to a fluid model;
-- the distribution representation;
-- the spatial domain;
-- the regime;
-- the field model.
+The models VAFT drives differ along several independent axes, listed in the table below.
 
 **Resistive MHD and gyrokinetics are not two rungs of one ladder.** Their orderings differ:
-- resistive MHD keeps a resistive layer and averages over all particle phase space;
+- resistive MHD averages over all particle phase space and closes the layer with a resistivity;
 - gyrokinetics keeps $k_\perp\rho\sim1$ and phase-space structure, but removes the fast gyro-motion.
 
-Neither contains the other.
+Neither reduces to the other. Collisional electromagnetic gyrokinetics does contain tearing and microtearing layer
+physics, but under a different ordering.
 
 The axes the audit found to be physically meaningful are:
 
@@ -56,10 +49,11 @@ The axes the audit found to be physically meaningful are:
 | fluid model | which fluid closure, when there is one | ideal MHD, resistive MHD, extended MHD |
 | kinetic equation | which kinetic equation is solved, when one is | none, drift kinetic, gyrokinetic, Fokker–Planck (test species) |
 | kinetic population | which species obey it | all species, thermal ions (+ electrons), fast ions, energetic particles |
-| kinetic coupling | how a kinetic result re-enters a fluid model | pressure/energy (δW_k), current, sources only, none |
+| kinetic coupling | how a kinetic result re-enters a fluid model | energy (δW_k), pressure, current, closure on a given displacement, sources |
 | distribution formulation | $f$ split | δf, full-f, N/A |
 | orbit representation | particle motion | full orbit, guiding centre, bounce/transit averaged, N/A |
-| spatial domain | radial extent | local (flux tube or single surface), radially global, whole volume, orbit |
+| spatial domain | radial extent | local (flux tube or single surface), radially global, whole volume |
+| topology domain | field-line topology covered | closed flux surfaces, open field lines, across the separatrix |
 | regime | dynamics | linear, nonlinear, quasilinear, steady state, static (marginal) |
 | field model | perturbed fields | MHD displacement, electrostatic, electromagnetic ($A_\parallel$, $\delta B_\parallel$) |
 
@@ -68,6 +62,9 @@ The axes the audit found to be physically meaningful are:
   *by* Monte Carlo orbit following, while SIMPLE follows orbits and evolves no distribution.
 - "Kinetic-profile input" is not an axis at all. It is a property of the inputs (§6).
 
+**How the tables write "not applicable".** In the tables below, "—", "none" and "N/A" all mean *not applicable*:
+for example, a fluid model solves no kinetic equation. The record of §10 writes that as `None`.
+
 ## 2. Theory foundations
 
 ### 2.1 Fluid hierarchy
@@ -75,6 +72,8 @@ The axes the audit found to be physically meaningful are:
 **Ideal MHD.**
 - Single fluid, ideal Ohm's law $E + v\times B = 0$, scalar pressure with an adiabatic or incompressible closure.
 - Valid at $\rho/L\ll1$ and $\omega\ll\Omega_i$, on scales above $d_i$.
+- The scalar-pressure closure also assumes collisions keep the pressure isotropic, or treats the anisotropy as
+  negligible.
 - References: Bernstein, Frieman, Kruskal & Kulsrud, Proc. R. Soc. A **244**, 17 (1958); Freidberg, *Ideal MHD* (2014).
 
 **Resistive MHD.**
@@ -124,8 +123,9 @@ multiscale treatment with rotation is Abel, Plunk, Wang, Barnes, Cowley, Dorland
 **Relation to drift kinetics.** In the limit $k_\perp\rho\to0$, the gyrokinetic equation reduces to a drift-kinetic
 form. Gyrokinetics is therefore not "higher-fidelity drift kinetics":
 - it keeps finite-$k_\perp\rho$ physics that drift kinetics orders out;
-- it usually works in δf with a fluctuation ordering;
-- neoclassical drift-kinetic solvers do not use such an ordering.
+- its δf is a small *fluctuation* about the equilibrium;
+- neoclassical drift kinetics is also δf ($f_1/F_0\sim\rho_*$), but $f_1$ is a steady, axisymmetric departure, not
+  a fluctuation.
 
 ### 2.4 Particle-orbit descriptions
 
@@ -147,10 +147,11 @@ the force through a pressure tensor, a current, or an energy term. The family:
 - Kruskal & Oberman, Phys. Fluids **1**, 275 (1958): the collisionless kinetic energy principle;
 - Antonsen & Lane, Phys. Fluids **23**, 1205 (1980);
 - Cheng, Phys. Rep. **211**, 1 (1992): the kinetic-MHD review;
-- Park, Belova, Fu, Tang, Strauss & Sugiyama, Phys. Fluids B **4**, 2033 (1992): hybrid gyrokinetic-MHD.
+- Park et al., Phys. Fluids B **4**, 2033 (1992): hybrid gyrokinetic-MHD.
 
 **Distinctions to keep:**
 - MHD plus a drift-kinetic response (DCON kinetic, MARS-K);
+- MHD plus a gyrokinetic response (the hybrid gyrokinetic-MHD of Park et al. 1992);
 - MHD plus kinetic energetic particles (M3D-K, MEGA, NIMROD kinetic);
 - a fully kinetic or gyrokinetic plasma (CGYRO, GENE, GTC, ORB5).
 
@@ -164,18 +165,18 @@ population, and the orbit treatment (§8).
 - VAFT adapter: `vaft/code/gpec/`. Packaged namelists: `vaft/data/gpec/*.in`.
 
 **Main finding.** DCON's kinetic mode is not a separate kinetic solver:
-- with `kin_flag=t`, DCON calls PENTRC's bounce-averaged drift-kinetic operator at every surface and bounce harmonic;
+- with `kin_flag=t`, DCON calls PENTRC's drift-kinetic operator at every surface and every bounce harmonic $\ell$;
 - it adds the complex result into the ideal Euler–Lagrange coefficient matrices (`dcon/fourfit.F:1062-1085,
   1153-1158`).
 
 | mode | operation | bulk | fluid model | kinetic equation | kinetic population | coupling | FLR | collisions | regime | confidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | DCON ideal (`kin_flag=f`) | $n\neq0$ stability: Newcomb criterion on the Euler–Lagrange ODE, δW eigenvalues | fluid | linear ideal MHD energy principle | none | — | — | N/A | none | linear, static | verified |
-| DCON kinetic (`kin_flag=t`) | same ODE with a complex, non-self-adjoint δW + δW_k; Im δW gives the torque | hybrid | ideal MHD | bounce/transit-averaged linear drift kinetics (PENTRC operator) | one thermal main ion; electrons if `electron_flag=t`; Maxwellian only, no energetic particles | energy (δW_k matrices added to the EL coefficients), self-consistent | none (zero Larmor radius) | `pentrc.in` `nutype`: zero / small / Krook / harmonic | linear, zero lab-frame frequency | verified (equation class); provisional (the name "drift-kinetic MHD") |
+| DCON kinetic (`kin_flag=t`) | same ODE with a complex, non-self-adjoint δW + δW_k; Im δW gives the torque | hybrid | ideal MHD | linear drift kinetics in a bounce/transit-harmonic (action-angle) decomposition (PENTRC operator) | one thermal main ion; electrons if `electron_flag=t`; Maxwellian $f_0$ by default (`f0type` also allows `jkp`, `cgl`); no energetic particles | energy (δW_k matrices added to the EL coefficients), self-consistent | none (zero Larmor radius) | `pentrc.in` `nutype`: zero / small / Krook / harmonic | linear, zero lab-frame frequency | verified (equation class); provisional (the name "drift-kinetic MHD") |
 | GPEC ideal | perturbed equilibrium under an external 3-D field | fluid | ideal MHD | none | — | — | N/A | none | linear, static | verified |
 | GPEC kinetic | self-consistent kinetic perturbed equilibrium; `dw_flag` energy and torque profiles | hybrid | ideal MHD | inherited from DCON's matrices, nothing separate | inherited | inherited | none | inherited | linear, static | verified |
 | GPEC thresholds (`singthresh_*`) | critical resonant field / island width per surface | reduced layer models | SLAYER: "linear drift MHD" slab; Callen: analytic cubic | none (kinetic *profiles* only) | — | — | unresolved | unresolved | linear layer | provisional |
-| PENTRC on a GPEC ξ | NTV torque, non-ambipolar flux for a given displacement | kinetic closure on a fluid displacement, not self-consistent | (ideal or kinetic GPEC ξ is input) | bounce-averaged linear drift kinetics; reduced variants: large aspect ratio, CGL fluid limit | one species per run: main ion or electrons | torque from the anti-Hermitian part | none | zero / small / Krook / harmonic | linear, static | verified |
+| PENTRC on a GPEC ξ | NTV torque, non-ambipolar flux for a given displacement | kinetic closure on a fluid displacement, not self-consistent | (ideal or kinetic GPEC ξ is input) | linear drift kinetics, bounce-harmonic decomposition; reduced variants: large aspect ratio, CGL fluid limit | one species per run: main ion or electrons | torque from the anti-Hermitian part | none | zero / small / Krook / harmonic | linear, static | verified |
 | RDCON + RMATCH | Δ′ matrix and matched resistive growth rates | fluid | outer: ideal MHD; inner: linear resistive MHD (GGJ) | **none** | — | — | N/A | scalar η per surface | linear eigenvalue | verified |
 | STRIDE | ideal stability and free-boundary Δ′ | fluid | ideal MHD (outer region only; no η) | none | — | — | N/A | none | linear | verified |
 | MATCH (`ideal_flag=t`, as shipped) | reconstruct DCON's ideal eigenfunction | fluid | ideal MHD | none | — | — | N/A | none | linear | provisional |
@@ -194,7 +195,7 @@ References: Newcomb, Ann. Phys. **10**, 232 (1960); Glasser, Phys. Plasmas **23*
 - `psiedge`, `sas_flag`, `qhigh`: edge truncation;
 - `delta_m*`;
 - `con_flag`: integrate through singular layers instead of applying the ideal jump. It changes eigenvalues and turns
-  off GPEC `singfld`.
+  off GPEC `singfld`. VAFT's packaged `dcon.in` sets `con_flag = t`, so `singfld` is off in VAFT runs by default.
 
 **Local diagnostics alongside:**
 - the Mercier criterion;
@@ -213,7 +214,9 @@ The flags, from source:
 | `dcon_kin_threads` | OpenMP thread count; numerical only | `dcon.F:89-95` |
 
 **Kinetic physics (all from PENTRC).**
-- Linear δf about a Maxwellian, bounce/transit averaged.
+- Linear δf about a Maxwellian $f_0$ by default, decomposed into bounce/transit harmonics $\ell$. The $\ell=0$ term
+  is the bounce average; $\ell\neq0$ terms are resonances where $n(\omega_E+\omega_D)\sim\ell\omega_b$, so the
+  operator is not restricted to $\omega\ll\omega_b$.
 - The drive term contains $\omega_E+\omega_{*n}+\omega_{*T}(x-3/2)$.
 - The denominator is $i(\ell\omega_b\sqrt{x}+n(\omega_E+\omega_D x))-\nu$ (`pentrc/energy.f90:374`). The mode
   frequency does not appear: the response is at zero lab-frame frequency.
@@ -255,7 +258,7 @@ References: Glasser, Wang & Park, Phys. Plasmas **23**, 112506 (2016); Glasser &
 ### 3.5 PENTRC
 
 **Classification:**
-- bounce-averaged linear drift kinetics;
+- linear drift kinetics in a bounce/transit-harmonic decomposition;
 - the general-aspect-ratio methods are `fgar`, `tgar` and `pgar` (full = trapped + passing);
 - reduced variants: `rlar` and `clar` (large aspect ratio), and `fcgl`, a CGL fluid limit;
 - one species per run;
@@ -264,8 +267,9 @@ References: Glasser, Wang & Park, Phys. Plasmas **23**, 112506 (2016); Glasser &
 **Use with GPEC.** It is a kinetic *closure* evaluated on a fluid displacement, not a self-consistent model. Inside
 DCON-kinetic, the same operator *is* self-consistent.
 
-**Factorization.** PENTRC is best described by attributes: drift kinetic, bounce averaged, linear δf, closure on a
-given ξ. A single "neoclassical" label does not cover it.
+**Factorization.** PENTRC is best described by attributes: drift kinetic, bounce-harmonic, linear δf, closure on a
+given ξ. A single "neoclassical" label does not cover it. The older PENT code was not audited; VAFT drives PENTRC
+only.
 
 References: Park, Boozer & Menard, Phys. Rev. Lett. **102**, 065002 (2009); Logan et al. (2013).
 
@@ -275,7 +279,7 @@ References: Park, Boozer & Menard, Phys. Rev. Lett. **102**, 065002 (2009); Loga
 
 | mode | operation | bulk | kinetic equation | population | distribution | FLR | collisions | domain | regime | confidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| NEO as VAFT runs it | neoclassical fluxes, bootstrap $j_\parallel$, poloidal flow | kinetic (all species) | drift kinetic, first order: steady $f_1$ driven by $\nabla F_M$ and $E_r$ | all species (≤6); electrons kinetic | δf | none | full linearized Fokker–Planck (COLLISION_MODEL=4) | local; several radii are independent local solves | steady state | verified |
+| NEO as VAFT runs it | neoclassical fluxes, bootstrap $j_\parallel$, poloidal flow | kinetic (all species) | drift kinetic, first order: steady $f_1$ driven by $\nabla F_M$ and $E_r$ | all species (≤6, VAFT's guard); electrons kinetic | δf | none | full linearized Fokker–Planck (COLLISION_MODEL=4) | local; several radii are independent local solves | steady state | verified |
 | NEO analytic companions (HS, NCLASS, Sauter) | closed-form neoclassical fluxes | reduced | none | — | N/A | N/A | model-specific | local | steady | verified (existence) |
 | CGYRO linear ES/EM (VAFT default ES) | microstability: γ, ω, eigenfunction | kinetic | gyrokinetic | all species, gyrokinetic electrons | δf | full gyro-average | Sugama (4) by default | local flux tube | linear initial value | verified |
 | CGYRO nonlinear | turbulent fluxes | kinetic | gyrokinetic, nonlinear | as above | δf | full | as above | local | nonlinear | verified |
@@ -330,7 +334,8 @@ fact that VAFT pins $\gamma_E=\gamma_p=M=0$ (no rotation or shear).
 | NUBEAM VEST case (`nlbgflr=1`) | as above | as above | as above | as above | **enhanced FLR** (gyro-orbit deformed by $\nabla B$), meant for low-field STs | as above | as above | verified |
 | SIMPLE | collisionless guiding-centre confinement / loss fraction | particle (test) | **none**: orbit integration | alphas / test particles | guiding centre, symplectic | none | none | provisional; no VAFT adapter |
 
-**ASCOT5.** Option names come from `a5py/ascot5io/options.py`. References: Hirvijoki et al., Comput. Phys. Commun.
+**ASCOT5.** Option names come from `a5py/ascot5io/options.py`. `SIM_MODE=4` (field-line tracing) is omitted: it
+evolves no particles. References: Hirvijoki et al., Comput. Phys. Commun.
 **185**, 1310 (2014) for ASCOT4; Varje et al., arXiv:1908.02482 (2019) for ASCOT5.
 
 **NUBEAM.** References: Goldston et al., J. Comput. Phys. **43**, 61 (1981); Pankin et al., Comput. Phys. Commun.
@@ -342,7 +347,7 @@ fact that VAFT pins $\gamma_E=\gamma_p=M=0$ (no rotation or shear).
 
 ## 6. What "kinetic" means in VAFT names
 
-The word carries at least six meanings across VAFT's public surface. Each name below is classified so that
+The word carries seven distinct meanings (categories A–G below) across VAFT's public surface. Each name below is classified so that
 documentation can say which one it means. **No name is changed by this audit.**
 
 | category | meaning | representative names | say instead |
@@ -390,12 +395,20 @@ profiles.
 **Purpose of this section.** It is a compact map from scales to the classifications above. The full reference for
 characteristic scales and orderings is #1724. The ordering parameters themselves are #1627.
 
-**Frequencies,** typically ordered as
+**Frequencies.** For thermal **ions** they are typically ordered as
 
-$$\Omega_{ci} \gg \omega_{t},\ \omega_{b} \gg \omega_{D},\ \omega_E \quad;\quad
-\tau_A^{-1} \gtrsim \omega_{t,i} \gg \tau_E^{-1} \gg \tau_R^{-1}.$$
+$$\Omega_{ci} \gg \omega_{t,i},\ \omega_{b,i} \gg \omega_{D,i} \quad;\quad
+\tau_A^{-1} \gtrsim \omega_{t,i} \sim c_s/qR \gg \tau_E^{-1} \gg \tau_R^{-1}.$$
 
-The second chain is the conventional tokamak hierarchy; VEST's short pulse can compress it.
+**Caveats:**
+- The first chain is for ions. For electrons in a low-field device it can fail. In VEST ($T_e\approx100$ eV,
+  $qR\approx1.2$ m, $B\approx0.1$ T), $\omega_{t,e}\approx5\times10^6$ against
+  $\Omega_{ci}\approx10^7$ rad/s.
+- $\omega_E\ll\omega_{t,i}$ holds only for sub-sonic flow.
+- The collision frequency $\nu$ is not in either chain, because it can sit anywhere. Its ratio to the bounce
+  frequency, $\nu_*$, sets the neoclassical regime, and its ratio to $\omega$ separates collisional fluid closure
+  from kinetic treatment.
+- The second chain is the conventional tokamak hierarchy. VEST's short pulse can compress it.
 
 **Lengths:**
 - $\rho_s$ and $\rho_i$ against gradient lengths $L_n$, $L_T$ and the minor radius $a$;
@@ -411,13 +424,14 @@ The second chain is the conventional tokamak hierarchy; VEST's short pulse can c
 | resistive MHD (layer) | phase space; keeps η only in the layer | as ideal MHD outside the layer |
 | drift kinetics | the gyro-phase | $\omega/\Omega\ll1$, $\rho/L\ll1$, $k_\perp\rho\ll1$ |
 | gyrokinetics | the gyro-phase, keeping $k_\perp\rho\sim1$ | $\omega/\Omega\sim\rho_*$, $k_\parallel/k_\perp\sim\rho_*$, $\delta f/F\sim\rho_*$ |
-| bounce-averaged drift kinetics (PENTRC, DCON-kinetic) | gyro-phase and bounce phase | $\omega\ll\omega_b,\omega_t$ for the averaged population |
+| bounce-harmonic drift kinetics (PENTRC, DCON-kinetic) | gyro-phase; bounce phase as a harmonic sum | $\omega/\Omega\ll1$, $\rho/L\ll1$; the $\ell=0$ term is the bounce average, and $\ell\neq0$ keeps the resonances at $n(\omega_E+\omega_D)\sim\ell\omega_b$ |
 | guiding-centre orbit following | the gyro-phase for one particle | $\rho/L_B\ll1$ (fails for fast ions at low field, hence NUBEAM's FLR options) |
 
 **Why the hierarchy is not a ladder.**
 - Ideal MHD averages over phase space completely; drift kinetics keeps phase space but drops the gyro-phase.
 - Gyrokinetics keeps phase space at finite $k_\perp\rho$, but orders $\omega/\Omega$ and the fluctuation amplitude.
-- Resistive MHD keeps a thin resistive layer that none of the kinetic models above contains.
+- Resistive MHD closes a thin layer with a resistivity. Collisional electromagnetic gyrokinetics resolves such
+  layers kinetically, under a different ordering. Neither model reduces to the other.
 - A guiding-centre orbit integrator follows a particle and evolves no distribution.
 
 ## 8. Unresolved
@@ -464,17 +478,19 @@ source.
 | MARS-K | hybrid | linear MHD | bounce/precession-resonant drift kinetics, perturbative or self-consistent | thermal + energetic | pressure ($p_\parallel$, $p_\perp$) | whole volume | Liu, Chu, Gimblett & Hastie, Phys. Plasmas **15**, 112503 (2008) |
 | GENE (local / global) | kinetic | — | gyrokinetic | all | — | flux tube / radially global | Jenko et al., Phys. Plasmas **7**, 1904 (2000); Görler et al., J. Comput. Phys. **230**, 7053 (2011) |
 | GENE-X | kinetic | — | gyrokinetic, full-f, EM, across the separatrix | all | — | whole volume incl. SOL | Michels et al., Comput. Phys. Commun. **264**, 107986 (2021) |
-| GTC | kinetic (PIC) | fluid-kinetic hybrid electrons in EM | gyrokinetic ions/EP, drift-kinetic electrons | all | — | global | Lin et al., Science **281**, 1835 (1998) |
+| GTC | kinetic (PIC) | — | gyrokinetic ions and energetic particles; fluid-kinetic hybrid electrons in EM runs | all | — | global | Lin et al., Science **281**, 1835 (1998) (electrostatic); Lin & Chen, Phys. Plasmas **8**, 1447 (2001) (hybrid electrons) |
 | ORB5 | kinetic (PIC) | — | gyrokinetic, δf with control variates | all | — | global | Jolliet et al., Comput. Phys. Commun. **177**, 409 (2007); Lanti et al., Comput. Phys. Commun. **251**, 107072 (2020) |
 | M3D-K | hybrid | nonlinear resistive MHD | drift-/gyro-kinetic energetic particles (PIC) | energetic particles | pressure | global | Fu et al., Phys. Plasmas **13**, 052517 (2006) |
 | MEGA | hybrid | nonlinear MHD | guiding-centre energetic particles | energetic particles | current (unresolved) | global | Todo & Sato, Phys. Plasmas **5**, 1321 (1998) |
-| NIMROD kinetic | hybrid | extended (two-fluid) MHD | drift-kinetic δf PIC | energetic particles, kinetic ions | pressure | global | Kim, Sovinec & Parker, Comput. Phys. Commun. **164**, 448 (2004) |
+| NIMROD kinetic | hybrid | extended (two-fluid) MHD | drift-kinetic δf PIC | energetic particles | pressure | global | Kim, Sovinec & Parker, Comput. Phys. Commun. **164**, 448 (2004) |
 
 **Fit.** Every row is expressible with the §1 axes, without a fidelity score and without inventing values: an absent
 axis is "N/A".
 
-**Strain.** The axes are strained in only two places, both already listed in §8: the coupling type of hybrid codes,
-and the orbit-representation question.
+**Strain.** The axes are strained in three places, all already listed in §8:
+- the coupling type of hybrid codes;
+- the orbit-representation question;
+- NUBEAM's guiding centre + FLR sampling, which fits neither guiding centre nor full orbit.
 
 ## 10. Recommended minimal vocabulary for Phase B (#1727)
 
@@ -488,7 +504,7 @@ Proposed, not implemented.
 - `fluid_model`: `ideal_mhd` / `resistive_mhd` / `extended_mhd`;
 - `kinetic_equation`: `drift_kinetic` / `gyrokinetic` / `fokker_planck_test_particle`;
 - `kinetic_population`;
-- `kinetic_coupling`: `energy` / `pressure` / `current` / `sources` / `closure_on_given_displacement`.
+- `kinetic_coupling`: `energy` / `pressure` / `current` / `closure` (on a given displacement) / `sources`.
 
 **Independent axes,** carried over from CGYRO's record where they exist:
 - `distribution_formulation`;

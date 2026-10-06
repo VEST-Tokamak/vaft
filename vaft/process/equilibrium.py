@@ -5040,8 +5040,8 @@ def resistive_layer_parameters(
     """Resistivity and mass density at each rational surface of a toroidal mode.
 
     RDCON's asymptotic matching (``rmatch``) asks for one resistivity and one
-    mass density *per rational surface* (STRIDE, an ideal outer-region code,
-    takes neither), because the
+    mass density *per rational surface*; STRIDE, an ideal outer-region code,
+    takes neither. Matching needs them per surface because the
     resistive layer width and the reconnection rate are set locally. This
     composes the two things needed to answer that from an equilibrium and its
     kinetic profiles: where the surfaces are, and what the plasma is like
