@@ -252,8 +252,10 @@ def _dcon_local_criteria(out: Any) -> dict[str, Any]:
                    missing_or_nonfinite=problems, **fields)
 
 
-#: DCON's own defaults (dcon_mod.f:64,121,124), used when dcon.in exists but omits the key.
-_DCON_DEFAULT_PSIEDGE = 1.0
+#: DCON's own default (dcon_mod.f:124), used when dcon.in exists but omits the
+#: key. psiedge's default lives with the reader
+#: (:attr:`~vaft.code.gpec.DconEvaluation.requested_psiedge`) so the mhd_linear
+#: payload and this check name the same requested edge.
 _DCON_DEFAULT_NPERQ_EDGE = 20
 
 
@@ -275,9 +277,7 @@ def _dcon_edge(out: Any) -> dict[str, Any]:
     # truncated run, but it is never below the scan's last point.
     treatment = out.edge_treatment
     scan = out.edge_scan
-    requested = None
-    if _namelist_known(out):
-        requested = out.evaluation.psiedge if out.evaluation.psiedge is not None else _DCON_DEFAULT_PSIEDGE
+    requested = None if out.evaluation is None else out.evaluation.requested_psiedge
     fields = {"edge_treatment": treatment, "requested_psiedge": requested}
     if requested is None or out.psilim is None:
         return _result(ValidationStatus.NOT_AVAILABLE, reason="requested psiedge or psilim unknown", **fields)
