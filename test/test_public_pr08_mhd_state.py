@@ -102,8 +102,8 @@ def test_deterministic_coordinates_come_from_the_registered_functions(tmp_path):
         float(B.cylindrical_kink_coordinates(a, r, b, kappa, ip)))
     assert row["edge_safety_factor_95_estimate_iter"] == pytest.approx(
         float(B.iter_q95_coordinates(a, r, b, kappa, delta, ip)))
-    assert row["edge_safety_factor_95_estimate_start"] == pytest.approx(
-        float(B.start_q95_coordinates(a, r, b, kappa, delta, ip)))
+    # no CONFIG, so START's configuration constant is unknown and its estimate is not formed
+    assert math.isnan(row["edge_safety_factor_95_estimate_start"])
     assert row["area_elongation"] == pytest.approx(4.5 / (math.pi * a * a))
     assert row["kink_safety_factor_elliptic_provenance"] == "deterministic_derived"
     # the source q95 and the VAFT estimate stay two columns
@@ -141,6 +141,47 @@ def test_a_current_not_in_amperes_and_a_beta_in_percent_are_rejected_with_a_note
     assert second["plasma_current_provenance"] == "source_direct"
 
 
+def test_lower_case_names_and_the_sign_flipped_missing_marker_are_read(tmp_path):
+    """A few files write their names in lower case; +9.999E-09 is the missing marker too."""
+    lower = HEADER.lower()
+    flipped = JETLIKE.replace(",4.200E-01,", ",9.999E-09,")          # BEPDIA
+    row = pr08_mhd_state_table([_zero_d(tmp_path, flipped, header=lower)]).iloc[0]
+    assert row["time_s"] == pytest.approx(5.5) and row["plasma_current_provenance"] == "source_direct"
+    assert math.isnan(row["poloidal_beta_diamagnetic"])
+    assert row["poloidal_beta_diamagnetic_provenance"] == "missing"
+
+
+def test_a_rejected_value_says_why_and_is_not_replaced(tmp_path):
+    zero = JETLIKE.replace(",1.700E+00,2.000E-01,", ",0.000E+00,2.000E-01,").replace("-1.700E+00,9.000E-01",
+                                                                                      "0.000E+00,9.000E-01")
+    row = pr08_mhd_state_table([_zero_d(tmp_path, zero)]).iloc[0]
+    assert "KAPPA = 0 cannot be elongation" in row["state_notes"]
+    # a rejected source beta_N stays rejected; the derived one does not paper over it
+    assert row["normalized_beta_provenance"] == "source_invalid" and math.isnan(row["normalized_beta"])
+
+
+def test_t10_q95_is_the_iter_estimate_and_not_taken_as_an_equilibrium_q95(tmp_path):
+    t10 = JETLIKE.replace("JET,52009", "T10,33957")
+    row = pr08_mhd_state_table([_zero_d(tmp_path, t10, machine="t10", shot="33957")]).iloc[0]
+    assert math.isnan(row["edge_safety_factor_95"]) and row["edge_safety_factor_95_provenance"] == "source_invalid"
+    assert "not an equilibrium q95" in row["state_notes"]
+    assert np.isfinite(row["edge_safety_factor_95_estimate_iter"])   # the VAFT estimate is its own column
+
+
+@pytest.mark.parametrize("config, expected", [("LIM", "limiter"), ("IN", "limiter"), ("DN", "double_null"),
+                                              ("LSN", None), ("", None)])
+def test_the_start_estimate_takes_its_configuration_from_config(tmp_path, config, expected):
+    header = HEADER + ",CONFIG"
+    row = pr08_mhd_state_table([_zero_d(tmp_path, JETLIKE + f",{config}", header=header)]).iloc[0]
+    a, r, b, kappa, delta, ip = 0.95, 2.95, 2.4, 1.7, 0.2, 2.5
+    if expected is None:
+        assert math.isnan(row["edge_safety_factor_95_estimate_start"])
+        assert row["edge_safety_factor_95_estimate_start_provenance"] == "missing"
+    else:
+        assert row["edge_safety_factor_95_estimate_start"] == pytest.approx(
+            float(B.start_q95_coordinates(a, r, b, kappa, delta, ip, configuration=expected)))
+
+
 def test_a_repeated_time_keeps_a_unique_record_id(tmp_path):
     table = pr08_mhd_state_table([_zero_d(tmp_path, JETLIKE, JETLIKE)])
     assert list(table["record_id"]) == ["JET:52009:5500", "JET:52009:5500#2"]
@@ -174,10 +215,10 @@ def test_the_release_inventory_is_the_crawled_release():
     assert len(inventory) == 348 and not inventory.duplicated(["machine_dir", "shot"]).any()
     assert inventory["sha256_0d"].str.fullmatch(r"[0-9a-f]{64}").all()
     assert set(inventory["machine_dir"]) == set(pr08_mhd_state.PR08_MACHINES)
-    misfiled = inventory[inventory["shot"] != inventory["directory"]]
-    assert set(zip(misfiled["machine_dir"], misfiled["shot"], misfiled["directory"])) == {
-        ("jet", "38287", "38285"), ("tftr", "95555", "95554")}
-    assert inventory.loc[(inventory.machine_dir == "tftr") & (inventory.shot == "55851"), "directory"].item() == "55851"
+    # every discharge is read from its own directory, never from the second copy in another shot's
+    assert (inventory["shot"] == inventory["directory"]).all()
+    jet = inventory[(inventory.machine_dir == "jet") & (inventory.shot == "38287")].iloc[0]
+    assert jet["sha256_0d"].startswith("dcc4c561b596") and jet["kinds"] == ("0d", "1d", "2d", "com")
 
 
 def test_the_live_inventory_is_read_from_the_directory_index(monkeypatch):
@@ -244,3 +285,40 @@ def test_the_table_agrees_with_the_ods_mapping_where_definitions_match(tmp_path)
     assert abs(ods["equilibrium.time_slice.0.global_quantities.ip"]) * 1e-6 == pytest.approx(row["plasma_current"])
     assert ods["equilibrium.vacuum_toroidal_field.r0"] == pytest.approx(row["major_radius"])
     assert abs(ods["equilibrium.vacuum_toroidal_field.b0"][0]) == pytest.approx(row["toroidal_field"])
+
+
+@pytest.mark.skipif(not __import__("os").environ.get("VAFT_NETWORK_TESTS"),
+                    reason="set VAFT_NETWORK_TESTS=1 to fetch the pinned PR08 discharges")
+@pytest.mark.parametrize("machine, shot", [("mast", "8302"), ("d3d", "81507"), ("jet", "19649")])
+def test_real_discharges_agree_with_the_ods_mapping_at_the_0d_time(machine, shot):
+    """On the discharges the ODS mapping is checked against: |I_p|, R_geo and |B_T| at a shared time."""
+    pytest.importorskip("omas")
+    from vaft.data.public import fetch_pr08
+
+    discharge = fetch_pr08(machine, shot)
+    ods = pr08_to_omas(discharge)
+    from vaft.data.public._fetch import cache_dir
+
+    zero_d = cache_dir() / "pr08" / machine / shot / f"pr08_{machine}_{shot}_0d.dat"   # where fetch_pr08 put it
+    table = pr08_mhd_state_table([read_pr08_zero_d(zero_d, machine, shot)])
+    times = np.asarray(ods["equilibrium.time"], dtype=float) if "equilibrium.time" in ods else np.array([])
+    compared = 0
+    for row in table.itertuples():
+        # the release's 2D time base is offset from the 0D TIME by under 1 ms (JET 19649: 48.7 vs 48.70097);
+        # 1 ms is far inside the 50 ms sampling, so it is the same time, not a neighbour
+        index = np.flatnonzero(np.isclose(times, row.time_s, rtol=0.0, atol=1e-3))
+        if index.size == 0:
+            continue
+        k = int(index[0])
+        path = f"equilibrium.time_slice.{k}.global_quantities.ip"
+        if path in ods and np.isfinite(row.plasma_current):
+            # the 0D IP is the record's value, the ODS ip the sampled 1D trace: they agree to ~0.2 % (DIII-D 81507)
+            assert abs(float(ods[path])) * 1e-6 == pytest.approx(row.plasma_current, rel=1e-2)
+            compared += 1
+        if "equilibrium.vacuum_toroidal_field.r0" in ods:
+            assert float(ods["equilibrium.vacuum_toroidal_field.r0"]) == pytest.approx(row.major_radius)
+            compared += 1
+        # B_T is not compared: the 0D BT is defined at RGEO, while the 1D BT trace the ODS takes as b0 states no
+        # radius, and the two differ by 2.4 % on DIII-D 81507 (1.957 T against 1.91 T at RGEO = 1.606 m)
+    # MAST 8302 contradicts itself on the current direction, so its ODS has no ip/b0 to compare
+    assert compared or machine == "mast"

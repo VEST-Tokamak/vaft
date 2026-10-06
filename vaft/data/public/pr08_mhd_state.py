@@ -93,10 +93,14 @@ class Pr08Machine:
     name: str
     machine_class: str
     dataset_type: str
+    #: why this machine's Q95 is not an equilibrium q95 (empty when it is)
+    q95_not_equilibrium: str = ""
 
 
 #: PR08 machine directory -> canonical name, machine class and dataset type.  The ITPA ITER
-#: records are predictive scenario simulations, not measurements.
+#: records are predictive scenario simulations, not measurements.  T-10's Q95 equals the ITER
+#: guideline estimate of its own 0D shape (iter_q95_coordinates) to 1e-4 on 40 of its 48
+#: records: it is that estimate, not an equilibrium q95, and is not taken as one.
 PR08_MACHINES: dict[str, Pr08Machine] = {
     "aug": Pr08Machine("AUG", "conventional_tokamak", "experimental"),
     "cmod": Pr08Machine("C-MOD", "conventional_tokamak", "experimental"),
@@ -107,7 +111,9 @@ PR08_MACHINES: dict[str, Pr08Machine] = {
     "jt60u": Pr08Machine("JT-60U", "conventional_tokamak", "experimental"),
     "mast": Pr08Machine("MAST", "spherical_tokamak", "experimental"),
     "rtp": Pr08Machine("RTP", "conventional_tokamak", "experimental"),
-    "t10": Pr08Machine("T-10", "conventional_tokamak", "experimental"),
+    "t10": Pr08Machine("T-10", "conventional_tokamak", "experimental",
+                       q95_not_equilibrium="T-10 Q95 is the ITER guideline estimate of the 0D shape, not an "
+                                           "equilibrium q95"),
     "tftr": Pr08Machine("TFTR", "conventional_tokamak", "experimental"),
     "ts": Pr08Machine("TORE SUPRA", "conventional_tokamak", "experimental"),
     "txtr": Pr08Machine("TEXTOR", "conventional_tokamak", "experimental"),
@@ -128,7 +134,8 @@ _IDENTITY = {
     "source_sha256": ColumnSpec("str", "SHA-256 of the 0D file read."),
     "phase": ColumnSpec("str", "PR08 PHASE (OHM, L, H, HGELM, ...), as given."),
     "state": ColumnSpec("str", "PR08 STATE ('STEADY' or 'TRANS'), as given."),
-    "state_notes": ColumnSpec("str", "Source values rejected by a unit check, and why; empty when none."),
+    "config": ColumnSpec("str", "PR08 CONFIG (SN, LSN, USN, DN, LIM, TOP, BOT, OUT, IN, IW), as given."),
+    "state_notes": ColumnSpec("str", "Source values rejected, and why; empty when none."),
 }
 
 
@@ -183,9 +190,14 @@ _DERIVED = {
     "kink_safety_factor_elliptic": ("-", "vaft.formula.boundaries.kink_coordinates(a, R, B, kappa, I_p)"),
     "kink_safety_factor_cylindrical": ("-", "vaft.formula.boundaries.cylindrical_kink_coordinates(a, R, B, kappa, I_p)"),
     "edge_safety_factor_95_estimate_iter": ("-", "vaft.formula.boundaries.iter_q95_coordinates(a, R, B, kappa, "
-                                                 "delta, I_p)"),
+                                                 "delta, I_p) with the boundary KAPPA and DELTA in place of the "
+                                                 "kappa_95 and delta_95 it is defined on (the release has almost no "
+                                                 "KAPPA95); the function's docstring puts the resulting over-estimate "
+                                                 "near 27 % at the ITER design point"),
     "edge_safety_factor_95_estimate_start": ("-", "vaft.formula.boundaries.start_q95_coordinates(a, R, B, kappa, "
-                                                  "delta, I_p)"),
+                                                  "delta, I_p, configuration) on the boundary shape as above; "
+                                                  "configuration from CONFIG: limiter for LIM/TOP/BOT/OUT/IN/IW, "
+                                                  "double_null for DN, missing for single null or unknown"),
 }
 
 _QUANTITIES = {d.column: ColumnSpec(d.unit, f"PR08 {d.source}: {d.definition}") for d in _DIRECT}
@@ -211,9 +223,8 @@ def pr08_release_inventory() -> pd.DataFrame:
     Returns
     -------
     pandas.DataFrame
-        One row per discharge: ``machine_dir``, ``shot``, ``directory`` (the
-        release directory holding its files, which is another shot's for three
-        misfiled discharges), ``sha256_0d`` and ``kinds`` (file kinds present).
+        One row per discharge: ``machine_dir``, ``shot``, ``directory`` (its own
+        release directory), ``sha256_0d`` and ``kinds`` (file kinds present).
     """
     from ._pr08_release import PR08_RELEASE
 
@@ -404,6 +415,11 @@ def _unit_checks(row: dict) -> list:
     return notes
 
 
+#: PR08 CONFIG (manual) -> START configuration of Akers et al. (2000); single null has no constant.
+_START_CONFIGURATION = {**{code: "limiter" for code in ("LIM", "TOP", "BOT", "OUT", "IN", "IW")},
+                        "DN": "double_null"}
+
+
 def _derive(row: dict) -> None:
     """Fill the deterministic columns of one row from its direct columns, through registered functions."""
     from vaft.formula import boundaries as _b
@@ -429,7 +445,7 @@ def _derive(row: dict) -> None:
     put("inverse_aspect_ratio", (a, r), lambda: inverse_aspect_ratio_from_a_R(a, r))
     put("area_elongation", (area, a), lambda: area / (math.pi * a * a))
     put("normalized_current", (ip, a, b), lambda: ip / (a * b))
-    if row["normalized_beta_provenance"] != "source_direct":
+    if row["normalized_beta_provenance"] == "missing":   # a rejected source value is not replaced
         put("normalized_beta", (row["toroidal_beta"], a, b, ip),
             lambda: beta_N_from_beta_a_B0_Ip(row["toroidal_beta"], a, b, ip))
     kappa_a = row["area_elongation"]
@@ -440,8 +456,9 @@ def _derive(row: dict) -> None:
         lambda: _b.cylindrical_kink_coordinates(a, r, b, kappa, ip))
     put("edge_safety_factor_95_estimate_iter", (a, r, b, kappa, delta, ip),
         lambda: _b.iter_q95_coordinates(a, r, b, kappa, delta, ip))
-    put("edge_safety_factor_95_estimate_start", (a, r, b, kappa, delta, ip),
-        lambda: _b.start_q95_coordinates(a, r, b, kappa, delta, ip))
+    configuration = _START_CONFIGURATION.get(str(row.get("config") or "").strip().upper())
+    put("edge_safety_factor_95_estimate_start", (a, r, b, kappa, delta, ip, 1.0 if configuration else math.nan),
+        lambda: _b.start_q95_coordinates(a, r, b, kappa, delta, ip, configuration=configuration))
 
 
 def _label(value) -> Optional[str]:
@@ -469,7 +486,9 @@ def pr08_mhd_state_table(discharges: Iterable[Pr08ZeroD]) -> pd.DataFrame:
     for discharge in discharges:
         machine = PR08_MACHINES.get(discharge.machine_dir,
                                     Pr08Machine(discharge.machine_dir.upper(), "", "experimental"))
-        for index, record in enumerate(discharge.zero_d.to_dict("records")):
+        for index, raw in enumerate(discharge.zero_d.to_dict("records")):
+            # names are upper case in the manual; a few files write them in lower case
+            record = {str(key).strip().upper(): value for key, value in raw.items()}
             row = {name: None for name in MHD_STATE_COLUMNS}
             time_s = _number(record.get("TIME"))
             key = f"{machine.name}:{discharge.shot}:{int(round(time_s * 1000.0)) if np.isfinite(time_s) else 'na'}"
@@ -482,10 +501,20 @@ def pr08_mhd_state_table(discharges: Iterable[Pr08ZeroD]) -> pd.DataFrame:
                 source_record_id=f"{discharge.machine_dir}/{discharge.directory}/{discharge.path.name}#{index}",
                 source_kind="0D", source_sha256=discharge.sha256,
                 phase=_label(record.get("PHASE")), state=_label(record.get("STATE")),
+                config=_label(record.get("CONFIG")),
             )
+            notes = []
             for spec in _DIRECT:
-                row[spec.column], row[f"{spec.column}_provenance"] = _direct_value(spec, record.get(spec.source))
-            notes = _unit_checks(row)
+                value, kind = _direct_value(spec, record.get(spec.source))
+                row[spec.column], row[f"{spec.column}_provenance"] = value, kind
+                if kind == "source_invalid":
+                    notes.append(f"{spec.source} = {_number(record.get(spec.source)):g} cannot be {spec.column}")
+            if machine.q95_not_equilibrium and row["edge_safety_factor_95_provenance"] == "source_direct":
+                row["edge_safety_factor_95"], row["edge_safety_factor_95_provenance"] = math.nan, "source_invalid"
+                notes.append(machine.q95_not_equilibrium)
+            if not np.isfinite(time_s):
+                notes.append("no TIME in the record")
+            notes += _unit_checks(row)
             row["state_notes"] = "; ".join(notes)
             row["li3_reference_radius"] = (row["major_radius"]
                                            if row["internal_inductance_li3_provenance"] == "source_direct"
@@ -496,7 +525,7 @@ def pr08_mhd_state_table(discharges: Iterable[Pr08ZeroD]) -> pd.DataFrame:
     for name, spec in MHD_STATE_COLUMNS.items():
         if spec.unit not in ("str", "bool", "int"):
             table[name] = pd.to_numeric(table[name], errors="coerce").astype(float)
-    table.attrs["units"] = {k: v.unit for k, v in MHD_STATE_COLUMNS.items() if v.unit not in ("str", "bool", "int")}
+    table.attrs["units"] = {k: v.unit for k, v in MHD_STATE_COLUMNS.items()}
     table.attrs["descriptions"] = {k: v.description for k, v in MHD_STATE_COLUMNS.items()}
     sources = {d.column: {"source_variable": d.source, "source_unit": d.source_unit, "dimensionality": "0D",
                           "definition": d.definition,
@@ -516,7 +545,8 @@ def pr08_mhd_state_table(discharges: Iterable[Pr08ZeroD]) -> pd.DataFrame:
 
 def _quantity_columns(table: pd.DataFrame) -> list:
     units = table.attrs.get("units", {})
-    return [c for c in units if c in table.columns and c not in ("time_s", "li3_reference_radius")]
+    return [c for c, unit in units.items() if c in table.columns and unit not in ("str", "bool", "int")
+            and c not in ("time_s", "li3_reference_radius")]
 
 
 def mhd_state_coverage(table: pd.DataFrame) -> pd.DataFrame:

@@ -2,9 +2,9 @@
 
 Generated on 2026-10-06 from ``https://tokamak-profiledb.ccfe.ac.uk/PR08/itpa_pr08/``.
 A discharge is a ``pr08_<machine>_<shot>_0d.dat`` file, the 0D file the PR08 manual
-names; two of them (JET 38287, TFTR 95555) sit in another shot's directory, which is
-recorded rather than corrected.  A second, different copy of TFTR 55851's files in
-TFTR 76770's directory is not used: a discharge's own directory wins.  Other files in the directories
+names, read from the discharge's own directory.  Three discharges also have a second,
+different copy in another shot's directory (JET 38287 in 38285, TFTR 55851 in 76770,
+TFTR 95555 in 95554); those copies are not used.  Other files in the directories
 (``c0d`` TRANSP run notes, upper-case ``_0D`` copies, ``test_``/``old`` leftovers) are
 not discharges.  The release is static (directories dated 2005-2008), so each 0D
 hash pins what :func:`vaft.data.public.pr08_mhd_state.fetch_pr08_population`
@@ -117,7 +117,7 @@ PR08_RELEASE: dict = {
     ("jet", "37728"): ("37728", "8d12c6a40b1ce7b522a2ac101108c35763326558d0a2ad4c63eeff2e7d5d54de", ('0d', '1d', '2d', 'com')),
     ("jet", "37944"): ("37944", "bb1facc5e9045ea1a4fc13cba12913dc630e13d38fe9f8f972022541958f585e", ('0d', '1d', '2d', 'com')),
     ("jet", "38285"): ("38285", "2a559371251e266da56f9984d632a0af65a47e34c9ba09616f16c6fd64970008", ('0d', '1d', '2d', 'com')),
-    ("jet", "38287"): ("38285", "ddbc228b0cd6c8a707fcb68d858d749f12c9cfec78c5a8aeee0b0c8ebb22223f", ('0d', '1d', '2d', 'com')),
+    ("jet", "38287"): ("38287", "dcc4c561b596207c0519a7dd9de58eac9b503918495469d6e9d661dd9fafdaa8", ('0d', '1d', '2d', 'com')),
     ("jet", "38407"): ("38407", "b2e89564c4ea871b2fec2977e3626f3a7ea8d82247e5b56c0f6bb29900b48b90", ('0d', '1d', '2d', 'com')),
     ("jet", "38415"): ("38415", "f0d4476b33ffb5e9203e22c6328b5b2ff5f0ec6aaa3fa0922f9d278710cdd418", ('0d', '1d', '2d', 'com')),
     ("jet", "40542"): ("40542", "26a5be5cd19b71e02badd0a3a114014e80978965585754a53ae318b1215e23bf", ('0d', '1d', '2d', 'com')),
@@ -324,7 +324,7 @@ PR08_RELEASE: dict = {
     ("tftr", "94604"): ("94604", "668dfa9c9529815a45d4d7b0e42a1f814d756ab6e21e5399df87701613866379", ('0d', '1d', '2d', 'com')),
     ("tftr", "94607"): ("94607", "ee0943eadedba53e7480cd528f29d594d4d4e2d9c3889cc4b6dbd8d793478d7c", ('0d', '1d', '2d', 'com')),
     ("tftr", "95554"): ("95554", "07b45aceab6961b7b2838de2dbecc90e0addd0f18b90c62ddaaff3a65eb61e17", ('0d', '1d', '2d', 'com')),
-    ("tftr", "95555"): ("95554", "d6ee48749c50555095746ce67c9f703965d36189e643381730d7b528ced4d6cc", ('0d', '1d', '2d', 'com')),
+    ("tftr", "95555"): ("95555", "a81f729c428c35a373d56eb545fc1d1e4d2fc31e47b208a327e19ad317002d9e", ('0d', '1d', '2d', 'com')),
     ("ts", "14234"): ("14234", "b2502bc1ad40ea3e24899086913a60e40a7df3ba542813be4c8bccbb8782f9a9", ('0d', '1d', '2d', 'com')),
     ("ts", "14238"): ("14238", "2bd5006b33214d3ffba03ff815c637649d0bd3bd02f7f81742ab8f151a55f8a5", ('0d', '1d', '2d', 'com')),
     ("ts", "14386"): ("14386", "43ac410f5279f0da947efdd7bf1b9b178ad1700e4c54e161506217ae41f21075", ('0d', '1d', '2d', 'com')),

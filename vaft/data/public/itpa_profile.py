@@ -256,7 +256,9 @@ def _typed(value: str):
         number = float(value)
     except ValueError:
         return value
-    if np.isclose(number, _REAL_MISSING, rtol=0.0, atol=1e-12) or number == _INT_MISSING:
+    # the release also writes the marker with its sign flipped (+9.999E-09: JET and TFTR BEPDIA,
+    # TFTR DELTA), which would otherwise pass as a value of 1e-8 (#1736)
+    if np.isclose(abs(number), -_REAL_MISSING, rtol=0.0, atol=1e-12) or number == _INT_MISSING:
         return np.nan
     return number
 
