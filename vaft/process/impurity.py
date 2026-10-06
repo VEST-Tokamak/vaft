@@ -1915,6 +1915,7 @@ def surface_composition_profile(
     radius = np.asarray(profile.rmin, dtype=float) / float(profile.rmin[-1])
     if not 0.0 <= float(r_over_a) <= 1.0:
         raise ValueError(f"r_over_a must lie in [0, 1], got {r_over_a!r}")
+    # anti-alias: spatial interpolation over rho / r/a, not time -- no sample rate to reduce
     rho_s = float(np.interp(float(r_over_a), radius, rho))
     ne = np.asarray(profile.ne, dtype=float)
     n = rho.size
@@ -1940,6 +1941,7 @@ def surface_composition_profile(
         main_fraction = np.broadcast_to(np.asarray(composition.main_ion_fraction, dtype=float), (n,))
         masses = [float(s.mass) for s in composition.species]
         label = f"{composition.kind}_fixed_charge"
+    # anti-alias: spatial interpolation over rho / r/a, not time -- no sample rate to reduce
     lumped = np.array([np.interp(rho_s, rho, mean2[:, k] / mean[:, k]) for k in range(len(elements))])
     densities = [ne * np.asarray(main_fraction, dtype=float)]
     densities += [ne * fractions[:, k] * mean[:, k] / lumped[k] for k in range(len(elements))]
@@ -1960,6 +1962,7 @@ def surface_composition_profile(
     provenance["ti"] = {**dict(profile.provenance.get("ti", {})),
                         "impurities": "equal to the main ion (assumed)"}
     provenance["z_eff"] = {"kind": "derived", "source": "species list (lumped at the surface)",
+                           # anti-alias: spatial interpolation over rho / r/a, not time -- no sample rate to reduce
                            "value_at_surface": float(np.interp(rho_s, rho, z_eff))}
     return dataclasses.replace(
         profile,
