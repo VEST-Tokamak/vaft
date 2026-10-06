@@ -22,7 +22,7 @@
     },
     "ballooning_formulation_hierarchy.svg": {
       "call": "vaft.diagram.ballooning_formulation_hierarchy()",
-      "source_sha256": "955deebf6a956d8977403f26504267feaad7976e8d2ff0949a4f2341914e5009",
+      "source_sha256": "3ea9f68cf051f32ee98c8c607ab3415d08cb096bd85bc4d4dfe536f67ca6d455",
       "svg_sha256": "d35acbfa1a498700eafdb37dca852ab64ef5d7d36ed165a388ccb6adb352ca04"
     },
     "ballooning_harmonic_envelope.svg": {
@@ -412,7 +412,7 @@
     },
     "hugill_st.svg": {
       "call": "vaft.diagram.hugill_st()",
-      "source_sha256": "a8b06dea35975c0572da356572176b0d3fa98ba36f1f3449f1e4b0ae3798ceda",
+      "source_sha256": "2d3a089f939062694d32c0aa0e4a0feb95c1abfa177650c7d2ac95b66614c0a9",
       "svg_sha256": "35458972f7dbedb6826c8ef1783897181693d73269044db66531f767f58d0354"
     },
     "human_ai_interface.svg": {
