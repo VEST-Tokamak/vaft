@@ -37,6 +37,12 @@ LABELS = {
 }
 NAMES = tuple(LABELS)
 
+#: The elongation these scalings are fed, recorded as ``attrs["kappa_definition"]`` of
+#: :func:`predict`. ``vaft.data.public.predict_confinement_time`` feeds ``kappa_area``
+#: by default, so an ITER97-L H factor from the two paths differs by (kappa/kappa_area)^0.64.
+KAPPA_DEFINITION = "kappa: boundary (LCFS) elongation b/a"
+_USES_KAPPA = frozenset({"Goldston84L", "Goldston84OhmicL", "ITER97L"})
+
 
 def _col(table: pd.DataFrame, name: str) -> np.ndarray:
     arr = pd.to_numeric(table[name], errors="coerce").to_numpy(float)
@@ -118,4 +124,6 @@ def predict(table: pd.DataFrame, name: str) -> pd.Series:
     """Predicted tau_E of one of these scalings, indexed like ``table`` [s]."""
     if name not in _FUNCTIONS:
         raise KeyError(f"unknown scaling {name!r}; known: {NAMES}")
-    return pd.Series(_FUNCTIONS[name](table), index=table.index, name=f"tau_e_{name}_s")
+    out = pd.Series(_FUNCTIONS[name](table), index=table.index, name=f"tau_e_{name}_s")
+    out.attrs["kappa_definition"] = KAPPA_DEFINITION if name in _USES_KAPPA else "no elongation term"
+    return out

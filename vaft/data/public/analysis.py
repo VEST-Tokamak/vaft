@@ -35,6 +35,15 @@ SCALING_INPUTS: dict[str, tuple[str, str]] = {
     "kappa": ("kappa", None),
 }
 
+#: What each elongation column of the canonical table is, for the
+#: ``kappa_definition`` provenance of a prediction (the ITER97-L and IPB98
+#: sources do not settle which one they regressed on: ``elongation_note`` in
+#: :data:`vaft.formula.constants._SCALING_COEFS`).
+KAPPA_DEFINITIONS: dict[str, str] = {
+    "kappa_area": "kappa_area: area elongation, cross-section area / (pi a^2)",
+    "kappa": "kappa: boundary (LCFS) elongation b/a",
+}
+
 
 def _used_variables(scaling: str) -> list[str]:
     from vaft.formula.constants import _SCALING_COEFS
@@ -73,6 +82,8 @@ def predict_confinement_time(
     pandas.Series
         Predicted thermal confinement time indexed like ``table``, ``NaN``
         where an input the scaling uses is missing or non-positive [s].
+        ``attrs["kappa_definition"]`` states which elongation column the
+        scaling was fed (or that it uses none).
 
     Notes
     -----
@@ -108,7 +119,10 @@ def predict_confinement_time(
         result[row] = confinement_time_from_engineering_parameters(
             scaling=scaling, input_density_definition="line_avg", **kwargs
         )
-    return pd.Series(result, index=table.index, name=f"tau_e_{scaling}_s")
+    out = pd.Series(result, index=table.index, name=f"tau_e_{scaling}_s")
+    out.attrs["kappa_definition"] = (KAPPA_DEFINITIONS.get(kappa_column, f"{kappa_column}: column as supplied")
+                                     if "kappa" in used else "no elongation term")
+    return out
 
 
 def h_factor(
@@ -140,7 +154,8 @@ def h_factor(
     pandas.Series
         H-factor indexed like ``table``; ``NaN`` where the measurement or the
         prediction is missing, or where the scaling needs a global confinement
-        time the row does not have.  ``attrs`` records ``energy_basis`` and,
+        time the row does not have.  ``attrs`` records ``energy_basis``,
+        ``kappa_definition`` (the elongation column the prediction used) and,
         when thermal times stood in for global ones, ``approximation`` and
         ``substituted_rows`` [-].
 
@@ -210,7 +225,7 @@ def h_factor(
     out = (pd.Series(tau, index=table.index) / predicted).rename(f"h_{scaling}")
     substituted = allow & (relaxed.energy_basis_used == "thermal") & (basis != "thermal")
     out.attrs.update(energy_basis=basis, approximation=relaxed.approximation if substituted.any() else None,
-                     substituted_rows=int(substituted.sum()))
+                     substituted_rows=int(substituted.sum()), kappa_definition=predicted.attrs["kappa_definition"])
     return out
 
 
