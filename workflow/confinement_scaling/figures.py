@@ -48,8 +48,9 @@ SPHERICAL = ("NSTX", "MAST", "START")
 LABELS = {"H98y2": "IPB98(y,2)", "NSTX2006L": "NSTX 2006 L-mode", "NSTX2006H": "NSTX 2006 H-mode",
           "ITER89P": "ITER89-P (L-mode)", "Kurskiev2022": "Kurskiev 2022 (ST H-mode)"}
 LABELS.update(extra_scalings.LABELS)
-#: Every scaling vaft.formula carries (_SCALING_COEFS), plus the workflow-local ohmic
-#: and L-mode ones of extra_scalings.py: ohmic, then L-mode, then H-mode.
+#: Every confinement scaling vaft.formula carries: the _SCALING_COEFS power laws plus
+#: the ohmic and L-mode ones extra_scalings.py maps onto table columns (#670);
+#: ohmic, then L-mode, then H-mode.
 ALL_SCALINGS = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L", "ITER89P", "ITER97L", "NSTX2006L",
                 "H98y2", "NSTX2006H", "Kurskiev2022")
 
@@ -100,10 +101,63 @@ def predict_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
     return predict_confinement_time(table, scaling)
 
 
+#: Machines whose plasmas are ohmic with no fast-ion population: there the thermal
+#: confinement time may stand in for a global one, recorded (#1713). DB5 rows are
+#: auxiliary-heated: a global scaling takes their tau_e_global_s (DB5 TAUTOT), and
+#: an unaudited one stays strict (NaN).
+OHMIC_MACHINES = ("VEST",)
+
+
+def observed_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
+    """Observed tau_E with the scaling's energy basis (#1713) [s].
+
+    Thermal scalings take ``tau_e_th_s``. Global and unaudited ones take
+    ``tau_e_global_s`` where the table has it; on OHMIC_MACHINES rows the thermal
+    time stands in, and ``attrs["approximation"]`` records it; elsewhere NaN.
+    """
+    from vaft.formula.equilibrium import confinement_scaling_basis
+    from vaft.process.confinement import resolve_observed_confinement
+
+    basis = confinement_scaling_basis(scaling).energy_basis
+    thermal = pd.to_numeric(table["tau_e_th_s"], errors="coerce").to_numpy(float)
+    glob = (pd.to_numeric(table["tau_e_global_s"], errors="coerce").to_numpy(float)
+            if "tau_e_global_s" in table else None)
+    strict = resolve_observed_confinement(thermal, basis, tau_global=glob)
+    relaxed = resolve_observed_confinement(thermal, basis, tau_global=glob, thermal_as_global=True)
+    # Without a machine column nothing is known to be ohmic: stay strict.
+    ohmic = table["machine"].isin(OHMIC_MACHINES).to_numpy() if "machine" in table else np.zeros(len(table), bool)
+    tau = np.where(ohmic, relaxed.tau, strict.tau)
+    out = pd.Series(tau, index=table.index, name=f"tau_e_obs_{scaling}")
+    substituted = ohmic & (relaxed.energy_basis_used == "thermal") & (basis != "thermal")
+    out.attrs.update(energy_basis=basis, approximation=relaxed.approximation if substituted.any() else None,
+                     substituted_rows=int(substituted.sum()))
+    return out
+
+
 def h_factor_of(table: pd.DataFrame, scaling: str) -> pd.Series:
-    """tau_e_th_s over the scaling's prediction [-]."""
-    tau = pd.to_numeric(table["tau_e_th_s"], errors="coerce")
-    return (tau / predict_tau(table, scaling)).rename(f"h_{scaling}")
+    """Observed tau_E (with the scaling's energy basis) over its prediction [-]."""
+    tau = observed_tau(table, scaling)
+    h = (tau / predict_tau(table, scaling)).rename(f"h_{scaling}")
+    h.attrs.update(tau.attrs)
+    return h
+
+
+def basis_marker(scaling: str) -> str:
+    """'*' when the comparison needs a non-thermal tau_E that VEST supplies only as thermal (#1713)."""
+    from vaft.formula.equilibrium import confinement_scaling_basis
+
+    return "" if confinement_scaling_basis(scaling).energy_basis == "thermal" else "*"
+
+
+def _basis_footnote(fig, scalings) -> None:
+    """Explain the '*' of basis_marker under a figure that shows a marked scaling."""
+    if any(basis_marker(name) for name in scalings):
+        fig.supxlabel(BASIS_FOOTNOTE, fontsize="x-small", x=0.01, ha="left")
+
+
+#: Footnote for basis_marker.
+BASIS_FOOTNOTE = ("* global or unaudited energy basis: VEST uses tau_E,th (ohmic, W_global ~ W_th); "
+                  "DB5 uses TAUTOT for global scalings and is omitted for unaudited ones")
 #: Machines coloured individually when grouping by machine (the largest by row count);
 #: the rest fold into "Other". vaft.plot.population has seven colours, and more groups
 #: would repeat them.
@@ -130,9 +184,10 @@ def population_table(db5: pd.DataFrame, confinement: pd.DataFrame, selection: st
         raise ValueError(f"scope must be standard/all and grouping spherical/machine; got {scope}, {grouping}")
     vest = confinement.loc[select(confinement, SELECTIONS[selection])]
     keep = list(CONFINEMENT_COLUMNS) + (["thomson_consistent"] if "thomson_consistent" in vest else [])
-    vest = vest.loc[np.isfinite(vest["tau_e_th_s"]) & (vest["tau_e_th_s"] > 0), keep]
+    # reindex: a Lane D table written before #1713 has no global columns (NaN here).
+    vest = vest.loc[np.isfinite(vest["tau_e_th_s"]) & (vest["tau_e_th_s"] > 0)].reindex(columns=keep)
     rows = db5 if scope == "all" else db5.loc[db5["selected"].astype(bool)]
-    table = pd.concat([rows[list(CONFINEMENT_COLUMNS)], vest], ignore_index=True)
+    table = pd.concat([rows.reindex(columns=list(CONFINEMENT_COLUMNS)), vest], ignore_index=True)
     machine = table["machine"].astype(str)
     if grouping == "machine":
         table["population"] = machine
@@ -232,10 +287,16 @@ def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX20
     fig, axes = _grid(len(scalings), figsize=figsize)
     for ax, scaling in zip(axes, scalings):
         predicted = predict_tau(table, scaling)
-        confinement_predicted_vs_measured(table, predicted, scaling_label=LABELS.get(scaling, scaling),
+        # The measured axis is the observed tau_E with the scaling's energy basis (#1713).
+        shown = table.assign(tau_e_th_s=observed_tau(table, scaling))
+        confinement_predicted_vs_measured(shown, predicted, scaling_label=LABELS.get(scaling, scaling),
                                           by="population", highlight=VEST_LABEL, max_groups=max_groups, ax=ax)
-        mark_thomson_inconsistent(ax, table, predicted.to_numpy(float), "tau_e_th_s", legend_loc="upper left")
-        ax.set_title(f"{LABELS.get(scaling, scaling)}: {_vest_coverage(table, predicted)}", fontsize="small")
+        mark_thomson_inconsistent(ax, shown, predicted.to_numpy(float), "tau_e_th_s", legend_loc="upper left")
+        if basis_marker(scaling):
+            ax.set_ylabel(r"$\tau_{E,global}$ measured [s] (VEST: $\tau_{E,th}$)")
+        ax.set_title(f"{LABELS.get(scaling, scaling)}{basis_marker(scaling)}: "
+                     f"{_vest_coverage(table, predicted)}", fontsize="small")
+    _basis_footnote(fig, scalings)
     return fig, axes
 
 
@@ -257,7 +318,9 @@ def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L")):
         h = h_factor_of(table, scaling)
         confinement_h_factor_distribution(table, h, scaling_label=LABELS.get(scaling, scaling),
                                           by="population", highlight=VEST_LABEL, ax=ax)
-        ax.set_title(f"{LABELS.get(scaling, scaling)}: {_vest_coverage(table, h)}", fontsize="small")
+        ax.set_title(f"{LABELS.get(scaling, scaling)}{basis_marker(scaling)}: {_vest_coverage(table, h)}",
+                     fontsize="small")
+    _basis_footnote(fig, scalings)
     return fig, axes
 
 
@@ -277,7 +340,7 @@ def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, figsize=
         h = h_factor_of(table, name).replace([np.inf, -np.inf], np.nan).dropna()
         values.append(h.to_numpy(float))
         database, mode = SCALING_TAGS.get(name, ("?", "?"))
-        labels.append(LABELS.get(name, name))
+        labels.append(LABELS.get(name, name) + basis_marker(name))
         colours.append(DATABASE_COLOURS.get(database, "0.85"))
         hatches.append(mode_hatch(mode))
     fig, ax = plt.subplots(figsize=figsize, constrained_layout=True)
@@ -291,7 +354,10 @@ def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, figsize=
     ax.set_yticks(positions, labels, fontsize="small")
     ax.axvline(1.0, color="k", ls="--", lw=1)
     ax.set_xscale("log")
-    ax.set_xlabel(r"$H = \tau_{E,th}/\tau_{E,scaling}$")
+    ax.set_xlabel(r"$H = \tau_{E,obs}/\tau_{E,scaling}$")
+    if any(basis_marker(name) for name in scalings):
+        ax.annotate("* global or unaudited energy basis: $\\tau_{E,th}$ used (ohmic VEST, $W_{global} \\approx W_{th}$)",
+                    xy=(0.0, -0.13), xycoords="axes fraction", fontsize="x-small", ha="left", va="top")
     ax.grid(alpha=0.25, which="both", axis="x")
     ax.set_title("VEST (ohmic): H against each scaling", fontsize="medium")
     tags = [SCALING_TAGS.get(name, ("?", "?")) for name in scalings]

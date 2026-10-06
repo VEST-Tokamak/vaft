@@ -4,7 +4,11 @@ import numpy as np
 
 from vaft.formula.equilibrium import (
     confinement_factor_ITER89P,
+    confinement_scaling_basis,
     confinement_time_from_engineering_parameters,
+    goldston_l_mode_confinement_time_from_I_P_R_a_kappa,
+    neo_alcator_confinement_time_from_n_a_R_q,
+    ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux,
 )
 
 
@@ -217,6 +221,69 @@ class ConfinementScalingTests(unittest.TestCase):
         expected = tau_exp / tau_iter89p
         np.testing.assert_allclose(got, expected, rtol=0, atol=1e-12)
 
+
+    def test_iter97l_regression_matches_manual_expression(self):
+        got = confinement_time_from_engineering_parameters(
+            I_p=self.I_p, B_t=self.B_t, P_loss=self.P_loss, n_e=self.n_e, M=self.M,
+            R=self.R, epsilon=self.epsilon, kappa=self.kappa, scaling="ITER97L",
+        )
+        # Kaye et al., NF 37 (1997) 1303: I_p MA, n 1e19 m^-3, P MW; (R/a)^0.06 = eps^-0.06.
+        expected = (0.023 * 1.2**0.96 * self.B_t**0.03 * self.R**1.83 * (1 / self.epsilon)**0.06
+                    * self.kappa**0.64 * 4.2**0.40 * self.M**0.20 * 4.0**-0.73)
+        self.assertAlmostEqual(got, expected, places=12)
+
+    def test_neo_alcator_in_the_papers_cgs_units(self):
+        # n = 1e13 cm^-3, a = 30 cm, R = 40 cm, q = 3 (Goldston 1984 eq. 3).
+        expected = 7.1e-22 * 1e13 * 30.0**1.04 * 40.0**2.04 * 3.0**0.5
+        got = neo_alcator_confinement_time_from_n_a_R_q(1e19, 0.30, 0.40, 3.0)
+        self.assertIsInstance(got, float)
+        self.assertAlmostEqual(got, expected, places=14)
+        # Linear in density, the defining property of the LOC regime.
+        arr = neo_alcator_confinement_time_from_n_a_R_q(np.array([1e19, 2e19]), 0.30, 0.40, 3.0)
+        np.testing.assert_allclose(arr, [expected, 2 * expected], rtol=1e-14)
+
+    def test_goldston_l_mode_in_the_papers_units(self):
+        # I_p = 1e5 A, P = 1e5 W, R = 40 cm, a = 30 cm, kappa = 1.8 (Goldston 1984 eq. 6).
+        expected = 6.4e-8 * 1e5 * 1e5**-0.5 * 40.0**1.75 * 30.0**-0.37 * 1.8**0.5
+        got = goldston_l_mode_confinement_time_from_I_P_R_a_kappa(1e5, 1e5, 0.40, 0.30, 1.8)
+        self.assertAlmostEqual(got, expected, places=14)
+        # tau ~ P^-1/2: quadrupling the power halves the confinement time.
+        self.assertAlmostEqual(
+            goldston_l_mode_confinement_time_from_I_P_R_a_kappa(1e5, 4e5, 0.40, 0.30, 1.8), expected / 2,
+            places=14)
+
+    def test_ohmic_l_mode_quadrature(self):
+        self.assertAlmostEqual(ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(0.002, 0.002),
+                               0.002 / np.sqrt(2.0), places=15)
+        # The smaller time dominates.
+        got = ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(np.array([1e-3]), np.array([1.0]))
+        np.testing.assert_allclose(got, [1e-3], rtol=1e-6)
+
+    def test_ohmic_and_l_mode_scalings_refuse_non_positive_inputs(self):
+        with self.assertRaises(ValueError):
+            neo_alcator_confinement_time_from_n_a_R_q(1e19, 0.30, 0.40, 0.0)
+        with self.assertRaises(ValueError):
+            goldston_l_mode_confinement_time_from_I_P_R_a_kappa(1e5, -1.0, 0.40, 0.30, 1.8)
+        with self.assertRaises(ValueError):
+            ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(np.nan, 0.002)
+
+    def test_every_scaling_declares_its_energy_and_power_basis(self):
+        # Issue #1713's assignments.
+        expected = {"ITER89P": "global", "ITER97L": "thermal", "H98y2": "thermal",
+                    "NSTX2006H": "thermal", "NSTX2006L": "global"}
+        for name, basis in expected.items():
+            self.assertEqual(confinement_scaling_basis(name).energy_basis, basis)
+        from vaft.formula.constants import _SCALING_COEFS
+        for name in [*_SCALING_COEFS, "NeoAlcator", "Goldston84L", "Goldston84OhmicL"]:
+            b = confinement_scaling_basis(name)
+            self.assertIn(b.energy_basis, ("thermal", "global", "unaudited"))
+            self.assertIn(b.power_basis, ("p_loss", "p_abs", "p_heat", "none", "unaudited"))
+            self.assertTrue(b.energy_source and b.power_source)
+        self.assertEqual(confinement_scaling_basis("Kurskiev2022").power_basis, "p_abs")
+        # Unchecked power definitions are declared unaudited, never guessed.
+        self.assertEqual(confinement_scaling_basis("ITER89P").power_basis, "unaudited")
+        with self.assertRaises(KeyError):
+            confinement_scaling_basis("not_a_scaling")
 
 if __name__ == "__main__":
     unittest.main()

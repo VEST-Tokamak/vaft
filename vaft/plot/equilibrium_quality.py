@@ -22,6 +22,7 @@ __all__ = [
     "equilibrium_quality_measured_vs_reconstructed",
     "equilibrium_quality_reduced_chi2",
     "equilibrium_quality_residual_distribution",
+    "equilibrium_quality_selection_funnel",
     "equilibrium_quality_validation_matrix",
 ]
 
@@ -225,5 +226,46 @@ def equilibrium_quality_validation_matrix(census: dict, *, ax=None, show: bool =
     ax.set_yticklabels([RULE_TITLES.get(r, r) for r in rules], fontsize=8)
     ax.set_title("Rule verdicts by cohort (pass / fail; colour = fail share of graded)", fontsize=9)
     fig.colorbar(image, ax=ax, fraction=0.04, pad=0.02, label="fail fraction")
+    _finish(show)
+    return fig, ax
+
+
+def equilibrium_quality_selection_funnel(funnel: dict, *, ax=None, show: bool = False, figsize=(6.4, 4.2)):
+    """Per EFIT-quality cohort: confinement candidates, then what each downstream rule removes, then selected.
+
+    ``funnel`` is :func:`~vaft.validation.equilibrium_quality.equilibrium_quality_confinement_funnel`.
+    One horizontal bar per cohort, split into the slices each rule removes in
+    sequence and the slices selected -- so a ``good`` equilibrium rejected by a
+    stationarity rule reads as exactly that.
+    """
+    fig, ax = _axes(ax, figsize)
+    cohorts = list(funnel["cohorts"])
+    rules = funnel["rules"]
+    shades = ("#5c5b55", "#8b8a82", "#b8b7ae", "#d8d7cf", "#e9e8e2")
+    for i, cohort in enumerate(cohorts):
+        entry = funnel["cohorts"][cohort]
+        removed = {row["rule"]: row["removed_in_sequence"] for row in entry["exclusions"]}
+        left = 0
+        for j, rule in enumerate(rules):
+            width = removed.get(rule, 0)
+            if width:
+                ax.barh(i, width, left=left, color=shades[j % len(shades)], edgecolor="white")
+                ax.text(left + width / 2, i, str(width), ha="center", va="center", fontsize=7, color="white" if j < 2 else "#1a1a19")
+            left += width
+        color = COHORT_STYLE.get(cohort, ("#2a78d6", "o", cohort))[0]
+        ax.barh(i, entry["selected"], left=left, color=color, edgecolor="white")
+        ax.text(left + entry["selected"] / 2 if entry["selected"] else left, i, f"{entry['selected']} selected",
+                ha="center", va="center", fontsize=7, color="white" if entry["selected"] else "#1a1a19")
+    from matplotlib.patches import Patch
+
+    handles = [Patch(color=shades[j % len(shades)], label=f"removed by {rule}") for j, rule in enumerate(rules)]
+    # Below the axes: inside, it would cover the widest cohort's bar.
+    ax.legend(handles=handles, fontsize=7, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+    ax.set_yticks(range(len(cohorts)))
+    ax.set_yticklabels([f"{COHORT_STYLE.get(c, (None, None, c))[2]}\n(n={funnel['cohorts'][c]['candidates']})" for c in cohorts],
+                       fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlabel("confinement candidate slices")
+    ax.set_title("EFIT quality → confinement selection", fontsize=9)
     _finish(show)
     return fig, ax
