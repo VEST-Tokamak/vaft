@@ -230,7 +230,7 @@ def equilibrium_quality_validation_matrix(census: dict, *, ax=None, show: bool =
     return fig, ax
 
 
-def equilibrium_quality_selection_funnel(funnel: dict, *, ax=None, show: bool = False, figsize=(6.4, 3.6)):
+def equilibrium_quality_selection_funnel(funnel: dict, *, ax=None, show: bool = False, figsize=(6.4, 4.2)):
     """Per EFIT-quality cohort: confinement candidates, then what each downstream rule removes, then selected.
 
     ``funnel`` is :func:`~vaft.validation.equilibrium_quality.equilibrium_quality_confinement_funnel`.
@@ -259,7 +259,8 @@ def equilibrium_quality_selection_funnel(funnel: dict, *, ax=None, show: bool = 
     from matplotlib.patches import Patch
 
     handles = [Patch(color=shades[j % len(shades)], label=f"removed by {rule}") for j, rule in enumerate(rules)]
-    ax.legend(handles=handles, fontsize=7, frameon=False, loc="lower right")
+    # Below the axes: inside, it would cover the widest cohort's bar.
+    ax.legend(handles=handles, fontsize=7, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
     ax.set_yticks(range(len(cohorts)))
     ax.set_yticklabels([f"{COHORT_STYLE.get(c, (None, None, c))[2]}\n(n={funnel['cohorts'][c]['candidates']})" for c in cohorts],
                        fontsize=8)
