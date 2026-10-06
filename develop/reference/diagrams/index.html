@@ -294,7 +294,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>3a4febf</code>. What is described
+  <code>4506436</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -2597,6 +2597,7 @@ a test enforces this. The README uses the four pillars, the research cycle and t
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">scientific_infrastructure_principles</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">machine_agnostic_architecture</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">experiment_modeling_theory_data_network</span><span class="p">()</span>   <span class="c1"># "point_to_point", "common_model", "equilibrium"
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">integrated_scientific_framework</span><span class="p">()</span>           <span class="c1"># domain=None or "equilibrium"
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">human_ai_interface</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">machine_research_archive</span><span class="p">()</span>
 </code></pre></div></div>
@@ -2642,6 +2643,10 @@ a test enforces this. The README uses the four pillars, the research cycle and t
       <td>A three-step argument for a common data model. Point to point needs $N(N-1)/2$ pairwise adapters, and a new mode needs $N-1$ more. The Common Data Model (IMAS) needs $N$ adapters, and a new mode needs one. The IMAS equilibrium IDS, a standardized equilibrium representation, then serves as a tokamak example with representative routes and references</td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">integrated_scientific_framework</code></td>
+      <td>The common-model network one level up (#1698). The same four research modes and Common Data Model (IMAS), placed exactly as in the network, sit inside an Integrated Framework boundary, and the shared state feeds one Analysis node. The Common Data Model is the shared representation; the framework connects, runs, compares and reproduces research through it; analysis is the scientific use. With <code class="language-plaintext highlighter-rouge">domain="equilibrium"</code> the routes and the IMAS equilibrium IDS return, and the analysis reads MHD parameters, plasma shape and operational space. These are equilibrium-derived descriptors; stability codes such as DCON and RDCON are downstream models and stay out</td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">human_ai_interface</code></td>
       <td>Three layers: actors, shared access interfaces and one backend. Human researchers and AI agents collaborate through the Python API, CLI, GUI, repository and docs, and MCP (planned). The interface layer reaches the framework and the IMAS database through one common connection</td>
     </tr>
@@ -2662,8 +2667,23 @@ a test enforces this. The README uses the four pillars, the research cycle and t
 <img src="/vaft/develop/assets/diagrams/experiment_modeling_theory_data_network_point_to_point.svg" alt="Without a common model" />
 <img src="/vaft/develop/assets/diagrams/experiment_modeling_theory_data_network.svg" alt="With a common model" />
 <img src="/vaft/develop/assets/diagrams/experiment_modeling_theory_data_network_equilibrium.svg" alt="The IMAS equilibrium as a common model" />
+<img src="/vaft/develop/assets/diagrams/integrated_scientific_framework.svg" alt="Integrated scientific framework" />
+<img src="/vaft/develop/assets/diagrams/integrated_scientific_framework_equilibrium.svg" alt="Integrated scientific framework: equilibrium" />
 <img src="/vaft/develop/assets/diagrams/human_ai_interface.svg" alt="Human-AI collaborative access" />
 <img src="/vaft/develop/assets/diagrams/machine_research_archive.svg" alt="Machine and research archive" /></p>
+
+<p>The interoperability figures read as one progression, from data interoperability through scientific
+integration to infrastructure and implementation:</p>
+
+<ol>
+  <li>pairwise interfaces, <code class="language-plaintext highlighter-rouge">experiment_modeling_theory_data_network("point_to_point")</code>;</li>
+  <li>a shared scientific representation, <code class="language-plaintext highlighter-rouge">experiment_modeling_theory_data_network("common_model")</code>;</li>
+  <li>an integrated scientific framework, <code class="language-plaintext highlighter-rouge">integrated_scientific_framework()</code>, and its equilibrium example,
+<code class="language-plaintext highlighter-rouge">integrated_scientific_framework(domain="equilibrium")</code>;</li>
+  <li>the broader research infrastructure, <code class="language-plaintext highlighter-rouge">experimental_research_infrastructure()</code> (#1636);</li>
+  <li>the managed workflow, <code class="language-plaintext highlighter-rouge">scientific_workflow()</code>;</li>
+  <li>the VEST implementation, <code class="language-plaintext highlighter-rouge">vest_data_platform()</code>.</li>
+</ol>
 
 <p>The pillar names are the four README sections.
 The diagrams are built from the concept primitives in <code class="language-plaintext highlighter-rouge">vaft.diagram._concept</code>: <code class="language-plaintext highlighter-rouge">box</code>, <code class="language-plaintext highlighter-rouge">connector</code>, <code class="language-plaintext highlighter-rouge">band</code>,
@@ -4610,7 +4630,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 09:26:12 +0000"
+        "time": "2026-10-06 11:07:08 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

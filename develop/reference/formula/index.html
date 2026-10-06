@@ -294,7 +294,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>3a4febf</code>. What is described
+  <code>4506436</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -367,7 +367,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="equilibrium">
     <td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.formula.equilibrium</code></td><td>101</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
+    <td><code>vaft.formula.equilibrium</code></td><td>105</td><td>Plasma equilibrium, current, energy, and geometry calculations.</td>
   </tr>
   <tr id="virial">
     <td><a href="/vaft/develop/reference/formula/virial/">virial</a></td>
@@ -489,8 +489,8 @@ fitted prefactors whose meaning is defined by the single function that uses
 each of them, documented there.</p>
 
 <p>The private <code class="language-plaintext highlighter-rouge">_SCALING_COEFS</code> table holds the engineering-unit confinement
-scalings (ITER89P, IPB98(y,2), the two NSTX 2006 fits and the Kurskiev 2022 ST
-fit).  Each entry carries its prefactor, exponents, target density definition,
+scalings (ITER89P, IPB98(y,2), ITER97-L, the two NSTX 2006 fits and the Kurskiev
+2022 ST fit).  Each entry carries its prefactor, exponents, target density definition,
 source reference and unit-convention notes; the table is read by
 <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.confinement_time_from_engineering_parameters</code>,
 which documents the conventions and cites every entry.</p>
@@ -514,7 +514,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 400 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 404 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -572,6 +572,8 @@ which documents the conventions and cites every entry.</p>
 </td></tr>
   <tr data-ref-row="confinement_factor_ITER89P equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#confinement_factor_ITER89P"><code>confinement_factor_ITER89P</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Confinement enhancement factor $H_{89}$ relative to ITER89P.
 </td></tr>
+  <tr data-ref-row="confinement_scaling_basis equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#confinement_scaling_basis"><code>confinement_scaling_basis</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Energy and power basis a published confinement scaling was fitted on.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="confinement_time_from_P_loss_W_th equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#confinement_time_from_P_loss_W_th"><code>confinement_time_from_P_loss_W_th</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Energy confinement time as stored energy over loss power.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="confinement_time_from_engineering_parameters equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#confinement_time_from_engineering_parameters"><code>confinement_time_from_engineering_parameters</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Thermal energy confinement time from an engineering-parameter scaling law.
@@ -616,6 +618,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="generalized_straight_field_line_angle equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#generalized_straight_field_line_angle"><code>generalized_straight_field_line_angle</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Straight-field-line poloidal angle of the generalised family: PEST, Boozer, Hamada, equal-arc.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="goldston_l_mode_confinement_time_from_I_P_R_a_kappa equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#goldston_l_mode_confinement_time_from_I_P_R_a_kappa"><code>goldston_l_mode_confinement_time_from_I_P_R_a_kappa</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Goldston L-mode energy confinement time.
+ <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="grad_shafranov_source equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#grad_shafranov_source"><code>grad_shafranov_source</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Right-hand side of the poloidal-flux equation from Ampere’s law, any region.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="heating_power_from_p_ohm_p_aux equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#heating_power_from_p_ohm_p_aux"><code>heating_power_from_p_ohm_p_aux</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Total heating power $P_{heat} = P_{ohm} + P_{aux}$.
@@ -656,6 +660,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="nbi_heating_power_from_I_nbi_V_nbi equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#nbi_heating_power_from_I_nbi_V_nbi"><code>nbi_heating_power_from_I_nbi_V_nbi</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Neutral-beam injected power $P_{nbi} = I_{nbi}V_{nbi}$.
 </td></tr>
+  <tr data-ref-row="neo_alcator_confinement_time_from_n_a_R_q equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#neo_alcator_confinement_time_from_n_a_R_q"><code>neo_alcator_confinement_time_from_n_a_R_q</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Neo-Alcator ohmic energy confinement time.
+ <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="normalize_psi equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#normalize_psi"><code>normalize_psi</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Deprecated: use <code class="language-plaintext highlighter-rouge">psi_normalised</code>.
 </td></tr>
   <tr data-ref-row="normalized_collisionality_from_a_n_q_epsilon_T equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#normalized_collisionality_from_a_n_q_epsilon_T"><code>normalized_collisionality_from_a_n_q_epsilon_T</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Collisionality scaling form $\nu_* \propto a\,n\,q/(\varepsilon^{5/2}T^2)$.
@@ -669,6 +675,8 @@ which documents the conventions and cites every entry.</p>
   <tr data-ref-row="nu_star_from_n_T_B_R_epsilon_kappa_I equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#nu_star_from_n_T_B_R_epsilon_kappa_I"><code>nu_star_from_n_T_B_R_epsilon_kappa_I</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Normalised collisionality $\nu_*$ in the Verdoolaege engineering form.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="ohmic_heating_power_from_I_p_V_res equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#ohmic_heating_power_from_I_p_V_res"><code>ohmic_heating_power_from_I_p_V_res</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Ohmic heating power $P_{ohm} = I_pV_{res}$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux"><code>ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Ohmic and auxiliary confinement times combined in quadrature.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="omega_i_tau_E_from_B_tau_E_M equilibrium"><td><a href="/vaft/develop/reference/formula/equilibrium/#omega_i_tau_E_from_B_tau_E_M"><code>omega_i_tau_E_from_B_tau_E_M</code></a></td><td><a href="/vaft/develop/reference/formula/equilibrium/">equilibrium</a></td><td>Ion-cyclotron-normalised confinement time $\Omega_i\tau_E$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -1640,7 +1648,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 09:26:12 +0000"
+        "time": "2026-10-06 11:07:08 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

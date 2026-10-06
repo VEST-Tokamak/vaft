@@ -294,7 +294,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>3a4febf</code>. What is described
+  <code>4506436</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -345,7 +345,7 @@ repository.</p>
 
 <h3 id="optional-dependency-groups">Optional-dependency groups</h3>
 
-<p>The project defines twelve extras (eleven optional-dependency groups plus <code class="language-plaintext highlighter-rouge">dev</code>); none is needed for the first result on this page:</p>
+<p>The project defines twelve extras (ten optional-dependency groups, the empty <code class="language-plaintext highlighter-rouge">gui</code> alias, and <code class="language-plaintext highlighter-rouge">dev</code>); none is needed for the first result on this page:</p>
 
 <table>
   <thead>
@@ -403,8 +403,8 @@ repository.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">gui</code></td>
-      <td>panel</td>
-      <td><code class="language-plaintext highlighter-rouge">vaft gui</code>: the browser GUI, locally or through SSH port forwarding (<a href="/vaft/develop/workflows/gui/">Browser GUI</a>)</td>
+      <td>nothing</td>
+      <td>kept so that <code class="language-plaintext highlighter-rouge">vaft[gui]</code> still installs: Panel, which <code class="language-plaintext highlighter-rouge">vaft gui</code> (<a href="/vaft/develop/workflows/gui/">Browser GUI</a>) needs, is a core dependency</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">architecture</code></td>
@@ -413,7 +413,7 @@ repository.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">dev</code></td>
-      <td>pytest, pytest-xdist, pre-commit, the two runtimes above, PyAV, the MCP SDK, panel and grimp</td>
+      <td>pytest, pytest-xdist, pre-commit, the two runtimes above, PyAV, the MCP SDK and grimp</td>
       <td>running the test suite and contributing</td>
     </tr>
   </tbody>
@@ -932,7 +932,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 09:26:12 +0000"
+        "time": "2026-10-06 11:07:08 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
