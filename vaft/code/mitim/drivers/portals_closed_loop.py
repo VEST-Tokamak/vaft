@@ -68,8 +68,14 @@ def main(argument_file):
             target = {"evaluator": targets_analytic.analytical_model,
                       "options": {"targets_evolve": [], "target_evaluator_method": "powerstate",
                                   "force_zero_particle_flux": True, "percent_error": 1.0}}
-            return STATEtools.powerstate(st, evolution_options={"ProfilePredicted": ["te"],
-                                                                "rhoPredicted": rho_k},
+            # powerstate rewrites the profiles object it is given (resolution change,
+            # gradient flattening), so each build gets its own copy. Its resolution
+            # increase also extrapolates the profile to rho = 1, and VAFT's input.gacode
+            # stops at rho_max (~0.94): that moves the minor radius and every r/a by a few
+            # percent (48224: a 0.2773 -> 0.2888 m), so this loop keeps VAFT's grid.
+            return STATEtools.powerstate(copy.deepcopy(st), increase_profile_resol=False,
+                                         evolution_options={"ProfilePredicted": ["te"],
+                                                            "rhoPredicted": rho_k},
                                          transport_options=transport, target_options=target)
 
         truth = build(state)
@@ -77,17 +83,19 @@ def main(argument_file):
         q_tr = truth.plasma["QeMWm2_tr"][0, 1:].detach().numpy()
         volp_k = truth.plasma["volp"][0, 1:].detach().numpy()
         roa_k = truth.plasma["roa"][0, 1:].detach().numpy()
-        a = float(truth.plasma["a"][0])
-        r_k = roa_k * a
 
-        # Manufactured cumulative power through (0, 0) and (r_k, Q_k V'_k); q = P'/V'.
+        # Manufactured cumulative power through (0, 0) and (rho_k, Q_k V'_k), built in
+        # rho because that is the coordinate the fixed targets are interpolated in; the
+        # source is q = (dP/drho)(drho/dr) / V'.
+        rho = np.asarray(state.profiles["rho(-)"], dtype=float)
         r = np.asarray(state.derived["r"], dtype=float)
         volp = np.asarray(state.derived["volp_geo"], dtype=float)
-        power = PchipInterpolator(np.concatenate(([0.0], r_k)), np.concatenate(([0.0], q_tr * volp_k)),
-                                  extrapolate=True)
+        power = PchipInterpolator(np.concatenate(([0.0], rho_k.numpy())),
+                                  np.concatenate(([0.0], q_tr * volp_k)), extrapolate=True)
+        drho_dr = np.gradient(rho, r)
         q = np.zeros_like(r)
         inside = volp > 0
-        q[inside] = power.derivative()(r[inside]) / volp[inside]
+        q[inside] = power.derivative()(rho[inside]) * drho_dr[inside] / volp[inside]
         key = _key(state.profiles, "qohme") or "qohme(MW/m^3)"
         state.profiles[key] = q
         state.derive_quantities()
@@ -110,7 +118,8 @@ def main(argument_file):
         out.update(
             status="ok",
             stripped_sources=stripped,
-            rho_tor_norm=rho_k.tolist(), r_over_a=roa_k.tolist(),
+            rho_tor_norm=rho_k.tolist(), r_over_a=[float(x) for x in args["r_over_a"]],
+            mitim_r_over_a=roa_k.tolist(),
             transport_at_truth_MWm2=q_tr.tolist(),
             target_after_manufacture_MWm2=target_k.tolist(),
             transport_after_manufacture_MWm2=transport_k.tolist(),
