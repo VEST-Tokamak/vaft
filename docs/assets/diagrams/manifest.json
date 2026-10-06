@@ -147,18 +147,18 @@
     },
     "current_diffusion.svg": {
       "call": "vaft.diagram.current_diffusion()",
-      "source_sha256": "5e581d86bf3372e712bdc3e2084f940588c990ebc0400b17cc230036d7845399",
-      "svg_sha256": "cb4e0b1a621be46c238e4798e4d543a808defcf2cad9a46e0ab694e66bcd8c4e"
+      "source_sha256": "d7d0093122516a07b878fbaaaf2d5422a68b3e69a34a06138465da359b1d0386",
+      "svg_sha256": "9cf5bc4bd6d06ca53b50e6cad2715e545a7bbdb08977d0b4da028208af1452d2"
     },
     "current_drive_profiles_off_axis.svg": {
       "call": "vaft.diagram.current_drive_profiles(deposition='off_axis')",
-      "source_sha256": "fa225e62a0884fd95675f0ed4ec5138da5f011934a9f5cde3d57a0996a5a1af8",
-      "svg_sha256": "f9d344add8424785923416476cfc70f78d9eedaf5ad671d10fbf800d68b93e2d"
+      "source_sha256": "0a9d74f759ffd8b72338e622b6bfa3221c74c6ccfa5b077880106cb4b881abf4",
+      "svg_sha256": "c8294f88b17d36b43b71501def21d03af89ae032b20733fb8f23124d02ca9321"
     },
     "current_drive_profiles_on_axis.svg": {
       "call": "vaft.diagram.current_drive_profiles(deposition='on_axis')",
-      "source_sha256": "3e71ccfa4275ef16fc8b7c77e710bad67dbe9a87596a98a09514382659be945e",
-      "svg_sha256": "2974d7f0a0f900bb9b251e1cd3a3744b0d432e9f1db0878324a2c39cec9a37fa"
+      "source_sha256": "5901eb387ca2d2384bcdb5cdc73c9d585eb622415c2af5b507b398f3abb0ebfa",
+      "svg_sha256": "bdf4a2c90e0f2c86d6771c9b0c7f65bc46a86233c0c5238169c4b106c5124182"
     },
     "current_profile_shapes.svg": {
       "call": "vaft.diagram.current_profile_shapes()",

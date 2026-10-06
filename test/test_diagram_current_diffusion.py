@@ -204,3 +204,17 @@ def test_the_early_drive_snapshot_is_shortly_after_switch_on():
     assert _CD_EARLY < 0.01
     _, states = _ramp()
     assert set(states) == {"early", "penetration", "relaxed"}
+
+
+def test_off_scale_q_leaves_the_chart_instead_of_being_capped():
+    # q = q_a rho^2 / I is smooth wherever j is: a capped plateau would draw a corner (a q' jump) that is not there
+    from vaft.diagram._scene import Polyline
+
+    d = vaft.diagram.current_diffusion()
+    curves = [item for item in d.scene.items if isinstance(item, Polyline) and item.role in ("q", "q_uniform_eta")]
+    assert curves
+    for curve in curves:
+        y = np.array([p[1] for p in curve.points])
+        dy = np.diff(y)
+        assert np.max(np.abs(np.diff(dy))) < 0.2 * np.max(np.abs(dy)) + 1e-9
+        assert not np.any(np.isclose(dy[:5], 0.0) & (y[:5] > y.min() + 1.0))  # no flat run at the top

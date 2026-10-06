@@ -213,8 +213,7 @@ def current_diffusion(*, labels: bool = True) -> Diagram:
         items += _panel(jc, (x0, j_base), x_label="$\\rho$", y_label="$j_\\phi/\\bar j$", curve_styles=styles,
                         region_text={}, x_ticks=(0.0, 1.0), y_ticks=(1.0,), y_tick_text=("$1$",))
         qc = Chart(x_range=(0.0, 1.05), y_range=(0.0, q_top))
-        q_clipped = np.minimum(st["q"], 0.98 * q_top)
-        qc.curves["q"] = np.stack([x, q_clipped], -1)
+        qc.curves["q"] = np.stack([x, st["q"]], -1)  # the chart clips what is off scale; no capped plateau
         runs = _shear_runs(x, st["s"])
         shear_runs[name] = runs
         for sign, a, b in runs:
@@ -226,7 +225,7 @@ def current_diffusion(*, labels: bool = True) -> Diagram:
                                    "small label", anchor="north", role=f"shear:{sign}"))
         q_styles = {"q": "boundary"}
         if name == "relaxed":
-            qc.curves["q_uniform_eta"] = np.stack([x, np.minimum(flat["relaxed"]["q"], 0.98 * q_top)], -1)
+            qc.curves["q_uniform_eta"] = np.stack([x, flat["relaxed"]["q"]], -1)
             q_styles["q_uniform_eta"] = "approx"
         items += _panel(qc, (x0, 0.0), x_label="$\\rho$", y_label="$q$", curve_styles=q_styles, region_text={},
                         x_ticks=(0.0, 1.0), y_ticks=tuple(range(2, int(q_top) + 1, 2)))
@@ -238,7 +237,7 @@ def current_diffusion(*, labels: bool = True) -> Diagram:
             items.append(Label((at[0] + 0.1, at[1] - 0.12), text, "small label", anchor="north west", role="q_min"))
             if st["q"][0] > q_top:
                 top_left = _to_panel(qc, (0.0, q_top), (x0, 0.0))
-                items.append(Label((top_left[0] + 0.15, top_left[1] + 0.2), f"$q_0 \\approx {st['q'][0]:.0f}$ (clipped)",
+                items.append(Label((top_left[0] + 0.15, top_left[1] + 0.2), f"$q_0 \\approx {st['q'][0]:.0f}$, off scale",
                                    "small label", anchor="south west", role="q0"))
             stage = _STAGE_TEXT[name] + ("" if name == "relaxed" else f", $t = {st['t']:g}\\,\\tau_R$")
             items.append(Label((x0 + _PANEL * 0.5 * CHART_WIDTH, j_base + _PANEL * CHART_HEIGHT + 0.45), stage,
@@ -347,7 +346,7 @@ def current_drive_profiles(deposition: str = "off_axis", *, labels: bool = True)
             if state is None:
                 continue
             tc.curves[when] = np.stack([x, state["j"]], -1)
-            qc.curves[when] = np.stack([x, np.minimum(state["q"], 0.98 * q_top)], -1)
+            qc.curves[when] = np.stack([x, state["q"]], -1)
             styles_j[when] = styles_q[when] = style
         items += _panel(tc, (col["total"], y0), x_label="$\\rho$" if i == 2 else "", y_label="$j_\\phi/\\bar j$",
                         curve_styles=styles_j, region_text={}, x_ticks=(0.0, 1.0) if i == 2 else ())
