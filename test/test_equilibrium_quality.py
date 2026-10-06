@@ -270,3 +270,25 @@ def test_thomson_counts_survive_a_csv_round_trip(criteria):
     assert eq.select_representative_cases(read) == eq.select_representative_cases(table)
     buffer.seek(0)
     assert eq.equilibrium_quality_summary(pd.read_csv(buffer))["cohorts"]["good"] == expected
+
+
+def test_a_placeholder_product_is_a_recorded_refusal_not_a_crash(tmp_path):
+    """An EFIT attempt that wrote the stub has no equilibrium.time; the row says so (cold review 0.8.0)."""
+    import importlib.util
+    import json
+    from pathlib import Path
+
+    script = Path(eq.__file__).resolve().parents[2] / "workflow" / "equilibrium_quality" / "build_cohort_table.py"
+    spec = importlib.util.spec_from_file_location("build_cohort_table_stub", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    output = tmp_path / "omas" / "efit" / "magnetic" / "1" / "output"
+    output.mkdir(parents=True)
+    (output / "efit.json").write_text(
+        json.dumps({"equilibrium": {"ids_properties": {"comment": "EFIT output unavailable"}}}), encoding="utf-8")
+    evidence = module.ProductEvidence(tmp_path, "statistical_891")
+    columns = evidence({"shot": 1, "time_s": 0.3, "setting": "statistical_891"})
+    assert columns["evidence_status"] == "no equilibrium.time in product"
+    assert "evidence.global_reduced_chi2" not in columns
+    # the stub was not materialised into a product with an (empty) time base
+    assert "equilibrium.time" not in evidence.product(1)
