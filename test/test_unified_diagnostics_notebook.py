@@ -48,7 +48,7 @@ def test_unified_notebook_cells_render_and_discover(monkeypatch):
 
 def test_four_view_atlas_cell_is_small_and_marked(monkeypatch):
     path = Path(__file__).parents[1] / "notebooks/vest_experimental_data_list.ipynb"
-    cells = {cell["id"]: cell for cell in json.loads(path.read_text())["cells"]}
+    cells = {cell["id"]: cell for cell in json.loads(path.read_text(encoding="utf-8"))["cells"]}
     assert cells["unified-atlas-views"]["outputs"] == []
     monkeypatch.setattr(plt, "show", lambda: None)
     scope = {}

@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from vaft.code import mitim
+from vaft.compat import IS_WINDOWS
 from vaft.code.gacode._types import GACODEConfig
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -283,7 +284,7 @@ def test_drivers_import_only_mitim_and_the_standard_library():
     drivers = ROOT / "vaft" / "code" / "mitim" / "drivers"
     for path in drivers.glob("*.py"):
         assert "vaft" not in "".join(
-            line for line in path.read_text().splitlines(True) if line.lstrip().startswith(("import", "from"))
+            line for line in path.read_text(encoding="utf-8").splitlines(True) if line.lstrip().startswith(("import", "from"))
         ), path.name
 
 
@@ -318,9 +319,15 @@ def test_the_callers_pythonpath_never_reaches_the_mitim_interpreter(ready, profi
     assert mitim.mitim_availability(ready).ready
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS,
+    reason="an extension-less #!/bin/sh file is not a program on Windows (CreateProcess, "
+           "WinError 193), so the probe would report not_installed; the timeout path is "
+           "exercised on the POSIX legs",
+)
 def test_a_slow_probe_is_a_timeout_not_a_broken_install(tmp_path):
     slow = tmp_path / "python"
-    slow.write_text("#!/bin/sh\nsleep 5\n")
+    slow.write_text("#!/bin/sh\nsleep 5\n", encoding="ascii")
     slow.chmod(0o755)
     found = mitim.mitim_availability(mitim.MITIMConfig(python=str(slow)), timeout=1)
     assert found.status == "probe_timeout"
