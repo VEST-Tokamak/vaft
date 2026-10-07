@@ -42,7 +42,12 @@ Definitions that matter
   the l_i(3) form with the geometric radius, which the registry quantity admits
   ("carry the radius used"); ``li3_reference_radius`` holds that radius.
 * ``toroidal_field`` is ``|BT|``, the vacuum field at ``RGEO``, as in the H-mode
-  database; ``normalized_current`` and the shape coordinates use it.
+  database; ``normalized_current``, ``normalized_beta`` and the shape coordinates
+  use it. This is B at the geometric radius, whereas
+  :func:`vaft.omas.equilibrium_state_table` normalizes with ``b0`` at the DD
+  reference radius: ``table.attrs["conventions"]`` (:data:`PR08_CONVENTIONS`)
+  states the field and radius on each table so the two are not merged as one
+  population on a Troyon or ``*_in`` plane.
 * ``edge_safety_factor_95`` is ``|Q95|`` from the equilibrium fit; the source has
   no ``q_psi`` at the boundary, so ``edge_safety_factor`` is not a column.
 * ``poloidal_beta`` is ``BEPMHD`` (equilibrium); the diamagnetic ``BEPDIA`` is the
@@ -197,6 +202,18 @@ _DIRECT = (
     _Direct("normalized_beta", "% m T/MA", "BETNMHD", "% m T/MA",
             "100 BETMHD AMIN BT / IP[MA] (signed BT and IP in the source formula)", magnitude=True),
 )
+
+#: Which toroidal field and which radius the field-normalized columns use, as
+#: ``table.attrs["conventions"]`` declares them (the equilibrium-state table declares
+#: :data:`vaft.omas.equilibrium_state.EQUILIBRIUM_STATE_CONVENTIONS`, b0 at R_ref).
+PR08_CONVENTIONS = {
+    "normalized_current": {"b_field_definition": "|BT|, vacuum toroidal field at the geometric axis",
+                           "radius_reference": "major_radius (RGEO, geometric, R_geo)"},
+    "normalized_beta": {"b_field_definition": "|BT|, vacuum toroidal field at the geometric axis",
+                        "radius_reference": "major_radius (RGEO, geometric, R_geo)"},
+    "toroidal_field": {"b_field_definition": "|BT|, vacuum toroidal field at the geometric axis",
+                       "radius_reference": "major_radius (RGEO, geometric, R_geo)"},
+}
 
 #: Deterministic coordinates: column -> (unit, how).
 _DERIVED = {
@@ -511,7 +528,9 @@ def pr08_mhd_state_table(discharges: Iterable[Pr08ZeroD]) -> pd.DataFrame:
         One row per 0D record, columns :data:`MHD_STATE_COLUMNS`;
         ``attrs["units"]`` (registry units, ``"-"`` dimensionless),
         ``attrs["descriptions"]`` and ``attrs["quantity_sources"]`` (per column:
-        PR08 variable, unit, definition, transformation, or the derivation).
+        PR08 variable, unit, definition, transformation, or the derivation);
+        ``attrs["conventions"]`` (:data:`PR08_CONVENTIONS`): the field and radius
+        behind ``normalized_current`` and ``normalized_beta``.
     """
     rows = []
     seen: dict = {}
@@ -576,6 +595,7 @@ def pr08_mhd_state_table(discharges: Iterable[Pr08ZeroD]) -> pd.DataFrame:
     for name, (_unit, how) in _DERIVED.items():
         sources.setdefault(name, {}).update({"deterministic": how})
     table.attrs["quantity_sources"] = sources
+    table.attrs["conventions"] = {k: dict(v) for k, v in PR08_CONVENTIONS.items()}
     return table
 
 

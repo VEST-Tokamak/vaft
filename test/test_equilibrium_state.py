@@ -240,3 +240,19 @@ def test_uniform_grid_integral_is_unchanged_by_the_per_cell_widths(vest_ods):
     inside = _Path(outline).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
     uniform = float(np.sum((dpsi_dr**2 + dpsi_dz**2) / rr**2 * 2.0 * np.pi * rr * (r[1] - r[0]) * (z[1] - z[0]) * inside))
     assert _bp2_volume_integral(vest_ods, k) == pytest.approx(uniform, rel=1e-6)
+
+
+def test_table_declares_the_b0_at_r_ref_convention_of_its_normalized_current(vest_ods):
+    # The field-normalized columns use b0 at the DD reference radius, the PR08 table B at
+    # the geometric radius; both tables now say so in attrs["conventions"]
+    # (cold review 0.8.0 delta-absorb-18 stability-opspace F2).
+    from vaft.omas.equilibrium_state import EQUILIBRIUM_STATE_CONVENTIONS
+
+    table = equilibrium_state_table([(vest_ods, {"machine": "VEST", "time_indices": [0, 3]})])
+    assert table.attrs["conventions"] == EQUILIBRIUM_STATE_CONVENTIONS
+    for column in ("normalized_current", "normalized_beta"):
+        assert "b0" in table.attrs["conventions"][column]["b_field_definition"]
+        assert "reference" in table.attrs["conventions"][column]["radius_reference"]
+    assert "geometric" in table.attrs["conventions"]["toroidal_field"]["radius_reference"]
+    row = table.iloc[0]
+    assert row["normalized_current"] == pytest.approx(row["plasma_current"] / (row["minor_radius"] * row["b0"]))

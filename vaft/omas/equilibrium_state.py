@@ -54,7 +54,8 @@ from typing import Any, Iterable, Mapping, Optional, Sequence
 
 import numpy as np
 
-__all__ = ["EQUILIBRIUM_STATE_UNITS", "equilibrium_state_rows", "equilibrium_state_table"]
+__all__ = ["EQUILIBRIUM_STATE_CONVENTIONS", "EQUILIBRIUM_STATE_UNITS", "equilibrium_state_rows",
+           "equilibrium_state_table"]
 
 #: Units of the quantity columns, as ``table.attrs["units"]`` declares them.
 EQUILIBRIUM_STATE_UNITS = {
@@ -86,6 +87,24 @@ EQUILIBRIUM_STATE_UNITS = {
     "kink_safety_factor_cylindrical": "-",
     "edge_safety_factor_95_estimate_iter": "-",
     "edge_safety_factor_95_estimate_start": "-",
+}
+
+#: Which toroidal field and which radius the field-normalized columns use, as
+#: ``table.attrs["conventions"]`` declares them. ``normalized_current`` and
+#: ``normalized_beta`` take ``b0`` at the reference radius (the DD convention of
+#: ``beta_normal``); the PR08 table (:mod:`vaft.data.public.pr08_mhd_state`) takes
+#: the vacuum field at the geometric radius, so the two differ by R_ref/R_geo
+#: (1.0-1.65 on the VEST sample) and are not one population on a Troyon plane.
+EQUILIBRIUM_STATE_CONVENTIONS = {
+    "normalized_current": {"b_field_definition": "vacuum_toroidal_field.b0 (vacuum toroidal field at the reference "
+                                                 "radius, IMAS DD)",
+                           "radius_reference": "reference_major_radius (equilibrium.vacuum_toroidal_field.r0, "
+                                               "R_ref)"},
+    "normalized_beta": {"b_field_definition": "vacuum_toroidal_field.b0 (vacuum toroidal field at the reference "
+                                              "radius, IMAS DD)",
+                        "radius_reference": "reference_major_radius (equilibrium.vacuum_toroidal_field.r0, R_ref)"},
+    "toroidal_field": {"b_field_definition": "vacuum toroidal field at the geometric radius, b0 R_ref / R_geo",
+                       "radius_reference": "major_radius (geometric, R_geo)"},
 }
 
 #: Provenance columns, first in every table.
@@ -360,7 +379,9 @@ def equilibrium_state_table(entries: Iterable, *, cocos: Optional[Mapping[str, i
     -------
     pandas.DataFrame
         One row per slice, failed slices included; ``attrs["units"]`` holds the
-        quantity units (:data:`EQUILIBRIUM_STATE_UNITS`).
+        quantity units (:data:`EQUILIBRIUM_STATE_UNITS`) and ``attrs["conventions"]``
+        which field and radius the field-normalized columns use
+        (:data:`EQUILIBRIUM_STATE_CONVENTIONS`).
     """
     import pandas as pd
 
@@ -376,4 +397,5 @@ def equilibrium_state_table(entries: Iterable, *, cocos: Optional[Mapping[str, i
     for name in EQUILIBRIUM_STATE_UNITS:
         table[name] = pd.to_numeric(table[name], errors="coerce")
     table.attrs["units"] = dict(EQUILIBRIUM_STATE_UNITS)
+    table.attrs["conventions"] = copy.deepcopy(EQUILIBRIUM_STATE_CONVENTIONS)
     return table
