@@ -343,6 +343,10 @@ CORE_MODULES: tuple[str, ...] = (
     # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
     # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
     "test_process_mhd_stability.py",
+    # Plasma-formalism provenance (lane AP, #1727): the seven audited cases as
+    # records, the generic impossibilities, serialization and CGYRO's derived
+    # #1353 record. Pure Python, ~3 s.
+    "test_plasma_formalism.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
