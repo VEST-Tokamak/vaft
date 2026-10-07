@@ -383,7 +383,8 @@ def infer_kinetic_closure(
         Largest ``|t_slice - time|`` accepted [s].
     dilution : str, optional
         ``species`` (composition-resolved ion densities) or ``none`` (the
-        legacy n_i = n_e single hydrogenic ion) [-].
+        legacy n_i = n_e single hydrogenic ion, keyed by the stored main-ion
+        label, ``H+`` when none is stored) [-].
     composition : ImpurityComposition, optional
         Explicit composition for :func:`vaft.process.impurity.resolve_impurity_composition` [any].
     machine_preset : str or mapping, optional
@@ -535,7 +536,9 @@ def infer_kinetic_closure(
 
     resolved = None
     if dilution == "none":
-        densities = {"H+": ne.copy()}
+        # keyed by the stored main-ion species (a D+ slice stays D+), H+ when none is stored
+        label = None if main_ion is None else _get(ods, f"{main_ion}.label")
+        densities = {str(label) if label else "H+": ne.copy()}
         provenance["composition"] = "legacy n_i = n_e, one hydrogenic ion (explicit fallback)"
     else:
         resolved = resolve_impurity_composition(ods, time=time, tolerance=tolerance, composition=composition,

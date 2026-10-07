@@ -160,6 +160,18 @@ def test_an_inferred_ti_needs_the_opt_in_or_a_ratio_and_an_unknown_record_is_ref
         infer_kinetic_closure(ods, dilution="none", ti_te_ratio=1.0)
 
 
+def test_no_dilution_keys_the_main_ion_by_its_stored_label():
+    """A deuterium slice under dilution="none" was keyed "H+" (cold review 0.8.0 delta-absorb-19 F4)."""
+    ods = _ods()
+    ods["core_profiles.profiles_1d.0.ion.0.label"] = "D+"
+    ods["core_profiles.profiles_1d.0.ion.0.element.0.a"] = 2.014
+    closure = infer_kinetic_closure(ods, dilution="none", ti_te_ratio=1.0)
+    assert set(closure.ion_densities) == {"D+"} and set(closure.ion_temperatures) == {"D+"}
+    np.testing.assert_allclose(closure.ion_densities["D+"], NE)
+    del ods["core_profiles.profiles_1d.0.ion"]                               # no stored ion at all
+    assert set(infer_kinetic_closure(ods, dilution="none", ti_te_ratio=1.0).ion_densities) == {"H+"}
+
+
 def test_thermal_and_fast_stay_separate():
     fast = fast_ion_slowing_down_estimate(NE, TE, {"H+": (NE, 1.0, 1.0)}, 1e20 * (1 - RHO**2), 20e3, A_b=1.0)
     closure = infer_kinetic_closure(_ods(), dilution="none", ti_te_ratio=1.0, fast_ion=fast)
