@@ -38,6 +38,9 @@ sections:
   - id: reference
     title: Library and data reference
     items:
+      - id: scientific-architecture
+        title: Scientific architecture
+        url: /reference/scientific-architecture/
       - id: api
         title: VAFT API
         url: /reference/api/
