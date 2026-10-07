@@ -82,6 +82,26 @@ def _command(config: MITIMConfig, python: str, *arguments: str) -> tuple[str, ..
     return ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME", *explicit, python, *arguments)
 
 
+def _report_partial(result: MITIMResult, missing: list, shifted: Mapping[float, Any]) -> None:
+    """Downgrade a run with unusable surfaces to ``partial``, on disk as in memory.
+
+    ``result.json`` (the driver's own verdict) and ``record.json`` (the
+    provenance) are rewritten with the new status, the surfaces without a usable
+    result and those MITIM ran elsewhere, so a later reader of the run directory
+    sees what the caller was told.
+    """
+    detail = {"status": "partial", "missing_r_over_a": list(missing),
+              "shifted_r_over_a": dict(shifted)}
+    result.result = {**(result.result or {}), **detail}
+    result.record = {**result.record, "result_status": "partial",
+                     "missing_r_over_a": detail["missing_r_over_a"],
+                     "shifted_r_over_a": detail["shifted_r_over_a"]}
+    (result.workdir / "result.json").write_text(
+        json.dumps(result.result, indent=1, default=str), encoding="utf-8")
+    (result.workdir / "record.json").write_text(
+        json.dumps(result.record, indent=1, default=str), encoding="utf-8")
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -343,8 +363,7 @@ def run_mitim_tglf(
         if missing:
             # Some surfaces have no usable result: say so rather than return a
             # successful run with fewer surfaces than were asked for.
-            result.result = {**result.result, "status": "partial", "missing_r_over_a": missing,
-                             "shifted_r_over_a": shifted}
+            _report_partial(result, missing, shifted)
     return result, outputs
 
 
@@ -415,6 +434,5 @@ def run_mitim_neo(
                 inputs[r_over_a[index]] = parsed_input
         missing = [r for r in r_over_a if r not in outputs]
         if missing:
-            result.result = {**result.result, "status": "partial", "missing_r_over_a": missing,
-                             "shifted_r_over_a": shifted}
+            _report_partial(result, missing, shifted)
     return result, outputs, inputs
