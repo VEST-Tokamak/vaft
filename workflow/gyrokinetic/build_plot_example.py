@@ -66,7 +66,7 @@ def _run_linear_module():
 def read_input_tglf(path: Path) -> dict[str, Any]:
     """``input.tglf`` as ``{KEY: value}`` (the parameters the mapping records)."""
     raw: dict[str, Any] = {}
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         if "=" not in line:
             continue
         key, _, value = line.partition("=")

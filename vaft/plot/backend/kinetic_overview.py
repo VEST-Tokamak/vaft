@@ -9,6 +9,7 @@ from collections.abc import Mapping
 import numpy as np
 
 from vaft.plot.backend.access import array, count, get
+from vaft.plot.machine_geometry import CROSS_SHOT_NOTICE as _NOTICE
 from vaft.plot.models import Panels, Profile1D, Series
 
 __all__ = []  # Extraction details are private; the registered plot is public.
@@ -28,7 +29,6 @@ _FIELDS = (
     ("T_i", "Ion temperature", "eV", "t_i", "temperature", None),
     ("V_phi", "Toroidal velocity", "m/s", "velocity_tor", "velocity.toroidal", None),
 )
-_NOTICE = "Cross-shot composite — not a physical VEST discharge"
 
 
 def _scalar(value) -> float | None:

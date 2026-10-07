@@ -220,3 +220,24 @@ def test_observed_tau_uses_the_scaling_basis_and_approximates_only_for_ohmic_mac
     assert figures.basis_marker("ITER89P") == "*" and figures.basis_marker("ITER97L") == ""
     # No machine column: nothing is known to be ohmic, so a global scaling stays strict.
     assert np.isnan(figures.observed_tau(table.drop(columns="machine"), "ITER89P")).all()
+
+
+def test_both_iter97_paths_state_which_elongation_they_use():
+    # Lane D's h_factor_of feeds ITER97-L the boundary kappa, the public h_factor
+    # kappa_area: the numbers differ by (kappa/kappa_area)^0.64 and neither path
+    # may leave the choice unrecorded (cold review 0.8.0 delta-absorb-16 confinement F3).
+    from vaft.data.public import h_factor, predict_confinement_time
+    figures = _figures()
+    table = ROW.assign(machine="VEST", tau_e_th_s=2e-3)
+    lane_d = figures.h_factor_of(table, "ITER97L")
+    public = h_factor(table, "ITER97L")
+    assert lane_d.attrs["kappa_definition"].startswith("kappa:") and "boundary" in lane_d.attrs["kappa_definition"]
+    assert public.attrs["kappa_definition"].startswith("kappa_area:") and "area" in public.attrs["kappa_definition"]
+    assert lane_d.iloc[0] == pytest.approx(public.iloc[0] * (1.5 / 1.6) ** 0.64)
+    # Choosing the boundary column on the public path makes the two paths agree, and says so.
+    same = h_factor(table, "ITER97L", kappa_column="kappa")
+    assert same.attrs["kappa_definition"] == lane_d.attrs["kappa_definition"]
+    assert same.iloc[0] == pytest.approx(lane_d.iloc[0])
+    # Scalings without an elongation term say so instead of naming a column.
+    assert predict_confinement_time(table, "NSTX2006H").attrs["kappa_definition"] == "no elongation term"
+    assert figures.h_factor_of(table, "NeoAlcator").attrs["kappa_definition"] == "no elongation term"

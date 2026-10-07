@@ -317,7 +317,7 @@ def test_lane_d_text_io_never_uses_the_locale_encoding():
 
     root = pathlib.Path(__file__).resolve().parents[1]
     sources = {p: p.read_text(encoding="utf-8") for p in (root / "workflow/confinement_scaling").glob("*.py")}
-    for name in ("confinement_time_scaling", "multi_machine_database_comparison", "tokamak_power_balance"):
+    for name in ("confinement_time_scaling", "multi_machine_confinement_database", "tokamak_power_balance"):
         nb = json.loads((root / "notebooks" / f"{name}.ipynb").read_text(encoding="utf-8"))
         sources[root / "notebooks" / f"{name}.ipynb"] = "\n".join(
             "".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code")

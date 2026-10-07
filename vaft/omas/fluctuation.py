@@ -225,7 +225,7 @@ def _camera_scalar(ods: Any, selection: DiagnosticSelection):
 def _uv_scalar(ods: Any, selection: DiagnosticSelection):
     if not isinstance(selection.emission, str) or not selection.emission:
         raise ValueError("spectrometer_uv requires an explicit emission identity")
-    from vaft.spectroscopy import matches, parse_emission_term, parse_line_label
+    from vaft.data.spectroscopy import matches, parse_emission_term, parse_line_label
 
     container = "spectrometer_uv.channel"
     if selection.channel is None:

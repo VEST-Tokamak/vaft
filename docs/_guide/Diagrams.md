@@ -91,7 +91,7 @@ rotation.metadata["driver"]      # name "time", unit "s", and every frame's time
   - A phase array combined with `time` is refused, because it is ambiguous.
   - So is a single phase with `animation=True`, which is a static diagram.
 - **Units and direction.** `rotation_frequency` is a frequency $f$ in Hz. The synthetic island of
-  #886 (`vaft.process.magnetic_island.IslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
+  #886 (`vaft.process.magnetic_island.MagneticIslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
   rad/s. A positive $f$ moves the O-points towards $+\theta^*$ on a section. At fixed $\theta^*$, it
   moves them towards $-\phi$, which is clockwise seen from above.
 - **Physics, not pictures.** Every state is the static diagram at that phase, with the same O/X
@@ -158,6 +158,7 @@ The limit diagrams above ask whether a state crosses a boundary. A similarity sp
 
 The $\rho_*$ and $\nu_*$ axes follow the ITPA confinement-database convention, Verdoolaege et al., *Nucl. Fusion* 61 (2021) 076006, Eqs. (1a) and (1c), which Hillesheim et al. use. $n$ and $T$ are volume averages with $T_e = T_i$. The functions that evaluate them are `rho_star_from_M_T_B_R_epsilon`, `nu_star_from_n_T_B_R_epsilon_kappa_I` and `omega_i_tau_E_from_B_tau_E_M` in `vaft.formula.equilibrium`. VAFT has other $\nu_*$ and $\rho_*$ definitions (issue 353): Sauter's local $\nu_*$, pedestal $\nu^*_e$, edge and separatrix collisionalities. Each is a different quantity, so it cannot be drawn on these axes. A missing input leaves the state *unassessed*: it is counted per group, in a warning and in the legend, and is never estimated. Each projection carries its meaning as metadata:
 
+<!-- docs-snippet: skip fragment (placeholder name table, a dimensionless-similarity table, is never built on the page) -->
 ```python
 from vaft.diagram import _op_space
 from vaft.plot.dimensionless_space import dimensionless_similarity
@@ -722,7 +723,7 @@ vaft.diagram.rational_surface_topology(profile="reversed_shear", m=2, n=1)
 | Diagram | Concept |
 | --- | --- |
 | `current_profile_shapes` | $j(r) \to I(r) \to B_\theta(r) \to l_i$ at fixed $I_p$. Peaked, broad and hollow are shapes of the *current density*. $l_i$ is one number for the whole profile: a more centrally enclosed current tends to a larger $l_i$, but different profiles can share one $l_i$ |
-| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Not every hollow current reverses the shear |
+| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a wide weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Every $q$ has $s \to 0$ on axis, so each column carries a narrow $s \approx 0$ band there; the width of the flat core is the discriminator. Not every hollow current reverses the shear |
 | `q_profile_landmarks` | $q_0$ on axis; $q_{\min}$, equal to $q_0$ only when $q$ is monotonic; $q_{95} = q(\psi_N = 0.95)$, which is not at $r/a = 0.95$; $q_a$, the boundary value of a cylinder or limited plasma. In a diverted equilibrium $q \to \infty$ at the separatrix, so $q_{95}$ is quoted. In the cylinder $q_a = q_\mathrm{cyl}$; in a shaped torus $q_{95}$ and the edge $q$ differ from $q_\mathrm{cyl}$ and $q^*$ |
 | `rational_surface_topology` | A monotonic $q$ crosses one $m/n$ once. A reversed-shear $q$ can cross it twice, $q(r_1) = q(r_2) = m/n$ with $r_1 < r_{\min} < r_2$: a *double-resonant configuration*. A double tearing mode is the instability in which tearing layers on the two surfaces couple, and only a stability calculation can say whether it grows |
 
@@ -1014,7 +1015,7 @@ unless it is computed by a `vaft.formula.pwi` relation from inputs the caller su
 - `recycling_coefficient`;
 - `sputtering_threshold_bohdansky`, a named empirical fit that needs the surface binding energy.
 
-Projectile and target species go through `vaft.spectroscopy` and are drawn apart: projectile blue,
+Projectile and target species go through `vaft.data.atomic` and are drawn apart: projectile blue,
 target dark. Each diagram's model names the IMAS paths of the quantities it shows, under
 `wall.global_quantities.neutral[:]`: the recycling particle and energy coefficients, the fluxes from the
 plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
@@ -1046,7 +1047,7 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 
 ## Spectroscopy and ionization
 
-Concept diagrams in the vocabulary of `vaft.spectroscopy`. `parse_emission_term` and `parse_line_label` are
+Concept diagrams in the vocabulary of `vaft.data.atomic` and `vaft.data.spectroscopy`. `parse_emission_term` and `parse_line_label` are
 the same parsers `emission=` uses in `vaft.plot`, so a term that selects a trace selects the same diagram.
 Metadata is progressive, and nothing is fabricated:
 - level 0 is the semantic identity (stage, charge, element);
@@ -1167,6 +1168,8 @@ the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full
 scope.
 
 ```python
+import math
+
 vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutoff at omega_pe
 vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
 vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
@@ -2024,7 +2027,7 @@ References:
 
 Follow-up TODOs (implementation or IMAS mapping):
 
-- Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is in progress in Lane L / Lane Z (#1565, #1566, PR #1659) and is not on develop.
+- Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is on develop as resolve_radial_composition(normalization='resistive_closure') (#1565, #1566, PR #1659); this diagram still draws the scalar resistive closure only.
 - Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an explicit assumption (#553).
 - Provenance is recorded per quantity where it exists (core_profiles origin=...; method=... records for composition, the T_i result's origin/method fields); there is no single runtime provenance object, by design (#1601 is documentation-first).
 

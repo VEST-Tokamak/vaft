@@ -433,6 +433,17 @@ def _write_gx8_header(
     return header_path
 
 
+def test_gx8_parser_documents_which_rate_the_frame_numbers_belong_to():
+    # Frame numbers index the source recording; the parser reads Frame_Rate
+    # first and Frame_SRC_Rate as a fallback, which is only safe while every
+    # header carries the same value in both. The docstring must say so
+    # (cold review 0.8.0 delta-absorb-16 diagram-docs F4).
+    from vaft.machine_mapping.camera_visible import _parse_gx8_header
+
+    doc = _parse_gx8_header.__doc__
+    assert "Frame_SRC_Rate" in doc and "source recording" in doc
+
+
 def test_gx8_header_times_come_from_frame_numbers_not_the_template(tmp_path):
     # The CONV_PARAM BEGIN_TIME/END_TIME (+0.28/+0.34 s) are template values;
     # frames 740..742 at 2500 fps are 0.296..0.2968 s.

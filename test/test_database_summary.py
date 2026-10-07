@@ -51,6 +51,74 @@ def test_summary_uses_inclusive_range_lazy_paths_and_skips_failures(
     assert "Shot 11" in caplog.text
 
 
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param(lambda: ConnectionRefusedError("[Errno 61] Connection refused"), id="socket"),
+        pytest.param(lambda: __import__("requests").exceptions.ConnectionError("Max retries exceeded"),
+                     id="requests"),
+        pytest.param(lambda: _h5pyd_style_wrapped_connection_error(), id="h5pyd-wrapped"),
+    ],
+)
+def test_summary_stops_at_the_first_unreachable_shot(monkeypatch, failure):
+    """An unreachable source is raised from the first shot, not swallowed per shot.
+
+    Cold review 0.8.0 (delta-absorb-16-diagram-docs F0): with an ``.hscfg`` present and
+    the server down, every refused open costs the h5pyd retry budget (minutes), and the
+    8 001-shot loop swallowed each one and returned an empty frame.
+    """
+    opened = []
+
+    def fake_open(shot, **kwargs):
+        opened.append(shot)
+        raise failure()
+
+    monkeypatch.setitem(summary_module.PRESETS, "test", _preset(lambda _ods, shot: []))
+    monkeypatch.setattr(database, "open", fake_open)
+
+    with pytest.raises(ConnectionError, match="unreachable"):
+        public_summary((1, 100), preset="test", source="public")
+    assert opened == [1]
+
+
+def _h5pyd_style_wrapped_connection_error():
+    """h5pyd's HttpConn: ``except requests.ConnectionError: raise IOError("Connection Error")``."""
+    import requests
+
+    try:
+        raise requests.exceptions.ConnectionError("Max retries exceeded")
+    except requests.exceptions.ConnectionError:
+        try:
+            raise IOError("Connection Error")
+        except IOError as wrapped:
+            return wrapped
+
+
+def test_summary_still_skips_per_shot_data_errors(monkeypatch, caplog):
+    """A missing IDS or domain on one shot is that shot's problem, as before."""
+    opened = []
+
+    def fake_open(shot, **kwargs):
+        opened.append(shot)
+        if shot == 2:
+            raise KeyError("IDS 'equilibrium' is not available for shot 2")
+        if shot == 3:
+            raise OSError("Not found")   # h5pyd's wording for a 404, no transport cause
+        return nullcontext(object())
+
+    monkeypatch.setitem(
+        summary_module.PRESETS, "test",
+        _preset(lambda _ods, shot: [{"shot": shot, "eq_index": 0, "time_s": 0.2, "value": 1.0}]),
+    )
+    monkeypatch.setattr(database, "open", fake_open)
+
+    result = public_summary((1, 4), preset="test", source="public")
+
+    assert opened == [1, 2, 3, 4]
+    assert result["shot"].tolist() == [1, 4]
+    assert "Shot 2" in caplog.text and "Shot 3" in caplog.text
+
+
 @pytest.mark.parametrize("shot_range", [(1,), (1, 2, 3), (True, 2), (1.0, 2)])
 def test_summary_rejects_invalid_ranges(shot_range):
     with pytest.raises(TypeError):
