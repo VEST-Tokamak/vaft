@@ -407,7 +407,7 @@
     },
     "hugill_st.svg": {
       "call": "vaft.diagram.hugill_st()",
-      "source_sha256": "a8b06dea35975c0572da356572176b0d3fa98ba36f1f3449f1e4b0ae3798ceda",
+      "source_sha256": "2d3a089f939062694d32c0aa0e4a0feb95c1abfa177650c7d2ac95b66614c0a9",
       "svg_sha256": "35458972f7dbedb6826c8ef1783897181693d73269044db66531f767f58d0354"
     },
     "human_ai_interface.svg": {
@@ -757,27 +757,27 @@
     },
     "reduced_representation_hierarchy.svg": {
       "call": "vaft.diagram.reduced_representation_hierarchy()",
-      "source_sha256": "3a4e3119bcccbf7cec6051344e51468c36e35acf1611e7bef33f7e1b0a7d9396",
+      "source_sha256": "6f776bdcf30168814d0dd3501bc95c19dabb97b6d29d6b3d57309cc0a550b6ec",
       "svg_sha256": "6169194b7c30c80b5bb9aede363a59fbb68fc956ea28d450152fa791e95e5acd"
     },
     "reduction_graph_current_q.svg": {
       "call": "vaft.diagram.reduction_graph(family='current_q')",
-      "source_sha256": "8057dfe9b20f13f321e739f497807cd306063e68a2cf0d0421b43d01e3e35791",
+      "source_sha256": "9693e3edae848d057b79935db8c2d9b19b340c01ad875cbad59b907a36620758",
       "svg_sha256": "1f01cdfc7b1451c4a796f35e44692bed5c8dbc786840cbef1f70427f05fa9ae2"
     },
     "reduction_graph_dimensionless_similarity.svg": {
       "call": "vaft.diagram.reduction_graph(family='dimensionless_similarity')",
-      "source_sha256": "26d11b3bcca4f0d2642a830751aafd98007217acae3c544e6aa1ace05835ad04",
+      "source_sha256": "0afd36bc50387a27dc20ed0091a67066b57fad45c1d65c45d9e81c1f1f58ebc5",
       "svg_sha256": "6eedca4918fe81a1f304c6a428aa4c217bd2b67acdf69a461b5b6ec32075fc07"
     },
     "reduction_graph_kinetic_profiles.svg": {
       "call": "vaft.diagram.reduction_graph(family='kinetic_profiles')",
-      "source_sha256": "99e023136b0b3e0d26609f397c9d24440d2395200677a3a6737e5e3e11edb282",
+      "source_sha256": "f8f223f94c926f20cbf18732d67a0e00cf138cb44b50fdc95ee2a7656d291559",
       "svg_sha256": "1bfa875fd8a40a4132a8b455597e01064635d5928daf3bd625b7d22b76ae3931"
     },
     "reduction_graph_pressure_energy.svg": {
       "call": "vaft.diagram.reduction_graph(family='pressure_energy')",
-      "source_sha256": "5a209e02b514bdec4417729bb3184e6056b046bc1c5b29a85968b1f1ac7fbc0a",
+      "source_sha256": "c32f962acfc89844e7e9ec8a8ba9fc3377cc2567572b9e570b2fd9324b0c80c4",
       "svg_sha256": "c5fb20e7b8e2a5af2a681a4d8b3429032d5e555ab4d722ed5b27237554864dda"
     },
     "refractive_index_vs_X.svg": {
@@ -1042,7 +1042,7 @@
     },
     "timescale_hierarchy.svg": {
       "call": "vaft.diagram.timescale_hierarchy()",
-      "source_sha256": "ece36b52874284d8fa4f361b11665377795ea26e0f8ca45ac92cd217d2b543d0",
+      "source_sha256": "4646a38cc93e41df8d2335bd231680c2483a006bd68565af14cfb11b473d1223",
       "svg_sha256": "2cff77699b586bc6cdc7b6462632b854141e4b7452db7d54d5ea5e84ca6dac90"
     },
     "tokamak_top_view.svg": {
