@@ -142,6 +142,33 @@ def test_a_state_without_the_scope_field_is_unassessed_not_out_of_scope():
         assert as_evidence(result).status is ValidationStatus.NOT_AVAILABLE
 
 
+@pytest.mark.parametrize("value", [
+    pytest.param(["flat", "ramp"], id="list"),
+    pytest.param(("flat",), id="one-element-tuple"),
+    pytest.param("ndarray-str", id="ndarray-str"),
+    pytest.param("ndarray-float", id="ndarray-float"),
+    pytest.param("ndarray-one", id="ndarray-one-element"),
+])
+def test_a_non_scalar_scope_value_is_unassessed_not_an_exception_or_silently_out_of_scope(value):
+    # cold review 0.8.0 delta-absorb-17 species-docs F7: an array raised out of evaluate_population,
+    # a list became NOT_APPLICABLE without a word
+    import numpy as np
+
+    arrays = {"ndarray-str": np.array(["flat", "ramp"]), "ndarray-float": np.array([1.0, 2.0]),
+              "ndarray-one": np.array(["flat"])}
+    value = arrays.get(value, value) if isinstance(value, str) else value
+    contract = ApproximationContract("flat_only", "toy", (OrderingAssumption("x", "small", "a"),),
+                                     applies_to={"phase": ("flat",)})
+    result = evaluate_contract(contract, {"phase": value, "x": 1e-3})
+    assert result.status == "UNASSESSED" and "not one scalar value" in result.reason
+    table = pd.DataFrame({"phase": ["flat", value, "ramp"], "x": [1e-3] * 3}, index=[7, 8, 9])
+    frame = evaluate_population(contract, table)
+    assert list(frame.index) == [7, 8, 9]
+    assert list(frame["status"]) == ["SUPPORTED", "UNASSESSED", "NOT_APPLICABLE"]
+    # a 0-d array is one value
+    assert evaluate_contract(contract, {"phase": np.array("flat"), "x": 1e-3}).status == "SUPPORTED"
+
+
 def test_a_scope_given_as_a_bare_string_is_refused():
     with pytest.raises(TypeError, match="collection"):
         ApproximationContract("c", "toy", (OrderingAssumption("x", "small", "a"),), applies_to={"phase": "flat"})
