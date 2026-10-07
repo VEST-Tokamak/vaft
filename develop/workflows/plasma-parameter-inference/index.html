@@ -348,7 +348,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4889c39</code>. What is described
+  <code>14d26f1</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -570,20 +570,25 @@ It is never interchangeable with a local composition $Z_{\mathrm{eff}}^{\mathrm{
 <code class="language-plaintext highlighter-rouge">resolve_impurity_composition</code> carries it beside a composition under its own provenance and never uses
 it as a target. See the <a href="/vaft/develop/reference/diagrams/">resistive Z_eff diagram</a>.</p>
 
-<h2 id="atomic-model-constrained-z_effρ--in-progress">Atomic-model-constrained Z_eff(ρ) — in progress</h2>
+<h2 id="atomic-model-constrained-z_effρ">Atomic-model-constrained Z_eff(ρ)</h2>
 
-<p><em>Not on <code class="language-plaintext highlighter-rouge">develop</code> yet</em> (Lane L / Lane Z: #1565, #1566, #1569, PR #1659). The intended chain combines
-radial structure from atomic physics with a global amplitude from the resistive closure:</p>
+<p>On <code class="language-plaintext highlighter-rouge">develop</code> since PR #1659 (Lane L / Lane Z: #1565, #1566, #1569):
+<code class="language-plaintext highlighter-rouge">vaft.process.impurity.resolve_radial_composition(..., normalization="resistive_closure", projection=...,
+resistive_target=...)</code>. The chain combines radial structure from atomic physics with a global amplitude
+from the resistive closure:</p>
 
 <div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>T_e(ρ), n_e(ρ), plasma age  +  elemental-ratio prior (C/O)
     -&gt; transient charge states f_{s,q}(ρ)  -&gt;  &lt;Z&gt;_s(ρ), &lt;Z²&gt;_s(ρ)
     -&gt; n_C/n_e = a w_C,  n_O/n_e = a w_O  -&gt;  Z_eff(ρ; a)
     -&gt; resistive projection  Z_eff(ρ; a) --P_R--&gt; Z_eff^res,equiv(a)
-    -&gt; a* = argmin_a [Z_eff^res,equiv(a) - Z_eff^res,obs]²   -&gt;   Z_eff(ρ; a*)
+    -&gt; a*: Z_eff^res,equiv(a*) = Z_eff^res,obs  (bracketed root-find)   -&gt;   Z_eff(ρ; a*)
 </code></pre></div></div>
 
-<p>Atomic physics sets the radial charge-state structure; the resistive closure sets one impurity amplitude.
-The result is closure-inferred, not a unique composition measurement.</p>
+<p>Atomic physics sets the radial charge-state structure (<code class="language-plaintext highlighter-rouge">ionization="coronal"</code> or <code class="language-plaintext highlighter-rouge">"transient"</code> with
+<code class="language-plaintext highlighter-rouge">plasma_age_s</code>); the resistive closure sets one impurity amplitude, the <code class="language-plaintext highlighter-rouge">projection</code> callable being the
+resistive projection <code class="language-plaintext highlighter-rouge">P_R</code> of #1566 and <code class="language-plaintext highlighter-rouge">resistive_target</code> the observed resistive Z_eff. The result is
+closure-inferred, not a unique composition measurement; <code class="language-plaintext highlighter-rouge">populate_radial_impurity_profiles</code> writes it to
+<code class="language-plaintext highlighter-rouge">core_profiles</code> with <code class="language-plaintext highlighter-rouge">&lt;Z&gt;(ρ)</code>, <code class="language-plaintext highlighter-rouge">&lt;Z²&gt;(ρ)</code> per element.</p>
 
 <h2 id="rotation-and-force-balance--future-scope">Rotation and force balance — future scope</h2>
 
@@ -692,7 +697,16 @@ ODS-level entry point.</p>
 
 <h3 id="e--atomic--resistive-z_effρ">E — atomic + resistive Z_eff(ρ)</h3>
 
-<p>In progress; see <a href="#atomic-model-constrained-z_effρ--in-progress">above</a>.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.impurity</span> <span class="kn">import</span> <span class="n">resolve_radial_composition</span><span class="p">,</span> <span class="n">populate_radial_impurity_profiles</span>
+
+<span class="n">radial</span> <span class="o">=</span> <span class="nf">resolve_radial_composition</span><span class="p">(</span><span class="n">te</span><span class="p">,</span> <span class="n">ne</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">O</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
+                                    <span class="n">normalization</span><span class="o">=</span><span class="sh">"</span><span class="s">resistive_closure</span><span class="sh">"</span><span class="p">,</span>
+                                    <span class="n">projection</span><span class="o">=</span><span class="n">P_R</span><span class="p">,</span> <span class="n">resistive_target</span><span class="o">=</span><span class="n">zeff_res_obs</span><span class="p">)</span>
+<span class="n">ods</span> <span class="o">=</span> <span class="nf">populate_radial_impurity_profiles</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">radial</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">P_R</code> is the resistive projection <code class="language-plaintext highlighter-rouge">Z_eff(ρ) -&gt; scalar</code> (#1566; it receives NaN at undefined points and
+must ignore them); see <a href="#atomic-model-constrained-z_effρ">above</a>.</p>
 
 <h2 id="related">Related</h2>
 
@@ -809,7 +823,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#how-a-quantity-was-obtained" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">How a quantity was obtained</a></li><li class="page-toc-item page-toc-level-2"><a href="#thermodynamic-closure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Thermodynamic closure</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ion-temperature-from-the-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ion temperature from the equilibrium pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#temperature-or-density-from-the-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Temperature or density from the equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-constrained-synthetic-completion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-constrained synthetic completion</a></li><li class="page-toc-item page-toc-level-2"><a href="#impurities-and-quasineutrality" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Impurities and quasineutrality</a></li><li class="page-toc-item page-toc-level-2"><a href="#resistive-z_eff" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Resistive Z_eff</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic-model-constrained-z_effρ--in-progress" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic-model-constrained Z_eff(ρ) — in progress</a></li><li class="page-toc-item page-toc-level-2"><a href="#rotation-and-force-balance--future-scope" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Rotation and force balance — future scope</a></li><li class="page-toc-item page-toc-level-2"><a href="#inferred-quantities-depend-on-inferred-quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Inferred quantities depend on inferred quantities</a></li><li class="page-toc-item page-toc-level-2"><a href="#worked-examples" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Worked examples</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#a--efit-only-level-0-state-synthetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A — EFIT-only Level-0 state (synthetic)</a></li><li class="page-toc-item page-toc-level-3"><a href="#b--ion-temperature-from-the-equilibrium-pressure-inferred" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">B — ion temperature from the equilibrium pressure (inferred)</a></li><li class="page-toc-item page-toc-level-3"><a href="#c--electron-density-from-the-equilibrium-pressure-synthetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">C — electron density from the equilibrium pressure (synthetic)</a></li><li class="page-toc-item page-toc-level-3"><a href="#d--resistive-z_eff-inferred" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">D — resistive Z_eff (inferred)</a></li><li class="page-toc-item page-toc-level-3"><a href="#e--atomic--resistive-z_effρ" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">E — atomic + resistive Z_eff(ρ)</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#related" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Related</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#how-a-quantity-was-obtained" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">How a quantity was obtained</a></li><li class="page-toc-item page-toc-level-2"><a href="#thermodynamic-closure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Thermodynamic closure</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#ion-temperature-from-the-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ion temperature from the equilibrium pressure</a></li><li class="page-toc-item page-toc-level-3"><a href="#temperature-or-density-from-the-equilibrium-pressure" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Temperature or density from the equilibrium pressure</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#equilibrium-constrained-synthetic-completion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Equilibrium-constrained synthetic completion</a></li><li class="page-toc-item page-toc-level-2"><a href="#impurities-and-quasineutrality" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Impurities and quasineutrality</a></li><li class="page-toc-item page-toc-level-2"><a href="#resistive-z_eff" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Resistive Z_eff</a></li><li class="page-toc-item page-toc-level-2"><a href="#atomic-model-constrained-z_effρ" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atomic-model-constrained Z_eff(ρ)</a></li><li class="page-toc-item page-toc-level-2"><a href="#rotation-and-force-balance--future-scope" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Rotation and force balance — future scope</a></li><li class="page-toc-item page-toc-level-2"><a href="#inferred-quantities-depend-on-inferred-quantities" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Inferred quantities depend on inferred quantities</a></li><li class="page-toc-item page-toc-level-2"><a href="#worked-examples" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Worked examples</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#a--efit-only-level-0-state-synthetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A — EFIT-only Level-0 state (synthetic)</a></li><li class="page-toc-item page-toc-level-3"><a href="#b--ion-temperature-from-the-equilibrium-pressure-inferred" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">B — ion temperature from the equilibrium pressure (inferred)</a></li><li class="page-toc-item page-toc-level-3"><a href="#c--electron-density-from-the-equilibrium-pressure-synthetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">C — electron density from the equilibrium pressure (synthetic)</a></li><li class="page-toc-item page-toc-level-3"><a href="#d--resistive-z_eff-inferred" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">D — resistive Z_eff (inferred)</a></li><li class="page-toc-item page-toc-level-3"><a href="#e--atomic--resistive-z_effρ" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">E — atomic + resistive Z_eff(ρ)</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#related" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Related</a></li></ul>
     </nav>
 </aside>
 
@@ -927,7 +941,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 05:42:42 +0000"
+        "time": "2026-10-07 06:39:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

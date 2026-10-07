@@ -348,7 +348,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4889c39</code>. What is described
+  <code>14d26f1</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -454,10 +454,10 @@ are never merged into one Maxwellian by a projection.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_moments"><code>composition_moments</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="composition_moments" href="https://github.com/VEST-Tokamak/vaft/blob/4889c390b2f82cdbff25a5d8c10f12bb2c1649d2/vaft/process/species.py#L640-L690" title="vaft/process/species.py, lines 640–690 at 4889c39">source</a>
+<a class="ref-source" data-source="composition_moments" href="https://github.com/VEST-Tokamak/vaft/blob/14d26f119b023485504ee19408249f8c5672d2ae/vaft/process/species.py#L683-L733" title="vaft/process/species.py, lines 683–733 at 14d26f1">source</a>
 </header>
     <pre class="ref-signature"><code>composition_moments(state)</code></pre>
-    <details class="ref-code" data-source-code="composition_moments"><summary>Show source <span class="ref-note">vaft/process/species.py, lines 640–690</span></summary>
+    <details class="ref-code" data-source-code="composition_moments"><summary>Show source <span class="ref-note">vaft/process/species.py, lines 683–733</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_moments</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">CanonicalSpeciesState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">Composition moments of a species state, every dilution with its basis named.
@@ -560,7 +560,7 @@ uses <code class="language-plaintext highlighter-rouge">&lt;Z^2&gt;</code> for a
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#project_species_state"><code>project_species_state</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="project_species_state" href="https://github.com/VEST-Tokamak/vaft/blob/4889c390b2f82cdbff25a5d8c10f12bb2c1649d2/vaft/process/species.py#L778-L865" title="vaft/process/species.py, lines 778–865 at 4889c39">source</a>
+<a class="ref-source" data-source="project_species_state" href="https://github.com/VEST-Tokamak/vaft/blob/14d26f119b023485504ee19408249f8c5672d2ae/vaft/process/species.py#L822-L909" title="vaft/process/species.py, lines 822–909 at 14d26f1">source</a>
 </header>
     <pre class="ref-signature"><code>project_species_state(state, target_physics, method=None)</code></pre>
 
@@ -640,7 +640,7 @@ phase-space detail of fast populations lives in <code class="language-plaintext 
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#species_state_from_composition"><code>species_state_from_composition</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="species_state_from_composition" href="https://github.com/VEST-Tokamak/vaft/blob/4889c390b2f82cdbff25a5d8c10f12bb2c1649d2/vaft/process/species.py#L525-L634" title="vaft/process/species.py, lines 525–634 at 4889c39">source</a>
+<a class="ref-source" data-source="species_state_from_composition" href="https://github.com/VEST-Tokamak/vaft/blob/14d26f119b023485504ee19408249f8c5672d2ae/vaft/process/species.py#L549-L677" title="vaft/process/species.py, lines 549–677 at 14d26f1">source</a>
 </header>
     <pre class="ref-signature"><code>species_state_from_composition(composition, n_e, *, rho=None, time=None, main_isotope=None)</code></pre>
 
@@ -662,7 +662,7 @@ phase-space detail of fast populations lives in <code class="language-plaintext 
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">CanonicalSpeciesState</td><td class="ref-unit">any</td><td><p>The thermal main ion and, for a radial composition, one component per ionised charge state of every element (the most explicit form); for a resolved composition, one per species.</p>
+  <tr><td>&mdash;</td><td class="ref-type">CanonicalSpeciesState</td><td class="ref-unit">any</td><td><p>The thermal main ion and, for a radial composition, one component per ionised charge state of every element (the most explicit form); for a resolved composition, one per species – a bundle carrying the composition’s <code class="language-plaintext highlighter-rouge">&lt;Z&gt;(rho)</code> / <code class="language-plaintext highlighter-rouge">&lt;Z^2&gt;(rho)</code> where it resolved a bundled ion (<code class="language-plaintext highlighter-rouge">mean_charge</code> / <code class="language-plaintext highlighter-rouge">mean_square_charge</code>).</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -673,7 +673,10 @@ phase-space detail of fast populations lives in <code class="language-plaintext 
       <p>The origin of every component is the composition’s kind (<code class="language-plaintext highlighter-rouge">assumed</code>,
 <code class="language-plaintext highlighter-rouge">explicit</code>, <code class="language-plaintext highlighter-rouge">derived</code>, <code class="language-plaintext highlighter-rouge">inferred</code>); <code class="language-plaintext highlighter-rouge">explicit</code> is recorded as
 <code class="language-plaintext highlighter-rouge">assumed</code>, as the #1565 writers do.  The main ion and its charge are the
-composition’s own (<code class="language-plaintext highlighter-rouge">H</code>/<code class="language-plaintext highlighter-rouge">D</code>/<code class="language-plaintext highlighter-rouge">T</code>, or e.g. <code class="language-plaintext highlighter-rouge">He</code> with charge 2).</p>
+composition’s own (<code class="language-plaintext highlighter-rouge">H</code>/<code class="language-plaintext highlighter-rouge">D</code>/<code class="language-plaintext highlighter-rouge">T</code>, or e.g. <code class="language-plaintext highlighter-rouge">He</code> with charge 2).  A
+resolved species’ <code class="language-plaintext highlighter-rouge">charge_state</code> is only its label: the component’s
+charge is the composition’s radial <code class="language-plaintext highlighter-rouge">&lt;Z&gt;</code> moment where one exists, and a
+non-integer label without moments is a bundle at that scalar charge.</p>
 
     </div>
 
@@ -707,7 +710,7 @@ composition’s own (<code class="language-plaintext highlighter-rouge">H</code>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#species_state_from_core_profiles"><code>species_state_from_core_profiles</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="species_state_from_core_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/4889c390b2f82cdbff25a5d8c10f12bb2c1649d2/vaft/process/species.py#L339-L522" title="vaft/process/species.py, lines 339–522 at 4889c39">source</a>
+<a class="ref-source" data-source="species_state_from_core_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/14d26f119b023485504ee19408249f8c5672d2ae/vaft/process/species.py#L343-L534" title="vaft/process/species.py, lines 343–534 at 14d26f1">source</a>
 </header>
     <pre class="ref-signature"><code>species_state_from_core_profiles(ods, *, time=None, tolerance=0.0005)</code></pre>
 
@@ -760,7 +763,9 @@ charges is a bundle with its <code class="language-plaintext highlighter-rouge">
 (or the scalar <code class="language-plaintext highlighter-rouge">z_average</code>/<code class="language-plaintext highlighter-rouge">z_square_average</code>), its own
 temperature when stored); otherwise the ion is one component – bundled
 with <code class="language-plaintext highlighter-rouge">z_ion_1d</code>/<code class="language-plaintext highlighter-rouge">z_ion_square_1d</code> when present.  A share of the ion
-density its states do not carry is reported in the provenance notes.</li>
+density its states do not carry, and a <code class="language-plaintext highlighter-rouge">z_ion_square_1d</code> stored on an
+ion of one integer charge state (ignored: <code class="language-plaintext highlighter-rouge">&lt;Z^2&gt; = Z^2</code> there), are
+reported in the provenance notes.</li>
         <li>At every level, <code class="language-plaintext highlighter-rouge">density_thermal</code> (or <code class="language-plaintext highlighter-rouge">density - density_fast</code>) is
 the thermal component and <code class="language-plaintext highlighter-rouge">density_fast</code> a separate fast one; an
 ion-level <code class="language-plaintext highlighter-rouge">density_fast</code> is kept even when the states carry none.</li>
@@ -1016,7 +1021,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 05:42:42 +0000"
+        "time": "2026-10-07 06:39:15 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
