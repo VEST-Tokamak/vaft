@@ -207,6 +207,7 @@ CORE_MODULES: tuple[str, ...] = (
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
+    "test_diagram_ballooning_formulations.py",
     "test_diagram_blob.py",
     "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
@@ -324,6 +325,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
     "test_formula_ordering.py",
+    # Ballooning normalisations (#1637): the volume shear and alpha reduce exactly
+    # to s-hat and the CHT alpha for circular large-aspect-ratio surfaces.
+    "test_formula_ballooning_normalisation.py",
     # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
     # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
     "test_process_mhd_stability.py",

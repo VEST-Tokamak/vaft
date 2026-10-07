@@ -15,7 +15,8 @@ Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
 ``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``, ``hugill_st``,
 ``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); reduced stability
-diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; single-particle motion: ``exb_drift``, ``curvature_drift``,
+diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; ballooning
+formulations (#1637): ``ballooning_formulation_hierarchy``; single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
 of the island: ``rational_surface``, ``delta_prime`` and
 ``tearing_layer_matching``; 3-D perturbation harmonics:
@@ -79,6 +80,7 @@ __all__ = [
     "s_alpha_ballooning",
     "stability_diagnostic_taxonomy",
     "interchange_criteria",
+    "ballooning_formulation_hierarchy",
     "hugill",
     "hugill_st",
     "troyon",
@@ -272,6 +274,7 @@ _LOCATIONS = {
     "s_alpha_ballooning": "._stability_space",
     "stability_diagnostic_taxonomy": "._reduced_stability",
     "interchange_criteria": "._reduced_stability",
+    "ballooning_formulation_hierarchy": "._ballooning_formulations",
     "hugill": "._stability_space",
     "hugill_st": "._stability_space",
     "troyon": "._stability_space",
