@@ -146,3 +146,41 @@ def test_ky_resolved_fluxes_sum_to_the_totals(mapped):
     assert per_ky.shape == (3, outputs.ky_spectrum.size)
     assert per_ky.sum(axis=1) == pytest.approx(ods[f"{nl}.fluxes_1d.energy_phi_potential"])
     assert ods[f"{nl}.binormal_wavevector_norm"].size == outputs.ky_spectrum.size
+
+
+# -- merge_linear_scan (cold review 0.8.0 delta-absorb-17 transport F3/F4) ------------
+
+def _single_ky_runs():
+    import copy
+
+    from _synthetic_inputs import make_gyrokinetics_local
+
+    one = make_gyrokinetics_local(None)
+    two = copy.deepcopy(one)
+    wave = "gyrokinetics_local.linear.wavevector.0"
+    two[f"{wave}.binormal_wavevector_norm"] = one[f"{wave}.binormal_wavevector_norm"] / 2
+    return one, two
+
+
+def test_merge_linear_scan_refuses_mixed_conventions():
+    """normalisation / frequency_sign_convention live only in code.parameters, which
+    the physics-leaf comparison skips; the merge must compare them itself."""
+    import copy
+    import re
+
+    one, two = _single_ky_runs()
+    assert gk.merge_linear_scan([one, two])["gyrokinetics_local.linear.wavevector"]
+    parameters = str(one["gyrokinetics_local.code.parameters"])
+    for key in ("frequency_sign_convention", "normalisation"):
+        assert f"<{key}>" in parameters
+        other = copy.deepcopy(two)
+        other["gyrokinetics_local.code.parameters"] = re.sub(
+            fr"<{key}>.*?</{key}>", f"<{key}>something else</{key}>", parameters)
+        with pytest.raises(ValueError, match=key):
+            gk.merge_linear_scan([one, other])
+    foreign_code = copy.deepcopy(two)
+    foreign_code["gyrokinetics_local.code.name"] = "GS2"
+    with pytest.raises(ValueError, match="code.name"):
+        gk.merge_linear_scan([one, foreign_code])
+    with pytest.raises(ValueError, match="repeats binormal_wavevector_norm"):
+        gk.merge_linear_scan([one, copy.deepcopy(one)])
