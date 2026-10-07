@@ -7,6 +7,10 @@
     and resistive diffusion times -- each computed by a ``vaft.formula``
     kernel, with the ratios that are ordering parameters. It is a worked
     example of evaluating a hierarchy, not an assumed one.
+``ordering_contract_map``
+    which model assumes which ordering, read from the contracts of
+    :mod:`vaft.validation.orderings`: ordering quantities grouped by the
+    scale they are taken on, models grouped by family.
 
 Every number is :mod:`vaft.formula` (``ordering``, ``particle``,
 ``stability``, ``equilibrium``, ``vde``) applied to the inputs in
@@ -158,68 +162,143 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
 # which model assumes which ordering
 # ---------------------------------------------------------------------------
 
-#: column symbols for the ordering quantities of vaft.validation.orderings
+#: row symbols for the ordering quantities of vaft.validation.orderings
 _SYMBOLS = {
+    "debye_length_over_L": "$\\lambda_D/L$",
+    "omega_over_ion_gyrofrequency": "$\\omega/\\Omega_{ci}$",
     "lundquist_number": "$S$",
-    "ion_skin_depth_over_L": "$d_i/a$",
+    "ion_skin_depth_over_a": "$d_i/a$",
+    "inverse_aspect_ratio": "$\\epsilon = a/R_0$",
+    "beta": "$\\beta$",
+    "beta_over_inverse_aspect_ratio": "$\\beta/\\epsilon$",
     "rho_i_over_LTi": "$\\rho_i/L_{T_i}$",
     "rho_s_over_LTe": "$\\rho_s/L_{T_e}$",
-    "electron_knudsen_number": "$Kn_e$",
-    "ion_knudsen_number": "$Kn_i$",
+    "electron_parallel_knudsen_number": "$\\lambda_e/qR$",
+    "ion_parallel_knudsen_number": "$\\lambda_i/qR$",
     "electron_magnetization": "$\\Omega_{ce}\\tau_e$",
     "ion_magnetization": "$\\Omega_{ci}\\tau_i$",
+    "electron_collisionality": "$\\nu_{*e}$",
+    "ion_collisionality": "$\\nu_{*i}$",
+    "ion_orbit_width_over_L": "$\\Delta_{b,i}/L_p$",
+    "sonic_mach_number": "$M = U/v_{ti}$",
+    "alfven_mach_number": "$M_A = U/v_A$",
+    "pressure_anisotropy": "$|p_\\perp - p_\\parallel|/p$",
+    "k_perp_rho_i": "$k_\\perp\\rho_i$",
+    "k_ion_skin_depth": "$k\\,d_i$",
+    "k_electron_skin_depth": "$k\\,d_e$",
+    "k_par_over_k_perp": "$k_\\parallel/k_\\perp$",
+    "fluctuation_amplitude": "$\\delta n/n$",
+    "ion_skin_depth_over_layer": "$d_i/\\delta$",
+    "electron_skin_depth_over_layer": "$d_e/\\delta$",
     "tau_evolution_over_tau_alfven": "$\\tau_{evol}/\\tau_A$",
     "tau_age_over_tau_resistive": "$\\tau_{age}/\\tau_R$",
+    "tau_transport_over_tau_turbulence": "$\\tau_{transp}/\\tau_{turb}$",
 }
 
-_COL, _ROW, _LEFT = 2.0, 1.0, 6.4
+_GROUP_TITLES = {
+    "foundational": "foundational",
+    "global": "global ($a$, $R_0$)",
+    "profile": "equilibrium profile ($L_p$, $L_T$, $qR$)",
+    "perturbation": "perturbation ($k$)",
+    "layer": "inner layer ($\\delta$)",
+    "time_history": "time history",
+}
+
+#: column heads and the model families they are grouped in
+_MODELS = {
+    "ideal_single_fluid_mhd": "ideal MHD",
+    "resistive_mhd": "resistive MHD",
+    "hall_mhd": "Hall MHD",
+    "braginskii_two_fluid": "Braginskii two-fluid",
+    "flr_small_fluid": "FLR-corrected fluid",
+    "low_beta_reduced_mhd": "low-$\\beta$ reduced MHD",
+    "high_beta_reduced_mhd": "high-$\\beta$ reduced MHD",
+    "drift_kinetic": "drift kinetics",
+    "gyrokinetic_delta_f": "$\\delta f$ gyrokinetics",
+    "local_neoclassical": "local neoclassical",
+    "banana_regime_neoclassical": "banana regime",
+    "pfirsch_schlueter_neoclassical": 'Pfirsch--Schl\\"uter regime',
+    "quasi_static_equilibrium": "equilibrium sequence",
+    "resistively_relaxed_current": "relaxed current",
+    "gyrokinetic_transport_separation": "GK--transport separation",
+}
+_FAMILIES = (
+    ("fluid", ("ideal_single_fluid_mhd", "resistive_mhd", "hall_mhd", "braginskii_two_fluid", "flr_small_fluid")),
+    ("reduced MHD", ("low_beta_reduced_mhd", "high_beta_reduced_mhd")),
+    ("kinetic", ("drift_kinetic", "gyrokinetic_delta_f")),
+    ("neoclassical", ("local_neoclassical", "banana_regime_neoclassical", "pfirsch_schlueter_neoclassical")),
+    ("evolution", ("quasi_static_equilibrium", "resistively_relaxed_current", "gyrokinetic_transport_separation")),
+)
+
+_COL, _ROW, _LEFT = 1.3, 0.62, 3.6
 
 
 def ordering_contract_map(*, labels: bool = True) -> Diagram:
     r"""Which reduced model assumes which ordering, read from the registered contracts.
 
-    Rows are the contracts of ``vaft.validation.orderings.CONTRACTS``, columns
-    the ordering quantities of ``ORDERING_QUANTITIES`` with their scale and
-    scope; a cell says whether the model needs the quantity $\gg 1$ or
-    $\ll 1$. Every threshold is order unity, and evaluating a state gives a
+    Rows are the ordering quantities of ``vaft.validation.orderings.ORDERING_QUANTITIES``,
+    grouped by the scale they are taken on -- foundational, global,
+    equilibrium profile, perturbation ($k$), inner layer ($\delta$), time
+    history -- so a global $d_i/a$, a mode's $k\,d_i$ and a layer's
+    $d_i/\delta$ are separate rows. Columns are the contracts of
+    ``CONTRACTS``, grouped by model family; a cell says whether the model
+    needs the quantity $\gg 1$ or $\ll 1$, and an empty cell means the model
+    does not order it -- $k_\perp\rho_i$ in gyrokinetics, $k\,d_i$ in Hall
+    MHD. Every threshold is order unity, and evaluating a state gives a
     continuous margin per cell ($\mp\log_{10}x$), not one valid/invalid flag.
     """
-    from vaft.validation.orderings import CONTRACTS, ORDERING_QUANTITIES
+    from vaft.validation.orderings import CONTRACTS, GROUPS, ORDERING_QUANTITIES
 
     labels = _check_labels(labels)
-    columns = list(ORDERING_QUANTITIES)
-    rows = list(CONTRACTS)
+    columns = [name for _, names in _FAMILIES for name in names]
+    if sorted(columns) != sorted(CONTRACTS) or set(_SYMBOLS) != set(ORDERING_QUANTITIES):
+        raise RuntimeError("ordering_contract_map is out of step with vaft.validation.orderings")
+    rows = list(ORDERING_QUANTITIES)
     items: List = []
-    width = len(columns) * _COL
-    for j, key in enumerate(columns):
-        x = _LEFT + (j + 0.5) * _COL
-        q = ORDERING_QUANTITIES[key]
-        items.append(Label((x, 0.55), _SYMBOLS[key], "label", anchor="south", role=f"column:{key}"))
-        items.append(Label((x, 0.5), q.scope.replace("_", "\\\\ "), "small label,align=center", anchor="north",
-                           role=f"column:{key}"))
-    for i, name in enumerate(rows):
-        y = -(i + 0.9) * _ROW
-        c = CONTRACTS[name]
-        if i % 2 == 0:
-            items.append(Polyline.of([(0.0, y - 0.5 * _ROW), (_LEFT + width, y - 0.5 * _ROW),
-                                      (_LEFT + width, y + 0.5 * _ROW), (0.0, y + 0.5 * _ROW)],
-                                     "concept band", role=f"row:{name}", closed=True))
-        items.append(Label((0.15, y), c.physical_model,
-                           "small label,text width=6.0cm,align=left,execute at begin node={\\hyphenpenalty=10000}",
-                           anchor="west",
-                           role=f"row:{name}"))
-        for a in c.assumptions:
-            x = _LEFT + (columns.index(a.quantity) + 0.5) * _COL
+    right = _LEFT + len(columns) * _COL
+
+    def cx(name):
+        return _LEFT + (columns.index(name) + 0.5) * _COL
+
+    for name in columns:
+        items.append(Label((cx(name) - 0.15, 0.15), _MODELS[name], "small label,rotate=55", anchor="west",
+                           role=f"column:{name}"))
+    y = 0.0
+    row_y = {}
+    for group in GROUPS:
+        members = [k for k in rows if ORDERING_QUANTITIES[k].group == group]
+        y -= _ROW
+        items.append(Polyline.of([(0.0, y - 0.5 * _ROW), (right, y - 0.5 * _ROW), (right, y + 0.5 * _ROW),
+                                  (0.0, y + 0.5 * _ROW)], "concept band", role=f"group:{group}", closed=True))
+        items.append(Label((0.1, y), _GROUP_TITLES[group], "concept band label", anchor="west",
+                           role=f"group:{group}"))
+        for key in members:
+            y -= _ROW
+            row_y[key] = y
+            items.append(Label((0.25, y), _SYMBOLS[key], "small label", anchor="west", role=f"row:{key}"))
+    bottom = y - 0.5 * _ROW
+    for (_, names) in _FAMILIES[1:]:
+        x = _LEFT + columns.index(names[0]) * _COL
+        items.append(Polyline.of([(x, 0.0), (x, bottom)], "im grid", role="families"))
+    for family, names in _FAMILIES:
+        x0 = _LEFT + columns.index(names[0]) * _COL
+        items.append(Label((x0 + 0.5 * len(names) * _COL, bottom - 0.1), family, "concept band label",
+                           anchor="north", role="families"))
+    for name in columns:
+        for a in CONTRACTS[name].assumptions:
+            x, yy = cx(name), row_y[a.quantity]
             text, style = ("$\\gg 1$", "concept source") if a.ordering == "large" else ("$\\ll 1$", "concept leaf")
-            items.append(Polyline.of([(x - 0.6, y - 0.32), (x + 0.6, y - 0.32), (x + 0.6, y + 0.32),
-                                      (x - 0.6, y + 0.32)], style, role=f"cell:{name}:{a.quantity}", closed=True))
-            items.append(Label((x, y), text, "label", role=f"cell:{name}:{a.quantity}"))
-    bottom = -(len(rows) + 0.4) * _ROW
+            items.append(Polyline.of([(x - 0.5, yy - 0.24), (x + 0.5, yy - 0.24), (x + 0.5, yy + 0.24),
+                                      (x - 0.5, yy + 0.24)], style, role=f"cell:{name}:{a.quantity}", closed=True))
+            items.append(Label((x, yy), text, "small label", role=f"cell:{name}:{a.quantity}"))
     if labels:
-        items.append(Label((0.5 * (_LEFT + width), bottom - 0.2),
-                           "Each cell is one ordering, evaluated separately: a state gets a margin "
-                           "$m = \\mp\\log_{10}x$ per cell against an order-unity threshold, not one flag",
+        items.append(Label((0.5 * right, bottom - 0.9),
+                           "Each cell is one ordering, evaluated separately against an order-unity threshold: "
+                           "a margin $m = \\mp\\log_{10}x$ per cell, not one flag.\\\\ "
+                           "An empty cell is not ordered by that model: "
+                           "$k_\\perp\\rho_i$ may be $O(1)$ in gyrokinetics, $k\\,d_i$ in Hall MHD, "
+                           "$\\tau_{evol}/\\tau_A$ in ideal MHD (Alfvenic dynamics)",
                            "note", anchor="north", role="note"))
     model = {"rows": tuple(rows), "columns": tuple(columns),
-             "cells": {(n, a.quantity): a.ordering for n in rows for a in CONTRACTS[n].assumptions}}
+             "cells": {(n, a.quantity): a.ordering for n in columns for a in CONTRACTS[n].assumptions}}
     return Diagram("ordering_contract_map", Scene(tuple(items)), model=model)

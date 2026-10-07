@@ -6,7 +6,11 @@ import pytest
 
 from vaft.formula import catalog
 from vaft.validation.applicability import SCOPES, evaluate_contract, evaluate_population
-from vaft.validation.orderings import CONTRACTS, ORDERING_QUANTITIES, contract
+from vaft.validation.orderings import CONTRACTS, GROUPS, ORDERING_QUANTITIES, OrderingQuantity, contract
+
+
+def _orderings(name):
+    return {a.quantity: a.ordering for a in contract(name).assumptions}
 
 
 def test_every_assumption_names_a_defined_quantity_with_its_scale_and_scope():
@@ -18,32 +22,87 @@ def test_every_assumption_names_a_defined_quantity_with_its_scale_and_scope():
             assert a.scope in SCOPES and a.threshold == 1.0  # order unity, nothing invented
 
 
-def test_every_kernel_a_quantity_cites_is_catalogued():
+def test_every_quantity_is_used_and_every_cited_kernel_is_catalogued():
+    used = {a.quantity for c in CONTRACTS.values() for a in c.assumptions}
+    assert used == set(ORDERING_QUANTITIES)
     for name, q in ORDERING_QUANTITIES.items():
         for kernel in q.kernels:
             assert catalog.describe(kernel).qualname == kernel, (name, kernel)
 
 
-def test_ideal_mhd_is_four_separate_orderings_not_one():
-    ideal = contract("ideal_single_fluid_mhd")
-    assert {a.quantity: a.ordering for a in ideal.assumptions} == {
-        "lundquist_number": "large", "ion_skin_depth_over_L": "small",
-        "rho_i_over_LTi": "small", "tau_evolution_over_tau_alfven": "large"}
-    # resistive MHD keeps resistivity: it makes no claim about S
-    assert "lundquist_number" not in {a.quantity for a in contract("resistive_mhd").assumptions}
+def test_groups_follow_the_scope_and_are_contiguous():
+    groups = [q.group for q in ORDERING_QUANTITIES.values()]
+    # drawn in GROUPS order, each group one block
+    assert groups == sorted(groups, key=GROUPS.index)
+    for q in ORDERING_QUANTITIES.values():
+        if q.group == "perturbation":
+            assert q.scope == "mode"
+        if q.group == "layer":
+            assert q.scope == "local"
+    with pytest.raises(ValueError, match="group"):
+        OrderingQuantity("x", "L", "global", "everywhere", ())
+
+
+def test_the_ion_skin_depth_is_three_quantities_on_three_scales():
+    scales = {k: (ORDERING_QUANTITIES[k].scale, ORDERING_QUANTITIES[k].scope)
+              for k in ("ion_skin_depth_over_a", "k_ion_skin_depth", "ion_skin_depth_over_layer")}
+    assert scales == {"ion_skin_depth_over_a": ("a", "global"), "k_ion_skin_depth": ("1 / k", "mode"),
+                      "ion_skin_depth_over_layer": ("delta_layer", "local")}
+    # resistive MHD needs the layer to be wider than d_i; a small global d_i/a is not enough
+    assert _orderings("resistive_mhd")["ion_skin_depth_over_layer"] == "small"
+    assert "ion_skin_depth_over_a" not in _orderings("resistive_mhd")
+
+
+def test_slow_evolution_is_the_equilibrium_sequence_not_mhd():
+    # ideal MHD describes omega tau_A ~ 1 (kinks, Alfven waves): tau_evol/tau_A >> 1 is not its condition
+    for name in ("ideal_single_fluid_mhd", "resistive_mhd", "hall_mhd"):
+        assert "tau_evolution_over_tau_alfven" not in _orderings(name), name
+    assert _orderings("quasi_static_equilibrium")["tau_evolution_over_tau_alfven"] == "large"
+
+
+def test_k_perp_rho_i_separates_gyrokinetics_from_mhd_and_drift_kinetics():
+    for name in ("ideal_single_fluid_mhd", "resistive_mhd", "drift_kinetic", "flr_small_fluid"):
+        assert _orderings(name)["k_perp_rho_i"] == "small", name
+    gk = _orderings("gyrokinetic_delta_f")
+    assert "k_perp_rho_i" not in gk
+    assert gk["rho_i_over_LTi"] == gk["k_par_over_k_perp"] == gk["omega_over_ion_gyrofrequency"] == "small"
+
+
+def test_hall_mhd_keeps_d_i_and_orders_out_only_electron_inertia():
+    hall = _orderings("hall_mhd")
+    assert "k_ion_skin_depth" not in hall and "ion_skin_depth_over_layer" not in hall
+    assert hall["k_electron_skin_depth"] == hall["electron_skin_depth_over_layer"] == "small"
+
+
+def test_reduced_mhd_beta_orderings_differ():
+    assert _orderings("low_beta_reduced_mhd")["beta_over_inverse_aspect_ratio"] == "small"
+    assert _orderings("high_beta_reduced_mhd")["beta"] == "small"
+    assert "beta_over_inverse_aspect_ratio" not in _orderings("high_beta_reduced_mhd")
+
+
+def test_pfirsch_schlueter_and_braginskii_share_the_parallel_knudsen_number():
+    # lambda/(qR) = 1/nu_hat: the collisional closure is the Pfirsch-Schlueter ordering
+    ps, brag = _orderings("pfirsch_schlueter_neoclassical"), _orderings("braginskii_two_fluid")
+    for species in ("electron", "ion"):
+        key = f"{species}_parallel_knudsen_number"
+        assert ps[key] == brag[key] == "small"
+        assert ORDERING_QUANTITIES[key].scale == "q R"
+    assert _orderings("banana_regime_neoclassical") == {"electron_collisionality": "small",
+                                                        "ion_collisionality": "small"}
 
 
 def test_evaluation_names_the_limiting_ordering_and_reports_missing_ones():
     ideal = contract("ideal_single_fluid_mhd")
-    state = {"lundquist_number": 5.7e4, "ion_skin_depth_over_L": 0.29, "rho_i_over_LTi": 0.02,
-             "tau_evolution_over_tau_alfven": 1.4e4}
+    state = {"debye_length_over_L": 1e-5, "omega_over_ion_gyrofrequency": 1e-3, "lundquist_number": 5.7e4,
+             "ion_skin_depth_over_a": 0.29, "k_ion_skin_depth": 0.1, "k_perp_rho_i": 0.05,
+             "rho_i_over_LTi": 0.02, "pressure_anisotropy": 0.01}
     result = evaluate_contract(ideal, state)
-    assert result.status == "SUPPORTED" and result.limiting == "ion_skin_depth_over_L"
+    assert result.status == "SUPPORTED" and result.limiting == "ion_skin_depth_over_a"
     margins = {r.quantity: r.margin for r in result.assumptions}
     assert margins["lundquist_number"] == pytest.approx(math.log10(5.7e4))
-    assert margins["ion_skin_depth_over_L"] == pytest.approx(-math.log10(0.29))
-    # a Hall-scale state fails on d_i/a alone
-    assert evaluate_contract(ideal, {**state, "ion_skin_depth_over_L": 1.5}).status == "OUTSIDE"
+    assert margins["ion_skin_depth_over_a"] == pytest.approx(-math.log10(0.29))
+    # a Hall-scale perturbation fails on k d_i alone, though d_i/a is unchanged
+    assert evaluate_contract(ideal, {**state, "k_ion_skin_depth": 1.5}).status == "OUTSIDE"
     # a missing quantity is unassessed, never a violation
     partial = {k: v for k, v in state.items() if k != "rho_i_over_LTi"}
     assert evaluate_contract(ideal, partial).status == "UNASSESSED"
@@ -51,13 +110,13 @@ def test_evaluation_names_the_limiting_ordering_and_reports_missing_ones():
 
 def test_contracts_evaluate_over_a_population():
     pd = pytest.importorskip("pandas")
-    table = pd.DataFrame([{"electron_knudsen_number": 0.01, "ion_knudsen_number": 0.05},
-                          {"electron_knudsen_number": 3.0, "ion_knudsen_number": 0.05}])
-    out = evaluate_population(contract("local_collisional_fluid"), table)
+    table = pd.DataFrame([{"electron_parallel_knudsen_number": 0.01, "ion_parallel_knudsen_number": 0.05},
+                          {"electron_parallel_knudsen_number": 3.0, "ion_parallel_knudsen_number": 0.05}])
+    out = evaluate_population(contract("pfirsch_schlueter_neoclassical"), table)
     assert list(out["status"]) == ["SUPPORTED", "OUTSIDE"]
-    assert list(out["limiting"]) == ["ion_knudsen_number", "electron_knudsen_number"]
+    assert list(out["limiting"]) == ["ion_parallel_knudsen_number", "electron_parallel_knudsen_number"]
 
 
 def test_unknown_contract_lists_the_known_ones():
     with pytest.raises(KeyError, match="ideal_single_fluid_mhd"):
-        contract("hall_mhd")
+        contract("full_kinetic")
