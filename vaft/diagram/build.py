@@ -63,6 +63,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"field_line_geometry_{g}.svg": ("field_line_geometry", {"geometry": g})
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
+    "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings (#1627)
     "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
     # tokamak geometry and flux coordinates
     **{f"tokamak_torus_{p}.svg": ("tokamak_torus", {"projection": p}) for p in ("3d", "poloidal")},
@@ -118,6 +119,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for p in ("monotonic", "reversed_shear")},
     **{f"rational_surface_topology_{p}.svg": ("rational_surface_topology", {"profile": p})
        for p in ("monotonic", "reversed_shear")},
+    # current diffusion and current drive (#1605)
+    "current_diffusion.svg": ("current_diffusion", {}),
+    **{f"current_drive_profiles_{d}.svg": ("current_drive_profiles", {"deposition": d})
+       for d in ("off_axis", "on_axis")},
     # canonical field configurations, reconnection topology and ideal-MHD waves (#1063)
     **{f"slab_field_configuration_{k}.svg": ("slab_field_configuration", {"kind": k})
        for k in ("uniform", "sheared", "reversed", "guide")},
@@ -222,6 +227,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # the VEST data platform: reference view and compact companion (#1550)
     "vest_data_platform.svg": ("vest_data_platform", {}),
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
+    "software_dependency_ecosystem.svg": ("software_dependency_ecosystem", {}),
+    "external_code_integration.svg": ("external_code_integration", {}),
     # the physics-workflow spine, level 2 below the platform overview (#1585)
     **{f"{name}.svg": (name, {}) for name in (
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",

@@ -50,10 +50,13 @@ Agreement with fitted data is not independent validation (#1639 §4 V).  The
 :data:`EVIDENCE_ROLES` say which part a datum played, and the adapters below
 move a check off the ``independent_validation`` axis when the quantity it
 compares against was fitted.  For an equilibrium report that is inferred
-from the report itself: when its ``diagnostic_fit.diamagnetic_flux`` was
-assessed, the diamagnetic flux was a fit constraint (VAFT's EFIT fits it by
-default, ``EFITConfig.use_diamagnetic_flux``), and every check that compares
-against it -- :data:`DIAMAGNETIC_CHECKS` -- is inference, not validation.
+from the report itself: when its ``diagnostic_fit.diamagnetic_flux`` entry
+records a fitted flux (``fit_role == "fitted"``, i.e. the constraint's fit
+weight was non-zero -- VAFT's EFIT fits it by default,
+``EFITConfig.use_diamagnetic_flux``), every check that compares against it
+-- :data:`DIAMAGNETIC_CHECKS` -- is inference, not validation.  The grade
+status is not the test: an ungraded fit (no statistical uncertainty model,
+#891) is still a fit.
 
 Pilots
 ------
@@ -266,6 +269,29 @@ def compose(evidence: Iterable[Evidence]) -> dict[str, ValidationStatus]:
     return {axis: aggregate_status(by_axis[axis]) for axis in AXES if axis in by_axis}
 
 
+def _records_a_fitted_constraint(entry: Any) -> bool:
+    """Whether a ``diagnostic_fit`` scalar entry says the constraint was fitted.
+
+    The precondition is the fit weight, carried per slice as ``fit_role``
+    (``"fitted"`` when ``weight > 0``) and, equivalently, as a finite
+    ``sigma_from_weight = 1/weight``; a report graded ``not_available`` for
+    want of an uncertainty model still records both.
+    """
+    if not isinstance(entry, Mapping):
+        return False
+    records = [entry, *(s for s in (entry.get("slices") or ()) if isinstance(s, Mapping))]
+    for record in records:
+        if record.get("fit_role") == "fitted":
+            return True
+        try:
+            sigma = float(record.get("sigma_from_weight"))
+        except (TypeError, ValueError):
+            continue
+        if math.isfinite(sigma) and sigma > 0:
+            return True
+    return False
+
+
 def evidence_from_equilibrium_report(
     report: Mapping[str, Any],
     *,
@@ -284,9 +310,11 @@ def evidence_from_equilibrium_report(
         Further check keys whose reference measurement the reconstruction was
         fitted to.  Such a check cannot be independent validation; it moves to
         the ``inference`` axis with the role ``used_for_inference``.  The
-        :data:`DIAMAGNETIC_CHECKS` move by themselves whenever the report
-        assessed ``diagnostic_fit.diamagnetic_flux``, i.e. whenever the flux
-        was a fit constraint.  Unknown keys are refused.
+        :data:`DIAMAGNETIC_CHECKS` move by themselves whenever the report's
+        ``diagnostic_fit.diamagnetic_flux`` records a fitted flux (a slice
+        with ``fit_role == "fitted"`` or a finite ``sigma_from_weight``, both
+        meaning the constraint's fit weight was non-zero), whatever grade the
+        entry received.  Unknown keys are refused.
 
     Returns
     -------
@@ -298,8 +326,7 @@ def evidence_from_equilibrium_report(
     from .registry import CHECKS
 
     fitted = _keys(used_for_inference, CHECKS)
-    dia_fit = (report.get("diagnostic_fit") or {}).get("diamagnetic_flux")
-    if isinstance(dia_fit, Mapping) and str(dia_fit.get("status")) != str(ValidationStatus.NOT_AVAILABLE):
+    if _records_a_fitted_constraint((report.get("diagnostic_fit") or {}).get("diamagnetic_flux")):
         fitted.update(DIAMAGNETIC_CHECKS)
     evidence = []
     for category in CATEGORIES:

@@ -82,6 +82,26 @@ def _command(config: MITIMConfig, python: str, *arguments: str) -> tuple[str, ..
     return ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME", *explicit, python, *arguments)
 
 
+def _report_partial(result: MITIMResult, missing: list, shifted: Mapping[float, Any]) -> None:
+    """Downgrade a run with unusable surfaces to ``partial``, on disk as in memory.
+
+    ``result.json`` (the driver's own verdict) and ``record.json`` (the
+    provenance) are rewritten with the new status, the surfaces without a usable
+    result and those MITIM ran elsewhere, so a later reader of the run directory
+    sees what the caller was told.
+    """
+    detail = {"status": "partial", "missing_r_over_a": list(missing),
+              "shifted_r_over_a": dict(shifted)}
+    result.result = {**(result.result or {}), **detail}
+    result.record = {**result.record, "result_status": "partial",
+                     "missing_r_over_a": detail["missing_r_over_a"],
+                     "shifted_r_over_a": detail["shifted_r_over_a"]}
+    (result.workdir / "result.json").write_text(
+        json.dumps(result.result, indent=1, default=str), encoding="utf-8")
+    (result.workdir / "record.json").write_text(
+        json.dumps(result.record, indent=1, default=str), encoding="utf-8")
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -125,12 +145,13 @@ def run_mitim_driver(
     if not source.is_file():
         raise ValueError(f"no MITIM driver named {driver!r}")
     script = workdir / f"{driver}.py"
-    script.write_text(source.read_text())
+    script.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     (workdir / "result.json").unlink(missing_ok=True)
     argument_path = workdir / "arguments.json"
-    argument_path.write_text(json.dumps(dict(arguments), indent=1, default=str))
+    argument_path.write_text(json.dumps(dict(arguments), indent=1, default=str), encoding="utf-8")
     config_path = workdir / "mitim_config.json"
-    config_path.write_text(json.dumps(mitim_user_config(config, workdir), indent=1))
+    config_path.write_text(json.dumps(mitim_user_config(config, workdir), indent=1),
+                           encoding="utf-8")
     (workdir / "mitim_scratch").mkdir(exist_ok=True)
 
     execution = resolve_backend(config).run(
@@ -146,7 +167,7 @@ def run_mitim_driver(
     result_path = workdir / "result.json"
     if result_path.is_file():
         try:
-            result = json.loads(result_path.read_text())
+            result = json.loads(result_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as error:
             result = {"status": "error", "error": f"unreadable result.json: {error}"}
     stderr = execution.stderr
@@ -156,9 +177,9 @@ def run_mitim_driver(
     record = {
         "driver": driver,
         "driver_sha256": _sha256(script),
-        "arguments": json.loads(argument_path.read_text()),
+        "arguments": json.loads(argument_path.read_text(encoding="utf-8")),
         "mitim": availability.as_dict(),
-        "mitim_config": json.loads(config_path.read_text()),
+        "mitim_config": json.loads(config_path.read_text(encoding="utf-8")),
         "mitim_config_sha256": _sha256(config_path),
         "returncode": execution.returncode,
         "runtime_status": execution.runtime_status,
@@ -166,7 +187,8 @@ def run_mitim_driver(
         "job_id": getattr(execution, "job_id", None),
         "result_status": None if result is None else result.get("status"),
     }
-    (workdir / "record.json").write_text(json.dumps(record, indent=1, default=str))
+    (workdir / "record.json").write_text(json.dumps(record, indent=1, default=str),
+                                         encoding="utf-8")
     return MITIMResult(
         returncode=execution.returncode,
         workdir=workdir,
@@ -343,8 +365,7 @@ def run_mitim_tglf(
         if missing:
             # Some surfaces have no usable result: say so rather than return a
             # successful run with fewer surfaces than were asked for.
-            result.result = {**result.result, "status": "partial", "missing_r_over_a": missing,
-                             "shifted_r_over_a": shifted}
+            _report_partial(result, missing, shifted)
     return result, outputs
 
 
@@ -415,6 +436,5 @@ def run_mitim_neo(
                 inputs[r_over_a[index]] = parsed_input
         missing = [r for r in r_over_a if r not in outputs]
         if missing:
-            result.result = {**result.result, "status": "partial", "missing_r_over_a": missing,
-                             "shifted_r_over_a": shifted}
+            _report_partial(result, missing, shifted)
     return result, outputs, inputs

@@ -54,8 +54,10 @@ different statement from *independent validation = fail*.
 **Fitted data is not independent validation.** Every piece of evidence can carry a role from
 `EVIDENCE_ROLES`, such as `used_for_inference` or `independent_validation`.
 - VAFT's EFIT fits the diamagnetic flux by default (`EFITConfig.use_diamagnetic_flux`; #891,
-  #1440). So when a report assessed `diagnostic_fit.diamagnetic_flux`, every check in
-  `DIAMAGNETIC_CHECKS` moves off the V axis automatically.
+  #1440). So when the reconstruction fitted the flux -- the report's
+  `diagnostic_fit.diamagnetic_flux` records `fit_role: fitted`, i.e. the constraint's weight was
+  non-zero, whatever grade the entry received -- every check in `DIAMAGNETIC_CHECKS` moves off the
+  V axis automatically.
 - Name any other fitted check in `used_for_inference=`. An unknown key or a bare string is refused
   rather than ignored.
 

@@ -17,7 +17,8 @@ import numpy as np
 from .backend.access import array, count, get, has
 from .models import Geometry3DLayer, Geometry3DLayers, GeometryLayer, GeometryLayers, as_model_array
 
-__all__ = ["MachineGeometry", "MACHINE_GEOMETRY_FAMILIES", "machine_geometry_registry",
+__all__ = ["MachineGeometry", "MACHINE_GEOMETRY_FAMILIES", "CROSS_SHOT_NOTICE",
+           "cross_shot_notice", "machine_geometry_registry",
            "machine_geometry_view", "project_machine_geometry"]
 
 
@@ -100,6 +101,21 @@ _FAMILY_LABELS = {
     "ec_launchers": "EC provisional CAD",
     "nbi": "NBI model geometry",
 }
+
+
+CROSS_SHOT_NOTICE = "Cross-shot composite — not a physical VEST discharge"
+
+
+def cross_shot_notice(reference: Any) -> str:
+    """Two-line notice every view of the cross-shot fixture carries in its title.
+
+    The first line says the picture is not one discharge; the second says whose
+    machine geometry the other shots' diagnostic coordinates are projected onto.
+    The static renderer, the camera view and the shared machine view all take the
+    wording from here so the three cannot drift apart.
+    """
+    return (f"{CROSS_SHOT_NOTICE}\n"
+            f"Other-shot diagnostic coordinates projected onto geometry reference shot {reference}")
 
 
 def _position(data: Any, path: str, *, dynamic: bool = False) -> tuple[float, float, float | None] | None:
@@ -356,7 +372,10 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         return (GeometryLayer(record.r, record.z, kind="points",
                               label=f"{label} (vertices; phi unknown)")
                 if view == "rz" and np.isfinite(record.z).all() else None)
-    if view in {"rz", "3d", "camera"} and not np.isfinite(record.z).all():
+    # A gap row (NaN in r, z and phi) marks a stored discontinuity and is kept
+    # as a polyline break; only a missing height at a known position makes
+    # the record undrawable in a view that needs Z.
+    if view in {"rz", "3d", "camera"} and not np.isfinite(record.z[np.isfinite(record.r)]).all():
         return None
     if record.semantic == "directed_axis":
         if not np.isfinite(axis_length) or axis_length <= 0:
@@ -373,9 +392,13 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         return GeometryLayer(xyz[:, 0], xyz[:, 1], kind=kind, label=label)
     if projection is None:
         raise ValueError("camera view requires a calibrated CameraProjection")
-    uv, valid = projection.project(xyz * 100.0)
-    uv = np.array(uv, dtype=float, copy=True)
-    uv[~np.asarray(valid, dtype=bool)] = np.nan
+    uv = np.full((xyz.shape[0], 2), np.nan)
+    stored = np.isfinite(xyz).all(axis=1)
+    if stored.any():
+        projected, valid = projection.project(xyz[stored] * 100.0)
+        projected = np.array(projected, dtype=float, copy=True)
+        projected[~np.asarray(valid, dtype=bool)] = np.nan
+        uv[stored] = projected
     return GeometryLayer(uv[:, 0], uv[:, 1], kind=kind, label=label)
 
 
@@ -434,7 +457,7 @@ def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | N
     notice = (manifest or {}).get("notice", "")
     if (manifest or {}).get("kind") == "cross-shot-diagnostic-fixture":
         reference = (manifest or {}).get("geometry_reference", {}).get("source_shot")
-        notice = f"Cross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+        notice = cross_shot_notice(reference)
     elif not notice:
         source_comment = get(data, "dataset_description.ids_properties.comment")
         if isinstance(source_comment, str) and "Cross-shot composite fixture" in source_comment:

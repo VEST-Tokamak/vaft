@@ -618,6 +618,39 @@ def test_an_omitted_boundary_is_not_applicable():
     assert {s for s, _ in ax.vaft_applicability.values()} == {"NOT_APPLICABLE"}
 
 
+def test_conventional_aspect_ratio_current_limits_are_outside_for_a_spherical_shape():
+    # The ITER-1991 guideline and Freidberg kink current limits declare "conventional aspect
+    # ratio"; on a spherical-tokamak ip_bt population they were UNASSESSED because only
+    # class keywords and declared ranges were tested, never the stated precondition
+    # (cold review 0.8.0 delta-absorb-16 confinement F2).
+    table = pd.DataFrame({"toroidal_field": [0.15, 0.2], "plasma_current": [0.08, 0.12]})
+    table.attrs["units"] = {"toroidal_field": "T", "plasma_current": "MA"}
+    table.attrs["machine_class"] = "spherical_tokamak"
+    shape = {"minor_radius": 0.27, "major_radius": 0.38, "elongation": 1.5, "triangularity": 0.3}
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        _, ax = operational_space_population(table, "ip_bt", boundary_style="inline", boundary_inputs=shape)
+    for key in ("iter_1991_q95_current", "freidberg_2008_kink_current"):
+        status, reasons = ax.vaft_applicability[key]
+        assert status == "OUTSIDE", (key, status, reasons)
+        assert any(r.startswith("A = R/a = 1.41") and "conventional aspect ratio" in r for r in reasons), reasons
+    # The shape decides it even without a machine-class label...
+    from vaft.plot.operational_space import applicability_status
+    curves = {c.key: c for c in ops.overlay_plan("ip_bt", ["iter_1991_q95_current", "freidberg_2008_kink_current"],
+                                                 x_range=(0.1, 0.3), y_range=(0, 0.3), fixed=shape).curves}
+    axes = ("toroidal_field", "plasma_current")
+    assert applicability_status(curves["iter_1991_q95_current"], table, axes, None)[0] == "OUTSIDE"
+    # ...and a conventional shape meets the precondition: Freidberg's tested kappa range then supports it,
+    # the guideline (no declared range) stays unassessed, with the aspect ratio in the reasons.
+    conventional = dict(shape, minor_radius=0.3, major_radius=0.9)
+    curves = {c.key: c for c in ops.overlay_plan("ip_bt", ["iter_1991_q95_current", "freidberg_2008_kink_current"],
+                                                 x_range=(0.1, 0.3), y_range=(0, 1.0), fixed=conventional).curves}
+    status, reasons = applicability_status(curves["freidberg_2008_kink_current"], table, axes, "conventional_tokamak")
+    assert status == "SUPPORTED" and any("A = R/a = 3.00 meets" in r for r in reasons)
+    status, reasons = applicability_status(curves["iter_1991_q95_current"], table, axes, "conventional_tokamak")
+    assert status == "UNASSESSED" and "no calibration range" in reasons[-1]
+
+
 # --- spherical-tokamak Hugill diagram (#1602) ----------------------------------------------------
 
 
@@ -661,6 +694,82 @@ def test_st_hugill_diagram_curves_are_the_registered_boundaries():
     expected = B.boundary_value(B.get_boundary("sykes_2000_st_hugill"), inverse_cylindrical_q_st=xy[:, 1], elongation=1.8)
     np.testing.assert_allclose(xy[:, 0], expected)
     assert chart.parameters["boundaries"] == ("sykes_2000_st_hugill", "greenwald_hugill_st", "murakami_hugill")
+
+
+# --- Wesson + Cheng-Furth-Boozer references (#1603) ----------------------------------------------
+
+
+def test_the_pair_shows_both_references_on_their_own_planes_and_keeps_the_data():
+    from vaft.plot.operational_space import li_qa_pair
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 17, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    t.attrs["machine_class"] = "spherical_tokamak"
+    fig, axs = li_qa_pair(t)
+    assert axs[0].vaft_overlay.projection == "li_qa_wesson" and axs[1].vaft_overlay.projection == "li_qa_cheng"
+    # the data beyond Wesson's q_psi = 10 stay inside the axes, not just in the scatter
+    assert axs[0].get_xlim()[1] >= 17.0
+    # the CFB panel never receives the q_psi population
+    assert not any(len(c.get_offsets()) for c in axs[1].collections if type(c).__name__ == "PathCollection")
+    legend = " ".join(t_.get_text() for t_ in axs[1].get_legend().get_texts()).replace("\n  ", " ")
+    assert "Cheng-Furth-Boozer 1987 stable domain" in legend and "(Theoretical)" in legend
+    legend0 = " ".join(t_.get_text() for t_ in axs[0].get_legend().get_texts()).replace("\n  ", " ")
+    assert "(Empirical)" in legend0
+
+
+def test_the_pair_widens_each_panel_to_its_data():
+    from vaft.plot.operational_space import li_qa_pair
+    t = pd.DataFrame({"edge_safety_factor": [5.0, 25.0], "internal_inductance_li3": [0.5, 2.4],
+                      "cylinder_edge_safety_factor": [3.0, 12.0], "internal_inductance_cylinder": [0.6, 0.9]})
+    fig, axs = li_qa_pair(t)
+    assert axs[0].get_xlim()[1] >= 25.0 and axs[0].get_ylim()[1] >= 2.4
+    assert axs[1].get_xlim()[1] >= 12.0
+    # the CFB panel gets the population when the table has the cylinder quantities
+    assert sum(len(c.get_offsets()) for c in axs[1].collections if type(c).__name__ == "PathCollection") == 2
+
+
+def test_the_pair_treats_all_nan_cylinder_columns_as_absent_and_draws_a_cylinder_only_table():
+    from vaft.plot.operational_space import li_qa_pair
+    t = pd.DataFrame({"edge_safety_factor": [5.0, 8.0], "internal_inductance_li3": [0.5, 0.7],
+                      "cylinder_edge_safety_factor": [np.nan, np.nan], "internal_inductance_cylinder": [np.nan, np.nan]})
+    _, axs = li_qa_pair(t)
+    assert any("reference only" in t_.get_text() for t_ in axs[1].texts)
+    cyl = pd.DataFrame({"cylinder_edge_safety_factor": [3.0, 4.0], "internal_inductance_cylinder": [0.6, 0.8]})
+    _, axs = li_qa_pair(cyl)
+    assert any("reference only" in t_.get_text() for t_ in axs[0].texts)
+
+
+def test_a_source_end_note_marks_the_registered_end_and_only_inside_the_axes():
+    t = pd.DataFrame({"edge_safety_factor": [4.0, 6.0], "internal_inductance_li3": [0.6, 0.8]})
+    _, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0, 8), y_range=(0, 2))
+    assert not [t_ for t_ in ax.texts if "Fig. 6 ends" in t_.get_text()]   # the axes stop before q_psi = 10
+    _, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0, 14), y_range=(0, 2))
+    notes = [t_ for t_ in ax.texts if "Fig. 6 ends" in t_.get_text()]
+    assert len(notes) == 1 and notes[0].get_text().endswith("= 10") and notes[0].xy[0] == pytest.approx(10.0)
+
+
+def test_the_cfb_domain_stops_where_its_source_figure_ends():
+    empty = pd.DataFrame({"cylinder_edge_safety_factor": pd.Series(dtype=float),
+                          "internal_inductance_cylinder": pd.Series(dtype=float)})
+    _, ax = operational_space_population(empty, "li_qa_cheng", boundary_style="inline", x_range=(1.0, 9.0),
+                                         y_range=(0.2, 2.6))
+    fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
+    xs = np.concatenate([p.vertices[:, 0] for c in fills for p in c.get_paths()])
+    assert xs.max() <= 7.75 + 1e-9   # no fill (stable or unstable) beyond q(a) = 7.75
+    notes = [t_ for t_ in ax.texts if "Fig. 4 ends" in t_.get_text()]
+    assert notes and "no upper-$q$ limit implied" in notes[0].get_text()
+    assert notes[0].xy[0] == pytest.approx(7.75)   # at the registered end, not the last sampled point
+
+
+def test_cfb_bounds_are_never_drawn_on_the_q_psi_plane():
+    for key in ("cheng_1987_li_qa_lower", "cheng_1987_li_qa_upper", "cheng_1987_qa_min"):
+        assert not ops.placement("li_qa_wesson", key).drawable
+
+
+def test_the_cfb_diagram_fills_the_domain_and_labels_the_m1_edges():
+    import vaft.diagram
+    chart = vaft.diagram.li_qa(reference="cheng_1987").model
+    assert chart.curves["domain"][:, 0].max() <= 7.75 + 1e-9
+    assert {f"m{m}" for m in (3, 4, 5, 6)} <= set(chart.labels)
+    assert all(chart.labels[f"m{m}"][0] == m for m in (3, 4, 5, 6))   # at the integer-q(a) edges
 
 
 def test_murakami_is_a_dashed_reference_on_the_st_plane_in_the_default_style_too():

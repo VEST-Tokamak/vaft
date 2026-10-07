@@ -37,12 +37,17 @@ from vaft.diagram._op_space import (
 from vaft.formula import boundaries as _b
 from vaft.plot.presentation import presented
 
-__all__ = ["operational_space_population", "population_overlay", "applicability_status", "APPLICABILITY_STATUSES"]
+__all__ = ["operational_space_population", "population_overlay", "applicability_status", "APPLICABILITY_STATUSES",
+           "li_qa_pair"]
 
 #: How a drawn boundary relates to the plotted population (#1628, plotting side): inside its declared calibration
 #: (SUPPORTED), outside it (OUTSIDE), not assessable from what is declared (UNASSESSED), or not drawable on this
 #: projection (NOT_APPLICABLE). There is no MARGINAL: no cutoff is invented (#1639).
 APPLICABILITY_STATUSES = ("SUPPORTED", "OUTSIDE", "UNASSESSED", "NOT_APPLICABLE")
+
+#: Aspect ratio R/a below which a tokamak is spherical (Peng and Strickler, Nucl. Fusion 26 (1986) 769:
+#: low aspect ratio A <~ 2). A boundary declared for "conventional aspect ratio" is outside its domain there.
+SPHERICAL_ASPECT_RATIO_MAX = 2.0
 
 #: Categorical slots in fixed order (the validated palette of vaft.plot.population).
 CATEGORICAL = ("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#4a3aa7")
@@ -57,6 +62,22 @@ TRAJECTORY_COLORS = ("#1a1a19", "#5b2a9e", "#a3442b")
 #: no part in the "Stable" zone. Murakami is a historical conventional-tokamak reference, not a limit for a
 #: spherical tokamak (#1602).
 REFERENCE_ONLY = frozenset({"murakami_hugill"})
+#: Boundary pairs drawn in the inline style as one theoretical region between them (a filled permissible domain,
+#: with each bound as a line), not as two hatched limits: the Cheng-Furth-Boozer domain (#1603).
+REGIONS = {
+    ("cheng_1987_li_qa_lower", "cheng_1987_li_qa_upper"):
+        "Cheng-Furth-Boozer 1987 stable domain (theory: q(0) = 1.01, pressureless straight cylinder, no shell)",
+}
+#: Where a source figure ends: annotated at the registered end of the boundary's x range (its
+#: ``Applicability.ranges``), and only when that end is inside the axes, so that the end of a literature
+#: reference is not read as a limit and the data beyond it stay on the plot (#1603). ``{end}`` is that end;
+#: the side ("right" of the end point, or "above" it) keeps the note clear of the curve's along-line label.
+SOURCE_ENDS = {
+    "wesson_1989_jet_li_qpsi_upper": ("JET Fig. 6 ends\nat $q_\\psi$ = {end}", "right"),
+    "cheng_1987_li_qa_upper": ("Fig. 4 ends at $q(a)$ = {end}:\nno upper-$q$ limit implied", "above"),
+}
+#: Fill of a theoretical permissible domain (REGIONS), shared by the plot and its legend patch.
+REGION_FILL = ("#1baf7a", 0.16)
 #: Projections on which a REFERENCE_ONLY boundary is a reference in every style, the default shaded one too:
 #: on the spherical-tokamak Hugill diagram Murakami must never read as a limit (#1602). The same holds for any
 #: population whose ``table.attrs["machine_class"]`` is a spherical tokamak.
@@ -69,7 +90,8 @@ def _is_spherical(machine_class: Optional[str]) -> bool:
 
 
 #: Shorter names written along a line in the inline style, where the legend's full name would not fit the curve.
-ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)"}
+ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)", "cheng_1987_li_qa_upper": "Resistive kink",
+                    "cheng_1987_li_qa_lower": "Ideal external kink"}
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
 BOUNDARY_NAMES = {
     "freidberg_2008_kink_qstar": "External kink limit",
@@ -77,8 +99,8 @@ BOUNDARY_NAMES = {
     "troyon": "Troyon limit",
     "wesson_1989_jet_li_qpsi_lower": "Kink / double-tearing limit",
     "wesson_1989_jet_li_qpsi_upper": "Density-limit disruptions",
-    "cheng_1987_li_qa_lower": "Ideal external kink",
-    "cheng_1987_li_qa_upper": "Resistive kink",
+    "cheng_1987_li_qa_lower": "Lower: ideal external kink",
+    "cheng_1987_li_qa_upper": "Upper: low-order resistive kink (mainly 2/1, 3/2)",
     "cheng_1987_qa_min": "q(a) = 2",
     "low_q": "Low-q limit",
     "greenwald_hugill": "Greenwald/Hugill limit",
@@ -429,12 +451,16 @@ def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tupl
     Notes
     -----
     OUTSIDE when a plotted value or a fixed input leaves a declared fitted
-    range, or the declared machine class excludes the plotted one; SUPPORTED
-    only on evidence: the machine class is covered *and* at least one declared
-    calibration range was tested on the plotted values; UNASSESSED otherwise
-    (no machine class given, a class that does not decide it, or no range to
-    test). A boundary the projection omits is UNASSESSED when inputs are
-    missing and NOT_APPLICABLE when its quantities are not this plane's.
+    range, or the declared machine class excludes the plotted one, or the
+    class is declared for conventional aspect ratio and the fixed inputs give
+    a spherical one (``R/a`` below :data:`SPHERICAL_ASPECT_RATIO_MAX`);
+    SUPPORTED only on evidence: the machine class is covered (by name, or by
+    a conventional-aspect-ratio declaration met by the fixed ``R/a``) *and*
+    at least one declared calibration range was tested on the plotted
+    values; UNASSESSED otherwise (no machine class given, a class that does
+    not decide it, or no range to test). A boundary the projection omits is
+    UNASSESSED when inputs are missing and NOT_APPLICABLE when its quantities
+    are not this plane's.
     """
     entry = _b.get_boundary(curve.key)
     reasons = []
@@ -461,7 +487,18 @@ def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tupl
             reasons.append(f"{label} {int(beyond.sum())}/{values.size} outside {lo:g}-{hi:g}")
     declared = getattr(entry.applicability, "machine_class", "") or ""
     covered = _machine_coverage(declared, machine_class)
-    if covered is False:
+    aspect = _fixed_aspect_ratio(curve.fixed)
+    if "conventional" in declared.lower() and aspect is not None:
+        # The precondition the registry states, tested on the plotted shape rather than on a class label.
+        if aspect < SPHERICAL_ASPECT_RATIO_MAX:
+            outside = True
+            covered = False
+            reasons.append(f"A = R/a = {aspect:.2f} is spherical (< {SPHERICAL_ASPECT_RATIO_MAX:g}); "
+                           "declared for conventional aspect ratio")
+        elif covered is None:
+            covered = True
+            reasons.append(f"A = R/a = {aspect:.2f} meets the declared conventional aspect ratio")
+    elif covered is False:
         outside = True
         # the class's first phrase ("JET (conventional ...), 1985-88" -> "JET"); the rest stays on the registry entry
         reasons.append("calibrated on " + declared.split("(")[0].split(",")[0].strip())
@@ -476,6 +513,17 @@ def applicability_status(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: Tupl
         reasons.append("no machine class given for the plotted states" if not machine_class
                        else f"declared class '{declared or 'none'}' does not decide {machine_class}")
     return "UNASSESSED", tuple(reasons)
+
+
+def _fixed_aspect_ratio(fixed: Mapping[str, float]) -> Optional[float]:
+    """R/a from a curve's fixed inputs (``aspect_ratio``, or ``major_radius`` over ``minor_radius``); None if unknown."""
+    if "aspect_ratio" in fixed:
+        aspect = float(fixed["aspect_ratio"])
+    elif "major_radius" in fixed and "minor_radius" in fixed and float(fixed["minor_radius"]) > 0.0:
+        aspect = float(fixed["major_radius"]) / float(fixed["minor_radius"])
+    else:
+        return None
+    return aspect if np.isfinite(aspect) else None
 
 
 #: Omission reasons that mean missing information (UNASSESSED), not a quantity that cannot be drawn here.
@@ -562,6 +610,84 @@ def _draw_trajectories(ax, trajectories, x: str, y: str, time: str, colour_of, s
                         arrowprops=dict(arrowstyle="-|>", color=edge, linewidth=1.2 * lw, shrinkA=0,
                                         shrinkB=0.5 * np.sqrt(size) + 2, mutation_scale=12 * lw),
                         zorder=7)
+
+
+def li_qa_pair(table: pd.DataFrame, *, x_range: Optional[Tuple[float, float]] = None,
+               y_range: Optional[Tuple[float, float]] = None, format: Optional[str] = None,
+               theme: Optional[str] = None, show: bool = False, **kwargs):
+    """The empirical (Wesson 1989, JET) and theoretical (Cheng-Furth-Boozer 1987) l_i-q references side by side.
+
+    The two references use different quantities -- Wesson the equilibrium edge
+    $q_\\psi$ and $l_i(3)$, Cheng et al. a straight cylinder's $q(a)$ and $l_i$ --
+    so they are never drawn on one pair of axes (#1603, #1620): the left panel
+    places the population on Wesson's plane, the right panel draws the CFB
+    stable domain on its own plane, with the population only where the table
+    has the cylinder quantities.
+
+    Parameters
+    ----------
+    table : pandas.DataFrame
+        Population, columns named by quantity identity.
+    x_range, y_range : (float, float), optional
+        Limits of the Wesson panel. By default each panel spans its reference
+        (Wesson: q_psi 0-18, l_i 0-2; CFB: q(a) 1-9, l_i 0.2-2.9) widened to
+        every finite data point, so the data are never cut to a reference.
+    format, theme : str, optional
+        Presentation format and theme of :mod:`vaft.plot.presentation`.
+    show : bool
+        Call ``plt.show()``.
+    **kwargs
+        Passed to :func:`operational_space_population` for both panels
+        (``color``, ``marker``, ``category_colors``, ...). A table without the
+        Wesson columns leaves the left panel as a reference only.
+
+    Returns
+    -------
+    (Figure, ndarray of Axes)
+        The two panels.
+    """
+    import matplotlib.pyplot as plt
+
+    from vaft.plot.presentation import DEFAULT_FORMAT, resolve_presentation
+
+    pres = resolve_presentation(format or DEFAULT_FORMAT, theme)
+    with pres.context():
+        width = pres.format.width_in
+        fig, axs = plt.subplots(1, 2, figsize=(width, min(0.6 * width, pres.format.max_height_in)))
+        panels = (("li_qa_wesson", ("edge_safety_factor", "internal_inductance_li3"), (0.0, 18.0), (0.0, 2.0),
+                   "Wesson 1989 (JET, empirical)", "no $q_\\psi$, $l_i(3)$ for these states:\nreference only"),
+                  ("li_qa_cheng", ("cylinder_edge_safety_factor", "internal_inductance_cylinder"), (1.0, 9.0),
+                   (0.2, 2.9), "Cheng-Furth-Boozer 1987 (theory)",
+                   "no cylinder $q(a)$, $l_i$\nfor these states: reference only"))
+        for ax, (proj, cols, x_ref, y_ref, title, empty_note) in zip(axs, panels):
+            values = [pd.to_numeric(table[c], errors="coerce") if c in table.columns else None for c in cols]
+            finite = (values[0].notna() & values[1].notna()
+                      & np.isfinite(values[0]) & np.isfinite(values[1])) if all(v is not None for v in values) else None
+            has_data = finite is not None and bool(finite.any())
+            data = table if has_data else pd.DataFrame({c: pd.Series(dtype=float) for c in cols})
+            if has_data and proj == "li_qa_wesson" and (x_range is not None or y_range is not None):
+                xr, yr = x_range or x_ref, y_range or y_ref   # explicit limits are the caller's
+            else:
+                xr, yr = x_ref, y_ref
+                if has_data:   # widen the reference span to every finite data point: the data are never cut
+                    xs_, ys_ = values[0][finite], values[1][finite]
+                    xr = (min(xr[0], float(xs_.min())), max(xr[1], 1.05 * float(xs_.max())))
+                    yr = (min(yr[0], float(ys_.min())), max(yr[1], 1.05 * float(ys_.max())))
+            operational_space_population(data, proj, boundary_style="inline", x_range=xr, y_range=yr, ax=ax,
+                                         legend_keys=False, title=title, **(kwargs if has_data else {}))
+            if not has_data:
+                ax.text(0.97, 0.03, empty_note, transform=ax.transAxes, ha="right", va="bottom", fontsize="x-small",
+                        style="italic", color="0.35")
+        for ax in axs:   # the legends go under their panels, so the two panels keep their width
+            legend = ax.get_legend()
+            if legend is not None:
+                handles, labels = legend.legend_handles, [t.get_text() for t in legend.get_texts()]
+                ax.legend(handles, labels, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.16),
+                          fontsize="xx-small", ncol=1)
+        fig.tight_layout(pad=pres.pad if pres.pad is not None else 1.08)
+        if show:
+            plt.show()
+    return fig, axs
 
 
 @presented()
@@ -770,8 +896,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     if y_range is not None:
         ax.set_ylim(y_range)
     plan = population_overlay(table, proj, x=x, y=y, boundaries=boundaries, boundary_inputs=boundary_inputs,
-                              units=units, x_range=ax.get_xlim() if len(xs) else None,
-                              y_range=ax.get_ylim() if len(ys) else None)
+                              units=units, x_range=ax.get_xlim() if (len(xs) or x_range is not None) else None,
+                              y_range=ax.get_ylim() if (len(ys) or y_range is not None) else None)
     xlim, ylim = ax.get_xlim(), ax.get_ylim()
     # a threshold just outside the data span is still part of the picture: widen to show it. Inline, the name
     # is written on the far side of the line, so leave room for it there too (also when the line is in view
@@ -798,6 +924,9 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     ax.set_ylim(ylim)
     machine_class = (getattr(table, "attrs", {}) or {}).get("machine_class")
     applicability = {key: _omission_status(reason) for key, reason in plan.omitted}
+    drawn = {curve.key: curve for curve in plan.curves}
+    regions = {pair: text for pair, text in REGIONS.items() if inline and all(k in drawn for k in pair)}
+    in_region = {k for pair in regions for k in pair}
     for i, curve in enumerate(plan.curves):
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
         applicability[curve.key] = applicability_status(curve, rows, (x, y), machine_class)
@@ -809,12 +938,12 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                 zorder=2)
         if reference and not inline:
             continue   # a dashed line without a forbidden side
-        if reference:
+        if reference or curve.key in in_region:
             from matplotlib.lines import Line2D
             entry = _b.get_boundary(curve.key)
-            patches.append(Line2D([], [], color=c, linestyle="--", linewidth=1.6 * line_scale, label=textwrap.fill(
-                f"{BOUNDARY_NAMES.get(curve.key, curve.key)} ({_basis_word(entry)}){suffix}",
-                width=46, subsequent_indent="  ")))
+            patches.append(Line2D([], [], color=c, linestyle="--" if reference else "-", linewidth=1.6 * line_scale,
+                                  label=textwrap.fill(f"{BOUNDARY_NAMES.get(curve.key, curve.key)} "
+                                                      f"({_basis_word(entry)}){suffix}", width=46, subsequent_indent="  ")))
             continue
         _shade_forbidden(ax, curve, c, hatch="////" if inline else None)
         if inline:
@@ -822,8 +951,47 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             from matplotlib.patches import Patch
             patches.append(Patch(facecolor=to_rgba(c, 0.05), edgecolor=c, hatch="////", linewidth=1.0,
                                  label=_inline_legend_label(curve, suffix)))
+    for (lower_key, upper_key), text in regions.items():
+        from matplotlib.colors import to_rgba
+        from matplotlib.patches import Patch
+        lower, upper = drawn[lower_key], drawn[upper_key]
+        ok = np.isfinite(lower.x) & np.isfinite(lower.y)
+        lx, ly = np.asarray(lower.x)[ok], np.asarray(lower.y)[ok]
+        uok = np.isfinite(upper.x) & np.isfinite(upper.y)
+        if not ok.any() or not uok.any():
+            continue
+        order = np.argsort(np.asarray(upper.x)[uok])
+        uy = np.interp(lx, np.asarray(upper.x)[uok][order], np.asarray(upper.y)[uok][order], left=np.nan, right=np.nan)
+        span = np.isfinite(uy) & (uy >= ly)
+        # only where the source draws both bounds: no fill beyond the figure's end
+        ax.fill_between(lx, ly, uy, where=span, color=REGION_FILL[0], alpha=REGION_FILL[1], linewidth=0, zorder=0)
+        patches.append(Patch(facecolor=to_rgba(*REGION_FILL), edgecolor="none",
+                             label=textwrap.fill(text + " (Theoretical)", width=46, subsequent_indent="  ")))
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    if inline:
+        for curve in plan.curves:
+            note, side = SOURCE_ENDS.get(curve.key, (None, None))
+            ok = np.isfinite(curve.x) & np.isfinite(curve.y)
+            entry = _b.get_boundary(curve.key)
+            ranges = dict(entry.applicability.ranges) if entry.applicability is not None else {}
+            if note is None or not ok.any() or proj.x.name not in ranges:
+                continue
+            # the registered end of the source, not the last sampled point (which is the view edge when the
+            # axes stop short of the source)
+            x_end = float(ranges[proj.x.name][1])
+            cx, cy = np.asarray(curve.x, dtype=float)[ok], np.asarray(curve.y, dtype=float)[ok]
+            order = np.argsort(cx)
+            cx, cy = cx[order], cy[order]
+            (x0, x1), (y0, y1) = sorted(ax.get_xlim()), sorted(ax.get_ylim())
+            if not (x0 <= x_end <= x1) or x_end > cx[-1] + 0.01 * (x1 - x0):
+                continue   # the source end is off the axes, or the curve was not sampled up to it
+            y_end = float(np.interp(x_end, cx, cy))
+            note = note.format(end=f"{x_end:g}")
+            if y0 <= y_end <= y1:
+                offset, ha, va = ((4, 0), "left", "center") if side == "right" else ((-2, 4), "right", "bottom")
+                ax.annotate(note, xy=(x_end, y_end), xytext=offset, textcoords="offset points", ha=ha, va=va,
+                            fontsize="x-small", style="italic", color="0.35", zorder=4, annotation_clip=True)
     if inline and plan.curves:
         for i, curve in enumerate(plan.curves):
             name = ALONG_LINE_NAMES.get(curve.key, BOUNDARY_NAMES.get(curve.key, curve.key))

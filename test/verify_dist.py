@@ -55,9 +55,27 @@ _ALLOWED_DATA_SUFFIXES = {
     # ShotLog era schemas, read at run time by vaft.machine_mapping.pulse_schedule
     # (#995); package-data in pyproject.toml and an explicit include in MANIFEST.in.
     "shotlog/schemas/": (".yaml",),
+    "unified/vest_diagnostics/": (".yaml", ".gz"),
+}
+
+# Issue studies under vaft/validation/studies (#1756): the folders whose
+# scripts ship, and only their ``.py`` files.  Notes, run records and the
+# repository-only folders (ec_launcher_cad_266, nice_issue_666*) never ship;
+# ``[tool.setuptools.packages.find] exclude`` and MANIFEST.in make the same
+# decision, and ``_allowed_study_file`` catches either one drifting.
+_STUDIES = "vaft/validation/studies/"
+_SHIPPED_STUDIES = {"fixed_free_1608"}
+_SHIPPED_STUDY_SCRIPTS = {
+    "fixed_free_1608/closure.py",
+    "fixed_free_1608/direct_fit.py",
+    "fixed_free_1608/matrix.py",
+    "fixed_free_1608/vacuum_response.py",
+    "fixed_free_1608/vfixed_fit.py",
 }
 
 REQUIRED_FILES = {
+    "vaft/validation/studies/__init__.py",
+    "vaft/validation/studies/fixed_free_1608/__init__.py",
     "vaft/.hscfg.example",
     "vaft/machine_mapping/vest.yaml",
     "vaft/data/geometry/MD.yaml",
@@ -68,15 +86,29 @@ REQUIRED_FILES = {
     # ``prune vaft/data`` in MANIFEST.in would drop the subpackage from the sdist.
     "vaft/data/public/__init__.py",
     "vaft/data/shotlog/schemas/common.yaml",
+    "vaft/data/unified/vest_diagnostics/manifest.yaml",
+    "vaft/data/unified/vest_diagnostics/omas.json.gz",
     # Runtime data outside vaft/data: ``_allowed_data_file`` never looks there,
     # so only this set notices a distribution that lacks them.
     # The revision-pinned VEST NICE parameters and the compatibility header
     # NICE builds are force-included with (vaft.code.nice).
     "vaft/code/nice/vest_reference_param.xml",
     "vaft/code/nice/upstream_compat.h",
+    "vaft/diagram/images/vest_machine.jpg",  # the machine photo vaft.diagram scenes render onto
     # The TikZ template every vaft.diagram scene renders into.
     "vaft/diagram/templates/standalone.tex",
-} | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES}
+    # The hosted-GUI deployment templates (#1755): a server installing from
+    # PyPI gets the unit, env file and nginx configuration its own
+    # ``vaft gui --hosted`` is meant to be deployed with.
+    "vaft/deploy/__init__.py",
+    "vaft/deploy/gui/__init__.py",
+    "vaft/deploy/gui/vaft-gui.service",
+    "vaft/deploy/gui/vaft-gui.env.example",
+    "vaft/deploy/gui/nginx-vaft-gui.conf",
+    "vaft/deploy/gui/vaft-gui-proxy.conf",
+} | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES} | {
+    f"{_STUDIES}{name}" for name in _SHIPPED_STUDY_SCRIPTS
+}
 
 
 def _distribution_names(path: Path) -> set[str]:
@@ -110,6 +142,16 @@ def _allowed_data_file(name: str) -> bool:
     return False
 
 
+def _allowed_study_file(name: str) -> bool:
+    if not name.startswith(_STUDIES):
+        return True
+    relative = name.removeprefix(_STUDIES)
+    if relative == "__init__.py":
+        return True
+    folder, separator, _ = relative.partition("/")
+    return bool(separator) and folder in _SHIPPED_STUDIES and relative.endswith(".py")
+
+
 def _verify_distribution(path: Path) -> None:
     names = _distribution_names(path)
     missing = sorted(REQUIRED_FILES - names)
@@ -120,6 +162,13 @@ def _verify_distribution(path: Path) -> None:
     if forbidden_data:
         raise ValueError(
             f"{path.name}: contains repository-only data: {', '.join(forbidden_data)}"
+        )
+
+    forbidden_studies = sorted(name for name in names if not _allowed_study_file(name))
+    if forbidden_studies:
+        raise ValueError(
+            f"{path.name}: contains repository-only issue-study files: "
+            f"{', '.join(forbidden_studies)}"
         )
 
     sdist_only = {f"vaft/data/{name}" for name in _SDIST_ONLY_DATA_FILES}
@@ -161,7 +210,9 @@ def main() -> None:
     parser.add_argument(
         "dist_dir", type=Path, help="directory containing wheel and sdist artifacts"
     )
-    parser.add_argument("--max-wheel-mib", type=float, default=25.0)
+    # 26 MiB since 2026-10-07: the unified VEST diagnostics fixture (0.93 MiB, read by
+    # vaft.data.resources) ships in the wheel (release 0.8.0 decision).
+    parser.add_argument("--max-wheel-mib", type=float, default=26.0)
     args = parser.parse_args()
 
     wheels = sorted(args.dist_dir.glob("*.whl"))

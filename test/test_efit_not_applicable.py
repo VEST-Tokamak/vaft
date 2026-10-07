@@ -99,12 +99,63 @@ def test_light_without_current_is_not_a_vacuum():
     assert CONSTRAINTS._efit_not_applicable(ods, error) is None
 
 
+def test_an_eddy_stage_without_output_is_a_verdict_not_a_failure(monkeypatch, tmp_path):
+    """#1568 unscoped: the eddy manifest says `no_output` (a PF circuit was never
+    recorded). Composition refuses it by name; the constraint step used to let
+    that escape, so the worker retried the shot to `gave_up` for a product that
+    cannot exist (cold review 0.8.0 delta-absorb-16 F1). It is now the #205
+    carrier, which the k-file and EFIT steps already pass on."""
+    eddy_manifest = tmp_path / "eddy-manifest.json"
+    eddy_manifest.write_text(json.dumps({
+        "status": "no_output",
+        "eddy_status": "skipped: required input unavailable: pf_active circuits PF5, PF6 were never recorded",
+    }), encoding="utf-8")
+    output = tmp_path / "constraints" / "48500_constraints.json"
+    monkeypatch.setattr(sys, "argv", [
+        "generate_constraints_ods.py", "--shot", "48500", "--eddy-ods", str(tmp_path / "absent-eddy.json"),
+        "--diagnostics-ods", str(tmp_path / "absent-diagnostics.json"),
+        "--eddy-manifest", str(eddy_manifest), "--output", str(output),
+    ])
+
+    assert CONSTRAINTS.main() == 0
+    reason = constraints_not_applicable_reason(load_omas_json(str(output), consistency_check=False))
+    assert reason.startswith("eddy produced no output: skipped: required input unavailable")
+    assert "PF5, PF6" in reason
+
+
 def test_a_refused_verdict_still_fails_the_step(monkeypatch, tmp_path):
     """main() re-raises when the cut is a fault: no product, a non-zero exit."""
-    monkeypatch.setattr(CONSTRAINTS, "_efit_not_applicable", lambda ods, error: None)
+    monkeypatch.setattr(CONSTRAINTS, "_efit_not_applicable", lambda ods, error, **_: None)
     with pytest.raises(CONSTRAINTS.NoPlasmaCurrentError):
         _run_constraints(monkeypatch, tmp_path, _vacuum())
     assert not (tmp_path / "constraints").exists() or not list((tmp_path / "constraints").iterdir())
+
+
+def test_a_condemned_rogowski_is_a_fault_not_a_verdict():
+    """cold review 0.8.0 delta-absorb-16 F3: a dead or drifting plasma-current
+    Rogowski reads below CUTIP on every shot. The diagnostics stage condemns it
+    in `magnetics.rogowski_coil.0.current.validity` (#1373) -- the mapper writes
+    no `magnetics.ip.0.validity` -- and that is the channel, not the shot."""
+    t = grid()
+    ods = synthetic_ods(ip=pickup_only(t), t=t)
+    ods["magnetics.rogowski_coil.0.current.validity"] = -2
+    error = CONSTRAINTS.NoPlasmaCurrentError("all below", count=3, threshold=15000.0)
+
+    assert CONSTRAINTS._efit_not_applicable(ods, error) is None
+    ods["magnetics.rogowski_coil.0.current.validity"] = 0
+    assert CONSTRAINTS._efit_not_applicable(ods, error) is not None
+
+
+def test_the_verdict_names_the_window_it_was_judged_over():
+    """`magnetics.ip.0` is stored on the analysis grid; the verdict must not
+    claim the whole record (cold review 0.8.0 delta-absorb-16 F3)."""
+    t = grid()
+    ods = synthetic_ods(ip=pickup_only(t), t=t)
+    error = CONSTRAINTS.NoPlasmaCurrentError("all below", count=3, threshold=15000.0)
+
+    reason = CONSTRAINTS._efit_not_applicable(ods, error)
+    assert "over the diagnostics window" in reason
+    assert "whole record" not in reason
 
 
 def test_no_plasma_current_at_all_is_not_a_verdict():
@@ -174,3 +225,80 @@ def test_replication_still_refuses_a_skip_that_is_a_fault(reason):
     manifest = {"status": "no_output", "efit_status": reason}
     with pytest.raises(ProductNotEligibleError):
         _nothing_to_replicate(manifest, "efit")
+
+
+# --- #1731 class shots: what "the current reached CUTIP" means ------------------------------
+
+def _class_shot(ip, *, lit=False):
+    from _plasma_timing_fixtures import light
+
+    t = grid()
+    kwargs = {"slow": light(t), "fast": light(t)} if lit else {}
+    return synthetic_ods(ip=ip(t), t=t, **kwargs)
+
+
+def _error():
+    return CONSTRAINTS.NoPlasmaCurrentError("all below", count=14, threshold=15000.0)
+
+
+def test_a_wrong_sign_pickup_swing_is_not_a_missed_discharge():
+    """48932-48937: -12 to -22 kA of PF pickup ahead of a +5 kA pulse.  The
+    swing is current in the wrong direction, not a discharge the window missed."""
+
+    def ip(t):
+        y = current(t, onset=0.3104, offset=0.3267, peak=5e3)
+        swing = (t >= 0.3010) & (t < 0.3060)
+        y[swing] -= 20e3 * np.sin(np.pi * (t[swing] - 0.3010) / 0.005)
+        return y
+
+    ods = _class_shot(ip)
+    reason = CONSTRAINTS._efit_not_applicable(ods, _error())
+    assert reason is not None and "in the discharge direction" in reason
+    assert reason.startswith("peak |Ip| 5.")
+
+
+def test_single_sample_ringing_is_judged_on_the_box_averaged_current():
+    """48886: spikes read 41 kA, every millisecond averages below 9 kA."""
+
+    def ip(t):
+        y = current(t, onset=0.3057, offset=0.3144, peak=6e3)
+        y[::50] += 40e3 * np.where(np.arange(y[::50].size) % 2, 1.0, -1.0)
+        return y
+
+    ods = _class_shot(ip)
+    assert np.max(np.abs(ods["magnetics.ip.0.data"])) > 30e3
+    assert CONSTRAINTS._efit_not_applicable(ods, _error()) is not None
+    # the same spikes averaged over a single sample are a missed discharge again
+    assert CONSTRAINTS._efit_not_applicable(ods, _error(), average_window=0.0) is None
+
+
+def test_a_lit_pulse_below_cutip_is_a_small_discharge_not_a_dead_channel():
+    """48913/48924: 2.4-2.8 kA under a lit window -- the current shows the pulse,
+    so the channel is alive and the discharge is too small for EFIT."""
+    ods = _class_shot(lambda t: current(t, peak=2.6e3, noise=30.0), lit=True)
+    reason = CONSTRAINTS._efit_not_applicable(ods, _error())
+    assert reason is not None and "shot_class Plasma" in reason
+
+
+def test_a_reverse_current_with_no_accepted_pulse_is_judged_on_its_magnitude():
+    """The timing accepts no pulse from a negative-only record, so |Ip| decides."""
+    ods = _class_shot(lambda t: -current(t, peak=60e3))
+    assert CONSTRAINTS._efit_not_applicable(ods, _error()) is None
+
+
+def _small_pulse_then_large_reverse(t):
+    y = current(t, onset=0.285, offset=0.300, peak=8e3, rise=3e-3)
+    return y - current(t, onset=0.320, offset=0.345, peak=40e3, noise=0.0)
+
+
+def test_a_large_reverse_current_under_light_is_not_dismissed_as_pickup():
+    """cold review: a +8 kA accepted pulse sets the direction; a lit -40 kA
+    current after it may be the discharge, so the verdict stays a fault."""
+    ods = _class_shot(_small_pulse_then_large_reverse, lit=True)
+    assert CONSTRAINTS._efit_not_applicable(ods, _error()) is None
+
+
+def test_the_same_reverse_current_in_the_dark_is_pickup():
+    ods = _class_shot(_small_pulse_then_large_reverse)
+    reason = CONSTRAINTS._efit_not_applicable(ods, _error())
+    assert reason is not None and "in the discharge direction" in reason

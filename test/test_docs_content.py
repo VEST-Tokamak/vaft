@@ -45,6 +45,17 @@ def _canonical_urls() -> set[str]:
     }
 
 
+# --- stale branch-state claims -----------------------------------------------
+
+
+def test_the_inference_page_does_not_call_the_merged_zeff_chain_unmerged():
+    # cold review 0.8.0 delta-absorb-17 species-docs F5: PR #1659 (resolve_radial_composition with
+    # normalization="resistive_closure") merged before the page landed
+    page = (DOCS / "_guide" / "Plasma_parameter_inference.md").read_text(encoding="utf-8")
+    assert "Not on `develop` yet" not in page and "in progress" not in page.lower()
+    assert 'normalization="resistive_closure"' in page
+
+
 # --- navigation and redirects ------------------------------------------------
 
 
@@ -65,6 +76,33 @@ def test_every_navigation_target_has_a_page():
     }
     missing = sorted(_canonical_urls() - permalinks)
     assert not missing, f"navigation points at URLs no page claims: {missing}"
+
+
+#: Pages a hub page links to rather than the sidebar: the per-package API
+#: pages and the per-module formula and process references.
+HUB_CHILD_PREFIXES = ("/reference/api/", "/reference/formula/", "/reference/process/")
+
+
+def test_every_rendered_guide_page_is_reachable_from_the_navigation():
+    """The converse of the test above: a new page that is not declared is unreachable.
+
+    ``Fluctuation_coherence.md`` shipped with a permalink and a layout but no
+    navigation entry, so the only way to the page was to know its URL (cold
+    review 0.8.0 delta-absorb-16 diagram-docs F3).  Redirect stubs render no
+    body and the hub children are linked from their hub, so both are exempt.
+    """
+    urls = _canonical_urls()
+    undeclared = sorted(
+        f"{page.relative_to(ROOT)} -> {front['permalink']}"
+        for page in sorted(DOCS.glob("_guide/*.md"))
+        if (front := _front_matter(page)).get("permalink")
+        and front.get("layout") != "redirect"
+        and not front["permalink"].startswith(HUB_CHILD_PREFIXES)
+        and front["permalink"] not in urls
+    )
+    assert not undeclared, (
+        "guide pages missing from docs/_data/navigation.yml:\n  " + "\n  ".join(undeclared)
+    )
 
 
 def test_page_migrations_are_unique_and_canonical():

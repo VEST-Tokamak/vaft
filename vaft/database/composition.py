@@ -127,8 +127,9 @@ class EddyNoOutputError(StageCompositionError):
 
     The eddy stage records a shot whose inputs do not exist in the data (a PF
     circuit that was not recorded, #1568) as a result rather than a failure.
-    Composition refuses it by name, so the EFIT constraint builder fails with
-    the reason and the eddy validation figures can be skipped knowingly.
+    Composition refuses it by name, so the EFIT constraint builder can record
+    EFIT as not applicable with the reason (#205) and the eddy validation
+    figures can be skipped knowingly.
     """
 
     def __init__(self, path: Path, reason: str) -> None:

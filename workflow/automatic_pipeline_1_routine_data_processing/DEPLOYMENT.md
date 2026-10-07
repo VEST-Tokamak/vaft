@@ -856,6 +856,30 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   The Snakefile locates that `config.yaml` by its own path, so the merge holds for any `--directory`.
   Before #1530 it resolved against `--directory`, and a run directory with a partial config silently
   ran on code defaults: EFIT off, `args 65`, no eddy plasma filament.
+- **A run config that omits `efit.run` inherits `true`.** That is the other side of the merge: the
+  workflow's `config.yaml` sets `efit: {run: true}`, so since #1687 a `pipeline_config` that leaves
+  the key out submits EFIT, where the code default `false` used to apply. With `EFIT` unset the parse
+  fails loudly (the path is expanded at load); with it set, EFIT simply starts running. Set `efit.run`
+  explicitly in every deployed run config -- the worker redeployed on 10-06 pins `efit: {run: false}`
+  in its `pipeline.yaml` for that reason.
+- **What a run config may override in the equilibrium magnetics.** The shot's acquisition era in
+  `vaft/machine_mapping/vest.yaml` decides the processing: `daq_mode`, the analysis window and probe
+  baseline (as indices into the output grid) and the flux-loop baseline rule. A
+  `vest.magnetics.processing` block in a run config is applied on top of that era, key by key
+  (`vaft.omas.vest_upstream.magnetics_processing_for_shot`), and the diagnostics manifest records what
+  was actually used under `configuration.vest_magnetics_processing_effective`. Keys the era already
+  decides are refused when set off their defaults: the legacy window ladder (`default_*`, `late_*`,
+  `transient_*`), the per-sample flux baselines (`flux_baseline_first/second/late_*`), and the output
+  grid `time_start`, `time_end`, `sample_count` unless `window_override` is named alongside them (the
+  era window is indices into that grid; moving the grid alone moved the native-DAQ window to
+  0.325-0.45 s). The remaining keys apply on every shot, by design, for parameter scans: the probe
+  filter `fast_sample_rate`, `lowpass_cutoff`, `lowpass_taps`, the conventions `calibration_mode`,
+  `flux_output_per_radian`, and the named era keys `window_override`, `flux_baseline_window`,
+  `flux_baseline_samples`, `allow_zero_fallback` (`daq_mode` is accepted and then checked against the
+  flux rule downstream). History: until #1541 the workflow's own `config.yaml` carried the full legacy
+  block and it *replaced* the era, running every shot from 46404 on through the slow-DAQ path; a legacy
+  block left in a deployed run config forced the same from 10-02 to 10-06 (#1731). Leave `vest: {}`
+  unless you are scanning, and check `vest_magnetics_processing_effective` when a product looks wrong.
 - **`stages` narrows what the worker runs and judges.** Omitted, every run requests `rule all`, the
   whole pipeline. `stages: [raw, diagnostics, eddy]` requests only those stages' products, plots and
   replication records, and the shot's verdict is taken from those alone: the constraint and k-file
@@ -865,14 +889,17 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
   run's config as `stages`, so a manual run can use the same key. This is a decision made before the
   run; a stage that runs and declines a shot is #205's skip semantics.
 - **EFIT on a vacuum shot is a result (#205).** When the plasma current stays below the 15 kA cut
-  over the shot's whole record, the constraint step writes an `EFIT not applicable` product instead
-  of failing; the reason quotes the `vaft.omas.shot_class` label, which does not decide (it reads
+  over the whole diagnostics window (the product stores `magnetics.ip.0` on the plasma-analysis
+  grid, 0.26-0.36 s on the routine configuration, not the whole shot), the constraint step writes
+  an `EFIT not applicable` product instead of failing; the reason quotes the `vaft.omas.shot_class` label, which does not decide (it reads
   48927's 3.3 kA pickup as a `Plasma` pulse). The k-file, EFIT and EFIT-ODS steps pass it on, EFIT's status reads
   `skipped: not applicable: <reason>`, the EFIT stage ends `no_output`, its replication is
   `skipped`, and CHEASE and stability skip for lack of g-files. With EFIT in scope such a shot is
   `partial`, not retried. A shot whose current reaches 15 kA somewhere but at no selected
   instant still fails: the constraint window missed the discharge. So does one whose H-alpha saw a
-  window while the current stayed low (possibly a dead Ip channel). Vacuum shots the worker gave up
+  window while the current stayed low (possibly a dead Ip channel), and one whose plasma-current
+  Rogowski the diagnostics stage condemned (`magnetics.rogowski_coil.0.current.validity`, #1373):
+  a dead sensor reads below the cut on every shot. Vacuum shots the worker gave up
   on before this change stay `gave_up`; `vaft pipeline-worker retry --shot N` runs them again.
   - Optional branches outside the stage chain (IMPA with `impa.enable: true`) are not scoped; they
     depend only on raw and are never part of the shot's verdict.
@@ -921,7 +948,7 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    | Shot state | Meaning |
    | --- | --- |
    | `completed` | Every declared product succeeded. |
-   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. A solver stage that finished `no_output` by design -- EFIT ran and no slice survived, CHEASE had nothing to refine or every slice failed, or the stage is switched off -- has its replication recorded `skipped`, so the shot's other stages stay published and the shot is not retried. `no_output` because the executable is missing, an input is missing or the stage errored still fails, and so does `no_output` over IDS an earlier run already published to the shot (retire those first). An eddy stage whose shot has a PF circuit that was never recorded (#1568) records `no_output` the same way, with its validation-plot manifest `empty`; inside `stages: [raw, diagnostics, eddy]` the shot is `partial`, while an unscoped run still fails it at the EFIT constraint step, like a vacuum shot (#205). |
+   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. A solver stage that finished `no_output` by design -- EFIT ran and no slice survived, CHEASE had nothing to refine or every slice failed, or the stage is switched off -- has its replication recorded `skipped`, so the shot's other stages stay published and the shot is not retried. `no_output` because the executable is missing, an input is missing or the stage errored still fails, and so does `no_output` over IDS an earlier run already published to the shot (retire those first). An eddy stage whose shot has a PF circuit that was never recorded (#1568) records `no_output` the same way, with its validation-plot manifest `empty`; inside `stages: [raw, diagnostics, eddy]` the shot is `partial`, and an unscoped run carries it through the constraint step as `EFIT not applicable: eddy produced no output: ...` (#205's carrier), so the shot is `partial` there too instead of being retried to `gave_up`. |
    | `excluded` | The classifier, the raw preflight or an operator ruled the shot out. |
    | `failed` | A declared product is missing. The shot is retried on the next cycle, and Snakemake rebuilds only what is missing. |
    | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |
@@ -946,7 +973,8 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    settling and the late-field re-check go on, so shots keep queueing. Entering the pause logs a
    warning and records a `disk_paused` event, and `vaft pipeline-worker status` prints
    `PAUSED for disk space`. The worker resumes by itself once every guarded filesystem has
-   `resume_free_gb` free (default `min_free_gb`) and records `disk_resumed`. A filesystem whose
+   `resume_free_gb` free (default `min_free_gb * 1.05`, a margin so free space hovering at the
+   limit does not pause and resume every poll) and records `disk_resumed`. A filesystem whose
    free space cannot be read counts as short. The figure `status` prints is the one measured when
    the pause began. The guard is checked between batches only; a batch that has started runs to
    its end.

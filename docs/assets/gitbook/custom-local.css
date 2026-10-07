@@ -834,6 +834,19 @@
   border-left-color: #c0392b;
 }
 
+/* Plot reference (#1505): the scientific reading of a plot, from its docstring. */
+.ref-callout-interpretation {
+  border-left-color: #2e7d9a;
+}
+
+.ref-callout-options {
+  border-left-color: #6b7f99;
+}
+
+.ref-callout-limitations {
+  border-left-color: #c98a1b;
+}
+
 .ref-callout > :last-child {
   margin-bottom: 0.3em;
 }
@@ -864,7 +877,8 @@
   font-size: 0.9em;
 }
 
-.book .book-body .page-wrapper .page-inner section.normal .ref-more h4.ref-label {
+.book .book-body .page-wrapper .page-inner section.normal .ref-more h4.ref-label,
+.book .book-body .page-wrapper .page-inner section.normal .ref-more h5.ref-label {
   margin-top: 1em;
 }
 

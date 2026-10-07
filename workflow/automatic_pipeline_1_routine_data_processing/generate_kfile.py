@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from datetime import datetime, timezone
 from pathlib import Path
 
 from omas import load_omas_json
@@ -16,6 +17,36 @@ from vaft.code.efit.presets import DEFAULT_PRESET, PRESET_RECORD
 
 
 LOGGER = logging.getLogger("vaft.generate_kfile")
+
+
+def supersede_earlier_run(efit_dir: Path, shot: int) -> Path | None:
+    """Move the shot's k-, g-, a- and m-files of an earlier run under ``superseded/<UTC stamp>/``.
+
+    The stage used to list its output by globbing ``kfile/``, so k-files of an
+    earlier run (another configuration, another Green table, other instants)
+    were run again with the new ones, and the collection read every g-file in
+    ``gfile/`` (#1786). EFIT reads the table of the first k-file of a batch, so
+    a stale first file failed every new one; stale files after a new first one
+    produced g-files that passed as fresh. Each kind moves to its own
+    ``<kind>file/superseded/<stamp>/`` (files EFIT left in the run directory
+    itself to ``superseded/<stamp>/``). They are moved, not deleted: they are
+    the record of what the earlier run used.
+    """
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    moved = 0
+    for directory in [efit_dir / f"{kind}file" for kind in "kgam"] + [efit_dir]:
+        previous = [p for kind in "kgam" for p in sorted(directory.glob(f"{kind}0{shot}.*")) if p.is_file()]
+        if not previous:
+            continue
+        target = directory / "superseded" / stamp
+        target.mkdir(parents=True)
+        for path in previous:
+            path.rename(target / path.name)
+        moved += len(previous)
+    if moved:
+        LOGGER.info("Moved %d EFIT file(s) of an earlier run of shot %s under superseded/%s", moved, shot, stamp)
+        return efit_dir
+    return None
 
 
 def main() -> int:
@@ -65,6 +96,7 @@ def main() -> int:
         # No k-file to write (#205); the manifest carries the verdict on.
         args.output.parent.mkdir(parents=True, exist_ok=True)
         (args.output.parent / PRESET_RECORD).unlink(missing_ok=True)
+        supersede_earlier_run(args.output.parent.parent, args.shot)
         args.output.write_text(kfile_manifest_text(not_applicable), encoding="utf-8")
         LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, not_applicable)
         return 0
@@ -103,6 +135,10 @@ def main() -> int:
             json.dumps({**preset.record(), "sigma_floor_changes": floor_changes}, indent=1) + "\n",
             encoding="utf-8",
         )
+    kfile_dir = efit_dir / "kfile"
+    # One writer per shot is assumed (the pipeline runs a shot's stages in one
+    # chain); a second concurrent run of the same shot would move this one's files.
+    supersede_earlier_run(efit_dir, args.shot)
     generate_kfile(
         ods,
         args.shot,
@@ -112,9 +148,10 @@ def main() -> int:
         config=scientific_config,
     )
 
-    kfiles = sorted((efit_dir / "kfile").glob(f"k0{args.shot}.*"))
+    # Only what this run wrote: the shot's earlier files were moved aside above.
+    kfiles = sorted(kfile_dir.glob(f"k0{args.shot}.*"))
     if not kfiles:
-        raise FileNotFoundError(f"No kfiles generated under {efit_dir / 'kfile'}")
+        raise FileNotFoundError(f"No kfiles generated under {kfile_dir}")
     args.output.write_text(
         "\n".join(str(path) for path in kfiles) + "\n", encoding="utf-8"
     )
