@@ -75,9 +75,22 @@ def site(tmp_path_factory):
                             capture_output=True, text=True).stdout.strip()
     # The copied docs may carry a provenance receipt from an earlier local
     # build.  This fixture generates fresh catalogs, so give the test site the
-    # matching receipt just as docs/build.py does for a real track build.
+    # matching receipt just as docs/build.py does for a real track build.  The
+    # receipt is gitignored, so a fresh checkout has none: write one then.
     receipt = source / "_data" / "provenance.yml"
-    provenance = yaml.safe_load(receipt.read_text(encoding="utf-8"))
+    if receipt.is_file():
+        provenance = yaml.safe_load(receipt.read_text(encoding="utf-8"))
+    else:
+        import vaft
+
+        provenance = {
+            "schema_version": 1,
+            "track": "test",
+            "ref": "test",
+            "commit_date": "",
+            "vaft_version": vaft.__version__,
+            "generated_at": "",
+        }
     provenance["commit"] = commit
     provenance["short_commit"] = commit[:7]
     receipt.write_text(yaml.safe_dump(provenance, sort_keys=False), encoding="utf-8")
