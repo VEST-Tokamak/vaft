@@ -64,6 +64,7 @@ _SUBMODULES = {
     "confinement": ".confinement",
     "impurity": ".impurity",
     "species": ".species",
+    "kinetic_closure": ".kinetic_closure",
     "zeff_projection": ".zeff_projection",
     "mhd_stability": ".mhd_stability",
     "core_q_context": ".core_q_context",
@@ -127,6 +128,9 @@ _IMPORT_ORDER = (
     # Canonical species/population state and its projections (#1567); nothing it
     # exports collides.
     "species",
+    # Dilution-aware pressure and the classical fast-ion baseline (#1606); nothing
+    # it exports collides.
+    "kinetic_closure",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
     # DCON local-criterion and edge-scan post-processing from the ODS payload

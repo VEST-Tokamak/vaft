@@ -10,6 +10,7 @@ import numpy as np
 
 from vaft.machine_mapping.magnetics import SIDE_PROBE_MIN_ABS_Z
 from vaft.formula.constants import PA_PER_TORR
+from vaft.formula.equilibrium import thermal_energy_from_p_V
 
 # `ods[path]` materializes a missing path rather than raising (issue #118).
 from vaft.ods_access import path_value as _value
@@ -2577,13 +2578,13 @@ def time_energy(ods, figsize=(4, 4)):
         
         # Calculate thermal energy from core_profiles: W_th = 3/2 * p_vol_average * volume
         if p_vol_avg_cp is not None and not np.isnan(p_vol_avg_cp[i]) and not np.isnan(volume):
-            W_th_cp[i] = p_vol_avg_cp[i] * (3.0 / 2.0) * volume
+            W_th_cp[i] = thermal_energy_from_p_V(p_vol_avg_cp[i], volume)
         else:
             W_th_cp[i] = np.nan
         
         # Calculate thermal energy from equilibrium: W_th = p_vol_average * 3/2 * volume
         if p_vol_avg_eq is not None and not np.isnan(p_vol_avg_eq[i]) and not np.isnan(volume):
-            W_th_eq[i] = p_vol_avg_eq[i] * (3.0 / 2.0) * volume
+            W_th_eq[i] = thermal_energy_from_p_V(p_vol_avg_eq[i], volume)
         else:
             W_th_eq[i] = np.nan
     
