@@ -241,6 +241,87 @@ def test_a_rerun_lists_only_its_own_kfiles_and_keeps_the_earlier_ones_aside(tmp_
     assert (stale_g.parent / "superseded").is_dir() and list((stale_g.parent / "superseded").glob("*/g039915.00001"))
 
 
+def _generate_kfile_module():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("pipeline1_generate_kfile", PIPELINE1 / "generate_kfile.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _plant_earlier_run(efit_dir, generation):
+    """A stale k-, g-file and run-directory file of an earlier run, marked by generation."""
+    for relative in ("kfile/k039915.00001", "gfile/g039915.00001", "m039915.00001"):
+        path = efit_dir / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"generation {generation}", encoding="utf-8")
+
+
+def _stamps(directory):
+    return sorted(p.name for p in (directory / "superseded").glob("*") if p.is_dir())
+
+
+def test_superseding_three_times_keeps_one_generation_by_default(tmp_path):
+    """``superseded/<stamp>/`` is bounded: the newest generation stays, older ones go.
+
+    Every re-run moved 22-28 MB of a shot's g/k/m/a-files aside and nothing
+    pruned them, ~100 GB per full regeneration pass (cold review 0.8.0
+    delta-absorb-18 F3).
+    """
+    module = _generate_kfile_module()
+    efit_dir = tmp_path / "39915" / "efit"
+    for generation in (1, 2, 3):
+        _plant_earlier_run(efit_dir, generation)
+        module.supersede_earlier_run(efit_dir, 39915)
+
+    for directory, name in ((efit_dir / "kfile", "k039915.00001"), (efit_dir / "gfile", "g039915.00001"), (efit_dir, "m039915.00001")):
+        stamps = _stamps(directory)
+        assert len(stamps) == 1, stamps  # the most recent superseded tree, never deleted
+        assert (directory / "superseded" / stamps[0] / name).read_text(encoding="utf-8") == "generation 3"
+        assert not (directory / name).exists()
+
+
+def test_keep_superseded_bounds_the_generations_kept(tmp_path):
+    module = _generate_kfile_module()
+    efit_dir = tmp_path / "39915" / "efit"
+    for generation in (1, 2, 3):
+        _plant_earlier_run(efit_dir, generation)
+        module.supersede_earlier_run(efit_dir, 39915, keep=2)
+    stamps = _stamps(efit_dir / "kfile")
+    assert len(stamps) == 2
+    kept = [(efit_dir / "kfile" / "superseded" / s / "k039915.00001").read_text(encoding="utf-8") for s in stamps]
+    assert kept == ["generation 2", "generation 3"]  # the oldest went, in time order
+    (efit_dir / "kfile" / "superseded" / "notes.txt").write_text("not a stamp", encoding="utf-8")
+    assert module.prune_superseded(efit_dir, keep=0) == stamps  # reports what it removed
+    assert _stamps(efit_dir / "kfile") == []
+    assert (efit_dir / "kfile" / "superseded" / "notes.txt").exists()  # only stamp directories are pruned
+    with pytest.raises(ValueError):
+        module.prune_superseded(efit_dir, keep=-1)
+
+
+def test_the_script_prunes_older_superseded_generations_and_logs_them(tmp_path):
+    """Three runs through the CLI on a FileDB-shaped tree leave one superseded stamp per kind."""
+    manifest, first = _run_generate_kfile(tmp_path, "--preset", "statistical_891")
+    assert first.returncode == 0, first.stderr[-2000:]
+    efit_dir = manifest.parent.parent
+    (efit_dir / "gfile").mkdir(exist_ok=True)
+    (efit_dir / "gfile" / "g039915.00001").write_text("run 1", encoding="utf-8")
+    _, second = _run_generate_kfile(tmp_path, "--preset", "statistical_891")
+    assert second.returncode == 0, second.stderr[-2000:]
+    assert "Pruned" not in second.stderr  # one generation: nothing older to prune
+    (efit_dir / "gfile" / "g039915.00001").write_text("run 2", encoding="utf-8")
+    _, third = _run_generate_kfile(tmp_path, "--preset", "statistical_891")
+    assert third.returncode == 0, third.stderr[-2000:]
+
+    kfile_stamps, gfile_stamps = _stamps(efit_dir / "kfile"), _stamps(efit_dir / "gfile")
+    assert len(kfile_stamps) == 1 and len(gfile_stamps) == 1
+    assert (efit_dir / "gfile" / "superseded" / gfile_stamps[0] / "g039915.00001").read_text(encoding="utf-8") == "run 2"
+    assert "Pruned 1 older superseded generation(s) of shot 39915 (keeping 1)" in third.stderr
+    _, refused = _run_generate_kfile(tmp_path, "--keep-superseded", "-1")
+    assert refused.returncode != 0 and "must be >= 0" in refused.stderr
+
+
 def test_the_efit_collection_payload_of_a_pre_record_product_is_unchanged():
     """No record (a product from before the k-file stage wrote one): the payload is what it was."""
     efit_collection_parameters = _generate_efit_ods_module().efit_collection_parameters

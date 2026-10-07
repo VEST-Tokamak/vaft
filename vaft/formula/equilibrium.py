@@ -690,6 +690,14 @@ def shear_from_r_q(r: np.ndarray,
     ``q`` and multiplication by ``r``: the axis value is exactly 0 when ``r``
     starts at 0 and undefined where $q$ crosses zero.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: differential
+    locality: flux_surface_local
+    role: stability_coordinate
+
     References
     ----------
     .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40 (1978)
@@ -702,6 +710,145 @@ def shear_from_r_q(r: np.ndarray,
 
 # Alias for backwards compatibility
 magnetic_shear = shear_from_r_q  # noqa: E305
+
+
+def shear_from_volume(V, dV_dpsi, q, dq_dpsi):
+    r"""Magnetic shear against the volume radius $r_V = \sqrt{V/2\pi^2R_0}$.
+
+    $$\hat s_V = \frac{2V}{q}\,\frac{dq/d\psi}{dV/d\psi} = \frac{d\ln q}{d\ln r_V}$$
+
+    Parameters
+    ----------
+    V : float or np.ndarray
+        Volume enclosed by the surface, positive [m^3].
+    dV_dpsi : float or np.ndarray
+        $dV/d\psi$ on the same surfaces, non-zero [m^3/Wb].
+    q : float or np.ndarray
+        Safety factor, non-zero [-].
+    dq_dpsi : float or np.ndarray
+        $dq/d\psi$ against the same flux label as ``dV_dpsi`` [1/Wb].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\hat s_V$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``V`` is not positive, ``dV_dpsi`` or ``q`` is zero, or an input is
+        not finite.
+
+    Convention
+    ----------
+    The flux label cancels: Wb, Wb/rad or normalised $\psi_N$ give the same
+    number as long as both derivatives use it, and so does its sign. This is
+    the shear GPEC.jl's local ballooning reports as ``s_ref``. The radius is
+    the *volume* radius, $V = 2\pi^2R_0r_V^2$, not a geometric minor radius.
+
+    Physical interpretation
+    -----------------------
+    The $\hat s = (r/q)\,dq/dr$ of the $s$-$\alpha$ model, defined on any
+    equilibrium without choosing a minor radius: for circular surfaces of a
+    large-aspect-ratio torus $r_V = r$ and the two agree exactly.
+
+    Assumptions
+    -----------
+    Nested surfaces; the reference major radius $R_0$ only names $r_V$ and
+    cancels from $\hat s_V$.
+
+    References
+    ----------
+    .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
+           R. E. Waltz, Phys. Plasmas 5 (1998) 973.
+    """
+    V = np.asarray(V, dtype=float)
+    dV_dpsi = np.asarray(dV_dpsi, dtype=float)
+    q = np.asarray(q, dtype=float)
+    dq_dpsi = np.asarray(dq_dpsi, dtype=float)
+    for name, value in (("V", V), ("dV_dpsi", dV_dpsi), ("q", q), ("dq_dpsi", dq_dpsi)):
+        if not np.all(np.isfinite(value)):
+            raise ValueError(f"{name} must be finite")
+    if np.any(V <= 0.0):
+        raise ValueError("V must be positive")
+    if np.any(dV_dpsi == 0.0) or np.any(q == 0.0):
+        raise ValueError("dV_dpsi and q must be non-zero")
+    result = 2.0 * V * dq_dpsi / (q * dV_dpsi)
+    return float(result) if result.ndim == 0 else result
+
+
+def ballooning_alpha_from_volume(V, dV_dpsi, dp_dpsi, R0):
+    r"""Normalised pressure gradient $\alpha$ of local ballooning theory on a general equilibrium.
+
+    $$\alpha = -\frac{2\mu_0}{(2\pi)^2}\,\frac{dV}{d\psi}\,\frac{dp}{d\psi}\,
+      \sqrt{\frac{V}{2\pi^2R_0}}$$
+
+    Parameters
+    ----------
+    V : float or np.ndarray
+        Volume enclosed by the surface, positive [m^3].
+    dV_dpsi : float or np.ndarray
+        $dV/d\psi$ with $\psi$ the poloidal flux **per radian** [m^3 rad/Wb].
+    dp_dpsi : float or np.ndarray
+        $dp/d\psi$ against the same per-radian flux [Pa rad/Wb].
+    R0 : float
+        Reference major radius naming the volume radius, positive; the
+        magnetic axis, as GPEC.jl's local ballooning uses [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\alpha$, positive where the pressure falls outward [-].
+
+    Raises
+    ------
+    ValueError
+        ``V`` or ``R0`` is not positive, or an input is not finite.
+
+    Convention
+    ----------
+    Unlike $\hat s_V$, this depends on the flux label: $\psi$ must be the
+    poloidal flux per radian, $|\nabla\psi| = RB_p$. With the full flux in Wb
+    each derivative carries a $2\pi$ and $\alpha$ comes out $(2\pi)^2$ too
+    small. The sign of $\psi$ cancels (both derivatives flip). In the
+    large-aspect-ratio circular limit, $d\psi/dr = rB_0/q$ and
+    $V = 2\pi^2R_0r^2$, it is exactly the Connor-Hastie-Taylor
+    $\alpha = -2\mu_0R_0q^2p'(r)/B_0^2$ with $r$ the **minor** radius
+    (``ballooning_alpha_from_p_B_R`` differentiates against the major radius
+    instead). $\alpha \propto \sqrt{R_0}$ through $r_V$: Miller et al. use each
+    surface's geometric centre instead of the axis, which at a spherical
+    tokamak's aspect ratio moves $\alpha$ by several per cent, so state which
+    $R_0$ when comparing.
+
+    Physical interpretation
+    -----------------------
+    The pressure-gradient drive of high-$n$ ballooning, measured against the
+    field-line bending it must overcome, without choosing a minor radius or a
+    field strength: both enter through $dV/d\psi$.
+
+    Assumptions
+    -----------
+    Nested surfaces; local (high-$n$) ballooning ordering. It is a
+    normalisation, not a stability criterion: the boundary it is compared
+    with depends on the shaping the reduced $s$-$\alpha$ model drops.
+
+    References
+    ----------
+    .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
+           R. E. Waltz, Phys. Plasmas 5 (1998) 973.
+    .. [2] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40
+           (1978) 396.
+    """
+    V = np.asarray(V, dtype=float)
+    dV_dpsi = np.asarray(dV_dpsi, dtype=float)
+    dp_dpsi = np.asarray(dp_dpsi, dtype=float)
+    for name, value in (("V", V), ("dV_dpsi", dV_dpsi), ("dp_dpsi", dp_dpsi), ("R0", np.asarray(R0, dtype=float))):
+        if not np.all(np.isfinite(value)):
+            raise ValueError(f"{name} must be finite")
+    if np.any(V <= 0.0) or not float(R0) > 0.0:
+        raise ValueError("V and R0 must be positive")
+    result = -2.0 * MU0 / (2.0 * np.pi) ** 2 * dV_dpsi * dp_dpsi * np.sqrt(V / (2.0 * np.pi ** 2 * float(R0)))
+    return float(result) if result.ndim == 0 else result
 
 
 # ------------------------------------------------------------------
@@ -1855,6 +2002,14 @@ def beta_toroidal_from_p_B0(p_average: float,
     float
         Toroidal beta [-].
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
@@ -1891,6 +2046,14 @@ def beta_poloidal_from_pressure_integral(pressure_integral: float,
     The EFIT/OMFIT circumference form is a different definition; see
     :func:`beta_poloidal_from_circumference`.
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_pol``.
@@ -1924,6 +2087,14 @@ def beta_normal_from_beta_tor(beta_tor: float,
     float
         Normalized beta [% m T/MA].
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: normalization
+    locality: global
+    role: stability_coordinate
+
     References
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
@@ -2043,6 +2214,14 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     float
         Internal inductance, ``li_3`` definition [-].
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
@@ -2441,6 +2620,14 @@ def stored_energy_from_p_V(p: Union[float, np.ndarray],
     -----------
     ``p`` is the volume average (or the profile is flat) when ``V`` is the total
     volume.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: integral
+    locality: global
+    role: global_descriptor
     """
     return p * V
 
@@ -2977,6 +3164,14 @@ def peaking_factor(central: float,
     ---------------
     A zero volume average warns and returns ``nan``.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: profile_descriptor
+
     See Also
     --------
     vaft.formula.utils.calculate_peaking_factor
@@ -3266,6 +3461,14 @@ def estimated_q95(a: Union[float, np.ndarray],
     limited spherical tokamak. The machine default is read from the machine
     description by :func:`vaft.omas.edge_q.edge_q_estimate`, not here.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: closure
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227.
@@ -3413,6 +3616,14 @@ def kinetic_energy_from_beta_p_B_pa_V_p(beta_p: float,
     $B_{pa}$ is the poloidal field averaged over the boundary contour of length
     $L_p$, the EFIT/Lao normalisation of $\beta_p$; the $3/2$ converts $pV$ to
     the ideal-gas thermal energy.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: normalization
+    locality: global
+    role: global_descriptor
 
     References
     ----------
@@ -4560,6 +4771,14 @@ def rho_star_from_M_T_B_R_epsilon(
     :func:`normalized_larmor_radius_from_M_T_a_Bt` in database units.  Tracked
     with the other $\rho_*$ definitions in #353.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
+
     References
     ----------
     .. [1] G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006, Sec. 2.
@@ -4742,6 +4961,14 @@ def nu_star_from_n_T_B_R_epsilon_kappa_I(
     times larger, so values are comparable only within one convention.  Tracked
     with the other $\nu_*$ definitions in #353.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
+
     References
     ----------
     .. [1] G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006, Sec. 2.
@@ -4810,6 +5037,14 @@ def omega_i_tau_E_from_B_tau_E_M(
     Exact SI angular cyclotron frequency with the proton mass and elementary
     charge from :mod:`vaft.formula.constants`; not a fitted prefactor.  The
     dependent variable of dimensionless confinement scalings.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
 
     References
     ----------
@@ -5081,6 +5316,14 @@ def confinement_time_from_engineering_parameters(
     Extrapolation to VEST (small size, low field) lies outside every database
     range except in part the ST fit; the Kurskiev regression's absorbed-power
     dependence is mapped onto ``P_loss`` as supplied.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: empirical_scaling
+    locality: global
+    role: closure_output
 
     References
     ----------
@@ -5553,6 +5796,14 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     unchanged, so the transformation is a no-op for those two axes.  Before
     #351 the indices came from a different, wrong closed form (IPB98(y,2)
     gave $\mu_\rho = 21.2$).
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: similarity_transform
+    locality: global
+    role: similarity_coordinate
 
     References
     ----------

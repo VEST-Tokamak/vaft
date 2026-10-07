@@ -45,6 +45,27 @@ def _canonical_urls() -> set[str]:
     }
 
 
+# --- front matter ------------------------------------------------------------
+
+
+def test_front_matter_values_are_not_truncated_by_a_hash_comment():
+    """An unquoted `` #`` starts a YAML comment, so ``(issue #156)`` renders as ``(issue``."""
+    truncated = []
+    for page in _pages():
+        match = re.match(r"\A---\s*\n(.*?)\n---", page.read_text(encoding="utf-8"), re.S)
+        if not match:
+            continue
+        yaml.safe_load(match.group(1))  # the whole block must still parse
+        for number, line in enumerate(match.group(1).splitlines(), start=2):
+            pair = re.match(r"^\s*(?:- )?[A-Za-z_][\w-]*:\s+(\S.*?)\s*$", line)
+            if not pair or " #" not in (raw := pair.group(1)) or raw[0] in "\"'":
+                continue
+            parsed = yaml.safe_load(f"key: {raw}")["key"]
+            if parsed is None or len(str(parsed)) < len(raw):
+                truncated.append(f"{page.relative_to(ROOT)}:{number}: {line.strip()}")
+    assert not truncated, "quote these front-matter values; ' #' cuts them short:\n" + "\n".join(truncated)
+
+
 # --- stale branch-state claims -----------------------------------------------
 
 
