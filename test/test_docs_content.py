@@ -50,6 +50,34 @@ def _canonical_urls() -> set[str]:
 # --- front matter ------------------------------------------------------------
 
 
+def _hash_truncates_front_matter_value(line: str) -> bool:
+    """True when an unquoted ``#`` in this ``key: value`` line makes YAML drop part of the value."""
+    pair = re.match(r"^\s*(?:- )?[A-Za-z_][\w-]*:\s+(\S.*?)\s*$", line)
+    if not pair:
+        return False
+    raw = pair.group(1)
+    if not (" #" in raw or raw.startswith("#")) or raw[0] in "\"'":
+        return False
+    parsed = yaml.safe_load(f"key: {raw}")["key"]
+    return parsed is None or len(str(parsed)) < len(raw)
+
+
+@pytest.mark.parametrize(
+    "line, truncated",
+    [
+        ("status: pending (issue #1803)", True),
+        ("status: #1803 pending", True),  # a leading `#` comments the whole value away: None
+        ("status: '#1803 pending'", False),
+        ('status: "pending (issue #1803)"', False),
+        ("status: pending#1803", False),  # `#` without a preceding space is not a comment
+        ("# a comment line", False),
+    ],
+)
+def test_the_front_matter_hash_check_catches_leading_and_trailing_comments(line, truncated):
+    # cold review 0.8.0 delta-absorb-19-docs F4: `#` at the start of a value was skipped
+    assert _hash_truncates_front_matter_value(line) is truncated
+
+
 def test_front_matter_values_are_not_truncated_by_a_hash_comment():
     """An unquoted `` #`` starts a YAML comment, so ``(issue #156)`` renders as ``(issue``."""
     truncated = []
@@ -59,13 +87,9 @@ def test_front_matter_values_are_not_truncated_by_a_hash_comment():
             continue
         yaml.safe_load(match.group(1))  # the whole block must still parse
         for number, line in enumerate(match.group(1).splitlines(), start=2):
-            pair = re.match(r"^\s*(?:- )?[A-Za-z_][\w-]*:\s+(\S.*?)\s*$", line)
-            if not pair or " #" not in (raw := pair.group(1)) or raw[0] in "\"'":
-                continue
-            parsed = yaml.safe_load(f"key: {raw}")["key"]
-            if parsed is None or len(str(parsed)) < len(raw):
+            if _hash_truncates_front_matter_value(line):
                 truncated.append(f"{page.relative_to(ROOT)}:{number}: {line.strip()}")
-    assert not truncated, "quote these front-matter values; ' #' cuts them short:\n" + "\n".join(truncated)
+    assert not truncated, "quote these front-matter values; '#' cuts them short:\n" + "\n".join(truncated)
 
 
 # --- stale branch-state claims -----------------------------------------------
