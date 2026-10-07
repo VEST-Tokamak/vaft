@@ -33,6 +33,8 @@ __all__ = [
     "ProfileSpec",
     "ScalarTarget",
     "SqrtPressureSplit",
+    "atomic",
+    "spectroscopy",
     "SyntheticKineticProfiles",
     "SyntheticKineticSpec",
     "SyntheticProfileError",
@@ -267,7 +269,7 @@ _EXPORT_MAP = {
 
 
 def __getattr__(name: str):
-    if name in {"resources", "open_adas", "kinetic_profiles", "pfile", "mars_profiles"}:
+    if name in {"resources", "open_adas", "kinetic_profiles", "pfile", "mars_profiles", "atomic", "spectroscopy"}:
         module = import_module(f".{name}", __name__)
         globals()[name] = module
         return module

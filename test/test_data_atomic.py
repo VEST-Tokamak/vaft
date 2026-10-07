@@ -50,6 +50,19 @@ def test_the_data_modules_import_nothing_heavy():
                    check=True, capture_output=True, text=True)
 
 
+def test_both_modules_are_lazy_attributes_of_vaft_data():
+    # in a fresh interpreter: this module's own `from vaft.data import atomic` would bind them
+    code = ("import vaft.data; "
+            "species = vaft.data.atomic.parse_species('C III'); "
+            "line = vaft.data.spectroscopy.parse_emission_term('H_alpha'); "
+            "from vaft.data.atomic import AtomicSpecies; "
+            "assert species == AtomicSpecies('C', ionization_stage=3); "
+            "assert line.species == AtomicSpecies('H', 1); "
+            "assert {'atomic', 'spectroscopy'} <= set(vaft.data.__all__) <= set(dir(vaft.data))")
+    subprocess.run([sys.executable, "-W", "error::DeprecationWarning", "-c", code],
+                   check=True, capture_output=True, text=True)
+
+
 def test_the_old_module_warns_and_reexports_the_same_objects():
     sys.modules.pop(LEGACY, None)
     with pytest.warns(DeprecationWarning, match="vaft.data.atomic"):
