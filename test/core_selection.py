@@ -276,10 +276,13 @@ CORE_MODULES: tuple[str, ...] = (
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
     # only), the plasma-current Rogowski verdict, the TF excursion repair and
-    # the shot-class pickup refusal (#1733) on synthetic records.
+    # the shot-class pickup refusal (#1733) on synthetic records, and the EFIT
+    # not-applicable verdict for sub-CUTIP class shots (#1731), whose last test
+    # runs the k-file/EFIT/EFIT-ODS scripts as subprocesses (~10 s).
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
+    "test_efit_not_applicable.py",
     "test_flux_loop_known_faults.py",
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
