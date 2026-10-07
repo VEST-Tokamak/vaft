@@ -120,7 +120,8 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/samples/39915/imas.nc" not in manifest
     assert "include vaft/data/wheel_samples/39915/manifest.yaml" in manifest
     assert "include vaft/data/wheel_samples/39915/omas.json.gz" in manifest
-    assert "include vaft/data/wheel_samples/39915/imas.nc" in manifest
+    # the hook no longer reads the compact IMAS twin, so the sdist drops it (0.8.0)
+    assert "include vaft/data/wheel_samples/39915/imas.nc" not in manifest
     assert "include vaft/data/geometry/VEST_static_geometry.json.gz" in manifest
 
 
