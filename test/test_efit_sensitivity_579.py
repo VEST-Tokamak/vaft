@@ -143,6 +143,27 @@ def test_compose_products_records_its_sources(tmp_path, monkeypatch):
     assert Path(entry["product"]).is_file() and len(entry["sha256"]) == 64
     assert entry["diagnostics"]["path"].endswith("diagnostics.json.gz")
     assert entry["composition"]["manifest"] is None  # no eddy manifest on disk
+    # The record says the diagnostics-hash check could not run, rather than
+    # silently looking like a composed pair (cold review 0.8.0 delta-absorb-17 F6).
+    assert entry["eddy_manifest"]["present"] is False
+    assert entry["eddy_manifest"]["diagnostics_hash_check"].startswith("skipped")
+    assert entry["eddy_manifest"]["path"].endswith("manifest.json")
+
+    # Paths come from the FileDB resolvers, not a hand-built layout.
+    from vaft.database.filedb import FileDB
+
+    fdb = FileDB(tmp_path / "filedb")
+    assert Path(entry["diagnostics"]["path"]) == fdb.omas_product("diagnostics", shot=shot)
+    assert Path(entry["eddy"]["path"]) == fdb.omas_product("eddy", shot=shot)
+    assert Path(entry["eddy_manifest"]["path"]) == fdb.omas_manifest("eddy", shot=shot)
+
+    manifest = fdb.omas_manifest("eddy", shot=shot)
+    manifest.parent.mkdir(parents=True)
+    manifest.write_text("{}", encoding="utf-8")
+    entry = compose.compose(tmp_path / "filedb", shot, tmp_path / "products")
+    assert entry["composition"]["manifest"] == str(manifest)  # json round-trip
+    assert entry["eddy_manifest"] == {"path": str(manifest), "present": True,
+                                      "diagnostics_hash_check": "performed"}
 
 
 def test_the_bootstrap_perturbs_what_the_fit_reads_and_restores_it(monkeypatch):

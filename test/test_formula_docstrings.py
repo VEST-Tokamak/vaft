@@ -208,6 +208,8 @@ CONVENTION_SENSITIVE = frozenset({
     "island_pendulum_hamiltonian",
     "island_separatrix_half_width",
     "delta_prime_from_outer_derivatives",
+    # GGJ: D_I > 0 / D_R > 0 unstable, as RDCON and DCON write them
+    "ggj_resistive_interchange_index_from_ideal",
     "s_alpha_ballooning_stable",
     "s_alpha_marginal_alpha",
     "slab_perturbed_flux",
@@ -244,6 +246,8 @@ CONVENTION_SENSITIVE = frozenset({
     "cylindrical_enclosed_current",
     "cylindrical_poloidal_flux",
     "cylindrical_internal_inductance",
+    "cylindrical_current_diffusion_rate",
+    "resistive_diffusion_time",
     # single-particle motion: charge signs, vector orientation, half-step velocities
     "gyrofrequency",
     "larmor_radius",

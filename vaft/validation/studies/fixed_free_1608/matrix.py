@@ -19,14 +19,42 @@ from vaft.process.equilibrium import (
 )
 
 
+def _gate_inputs(record):
+    """Frozen-current status and comparison from a summary.json or measured_matrix.json record.
+
+    summary.json records are flat (``verification_status``,
+    ``verified_comparison``); measured_matrix.json condenses the same solve
+    into a nested ``verified`` block with the gate quantities at its top
+    level. Both shapes yield the same gate inputs.
+    """
+    if 'verified' in record and 'verified_comparison' not in record:
+        verified = record.get('verified') or {}
+        comparison = {
+            'lcfs': {'max_distance_m': verified.get('lcfs_max_m')},
+            'axis_displacement_m': verified.get('axis_displacement_m'),
+            'native_boundary': {
+                'topology': verified.get('native_topology'),
+                'matched_displacements_m': verified.get('x_point_displacements_m'),
+                'unmatched_target': verified.get('unmatched_target_x_points'),
+                'unmatched_solved': verified.get('unmatched_solved_x_points'),
+            },
+            'globals': {
+                'q95_field_integral': verified.get('q95_field_integral'),
+                'Ip_A': {'difference': verified.get('Ip_difference_A')},
+            },
+        }
+        return verified.get('status'), comparison
+    return record.get('verification_status'), record.get('verified_comparison') or {}
+
+
 def acceptance_failures(record):
     """Evaluate the documented coarse-grid frozen-current benchmark gates."""
     failures = []
     if record.get('error'):
         return [record['error']]
-    if record.get('verification_status') != 'converged':
+    status, comparison = _gate_inputs(record)
+    if status != 'converged':
         failures.append('frozen-current solve did not converge')
-    comparison = record.get('verified_comparison') or {}
     lcfs = comparison.get('lcfs') or {}
     native = comparison.get('native_boundary') or {}
     globals_ = comparison.get('globals') or {}

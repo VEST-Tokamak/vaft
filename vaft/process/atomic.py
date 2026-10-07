@@ -40,7 +40,7 @@ from scipy.interpolate import interp1d
 from vaft.compat import trapz_compat
 from vaft.data.open_adas import ADASDataError
 from vaft.formula.atomic import line_cooling_coefficient
-from vaft.spectroscopy import ATOMIC_NUMBERS, ELEMENT_NAMES
+from vaft.data.atomic import ATOMIC_NUMBERS, ELEMENT_NAMES
 
 
 logger = logging.getLogger(__name__)
@@ -50,11 +50,10 @@ IMPURITY_SOURCES = ("profile", "configured", "inferred_from_zeff", "none")
 
 _DEFAULT_TIME_MATCH_ATOL = 1.0e-6
 
-#: Shared with :mod:`vaft.spectroscopy`, which owns the element vocabulary so
-#: that ``vaft.plot`` can resolve species without importing OMAS through this
-#: module.  ``D`` and ``T`` stay distinct keys here because ADAS files are
-#: named that way; :class:`vaft.spectroscopy.Species` records them as hydrogen
-#: with a mass number instead.
+#: Views of :mod:`vaft.data.atomic`, which owns the element vocabulary.
+#: ``D`` and ``T`` stay distinct keys here because ADAS files are named that
+#: way; :class:`vaft.data.atomic.AtomicSpecies` records them as hydrogen with
+#: a mass number instead.
 _ATOMIC_NUMBERS = ATOMIC_NUMBERS
 _ELEMENT_NAMES = ELEMENT_NAMES
 

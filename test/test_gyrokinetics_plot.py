@@ -167,3 +167,34 @@ def test_flux_contributors_keep_the_total_unknown_when_no_field_carries_the_quan
     assert any("toroidal_stress" in note and "e" in note for note in notes)
     assert not axes[1].texts
     plt.close(figure)
+
+
+def test_turbulent_transport_models_are_paired_by_time_not_by_slice_index():
+    """Two anomalous models whose profiles_1d are ordered differently: without
+    ``time=`` the second model's slice at the first model's instant is drawn, not
+    its slice 0 (cold review 0.8.0 delta-absorb-17 transport F5)."""
+    from vaft.omas.entries import normalize_entries
+    from vaft.plot.backend.recipes import build_model
+
+    from _synthetic_inputs import make_turbulent_transport
+
+    transport = make_turbulent_transport(None)
+    reference = float(transport["core_transport.model.0.profiles_1d.0.time"])
+    first = "core_transport.model.1.profiles_1d.0"
+    second = "core_transport.model.1.profiles_1d.1"
+    rho = transport[f"{first}.grid_flux.rho_tor_norm"]
+    transport[f"{first}.time"] = 0.9
+    transport[f"{second}.time"] = reference
+    transport[f"{second}.grid_flux.rho_tor_norm"] = rho
+    transport[f"{second}.electrons.energy.flux"] = -7.0 * np.ones(rho.shape)
+
+    model = build_model("turbulent_transport_profile_energy_flux", normalize_entries(transport))
+    by_label = {s.label: s for s in model.series}
+    assert float(by_label["CGYRO e"].y[0]) == pytest.approx(-7.0)
+    assert model.metadata["time"] == pytest.approx(reference)
+    assert model.metadata["slice_time"] == {"TGLF": pytest.approx(reference),
+                                            "CGYRO": pytest.approx(reference)}
+    asked = build_model("turbulent_transport_profile_energy_flux", normalize_entries(transport),
+                        time=0.9)
+    assert float({s.label: s for s in asked.series}["CGYRO e"].y[0]) > 0
+    assert asked.metadata["slice_time"]["CGYRO"] == pytest.approx(0.9)

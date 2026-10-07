@@ -151,6 +151,13 @@ def test_resistive_zeff_is_inferred_and_built_on_the_romero_balance():
     assert "zeff" not in zeff.node("eq").ids and "core_profiles" in zeff.node("cp").ids
 
 
+def test_no_todo_claims_shipped_work_is_off_develop():
+    # cold review 0.8.0 delta-absorb-17 species-docs F5: a TODO names a gap, not a branch state
+    for spec in SPECS:
+        for todo in spec.todos:
+            assert "not on develop" not in todo.lower(), (spec.key, todo)
+
+
 def test_unmapped_results_say_so_and_every_spec_lists_its_gaps_in_the_docs():
     tagged = {(spec.key, n.key) for spec in SPECS for n in spec.nodes if n.mapping_todo}
     assert {("plasma_parameter_inference", "state"), ("romero_transformer_balance", "rp"),

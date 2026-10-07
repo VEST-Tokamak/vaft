@@ -155,3 +155,6 @@ The follow-up issues are #1079 (a minimal Actor protocol and implementation regi
 shared inputs/outputs and the provenance, assumptions and validity metadata), and two prototypes
 in scientifically different domains, #1081 (`equilibrium_reconstruction`) and #1082 (`plasma_response`).
 Code-centric and Process-centric use stay normal and supported throughout.
+
+This page says *where* a computation lives. What physical model it represents -- which equations, which ordering,
+what "kinetic" means for it -- is on [Plasma models, orderings, and scales]({{ '/reference/plasma-models/' | relative_url }}).

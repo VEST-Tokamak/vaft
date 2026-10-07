@@ -46,7 +46,7 @@ VEST_SUMMARY_DEFINITIONS: dict[str, str] = {
     "p_loss_definition": (
         "VAFT core_profiles summary: P_ohm (integral of eta J^2, Spitzer, Z_eff=2) "
         "- dW/dt - P_rad (line + bremsstrahlung + synchrotron); radiation IS "
-        "subtracted; no auxiliary heating; dW/dt uses W = (2/3)<p>V (#1282)"
+        "subtracted; no auxiliary heating; dW/dt uses W = (3/2)<p>V (#1282)"
     ),
     "w_th_definition": "not carried by the summary",
     "tau_e_definition": (

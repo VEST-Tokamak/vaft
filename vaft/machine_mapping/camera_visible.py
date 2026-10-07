@@ -207,7 +207,12 @@ def _parse_gx8_header(path: Path, lines: Sequence[str]) -> CameraHeaderInfo:
     2500 fps. So the top and bottom times are ``frame / Frame_Rate``, and the
     exported frame count is ``BottomFrame - TopFrame + 1``. Verified against
     the three shots (26151, 26153, 26155) that exist in both layouts: same
-    start, end and exposure.
+    start, end and exposure. The frame numbers are indices into the camera's
+    source recording, whose rate is ``Frame_SRC_Rate``; ``Frame_Rate`` is the
+    export rate, read first here with ``Frame_SRC_Rate`` as the fallback.
+    Every header seen so far carries the same value in both, so a header
+    where they differ would need the source rate for the times and has not
+    been met.
     """
     values: dict[str, str] = {}
     for line in lines:

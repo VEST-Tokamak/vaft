@@ -91,6 +91,8 @@ DEFINITIONAL = frozenset({
     # impurity (#1565): constructors and the provenance-record grammar --
     # validation and bookkeeping; the algebra they feed is vaft.formula.impurity.
     "composition_from_fractions",
+    # mhd_stability (#940): sign intervals of a sampled profile -- pure numerics.
+    "criterion_intervals",
     "composition_from_model",
     "composition_record_origin",
     "composition_record_text",
@@ -652,6 +654,11 @@ CONVENTION_SENSITIVE = frozenset({
     "species_state_from_composition",
     "composition_moments",
     "project_species_state",
+    # mhd_stability (#940): DCON's signs (D_I, D_R > 0 and C_A, dW < 0 unstable)
+    # and its edge-scan peak search.
+    "dcon_local_stability",
+    "dcon_edge_scan",
+    "dcon_edge_comparison",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

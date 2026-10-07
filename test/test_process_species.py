@@ -226,6 +226,109 @@ def test_a_radial_composition_gives_one_component_per_charge_state(tmp_path):
 # --- cold-review findings ------------------------------------------------------------------
 
 
+def test_a_resolved_bundled_ion_builds_its_component_on_the_radial_charge_moments():
+    # cold review 0.8.0 delta-absorb-17 species F2: an ODS-resolved composition labels a bundled
+    # ion with one scalar <Z> (#1769) and carries <Z>(rho), <Z^2>(rho) beside it
+    z1 = np.linspace(3.0, 6.0, 6)
+    z2 = z1**2 + 0.5 * z1 * (6.0 - z1)          # <Z>^2 <= <Z^2> <= Z_n <Z>, a real spread
+    ods = _ods([_ion("H", 1.0, 1.008, 1.0, 0.9),
+                {"label": "C", "element.0.z_n": 6.0, "element.0.a": 12.011, "density_thermal": 0.01 * NE,
+                 "z_ion_1d": z1, "z_ion_square_1d": z2}])
+    resolved = resolve_impurity_composition(ods=ods, use_measured_zeff=False)
+    assert resolved.mean_charge is not None and abs(resolved.species[0].charge_state - round(resolved.species[0].charge_state)) > 1e-3
+    state = species_state_from_composition(resolved, NE)
+    carbon = state.components[1]
+    assert carbon.bundled and carbon.component_id == "C-12/Zbundle/thermal"
+    np.testing.assert_allclose(carbon.charge, z1)
+    np.testing.assert_allclose(carbon.mean_square_charge, z2)
+    np.testing.assert_allclose(composition_moments(state)["zeff"], resolved.zeff, rtol=1e-12)
+
+
+def test_a_kept_and_a_merged_component_of_one_nuclide_with_distinct_charges_merge():
+    # cold review 0.8.0 delta-absorb-17 species-docs F1: selecting the merged components by
+    # dataclass equality compared an array charge with a scalar one and raised
+    ods = _ods([_ion("D+", 1.0, 2.014, 1.0, 0.9),
+                {"label": "C", "element.0.z_n": 6.0, "element.0.a": 12.011, "z_ion": 5.0,
+                 "state.0.z_min": 4.0, "state.0.z_max": 6.0, "state.0.density_thermal": 0.01 * NE,
+                 "state.0.z_average_1d": np.full(6, 5.0), "state.0.z_average_square_1d": np.full(6, 26.0),
+                 "density_fast": 0.001 * NE}])
+    state = species_state_from_core_profiles(ods)
+    assert [c.component_id for c in state.components] == ["D-2/Z1/thermal", "C-12/Z4-6/thermal", "C-12/Z5/fast_unspecified"]
+    for target, method in (("turbulence", "effective_impurity"), ("fusion", "fusion")):
+        ids = [c.component_id for c in project_species_state(state, target, method).components]
+        assert ids == ["D-2/Z1/thermal", "C-12/Z5/fast_unspecified", "pseudo(C)/Zeff/thermal"], method
+    thermal, fast = state.components[1], state.components[2]
+    c_fast = SpeciesComponent(Species("C", 12), 5.5, "nbi_fast", 0.001 * NE, 12.0, bundled=True)
+    direct = project_species_state(CanonicalSpeciesState((state.components[0], thermal, c_fast), rho=RHO),
+                                   "turbulence", "effective_impurity")
+    assert [c.component_id for c in direct.components][1:] == ["C-12/Zbundle/nbi_fast", "pseudo(C)/Zeff/thermal"]
+    assert thermal != fast and thermal == thermal      # identity, never an array comparison
+
+
+def test_a_mean_square_charge_on_a_fixed_charge_ion_is_ignored_and_noted():
+    # cold review 0.8.0 delta-absorb-17 species-docs F6: z_ion_square_1d beside a scalar z_ion = Z_n
+    # (a non-VAFT writer) made the whole slice read raise unless it was exactly Z^2
+    ods = _ods([_ion("H", 1.0, 1.008, 1.0, 0.9),
+                _ion("C", 6.0, 12.011, 6.0, 0.01, z_ion_square_1d=np.full(6, 35.0))])
+    state = species_state_from_core_profiles(ods)
+    carbon = state.components[1]
+    assert carbon.component_id == "C-12/Z6/thermal" and not carbon.bundled and carbon.mean_square_charge is None
+    np.testing.assert_allclose(carbon.z_moment(2), 36.0)
+    assert "z_ion_square_1d ignored" in state.provenance["notes"]["ion.1 (C)"]
+    # a bundled scalar z_ion keeps its stored <Z^2>
+    bundled = species_state_from_core_profiles(
+        _ods([_ion("H", 1.0, 1.008, 1.0, 0.9), _ion("C", 6.0, 12.011, 5.5, 0.01, z_ion_square_1d=np.full(6, 31.0))]))
+    np.testing.assert_allclose(bundled.components[1].z_moment(2), 31.0)
+    assert bundled.provenance["notes"] == {}
+
+
+def test_a_fixed_charge_ion_beside_a_bundled_one_keeps_its_integer_charge():
+    ods = _ods([_ion("H", 1.0, 1.008, 1.0, 0.9),
+                {"label": "C", "element.0.z_n": 6.0, "element.0.a": 12.011, "density_thermal": 0.01 * NE,
+                 "z_ion_1d": np.linspace(3.0, 6.0, 6)},
+                _ion("O", 8.0, 15.999, 8.0, 0.002)])
+    state = species_state_from_composition(resolve_impurity_composition(ods=ods, use_measured_zeff=False), NE)
+    assert [c.component_id for c in state.components] == ["H-1/Z1/thermal", "C-12/Zbundle/thermal", "O-16/Z8/thermal"]
+    assert not state.components[2].bundled and state.components[2].charge == 8.0
+
+
+def test_a_non_integer_label_without_moments_is_a_bundle_at_that_charge():
+    composition = composition_from_fractions(["C"], [1], [4.5], target_zeff=1.5)
+    state = species_state_from_composition(resolve_impurity_composition(composition=composition), NE, rho=RHO)
+    carbon = state.components[1]
+    assert carbon.bundled and carbon.charge == 4.5 and carbon.mean_square_charge is None
+
+
+def test_the_packaged_product_resolved_on_real_adf11_tables_round_trips(tmp_path):
+    # the verifier's real-ADF11 probe: the OPEN-ADAS tables are read from the local cache only
+    from pathlib import Path
+
+    from omas import load_omas_json
+
+    import vaft
+    from vaft.ods_access import path_value
+    from vaft.process.impurity import populate_radial_impurity_profiles
+
+    cache = Path.home() / "Library/Caches/vaft/open_adas/adf11"
+    tables = {s: (cache / f"acd96_{s.lower()}.dat", cache / f"scd96_{s.lower()}.dat") for s in ("C", "O")}
+    if not all(p.is_file() for pair in tables.values() for p in pair):
+        pytest.skip("no cached OPEN-ADAS C/O tables (never downloaded by a test)")
+    sample = Path(vaft.__file__).resolve().parent / "data/kineticEfit/ods_48224_300ms.json"
+    ods = load_omas_json(str(sample), consistency_check=False)
+    base = "core_profiles.profiles_1d.0"
+    rho, te = np.asarray(ods[f"{base}.grid.rho_tor_norm"]), np.asarray(ods[f"{base}.electrons.temperature"])
+    ne = path_value(ods, f"{base}.electrons.density_thermal")
+    ne = np.asarray(ods[f"{base}.electrons.density"] if ne is None else ne, dtype=float)
+    radial = resolve_radial_composition(te, ne, rho, {"C": 1, "O": 1},
+                                        tables={k: tuple(map(str, v)) for k, v in tables.items()}, time=0.3)
+    out = populate_radial_impurity_profiles(ods, radial)
+    resolved = resolve_impurity_composition(out, machine_preset="vest")
+    assert resolved.kind == "derived" and resolved.mean_charge is not None
+    state = species_state_from_composition(resolved, ne)
+    assert [c.component_id for c in state.components[1:]] == ["C-12/Zbundle/thermal", "O-16/Zbundle/thermal"]
+    np.testing.assert_allclose(composition_moments(state)["zeff"], resolved.zeff, rtol=1e-9)
+
+
 def _component(element, a, z, density, **kw):
     return SpeciesComponent(Species(element, a), z, kw.pop("population", "thermal"), density,
                             kw.pop("mass", float(a)), **kw)
