@@ -90,3 +90,5 @@ The snapshot records the SHA-256 of every `vaft/process/*.py` source file, the p
 `VAFT_REGISTRY_SOURCE` points to the corresponding source checkout.  The same text is available
 offline as `vaft.process.describe("<name>")`, `vaft.process.search("<text>")` and
 `vaft.process.list_processes(category="<category>")`.
+
+What these objects mean scientifically -- which concept a plot draws, which diagnostic measures it, which Data Dictionary path represents it -- is generated in the [scientific ontology explorer]({{ site.baseurl }}/reference/ontology/).

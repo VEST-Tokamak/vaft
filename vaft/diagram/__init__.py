@@ -15,7 +15,8 @@ Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
 ``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``, ``hugill_st``,
 ``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); reduced stability
-diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; single-particle motion: ``exb_drift``, ``curvature_drift``,
+diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; ballooning
+formulations (#1637): ``ballooning_formulation_hierarchy``; single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
 of the island: ``rational_surface``, ``delta_prime`` and
 ``tearing_layer_matching``; 3-D perturbation harmonics:
@@ -24,7 +25,8 @@ of the island: ``rational_surface``, ``delta_prime`` and
 the classification ``collision_processes``; geometric approximations:
 ``geometry_ordering_map``, ``field_line_geometry``, ``mode_number_mapping`` and
 ``mhd_mode_geometry_map`` (#1574);
-asymptotic orderings (#1627): ``timescale_hierarchy``;
+reduced representations (#1626): ``reduced_representation_hierarchy`` and ``reduction_graph``;
+asymptotic orderings (#1627): ``timescale_hierarchy`` and ``ordering_contract_map``;
 tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
 ``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
@@ -79,6 +81,7 @@ __all__ = [
     "s_alpha_ballooning",
     "stability_diagnostic_taxonomy",
     "interchange_criteria",
+    "ballooning_formulation_hierarchy",
     "hugill",
     "hugill_st",
     "troyon",
@@ -99,8 +102,11 @@ __all__ = [
     "geometry_ordering_map",
     "field_line_geometry",
     "mode_number_mapping",
+    "reduced_representation_hierarchy",
+    "reduction_graph",
     "mhd_mode_geometry_map",
     "timescale_hierarchy",
+    "ordering_contract_map",
     "tokamak_torus",
     "flux_surfaces",
     "shaping_family",
@@ -272,6 +278,7 @@ _LOCATIONS = {
     "s_alpha_ballooning": "._stability_space",
     "stability_diagnostic_taxonomy": "._reduced_stability",
     "interchange_criteria": "._reduced_stability",
+    "ballooning_formulation_hierarchy": "._ballooning_formulations",
     "hugill": "._stability_space",
     "hugill_st": "._stability_space",
     "troyon": "._stability_space",
@@ -292,7 +299,10 @@ _LOCATIONS = {
     "geometry_ordering_map": "._geometry",
     "field_line_geometry": "._geometry",
     "mode_number_mapping": "._geometry",
+    "reduced_representation_hierarchy": "._reduced_representations",
+    "reduction_graph": "._reduced_representations",
     "timescale_hierarchy": "._orderings",
+    "ordering_contract_map": "._orderings",
     "mhd_mode_geometry_map": "._mode_geometry",
     "tokamak_torus": "._tokamak_geometry",
     "flux_surfaces": "._tokamak_geometry",

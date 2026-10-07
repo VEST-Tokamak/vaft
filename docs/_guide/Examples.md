@@ -9,7 +9,7 @@ guide:
   architecture: Executable examples and immutable provenance connecting develop source to published outputs.
   prerequisites: The pinned companion source, its documented environment, and optional public HSDS configuration.
   expected: A complete notebook inventory and verified artifact cards with hashes and execution context.
-  status: Inventory tracks this branch. The nine published output cards are legacy artifacts that predate the current notebooks (issue #156).
+  status: "Inventory tracks this branch. The nine published output cards are legacy artifacts that predate the current notebooks (issue #156)."
 related:
   notebooks: [database-initialization, plotting-sample, fluctuation-diagnostics, kinetic-efit, chease-refinement, confinement-scaling, external-codes, pipeline-overview]
   api: [database, omas, imas, mapping, process, plot, code]
@@ -93,8 +93,12 @@ import vaft
 
 vaft.data.available_samples()                          # (39915, 41524, 41672)
 sample_path = vaft.data.sample(39915)                  # packaged OMAS artifact
-imas_path = vaft.data.sample(39915, representation="imas")
+imas_path = vaft.data.sample(39915, representation="imas")   # repository checkout only
 ```
+
+A `pip install vaft` carries only the OMAS form of 39915 (`omas.json.gz`, which both adapters read);
+its IMAS netCDF twin `imas.nc` is repository-only, so `representation="imas"` raises a
+`FileNotFoundError` naming the file from an installed wheel and needs a Git checkout.
 
 For the IMAS round trip:
 

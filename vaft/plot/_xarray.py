@@ -291,7 +291,23 @@ def spectrogram_dataset(model: Any, **extra: Any) -> "xr.Dataset":
             "frequency": np.asarray(model.frequency, dtype=float),
         },
     )
+    tracks = tuple(getattr(model, "tracks", ()) or ())
+    if tracks:
+        # The overlaid tracks (issue #460), padded to one sample axis.
+        ds = ds.assign_coords({
+            "track_label": ("track", np.array([t.label for t in tracks], dtype=object)),
+            "track_length": ("track", np.array([t.time.size for t in tracks], dtype=int)),
+            "track_style": ("track", np.array([_plain(dict(t.style)) for t in tracks], dtype=object)),
+        }).assign({
+            "track_time": (("track", "track_sample"), _padded([t.time for t in tracks])),
+            "track_frequency": (("track", "track_sample"), _padded([t.frequency for t in tracks])),
+        })
+        ds.attrs["tracks_title"] = model.tracks_title
     ds.attrs.update(dataset_attrs(model, "x_label", "y_label", "value_label", "title", "max_frequency", "cmap", **extra))
+    metadata = getattr(model, "metadata", None)
+    if metadata:
+        # JSON text, as on a profile: json.loads(ds.attrs["metadata"])
+        ds.attrs["metadata"] = _plain(dict(metadata))
     return ds
 
 

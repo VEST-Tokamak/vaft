@@ -107,6 +107,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("geometry_data", "any", description="separate geometry input for a calibrated camera overlay"),
         OptionSpec("geometry_manifest", "any", description="cross-shot provenance for projected geometry"),
         OptionSpec("geometry_families", "any", description="machine geometry families included in every view"),
+        OptionSpec("section_phi", "float", description="IMAS toroidal angle [rad] of an equilibrium R-Z section; default 6MR"),
         OptionSpec("axis_length", "float", description="display extent of a directed axis in metres"),
         OptionSpec("projection", "any", description="camera projection method"),
         OptionSpec("theta_deg_range", "range",
@@ -225,6 +226,10 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("rational_q", description="safety-factor values whose surfaces are drawn, e.g. [1, 1.5, 2]"),
         OptionSpec("resonances",
                    description="(m, n) harmonics whose q = m/n surfaces are drawn; (2, 1) and (4, 2) share one"),
+        # Predicted mode-frequency tracks over a spectrogram (issue #460).
+        OptionSpec("mode_overlay",
+                   description="(m, n) modes whose predicted n * f_phi(q = m/n) tracks are drawn "
+                               "(toroidal_rotation model); (2, 1) and (4, 2) give f_phi and 2 f_phi"),
         # Edge-q estimates (issue #1583): where shape and current come from, the
         # stand-in shape, and the q95 scaling; the defaults are vest.yaml's.
         # Only the summary_time_* edge-q views take them (DECLARED_ONLY_OPTIONS).
@@ -257,6 +262,8 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "gradient_coordinate", "reference_length", "convention", "rational_q", "resonances",
     # issue #1583: the edge-q views' choices.
     "estimate_from", "q95_scaling", "start_configuration",
+    # issue #460: the Mirnov spectrogram's predicted mode tracks.
+    "mode_overlay",
     # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
     "include_unconverged",
 })

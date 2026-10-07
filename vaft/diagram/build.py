@@ -43,6 +43,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
     # reduced stability diagnostics (#1635)
     **{f"{name}.svg": (name, {}) for name in ("stability_diagnostic_taxonomy", "interchange_criteria")},
+    "ballooning_formulation_hierarchy.svg": ("ballooning_formulation_hierarchy", {}),  # #1637
     **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},
     # single-particle motion
     **{f"{name}.svg": (name, {}) for name in ("exb_drift", "curvature_drift", "magnetization_current",
@@ -64,7 +65,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
     "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings (#1627)
+    "ordering_contract_map.svg": ("ordering_contract_map", {}),
     "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
+    # reduced physical representations (#1626)
+    "reduced_representation_hierarchy.svg": ("reduced_representation_hierarchy", {}),
+    **{f"reduction_graph_{f}.svg": ("reduction_graph", {"family": f})
+       for f in ("current_q", "pressure_energy", "kinetic_profiles", "dimensionless_similarity")},
     # tokamak geometry and flux coordinates
     **{f"tokamak_torus_{p}.svg": ("tokamak_torus", {"projection": p}) for p in ("3d", "poloidal")},
     **{f"flux_surfaces_{s}.svg": ("flux_surfaces", {"shape": s}) for s in ("circular", "shifted")},

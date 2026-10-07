@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import hashlib
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -43,6 +45,51 @@ def _canonical_urls() -> set[str]:
         for section in _data("navigation.yml")["sections"]
         for item in section["items"]
     }
+
+
+# --- front matter ------------------------------------------------------------
+
+
+def _hash_truncates_front_matter_value(line: str) -> bool:
+    """True when an unquoted ``#`` in this ``key: value`` line makes YAML drop part of the value."""
+    pair = re.match(r"^\s*(?:- )?[A-Za-z_][\w-]*:\s+(\S.*?)\s*$", line)
+    if not pair:
+        return False
+    raw = pair.group(1)
+    if not (" #" in raw or raw.startswith("#")) or raw[0] in "\"'":
+        return False
+    parsed = yaml.safe_load(f"key: {raw}")["key"]
+    return parsed is None or len(str(parsed)) < len(raw)
+
+
+@pytest.mark.parametrize(
+    "line, truncated",
+    [
+        ("status: pending (issue #1803)", True),
+        ("status: #1803 pending", True),  # a leading `#` comments the whole value away: None
+        ("status: '#1803 pending'", False),
+        ('status: "pending (issue #1803)"', False),
+        ("status: pending#1803", False),  # `#` without a preceding space is not a comment
+        ("# a comment line", False),
+    ],
+)
+def test_the_front_matter_hash_check_catches_leading_and_trailing_comments(line, truncated):
+    # cold review 0.8.0 delta-absorb-19-docs F4: `#` at the start of a value was skipped
+    assert _hash_truncates_front_matter_value(line) is truncated
+
+
+def test_front_matter_values_are_not_truncated_by_a_hash_comment():
+    """An unquoted `` #`` starts a YAML comment, so ``(issue #156)`` renders as ``(issue``."""
+    truncated = []
+    for page in _pages():
+        match = re.match(r"\A---\s*\n(.*?)\n---", page.read_text(encoding="utf-8"), re.S)
+        if not match:
+            continue
+        yaml.safe_load(match.group(1))  # the whole block must still parse
+        for number, line in enumerate(match.group(1).splitlines(), start=2):
+            if _hash_truncates_front_matter_value(line):
+                truncated.append(f"{page.relative_to(ROOT)}:{number}: {line.strip()}")
+    assert not truncated, "quote these front-matter values; '#' cuts them short:\n" + "\n".join(truncated)
 
 
 # --- stale branch-state claims -----------------------------------------------
@@ -349,6 +396,26 @@ def test_visual_baselines_still_point_at_canonical_pages():
     stale = sorted(url[len("/vaft"):] for url in referenced
                    if url[len("/vaft"):] not in canonical)
     assert not stale, f"visual specs assert on URLs that are no longer canonical: {stale}"
+
+
+@pytest.mark.parametrize(
+    "spec",
+    sorted((DOCS / "tests/visual").glob("*.spec.js")),
+    ids=lambda spec: spec.name,
+)
+def test_visual_specs_parse(spec):
+    """Every Playwright spec must at least parse.
+
+    Nothing in CI runs the visual suite, so a spec that does not parse (the
+    #1804 merge dropped a closing ``});`` in ``graphs.spec.js``) only surfaces
+    when someone runs ``npm run test:visual`` by hand, and then it takes every
+    test in that file down with it.  ``node --check`` is the cheapest gate.
+    """
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not on PATH")
+    result = subprocess.run([node, "--check", str(spec)], capture_output=True, text=True)
+    assert result.returncode == 0, f"{spec.relative_to(ROOT)} does not parse:\n{result.stderr}"
 
 
 @pytest.mark.parametrize(

@@ -21,7 +21,7 @@ from vaft.process.species import (
     species_state_from_composition,
     species_state_from_core_profiles,
 )
-from vaft.spectroscopy import Species
+from vaft.data.atomic import AtomicSpecies as Species
 
 RHO = np.linspace(0.0, 1.0, 6)
 NE = 1e19 * (1.0 - 0.6 * RHO**2)
