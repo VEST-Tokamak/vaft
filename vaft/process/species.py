@@ -133,9 +133,13 @@ def _profile(value: Any, n: Optional[int], name: str) -> np.ndarray:
     return array
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class SpeciesComponent:
     """One physical component: a nuclide, in one charge state, in one kinetic population.
+
+    Components compare by identity (``eq=False``): ``charge``, ``density`` and the
+    moments are arrays, and the dataclass field-by-field ``==`` would raise on them.
+    ``component_id`` is the physics identity, ``state_id`` the value identity.
 
     ``species`` carries the element and mass number (a ``vaft.spectroscopy.Species``);
     ``charge`` is the ionic charge -- a profile ``<Z>(rho)`` when ``bundled`` (several
@@ -768,7 +772,8 @@ def _merge_impurities(state: CanonicalSpeciesState, keep=lambda c: False) -> tup
     point where any merged density is undefined stays undefined.
     """
     kept = [c for c in state.components if c.hydrogenic or c.population != "thermal" or keep(c)]
-    merged = [c for c in state.components if c not in kept]
+    kept_ids = {id(c) for c in kept}
+    merged = [c for c in state.components if id(c) not in kept_ids]
     if not merged:
         return kept, {"merged": []}
     densities = np.stack([c.density for c in merged], axis=-1)

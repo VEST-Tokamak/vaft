@@ -244,6 +244,27 @@ def test_a_resolved_bundled_ion_builds_its_component_on_the_radial_charge_moment
     np.testing.assert_allclose(composition_moments(state)["zeff"], resolved.zeff, rtol=1e-12)
 
 
+def test_a_kept_and_a_merged_component_of_one_nuclide_with_distinct_charges_merge():
+    # cold review 0.8.0 delta-absorb-17 species-docs F1: selecting the merged components by
+    # dataclass equality compared an array charge with a scalar one and raised
+    ods = _ods([_ion("D+", 1.0, 2.014, 1.0, 0.9),
+                {"label": "C", "element.0.z_n": 6.0, "element.0.a": 12.011, "z_ion": 5.0,
+                 "state.0.z_min": 4.0, "state.0.z_max": 6.0, "state.0.density_thermal": 0.01 * NE,
+                 "state.0.z_average_1d": np.full(6, 5.0), "state.0.z_average_square_1d": np.full(6, 26.0),
+                 "density_fast": 0.001 * NE}])
+    state = species_state_from_core_profiles(ods)
+    assert [c.component_id for c in state.components] == ["D-2/Z1/thermal", "C-12/Z4-6/thermal", "C-12/Z5/fast_unspecified"]
+    for target, method in (("turbulence", "effective_impurity"), ("fusion", "fusion")):
+        ids = [c.component_id for c in project_species_state(state, target, method).components]
+        assert ids == ["D-2/Z1/thermal", "C-12/Z5/fast_unspecified", "pseudo(C)/Zeff/thermal"], method
+    thermal, fast = state.components[1], state.components[2]
+    c_fast = SpeciesComponent(Species("C", 12), 5.5, "nbi_fast", 0.001 * NE, 12.0, bundled=True)
+    direct = project_species_state(CanonicalSpeciesState((state.components[0], thermal, c_fast), rho=RHO),
+                                   "turbulence", "effective_impurity")
+    assert [c.component_id for c in direct.components][1:] == ["C-12/Zbundle/nbi_fast", "pseudo(C)/Zeff/thermal"]
+    assert thermal != fast and thermal == thermal      # identity, never an array comparison
+
+
 def test_a_fixed_charge_ion_beside_a_bundled_one_keeps_its_integer_charge():
     ods = _ods([_ion("H", 1.0, 1.008, 1.0, 0.9),
                 {"label": "C", "element.0.z_n": 6.0, "element.0.a": 12.011, "density_thermal": 0.01 * NE,
