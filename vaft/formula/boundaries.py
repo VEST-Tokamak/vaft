@@ -1453,6 +1453,9 @@ _WESSON_1989_TEETH = (
     (9.0, 0.674, 0.294),
     (10.0, 0.678, 0.295),
 )
+#: Both Wesson arrays stop at q_psi = 2 and 10 because JET's Fig. 6 spans only that range (#1603). They are an
+#: empirical JET operating/disruption boundary, not a universal MHD stability limit: do not extend them to fill a
+#: plot's range, and do not read the absence of a line beyond q_psi = 10 as stability or instability there.
 #: Wesson 1989 Fig. 6 upper boundary (density-limit disruptions), l_i(3) against q_psi.
 _WESSON_1989_UPPER = (
     (2.0, 0.954), (2.5, 1.029), (3.0, 1.111), (3.5, 1.190), (4.0, 1.261), (4.5, 1.324), (5.0, 1.393),
@@ -1461,6 +1464,11 @@ _WESSON_1989_UPPER = (
 )
 #: Cheng 1987 Fig. 4 lower (jig-saw) bound, l_i/2 as printed: (q(a), top, bottom) as above.
 #: Beyond q(a) = 6 the bound is a slowly rising curve, given by _CHENG_1987_LOWER_TAIL.
+#: The CFB arrays start at q(a) = 2 because for q(0) ~ 1 no monotonic profile is stable below it (p. 354, the
+#: comparison theorem: none for (m - 1) < n q(0) < n q(a) < m), and stop at q(a) = 7.75 because Fig. 4 is drawn only to
+#: q(a) ~ 8. The end is where the source figure ends, not an upper-q stability limit: do not extrapolate them (#1603).
+#: The jig-saw edges sit at integer q(a) = m, where an m/1 resonance enters the plasma; the lower bound is mainly
+#: ideal external kinks, the upper bound low-order resistive kinks (mainly 2/1 and 3/2), p. 357.
 _CHENG_1987_TEETH = (
     (2.0, 0.545, 0.345),
     (3.0, 0.505, 0.355),
@@ -1534,8 +1542,9 @@ _register(Boundary(
     branch="lower",
     applicability=Applicability(**_WESSON_APPLICABILITY),
     sources=(_WESSON_SOURCE,),
-    notes="'Empirical stability boundary': rotating MHD modes during the current rise; below it is the kink "
-          "and double tearing region. Same boundary as the legacy stability.empirical_li_qa arrays.",
+    notes="Empirical JET operating boundary (Wesson's 'empirical stability boundary'), not a universal MHD stability "
+          "limit: rotating MHD modes during JET's current rise; below it is the kink and double tearing region. Same "
+          "boundary as the legacy stability.empirical_li_qa arrays.",
 ))
 
 _register(Boundary(
