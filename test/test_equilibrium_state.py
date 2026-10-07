@@ -180,3 +180,63 @@ def test_operation_space_notebook_discovers_projections_and_restates_no_boundary
                     for entry in [B.get_boundary(key)] if getattr(entry, "coefficient", None) not in (None, 0.0, 1.0, 2.0)}
     restated = {key: c for key, c in coefficients.items() for v in literals if math.isclose(v, c, rel_tol=0.02)}
     assert coefficients and not restated, restated
+
+
+def _stretched(x: np.ndarray, s: float) -> np.ndarray:
+    """The same extent and point count as ``x``, tanh-clustered towards both ends."""
+    u = np.linspace(-1.0, 1.0, x.size)
+    w = np.tanh(s * u) / np.tanh(s)
+    return x[0] + (w + 1.0) / 2.0 * (x[-1] - x[0])
+
+
+@pytest.mark.parametrize("stretch", [0.5, 1.0, 1.5])
+def test_bp2_volume_integral_does_not_assume_a_uniform_grid(vest_ods, stretch):
+    # The cell volume used the first spacing everywhere, so a DD-legal non-equispaced
+    # profiles_2d grid gave x0.675 / x0.235 / x0.052 of the integral and
+    # internal_inductance_li3 = 0.13 instead of 0.55 when the DD routine is withheld
+    # (cold review 0.8.0 delta-absorb-18 stability-opspace F4).
+    from scipy.interpolate import RectBivariateSpline
+
+    from vaft.omas.equilibrium_state import _bp2_volume_integral
+
+    k = 0
+    grid = f"equilibrium.time_slice.{k}.profiles_2d.0"
+    r = np.asarray(vest_ods[f"{grid}.grid.dim1"], dtype=float)
+    z = np.asarray(vest_ods[f"{grid}.grid.dim2"], dtype=float)
+    psi = np.asarray(vest_ods[f"{grid}.psi"], dtype=float)
+    assert np.ptp(np.diff(r)) < 1e-9 and np.ptp(np.diff(z)) < 1e-9   # the packaged sample is uniform
+    reference = _bp2_volume_integral(vest_ods, k)
+    atlas = _atlas_base()
+    assert atlas._bp2_volume_integral(vest_ods, k) == pytest.approx(reference, rel=1e-6)
+
+    work = copy.deepcopy(vest_ods)
+    rn, zn = _stretched(r, stretch), _stretched(z, stretch)
+    work[f"{grid}.grid.dim1"] = rn
+    work[f"{grid}.grid.dim2"] = zn
+    work[f"{grid}.psi"] = RectBivariateSpline(r, z, psi, kx=3, ky=3)(rn, zn)
+    assert (rn[1] - rn[0]) < 0.9 * (r[1] - r[0])   # the first cell really is narrower
+    for integral in (_bp2_volume_integral, atlas._bp2_volume_integral):
+        assert integral(work, k) == pytest.approx(reference, rel=0.02), integral.__module__
+
+
+def test_uniform_grid_integral_is_unchanged_by_the_per_cell_widths(vest_ods):
+    # On the uniform packaged grid np.gradient of the coordinates is the constant spacing,
+    # so the table numbers do not move (same finding, the "unchanged" half).
+    from vaft.omas.equilibrium_state import _bp2_volume_integral
+
+    k = 0
+    grid = f"equilibrium.time_slice.{k}.profiles_2d.0"
+    r = np.asarray(vest_ods[f"{grid}.grid.dim1"], dtype=float)
+    z = np.asarray(vest_ods[f"{grid}.grid.dim2"], dtype=float)
+    psi = np.asarray(vest_ods[f"{grid}.psi"], dtype=float)
+    from matplotlib.path import Path as _Path
+
+    from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+
+    ts = f"equilibrium.time_slice.{k}"
+    dpsi_dr, dpsi_dz = np.gradient(psi * ods_psi_to_wb_per_radian_factor(vest_ods), r, z, edge_order=2)
+    rr, zz = np.meshgrid(r, z, indexing="ij")
+    outline = np.c_[np.asarray(vest_ods[f"{ts}.boundary.outline.r"]), np.asarray(vest_ods[f"{ts}.boundary.outline.z"])]
+    inside = _Path(outline).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
+    uniform = float(np.sum((dpsi_dr**2 + dpsi_dz**2) / rr**2 * 2.0 * np.pi * rr * (r[1] - r[0]) * (z[1] - z[0]) * inside))
+    assert _bp2_volume_integral(vest_ods, k) == pytest.approx(uniform, rel=1e-6)
