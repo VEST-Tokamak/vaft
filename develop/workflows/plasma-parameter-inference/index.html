@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>64d4624</code>. What is described
+  <code>0a11121</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -721,6 +721,7 @@ ODS-level entry point.</p>
 
 <h3 id="e--atomic--resistive-z_effρ">E — atomic + resistive Z_eff(ρ)</h3>
 
+<!-- docs-snippet: skip fragment (te, ne, rho, P_R and zeff_res_obs are the caller's fitted profiles and resistive projection, which the page never defines; shows the call shape) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.impurity</span> <span class="kn">import</span> <span class="n">resolve_radial_composition</span><span class="p">,</span> <span class="n">populate_radial_impurity_profiles</span>
 
 <span class="n">radial</span> <span class="o">=</span> <span class="nf">resolve_radial_composition</span><span class="p">(</span><span class="n">te</span><span class="p">,</span> <span class="n">ne</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="p">{</span><span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="sh">"</span><span class="s">O</span><span class="sh">"</span><span class="p">:</span> <span class="mi">1</span><span class="p">},</span>
@@ -965,7 +966,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 19:24:53 +0000"
+        "time": "2026-10-07 19:38:39 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
