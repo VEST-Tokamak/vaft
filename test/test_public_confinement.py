@@ -548,10 +548,14 @@ def test_vest_summary_definitions_quote_the_stored_energy_factor_the_code_uses()
     factor = Fraction(re.search(r"W = \((\d+/\d+)\)<p>V", p_loss).group(1))
     assert factor == Fraction(3, 2)
     assert float(factor) == float(re.search(r"W_th = ([\d.]+) <p_kinetic> V", tau_e).group(1))
-    # ...and that is the factor the power balance applies.
+    # ...and that is the factor the power balance applies: both forms go through
+    # the catalog kernel, whose factor is 3/2 (not the 2/3 of the old p_loss string).
+    from vaft.formula.equilibrium import thermal_energy_from_p_V
+
+    assert thermal_energy_from_p_V(2.0, 3.0) == pytest.approx(float(factor) * 2.0 * 3.0)
     for fn in (formula_wrapper.compute_power_balance, formula_wrapper.compute_tau_E_exp):
         source = inspect.getsource(fn)
-        assert "(3.0 / 2.0) * volume" in source and "(2.0 / 3.0)" not in source
+        assert "thermal_energy_from_p_V(" in source and "(2.0 / 3.0)" not in source
 
 
 def test_h_factor_warns_when_the_energy_basis_gate_blanks_rows(db5):
