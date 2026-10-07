@@ -47,6 +47,9 @@ sections:
       - id: credibility-applicability
         title: Credibility and applicability
         url: /reference/credibility-applicability/
+      - id: plasma-models
+        title: Plasma models, orderings, and scales
+        url: /reference/plasma-models/
       - id: dependency-graph
         title: Dependency explorer
         url: /reference/dependency-graph/
