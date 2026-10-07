@@ -300,9 +300,11 @@ CORE_MODULES: tuple[str, ...] = (
     # Impurity composition (lane L, #1565): the mixture algebra against the
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
+    "test_formula_fast_ion.py",
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
     "test_process_impurity.py",
+    "test_process_kinetic_closure.py",
     "test_process_species.py",
     # #1565 Sec. 8: the impurity composition and stored Z_eff plots, on
     # synthetic ADF11 tables (no network). Under 10 s.
