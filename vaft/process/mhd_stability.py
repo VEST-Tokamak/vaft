@@ -170,7 +170,10 @@ def dcon_local_stability(row: Mapping[str, Any]) -> dict[str, Optional[dict[str,
     ``D_R > 0`` resistive-interchange criterion unstable, ``C_A < 0`` high-n
     ideal ballooning unstable. ``C_A`` is read only where the payload marks it
     evaluated (``C_A_evaluated``), so an unevaluated surface is skipped, not a
-    marginal zero, whether or not it was stored as NaN.
+    marginal zero. DCON leaves an unevaluated surface at exactly 0, its marginal
+    value, so the mask is required: a ``C_A`` profile without a mask of its
+    length is refused (``ValueError``), never read as if every surface were
+    evaluated.
 
     Applicability
     -------------
@@ -181,6 +184,9 @@ def dcon_local_stability(row: Mapping[str, Any]) -> dict[str, Optional[dict[str,
     The payload carries no per-surface mask for ``D_I``/``D_R``; ``mer_flag``
     evaluates all of them, so the flag alone decides. A profile whose length
     differs from ``psi_n`` is ``None``, as the payload's own summaries treat it.
+    Every payload :func:`vaft.machine_mapping.mhd_linear.extract_dcon_stability`
+    reads carries the mask (``read_dcon_output`` sets it whenever ``C_A`` is
+    present); only a hand-built row can lack it.
 
     Provenance
     ----------
@@ -198,8 +204,9 @@ def dcon_local_stability(row: Mapping[str, Any]) -> dict[str, Optional[dict[str,
             out[name] = None
             continue
         mask = masks.get(criterion)
-        if mask is not None and np.size(mask) != np.size(values):
-            mask = None
+        if criterion in masks and (mask is None or np.size(mask) != np.size(values)):
+            raise ValueError(f"{criterion} without a {criterion}_evaluated mask of its length: a stored zero "
+                             "cannot be told from a marginal surface")
         side = DCON_UNSTABLE_SIDE[criterion]
         out[name] = {"criterion": criterion, "unstable_side": side,
                      **criterion_intervals(psi, values, unstable_side=side, evaluated=mask)}

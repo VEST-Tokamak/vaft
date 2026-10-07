@@ -262,3 +262,23 @@ def test_the_792_profile_at_psiedge_0_92617_is_indeterminate():
     clear = dcon_edge_scan(dict(row, psilim=float(psi[pre_edge + 4])))
     assert clear["peak_search_start_ambiguous"] is True and clear["truncated_at_peak"] is True
     assert dcon_edge_scan(dict(row, psilim=float(psi[pre_edge])))["truncated_at_peak"] is False
+
+
+def test_a_c_a_profile_without_its_mask_is_refused_not_read_as_marginal():
+    # DCON stores an unevaluated surface as exactly 0, its marginal value. Without the
+    # mask every stored zero counted as a crossing (6 instead of 1, n_evaluated 10 instead
+    # of 5) although the docstring promised otherwise
+    # (cold review 0.8.0 delta-absorb-18 stability-opspace F5).
+    psi_n = np.linspace(0.05, 0.95, 10)
+    ca = np.array([0.3, 0.2, 0.0, 0.0, 0.1, -0.2, 0.0, 0.05, 0.0, 0.0])
+    row = {"psi_n": psi_n, "D_I": np.full(10, -0.1), "D_R": np.full(10, -0.1), "C_A": ca,
+           "mercier_evaluated": True, "ballooning_evaluated": True, "C_A_evaluated": None}
+    with pytest.raises(ValueError, match="C_A_evaluated"):
+        dcon_local_stability(row)
+    with pytest.raises(ValueError, match="C_A_evaluated"):
+        dcon_local_stability(dict(row, C_A_evaluated=(ca != 0)[:-1]))
+    out = dcon_local_stability(dict(row, C_A_evaluated=ca != 0))["ballooning"]
+    assert out["n_evaluated"] == 5 and len(out["zero_crossings"]) == 1
+    assert out["unstable_intervals"] == [[pytest.approx(0.483, abs=1e-3), pytest.approx(0.55)]]
+    # a run that never evaluated ballooning still gives None, mask or not
+    assert dcon_local_stability(dict(row, ballooning_evaluated=False))["ballooning"] is None
