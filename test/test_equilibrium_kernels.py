@@ -58,6 +58,7 @@ from vaft.formula import (
     shear_from_r_q,
     stored_energy_from_beta_V,
     stored_energy_from_p_V,
+    thermal_energy_from_p_V,
     surface_poloidal_flux_from_psi_boundary,
     toroidal_electric_field,
     toroidal_flux_from_q_psi,
@@ -597,6 +598,21 @@ def test_normalized_plasma_current_ignores_the_major_radius():
 # --------------------------------------------------------------------------
 # Energies and confinement
 # --------------------------------------------------------------------------
+
+def test_thermal_energy_is_three_halves_of_the_pressure_integral():
+    # stored_energy_from_p_V is int p dV despite its name; W_th = 3/2 int p dV everywhere else
+    p, V = 1.2e4, 2.5
+    assert thermal_energy_from_p_V(p, V) == pytest.approx(1.5 * stored_energy_from_p_V(p, V), rel=1e-13)
+    # the virial thermal energy of a uniform plasma, sum 3/2 n T dV, is the same W_th
+    from vaft.formula.virial import virial_thermal_energy
+    n, T = np.full(4, 1e19), np.full(4, p / 1e19)
+    assert virial_thermal_energy(n, T, np.full(4, V / 4)) == pytest.approx(thermal_energy_from_p_V(p, V), rel=1e-12)
+    # and so is W_K from beta_p = 2 mu0 <p> / B_pa^2
+    B_pa = 0.15
+    beta_p = 2 * MU0 * p / B_pa**2
+    assert kinetic_energy_from_beta_p_B_pa_V_p(beta_p, B_pa, V) == pytest.approx(
+        thermal_energy_from_p_V(p, V), rel=1e-12)
+
 
 def test_stored_energy_from_pressure_is_p_times_V():
     assert stored_energy_from_p_V(1.2e4, 2.5) == pytest.approx(
