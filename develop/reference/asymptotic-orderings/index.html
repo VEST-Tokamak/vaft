@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f5626c3</code>. What is described
+  <code>cad2351</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -513,13 +513,140 @@ across the VEST database is the ordering atlas of #1629.</p>
 
 <h2 id="ordering-contracts">Ordering contracts</h2>
 
-<p>Whether an ordering holds depends on the model that assumes it. Ideal single-fluid MHD needs $S \gg 1$,
-$d_i/L \ll 1$, $\rho_i/L \ll 1$ and $\tau_{evol}/\tau_A \gg 1$ all at once, not $S$ alone. A local collisional
-fluid needs $Kn \ll 1$, and a strongly magnetized one needs $\Omega\tau \gg 1$.</p>
+<p>Whether an ordering holds depends on the model that assumes it. The contracts are registered in
+<code class="language-plaintext highlighter-rouge">vaft.validation.orderings.CONTRACTS</code> as <code class="language-plaintext highlighter-rouge">ApproximationContract</code> objects of
+<code class="language-plaintext highlighter-rouge">vaft.validation.applicability</code> (#1639). They are evaluated with <code class="language-plaintext highlighter-rouge">evaluate_contract</code> for one state and
+<code class="language-plaintext highlighter-rouge">evaluate_population</code> for a table, whose columns are the names in <code class="language-plaintext highlighter-rouge">ORDERING_QUANTITIES</code>.</p>
 
-<p>These contracts will be registered as <code class="language-plaintext highlighter-rouge">ApproximationContract</code> objects of <code class="language-plaintext highlighter-rouge">vaft.validation.applicability</code>
-(#1639, PR #1695). They report a continuous ordering margin per assumption ($\mp\log_{10}x$), not a
-valid/invalid flag. They follow in a second #1627 PR once that module is on develop.</p>
+<p><img src="/vaft/develop/assets/diagrams/ordering_contract_map.svg" alt="ordering contracts" /></p>
+
+<p>The quantities are grouped by the scale they are taken on, because the same ratio means different things
+on different scales. A global $d_i/a$, a mode’s $k\,d_i$ and a tearing layer’s $d_i/\delta$ are three rows:
+$d_i/a$ can be small while $d_i/\delta \sim 1$, and single-fluid MHD then fails in the layer.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Group</th>
+      <th>Quantities</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>foundational</td>
+      <td>$\lambda_D/L$ (quasineutrality), $\omega/\Omega_{ci}$ (low frequency). They hold almost everywhere in a fusion core, so they rarely discriminate</td>
+    </tr>
+    <tr>
+      <td>global</td>
+      <td>$S$, $d_i/a$, $\epsilon = a/R_0$, $\beta$, $\beta/\epsilon$</td>
+    </tr>
+    <tr>
+      <td>equilibrium profile</td>
+      <td>$\rho_i/L_{T_i}$, $\rho_s/L_{T_e}$, $\lambda_{e,i}/qR$, $\Omega_{ce}\tau_e$, $\Omega_{ci}\tau_i$, $\nu_{<em>e}$, $\nu_{</em>i}$, $\Delta_{b,i}/L_p$, $M = U/v_{ti}$, $M_A = U/v_A$, $\lvert p_\perp - p_\parallel\rvert/p$</td>
+    </tr>
+    <tr>
+      <td>perturbation ($k$)</td>
+      <td>$k_\perp\rho_i$, $k\,d_i$, $k\,d_e$, $\omega\tau_i$, $k_\parallel/k_\perp$, $\delta n/n$</td>
+    </tr>
+    <tr>
+      <td>inner layer ($\delta$)</td>
+      <td>$d_i/\delta$, $d_e/\delta$, $\rho_s/\delta$</td>
+    </tr>
+    <tr>
+      <td>time history</td>
+      <td>$\tau_{evol}/\tau_A$, $\tau_{age}/\tau_R$, $\tau_{transp}/\tau_{turb}$</td>
+    </tr>
+  </tbody>
+</table>
+
+<table>
+  <thead>
+    <tr>
+      <th>Contract</th>
+      <th>Needs</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code></td>
+      <td>$S \gg 1$; $d_i/a$, $k\,d_i$, $k_\perp\rho_i$, $\rho_i/L_{T_i}$, $\lvert p_\perp - p_\parallel\rvert/p \ll 1$; quasineutral and low frequency. Not $\tau_{evol}/\tau_A \gg 1$: ideal MHD describes Alfvénic dynamics, $\omega\tau_A \sim 1$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">resistive_mhd</code></td>
+      <td>the same without $S$, and with $d_i/\delta$, $\rho_s/\delta \ll 1$ in the layer it resolves. In a strong guide field $\rho_s$ is the layer’s two-fluid scale</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">hall_mhd</code></td>
+      <td>$k\,d_e$, $d_e/\delta \ll 1$; quasineutral. $k\,d_i$ and $d_i/\delta$ are not ordered: Hall MHD exists to keep them of order one</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">braginskii_two_fluid</code></td>
+      <td>$\lambda_{e,i}/qR \ll 1$, $\Omega_{ce}\tau_e$, $\Omega_{ci}\tau_i \gg 1$, $\rho_i/L_{T_i} \ll 1$, $\omega\tau_i \ll 1$; quasineutral</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">flr_small_fluid</code></td>
+      <td>$\rho_i/L_{T_i}$, $\rho_s/L_{T_e}$, $k_\perp\rho_i \ll 1$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">low_beta_reduced_mhd</code></td>
+      <td>$\epsilon$, $\beta/\epsilon$, $k_\parallel/k_\perp \ll 1$ ($\beta \sim \epsilon^2$)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">high_beta_reduced_mhd</code></td>
+      <td>$\epsilon$, $\beta$, $k_\parallel/k_\perp \ll 1$ ($\beta \sim \epsilon$, so $\beta/\epsilon$ is not ordered)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">drift_kinetic</code></td>
+      <td>$\rho_i/L_{T_i}$, $k_\perp\rho_i$, $\omega/\Omega_{ci} \ll 1$; quasineutral</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gyrokinetic_delta_f</code></td>
+      <td>$\rho_i/L_{T_i}$, $k_\parallel/k_\perp$, $\omega/\Omega_{ci}$, $\delta n/n$, $M \ll 1$; quasineutral. $k_\perp\rho_i$ is not ordered, and that separates gyrokinetics from drift kinetics and MHD</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">local_neoclassical</code></td>
+      <td>$\rho_i/L_{T_i}$, $\Delta_{b,i}/L_p$, $M \ll 1$; fails in a pedestal or barrier</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">banana_regime_neoclassical</code></td>
+      <td>$\nu_{<em>e}$, $\nu_{</em>i} \ll 1$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pfirsch_schlueter_neoclassical</code></td>
+      <td>$\lambda_{e,i}/qR \ll 1$, i.e. $\hat\nu \sim qR/\lambda \gg 1$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">quasi_static_equilibrium</code></td>
+      <td>$\tau_{evol}/\tau_A \gg 1$, $M$, $M_A \ll 1$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">resistively_relaxed_current</code></td>
+      <td>$\tau_{age}/\tau_R \gg 1$. An order-one value is ambiguous, because $\tau_R$ has no geometric factor</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gyrokinetic_transport_separation</code></td>
+      <td>$\rho_i/L_{T_i} \ll 1$, $\tau_{transp}/\tau_{turb} \gg 1$</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A contract lists only what its model requires. An empty cell means the model does not order that
+quantity, which is different from requiring it to be large. The parallel Knudsen number
+$\lambda/qR$, the inverse of $\hat\nu$ up to an order-one convention factor, is shared by the Braginskii closure and the Pfirsch–Schlüter regime: the
+collisional closure is the Pfirsch–Schlüter ordering, and it fails in the banana regime of a hot core.
+The reduced-MHD contracts list only the reduction’s own orderings, so evaluate them together with the
+ideal or resistive MHD contract.</p>
+
+<p>Every threshold is order unity. The result is a continuous margin per ordering,
+$m = \mp\log_{10}x$, and a status per contract (<code class="language-plaintext highlighter-rouge">SUPPORTED</code>, <code class="language-plaintext highlighter-rouge">OUTSIDE</code>, <code class="language-plaintext highlighter-rouge">UNASSESSED</code>, <code class="language-plaintext highlighter-rouge">NOT_APPLICABLE</code>),
+never a single valid/invalid flag. A quantity a state does not carry is <code class="language-plaintext highlighter-rouge">UNASSESSED</code>, never a violation.
+Signed ratios (Mach numbers, the pressure anisotropy) enter as magnitudes. An exactly zero value, as in a
+static or isotropic state, has no logarithmic margin and is also <code class="language-plaintext highlighter-rouge">UNASSESSED</code>.</p>
+
+<p>This covers the fluid-to-kinetic core of the hierarchy, not every subsidiary ordering of every derivation.
+Full Vlasov–Maxwell kinetics assumes none of these orderings and has no contract. A gyrofluid shares the
+gyrokinetic orderings and differs only in its closure. The plateau regime between banana and
+Pfirsch–Schlüter has no ordering of its own.</p>
 
 <h2 id="references">References</h2>
 
@@ -527,8 +654,14 @@ valid/invalid flag. They follow in a second #1627 PR once that module is on deve
   <li>S. I. Braginskii, in <em>Reviews of Plasma Physics</em>, Vol. 1, Consultants Bureau (1965), p. 205.</li>
   <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).</li>
   <li>D. Biskamp, <em>Magnetic Reconnection in Plasmas</em>, Cambridge University Press (2000).</li>
-  <li>H. R. Strauss, Phys. Fluids 19 (1976) 134.</li>
+  <li>H. R. Strauss, Phys. Fluids 19 (1976) 134; Phys. Fluids 20 (1977) 1354.</li>
   <li>F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239.</li>
+  <li>P. Helander and D. J. Sigmar, <em>Collisional Transport in Magnetized Plasmas</em>, Cambridge University Press (2002).</li>
+  <li>E. A. Frieman and L. Chen, Phys. Fluids 25 (1982) 502.</li>
+  <li>I. G. Abel et al., Rep. Prog. Phys. 76 (2013) 116201.</li>
+  <li>F. I. Parra and P. J. Catto, Plasma Phys. Control. Fusion 52 (2010) 045004.</li>
+  <li>R. D. Hazeltine and J. D. Meiss, <em>Plasma Confinement</em>, Dover (2003).</li>
+  <li>K. V. Roberts and J. B. Taylor, Phys. Rev. Lett. 8 (1962) 197.</li>
 </ol>
 
 
@@ -751,7 +884,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 12:46:39 +0000"
+        "time": "2026-10-07 13:50:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

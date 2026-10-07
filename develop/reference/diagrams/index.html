@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f5626c3</code>. What is described
+  <code>cad2351</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1051,6 +1051,7 @@ explains each representation.</p>
 explains them.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">timescale_hierarchy</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">ordering_contract_map</span><span class="p">()</span>
 </code></pre></div></div>
 
 <table>
@@ -1063,7 +1064,11 @@ explains them.</p>
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">timescale_hierarchy</code></td>
-      <td>Gyroperiods, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$</td>
+      <td>Inverse gyrofrequencies, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ordering_contract_map</code></td>
+      <td>Which model needs which ordering, read from <code class="language-plaintext highlighter-rouge">vaft.validation.orderings.CONTRACTS</code>. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered</td>
     </tr>
   </tbody>
 </table>
@@ -5277,7 +5282,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 12:46:39 +0000"
+        "time": "2026-10-07 13:50:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

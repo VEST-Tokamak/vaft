@@ -655,6 +655,11 @@
       "source_sha256": "10a55ba7515dbba60bd0cb8ec83e68de888754f606310f71cb72f72bde410865",
       "svg_sha256": "f991d004e0ac0cb3aa1c61af4286f7626200c27573a737ee2757377d2310eecb"
     },
+    "ordering_contract_map.svg": {
+      "call": "vaft.diagram.ordering_contract_map()",
+      "source_sha256": "ab708de13fa36bb7a16579090c1c6f254c451a76d882af3ff5ff88f4ea877024",
+      "svg_sha256": "15018ae3717e8268abe01222afe99cad4f3cf3997be6006a1fbc1008124514a5"
+    },
     "parameter_inference_dependency_graph.svg": {
       "call": "vaft.diagram.parameter_inference_dependency_graph(references=True)",
       "source_sha256": "a39b3543fdb9f9516e2b13246230582fbdf96e6378ffd1fe9cbe3f5cd58b6389",

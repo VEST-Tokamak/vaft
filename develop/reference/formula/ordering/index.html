@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f5626c3</code>. What is described
+  <code>cad2351</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -403,7 +403,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.ordering</code>:
-<strong>13</strong> public functions. Each entry is what
+<strong>16</strong> public functions. Each entry is what
 <code>vaft.formula.describe("ordering.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -433,6 +433,9 @@ job.</p>
   <tr><td>tau_e, tau_i</td><td>Braginskii electron and ion collision times</td><td class="ref-unit">s</td></tr>
   <tr><td>lambda</td><td>mean free path v_t tau</td><td class="ref-unit">m</td></tr>
   <tr><td>Kn</td><td>Knudsen number lambda / L</td><td class="ref-unit">-</td></tr>
+  <tr><td>lambda_D</td><td>electron Debye length</td><td class="ref-unit">m</td></tr>
+  <tr><td>M</td><td>Mach number U / v of a flow against a reference speed</td><td class="ref-unit">-</td></tr>
+  <tr><td>Delta</td><td>pressure anisotropy (p_perp - p_par) / p</td><td class="ref-unit">-</td></tr>
   </tbody>
 </table></div>
 
@@ -444,7 +447,7 @@ formulary gives them, with the Coulomb logarithm an explicit argument.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 13 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 16 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="alfven_time"><td><a href="#alfven_time"><code>alfven_time</code></a></td><td>Alfven transit time across a characteristic length.
@@ -452,6 +455,8 @@ formulary gives them, with the Coulomb logarithm an explicit argument.</p>
   <tr data-ref-row="braginskii_electron_collision_time"><td><a href="#braginskii_electron_collision_time"><code>braginskii_electron_collision_time</code></a></td><td>Braginskii electron collision time.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="braginskii_ion_collision_time"><td><a href="#braginskii_ion_collision_time"><code>braginskii_ion_collision_time</code></a></td><td>Braginskii ion collision time.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="debye_length"><td><a href="#debye_length"><code>debye_length</code></a></td><td>Electron Debye length.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="evolution_time"><td><a href="#evolution_time"><code>evolution_time</code></a></td><td>Evolution time of a state variable from its rate of change.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -461,11 +466,15 @@ formulary gives them, with the Coulomb logarithm an explicit argument.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="lundquist_number"><td><a href="#lundquist_number"><code>lundquist_number</code></a></td><td>Lundquist number: resistive diffusion time over Alfven time.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mach_number"><td><a href="#mach_number"><code>mach_number</code></a></td><td>Mach number of a flow against a reference speed.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="magnetic_reynolds_number"><td><a href="#magnetic_reynolds_number"><code>magnetic_reynolds_number</code></a></td><td>Magnetic Reynolds number: flux advection against resistive diffusion.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="magnetization"><td><a href="#magnetization"><code>magnetization</code></a></td><td>Magnetization of a species: gyro-orbits per collision time.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="mean_free_path"><td><a href="#mean_free_path"><code>mean_free_path</code></a></td><td>Mean free path: thermal speed times collision time.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="pressure_anisotropy"><td><a href="#pressure_anisotropy"><code>pressure_anisotropy</code></a></td><td>Pressure anisotropy relative to the scalar pressure.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="resistive_diffusion_time"><td><a href="#resistive_diffusion_time"><code>resistive_diffusion_time</code></a></td><td>Resistive diffusion time of magnetic field across a characteristic length.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -484,11 +493,11 @@ formulary gives them, with the Coulomb logarithm an explicit argument.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#alfven_time"><code>alfven_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="alfven_time" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L84-L122" title="vaft/formula/ordering.py, lines 84–122 at f5626c3">source</a>
+<a class="ref-source" data-source="alfven_time" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L90-L128" title="vaft/formula/ordering.py, lines 90–128 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>alfven_time(L, v_A)</code></pre>
 
-    <details class="ref-code" data-source-code="alfven_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 84–122</span></summary>
+    <details class="ref-code" data-source-code="alfven_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 90–128</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">alfven_time</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">v_A</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Alfven transit time across a characteristic length.
@@ -592,11 +601,11 @@ sequence of states only if the plasma evolves much more slowly than this.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#braginskii_electron_collision_time"><code>braginskii_electron_collision_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="braginskii_electron_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L392-L444" title="vaft/formula/ordering.py, lines 392–444 at f5626c3">source</a>
+<a class="ref-source" data-source="braginskii_electron_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L398-L450" title="vaft/formula/ordering.py, lines 398–450 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>braginskii_electron_collision_time(n_e, T_e, ln_Lambda, Z=1.0)</code></pre>
 
-    <details class="ref-code" data-source-code="braginskii_electron_collision_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 392–444</span></summary>
+    <details class="ref-code" data-source-code="braginskii_electron_collision_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 398–450</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">braginskii_electron_collision_time</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">T_e</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Braginskii electron collision time.
@@ -727,11 +736,11 @@ electron magnetization.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#braginskii_ion_collision_time"><code>braginskii_ion_collision_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="braginskii_ion_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L447-L499" title="vaft/formula/ordering.py, lines 447–499 at f5626c3">source</a>
+<a class="ref-source" data-source="braginskii_ion_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L453-L505" title="vaft/formula/ordering.py, lines 453–505 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>braginskii_ion_collision_time(n_i, T_i, ln_Lambda, mass_number=1.0, Z=1.0)</code></pre>
 
-    <details class="ref-code" data-source-code="braginskii_ion_collision_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 447–499</span></summary>
+    <details class="ref-code" data-source-code="braginskii_ion_collision_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 453–505</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">braginskii_ion_collision_time</span><span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="n">T_i</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">,</span> <span class="n">mass_number</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Braginskii ion collision time.
@@ -856,15 +865,127 @@ mean free path, with the ion gyrofrequency the ion magnetization.</p>
 
   </section>
 
+  <section class="ref-entry" id="debye_length" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#debye_length"><code>debye_length</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="debye_length" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L680-L721" title="vaft/formula/ordering.py, lines 680–721 at cad2351">source</a>
+</header>
+    <pre class="ref-signature"><code>debye_length(n_e, T_e)</code></pre>
+
+    <details class="ref-code" data-source-code="debye_length"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 680–721</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">debye_length</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">T_e</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Electron Debye length.
+
+    $$\lambda_D = \sqrt{\frac{\epsilon_0 T_e}{n_e e^2}}$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Electron density, positive [m^-3].
+    T_e : float or np.ndarray
+        Electron temperature, positive [eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\lambda_D$ [m].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    The electron Debye length of the NRL formulary,
+    $7.43\times10^{2}\,T_e^{1/2}n_e^{-1/2}$ cm with $n_e$ in cm$^{-3}$. Ion
+    shielding, which shortens the total Debye length, is left out.
+
+    Physical interpretation
+    -----------------------
+    $\lambda_D/L \ll 1$ is quasineutrality: charge separation is confined
+    below the Debye scale, the Poisson equation reduces to $n_e = \sum Z n_i$
+    and the plasma oscillation drops out of every fluid and gyrokinetic model.
+    In a fusion core it holds by many decades; it fails in sheaths.
+
+    References
+    ----------
+    .. [1] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019).
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">EPS0</span> <span class="o">*</span> <span class="n">T</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">QE</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Electron Debye length.</p>
+
+\[\lambda_D = \sqrt{\frac{\epsilon_0 T_e}{n_e e^2}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>$\lambda_D$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The electron Debye length of the NRL formulary,
+$7.43\times10^{2}\,T_e^{1/2}n_e^{-1/2}$ cm with $n_e$ in cm$^{-3}$. Ion
+shielding, which shortens the total Debye length, is left out.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\lambda_D/L \ll 1$ is quasineutrality: charge separation is confined
+below the Debye scale, the Poisson equation reduces to $n_e = \sum Z n_i$
+and the plasma oscillation drops out of every fluid and gyrokinetic model.
+In a fusion core it holds by many decades; it fails in sheaths.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="evolution_time" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evolution_time"><code>evolution_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="evolution_time" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L630-L671" title="vaft/formula/ordering.py, lines 630–671 at f5626c3">source</a>
+<a class="ref-source" data-source="evolution_time" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L636-L677" title="vaft/formula/ordering.py, lines 636–677 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>evolution_time(X, dX_dt)</code></pre>
 
-    <details class="ref-code" data-source-code="evolution_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 630–671</span></summary>
+    <details class="ref-code" data-source-code="evolution_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 636–677</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evolution_time</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">dX_dt</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Evolution time of a state variable from its rate of change.
@@ -970,11 +1091,11 @@ from whether a reconstruction converged.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#inertial_length"><code>inertial_length</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="inertial_length" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L259-L305" title="vaft/formula/ordering.py, lines 259–305 at f5626c3">source</a>
+<a class="ref-source" data-source="inertial_length" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L265-L311" title="vaft/formula/ordering.py, lines 265–311 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>inertial_length(n, m, q=1.602176634e-19)</code></pre>
 
-    <details class="ref-code" data-source-code="inertial_length"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 259–305</span></summary>
+    <details class="ref-code" data-source-code="inertial_length"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 265–311</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">inertial_length</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">QE</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Inertial (skin) length of a species: the light speed over its plasma frequency.
@@ -1088,11 +1209,11 @@ single-fluid MHD needs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#knudsen_number"><code>knudsen_number</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="knudsen_number" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L541-L581" title="vaft/formula/ordering.py, lines 541–581 at f5626c3">source</a>
+<a class="ref-source" data-source="knudsen_number" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L547-L587" title="vaft/formula/ordering.py, lines 547–587 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>knudsen_number(mean_free_path, L)</code></pre>
 
-    <details class="ref-code" data-source-code="knudsen_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 541–581</span></summary>
+    <details class="ref-code" data-source-code="knudsen_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 547–587</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">knudsen_number</span><span class="p">(</span><span class="n">mean_free_path</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Knudsen number: mean free path over a characteristic length.
@@ -1198,11 +1319,11 @@ grows, transport becomes non-local and kinetic.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#lundquist_number"><code>lundquist_number</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="lundquist_number" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L168-L211" title="vaft/formula/ordering.py, lines 168–211 at f5626c3">source</a>
+<a class="ref-source" data-source="lundquist_number" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L174-L217" title="vaft/formula/ordering.py, lines 174–217 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>lundquist_number(L, v_A, eta)</code></pre>
 
-    <details class="ref-code" data-source-code="lundquist_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 168–211</span></summary>
+    <details class="ref-code" data-source-code="lundquist_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 174–217</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">lundquist_number</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">v_A</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Lundquist number: resistive diffusion time over Alfven time.
@@ -1310,15 +1431,124 @@ thin resonant layers, where resistivity matters however large $S$ is.</p>
 
   </section>
 
+  <section class="ref-entry" id="mach_number" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mach_number"><code>mach_number</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mach_number" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L724-L763" title="vaft/formula/ordering.py, lines 724–763 at cad2351">source</a>
+</header>
+    <pre class="ref-signature"><code>mach_number(U, v)</code></pre>
+
+    <details class="ref-code" data-source-code="mach_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 724–763</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mach_number</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Mach number of a flow against a reference speed.
+
+    $$M = \frac{|U|}{v}$$
+
+    Parameters
+    ----------
+    U : float or np.ndarray
+        Flow speed, either sign [m/s].
+    v : float or np.ndarray
+        Reference speed, positive: the ion thermal speed
+        (:func:`thermal_speed`), the sound speed or the Alfven speed [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $M$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``v`` is not positive, or an input is not finite.
+
+    Convention
+    ----------
+    The reference speed names the ordering: $M = U/v_{ti}$ is the sonic
+    Mach number of gyrokinetic and equilibrium flow orderings,
+    $M_A = U/v_A$ the Alfvenic one. Below $\beta \sim 1$, $M_A &lt; M$.
+
+    Physical interpretation
+    -----------------------
+    $M \ll 1$ lets a static equilibrium and a low-flow gyrokinetic model
+    drop centrifugal and Coriolis terms; $M \sim 1$ needs the rotating
+    (high-flow) forms, and $M_A \sim 1$ changes the force balance itself.
+
+    References
+    ----------
+    .. [1] F. I. Parra and P. J. Catto, Plasma Phys. Control. Fusion 52 (2010) 045004.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="nf">_array</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="sh">"</span><span class="s">U</span><span class="sh">"</span><span class="p">))</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="sh">"</span><span class="s">v</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Mach number of a flow against a reference speed.</p>
+
+\[M = \frac{|U|}{v}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>U</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Flow speed, either sign.</p>
+</td></tr>
+  <tr><td><code>v</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Reference speed, positive: the ion thermal speed (<code class="language-plaintext highlighter-rouge">thermal_speed</code>), the sound speed or the Alfven speed.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$M$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The reference speed names the ordering: $M = U/v_{ti}$ is the sonic
+Mach number of gyrokinetic and equilibrium flow orderings,
+$M_A = U/v_A$ the Alfvenic one. Below $\beta \sim 1$, $M_A &lt; M$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">v</code> is not positive, or an input is not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$M \ll 1$ lets a static equilibrium and a low-flow gyrokinetic model
+drop centrifugal and Coriolis terms; $M \sim 1$ needs the rotating
+(high-flow) forms, and $M_A \sim 1$ changes the force balance itself.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>F. I. Parra and P. J. Catto, Plasma Phys. Control. Fusion 52 (2010) 045004.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="magnetic_reynolds_number" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#magnetic_reynolds_number"><code>magnetic_reynolds_number</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="magnetic_reynolds_number" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L214-L256" title="vaft/formula/ordering.py, lines 214–256 at f5626c3">source</a>
+<a class="ref-source" data-source="magnetic_reynolds_number" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L220-L262" title="vaft/formula/ordering.py, lines 220–262 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>magnetic_reynolds_number(V, L, eta)</code></pre>
 
-    <details class="ref-code" data-source-code="magnetic_reynolds_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 214–256</span></summary>
+    <details class="ref-code" data-source-code="magnetic_reynolds_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 220–262</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetic_reynolds_number</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Magnetic Reynolds number: flux advection against resistive diffusion.
@@ -1425,11 +1655,11 @@ Lundquist number. Do not substitute an arbitrary speed to fill a table.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#magnetization"><code>magnetization</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="magnetization" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L584-L627" title="vaft/formula/ordering.py, lines 584–627 at f5626c3">source</a>
+<a class="ref-source" data-source="magnetization" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L590-L633" title="vaft/formula/ordering.py, lines 590–633 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>magnetization(gyrofrequency, collision_time)</code></pre>
 
-    <details class="ref-code" data-source-code="magnetization"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 584–627</span></summary>
+    <details class="ref-code" data-source-code="magnetization"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 590–633</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetization</span><span class="p">(</span><span class="n">gyrofrequency</span><span class="p">,</span> <span class="n">collision_time</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Magnetization of a species: gyro-orbits per collision time.
@@ -1538,11 +1768,11 @@ collisionless along the field at once.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#mean_free_path"><code>mean_free_path</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="mean_free_path" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L502-L538" title="vaft/formula/ordering.py, lines 502–538 at f5626c3">source</a>
+<a class="ref-source" data-source="mean_free_path" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L508-L544" title="vaft/formula/ordering.py, lines 508–544 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>mean_free_path(v_t, tau)</code></pre>
 
-    <details class="ref-code" data-source-code="mean_free_path"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 502–538</span></summary>
+    <details class="ref-code" data-source-code="mean_free_path"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 508–544</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mean_free_path</span><span class="p">(</span><span class="n">v_t</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Mean free path: thermal speed times collision time.
@@ -1638,15 +1868,125 @@ it decides whether a local fluid closure holds.</p>
 
   </section>
 
+  <section class="ref-entry" id="pressure_anisotropy" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#pressure_anisotropy"><code>pressure_anisotropy</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="pressure_anisotropy" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L766-L806" title="vaft/formula/ordering.py, lines 766–806 at cad2351">source</a>
+</header>
+    <pre class="ref-signature"><code>pressure_anisotropy(p_perp, p_par)</code></pre>
+
+    <details class="ref-code" data-source-code="pressure_anisotropy"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 766–806</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">pressure_anisotropy</span><span class="p">(</span><span class="n">p_perp</span><span class="p">,</span> <span class="n">p_par</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Pressure anisotropy relative to the scalar pressure.
+
+    $$\Delta = \frac{p_\perp - p_\parallel}{p},\qquad p = \frac{2p_\perp + p_\parallel}{3}$$
+
+    Parameters
+    ----------
+    p_perp : float or np.ndarray
+        Perpendicular pressure, positive [Pa].
+    p_par : float or np.ndarray
+        Parallel pressure, positive [Pa].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta$, signed, in $(-3, 3/2)$ [-].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    Signed: $\Delta &gt; 0$ for perpendicular heating (ICRH, perpendicular
+    NBI), $\Delta &lt; 0$ for parallel. The ordering is on $|\Delta|$, and the
+    mirror and firehose thresholds on $\beta\Delta$.
+
+    Physical interpretation
+    -----------------------
+    $|\Delta| \ll 1$ is the scalar-pressure assumption of single-fluid MHD;
+    collisions keep it, and a weakly collisional plasma with directional
+    heating or fast ions breaks it, needing CGL or kinetic pressure.
+
+    References
+    ----------
+    .. [1] G. F. Chew, M. L. Goldberger and F. E. Low, Proc. R. Soc. Lond. A 236 (1956) 112.
+    </span><span class="sh">"""</span>
+    <span class="n">perp</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">p_perp</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_perp</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">par</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">p_par</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_par</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">((</span><span class="n">perp</span> <span class="o">-</span> <span class="n">par</span><span class="p">)</span> <span class="o">/</span> <span class="p">((</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">perp</span> <span class="o">+</span> <span class="n">par</span><span class="p">)</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Pressure anisotropy relative to the scalar pressure.</p>
+
+\[\Delta = \frac{p_\perp - p_\parallel}{p},\qquad p = \frac{2p_\perp + p_\parallel}{3}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>p_perp</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Pa</td><td><p>Perpendicular pressure, positive.</p>
+</td></tr>
+  <tr><td><code>p_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Pa</td><td><p>Parallel pressure, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\Delta$, signed, in $(-3, 3/2)$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Signed: $\Delta &gt; 0$ for perpendicular heating (ICRH, perpendicular
+NBI), $\Delta &lt; 0$ for parallel. The ordering is on $|\Delta|$, and the
+mirror and firehose thresholds on $\beta\Delta$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$|\Delta| \ll 1$ is the scalar-pressure assumption of single-fluid MHD;
+collisions keep it, and a weakly collisional plasma with directional
+heating or fast ions breaks it, needing CGL or kinetic pressure.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>G. F. Chew, M. L. Goldberger and F. E. Low, Proc. R. Soc. Lond. A 236 (1956) 112.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="resistive_diffusion_time" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resistive_diffusion_time"><code>resistive_diffusion_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resistive_diffusion_time" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L125-L165" title="vaft/formula/ordering.py, lines 125–165 at f5626c3">source</a>
+<a class="ref-source" data-source="resistive_diffusion_time" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L131-L171" title="vaft/formula/ordering.py, lines 131–171 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>resistive_diffusion_time(L, eta)</code></pre>
 
-    <details class="ref-code" data-source-code="resistive_diffusion_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 125–165</span></summary>
+    <details class="ref-code" data-source-code="resistive_diffusion_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 131–171</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">resistive_diffusion_time</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Resistive diffusion time of magnetic field across a characteristic length.
@@ -1753,11 +2093,11 @@ current profile younger than this has not relaxed resistively.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sound_gyroradius"><code>sound_gyroradius</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sound_gyroradius" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L308-L351" title="vaft/formula/ordering.py, lines 308–351 at f5626c3">source</a>
+<a class="ref-source" data-source="sound_gyroradius" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L314-L357" title="vaft/formula/ordering.py, lines 314–357 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>sound_gyroradius(T_e, m_i, B, Z=1.0)</code></pre>
 
-    <details class="ref-code" data-source-code="sound_gyroradius"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 308–351</span></summary>
+    <details class="ref-code" data-source-code="sound_gyroradius"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 314–357</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sound_gyroradius</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">m_i</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Ion-sound gyroradius: the ion sound speed over the ion gyrofrequency.
@@ -1870,11 +2210,11 @@ the FLR ordering parameter of fluid and gyrofluid models.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#thermal_speed"><code>thermal_speed</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="thermal_speed" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/formula/ordering.py#L354-L389" title="vaft/formula/ordering.py, lines 354–389 at f5626c3">source</a>
+<a class="ref-source" data-source="thermal_speed" href="https://github.com/VEST-Tokamak/vaft/blob/cad23518e429a5eb81114147ed47b14371d8af20/vaft/formula/ordering.py#L360-L395" title="vaft/formula/ordering.py, lines 360–395 at cad2351">source</a>
 </header>
     <pre class="ref-signature"><code>thermal_speed(T, m)</code></pre>
 
-    <details class="ref-code" data-source-code="thermal_speed"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 354–389</span></summary>
+    <details class="ref-code" data-source-code="thermal_speed"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 360–395</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">thermal_speed</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Thermal speed of a species.
@@ -2188,7 +2528,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 12:46:39 +0000"
+        "time": "2026-10-07 13:50:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

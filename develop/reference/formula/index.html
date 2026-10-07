@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f5626c3</code>. What is described
+  <code>cad2351</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -541,7 +541,7 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
   </tr>
   <tr id="ordering">
     <td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td>
-    <td><code>vaft.formula.ordering</code></td><td>13</td><td>Asymptotic ordering parameters: the scale separations reduced models assume.</td>
+    <td><code>vaft.formula.ordering</code></td><td>16</td><td>Asymptotic ordering parameters: the scale separations reduced models assume.</td>
   </tr>
   <tr id="fast_ion">
     <td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td>
@@ -612,7 +612,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 457 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 460 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1548,6 +1548,8 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="braginskii_ion_collision_time ordering"><td><a href="/vaft/develop/reference/formula/ordering/#braginskii_ion_collision_time"><code>braginskii_ion_collision_time</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Braginskii ion collision time.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="debye_length ordering"><td><a href="/vaft/develop/reference/formula/ordering/#debye_length"><code>debye_length</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Electron Debye length.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="evolution_time ordering"><td><a href="/vaft/develop/reference/formula/ordering/#evolution_time"><code>evolution_time</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Evolution time of a state variable from its rate of change.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="inertial_length ordering"><td><a href="/vaft/develop/reference/formula/ordering/#inertial_length"><code>inertial_length</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Inertial (skin) length of a species: the light speed over its plasma frequency.
@@ -1556,11 +1558,15 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="lundquist_number ordering"><td><a href="/vaft/develop/reference/formula/ordering/#lundquist_number"><code>lundquist_number</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Lundquist number: resistive diffusion time over Alfven time.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mach_number ordering"><td><a href="/vaft/develop/reference/formula/ordering/#mach_number"><code>mach_number</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Mach number of a flow against a reference speed.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="magnetic_reynolds_number ordering"><td><a href="/vaft/develop/reference/formula/ordering/#magnetic_reynolds_number"><code>magnetic_reynolds_number</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Magnetic Reynolds number: flux advection against resistive diffusion.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="magnetization ordering"><td><a href="/vaft/develop/reference/formula/ordering/#magnetization"><code>magnetization</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Magnetization of a species: gyro-orbits per collision time.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="mean_free_path ordering"><td><a href="/vaft/develop/reference/formula/ordering/#mean_free_path"><code>mean_free_path</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Mean free path: thermal speed times collision time.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="pressure_anisotropy ordering"><td><a href="/vaft/develop/reference/formula/ordering/#pressure_anisotropy"><code>pressure_anisotropy</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Pressure anisotropy relative to the scalar pressure.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="resistive_diffusion_time ordering"><td><a href="/vaft/develop/reference/formula/ordering/#resistive_diffusion_time"><code>resistive_diffusion_time</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Resistive diffusion time of magnetic field across a characteristic length.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -1854,7 +1860,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 12:46:39 +0000"
+        "time": "2026-10-07 13:50:45 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
