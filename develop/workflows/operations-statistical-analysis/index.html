@@ -348,7 +348,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8adf724</code>. What is described
+  <code>aff4a79</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -618,8 +618,9 @@ used by the dimensionless-parameter chain.</p>
 <p>Energy and resistivity:</p>
 
 <!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">W</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">stored_energy_from_p_V</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>                <span class="c1"># W = p V
-</span><span class="n">W</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">stored_energy_from_beta_V</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>      <span class="c1"># W = beta B0^2 V / (2 mu0)
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">W</span>   <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">thermal_energy_from_p_V</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>               <span class="c1"># W_th = 3/2 &lt;p&gt; V (IMAS energy_thermal)
+</span><span class="n">PV</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">stored_energy_from_p_V</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>                <span class="c1"># int p dV = &lt;p&gt; V: NOT W_th, despite the name
+</span><span class="n">PV</span>  <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">stored_energy_from_beta_V</span><span class="p">(</span><span class="n">beta</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">V</span><span class="p">)</span>      <span class="c1"># &lt;p&gt; V again, from beta = 2 mu0 &lt;p&gt; / B0^2
 </span><span class="n">eta</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">Z_eff</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="o">=</span><span class="mf">17.0</span><span class="p">)</span>
 </code></pre></div></div>
 
@@ -1263,7 +1264,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 08:07:33 +0000"
+        "time": "2026-10-07 08:21:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

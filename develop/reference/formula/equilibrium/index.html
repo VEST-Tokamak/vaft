@@ -348,7 +348,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8adf724</code>. What is described
+  <code>aff4a79</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -379,7 +379,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.equilibrium</code>:
-<strong>107</strong> public functions. Each entry is what
+<strong>108</strong> public functions. Each entry is what
 <code>vaft.formula.describe("equilibrium.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -411,7 +411,7 @@ including poloidal flux, toroidal flux, safety factor, current, energy, and geom
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 107 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 108 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="alpha_heating_power_from_n_D_n_T_T_keV_V alpha_heating_power"><td><a href="#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a></td><td>D-T alpha heating power with the rough $\langle\sigma v\rangle \propto T^2$ fit.
@@ -618,13 +618,15 @@ including poloidal flux, toroidal flux, safety factor, current, energy, and geom
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="spitzer_resistivity_from_T_e_Z_eff_ln_Lambda"><td><a href="#spitzer_resistivity_from_T_e_Z_eff_ln_Lambda"><code>spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code></a></td><td>Spitzer parallel resistivity $\eta_\parallel$ (NRL, parallel coefficient).
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="stored_energy_from_beta_V"><td><a href="#stored_energy_from_beta_V"><code>stored_energy_from_beta_V</code></a></td><td>Stored energy from toroidal beta, $W = \beta B_0^2 V/(2\mu_0)$.
+  <tr data-ref-row="stored_energy_from_beta_V"><td><a href="#stored_energy_from_beta_V"><code>stored_energy_from_beta_V</code></a></td><td>Pressure volume integral $\langle p\rangle V$ from toroidal beta – not the thermal energy.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
-  <tr data-ref-row="stored_energy_from_p_V"><td><a href="#stored_energy_from_p_V"><code>stored_energy_from_p_V</code></a></td><td>Stored energy as pressure times volume, $W = pV$.
+  <tr data-ref-row="stored_energy_from_p_V"><td><a href="#stored_energy_from_p_V"><code>stored_energy_from_p_V</code></a></td><td>Pressure volume integral $\int p\,dV \approx \langle p\rangle V$ – not the thermal (stored) energy.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="straight_field_line_angle"><td><a href="#straight_field_line_angle"><code>straight_field_line_angle</code></a></td><td>Straight-field-line (PEST) poloidal angle on one flux surface.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="surface_poloidal_flux_from_psi_boundary"><td><a href="#surface_poloidal_flux_from_psi_boundary"><code>surface_poloidal_flux_from_psi_boundary</code></a></td><td>Total poloidal flux at the plasma surface, $\Phi_{surface} = 2\pi\psi_b$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="thermal_energy_from_p_V"><td><a href="#thermal_energy_from_p_V"><code>thermal_energy_from_p_V</code></a></td><td>Thermal (stored kinetic) energy of the plasma, $W_{th} = \tfrac{3}{2}\int p\,dV$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="toroidal_current_density_from_p_prime_ff_prime"><td><a href="#toroidal_current_density_from_p_prime_ff_prime"><code>toroidal_current_density_from_p_prime_ff_prime</code></a></td><td>Plasma toroidal current density allowed by force balance, $J_\phi(p’, FF’)$.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -657,10 +659,10 @@ including poloidal flux, toroidal flux, safety factor, current, energy, and geom
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#alpha_heating_power_from_n_D_n_T_T_keV_V"><code>alpha_heating_power_from_n_D_n_T_T_keV_V</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
-<a class="ref-source" data-source="alpha_heating_power_from_n_D_n_T_T_keV_V" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3787-L3837" title="vaft/formula/equilibrium.py, lines 3787–3837 at 8adf724">source</a>
+<a class="ref-source" data-source="alpha_heating_power_from_n_D_n_T_T_keV_V" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3838-L3888" title="vaft/formula/equilibrium.py, lines 3838–3888 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>alpha_heating_power_from_n_D_n_T_T_keV_V(n_D_1e19, n_T_1e19, T_keV, V_m3)</code></pre>
-    <details class="ref-code" data-source-code="alpha_heating_power_from_n_D_n_T_T_keV_V"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3787–3837</span></summary>
+    <details class="ref-code" data-source-code="alpha_heating_power_from_n_D_n_T_T_keV_V"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3838–3888</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">alpha_heating_power_from_n_D_n_T_T_keV_V</span><span class="p">(</span>
     <span class="n">n_D_1e19</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">n_T_1e19</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">T_keV</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">V_m3</span><span class="p">:</span> <span class="nb">float</span>
@@ -778,10 +780,10 @@ completeness.  Tracked in #360 (Bosch-Hale replacement).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#aspect_ratio_from_a_R"><code>aspect_ratio_from_a_R</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="aspect_ratio_from_a_R" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4095-L4116" title="vaft/formula/equilibrium.py, lines 4095–4116 at 8adf724">source</a>
+<a class="ref-source" data-source="aspect_ratio_from_a_R" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4146-L4167" title="vaft/formula/equilibrium.py, lines 4146–4167 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>aspect_ratio_from_a_R(a, R)</code></pre>
-    <details class="ref-code" data-source-code="aspect_ratio_from_a_R"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4095–4116</span></summary>
+    <details class="ref-code" data-source-code="aspect_ratio_from_a_R"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4146–4167</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">aspect_ratio_from_a_R</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">R</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Aspect ratio $A = R/a = 1/\varepsilon$.
@@ -842,10 +844,10 @@ completeness.  Tracked in #360 (Bosch-Hale replacement).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#auxiliary_heating_power"><code>auxiliary_heating_power</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="auxiliary_heating_power" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3893-L3920" title="vaft/formula/equilibrium.py, lines 3893–3920 at 8adf724">source</a>
+<a class="ref-source" data-source="auxiliary_heating_power" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3944-L3971" title="vaft/formula/equilibrium.py, lines 3944–3971 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>auxiliary_heating_power(P_aux, eta_CD)</code></pre>
-    <details class="ref-code" data-source-code="auxiliary_heating_power"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3893–3920</span></summary>
+    <details class="ref-code" data-source-code="auxiliary_heating_power"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3944–3971</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">auxiliary_heating_power</span><span class="p">(</span><span class="n">P_aux</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                           <span class="n">eta_CD</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
@@ -915,7 +917,7 @@ completeness.  Tracked in #360 (Bosch-Hale replacement).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_normal_from_beta_tor"><code>beta_normal_from_beta_tor</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="beta_normal_from_beta_tor" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1903-L1932" title="vaft/formula/equilibrium.py, lines 1903–1932 at 8adf724">source</a>
+<a class="ref-source" data-source="beta_normal_from_beta_tor" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1903-L1932" title="vaft/formula/equilibrium.py, lines 1903–1932 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>beta_normal_from_beta_tor(beta_tor, a, B0, Ip)</code></pre>
     <details class="ref-code" data-source-code="beta_normal_from_beta_tor"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1903–1932</span></summary>
@@ -996,7 +998,7 @@ completeness.  Tracked in #360 (Bosch-Hale replacement).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_normal_from_beta_volume"><code>beta_normal_from_beta_volume</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="beta_normal_from_beta_volume" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1977-L2020" title="vaft/formula/equilibrium.py, lines 1977–2020 at 8adf724">source</a>
+<a class="ref-source" data-source="beta_normal_from_beta_volume" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1977-L2020" title="vaft/formula/equilibrium.py, lines 1977–2020 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>beta_normal_from_beta_volume(beta_volume, a, B0, Ip)</code></pre>
     <details class="ref-code" data-source-code="beta_normal_from_beta_volume"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1977–2020</span></summary>
@@ -1107,7 +1109,7 @@ $\beta_N$ of an optimized no-wall sequence nearly doubles (3.15 at A = 10 to
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_poloidal_from_circumference"><code>beta_poloidal_from_circumference</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="beta_poloidal_from_circumference" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2172-L2212" title="vaft/formula/equilibrium.py, lines 2172–2212 at 8adf724">source</a>
+<a class="ref-source" data-source="beta_poloidal_from_circumference" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2172-L2212" title="vaft/formula/equilibrium.py, lines 2172–2212 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>beta_poloidal_from_circumference(p_average, Ip, length_pol)</code></pre>
     <details class="ref-code" data-source-code="beta_poloidal_from_circumference"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2172–2212</span></summary>
@@ -1211,7 +1213,7 @@ DD-normative (see <code class="language-plaintext highlighter-rouge">beta_poloid
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_poloidal_from_pressure_integral"><code>beta_poloidal_from_pressure_integral</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="beta_poloidal_from_pressure_integral" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1867-L1900" title="vaft/formula/equilibrium.py, lines 1867–1900 at 8adf724">source</a>
+<a class="ref-source" data-source="beta_poloidal_from_pressure_integral" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1867-L1900" title="vaft/formula/equilibrium.py, lines 1867–1900 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>beta_poloidal_from_pressure_integral(pressure_integral, R0, Ip)</code></pre>
     <details class="ref-code" data-source-code="beta_poloidal_from_pressure_integral"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1867–1900</span></summary>
@@ -1303,10 +1305,10 @@ The EFIT/OMFIT circumference form is a different definition; see
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_t_from_n_T_B"><code>beta_t_from_n_T_B</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="beta_t_from_n_T_B" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4525-L4578" title="vaft/formula/equilibrium.py, lines 4525–4578 at 8adf724">source</a>
+<a class="ref-source" data-source="beta_t_from_n_T_B" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4576-L4629" title="vaft/formula/equilibrium.py, lines 4576–4629 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>beta_t_from_n_T_B(n_m3, T_eV, B_t_T, output=&#39;percent&#39;)</code></pre>
-    <details class="ref-code" data-source-code="beta_t_from_n_T_B"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4525–4578</span></summary>
+    <details class="ref-code" data-source-code="beta_t_from_n_T_B"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4576–4629</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">beta_t_from_n_T_B</span><span class="p">(</span>
     <span class="n">n_m3</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -1427,7 +1429,7 @@ reproduced by construction.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_toroidal_from_p_B0"><code>beta_toroidal_from_p_B0</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="beta_toroidal_from_p_B0" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1839-L1864" title="vaft/formula/equilibrium.py, lines 1839–1864 at 8adf724">source</a>
+<a class="ref-source" data-source="beta_toroidal_from_p_B0" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1839-L1864" title="vaft/formula/equilibrium.py, lines 1839–1864 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>beta_toroidal_from_p_B0(p_average, B0)</code></pre>
     <details class="ref-code" data-source-code="beta_toroidal_from_p_B0"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1839–1864</span></summary>
@@ -1500,7 +1502,7 @@ reproduced by construction.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#beta_volume_from_p_B2"><code>beta_volume_from_p_B2</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="beta_volume_from_p_B2" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1935-L1974" title="vaft/formula/equilibrium.py, lines 1935–1974 at 8adf724">source</a>
+<a class="ref-source" data-source="beta_volume_from_p_B2" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1935-L1974" title="vaft/formula/equilibrium.py, lines 1935–1974 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>beta_volume_from_p_B2(p_average, B2_average)</code></pre>
     <details class="ref-code" data-source-code="beta_volume_from_p_B2"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1935–1974</span></summary>
@@ -1600,7 +1602,7 @@ $B_0^2$, which is why Menard et al. normalize by it to compare aspect ratios.</p
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#bootstrap_current_fraction"><code>bootstrap_current_fraction</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
-<a class="ref-source" data-source="bootstrap_current_fraction" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1413-L1467" title="vaft/formula/equilibrium.py, lines 1413–1467 at 8adf724">source</a>
+<a class="ref-source" data-source="bootstrap_current_fraction" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1413-L1467" title="vaft/formula/equilibrium.py, lines 1413–1467 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>bootstrap_current_fraction(n_e, T_e_keV, R0, a, q_95)</code></pre>
     <details class="ref-code" data-source-code="bootstrap_current_fraction"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1413–1467</span></summary>
@@ -1727,10 +1729,10 @@ ignores profile shape and the ion pressure.  Tracked in #361.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#bremsstrahlung_power_density_from_T_e_p_Z_eff"><code>bremsstrahlung_power_density_from_T_e_p_Z_eff</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="bremsstrahlung_power_density_from_T_e_p_Z_eff" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3483-L3535" title="vaft/formula/equilibrium.py, lines 3483–3535 at 8adf724">source</a>
+<a class="ref-source" data-source="bremsstrahlung_power_density_from_T_e_p_Z_eff" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3534-L3586" title="vaft/formula/equilibrium.py, lines 3534–3586 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>bremsstrahlung_power_density_from_T_e_p_Z_eff(T_e, p, Z_eff=2.0)</code></pre>
-    <details class="ref-code" data-source-code="bremsstrahlung_power_density_from_T_e_p_Z_eff"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3483–3535</span></summary>
+    <details class="ref-code" data-source-code="bremsstrahlung_power_density_from_T_e_p_Z_eff"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3534–3586</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">bremsstrahlung_power_density_from_T_e_p_Z_eff</span><span class="p">(</span>
     <span class="n">T_e</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -1848,10 +1850,10 @@ recombination or line radiation.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#bremsstrahlung_power_density_from_n_e_T_e_Z_eff"><code>bremsstrahlung_power_density_from_n_e_T_e_Z_eff</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="bremsstrahlung_power_density_from_n_e_T_e_Z_eff" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3539-L3600" title="vaft/formula/equilibrium.py, lines 3539–3600 at 8adf724">source</a>
+<a class="ref-source" data-source="bremsstrahlung_power_density_from_n_e_T_e_Z_eff" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3590-L3651" title="vaft/formula/equilibrium.py, lines 3590–3651 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>bremsstrahlung_power_density_from_n_e_T_e_Z_eff(n_e_m3, T_e_eV, *, Z_eff=2.0)</code></pre>
-    <details class="ref-code" data-source-code="bremsstrahlung_power_density_from_n_e_T_e_Z_eff"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3539–3600</span></summary>
+    <details class="ref-code" data-source-code="bremsstrahlung_power_density_from_n_e_T_e_Z_eff"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3590–3651</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">bremsstrahlung_power_density_from_n_e_T_e_Z_eff</span><span class="p">(</span>
     <span class="n">n_e_m3</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -1990,10 +1992,10 @@ bremsstrahlung_power_density_from_T_e_p_Z_eff</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#bremsstrahlung_radiation_power_from_z_eff_n_e_t_e"><code>bremsstrahlung_radiation_power_from_z_eff_n_e_t_e</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="bremsstrahlung_radiation_power_from_z_eff_n_e_t_e" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3943-L3978" title="vaft/formula/equilibrium.py, lines 3943–3978 at 8adf724">source</a>
+<a class="ref-source" data-source="bremsstrahlung_radiation_power_from_z_eff_n_e_t_e" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3994-L4029" title="vaft/formula/equilibrium.py, lines 3994–4029 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>bremsstrahlung_radiation_power_from_z_eff_n_e_t_e(Z_eff, n_e, T_e_eV)</code></pre>
-    <details class="ref-code" data-source-code="bremsstrahlung_radiation_power_from_z_eff_n_e_t_e"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3943–3978</span></summary>
+    <details class="ref-code" data-source-code="bremsstrahlung_radiation_power_from_z_eff_n_e_t_e"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3994–4029</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">bremsstrahlung_radiation_power_from_z_eff_n_e_t_e</span><span class="p">(</span><span class="n">Z_eff</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                         <span class="n">n_e</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -2086,10 +2088,10 @@ cm^-3 densities, converted to SI, and $\sum Z^2 n_Z = Z_{\mathrm{eff}}n_e$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calc_inverse_aspect_ratio"><code>calc_inverse_aspect_ratio</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="calc_inverse_aspect_ratio" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4435-L4467" title="vaft/formula/equilibrium.py, lines 4435–4467 at 8adf724">source</a>
+<a class="ref-source" data-source="calc_inverse_aspect_ratio" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4486-L4518" title="vaft/formula/equilibrium.py, lines 4486–4518 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>calc_inverse_aspect_ratio(a_m, R_geo_m)</code></pre>
-    <details class="ref-code" data-source-code="calc_inverse_aspect_ratio"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4435–4467</span></summary>
+    <details class="ref-code" data-source-code="calc_inverse_aspect_ratio"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4486–4518</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calc_inverse_aspect_ratio</span><span class="p">(</span>
     <span class="n">a_m</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -2169,10 +2171,10 @@ cm^-3 densities, converted to SI, and $\sum Z^2 n_Z = Z_{\mathrm{eff}}n_e$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#check_kadomtsev_constraint"><code>check_kadomtsev_constraint</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="check_kadomtsev_constraint" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4847-L4906" title="vaft/formula/equilibrium.py, lines 4847–4906 at 8adf724">source</a>
+<a class="ref-source" data-source="check_kadomtsev_constraint" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4898-L4957" title="vaft/formula/equilibrium.py, lines 4898–4957 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>check_kadomtsev_constraint(alpha_I, alpha_B, alpha_P, alpha_n, alpha_R, tol=1e-06)</code></pre>
-    <details class="ref-code" data-source-code="check_kadomtsev_constraint"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4847–4906</span></summary>
+    <details class="ref-code" data-source-code="check_kadomtsev_constraint"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4898–4957</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">check_kadomtsev_constraint</span><span class="p">(</span>
     <span class="n">alpha_I</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -2299,10 +2301,10 @@ dimensionless indices (#351).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_factor_ITER89P"><code>confinement_factor_ITER89P</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="confinement_factor_ITER89P" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5401-L5424" title="vaft/formula/equilibrium.py, lines 5401–5424 at 8adf724">source</a>
+<a class="ref-source" data-source="confinement_factor_ITER89P" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5452-L5475" title="vaft/formula/equilibrium.py, lines 5452–5475 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_factor_ITER89P(tau_E_exp, tau_E_ITER89P)</code></pre>
-    <details class="ref-code" data-source-code="confinement_factor_ITER89P"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5401–5424</span></summary>
+    <details class="ref-code" data-source-code="confinement_factor_ITER89P"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5452–5475</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_factor_ITER89P</span><span class="p">(</span><span class="n">tau_E_exp</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">tau_E_ITER89P</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
 
@@ -2368,10 +2370,10 @@ dimensionless indices (#351).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_scaling_basis"><code>confinement_scaling_basis</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="confinement_scaling_basis" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5356-L5398" title="vaft/formula/equilibrium.py, lines 5356–5398 at 8adf724">source</a>
+<a class="ref-source" data-source="confinement_scaling_basis" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5407-L5449" title="vaft/formula/equilibrium.py, lines 5407–5449 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_scaling_basis(scaling)</code></pre>
-    <details class="ref-code" data-source-code="confinement_scaling_basis"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5356–5398</span></summary>
+    <details class="ref-code" data-source-code="confinement_scaling_basis"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5407–5449</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_scaling_basis</span><span class="p">(</span><span class="n">scaling</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ConfinementScalingBasis</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Energy and power basis a published confinement scaling was fitted on.
@@ -2475,10 +2477,10 @@ value is never guessed, and a caller must treat it as unknown.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_time_from_P_loss_W_th"><code>confinement_time_from_P_loss_W_th</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="confinement_time_from_P_loss_W_th" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4921-L4948" title="vaft/formula/equilibrium.py, lines 4921–4948 at 8adf724">source</a>
+<a class="ref-source" data-source="confinement_time_from_P_loss_W_th" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4972-L4999" title="vaft/formula/equilibrium.py, lines 4972–4999 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_time_from_P_loss_W_th(P_loss, W_th)</code></pre>
-    <details class="ref-code" data-source-code="confinement_time_from_P_loss_W_th"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4921–4948</span></summary>
+    <details class="ref-code" data-source-code="confinement_time_from_P_loss_W_th"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4972–4999</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_time_from_P_loss_W_th</span><span class="p">(</span><span class="n">P_loss</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">W_th</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Energy confinement time as stored energy over loss power.
@@ -2557,7 +2559,7 @@ $\tau_{E,th}$ needs $P_{loss}$ from <code class="language-plaintext highlighter-
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_time_from_engineering_parameters"><code>confinement_time_from_engineering_parameters</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="confinement_time_from_engineering_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4950-L5163" title="vaft/formula/equilibrium.py, lines 4950–5163 at 8adf724">source</a>
+<a class="ref-source" data-source="confinement_time_from_engineering_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5001-L5214" title="vaft/formula/equilibrium.py, lines 5001–5214 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_time_from_engineering_parameters(I_p, B_t, P_loss, n_e, M, R, epsilon, kappa, scaling=&#39;ITER89P&#39;, input_density_definition=&#39;line_avg&#39;, line_to_volume_factor=None)</code></pre>
 
@@ -2662,10 +2664,10 @@ dependence is mapped onto <code class="language-plaintext highlighter-rouge">P_l
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#coulomb_logarithm_from_n_T"><code>coulomb_logarithm_from_n_T</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="coulomb_logarithm_from_n_T" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4350-L4393" title="vaft/formula/equilibrium.py, lines 4350–4393 at 8adf724">source</a>
+<a class="ref-source" data-source="coulomb_logarithm_from_n_T" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4401-L4444" title="vaft/formula/equilibrium.py, lines 4401–4444 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>coulomb_logarithm_from_n_T(n_m3, T_eV)</code></pre>
-    <details class="ref-code" data-source-code="coulomb_logarithm_from_n_T"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4350–4393</span></summary>
+    <details class="ref-code" data-source-code="coulomb_logarithm_from_n_T"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4401–4444</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">coulomb_logarithm_from_n_T</span><span class="p">(</span>
     <span class="n">n_m3</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -2775,7 +2777,7 @@ also the convention of the Verdoolaege confinement-database analysis.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#current_density_from_B"><code>current_density_from_B</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="current_density_from_B" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1141-L1179" title="vaft/formula/equilibrium.py, lines 1141–1179 at 8adf724">source</a>
+<a class="ref-source" data-source="current_density_from_B" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1141-L1179" title="vaft/formula/equilibrium.py, lines 1141–1179 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>current_density_from_B(B, R)</code></pre>
     <details class="ref-code" data-source-code="current_density_from_B"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1141–1179</span></summary>
@@ -2877,7 +2879,7 @@ first-order ends); pass a 1-D slice, not a 2-D map.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#current_drive_efficiency"><code>current_drive_efficiency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span></span>
-<a class="ref-source" data-source="current_drive_efficiency" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1364-L1410" title="vaft/formula/equilibrium.py, lines 1364–1410 at 8adf724">source</a>
+<a class="ref-source" data-source="current_drive_efficiency" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1364-L1410" title="vaft/formula/equilibrium.py, lines 1364–1410 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>current_drive_efficiency(n_e, T_e_keV, Z_eff=1.0)</code></pre>
     <details class="ref-code" data-source-code="current_drive_efficiency"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1364–1410</span></summary>
@@ -2990,7 +2992,7 @@ qualitative.  Tracked in #361.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#current_limit_from_beta"><code>current_limit_from_beta</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="current_limit_from_beta" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2262-L2296" title="vaft/formula/equilibrium.py, lines 2262–2296 at 8adf724">source</a>
+<a class="ref-source" data-source="current_limit_from_beta" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2262-L2296" title="vaft/formula/equilibrium.py, lines 2262–2296 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>current_limit_from_beta(beta_N, a, B0)</code></pre>
     <details class="ref-code" data-source-code="current_limit_from_beta"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2262–2296</span></summary>
@@ -3080,7 +3082,7 @@ Tracked in #362.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#current_limit_from_q"><code>current_limit_from_q</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="current_limit_from_q" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2219-L2259" title="vaft/formula/equilibrium.py, lines 2219–2259 at 8adf724">source</a>
+<a class="ref-source" data-source="current_limit_from_q" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2219-L2259" title="vaft/formula/equilibrium.py, lines 2219–2259 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>current_limit_from_q(q_95, a, B0)</code></pre>
     <details class="ref-code" data-source-code="current_limit_from_q"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2219–2259</span></summary>
@@ -3182,10 +3184,10 @@ current; divide by $R$ for amperes.  Elongation is ignored.  Tracked in #362.</p
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e"><code>cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3981-L4034" title="vaft/formula/equilibrium.py, lines 3981–4034 at 8adf724">source</a>
+<a class="ref-source" data-source="cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4032-L4085" title="vaft/formula/equilibrium.py, lines 4032–4085 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e(n_e_m3, B_t_T, T_e_eV)</code></pre>
-    <details class="ref-code" data-source-code="cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3981–4034</span></summary>
+    <details class="ref-code" data-source-code="cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4032–4085</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cyclotron_synchrotron_power_density_scaling_from_n_e_B_t_T_e</span><span class="p">(</span>
     <span class="n">n_e_m3</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -3302,10 +3304,10 @@ to two orders of magnitude in a tokamak.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta"><code>cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4279-L4320" title="vaft/formula/equilibrium.py, lines 4279–4320 at 8adf724">source</a>
+<a class="ref-source" data-source="cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4330-L4371" title="vaft/formula/equilibrium.py, lines 4330–4371 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta(R, B, epsilon, I, f_kappa_delta)</code></pre>
-    <details class="ref-code" data-source-code="cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4279–4320</span></summary>
+    <details class="ref-code" data-source-code="cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4330–4371</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_safety_factor_from_R_B_epsilon_I_f_kappa_delta</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                            <span class="n">B</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -3408,7 +3410,7 @@ definitions.  Unlike the flux-derivative $q$ it never changes sign.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#decay_index_from_bz"><code>decay_index_from_bz</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="decay_index_from_bz" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1560-L1616" title="vaft/formula/equilibrium.py, lines 1560–1616 at 8adf724">source</a>
+<a class="ref-source" data-source="decay_index_from_bz" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1560-L1616" title="vaft/formula/equilibrium.py, lines 1560–1616 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>decay_index_from_bz(r, b_z, *, axis=-1)</code></pre>
     <details class="ref-code" data-source-code="decay_index_from_bz"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1560–1616</span></summary>
@@ -3538,7 +3540,7 @@ reader would otherwise take from it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dimensionless_scaling_coeffs_from_engineering_scaling_coeffs"><code>dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="dimensionless_scaling_coeffs_from_engineering_scaling_coeffs" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5426-L5539" title="vaft/formula/equilibrium.py, lines 5426–5539 at 8adf724">source</a>
+<a class="ref-source" data-source="dimensionless_scaling_coeffs_from_engineering_scaling_coeffs" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5477-L5590" title="vaft/formula/equilibrium.py, lines 5477–5590 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(a_I, a_B, a_P, a_n, a_M, a_R, a_eps, a_kappa)</code></pre>
 
@@ -3636,10 +3638,10 @@ gave $\mu_\rho = 21.2$).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#eK_from_K"><code>eK_from_K</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="eK_from_K" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2878-L2904" title="vaft/formula/equilibrium.py, lines 2878–2904 at 8adf724">source</a>
+<a class="ref-source" data-source="eK_from_K" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2929-L2955" title="vaft/formula/equilibrium.py, lines 2929–2955 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>eK_from_K(K)</code></pre>
-    <details class="ref-code" data-source-code="eK_from_K"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2878–2904</span></summary>
+    <details class="ref-code" data-source-code="eK_from_K"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2929–2955</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">eK_from_K</span><span class="p">(</span><span class="n">K</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Elongation parameter $e_K$ of the virial relations.
@@ -3711,10 +3713,10 @@ approximations are linear.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ec_heating_power_from_I_ec_V_ec"><code>ec_heating_power_from_I_ec_V_ec</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="ec_heating_power_from_I_ec_V_ec" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3867-L3890" title="vaft/formula/equilibrium.py, lines 3867–3890 at 8adf724">source</a>
+<a class="ref-source" data-source="ec_heating_power_from_I_ec_V_ec" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3918-L3941" title="vaft/formula/equilibrium.py, lines 3918–3941 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>ec_heating_power_from_I_ec_V_ec(I_ec, V_ec)</code></pre>
-    <details class="ref-code" data-source-code="ec_heating_power_from_I_ec_V_ec"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3867–3890</span></summary>
+    <details class="ref-code" data-source-code="ec_heating_power_from_I_ec_V_ec"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3918–3941</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ec_heating_power_from_I_ec_V_ec</span><span class="p">(</span><span class="n">I_ec</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                     <span class="n">V_ec</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -3778,7 +3780,7 @@ power absorbed by the plasma.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#electron_pressure"><code>electron_pressure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="electron_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2315-L2361" title="vaft/formula/equilibrium.py, lines 2315–2361 at 8adf724">source</a>
+<a class="ref-source" data-source="electron_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2315-L2361" title="vaft/formula/equilibrium.py, lines 2315–2361 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>electron_pressure(n_e, T_e)</code></pre>
     <details class="ref-code" data-source-code="electron_pressure"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2315–2361</span></summary>
@@ -3898,10 +3900,10 @@ its own $p_\parallel$, $p_\perp$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#elongation_from_RZ_boundary"><code>elongation_from_RZ_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="elongation_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2589-L2623" title="vaft/formula/equilibrium.py, lines 2589–2623 at 8adf724">source</a>
+<a class="ref-source" data-source="elongation_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2640-L2674" title="vaft/formula/equilibrium.py, lines 2640–2674 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>elongation_from_RZ_boundary(R, Z)</code></pre>
-    <details class="ref-code" data-source-code="elongation_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2589–2623</span></summary>
+    <details class="ref-code" data-source-code="elongation_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2640–2674</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">elongation_from_RZ_boundary</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                                <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -3992,10 +3994,10 @@ the bounding box), not an area-based or flux-surface-averaged elongation.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#engineering_exponents_from_dimensionless_coeffs"><code>engineering_exponents_from_dimensionless_coeffs</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="engineering_exponents_from_dimensionless_coeffs" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5542-L5617" title="vaft/formula/equilibrium.py, lines 5542–5617 at 8adf724">source</a>
+<a class="ref-source" data-source="engineering_exponents_from_dimensionless_coeffs" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5593-L5668" title="vaft/formula/equilibrium.py, lines 5593–5668 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>engineering_exponents_from_dimensionless_coeffs(mu_rho, mu_beta, mu_nu, a_P, mu_q=0.0)</code></pre>
-    <details class="ref-code" data-source-code="engineering_exponents_from_dimensionless_coeffs"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5542–5617</span></summary>
+    <details class="ref-code" data-source-code="engineering_exponents_from_dimensionless_coeffs"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5593–5668</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">engineering_exponents_from_dimensionless_coeffs</span><span class="p">(</span>
     <span class="n">mu_rho</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -4149,10 +4151,10 @@ the Kadomtsev constraint by exactly that mismatch.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#estimated_q95"><code>estimated_q95</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="estimated_q95" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3159-L3235" title="vaft/formula/equilibrium.py, lines 3159–3235 at 8adf724">source</a>
+<a class="ref-source" data-source="estimated_q95" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3210-L3286" title="vaft/formula/equilibrium.py, lines 3210–3286 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>estimated_q95(a, R0, B0, kappa, delta, I_p, *, scaling=&#39;start&#39;, configuration=&#39;limiter&#39;)</code></pre>
-    <details class="ref-code" data-source-code="estimated_q95"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3159–3235</span></summary>
+    <details class="ref-code" data-source-code="estimated_q95"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3210–3286</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">estimated_q95</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
                   <span class="n">R0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -4311,10 +4313,10 @@ description by <code class="language-plaintext highlighter-rouge">vaft.omas.edge
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#exact_volume_from_RZ_contour"><code>exact_volume_from_RZ_contour</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="exact_volume_from_RZ_contour" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2529-L2586" title="vaft/formula/equilibrium.py, lines 2529–2586 at 8adf724">source</a>
+<a class="ref-source" data-source="exact_volume_from_RZ_contour" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2580-L2637" title="vaft/formula/equilibrium.py, lines 2580–2637 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>exact_volume_from_RZ_contour(R, Z)</code></pre>
-    <details class="ref-code" data-source-code="exact_volume_from_RZ_contour"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2529–2586</span></summary>
+    <details class="ref-code" data-source-code="exact_volume_from_RZ_contour"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2580–2637</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">exact_volume_from_RZ_contour</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                                  <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -4440,7 +4442,7 @@ vertex spacing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#flux_perturbation_from_normal_displacement"><code>flux_perturbation_from_normal_displacement</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="flux_perturbation_from_normal_displacement" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1304-L1357" title="vaft/formula/equilibrium.py, lines 1304–1357 at 8adf724">source</a>
+<a class="ref-source" data-source="flux_perturbation_from_normal_displacement" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1304-L1357" title="vaft/formula/equilibrium.py, lines 1304–1357 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>flux_perturbation_from_normal_displacement(xi_n, grad_psi)</code></pre>
     <details class="ref-code" data-source-code="flux_perturbation_from_normal_displacement"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1304–1357</span></summary>
@@ -4589,10 +4591,10 @@ so it fails in a resistive layer at a rational surface.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#generalized_parabolic_profile"><code>generalized_parabolic_profile</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="generalized_parabolic_profile" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5715-L5775" title="vaft/formula/equilibrium.py, lines 5715–5775 at 8adf724">source</a>
+<a class="ref-source" data-source="generalized_parabolic_profile" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5766-L5826" title="vaft/formula/equilibrium.py, lines 5766–5826 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>generalized_parabolic_profile(psi_n, *, core_value=1.0, edge_value=0.0, alpha=1.0, beta=1.0)</code></pre>
-    <details class="ref-code" data-source-code="generalized_parabolic_profile"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5715–5775</span></summary>
+    <details class="ref-code" data-source-code="generalized_parabolic_profile"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5766–5826</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">generalized_parabolic_profile</span><span class="p">(</span><span class="n">psi_n</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">core_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">edge_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Smooth core profile that falls from its axis value to its edge value.
@@ -4731,10 +4733,10 @@ extrapolated; a rounding excess below 1e-12 is clipped.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#generalized_parabolic_profile_derivative"><code>generalized_parabolic_profile_derivative</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="generalized_parabolic_profile_derivative" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5778-L5841" title="vaft/formula/equilibrium.py, lines 5778–5841 at 8adf724">source</a>
+<a class="ref-source" data-source="generalized_parabolic_profile_derivative" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5829-L5892" title="vaft/formula/equilibrium.py, lines 5829–5892 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>generalized_parabolic_profile_derivative(psi_n, *, core_value=1.0, edge_value=0.0, alpha=1.0, beta=1.0)</code></pre>
-    <details class="ref-code" data-source-code="generalized_parabolic_profile_derivative"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5778–5841</span></summary>
+    <details class="ref-code" data-source-code="generalized_parabolic_profile_derivative"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5829–5892</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">generalized_parabolic_profile_derivative</span><span class="p">(</span><span class="n">psi_n</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">core_value</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">edge_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">beta</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Gradient against normalized flux of :func:`generalized_parabolic_profile`.
@@ -4871,7 +4873,7 @@ zero gradient everywhere, singular exponents included.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#generalized_straight_field_line_angle"><code>generalized_straight_field_line_angle</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="generalized_straight_field_line_angle" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L982-L1071" title="vaft/formula/equilibrium.py, lines 982–1071 at 8adf724">source</a>
+<a class="ref-source" data-source="generalized_straight_field_line_angle" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L982-L1071" title="vaft/formula/equilibrium.py, lines 982–1071 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>generalized_straight_field_line_angle(theta, jacobian, R, B_p, B, power_bp=0.0, power_b=0.0, power_r=2.0)</code></pre>
 
@@ -4971,10 +4973,10 @@ at the same points.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#goldston_l_mode_confinement_time_from_I_P_R_a_kappa"><code>goldston_l_mode_confinement_time_from_I_P_R_a_kappa</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="goldston_l_mode_confinement_time_from_I_P_R_a_kappa" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5231-L5293" title="vaft/formula/equilibrium.py, lines 5231–5293 at 8adf724">source</a>
+<a class="ref-source" data-source="goldston_l_mode_confinement_time_from_I_P_R_a_kappa" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5282-L5344" title="vaft/formula/equilibrium.py, lines 5282–5344 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>goldston_l_mode_confinement_time_from_I_P_R_a_kappa(I_p, P, R, a, kappa)</code></pre>
-    <details class="ref-code" data-source-code="goldston_l_mode_confinement_time_from_I_P_R_a_kappa"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5231–5293</span></summary>
+    <details class="ref-code" data-source-code="goldston_l_mode_confinement_time_from_I_P_R_a_kappa"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5282–5344</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">goldston_l_mode_confinement_time_from_I_P_R_a_kappa</span><span class="p">(</span>
     <span class="n">I_p</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -5114,7 +5116,7 @@ factor $(A_i/1.5)^{1/2}$, i.e. evaluated at $A_i = 1.5$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#grad_shafranov_source"><code>grad_shafranov_source</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="grad_shafranov_source" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1182-L1240" title="vaft/formula/equilibrium.py, lines 1182–1240 at 8adf724">source</a>
+<a class="ref-source" data-source="grad_shafranov_source" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1182-L1240" title="vaft/formula/equilibrium.py, lines 1182–1240 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>grad_shafranov_source(R, J_phi)</code></pre>
     <details class="ref-code" data-source-code="grad_shafranov_source"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1182–1240</span></summary>
@@ -5257,10 +5259,10 @@ $+R^{-1}\partial_R$).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#heating_power_from_p_ohm_p_aux"><code>heating_power_from_p_ohm_p_aux</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="heating_power_from_p_ohm_p_aux" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3923-L3940" title="vaft/formula/equilibrium.py, lines 3923–3940 at 8adf724">source</a>
+<a class="ref-source" data-source="heating_power_from_p_ohm_p_aux" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3974-L3991" title="vaft/formula/equilibrium.py, lines 3974–3991 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>heating_power_from_p_ohm_p_aux(P_ohm, P_aux)</code></pre>
-    <details class="ref-code" data-source-code="heating_power_from_p_ohm_p_aux"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3923–3940</span></summary>
+    <details class="ref-code" data-source-code="heating_power_from_p_ohm_p_aux"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3974–3991</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">heating_power_from_p_ohm_p_aux</span><span class="p">(</span><span class="n">P_ohm</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">P_aux</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Total heating power $P_{heat} = P_{ohm} + P_{aux}$.
@@ -5308,10 +5310,10 @@ $+R^{-1}\partial_R$).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#inductive_voltage_from_dW_magdt_I_p"><code>inductive_voltage_from_dW_magdt_I_p</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="inductive_voltage_from_dW_magdt_I_p" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3709-L3748" title="vaft/formula/equilibrium.py, lines 3709–3748 at 8adf724">source</a>
+<a class="ref-source" data-source="inductive_voltage_from_dW_magdt_I_p" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3760-L3799" title="vaft/formula/equilibrium.py, lines 3760–3799 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>inductive_voltage_from_dW_magdt_I_p(dW_magdt, I_p)</code></pre>
-    <details class="ref-code" data-source-code="inductive_voltage_from_dW_magdt_I_p"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3709–3748</span></summary>
+    <details class="ref-code" data-source-code="inductive_voltage_from_dW_magdt_I_p"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3760–3799</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">inductive_voltage_from_dW_magdt_I_p</span><span class="p">(</span><span class="n">dW_magdt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">I_p</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Inductive voltage from the rate of change of magnetic energy.
@@ -5413,7 +5415,7 @@ boundary flux.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#internal_inductance_from_W_int_Ip"><code>internal_inductance_from_W_int_Ip</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="internal_inductance_from_W_int_Ip" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2055-L2098" title="vaft/formula/equilibrium.py, lines 2055–2098 at 8adf724">source</a>
+<a class="ref-source" data-source="internal_inductance_from_W_int_Ip" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2055-L2098" title="vaft/formula/equilibrium.py, lines 2055–2098 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>internal_inductance_from_W_int_Ip(W_int, Ip)</code></pre>
     <details class="ref-code" data-source-code="internal_inductance_from_W_int_Ip"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2055–2098</span></summary>
@@ -5526,7 +5528,7 @@ written as $\int B_p^2\,dV = 2\mu_0 W_{p,\mathrm{int}}$ gives
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#internal_inductance_from_li_3_R0"><code>internal_inductance_from_li_3_R0</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="internal_inductance_from_li_3_R0" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2101-L2132" title="vaft/formula/equilibrium.py, lines 2101–2132 at 8adf724">source</a>
+<a class="ref-source" data-source="internal_inductance_from_li_3_R0" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2101-L2132" title="vaft/formula/equilibrium.py, lines 2101–2132 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>internal_inductance_from_li_3_R0(li_3, R0)</code></pre>
     <details class="ref-code" data-source-code="internal_inductance_from_li_3_R0"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2101–2132</span></summary>
@@ -5616,10 +5618,10 @@ a valid input here – about 8.5 % too large at $\kappa = 1.6$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#inverse_aspect_ratio_from_a_R"><code>inverse_aspect_ratio_from_a_R</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="inverse_aspect_ratio_from_a_R" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4072-L4093" title="vaft/formula/equilibrium.py, lines 4072–4093 at 8adf724">source</a>
+<a class="ref-source" data-source="inverse_aspect_ratio_from_a_R" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4123-L4144" title="vaft/formula/equilibrium.py, lines 4123–4144 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>inverse_aspect_ratio_from_a_R(a, R)</code></pre>
-    <details class="ref-code" data-source-code="inverse_aspect_ratio_from_a_R"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4072–4093</span></summary>
+    <details class="ref-code" data-source-code="inverse_aspect_ratio_from_a_R"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4123–4144</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">inverse_aspect_ratio_from_a_R</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">R</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Inverse aspect ratio $\varepsilon = a/R$.
@@ -5680,7 +5682,7 @@ a valid input here – about 8.5 % too large at $\kappa = 1.6$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ion_pressure"><code>ion_pressure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ion_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2364-L2409" title="vaft/formula/equilibrium.py, lines 2364–2409 at 8adf724">source</a>
+<a class="ref-source" data-source="ion_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2364-L2409" title="vaft/formula/equilibrium.py, lines 2364–2409 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>ion_pressure(n_i, T_i)</code></pre>
     <details class="ref-code" data-source-code="ion_pressure"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2364–2409</span></summary>
@@ -5798,10 +5800,10 @@ fusion-product ions are a separate, non-thermal pressure.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#kadomtsev_constraint_from_engineering_exponents"><code>kadomtsev_constraint_from_engineering_exponents</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="kadomtsev_constraint_from_engineering_exponents" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4777-L4844" title="vaft/formula/equilibrium.py, lines 4777–4844 at 8adf724">source</a>
+<a class="ref-source" data-source="kadomtsev_constraint_from_engineering_exponents" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4828-L4895" title="vaft/formula/equilibrium.py, lines 4828–4895 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>kadomtsev_constraint_from_engineering_exponents(alpha_I, alpha_B, alpha_P, alpha_n, alpha_R)</code></pre>
-    <details class="ref-code" data-source-code="kadomtsev_constraint_from_engineering_exponents"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4777–4844</span></summary>
+    <details class="ref-code" data-source-code="kadomtsev_constraint_from_engineering_exponents"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4828–4895</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">kadomtsev_constraint_from_engineering_exponents</span><span class="p">(</span>
     <span class="n">alpha_I</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -5940,10 +5942,10 @@ gives $-0.01$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#kinetic_energy_from_beta_p_B_pa_V_p"><code>kinetic_energy_from_beta_p_B_pa_V_p</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="kinetic_energy_from_beta_p_B_pa_V_p" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3339-L3371" title="vaft/formula/equilibrium.py, lines 3339–3371 at 8adf724">source</a>
+<a class="ref-source" data-source="kinetic_energy_from_beta_p_B_pa_V_p" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3390-L3422" title="vaft/formula/equilibrium.py, lines 3390–3422 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>kinetic_energy_from_beta_p_B_pa_V_p(beta_p, B_pa, V_p)</code></pre>
-    <details class="ref-code" data-source-code="kinetic_energy_from_beta_p_B_pa_V_p"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3339–3371</span></summary>
+    <details class="ref-code" data-source-code="kinetic_energy_from_beta_p_B_pa_V_p"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3390–3422</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">kinetic_energy_from_beta_p_B_pa_V_p</span><span class="p">(</span><span class="n">beta_p</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                        <span class="n">B_pa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -6029,7 +6031,7 @@ the ideal-gas thermal energy.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#kink_safety_factor"><code>kink_safety_factor</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="kink_safety_factor" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3057-L3143" title="vaft/formula/equilibrium.py, lines 3057–3143 at 8adf724">source</a>
+<a class="ref-source" data-source="kink_safety_factor" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3108-L3194" title="vaft/formula/equilibrium.py, lines 3108–3194 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>kink_safety_factor(R, a, kappa, Ip, Bt, type_)</code></pre>
 
@@ -6108,7 +6110,7 @@ limits; order-of-magnitude design numbers, not a stability code result.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#li_3_from_Bp2_volume_integral"><code>li_3_from_Bp2_volume_integral</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="li_3_from_Bp2_volume_integral" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2023-L2052" title="vaft/formula/equilibrium.py, lines 2023–2052 at 8adf724">source</a>
+<a class="ref-source" data-source="li_3_from_Bp2_volume_integral" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2023-L2052" title="vaft/formula/equilibrium.py, lines 2023–2052 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>li_3_from_Bp2_volume_integral(Bp2_dV, Ip, R0)</code></pre>
     <details class="ref-code" data-source-code="li_3_from_Bp2_volume_integral"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2023–2052</span></summary>
@@ -6189,7 +6191,7 @@ limits; order-of-magnitude design numbers, not a stability code result.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#li_3_from_internal_inductance_R0"><code>li_3_from_internal_inductance_R0</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="li_3_from_internal_inductance_R0" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2135-L2169" title="vaft/formula/equilibrium.py, lines 2135–2169 at 8adf724">source</a>
+<a class="ref-source" data-source="li_3_from_internal_inductance_R0" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2135-L2169" title="vaft/formula/equilibrium.py, lines 2135–2169 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>li_3_from_internal_inductance_R0(L_i, R0)</code></pre>
     <details class="ref-code" data-source-code="li_3_from_internal_inductance_R0"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2135–2169</span></summary>
@@ -6285,10 +6287,10 @@ limits; order-of-magnitude design numbers, not a stability code result.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#line_to_volume_avg_density"><code>line_to_volume_avg_density</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="line_to_volume_avg_density" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4396-L4432" title="vaft/formula/equilibrium.py, lines 4396–4432 at 8adf724">source</a>
+<a class="ref-source" data-source="line_to_volume_avg_density" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4447-L4483" title="vaft/formula/equilibrium.py, lines 4447–4483 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>line_to_volume_avg_density(n_line_m3, factor=0.88)</code></pre>
-    <details class="ref-code" data-source-code="line_to_volume_avg_density"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4396–4432</span></summary>
+    <details class="ref-code" data-source-code="line_to_volume_avg_density"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4447–4483</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">line_to_volume_avg_density</span><span class="p">(</span>
     <span class="n">n_line_m3</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -6380,10 +6382,10 @@ H-mode-like profiles and is not a measurement.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#loop_voltage_from_total_flux"><code>loop_voltage_from_total_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="loop_voltage_from_total_flux" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3650-L3707" title="vaft/formula/equilibrium.py, lines 3650–3707 at 8adf724">source</a>
+<a class="ref-source" data-source="loop_voltage_from_total_flux" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3701-L3758" title="vaft/formula/equilibrium.py, lines 3701–3758 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>loop_voltage_from_total_flux(time_slice, psi_boundary, *, psi_per_radian=True)</code></pre>
-    <details class="ref-code" data-source-code="loop_voltage_from_total_flux"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3650–3707</span></summary>
+    <details class="ref-code" data-source-code="loop_voltage_from_total_flux"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3701–3758</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">loop_voltage_from_total_flux</span><span class="p">(</span>
     <span class="n">time_slice</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">psi_boundary</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">psi_per_radian</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">True</span>
@@ -6518,10 +6520,10 @@ vaft.formula.startup.breakdown_margin</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#loss_power_from_p_heat_dWdt_p_rad"><code>loss_power_from_p_heat_dWdt_p_rad</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="loss_power_from_p_heat_dWdt_p_rad" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4036-L4066" title="vaft/formula/equilibrium.py, lines 4036–4066 at 8adf724">source</a>
+<a class="ref-source" data-source="loss_power_from_p_heat_dWdt_p_rad" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4087-L4117" title="vaft/formula/equilibrium.py, lines 4087–4117 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>loss_power_from_p_heat_dWdt_p_rad(P_heat, dWdt, p_rad)</code></pre>
-    <details class="ref-code" data-source-code="loss_power_from_p_heat_dWdt_p_rad"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4036–4066</span></summary>
+    <details class="ref-code" data-source-code="loss_power_from_p_heat_dWdt_p_rad"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4087–4117</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">loss_power_from_p_heat_dWdt_p_rad</span><span class="p">(</span><span class="n">P_heat</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">dWdt</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">p_rad</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Loss power $P_{loss} = P_{heat} - dW/dt - P_{rad}$.
@@ -6606,10 +6608,10 @@ boundary.  Use the same choice as the scaling being compared against.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#magnetic_energy_from_li_B_pa_V_p"><code>magnetic_energy_from_li_B_pa_V_p</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="magnetic_energy_from_li_B_pa_V_p" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3374-L3406" title="vaft/formula/equilibrium.py, lines 3374–3406 at 8adf724">source</a>
+<a class="ref-source" data-source="magnetic_energy_from_li_B_pa_V_p" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3425-L3457" title="vaft/formula/equilibrium.py, lines 3425–3457 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>magnetic_energy_from_li_B_pa_V_p(li, B_pa, V_p)</code></pre>
-    <details class="ref-code" data-source-code="magnetic_energy_from_li_B_pa_V_p"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3374–3406</span></summary>
+    <details class="ref-code" data-source-code="magnetic_energy_from_li_B_pa_V_p"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3425–3457</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetic_energy_from_li_B_pa_V_p</span><span class="p">(</span><span class="n">li</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                      <span class="n">B_pa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -6695,7 +6697,7 @@ neither the IMAS $l_{i,3}$ nor the large-aspect-ratio $l_i = \langle B_p^2
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#miller_surface"><code>miller_surface</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="miller_surface" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L712-L806" title="vaft/formula/equilibrium.py, lines 712–806 at 8adf724">source</a>
+<a class="ref-source" data-source="miller_surface" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L712-L806" title="vaft/formula/equilibrium.py, lines 712–806 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>miller_surface(r, theta, R0, kappa, delta, shift=0.0, squareness=0.0, Z0=0.0, indentation=0.0)</code></pre>
 
@@ -6795,7 +6797,7 @@ the outboard side stays convex while $b &lt; (1+\alpha)^2/2$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#modified_tanh_profile"><code>modified_tanh_profile</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="modified_tanh_profile" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5865-L5945" title="vaft/formula/equilibrium.py, lines 5865–5945 at 8adf724">source</a>
+<a class="ref-source" data-source="modified_tanh_profile" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5916-L5996" title="vaft/formula/equilibrium.py, lines 5916–5996 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>modified_tanh_profile(psi_n, *, pedestal_height, pedestal_position, pedestal_width, core_slope=0.0, edge_value=0.0)</code></pre>
 
@@ -6892,10 +6894,10 @@ current (#550).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#modified_tanh_profile_derivative"><code>modified_tanh_profile_derivative</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="modified_tanh_profile_derivative" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5948-L5997" title="vaft/formula/equilibrium.py, lines 5948–5997 at 8adf724">source</a>
+<a class="ref-source" data-source="modified_tanh_profile_derivative" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5999-L6048" title="vaft/formula/equilibrium.py, lines 5999–6048 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>modified_tanh_profile_derivative(psi_n, *, pedestal_height, pedestal_position, pedestal_width, core_slope=0.0, edge_value=0.0)</code></pre>
-    <details class="ref-code" data-source-code="modified_tanh_profile_derivative"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5948–5997</span></summary>
+    <details class="ref-code" data-source-code="modified_tanh_profile_derivative"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5999–6048</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">modified_tanh_profile_derivative</span><span class="p">(</span><span class="n">psi_n</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">pedestal_height</span><span class="p">,</span> <span class="n">pedestal_position</span><span class="p">,</span> <span class="n">pedestal_width</span><span class="p">,</span> <span class="n">core_slope</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">edge_value</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Gradient against normalized flux of :func:`modified_tanh_profile`.
@@ -7018,10 +7020,10 @@ called a bootstrap current unless that physics is evaluated (#550).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#nbi_heating_power_from_I_nbi_V_nbi"><code>nbi_heating_power_from_I_nbi_V_nbi</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="nbi_heating_power_from_I_nbi_V_nbi" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3842-L3865" title="vaft/formula/equilibrium.py, lines 3842–3865 at 8adf724">source</a>
+<a class="ref-source" data-source="nbi_heating_power_from_I_nbi_V_nbi" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3893-L3916" title="vaft/formula/equilibrium.py, lines 3893–3916 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>nbi_heating_power_from_I_nbi_V_nbi(I_nbi, V_nbi)</code></pre>
-    <details class="ref-code" data-source-code="nbi_heating_power_from_I_nbi_V_nbi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3842–3865</span></summary>
+    <details class="ref-code" data-source-code="nbi_heating_power_from_I_nbi_V_nbi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3893–3916</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">nbi_heating_power_from_I_nbi_V_nbi</span><span class="p">(</span><span class="n">I_nbi</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                       <span class="n">V_nbi</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -7085,10 +7087,10 @@ are not subtracted.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#neo_alcator_confinement_time_from_n_a_R_q"><code>neo_alcator_confinement_time_from_n_a_R_q</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="neo_alcator_confinement_time_from_n_a_R_q" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5166-L5228" title="vaft/formula/equilibrium.py, lines 5166–5228 at 8adf724">source</a>
+<a class="ref-source" data-source="neo_alcator_confinement_time_from_n_a_R_q" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5217-L5279" title="vaft/formula/equilibrium.py, lines 5217–5279 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>neo_alcator_confinement_time_from_n_a_R_q(n_e, a, R, q)</code></pre>
-    <details class="ref-code" data-source-code="neo_alcator_confinement_time_from_n_a_R_q"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5166–5228</span></summary>
+    <details class="ref-code" data-source-code="neo_alcator_confinement_time_from_n_a_R_q"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5217–5279</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">neo_alcator_confinement_time_from_n_a_R_q</span><span class="p">(</span>
     <span class="n">n_e</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -7230,7 +7232,7 @@ ohmic-plus-auxiliary combination is
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalize_psi"><code>normalize_psi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-deprecated">Deprecated</span></span>
-<a class="ref-source" data-source="normalize_psi" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L212-L224" title="vaft/formula/equilibrium.py, lines 212–224 at 8adf724">source</a>
+<a class="ref-source" data-source="normalize_psi" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L212-L224" title="vaft/formula/equilibrium.py, lines 212–224 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>normalize_psi(*args, **kw)</code></pre>
     <details class="ref-code" data-source-code="normalize_psi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 212–224</span></summary>
@@ -7271,10 +7273,10 @@ every argument unchanged.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalized_collisionality_from_a_n_q_epsilon_T"><code>normalized_collisionality_from_a_n_q_epsilon_T</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="normalized_collisionality_from_a_n_q_epsilon_T" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4222-L4277" title="vaft/formula/equilibrium.py, lines 4222–4277 at 8adf724">source</a>
+<a class="ref-source" data-source="normalized_collisionality_from_a_n_q_epsilon_T" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4273-L4328" title="vaft/formula/equilibrium.py, lines 4273–4328 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>normalized_collisionality_from_a_n_q_epsilon_T(a, n, q, epsilon, T_eV, C=1.0)</code></pre>
-    <details class="ref-code" data-source-code="normalized_collisionality_from_a_n_q_epsilon_T"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4222–4277</span></summary>
+    <details class="ref-code" data-source-code="normalized_collisionality_from_a_n_q_epsilon_T"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4273–4328</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalized_collisionality_from_a_n_q_epsilon_T</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                                    <span class="n">n</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -7402,10 +7404,10 @@ Sauter’s electron collisionality.  Tracked with the other two definitions in
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q"><code>normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4165-L4220" title="vaft/formula/equilibrium.py, lines 4165–4220 at 8adf724">source</a>
+<a class="ref-source" data-source="normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4216-L4271" title="vaft/formula/equilibrium.py, lines 4216–4271 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q(nu_ii, T_i_eV, M_i, R, a, q)</code></pre>
-    <details class="ref-code" data-source-code="normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4165–4220</span></summary>
+    <details class="ref-code" data-source-code="normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4216–4271</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q</span><span class="p">(</span><span class="n">nu_ii</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                      <span class="n">T_i_eV</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -7533,10 +7535,10 @@ package (<code class="language-plaintext highlighter-rouge">normalized_collision
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalized_larmor_radius_from_M_T_a_Bt"><code>normalized_larmor_radius_from_M_T_a_Bt</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="normalized_larmor_radius_from_M_T_a_Bt" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4120-L4163" title="vaft/formula/equilibrium.py, lines 4120–4163 at 8adf724">source</a>
+<a class="ref-source" data-source="normalized_larmor_radius_from_M_T_a_Bt" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4171-L4214" title="vaft/formula/equilibrium.py, lines 4171–4214 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>normalized_larmor_radius_from_M_T_a_Bt(M, T, a, Bt)</code></pre>
-    <details class="ref-code" data-source-code="normalized_larmor_radius_from_M_T_a_Bt"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4120–4163</span></summary>
+    <details class="ref-code" data-source-code="normalized_larmor_radius_from_M_T_a_Bt"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4171–4214</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalized_larmor_radius_from_M_T_a_Bt</span><span class="p">(</span><span class="n">M</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                <span class="n">T</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -7642,10 +7644,10 @@ and the remaining spread is tracked in #353.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalized_plasma_current"><code>normalized_plasma_current</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="normalized_plasma_current" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3017-L3054" title="vaft/formula/equilibrium.py, lines 3017–3054 at 8adf724">source</a>
+<a class="ref-source" data-source="normalized_plasma_current" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3068-L3105" title="vaft/formula/equilibrium.py, lines 3068–3105 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>normalized_plasma_current(Ip, R, a, Bt)</code></pre>
-    <details class="ref-code" data-source-code="normalized_plasma_current"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3017–3054</span></summary>
+    <details class="ref-code" data-source-code="normalized_plasma_current"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3068–3105</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalized_plasma_current</span><span class="p">(</span><span class="n">Ip</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
                             <span class="n">R</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -7740,7 +7742,7 @@ against.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#nu_star_from_n_T_B_R_epsilon_kappa_I"><code>nu_star_from_n_T_B_R_epsilon_kappa_I</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="nu_star_from_n_T_B_R_epsilon_kappa_I" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4642-L4723" title="vaft/formula/equilibrium.py, lines 4642–4723 at 8adf724">source</a>
+<a class="ref-source" data-source="nu_star_from_n_T_B_R_epsilon_kappa_I" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4693-L4774" title="vaft/formula/equilibrium.py, lines 4693–4774 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>nu_star_from_n_T_B_R_epsilon_kappa_I(n_m3, T_eV, B_t_T, R_geo_m, epsilon, kappa_a, I_p_A, ln_lambda=None)</code></pre>
 
@@ -7817,10 +7819,10 @@ with the other $\nu_*$ definitions in #353.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ohmic_heating_power_from_I_p_V_res"><code>ohmic_heating_power_from_I_p_V_res</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ohmic_heating_power_from_I_p_V_res" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3755-L3784" title="vaft/formula/equilibrium.py, lines 3755–3784 at 8adf724">source</a>
+<a class="ref-source" data-source="ohmic_heating_power_from_I_p_V_res" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3806-L3835" title="vaft/formula/equilibrium.py, lines 3806–3835 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>ohmic_heating_power_from_I_p_V_res(I_p, V_res)</code></pre>
-    <details class="ref-code" data-source-code="ohmic_heating_power_from_I_p_V_res"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3755–3784</span></summary>
+    <details class="ref-code" data-source-code="ohmic_heating_power_from_I_p_V_res"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3806–3835</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ohmic_heating_power_from_I_p_V_res</span><span class="p">(</span><span class="n">I_p</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                         <span class="n">V_res</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -7901,10 +7903,10 @@ inductance, so it is a resistive-heating estimate only when $dI_p/dt \approx 0$.
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux"><code>ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5296-L5343" title="vaft/formula/equilibrium.py, lines 5296–5343 at 8adf724">source</a>
+<a class="ref-source" data-source="ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5347-L5394" title="vaft/formula/equilibrium.py, lines 5347–5394 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(tau_ohmic, tau_aux)</code></pre>
-    <details class="ref-code" data-source-code="ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5296–5343</span></summary>
+    <details class="ref-code" data-source-code="ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5347–5394</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux</span><span class="p">(</span>
     <span class="n">tau_ohmic</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -8020,10 +8022,10 @@ $1/\sqrt{2}$ of either where they are equal.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#omega_i_tau_E_from_B_tau_E_M"><code>omega_i_tau_E_from_B_tau_E_M</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="omega_i_tau_E_from_B_tau_E_M" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4726-L4774" title="vaft/formula/equilibrium.py, lines 4726–4774 at 8adf724">source</a>
+<a class="ref-source" data-source="omega_i_tau_E_from_B_tau_E_M" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4777-L4825" title="vaft/formula/equilibrium.py, lines 4777–4825 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>omega_i_tau_E_from_B_tau_E_M(B_t_T, tau_E_s, M_eff_amu, Z_i=1.0)</code></pre>
-    <details class="ref-code" data-source-code="omega_i_tau_E_from_B_tau_E_M"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4726–4774</span></summary>
+    <details class="ref-code" data-source-code="omega_i_tau_E_from_B_tau_E_M"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4777–4825</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">omega_i_tau_E_from_B_tau_E_M</span><span class="p">(</span>
     <span class="n">B_t_T</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -8138,10 +8140,10 @@ dependent variable of dimensionless confinement scalings.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#peaking_factor"><code>peaking_factor</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="peaking_factor" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2907-L2933" title="vaft/formula/equilibrium.py, lines 2907–2933 at 8adf724">source</a>
+<a class="ref-source" data-source="peaking_factor" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2958-L2984" title="vaft/formula/equilibrium.py, lines 2958–2984 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>peaking_factor(central, volume_avg)</code></pre>
-    <details class="ref-code" data-source-code="peaking_factor"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2907–2933</span></summary>
+    <details class="ref-code" data-source-code="peaking_factor"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2958–2984</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">peaking_factor</span><span class="p">(</span><span class="n">central</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                    <span class="n">volume_avg</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -8211,7 +8213,7 @@ dependent variable of dimensionless confinement scalings.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#phi_from_Bphi"><code>phi_from_Bphi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="phi_from_Bphi" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L231-L270" title="vaft/formula/equilibrium.py, lines 231–270 at 8adf724">source</a>
+<a class="ref-source" data-source="phi_from_Bphi" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L231-L270" title="vaft/formula/equilibrium.py, lines 231–270 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>phi_from_Bphi(B_phi, dA)</code></pre>
     <details class="ref-code" data-source-code="phi_from_Bphi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 231–270</span></summary>
@@ -8315,7 +8317,7 @@ of the caller’s grid.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#poloidal_field_factor"><code>poloidal_field_factor</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="poloidal_field_factor" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1673-L1728" title="vaft/formula/equilibrium.py, lines 1673–1728 at 8adf724">source</a>
+<a class="ref-source" data-source="poloidal_field_factor" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1673-L1728" title="vaft/formula/equilibrium.py, lines 1673–1728 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>poloidal_field_factor(cocos, *, psi_per_radian=None)</code></pre>
     <details class="ref-code" data-source-code="poloidal_field_factor"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1673–1728</span></summary>
@@ -8442,7 +8444,7 @@ outright.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#poloidal_field_magnitude"><code>poloidal_field_magnitude</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="poloidal_field_magnitude" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1531-L1557" title="vaft/formula/equilibrium.py, lines 1531–1557 at 8adf724">source</a>
+<a class="ref-source" data-source="poloidal_field_magnitude" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1531-L1557" title="vaft/formula/equilibrium.py, lines 1531–1557 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>poloidal_field_magnitude(b_r, b_z)</code></pre>
     <details class="ref-code" data-source-code="poloidal_field_magnitude"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1531–1557</span></summary>
@@ -8527,7 +8529,7 @@ convention as each other, which they are when they come from one call to
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#psi_from_RBtheta"><code>psi_from_RBtheta</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="psi_from_RBtheta" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L116-L169" title="vaft/formula/equilibrium.py, lines 116–169 at 8adf724">source</a>
+<a class="ref-source" data-source="psi_from_RBtheta" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L116-L169" title="vaft/formula/equilibrium.py, lines 116–169 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>psi_from_RBtheta(R, B_theta, l, psi_axis=0.0)</code></pre>
     <details class="ref-code" data-source-code="psi_from_RBtheta"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 116–169</span></summary>
@@ -8657,7 +8659,7 @@ spacing of <code class="language-plaintext highlighter-rouge">l</code>.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#psi_normalised"><code>psi_normalised</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="psi_normalised" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L172-L208" title="vaft/formula/equilibrium.py, lines 172–208 at 8adf724">source</a>
+<a class="ref-source" data-source="psi_normalised" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L172-L208" title="vaft/formula/equilibrium.py, lines 172–208 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>psi_normalised(psi, psi_axis, psi_boundary)</code></pre>
     <details class="ref-code" data-source-code="psi_normalised"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 172–208</span></summary>
@@ -8752,10 +8754,10 @@ returns <code class="language-plaintext highlighter-rouge">nan</code> rather tha
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#q_cyl_from_B_R_epsilon_kappa_I"><code>q_cyl_from_B_R_epsilon_kappa_I</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="q_cyl_from_B_R_epsilon_kappa_I" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4581-L4639" title="vaft/formula/equilibrium.py, lines 4581–4639 at 8adf724">source</a>
+<a class="ref-source" data-source="q_cyl_from_B_R_epsilon_kappa_I" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4632-L4690" title="vaft/formula/equilibrium.py, lines 4632–4690 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>q_cyl_from_B_R_epsilon_kappa_I(B_t_T, R_geo_m, epsilon, kappa_a, I_p_A)</code></pre>
-    <details class="ref-code" data-source-code="q_cyl_from_B_R_epsilon_kappa_I"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4581–4639</span></summary>
+    <details class="ref-code" data-source-code="q_cyl_from_B_R_epsilon_kappa_I"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4632–4690</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">q_cyl_from_B_R_epsilon_kappa_I</span><span class="p">(</span>
     <span class="n">B_t_T</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -8883,7 +8885,7 @@ elongation.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#q_from_flux_surface_averages"><code>q_from_flux_surface_averages</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="q_from_flux_surface_averages" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L402-L477" title="vaft/formula/equilibrium.py, lines 402–477 at 8adf724">source</a>
+<a class="ref-source" data-source="q_from_flux_surface_averages" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L402-L477" title="vaft/formula/equilibrium.py, lines 402–477 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>q_from_flux_surface_averages(gm1, dvolume_dpsi, f, *, cocos=None, psi_per_radian=None, sigma_ip=1, sigma_b0=1)</code></pre>
     <details class="ref-code" data-source-code="q_from_flux_surface_averages"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 402–477</span></summary>
@@ -9039,7 +9041,7 @@ The sign $\sigma$ is determined by Sauter Eq. 23: $\sigma_q = \sigma_{Ip}\sigma_
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#q_from_phi"><code>q_from_phi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="q_from_phi" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L482-L531" title="vaft/formula/equilibrium.py, lines 482–531 at 8adf724">source</a>
+<a class="ref-source" data-source="q_from_phi" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L482-L531" title="vaft/formula/equilibrium.py, lines 482–531 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>q_from_phi(psi, phi, *, psi_per_radian=False)</code></pre>
     <details class="ref-code" data-source-code="q_from_phi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 482–531</span></summary>
@@ -9159,7 +9161,7 @@ samples and a strictly monotonic <code class="language-plaintext highlighter-rou
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#q_from_rhoN"><code>q_from_rhoN</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="q_from_rhoN" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L534-L580" title="vaft/formula/equilibrium.py, lines 534–580 at 8adf724">source</a>
+<a class="ref-source" data-source="q_from_rhoN" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L534-L580" title="vaft/formula/equilibrium.py, lines 534–580 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>q_from_rhoN(psiN, rhoN, C=1.0)</code></pre>
     <details class="ref-code" data-source-code="q_from_rhoN"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 534–580</span></summary>
@@ -9276,10 +9278,10 @@ and by $\rho_N\to0$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#q_star_cylindrical"><code>q_star_cylindrical</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="q_star_cylindrical" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3238-L3282" title="vaft/formula/equilibrium.py, lines 3238–3282 at 8adf724">source</a>
+<a class="ref-source" data-source="q_star_cylindrical" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3289-L3333" title="vaft/formula/equilibrium.py, lines 3289–3333 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>q_star_cylindrical(a, R0, B0, kappa, I_p)</code></pre>
-    <details class="ref-code" data-source-code="q_star_cylindrical"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3238–3282</span></summary>
+    <details class="ref-code" data-source-code="q_star_cylindrical"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3289–3333</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">q_star_cylindrical</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
                        <span class="n">R0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -9389,10 +9391,10 @@ equilibria it is about 0.41 of the equilibrium $q_{95}$ (#1580). SI current;
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#q_star_kink"><code>q_star_kink</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="q_star_kink" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3285-L3331" title="vaft/formula/equilibrium.py, lines 3285–3331 at 8adf724">source</a>
+<a class="ref-source" data-source="q_star_kink" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3336-L3382" title="vaft/formula/equilibrium.py, lines 3336–3382 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>q_star_kink(a, R0, B0, kappa, I_p)</code></pre>
-    <details class="ref-code" data-source-code="q_star_kink"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3285–3331</span></summary>
+    <details class="ref-code" data-source-code="q_star_kink"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3336–3382</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">q_star_kink</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
                 <span class="n">R0</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -9505,7 +9507,7 @@ stated; not $q_a$, not $q_{95}$ (about 0.38 of the VEST equilibrium $q_{95}$,
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#r_at_z_extremum_from_RZ_contour"><code>r_at_z_extremum_from_RZ_contour</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="r_at_z_extremum_from_RZ_contour" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2626-L2706" title="vaft/formula/equilibrium.py, lines 2626–2706 at 8adf724">source</a>
+<a class="ref-source" data-source="r_at_z_extremum_from_RZ_contour" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2677-L2757" title="vaft/formula/equilibrium.py, lines 2677–2757 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>r_at_z_extremum_from_RZ_contour(R, Z, *, upper)</code></pre>
 
@@ -9578,7 +9580,7 @@ vaft.process.equilibrium.r_at_z_extremum</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#radial_magnetic_field_from_psi"><code>radial_magnetic_field_from_psi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="radial_magnetic_field_from_psi" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1731-L1782" title="vaft/formula/equilibrium.py, lines 1731–1782 at 8adf724">source</a>
+<a class="ref-source" data-source="radial_magnetic_field_from_psi" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1731-L1782" title="vaft/formula/equilibrium.py, lines 1731–1782 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>radial_magnetic_field_from_psi(psi, R, Z, cocos=None)</code></pre>
     <details class="ref-code" data-source-code="radial_magnetic_field_from_psi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1731–1782</span></summary>
@@ -9703,7 +9705,7 @@ against <code class="language-plaintext highlighter-rouge">Z</code>, so the map 
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#rhoN_from_phi"><code>rhoN_from_phi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="rhoN_from_phi" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L273-L309" title="vaft/formula/equilibrium.py, lines 273–309 at 8adf724">source</a>
+<a class="ref-source" data-source="rhoN_from_phi" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L273-L309" title="vaft/formula/equilibrium.py, lines 273–309 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>rhoN_from_phi(phi, phi_boundary)</code></pre>
     <details class="ref-code" data-source-code="rhoN_from_phi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 273–309</span></summary>
@@ -9802,7 +9804,7 @@ same toroidal flux at the same $B_0$, scaled to the boundary value.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#rhoN_from_qpsiN"><code>rhoN_from_qpsiN</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="rhoN_from_qpsiN" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L583-L648" title="vaft/formula/equilibrium.py, lines 583–648 at 8adf724">source</a>
+<a class="ref-source" data-source="rhoN_from_qpsiN" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L583-L648" title="vaft/formula/equilibrium.py, lines 583–648 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>rhoN_from_qpsiN(psiN, qpsiN)</code></pre>
     <details class="ref-code" data-source-code="rhoN_from_qpsiN"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 583–648</span></summary>
@@ -9939,10 +9941,10 @@ on some samples, and those warn rather than becoming a silent <code class="langu
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#rho_star_from_M_T_B_R_epsilon"><code>rho_star_from_M_T_B_R_epsilon</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="rho_star_from_M_T_B_R_epsilon" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L4470-L4522" title="vaft/formula/equilibrium.py, lines 4470–4522 at 8adf724">source</a>
+<a class="ref-source" data-source="rho_star_from_M_T_B_R_epsilon" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L4521-L4573" title="vaft/formula/equilibrium.py, lines 4521–4573 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>rho_star_from_M_T_B_R_epsilon(M_eff_amu, T_eV, B_t_T, R_geo_m, epsilon)</code></pre>
-    <details class="ref-code" data-source-code="rho_star_from_M_T_B_R_epsilon"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4470–4522</span></summary>
+    <details class="ref-code" data-source-code="rho_star_from_M_T_B_R_epsilon"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 4521–4573</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">rho_star_from_M_T_B_R_epsilon</span><span class="p">(</span>
     <span class="n">M_eff_amu</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -10063,7 +10065,7 @@ with the other $\rho_*$ definitions in #353.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#rho_tor_from_phi"><code>rho_tor_from_phi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="rho_tor_from_phi" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L359-L395" title="vaft/formula/equilibrium.py, lines 359–395 at 8adf724">source</a>
+<a class="ref-source" data-source="rho_tor_from_phi" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L359-L395" title="vaft/formula/equilibrium.py, lines 359–395 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>rho_tor_from_phi(phi, B0)</code></pre>
     <details class="ref-code" data-source-code="rho_tor_from_phi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 359–395</span></summary>
@@ -10173,7 +10175,7 @@ circular, large-aspect-ratio plasma with uniform $B_0$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sfl_toroidal_angle_shift"><code>sfl_toroidal_angle_shift</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sfl_toroidal_angle_shift" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1075-L1133" title="vaft/formula/equilibrium.py, lines 1075–1133 at 8adf724">source</a>
+<a class="ref-source" data-source="sfl_toroidal_angle_shift" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1075-L1133" title="vaft/formula/equilibrium.py, lines 1075–1133 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>sfl_toroidal_angle_shift(q, theta_sfl, theta_pest)</code></pre>
     <details class="ref-code" data-source-code="sfl_toroidal_angle_shift"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1075–1133</span></summary>
@@ -10310,7 +10312,7 @@ how it samples the poloidal angle.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#shafranov_shift_from_r_a_R0_beta_p_li"><code>shafranov_shift_from_r_a_R0_beta_p_li</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="shafranov_shift_from_r_a_R0_beta_p_li" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L818-L886" title="vaft/formula/equilibrium.py, lines 818–886 at 8adf724">source</a>
+<a class="ref-source" data-source="shafranov_shift_from_r_a_R0_beta_p_li" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L818-L886" title="vaft/formula/equilibrium.py, lines 818–886 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>shafranov_shift_from_r_a_R0_beta_p_li(r, a, R0, beta_p, l_i)</code></pre>
     <details class="ref-code" data-source-code="shafranov_shift_from_r_a_R0_beta_p_li"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 818–886</span></summary>
@@ -10469,7 +10471,7 @@ the shift and the shaping it couples to need a Grad–Shafranov solution.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#shear_from_r_q"><code>shear_from_r_q</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="shear_from_r_q" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L655-L700" title="vaft/formula/equilibrium.py, lines 655–700 at 8adf724">source</a>
+<a class="ref-source" data-source="shear_from_r_q" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L655-L700" title="vaft/formula/equilibrium.py, lines 655–700 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>shear_from_r_q(r, q)</code></pre>
     <details class="ref-code" data-source-code="shear_from_r_q"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 655–700</span></summary>
@@ -10586,10 +10588,10 @@ starts at 0 and undefined where $q$ crosses zero.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#spitzer_resistivity_from_T_e_Z_eff_ln_Lambda"><code>spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="spitzer_resistivity_from_T_e_Z_eff_ln_Lambda" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2939-L3010" title="vaft/formula/equilibrium.py, lines 2939–3010 at 8adf724">source</a>
+<a class="ref-source" data-source="spitzer_resistivity_from_T_e_Z_eff_ln_Lambda" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2990-L3061" title="vaft/formula/equilibrium.py, lines 2990–3061 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e, Z_eff=None, ln_Lambda=None)</code></pre>
-    <details class="ref-code" data-source-code="spitzer_resistivity_from_T_e_Z_eff_ln_Lambda"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2939–3010</span></summary>
+    <details class="ref-code" data-source-code="spitzer_resistivity_from_T_e_Z_eff_ln_Lambda"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2990–3061</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</span><span class="p">(</span><span class="n">T_e</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                                  <span class="n">Z_eff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
@@ -10739,17 +10741,17 @@ trapped-fraction factor (up to ~2 at VEST aspect ratio).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#stored_energy_from_beta_V"><code>stored_energy_from_beta_V</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="stored_energy_from_beta_V" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2444-L2476" title="vaft/formula/equilibrium.py, lines 2444–2476 at 8adf724">source</a>
+<a class="ref-source" data-source="stored_energy_from_beta_V" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2494-L2527" title="vaft/formula/equilibrium.py, lines 2494–2527 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>stored_energy_from_beta_V(beta, B0, V)</code></pre>
-    <details class="ref-code" data-source-code="stored_energy_from_beta_V"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2444–2476</span></summary>
+    <details class="ref-code" data-source-code="stored_energy_from_beta_V"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2494–2527</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">stored_energy_from_beta_V</span><span class="p">(</span><span class="n">beta</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                             <span class="n">B0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                             <span class="n">V</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
-    <span class="sa">r</span><span class="sh">"""</span><span class="s">Stored energy from toroidal beta, $W = \beta B_0^2 V/(2\mu_0)$.
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Pressure volume integral $\langle p\rangle V$ from toroidal beta -- not the thermal energy.
 
-    $$W = \beta\,\frac{B_0^2}{2\mu_0}\,V$$
+    $$\langle p\rangle V = \beta\,\frac{B_0^2}{2\mu_0}\,V$$
 
     Parameters
     ----------
@@ -10769,7 +10771,8 @@ trapped-fraction factor (up to ~2 at VEST aspect ratio).</p>
     ----------
     Uses the fraction form of $\beta_t$; a percentage input is 100 times too
     large.  As for :func:`stored_energy_from_p_V`, the result is $\langle p\rangle
-    V$, so the thermal energy is 1.5 times it.
+    V = \int p\,dV$ despite the name; the thermal energy is 1.5 times it
+    (``thermal_energy_from_p_V``).
 
     References
     ----------
@@ -10780,9 +10783,9 @@ trapped-fraction factor (up to ~2 at VEST aspect ratio).</p>
 
 </details>
 
-    <p>Stored energy from toroidal beta, $W = \beta B_0^2 V/(2\mu_0)$.</p>
+    <p>Pressure volume integral $\langle p\rangle V$ from toroidal beta – not the thermal energy.</p>
 
-\[W = \beta\,\frac{B_0^2}{2\mu_0}\,V\]
+\[\langle p\rangle V = \beta\,\frac{B_0^2}{2\mu_0}\,V\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
@@ -10806,7 +10809,8 @@ trapped-fraction factor (up to ~2 at VEST aspect ratio).</p>
 
       <p>Uses the fraction form of $\beta_t$; a percentage input is 100 times too
 large.  As for <code class="language-plaintext highlighter-rouge">stored_energy_from_p_V</code>, the result is $\langle p\rangle
-V$, so the thermal energy is 1.5 times it.</p>
+V = \int p\,dV$ despite the name; the thermal energy is 1.5 times it
+(<code class="language-plaintext highlighter-rouge">thermal_energy_from_p_V</code>).</p>
 
     </div>
 
@@ -10828,34 +10832,38 @@ V$, so the thermal energy is 1.5 times it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#stored_energy_from_p_V"><code>stored_energy_from_p_V</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="stored_energy_from_p_V" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2412-L2441" title="vaft/formula/equilibrium.py, lines 2412–2441 at 8adf724">source</a>
+<a class="ref-source" data-source="stored_energy_from_p_V" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2412-L2445" title="vaft/formula/equilibrium.py, lines 2412–2445 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>stored_energy_from_p_V(p, V)</code></pre>
-    <details class="ref-code" data-source-code="stored_energy_from_p_V"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2412–2441</span></summary>
+    <details class="ref-code" data-source-code="stored_energy_from_p_V"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2412–2445</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">stored_energy_from_p_V</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
                           <span class="n">V</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
-    <span class="sa">r</span><span class="sh">"""</span><span class="s">Stored energy as pressure times volume, $W = pV$.
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Pressure volume integral $\int p\,dV \approx \langle p\rangle V$ -- not the thermal (stored) energy.
 
-    $$W = \int p\,dV \approx p\,V$$
+    $$\int p\,dV \approx p\,V$$
 
     Parameters
     ----------
     p : float or np.ndarray
-        Pressure; a volume-averaged value gives the total energy [Pa].
+        Pressure; the volume average gives the integral over the plasma [Pa].
     V : float
         Plasma volume [m^3].
 
     Returns
     -------
     float or np.ndarray
-        Energy $pV$ [J].
+        $\int p\,dV$ [J].
 
     Convention
     ----------
-    $pV$ is the *magnetic-like* energy normalisation; the thermal energy of an
-    ideal gas is $W_{th} = \tfrac{3}{2}\int p\,dV$, so multiply by 1.5 for the
-    IMAS ``energy_thermal`` convention.
+    Despite the historical name this is $\int p\,dV$, two thirds of the
+    thermal energy: the stored kinetic energy of an ideal gas is
+    $W_{th} = \tfrac{3}{2}\int p\,dV$ (``thermal_energy_from_p_V``,
+    ``virial.virial_thermal_energy``, ``kinetic_energy_from_beta_p_B_pa_V_p``,
+    and the IMAS ``energy_mhd`` for the total and ``energy_thermal`` for the
+    thermal pressure). It is the
+    quantity $\beta_p$ is normalised by (``beta_poloidal_from_pressure_integral``).
 
     Assumptions
     -----------
@@ -10866,21 +10874,21 @@ V$, so the thermal energy is 1.5 times it.</p>
 
 </details>
 
-    <p>Stored energy as pressure times volume, $W = pV$.</p>
+    <p>Pressure volume integral $\int p\,dV \approx \langle p\rangle V$ – not the thermal (stored) energy.</p>
 
-\[W = \int p\,dV \approx p\,V\]
+\[\int p\,dV \approx p\,V\]
 
     <div class="ref-table-wrap"><table class="ref-table">
   <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
   <tbody class="ref-params">
-  <tr><td><code>p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Pa</td><td><p>Pressure; a volume-averaged value gives the total energy.</p>
+  <tr><td><code>p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Pa</td><td><p>Pressure; the volume average gives the integral over the plasma.</p>
 </td></tr>
   <tr><td><code>V</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Plasma volume.</p>
 </td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">J</td><td><p>Energy $pV$.</p>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">J</td><td><p>$\int p\,dV$.</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -10888,9 +10896,13 @@ V$, so the thermal energy is 1.5 times it.</p>
     <div class="ref-callout ref-callout-convention">
       <p class="ref-label">Convention</p>
 
-      <p>$pV$ is the <em>magnetic-like</em> energy normalisation; the thermal energy of an
-ideal gas is $W_{th} = \tfrac{3}{2}\int p\,dV$, so multiply by 1.5 for the
-IMAS <code class="language-plaintext highlighter-rouge">energy_thermal</code> convention.</p>
+      <p>Despite the historical name this is $\int p\,dV$, two thirds of the
+thermal energy: the stored kinetic energy of an ideal gas is
+$W_{th} = \tfrac{3}{2}\int p\,dV$ (<code class="language-plaintext highlighter-rouge">thermal_energy_from_p_V</code>,
+<code class="language-plaintext highlighter-rouge">virial.virial_thermal_energy</code>, <code class="language-plaintext highlighter-rouge">kinetic_energy_from_beta_p_B_pa_V_p</code>,
+and the IMAS <code class="language-plaintext highlighter-rouge">energy_mhd</code> for the total and <code class="language-plaintext highlighter-rouge">energy_thermal</code> for the
+thermal pressure). It is the
+quantity $\beta_p$ is normalised by (<code class="language-plaintext highlighter-rouge">beta_poloidal_from_pressure_integral</code>).</p>
 
     </div>
 
@@ -10910,7 +10922,7 @@ volume.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#straight_field_line_angle"><code>straight_field_line_angle</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="straight_field_line_angle" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L889-L979" title="vaft/formula/equilibrium.py, lines 889–979 at 8adf724">source</a>
+<a class="ref-source" data-source="straight_field_line_angle" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L889-L979" title="vaft/formula/equilibrium.py, lines 889–979 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>straight_field_line_angle(theta, jacobian, R)</code></pre>
 
@@ -11003,10 +11015,10 @@ the grid spacing, so the grid must resolve $\mathcal{J}/R^{2}$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#surface_poloidal_flux_from_psi_boundary"><code>surface_poloidal_flux_from_psi_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="surface_poloidal_flux_from_psi_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L3606-L3648" title="vaft/formula/equilibrium.py, lines 3606–3648 at 8adf724">source</a>
+<a class="ref-source" data-source="surface_poloidal_flux_from_psi_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L3657-L3699" title="vaft/formula/equilibrium.py, lines 3657–3699 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>surface_poloidal_flux_from_psi_boundary(psi_boundary, *, psi_per_radian=True)</code></pre>
-    <details class="ref-code" data-source-code="surface_poloidal_flux_from_psi_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3606–3648</span></summary>
+    <details class="ref-code" data-source-code="surface_poloidal_flux_from_psi_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 3657–3699</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">surface_poloidal_flux_from_psi_boundary</span><span class="p">(</span>
     <span class="n">psi_boundary</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">psi_per_radian</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">True</span>
@@ -11107,11 +11119,123 @@ surface loop voltage in the Ejima flux-consumption balance.</p>
 
   </section>
 
+  <section class="ref-entry" id="thermal_energy_from_p_V" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#thermal_energy_from_p_V"><code>thermal_energy_from_p_V</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="thermal_energy_from_p_V" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2448-L2491" title="vaft/formula/equilibrium.py, lines 2448–2491 at aff4a79">source</a>
+</header>
+    <pre class="ref-signature"><code>thermal_energy_from_p_V(p, V)</code></pre>
+    <details class="ref-code" data-source-code="thermal_energy_from_p_V"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2448–2491</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">thermal_energy_from_p_V</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
+                            <span class="n">V</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Thermal (stored kinetic) energy of the plasma, $W_{th} = \tfrac{3}{2}\int p\,dV$.
+
+    $$W_{th} = \frac{3}{2}\int p\,dV \approx \frac{3}{2}\,\langle p\rangle V$$
+
+    Parameters
+    ----------
+    p : float or np.ndarray
+        Pressure; the volume average gives the energy of the whole plasma [Pa].
+    V : float
+        Plasma volume [m^3].
+
+    Returns
+    -------
+    float or np.ndarray
+        $W_{th}$ [J].
+
+    Convention
+    ----------
+    The ideal-gas $\tfrac{3}{2}nT$ per unit volume, summed over species, the
+    same energy as ``virial.virial_thermal_energy`` and
+    ``kinetic_energy_from_beta_p_B_pa_V_p``. With the total pressure (thermal
+    plus fast particles) it is the IMAS
+    ``equilibrium...global_quantities.energy_mhd``; with the thermal pressure
+    only, ``summary.global_quantities.energy_thermal``. ``stored_energy_from_p_V`` is
+    two thirds of it, $\int p\,dV$.
+
+    Physical interpretation
+    -----------------------
+    The energy confinement time divides this by the loss power
+    (``confinement_time_from_P_loss_W_th``).
+
+    Assumptions
+    -----------
+    Isotropic Maxwellian species ($p = nT$ per species); ``p`` is the volume
+    average when ``V`` is the total volume.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.5.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">p</span> <span class="o">*</span> <span class="n">V</span></code></pre></figure>
+
+</details>
+
+    <p>Thermal (stored kinetic) energy of the plasma, $W_{th} = \tfrac{3}{2}\int p\,dV$.</p>
+
+\[W_{th} = \frac{3}{2}\int p\,dV \approx \frac{3}{2}\,\langle p\rangle V\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Pa</td><td><p>Pressure; the volume average gives the energy of the whole plasma.</p>
+</td></tr>
+  <tr><td><code>V</code></td><td class="ref-type">float</td><td class="ref-unit">m^3</td><td><p>Plasma volume.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">J</td><td><p>$W_{th}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The ideal-gas $\tfrac{3}{2}nT$ per unit volume, summed over species, the
+same energy as <code class="language-plaintext highlighter-rouge">virial.virial_thermal_energy</code> and
+<code class="language-plaintext highlighter-rouge">kinetic_energy_from_beta_p_B_pa_V_p</code>. With the total pressure (thermal
+plus fast particles) it is the IMAS
+<code class="language-plaintext highlighter-rouge">equilibrium...global_quantities.energy_mhd</code>; with the thermal pressure
+only, <code class="language-plaintext highlighter-rouge">summary.global_quantities.energy_thermal</code>. <code class="language-plaintext highlighter-rouge">stored_energy_from_p_V</code> is
+two thirds of it, $\int p\,dV$.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The energy confinement time divides this by the loss power
+(<code class="language-plaintext highlighter-rouge">confinement_time_from_P_loss_W_th</code>).</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Isotropic Maxwellian species ($p = nT$ per species); <code class="language-plaintext highlighter-rouge">p</code> is the volume
+average when <code class="language-plaintext highlighter-rouge">V</code> is the total volume.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.5.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="toroidal_current_density_from_p_prime_ff_prime" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#toroidal_current_density_from_p_prime_ff_prime"><code>toroidal_current_density_from_p_prime_ff_prime</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="toroidal_current_density_from_p_prime_ff_prime" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1243-L1301" title="vaft/formula/equilibrium.py, lines 1243–1301 at 8adf724">source</a>
+<a class="ref-source" data-source="toroidal_current_density_from_p_prime_ff_prime" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1243-L1301" title="vaft/formula/equilibrium.py, lines 1243–1301 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>toroidal_current_density_from_p_prime_ff_prime(R, p_prime, ff_prime)</code></pre>
     <details class="ref-code" data-source-code="toroidal_current_density_from_p_prime_ff_prime"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1243–1301</span></summary>
@@ -11253,7 +11377,7 @@ equation the Grad–Shafranov equation rather than Ampere’s law alone.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#toroidal_electric_field"><code>toroidal_electric_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="toroidal_electric_field" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1619-L1670" title="vaft/formula/equilibrium.py, lines 1619–1670 at 8adf724">source</a>
+<a class="ref-source" data-source="toroidal_electric_field" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1619-L1670" title="vaft/formula/equilibrium.py, lines 1619–1670 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>toroidal_electric_field(r, dpsi_dt)</code></pre>
     <details class="ref-code" data-source-code="toroidal_electric_field"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1619–1670</span></summary>
@@ -11380,7 +11504,7 @@ vaft.formula.startup.breakdown_margin</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#toroidal_flux_from_q_psi"><code>toroidal_flux_from_q_psi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="toroidal_flux_from_q_psi" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L312-L356" title="vaft/formula/equilibrium.py, lines 312–356 at 8adf724">source</a>
+<a class="ref-source" data-source="toroidal_flux_from_q_psi" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L312-L356" title="vaft/formula/equilibrium.py, lines 312–356 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>toroidal_flux_from_q_psi(q, psi_wb)</code></pre>
     <details class="ref-code" data-source-code="toroidal_flux_from_q_psi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 312–356</span></summary>
@@ -11491,10 +11615,10 @@ and the result is the running integral, so its first element is zero.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#triangularity_from_RZ_boundary"><code>triangularity_from_RZ_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="triangularity_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2819-L2875" title="vaft/formula/equilibrium.py, lines 2819–2875 at 8adf724">source</a>
+<a class="ref-source" data-source="triangularity_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2870-L2926" title="vaft/formula/equilibrium.py, lines 2870–2926 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>triangularity_from_RZ_boundary(R, Z, R0)</code></pre>
-    <details class="ref-code" data-source-code="triangularity_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2819–2875</span></summary>
+    <details class="ref-code" data-source-code="triangularity_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2870–2926</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">triangularity_from_RZ_boundary</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                                   <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -11624,10 +11748,10 @@ vaft.process.equilibrium.contour_shape_parameters</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#triangularity_lower_from_RZ_boundary"><code>triangularity_lower_from_RZ_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="triangularity_lower_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2765-L2816" title="vaft/formula/equilibrium.py, lines 2765–2816 at 8adf724">source</a>
+<a class="ref-source" data-source="triangularity_lower_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2816-L2867" title="vaft/formula/equilibrium.py, lines 2816–2867 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>triangularity_lower_from_RZ_boundary(R, Z, R0)</code></pre>
-    <details class="ref-code" data-source-code="triangularity_lower_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2765–2816</span></summary>
+    <details class="ref-code" data-source-code="triangularity_lower_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2816–2867</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">triangularity_lower_from_RZ_boundary</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                                         <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -11747,10 +11871,10 @@ triangularity_from_RZ_boundary</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#triangularity_upper_from_RZ_boundary"><code>triangularity_upper_from_RZ_boundary</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="triangularity_upper_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2709-L2762" title="vaft/formula/equilibrium.py, lines 2709–2762 at 8adf724">source</a>
+<a class="ref-source" data-source="triangularity_upper_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2760-L2813" title="vaft/formula/equilibrium.py, lines 2760–2813 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>triangularity_upper_from_RZ_boundary(R, Z, R0)</code></pre>
-    <details class="ref-code" data-source-code="triangularity_upper_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2709–2762</span></summary>
+    <details class="ref-code" data-source-code="triangularity_upper_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2760–2813</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">triangularity_upper_from_RZ_boundary</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                                         <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -11874,7 +11998,7 @@ r_at_z_extremum_from_RZ_contour</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#vacuum_toroidal_field"><code>vacuum_toroidal_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="vacuum_toroidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1474-L1528" title="vaft/formula/equilibrium.py, lines 1474–1528 at 8adf724">source</a>
+<a class="ref-source" data-source="vacuum_toroidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1474-L1528" title="vaft/formula/equilibrium.py, lines 1474–1528 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>vacuum_toroidal_field(B0, R0, R)</code></pre>
     <details class="ref-code" data-source-code="vacuum_toroidal_field"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1474–1528</span></summary>
@@ -12008,10 +12132,10 @@ the grad-B and curvature drifts.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#verify_kadomtsev_constraint"><code>verify_kadomtsev_constraint</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="verify_kadomtsev_constraint" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L5620-L5685" title="vaft/formula/equilibrium.py, lines 5620–5685 at 8adf724">source</a>
+<a class="ref-source" data-source="verify_kadomtsev_constraint" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L5671-L5736" title="vaft/formula/equilibrium.py, lines 5671–5736 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>verify_kadomtsev_constraint(mu_rho, mu_beta, mu_nu, a_P)</code></pre>
-    <details class="ref-code" data-source-code="verify_kadomtsev_constraint"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5620–5685</span></summary>
+    <details class="ref-code" data-source-code="verify_kadomtsev_constraint"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 5671–5736</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">verify_kadomtsev_constraint</span><span class="p">(</span><span class="n">mu_rho</span><span class="p">,</span> <span class="n">mu_beta</span><span class="p">,</span> <span class="n">mu_nu</span><span class="p">,</span> <span class="n">a_P</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Kadomtsev constraint residual of the engineering scaling behind dimensionless indices.
@@ -12146,7 +12270,7 @@ returns the residual and emits a <code class="language-plaintext highlighter-rou
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#vertical_magnetic_field_from_psi"><code>vertical_magnetic_field_from_psi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="vertical_magnetic_field_from_psi" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L1784-L1833" title="vaft/formula/equilibrium.py, lines 1784–1833 at 8adf724">source</a>
+<a class="ref-source" data-source="vertical_magnetic_field_from_psi" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L1784-L1833" title="vaft/formula/equilibrium.py, lines 1784–1833 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>vertical_magnetic_field_from_psi(psi, R, Z, cocos=None)</code></pre>
     <details class="ref-code" data-source-code="vertical_magnetic_field_from_psi"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 1784–1833</span></summary>
@@ -12268,10 +12392,10 @@ against <code class="language-plaintext highlighter-rouge">R</code>, so the map 
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#volume_from_RZ_boundary"><code>volume_from_RZ_boundary</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="volume_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/8adf7248133f82e6450923e326ce4888c8b0b42e/vaft/formula/equilibrium.py#L2482-L2526" title="vaft/formula/equilibrium.py, lines 2482–2526 at 8adf724">source</a>
+<a class="ref-source" data-source="volume_from_RZ_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/aff4a7929683685fd611c8d046cd3c027c71321b/vaft/formula/equilibrium.py#L2533-L2577" title="vaft/formula/equilibrium.py, lines 2533–2577 at aff4a79">source</a>
 </header>
     <pre class="ref-signature"><code>volume_from_RZ_boundary(R, Z)</code></pre>
-    <details class="ref-code" data-source-code="volume_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2482–2526</span></summary>
+    <details class="ref-code" data-source-code="volume_from_RZ_boundary"><summary>Show source <span class="ref-note">vaft/formula/equilibrium.py, lines 2533–2577</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">volume_from_RZ_boundary</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                            <span class="n">Z</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -12591,7 +12715,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 08:07:33 +0000"
+        "time": "2026-10-07 08:21:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -348,7 +348,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8adf724</code>. What is described
+  <code>aff4a79</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -716,7 +716,7 @@ paths are <strong>category-prefixed</strong>; flat calls such as <code class="la
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.data.sample(39915, representation="imas")</code></td>
-      <td>the same shot as an IMAS NetCDF container</td>
+      <td>the same shot as an IMAS NetCDF container (repository checkout only: the wheel ships the OMAS form, which <code class="language-plaintext highlighter-rouge">vaft.imas.load</code> also reads)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">data_path("efit/g039915.00319")</code></td>
@@ -1049,7 +1049,8 @@ makes <code class="language-plaintext highlighter-rouge">.nc</code> the format o
     <span class="n">dbentry</span><span class="p">.</span><span class="nf">put</span><span class="p">(</span><span class="n">equilibrium</span><span class="p">)</span>
 </code></pre></div></div>
 
-<p>The packaged <code class="language-plaintext highlighter-rouge">vaft.data.sample(39915, representation="imas")</code> artifact is exactly such a container.</p>
+<p>The repository sample <code class="language-plaintext highlighter-rouge">vaft.data.sample(39915, representation="imas")</code> is exactly such a container
+(it is not in the PyPI distribution, which ships only the OMAS form of 39915).</p>
 
 <p>If you are staying inside OMAS, its own NetCDF backend serialises a whole ODS (all IDSs at once):</p>
 
@@ -1725,7 +1726,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 08:07:33 +0000"
+        "time": "2026-10-07 08:21:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
