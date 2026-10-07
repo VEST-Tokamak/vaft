@@ -14,7 +14,7 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping
 
-from ...compat import resolve_executable
+from ...compat import executable_suffixes, resolve_executable
 from .._executables import (
     ExecutableNotLaunchable,
     executable_from_home,
@@ -390,6 +390,17 @@ def limit_stop_reason(exc: subprocess.TimeoutExpired) -> str:
     return f"timeout after {exc.timeout} seconds"
 
 
+def program_name(executable_path: str | Path) -> str:
+    """The solver's name as a record names it: ``dcon`` for ``bin/dcon.exe`` too.
+
+    A reason reads "dcon was stopped by the memory limit"; the launch suffix
+    Windows appends to the file (``.exe``, ``.cmd``) is the platform's, not the
+    program's, so it is dropped. Any other suffix is part of the name.
+    """
+    path = Path(executable_path)
+    return path.stem if path.suffix.lower() in executable_suffixes() else path.name
+
+
 def run_subprocess(
     executable_path: Path,
     cwd: Path,
@@ -415,6 +426,6 @@ def run_subprocess(
             list(command),
             config.timeout or execution.elapsed_s,
             execution,
-            timeout_reason(Path(executable_path).name, execution, config.timeout),
+            timeout_reason(program_name(executable_path), execution, config.timeout),
         )
     return int(execution.returncode), log_path
