@@ -93,9 +93,10 @@ _RECORD_FIELD = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*[:=]\s*([^;]*)")
 
 
 def _element_table() -> Mapping[str, tuple[int, float]]:
-    from vaft.data.synthetic_kinetic_profiles import ION_SPECIES
+    """``symbol -> (Z_n, standard atomic weight)``, a view of :mod:`vaft.data.atomic`."""
+    from vaft.data.atomic import ATOMIC_NUMBERS, STANDARD_ATOMIC_WEIGHTS
 
-    return ION_SPECIES
+    return {symbol: (z, STANDARD_ATOMIC_WEIGHTS[symbol]) for symbol, z in ATOMIC_NUMBERS.items()}
 
 
 @dataclass(frozen=True)
