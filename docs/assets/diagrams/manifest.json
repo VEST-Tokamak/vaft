@@ -407,7 +407,7 @@
     },
     "hugill_st.svg": {
       "call": "vaft.diagram.hugill_st()",
-      "source_sha256": "a8b06dea35975c0572da356572176b0d3fa98ba36f1f3449f1e4b0ae3798ceda",
+      "source_sha256": "2d3a089f939062694d32c0aa0e4a0feb95c1abfa177650c7d2ac95b66614c0a9",
       "svg_sha256": "35458972f7dbedb6826c8ef1783897181693d73269044db66531f767f58d0354"
     },
     "human_ai_interface.svg": {
@@ -492,13 +492,13 @@
     },
     "li_qa_cheng_1987.svg": {
       "call": "vaft.diagram.li_qa(reference='cheng_1987')",
-      "source_sha256": "f267e4743f59eef866747cfd15a50bd65bdf455109c49d31c3d3b5e0640e2bb9",
-      "svg_sha256": "4cb3338f2463412dae266ba878045d9cd451f568fb97f2da7cc808a7fbf5bf91"
+      "source_sha256": "9c2f6dd6638d423cc6a44f5f2f7030da3730a8c7d75eb3e204f8f96afb44930a",
+      "svg_sha256": "037aafe1688c3307301ce7ad7a1c8e6fcc4dc7dc4441b424254eabfa30b0385a"
     },
     "li_qa_wesson_1989.svg": {
       "call": "vaft.diagram.li_qa(reference='wesson_1989')",
-      "source_sha256": "bc0b8f88c773636ae9564b8c742f3df4963fa0639f7100582f4001177bbda487",
-      "svg_sha256": "0ccee0cea25362a2f3814282f6bcec1b6a5d9d8fd090492aa976c36b3b7b532f"
+      "source_sha256": "52f11551b122b57f8775f5b4fedb265c03c4263a01122fe06c4ae2af167e44a7",
+      "svg_sha256": "d4146651266b76e216a4fca1a1a0ec4540bdb2feea5e39aad1a1e4b77afa189b"
     },
     "limiter_and_diverted_topologies.svg": {
       "call": "vaft.diagram.limiter_and_diverted_topologies()",
@@ -1017,7 +1017,7 @@
     },
     "timescale_hierarchy.svg": {
       "call": "vaft.diagram.timescale_hierarchy()",
-      "source_sha256": "ece36b52874284d8fa4f361b11665377795ea26e0f8ca45ac92cd217d2b543d0",
+      "source_sha256": "4646a38cc93e41df8d2335bd231680c2483a006bd68565af14cfb11b473d1223",
       "svg_sha256": "2cff77699b586bc6cdc7b6462632b854141e4b7452db7d54d5ea5e84ca6dac90"
     },
     "tokamak_top_view.svg": {
