@@ -121,19 +121,29 @@ def test_the_four_perspectives_are_present_and_ordered(path):
 
 def test_both_readmes_have_the_same_short_landing_structure():
     sections = (
-        ("What VAFT connects", "Four enabling perspectives", "Research with VAFT",
+        ("What VAFT connects", "Four enabling perspectives", "How results are produced", "Research with VAFT",
          "VEST reference implementation", "Quick start", "Learn more"),
-        ("VAFT가 연결하는 것", "이를 가능하게 하는 네 관점", "VAFT로 할 수 있는 연구",
+        ("VAFT가 연결하는 것", "이를 가능하게 하는 네 관점", "결과가 만들어지는 과정", "VAFT로 할 수 있는 연구",
          "VEST 참조 구현", "빠른 시작", "자세한 문서"),
+    )
+    diagrams = (
+        "fusion_research_ecosystem_presentation.svg",
+        "vaft_four_pillars.svg",
+        "scientific_workflow.svg",
+        "machine_agnostic_architecture.svg",
     )
     for path, expected in zip((ENGLISH, KOREAN), sections):
         text = path.read_text(encoding="utf-8")
         assert headings(path) == list(expected)
-        assert len(text.splitlines()) <= 85
-        assert len(re.findall(r"!\[[^]]+\]\(", text)) == 1
-        assert "fusion_research_ecosystem_presentation.svg" in text
-        assert "https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/" in text
-        assert "vaft_four_pillars.svg" not in text
+        assert len(text.splitlines()) <= 100
+        images = re.findall(r"!\[([^]]+)\]\(([^)]+)\)", text)
+        assert len(images) == len(diagrams)
+        assert all(alt.strip() for alt, _ in images)
+        assert tuple(url.rsplit("/", 1)[-1] for _, url in images) == diagrams
+        assert all(
+            url.startswith("https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/")
+            for _, url in images
+        )
         assert "fusion_science_knowledge_lifecycle.svg" not in text
         assert "vaft.omas.sample_ods()" in text
 
