@@ -35,21 +35,26 @@ _REFERENCES = {
         projection="li_qa_wesson",
         x_range=(0.0, 15.0), y_range=(0.0, 2.0),
         x_label="$q_\\psi$", y_label="$l_i$",
-        labels={"operating": (6.8, 1.12), "upper": (3.2, 1.75), "lower": (6.5, 0.1)},
+        labels={"operating": (6.8, 1.12), "upper": (3.2, 1.75), "lower": (6.5, 0.1), "end": (12.6, 1.62)},
         text={"operating": "Operating space",
               "upper": "\\begin{tabular}{c}Density-limit\\\\disruptions\\end{tabular}",
-              "lower": "Kink and double tearing"},
-        note="Wesson et al., Nucl. Fusion 29 (1989) 641, Fig. 6: JET empirical boundaries",
+              "lower": "Kink and double tearing",
+              "end": "\\begin{tabular}{c}Fig. 6 ends\\\\at $q_\\psi = 10$\\end{tabular}"},
+        note="Wesson et al., Nucl. Fusion 29 (1989) 641, Fig. 6: empirical JET operating boundary, not a universal MHD limit",
     ),
     "cheng_1987": dict(
         projection="li_qa_cheng",
-        x_range=(1.0, 8.0), y_range=(0.2, 2.6),
+        x_range=(1.0, 9.6), y_range=(0.2, 2.6),
         x_label="$q(a)$ (cylinder)", y_label="$l_i$ (cylinder)",
-        labels={"operating": (4.9, 1.3), "upper": (3.1, 2.05), "lower": (5.5, 0.55)},
+        labels={"operating": (4.9, 1.35), "upper": (5.25, 2.47), "lower": (7.3, 0.55), "low_q": (2.1, 1.78),
+                "end": (8.9, 1.5)},
         text={"operating": "MHD stable",
-              "upper": "\\begin{tabular}{c}Unstable\\\\(resistive kink)\\end{tabular}",
-              "lower": "Unstable (ideal kink)"},
-        note="Cheng, Furth and Boozer, PPCF 29 (1987) 351, Fig. 4: theory, $q(0) = 1.01$, plotted as $l_i$",
+              "upper": "\\begin{tabular}{c}Low-order resistive kink\\\\(mainly 2/1, 3/2)\\end{tabular}",
+              "lower": "Ideal external kink",
+              "low_q": "\\begin{tabular}{c}$q(a) < 2$:\\\\no stable\\\\profile\\end{tabular}",
+              "end": "\\begin{tabular}{c}Fig. 4 ends\\\\($q(a) \\approx 8$):\\\\no upper-$q$\\\\limit implied\\end{tabular}"},
+        note="Cheng, Furth and Boozer, PPCF 29 (1987) 351, Fig. 4: theory, $q(0) = 1.01$, pressureless straight "
+             "cylinder, no shell; plotted as $l_i$",
     ),
 }
 
@@ -80,6 +85,7 @@ def li_qa(*, reference: str = "wesson_1989", labels: bool = True) -> Diagram:
     """
     try:
         spec = _REFERENCES[reference]
+        spec = {**spec, "labels": dict(spec["labels"]), "text": dict(spec["text"])}   # never edit the table
     except KeyError:
         raise ValueError(f"reference must be one of {sorted(_REFERENCES)}, not {reference!r}") from None
     projection = get_projection(spec["projection"])
@@ -98,6 +104,16 @@ def li_qa(*, reference: str = "wesson_1989", labels: bool = True) -> Diagram:
         # 9 decimals: the TikZ source (and the committed SVG's hash) must not depend on the platform's
         # last-bit floating-point differences, which flipped one printed coordinate (5.029 vs 5.0291)
         chart.curves[boundary.branch] = np.round(xy, 9)
+    if reference == "cheng_1987":
+        # the theoretical permissible domain, filled between the two bounds over the range Fig. 4 draws (#1603)
+        lower, upper = chart.curves["lower"], chart.curves["upper"]
+        top = np.interp(lower[:, 0], upper[:, 0], upper[:, 1], left=np.nan, right=np.nan)
+        keep = np.isfinite(top)
+        chart.curves["domain"] = np.round(np.vstack([lower[keep], np.c_[lower[keep, 0], top[keep]][::-1]]), 9)
+        # the jig-saw edges at integer q(a) = m, where an m/1 resonance enters the plasma (comparison theorem, p. 354)
+        for m in (3, 4, 5, 6):
+            spec["labels"][f"m{m}"] = (m, 0.30)
+            spec["text"][f"m{m}"] = f"${m}/1$"
     for boundary in edges:
         q_edge = float(_b.boundary_value(boundary))
         span = sorted(float(np.interp(q_edge, *chart.curves[b].T)) for b in ("lower", "upper"))
@@ -109,7 +125,8 @@ def li_qa(*, reference: str = "wesson_1989", labels: bool = True) -> Diagram:
         chart,
         x_label=spec["x_label"],
         y_label=spec["y_label"],
-        curve_styles={name: "boundary" for name in ("lower", "upper", "edge") if name in chart.curves},
+        curve_styles={**({"domain": "region plasma"} if "domain" in chart.curves else {}),
+                      **{name: "boundary" for name in ("lower", "upper", "edge") if name in chart.curves}},
         region_text=spec["text"] if labels else {},
         x_ticks=[t for t in _nice_ticks(x_hi) if t >= chart.x_range[0]],
         y_ticks=[t for t in _nice_ticks(y_hi) if t >= chart.y_range[0]],
