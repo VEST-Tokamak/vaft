@@ -5575,6 +5575,16 @@ def _gk_title(base: str, entries: Sequence[tuple[str, Any]]) -> str:
     return base + (f" — unmatched: {', '.join(mismatches)}" if mismatches else "")
 
 
+#: The plots that read ``include_unconverged=`` (declared-only, see
+#: :data:`vaft.plot.backend.options.DECLARED_ONLY_OPTIONS`): the two linear
+#: spectra and the overview that composes them.  Any other plot refuses it.
+UNCONVERGED_MODE_PLOTS = frozenset({
+    "gyrokinetics_spectrum_growth_rate",
+    "gyrokinetics_spectrum_frequency",
+    "gyrokinetics_overview",
+})
+
+
 def _gk_unconverged(obj: Any, mode: str) -> bool:
     """An initial-value eigenmode that reached no tolerance (``growth_rate_tolerance`` is
     written only for a converged run): its last-step value is not an eigenvalue."""
@@ -5635,7 +5645,7 @@ def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) ->
     include = bool(options.get("include_unconverged", False))
     series = [s for label, obj in _labelled(entries)
               for s in _gk_linear_series(label, obj, "growth_rate_norm", include_unconverged=include,
-                                         short=bool(options.get("short_labels")))]
+                                         short=bool(options.get("_short_labels")))]
     if not series:
         raise ValueError(f"no converged {_GK}.linear growth rates in this input "
                          "(include_unconverged=True draws initial-value runs that reached none)")
@@ -5653,7 +5663,7 @@ def _build_gk_frequency(entries: Sequence[tuple[str, Any]], **options: Any) -> P
     include = bool(options.get("include_unconverged", False))
     series = [s for label, obj in _labelled(entries)
               for s in _gk_linear_series(label, obj, "frequency_norm", include_unconverged=include,
-                                         short=bool(options.get("short_labels")))]
+                                         short=bool(options.get("_short_labels")))]
     if not series:
         raise ValueError(f"no converged {_GK}.linear frequencies in this input")
     conventions = {_gk_parameter(obj, "frequency_sign_convention") for _label, obj in entries}
@@ -5717,7 +5727,7 @@ def _gk_flux_builder(quantity: str, y_label: str):
             for s in range(total.shape[0]):
                 species = _gk_species_label(obj, s)
                 series.append(Series(x=ky[order], y=total[s][order],
-                                     label=species if options.get("short_labels") else f"{name} {species}"))
+                                     label=species if options.get("_short_labels") else f"{name} {species}"))
         if not series:
             raise ValueError(f"no ky-resolved {quantity} flux in this input")
         quasi = {_get(obj, f"{_GK}.non_linear.quasi_linear") for _label, obj in entries}
@@ -5824,14 +5834,15 @@ def _gk_local_state_lines(obj: Any) -> list[str]:
 def _build_gk_overview(obj: Any, **options: Any) -> Panels:
     """The members a run supports, plus its local state; a missing quantity drops its panel."""
     entries = [("", obj)]
+    include = bool(options.get("include_unconverged", False))
     models: list[Any] = []
     for available, build in (
         (_gk_spectrum_available("growth_rate_norm"),
-         lambda: _build_gk_growth_rate(entries, short_labels=True)),
+         lambda: _build_gk_growth_rate(entries, _short_labels=True, include_unconverged=include)),
         (_gk_spectrum_available("frequency_norm"),
-         lambda: _build_gk_frequency(entries, short_labels=True)),
+         lambda: _build_gk_frequency(entries, _short_labels=True, include_unconverged=include)),
         (_gk_flux_spectrum_available("energy"),
-         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries, short_labels=True)),
+         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries, _short_labels=True)),
         (_gk_eigenfunction_available, lambda: _build_gk_eigenfunction(obj)),
     ):
         if available(obj) is None:
@@ -9337,6 +9348,8 @@ def declares_option(name: str, option: str) -> bool:
     """Whether plot ``name`` declares the declared-only ``option``."""
     if option in RATIONAL_SURFACE_OPTIONS:
         return name in RATIONAL_SURFACE_PLOTS
+    if option == "include_unconverged":
+        return name in UNCONVERGED_MODE_PLOTS
     return choice_options_for(name, option) is not None
 
 
