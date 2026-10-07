@@ -1488,7 +1488,9 @@ notebook composes computation and matures reusable logic out of itself. Data and
 Process, Code and learned models, produce results and evidence. Validation interprets that evidence, and an
 optional use policy decides what a workflow does about it. The Actor contract is an optional overlay, off
 every edge. The graduation rule promotes matured logic by meaning. [Computational
-layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed view of the computation band.
+layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed view of the computation band, and
+[Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}) uses this figure as VAFT's
+normative architecture.
 
 Related issues: #1090 (the concept family), #1550 (the VEST workflow), #497 (placement of canonical visuals),
 #248, #252, #1505, #1626-#1629 (provenance, contracts and applicability), #1077, #1165, #1170, #1639,

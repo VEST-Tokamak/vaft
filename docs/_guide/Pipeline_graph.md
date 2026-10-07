@@ -18,7 +18,8 @@ related:
 This page shows **what the implemented production pipelines actually do**, generated from the
 documented commit
 {% if g.provenance.commit %}(<a href="https://github.com/VEST-Tokamak/vaft/tree/{{ g.provenance.commit }}"><code>{{ g.provenance.commit | slice: 0, 7 }}</code></a>){% endif %}.
-It complements the conceptual workflow diagrams and the
+It is the production-lineage view of the
+[Scientific architecture]({{ site.baseurl }}/reference/scientific-architecture/), and complements the conceptual workflow diagrams and the
 [Automated pipelines]({{ site.baseurl }}/workflows/automated-pipelines/) guide; it does not
 replace either, and it shows no live run state.
 
