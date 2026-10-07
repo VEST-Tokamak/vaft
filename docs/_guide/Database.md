@@ -245,6 +245,33 @@ exist_shot(username=None, shot=None, data_filter=None, sort=-1)
 
 ## Eager and lazy HSDS access
 
+### Source namespaces and data products
+
+Each remote operation names one analysis lineage with `source`. The default `main`
+holds VAFT-native results; `public` is the readable, legacy lineage and is never
+written by VAFT. Other established sources include `chease-mhd-stability`
+(CHEASE refinement and linear MHD), `vfit-element`, `vfit-gse`,
+`electron-efit`, `kinetic-efit`, and the sparse `impa` diagnostic source.
+A missing shot in `impa` means no IMPA product was published for that shot; it
+does not say whether the shot exists in `main`. Reads never silently union
+sources. Use `vaft.database.compose(shot)` when analysis needs products from
+`main` and `impa` together while retaining each channel's origin.
+`python -m vaft.cli summary sources` lists the catalog; custom namespaces must
+be declared in `VAFT_HSDS_EXTRA_SOURCES`.
+
+Eager `load()` stages a complete shot when `paths` is absent. With
+`paths=["equilibrium"]`, it stages only that IDS and `dataset_description`,
+normally using a validated local domain cache. Byte-exact per-IDS images avoid
+repeated `hsget` requests when available; `transport="canonical"` bypasses
+them and `transport="h5image"` requires them. Direct lazy `open()` reads
+selected leaves from the canonical IDS domain and currently supports occurrence
+0. Native lazy IMAS also requires the exact stored Data Dictionary version.
+
+Canonical IMAS images remain authoritative after a save. The default
+`derived_cache="auto"` also creates per-IDS images; the historical full-ODS
+cache is readable but is published only on explicit request. The explicit
+options are `"none"`, `"imas-images"`, `"omas"`, and `"both"`.
+
 `vaft.database.load` materializes data before returning it. The default representation is an
 **OMAS ODS**:
 
