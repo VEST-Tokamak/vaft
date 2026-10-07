@@ -318,6 +318,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
     "test_formula_ordering.py",
+    # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
+    # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
+    "test_process_mhd_stability.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

@@ -65,6 +65,7 @@ _SUBMODULES = {
     "impurity": ".impurity",
     "species": ".species",
     "zeff_projection": ".zeff_projection",
+    "mhd_stability": ".mhd_stability",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -127,6 +128,9 @@ _IMPORT_ORDER = (
     "species",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
+    # DCON local-criterion and edge-scan post-processing from the ODS payload
+    # (#940); nothing it exports collides.
+    "mhd_stability",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

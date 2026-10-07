@@ -615,7 +615,8 @@ def extract_dcon_stability(ods: ODS) -> list[dict[str, Any]]:
       / ``bal_flag``, None when the namelist is unknown) and
       ``ballooning_points_evaluated``, the number of surfaces where DCON
       integrated the ballooning equation (0 when ``bal_flag`` was on but no
-      surface qualified; None without the mask);
+      surface qualified; None without the mask), and ``C_A_evaluated``, that
+      per-surface mask itself;
     * summaries: ``max_D_I`` / ``psi_n_at_max_D_I``, ``max_D_R`` /
       ``psi_n_at_max_D_R``, ``min_C_A`` / ``psi_n_at_min_C_A`` over evaluated
       points only.
@@ -704,6 +705,7 @@ def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
     # how many surfaces the scan then reached is a separate number.
     row["ballooning_evaluated"] = bal
     row["ballooning_points_evaluated"] = None if evaluated is None else int(evaluated.sum())
+    row["C_A_evaluated"] = evaluated
 
     def extremum(values: Optional[np.ndarray], mask: Optional[np.ndarray], largest: bool):
         if values is None or psi is None or values.shape != psi.shape:
