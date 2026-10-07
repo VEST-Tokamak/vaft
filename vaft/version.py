@@ -8,7 +8,7 @@ __all__ = ["__version__"]
 # patch notes
 # ────────────────────────────────────────────────────────
 # 0.8.0
-# - development release line 2026-09-18 .. 2026-10-07 merged into main: 449
+# - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the
 #   detailed notes are on the release pull request and the GitHub release.
 #   Headlines:
@@ -123,7 +123,9 @@ __all__ = ["__version__"]
 # - plotting: 3-D scenes in Plotly, VTK/ParaView and K3D with the vtk and
 #   jupyter3d extras (#1087), recipes label the coordinate they draw, the
 #   core-profile map at rho_tor (#335), colours by intent (#748), the camera
-#   overlay never bridges NaN gaps (#1314), committed thumbnails with a
+#   overlay never bridges NaN gaps (#1314) and overlay="equilibrium_section"
+#   projects the same-shot equilibrium section onto FAST camera frames
+#   (#1830), committed thumbnails with a
 #   freshness manifest (#1097); animation=True renders a plot sequence to
 #   mp4/webm/gif through a private PyAV backend, time_range= sets the
 #   window and the *_animation_frames helpers are deprecated (#1049,
