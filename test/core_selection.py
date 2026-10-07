@@ -176,7 +176,8 @@ CORE_MODULES: tuple[str, ...] = (
     # names an API that exists -- a library rename breaks the last without its
     # author ever opening docs/, which is exactly what develop should catch.
     # The committed diagram SVGs are checked against their TikZ source too,
-    # and the generated import graph against Grimp, which stays optional (#1646).
+    # and the generated import graph against Grimp, which stays optional (#1646),
+    # and the dependency/external-code registry against pyproject and install/ (#1648).
     "test_dependency_graph.py",
     "test_diagram_render.py",
     "test_docs_api.py",
@@ -185,6 +186,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_docs_snippets.py",
     "test_docs_sources.py",
     "test_docs_thumbnails.py",
+    "test_ecosystem_catalog.py",
     "test_readme_consistency.py",
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.

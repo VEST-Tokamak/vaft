@@ -265,6 +265,11 @@
       "source_sha256": "8e0c4c7a51c1d87a0b443db40f759ea93fa5cf24ccdd6e6e85ceebaf1295c870",
       "svg_sha256": "814fa14567f84032eab223226a9c999c35e74cfb1247c9bc367c9c809886e2ed"
     },
+    "external_code_integration.svg": {
+      "call": "vaft.diagram.external_code_integration()",
+      "source_sha256": "3827c31fb4d9d2cd3331ff1268f7ad3a9c529ffb9c4762c78dbb0bf96c51fb55",
+      "svg_sha256": "4c84c7fceafc686ae39f53e0f21f7aafe84be01b23c87cf4a4020d476da4099e"
+    },
     "fast_magnetosonic_wave.svg": {
       "call": "vaft.diagram.fast_magnetosonic_wave()",
       "source_sha256": "7ec4ff5ac2ebd1cdc02264f7d09720d4b115b5f333f0512c68bbf77a4dfefe56",
@@ -949,6 +954,11 @@
       "call": "vaft.diagram.slab_parity(parity='twisting')",
       "source_sha256": "e71804e96a5c21584fce44f0a0f80cfcdea748e2384d68fef0c2b80e0c900b72",
       "svg_sha256": "ee078a90aa02d347c20e8c5a53bd8d8c7574ab9d97bf09795643d1cde45e7f20"
+    },
+    "software_dependency_ecosystem.svg": {
+      "call": "vaft.diagram.software_dependency_ecosystem()",
+      "source_sha256": "13c56f3ed4849f58601a42588bed3c402578fb0dc88d4f094e80dd1c78aa56fb",
+      "svg_sha256": "063f310a015a376bd61085025dec951f8352cfcb70d3af574509698fca0800ed"
     },
     "spectroscopy_energy_levels.svg": {
       "call": "vaft.diagram.spectroscopy_energy_levels(term='D-alpha')",
