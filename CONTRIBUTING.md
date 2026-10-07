@@ -166,6 +166,20 @@ physics submodule -- `test/test_formula_catalog.py` pins that), and the site's
 reference pages under `/reference/formula/` are generated from the same text by
 `python -m vaft.formula.catalog`, which `docs/build.py` runs for you.
 
+One diagram is generated from the catalog as well, and it is hash-pinned.
+`docs/assets/diagrams/reduced_representation_hierarchy.svg` renders the number
+of catalogued formulas whose `Reduction` section lands in each cell, and
+`docs/assets/diagrams/manifest.json` records the SHA-256 of the TikZ it was
+rendered from. A formula change that adds or removes a `Reduction` section,
+changes its `input`, `output`, `role` or `kind`, or moves the first return
+unit to or from `[-]` therefore changes that diagram without touching
+`vaft.diagram` (the `reduction_graph_*.svg` likewise follow the `kind` of
+every formula they name). Such a PR runs `python -m vaft.diagram.build`
+(needs `latex` and `dvisvgm`) and commits the regenerated SVG together with
+its manifest line; `python -m vaft.diagram.build --check`, which CI runs on
+every pull request, fails until it does. The Diagrams guide's "Regenerating
+and checking" section has the details.
+
 ## Processing docstrings
 
 `vaft/process` uses the same parser (`vaft/_docstring.py`) and the same unit-tag
