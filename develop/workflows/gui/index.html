@@ -318,7 +318,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>715d48b</code>. What is described
+  <code>1ee5761</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -548,9 +548,11 @@ serves the app under a path, so it can sit next to another service on the same h
 <code class="language-plaintext highlighter-rouge">--auth hsds</code> decides who may enter, not what they may read. Give it a <strong>read-only
 HSDS account</strong> through <code class="language-plaintext highlighter-rouge">HS_ENDPOINT</code>, <code class="language-plaintext highlighter-rouge">HS_USERNAME</code> and <code class="language-plaintext highlighter-rouge">HS_PASSWORD</code>, never an admin one.</p>
 
-<p>The files in <a href="https://github.com/VEST-Tokamak/vaft/tree/develop/deploy/gui"><code class="language-plaintext highlighter-rouge">deploy/gui/</code></a>
+<p>The files in <a href="https://github.com/VEST-Tokamak/vaft/tree/develop/vaft/deploy/gui"><code class="language-plaintext highlighter-rouge">vaft/deploy/gui/</code></a>
 are a working starting point for Ubuntu with nginx and systemd, serving
-<code class="language-plaintext highlighter-rouge">https://&lt;host&gt;/gui/</code> next to HSDS on the same host:</p>
+<code class="language-plaintext highlighter-rouge">https://&lt;host&gt;/gui/</code> next to HSDS on the same host. They ship with the package, so an
+install from PyPI has them too: <code class="language-plaintext highlighter-rouge">importlib.resources.files("vaft.deploy.gui")</code> is the
+installed directory.</p>
 
 <table>
   <thead>
@@ -828,7 +830,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-06 23:23:47 +0000"
+        "time": "2026-10-07 00:53:19 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
