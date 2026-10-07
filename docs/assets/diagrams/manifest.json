@@ -20,6 +20,11 @@
       "source_sha256": "17b14ecb60ffb7877ef2bc749927f0a340963b3f5702408594428b6cb4c99fc6",
       "svg_sha256": "249470bc2486bf686478015418436c4ff39f262b90943a2b18670f7ec99a3e88"
     },
+    "ballooning_formulation_hierarchy.svg": {
+      "call": "vaft.diagram.ballooning_formulation_hierarchy()",
+      "source_sha256": "3ea9f68cf051f32ee98c8c607ab3415d08cb096bd85bc4d4dfe536f67ca6d455",
+      "svg_sha256": "d35acbfa1a498700eafdb37dca852ab64ef5d7d36ed165a388ccb6adb352ca04"
+    },
     "ballooning_harmonic_envelope.svg": {
       "call": "vaft.diagram.ballooning_harmonic_envelope()",
       "source_sha256": "73c86da0bdf1e4a4797324501d5db6ee7cf3068fd0f4a9c957f0ffa70b22a6c3",

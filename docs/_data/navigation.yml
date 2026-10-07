@@ -83,6 +83,9 @@ sections:
       - id: reduced-stability-diagnostics
         title: Reduced stability diagnostics
         url: /reference/reduced-stability-diagnostics/
+      - id: ballooning-formulations
+        title: Ballooning formulations
+        url: /reference/ballooning-formulations/
       - id: equilibrium-representations
         title: Equilibrium representations
         url: /reference/equilibrium-representations/
