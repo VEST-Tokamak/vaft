@@ -336,3 +336,20 @@ def test_notebook_outputs_quote_the_registry_as_shipped():
                     if not _quotes_the_registry(value, B.get_boundary(key).applicability.machine_class)})
     assert not stale, stale
     assert {key for _cell, key, _value in found} >= {"troyon", "menard_2004_qstar_min"}   # the scan read real tables
+
+
+def test_both_state_tables_declare_the_radius_of_every_field_or_radius_dependent_column():
+    """A plane may join the two populations only on matching radius_symbol; l_i(3) is R_ref here, R_geo in PR08."""
+    from vaft.data.public.pr08_mhd_state import PR08_CONVENTIONS
+    from vaft.omas.equilibrium_state import EQUILIBRIUM_STATE_CONVENTIONS
+
+    assert set(EQUILIBRIUM_STATE_CONVENTIONS) == set(PR08_CONVENTIONS)
+    for column in ("normalized_current", "normalized_beta", "toroidal_field", "internal_inductance_li3",
+                   "inverse_cylindrical_q", "kink_safety_factor_elliptic", "kink_safety_factor_cylindrical",
+                   "edge_safety_factor_95_estimate_iter", "edge_safety_factor_95_estimate_start"):
+        assert EQUILIBRIUM_STATE_CONVENTIONS[column]["radius_symbol"] in ("R_ref", "R_geo"), column
+        assert PR08_CONVENTIONS[column]["radius_symbol"] == "R_geo", column
+    assert EQUILIBRIUM_STATE_CONVENTIONS["internal_inductance_li3"]["radius_symbol"] == "R_ref"
+    assert EQUILIBRIUM_STATE_CONVENTIONS["toroidal_field"]["radius_symbol"] == "R_geo"
+    code = _code(NEW_NOTEBOOK)
+    assert '["radius_symbol"]' in code and "COMBINED" in code
