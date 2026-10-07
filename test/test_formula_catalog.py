@@ -75,8 +75,8 @@ def test_the_catalog_counts_the_known_public_surface():
         # #351 added the dimensionless-to-engineering inverse map: 97 + 1 = 98.
         # #670 moved neo-Alcator, Goldston L-mode and their quadrature in: 101 + 3 = 104.
         # #1713 added confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
-        # #1691 added the volume beta and its normalized form, #1605 the resistive diffusion time: 105 + 3 = 108.
-        "equilibrium": 108,  # +resistive diffusion time (#1605), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        # #1691 added the volume beta and its normalized form: 105 + 2 = 107.
+        "equilibrium": 107,  # +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
         "stability": 44,  # +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,

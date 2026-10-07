@@ -8,7 +8,7 @@ import pytest
 import vaft.diagram
 from vaft.diagram._current_diffusion import _CD_EARLY, _STEP, _Cylinder, _drive_states, _ramp
 from vaft.formula.constants import MU0
-from vaft.formula.equilibrium import resistive_diffusion_time
+from vaft.formula.ordering import resistive_diffusion_time
 from vaft.formula.geometry import cylindrical_current_diffusion_rate
 
 

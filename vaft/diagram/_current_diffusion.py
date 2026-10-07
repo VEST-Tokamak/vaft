@@ -31,12 +31,9 @@ import numpy as np
 from scipy.linalg import lu_factor, lu_solve
 
 from vaft.formula.constants import MU0
-from vaft.formula.equilibrium import (
-    resistive_diffusion_time,
-    shear_from_r_q,
-    spitzer_resistivity_from_T_e_Z_eff_ln_Lambda,
-)
+from vaft.formula.equilibrium import shear_from_r_q, spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
 from vaft.formula.geometry import cylindrical_current_diffusion_rate
+from vaft.formula.ordering import resistive_diffusion_time
 
 from ._chart import CHART_HEIGHT, CHART_WIDTH, Chart
 from ._concept import box
