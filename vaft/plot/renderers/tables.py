@@ -660,7 +660,70 @@ def equilibrium_table_fit_quality(model: Table, *, show: bool = False) -> Render
     ),
 )
 def equilibrium_table_validation(model: Table, *, show: bool = False) -> RenderedTable:
-    """The validation verdicts of one equilibrium slice, one row per registered check."""
+    """The validation verdicts of one equilibrium slice, one row per registered check.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the text form.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    For one equilibrium slice, every check of the validation registry in its
+    registry order, one row each: the category (verification, diagnostic fit,
+    physical validity, independent validation), the check, the measure and
+    the number the status was decided on, the registry's criterion (a
+    tolerance pair, or "rule" with the method as a note), the status, and the
+    reason the check itself gave.  The status is printed as a word -- pass,
+    warn, fail, indeterminate or not_available -- and carried as a
+    ``data-status`` attribute in the HTML form; no colour is drawn.
+    ``not_available`` means the evidence was never produced (the input lacks
+    what the check reads) and ``indeterminate`` that it was produced but did
+    not decide; neither is a pass, and both keep their reason in the note
+    rather than being dropped.  The caption aggregates the rows the way
+    :func:`vaft.validation.equilibrium.aggregate_status` does -- the worst of
+    fail, warn and indeterminate wins, and pass needs every row to pass, so a
+    mix of pass and not_available reads indeterminate -- and counts each
+    status.  The table is read to find which check holds a slice back and
+    why, and which checks the input could not even be put to.  It flags and
+    never edits: the numbers are the stored equilibrium's and the statuses
+    are the registered checks' own, with their tolerances; the view adds no
+    physics and no threshold.
+
+    Options
+    -------
+    ``time=`` and ``time_slice=`` select the slice the checks run on, by
+    nearest stored time or by index; without either the representative slice
+    of the overview is used, and the title says which and why.  ``title=``
+    replaces the title.  The set of checks is the registry's and is not
+    selectable here.
+
+    Limitations
+    -----------
+    A row judges the slice against the check's tolerance in the units the
+    check uses, so an all-pass table states that the registered checks found
+    nothing, not that the reconstruction is right: the internal profiles are
+    weakly constrained by external magnetics whatever the fit quality says,
+    and a check that is not_available contributes no evidence.  Continuity
+    is the one row decided over the whole IDS rather than the slice.  A value
+    shown in the Value column was graded; a measure the verdict was not
+    decided on is moved to the note so it does not read as a grade.  The
+    verdicts come from the validation functions as they are: a tolerance
+    that is a round figure rather than a qualified threshold is marked so in
+    the registry, not here.
+
+    See Also
+    --------
+    equilibrium_table_fit_quality : the goodness of fit per constraint family, in numbers.
+    equilibrium_overview_verification : the verification checks drawn across slices.
+    """
     return render_table(model, show=show)
 
 
