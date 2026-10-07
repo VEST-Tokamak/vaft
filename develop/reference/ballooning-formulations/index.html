@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Contacts · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Ballooning formulations · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/vest-tokamak-physics/" />
+            <link rel="prev" href="/vaft/develop/reference/reduced-stability-diagnostics/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/references/" />
+            <link rel="next" href="/vaft/develop/reference/formula/dimensional/" />
         
     </head>
     <body>
@@ -235,7 +235,7 @@
                     </li>
                 
                     
-                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    <li class="chapter active" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
                     
                         <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
                     </li>
@@ -325,7 +325,7 @@
                     </li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
                     
                         <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
                     </li>
@@ -346,7 +346,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Contacts</a>
+                            <a href="." >Ballooning formulations</a>
                         
                     </h1>
                 </div>
@@ -372,145 +372,311 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/contact">Contacts</h1>
+                        <h1 id="/reference/Ballooning_formulations">Ballooning formulations</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Human support boundary for data access, contribution, and issue reporting.</dd>
-    <dt>Prerequisites / inputs</dt><dd>A reproducible example and environment details when reporting a defect.</dd>
-    <dt>Expected result</dt><dd>The correct public-access path, issue tracker, or maintainer contact route.</dd>
+    <dt>Architecture position</dt><dd>How VAFT's reduced s-alpha ballooning model, Fortran DCON's C_A and GPEC.jl's BALOO-style ballooning Delta-prime relate - governing equation, normalisation, geometry kept, boundary treatment and stability index - from their sources.</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>A convention contract (shear and alpha that reduce exactly to s-hat and the CHT alpha), the s-alpha reduction step by step, a source-verified comparison table and what can and cannot be compared.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p>VAFT is developed and maintained by the VEST team at Seoul National University. This is the
-canonical route for human support: public data access, privileged writes, library maintenance, and
-VEST technical-system enquiries.</p>
+<p>Three high-$n$ ideal-ballooning formulations are available to VAFT:</p>
+<ul>
+  <li>the reduced Connor–Hastie–Taylor (CHT) $s$–$\alpha$ model in <code class="language-plaintext highlighter-rouge">vaft.formula.stability</code>;</li>
+  <li>Fortran DCON’s local criterion $C_A$, which VAFT reads as <code class="language-plaintext highlighter-rouge">ca1</code>;</li>
+  <li>GPEC.jl’s BALOO-style ballooning $\Delta’$ and its $\alpha_{crit}$ scans (#1098).</li>
+</ul>
 
-<h2 id="reading-the-vest-database">Reading the VEST database</h2>
+<p>They share a physical limit. That does <strong>not</strong> make them the same equation, the same normalisation, the
+same stability index or the same algorithm. This page records which of those claims hold, from the
+sources. It is the theory and source part (P0) of #1637. The numerical comparisons (P1–P3) need DCON and
+GPEC.jl runs and belong to the stability workflow.</p>
 
-<p><strong>Read access is public.</strong> You do not need to negotiate credentials with anyone — the shot database
-ships with a read-only account. Installing VAFT installs the HSDS client (<code class="language-plaintext highlighter-rouge">h5pyd</code>); then run
-<code class="language-plaintext highlighter-rouge">vaft hsds configure</code>, which writes <code class="language-plaintext highlighter-rouge">~/.hscfg</code> with hidden password input and mode <code class="language-plaintext highlighter-rouge">0600</code>:</p>
+<p>Sources:</p>
+<ul>
+  <li>VAFT <code class="language-plaintext highlighter-rouge">develop</code>;</li>
+  <li>Princeton GPEC <code class="language-plaintext highlighter-rouge">e68d7ac2</code>: <code class="language-plaintext highlighter-rouge">dcon/bal.f</code>, <code class="language-plaintext highlighter-rouge">dcon/mercier.f</code>, <code class="language-plaintext highlighter-rouge">docs/tex/dcon/notebook/bal.tex</code>;</li>
+  <li>GPEC.jl <code class="language-plaintext highlighter-rouge">OpenFUSIONToolkit/GPEC@0e68a055</code>: <code class="language-plaintext highlighter-rouge">src/LocalStability/Ballooning.jl</code>, <code class="language-plaintext highlighter-rouge">docs/src/ballooning.md</code>.</li>
+</ul>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft hsds configure
-</code></pre></div></div>
+<p>Statements marked <em>derived here</em> are this page’s algebra, not the sources’.</p>
 
-<p>Answer the prompts with the public reader account (username <code class="language-plaintext highlighter-rouge">reader</code>, password <code class="language-plaintext highlighter-rouge">test</code>):</p>
+<p><img src="/vaft/develop/assets/diagrams/ballooning_formulation_hierarchy.svg" alt="ballooning formulations" /></p>
 
-<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Configuring HSDS credentials in /home/you/.hscfg
-Server endpoint: http://147.46.36.244:5101
-Username: reader
-Password (input hidden, Enter keeps it):
-API key (input hidden, Enter keeps it):
-Updated hs_endpoint, hs_password, hs_username in /home/you/.hscfg (mode 0600).
-</code></pre></div></div>
+<h2 id="the-common-equation">The common equation</h2>
 
-<p>Confirm from Python:</p>
+<p>Both full-geometry codes start from the local ballooning equation along an extended field line</p>
 
-<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
+\[\mathbf B\cdot\nabla\left(\frac{|\nabla\beta|^2}{B^2}\,\mathbf B\cdot\nabla\hat\varphi\right)
++ 2\frac{P'}{\chi'}\,\kappa_w\,\hat\varphi = 0,\qquad \kappa_w = \kappa_n - q'\theta\,\kappa_s,\]
 
-<span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">is_connect</span><span class="p">()</span>      <span class="c1"># -&gt; True
-</span><span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="mi">39915</span><span class="p">)</span>
-</code></pre></div></div>
+<p>with the following conventions:</p>
+<ul>
+  <li>$\beta = \zeta - q\theta + \int q’\theta_0\,d\psi$ is the field-line label;</li>
+  <li>$P = \mu_0 p$, and primes are $d/d\psi_N$;</li>
+  <li>$\chi’ = 2\pi\,\psi_o$, where $\psi_o$ is the poloidal flux per radian, made positive on reading;</li>
+  <li>$\theta$ and $\zeta$ have period <strong>one</strong> (turns), not $2\pi$.</li>
+</ul>
 
-<p>The full procedure, including environment setup, is in the
-<a href="/vaft/develop/guide/Quick_start_guide/">Quick start guide</a> and
-<a href="/vaft/develop/guide/Installation/">Installation</a> guides.</p>
-
-<h2 id="database-write-access-and-data-policy">Database write access and data policy</h2>
-
-<p>Saving to the shared database — uploading shots, writing into a directory of your own — is
-restricted to authorized users. To request write credentials, contact:</p>
-
-<p><strong><a href="mailto:peppertonic18@snu.ac.kr">peppertonic18@snu.ac.kr</a></strong></p>
-
-<p>Please say who you are, which institution you are with, and what you intend to write. Until write
-access is granted you can still run the entire analysis chain locally: load a shot with the reader
-account (or use the sample data packaged in <code class="language-plaintext highlighter-rouge">vaft.data</code>), process it, and save the result to a
-local file.</p>
-
-<h2 id="vaft-maintenance-bugs-and-features">VAFT maintenance, bugs, and features</h2>
-
-<p>For a library-maintenance question, contact
-<strong><a href="mailto:satelite2517@snu.ac.kr">satelite2517@snu.ac.kr</a></strong>. File bugs, feature requests, and patches
-on the issue tracker — that way the discussion stays with the code:</p>
-
-<p><strong><a href="https://github.com/VEST-Tokamak/vaft/issues">github.com/VEST-Tokamak/vaft/issues</a></strong></p>
-
-<p>A useful report states the VAFT commit or version, your Python version, the shot number (if the
-problem is data-dependent), the call you made, and the full traceback. Pull requests are welcome on
-the same repository.</p>
-
-<h2 id="diagnostic-and-heating-system-enquiries">Diagnostic and heating-system enquiries</h2>
-
-<p>The <a href="/vaft/develop/reference/vest-diagnostics/">VEST diagnostics and data availability</a> page names the manager recorded
-for each diagnostic, control, or heating/current-drive system. Individual technical email addresses
-are not published there. Email the VAFT maintainer for routing, naming the system and shot number
-where applicable.</p>
-
-<h2 id="contact-routes">Contact routes</h2>
+<p>The first-order system both codes integrate is $y_1 = \hat\varphi$, $y_2 = Dy_1’$, with
+$y_1’ = y_2/D$ and $y_2’ = -Ky_1$. $D$ holds the field-line bending $|\nabla\beta|^2/B^2$ and $K$ holds the
+pressure–curvature drive.</p>
 
 <table>
   <thead>
     <tr>
-      <th>Purpose</th>
-      <th>Contact</th>
+      <th> </th>
+      <th>Field-line bending $D$</th>
+      <th>Curvature in $K$</th>
+      <th>Ballooning angle</th>
+      <th> </th>
+      <th> </th>
+      <th> </th>
+      <th> </th>
+      <th> </th>
+      <th> </th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td>Library maintainer, general questions</td>
-      <td><a href="mailto:satelite2517@snu.ac.kr">satelite2517@snu.ac.kr</a></td>
+      <td>DCON (<code class="language-plaintext highlighter-rouge">bal.f</code>)</td>
+      <td>$D = b_1(\theta - \theta_0 + b_2)^2 + b_3$, the square completed on $</td>
+      <td>\nabla\beta</td>
+      <td>^2/B^2$</td>
+      <td>$\kappa_n$ from the Grad–Shafranov identity, with a $P’/B^2$ term</td>
+      <td>$\theta_0 = 0$, fixed, not an input</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
     </tr>
     <tr>
-      <td>Database write access, VEST data policy</td>
-      <td><a href="mailto:peppertonic18@snu.ac.kr">peppertonic18@snu.ac.kr</a></td>
+      <td>GPEC.jl (<code class="language-plaintext highlighter-rouge">Ballooning.jl</code>)</td>
+      <td>$</td>
+      <td>\nabla\beta</td>
+      <td>^2/B^2 = 1/(\chi’^2</td>
+      <td>\nabla\psi</td>
+      <td>^2) + (</td>
+      <td>\nabla\psi</td>
+      <td>^2/B^2)I_{tot}^2$, with $I_{tot} = q’(\theta - \theta_k) + I_{per}$</td>
+      <td>geometric $\kappa_n$, no GS identity, FFT-filtered derivatives</td>
+      <td><code class="language-plaintext highlighter-rouge">theta_k</code> keyword, in turns</td>
     </tr>
     <tr>
-      <td>Diagnostic or heating-system technical enquiry</td>
-      <td><a href="/vaft/develop/reference/vest-diagnostics/">VEST diagnostics and data availability</a> → <a href="mailto:satelite2517@snu.ac.kr">satelite2517@snu.ac.kr</a></td>
-    </tr>
-    <tr>
-      <td>Bugs, feature requests, patches</td>
-      <td><a href="https://github.com/VEST-Tokamak/vaft/issues">GitHub issues</a></td>
+      <td>VAFT (<code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code>)</td>
+      <td>$1 + \Lambda^2$, $\Lambda = \hat s\theta - \alpha\sin\theta$</td>
+      <td>$\cos\theta + \Lambda\sin\theta$</td>
+      <td>$\theta_0 = 0$ in the solvers; $\theta$ in radians</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
     </tr>
   </tbody>
 </table>
 
-<h2 id="the-lab">The lab</h2>
+<p>GPEC.jl shifts the periodic shear $I_{per}$ so that $I_{tot}(\theta_k) = 0$, and DCON does not. Their
+“$\theta_0 = 0$” field lines therefore coincide only for up–down symmetric equilibria.</p>
 
-<p>VAFT comes out of the <strong>Nuplex</strong> laboratory at Seoul National University, which operates the VEST
-spherical torus. For the device, the research programme, and the people behind it:</p>
+<h2 id="from-the-general-equation-to-salpha">From the general equation to $s$–$\alpha$</h2>
 
-<p><strong><a href="http://nuplex.snu.ac.kr">nuplex.snu.ac.kr</a></strong></p>
+<p>None of the three sources writes this reduction out. It is standard theory (CHT 1978/79; Wesson, §6.13):</p>
 
-<p>Background on the framework itself, including how to cite it, is on the
-<a href="/vaft/develop/pages/about/">About</a> page.</p>
+<ol>
+  <li><strong>Large aspect ratio</strong>, $\epsilon \ll 1$: keep $O(1)$ in the metric and $O(\epsilon)$ in the curvature.</li>
+  <li><strong>Shifted circular surfaces.</strong> The Shafranov-shift gradient makes $\nabla\theta\cdot\nabla\psi \propto \sin\theta$.</li>
+  <li><strong>Metric.</strong> $|\nabla\zeta - q\nabla\theta|^2 \simeq (q/2\pi r)^2$ and the secular shear term
+$\propto \hat s\theta$. The shift adds the periodic $-\alpha\sin\theta$, so
+$|\nabla\beta|^2/B^2 \propto 1 + \Lambda^2$.</li>
+  <li><strong>Curvature.</strong> $\kappa_n \simeq -\cos\theta/R$ and $\kappa_s \propto \sin\theta/R$, so
+$\kappa_w \propto -(\cos\theta + \Lambda\sin\theta)$.</li>
+  <li><strong>Normalisation.</strong> With $\theta$ now in radians (steps 3 and 4 use the sources’ turns),
+$\mathbf B\cdot\nabla = (qR)^{-1}\partial_\theta$ and the drive $2P’/\chi’$ becomes $\alpha$.</li>
+</ol>
+
+<p>This gives the CHT equation VAFT solves:</p>
+
+\[\frac{d}{d\theta}\left[(1 + \Lambda^2)\frac{dF}{d\theta}\right] + \alpha(\cos\theta + \Lambda\sin\theta)F = 0.\]
+
+<p>What is lost:</p>
+<ul>
+  <li>$O(\epsilon)$ metric and curvature terms;</li>
+  <li>the poloidal variation of $B$;</li>
+  <li>elongation and triangularity;</li>
+  <li>the finite-$\epsilon$ harmonics of the shift.</li>
+</ul>
+
+<p>The $s$–$\alpha$ model also lets $\alpha$ change the local shear ($-\alpha\sin\theta$) as it is scanned.
+DCON freezes the equilibrium’s local shear. GPEC.jl freezes it too, except for the thin-layer correction
+$I_{per}^{[1]}$ in its $p’$ scans.</p>
+
+<h2 id="the-normalisation-contract">The normalisation contract</h2>
+
+<p>Comparable boundaries need comparable axes. VAFT now defines both from the equilibrium’s volume, without
+choosing a minor radius or a field strength:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Quantity</th>
+      <th>VAFT formula</th>
+      <th>Equation</th>
+      <th>Circular large-$\epsilon^{-1}$ limit</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>shear</td>
+      <td><code class="language-plaintext highlighter-rouge">shear_from_volume</code></td>
+      <td>$\hat s_V = (2V/q)(q_\psi/V_\psi) = d\ln q/d\ln r_V$, $r_V = \sqrt{V/2\pi^2R_0}$</td>
+      <td>exactly $\hat s = (r/q)\,dq/dr$, for <strong>any</strong> flux label</td>
+    </tr>
+    <tr>
+      <td>pressure gradient</td>
+      <td><code class="language-plaintext highlighter-rouge">ballooning_alpha_from_volume</code></td>
+      <td>$\alpha = -(2\mu_0/(2\pi)^2)\,V_\psi\,p_\psi\,\sqrt{V/2\pi^2R_0}$</td>
+      <td>exactly $-2\mu_0R_0q^2p’(r)/B_0^2$, with $\psi$ <strong>per radian</strong> and $R_0$ the magnetic axis</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Both identities are checked analytically in <code class="language-plaintext highlighter-rouge">test/test_formula_ballooning_normalisation.py</code>. With the full
+flux in Wb, $\alpha$ comes out $(2\pi)^2$ too small. The older <code class="language-plaintext highlighter-rouge">ballooning_alpha_from_p_B_R</code> differentiates
+against the major radius $R$, so it agrees only on the outboard midplane of a large-aspect-ratio circle.</p>
+
+<p>GPEC.jl’s reference values are <code class="language-plaintext highlighter-rouge">salpha_reference</code>:</p>
+<ul>
+  <li>$s_{ref} = 2Vq_\psi/(qV_\psi)$ is $\hat s_V$.</li>
+  <li>$\alpha_{ref} = -2\mu_0\,p_\psi V_\psi\sqrt{V/2\pi R_0}$, with $\psi$ per radian, differs from the
+volume $\alpha$ above. <em>Derived here:</em> in the circular limit $\alpha_{ref} = 4\pi^{5/2}\,\alpha_{CHT} \approx 70\,\alpha_{CHT}$.</li>
+</ul>
+
+<p>That factor must be checked numerically on an analytic large-aspect-ratio equilibrium before it is read as
+an inconsistency (P1). It does not affect GPEC.jl’s own scans: $\alpha_{crit} = \alpha_{ref}\times$scale,
+so the ratio $\alpha/\alpha_{crit}$ is invariant. It does affect any plot of absolute $\alpha$ against a CHT
+diagram.</p>
+
+<h2 id="stability-indices">Stability indices</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>VAFT $s$–$\alpha$</th>
+      <th>DCON $C_A$</th>
+      <th>GPEC.jl ballooning $\Delta’$</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Start / boundary</td>
+      <td>even solution $F(0) = 1$, $F’(0) = 0$</td>
+      <td>asymptotic <strong>small</strong> solution at $-\theta_{max}$, with a first-order correction</td>
+      <td>Dirichlet $y_1 = 0$ at both $\pm\theta_{max}$</td>
+    </tr>
+    <tr>
+      <td>Matching</td>
+      <td>none: Newcomb zero-crossing test</td>
+      <td>projection on the large / small basis at $+\theta_{max}$</td>
+      <td>log-derivative jump at $\pm 10^{-3}$</td>
+    </tr>
+    <tr>
+      <td>Index</td>
+      <td>Boolean; $\alpha_1$, $\alpha_2$ by bisection</td>
+      <td>$C_A$ (<code class="language-plaintext highlighter-rouge">ca1</code>; <code class="language-plaintext highlighter-rouge">ca2</code> is not written to netCDF)</td>
+      <td>$\Delta’ = (y_2/y_1)_R - (y_2/y_1)_L$</td>
+    </tr>
+    <tr>
+      <td>Stable when</td>
+      <td>no zero crossing</td>
+      <td>$C_A &gt; 0$ (<em>derived here</em>: the start is the small solution with $y_1 &gt; 0$, so without a zero crossing the large-solution coefficient is positive)</td>
+      <td>$\Delta’ &lt; 0$ (<em>derived here</em>, from the $P’ = 0$ limit)</td>
+    </tr>
+    <tr>
+      <td>Domain</td>
+      <td>$[0, 40\pi]$ rad, RK4, $h = 0.02$</td>
+      <td>$\pm\min(10\,\theta_{max,0}\,\text{scale}, 100)$ turns, LSODE $10^{-5}$</td>
+      <td>$\pm\min(10\,\text{scale}, 16.5)$ turns, DP5 $10^{-8}$</td>
+    </tr>
+    <tr>
+      <td>Gate</td>
+      <td>none</td>
+      <td>only where $-10^4 \le D_I \le 0$ and $\psi_N \le 1$, with <code class="language-plaintext highlighter-rouge">bal.f</code>’s <strong>own</strong> determinant $D_I = \det\bar d_0$, not the <code class="language-plaintext highlighter-rouge">di</code> that <code class="language-plaintext highlighter-rouge">mercier_scan</code> writes to netCDF (DCON’s <code class="language-plaintext highlighter-rouge">alpha</code> there is the Mercier exponent $\sqrt{-D_I}$)</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Scans</td>
+      <td>$\hat s$, $\alpha$ free parameters</td>
+      <td>none</td>
+      <td>thin-layer $p’$ and $q’$ perturbations: $\alpha_{crit,1}$, $\alpha_{crit,2}$</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="how-c_a-and-delta-relate">How $C_A$ and $\Delta’$ relate</h2>
+
+<p>This section is <em>derived here</em>; no source states it. The Wronskian is conserved, so
+$\Delta’ \simeq -y_{L,1}(+\theta_{max})/[y_{L,1}(0)\,y_{R,1}(0)]$, and $C_A \simeq y_1(\theta_{max})/u_{large}$.</p>
+
+<ul>
+  <li>The numerators play the same role: each is a solution launched at one end and evaluated at the other.
+The launches differ, though. A Dirichlet start carries a large-solution admixture of relative size
+$\theta_{max}^{-2\alpha_M}$. So <strong>the zeros coincide only as $\theta_{max} \to \infty$ with $D_I &lt; 0$</strong>,
+and they differ most near Mercier-marginal surfaces. GPEC.jl’s 16.5-turn cap is much shorter than DCON’s 100.</li>
+  <li>$\Delta’$ has <strong>poles</strong> where $y_{L,1}(0)\,y_{R,1}(0) = 0$. There it changes sign without marginality.
+GPEC.jl filters these heuristically: it skips a sign change when $|\Delta’| &gt; 3|\Delta’_{anchor}|$.
+$C_A$ has no poles.</li>
+  <li>$C_A$ turns positive again after a second zero crossing while the mode is still unstable. So
+“$C_A &lt; 0 \Leftrightarrow$ unstable” holds only up to the first crossing. DCON counts crossings but does
+not write them out.</li>
+  <li>The stable signs are opposite. Between the anchor and the first pole, $C_A$ has the sign of $-\Delta’$.
+They are not proportional, and not monotonic in each other.</li>
+  <li>A single $C_A$ at the experimental equilibrium cannot give $\alpha_{crit,1}$ or $\alpha_{crit,2}$.
+Those need a scan.</li>
+</ul>
+
+<h2 id="what-is-left-for-the-numerical-study">What is left for the numerical study</h2>
+
+<p>These steps need solver runs; P1 must come before P2.</p>
+<ul>
+  <li><strong>P1:</strong> on an analytic large-aspect-ratio circular equilibrium, show that VAFT $s$–$\alpha$, DCON and
+GPEC.jl give the same first boundary after normalisation. Settle the $\alpha_{ref}$ factor first.</li>
+  <li><strong>P2:</strong> finite-$\epsilon$, elongation and triangularity scans.</li>
+  <li><strong>P3:</strong> a conventional reference equilibrium and a VEST equilibrium.</li>
+</ul>
+
+<p>Separate convergence in $\theta_{max}$, step size and tolerance from model error. GPEC.jl’s
+<code class="language-plaintext highlighter-rouge">salpha_reference</code> integrates $V$ from the innermost surface <code class="language-plaintext highlighter-rouge">psilow</code>, not from the axis. That biases $V$,
+$s_{ref}$ and $\alpha_{ref}$ low near the axis, so it must be accounted for in P1 together with the
+$4\pi^{5/2}$ factor. Open source questions:</p>
+<ul>
+  <li>whether the $\theta_k \ne 0$ gauge difference shifts zeros on up–down asymmetric equilibria;</li>
+  <li>how much the GS-identity and geometric $\kappa_n$ differ on equilibria that do not satisfy GS exactly;</li>
+  <li>a bound on the Dirichlet error.</li>
+</ul>
+
+<p>See <a href="/vaft/develop/reference/reduced-stability-diagnostics/">Reduced stability diagnostics</a> and
+<a href="/vaft/develop/workflows/mhd-stability/">MHD stability</a>.</p>
+
+<h2 id="references">References</h2>
+
+<ol>
+  <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40 (1978) 396; Proc. R. Soc. A 365 (1979) 1.</li>
+  <li>R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and R. E. Waltz, Phys. Plasmas 5 (1998) 973.</li>
+  <li>A. H. Glasser, Phys. Plasmas 23 (2016) 072505 (DCON).</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), §6.13.</li>
+</ol>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
   <h2 id="related-resources-title">Related resources</h2>
   <div class="related-resources-grid">
-    
-    <div class="related-resource-group" data-resource-kind="notebooks">
-      <h3>Notebooks</h3>
-      <ul>
-        
-          
-          <li data-resource-id="database-initialization">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/database_initialization_and_load.ipynb">Database initialization and load</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-      </ul>
-    </div>
     
     
     <div class="related-resource-group" data-resource-kind="api">
@@ -518,32 +684,15 @@ spherical torus. For the device, the research programme, and the people behind i
       <ul>
         
           
-          <li data-resource-id="database"><a href="/vaft/develop/reference/api/database/"><code>vaft.database</code></a></li>
-        
-      </ul>
-    </div>
-    
-    
-    <div class="related-resource-group" data-resource-kind="data-sources">
-      <h3>Input data</h3>
-      <ul>
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
         
           
-          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+          <li data-resource-id="diagram"><a href="/vaft/develop/reference/diagrams/"><code>vaft.diagram</code></a></li>
         
       </ul>
     </div>
     
     
-    <div class="related-resource-group" data-resource-kind="outputs">
-      <h3>Verified outputs</h3>
-      <ul>
-        
-          
-          <li data-resource-id="hsds-39915"><a href="/vaft/develop/reference/notebooks/#output-title-hsds-39915">Public HSDS shot 39915 metadata</a></li>
-        
-      </ul>
-    </div>
     
   </div>
 </section>
@@ -604,13 +753,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/vest-tokamak-physics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: VEST and tokamak physics background">
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Reduced stability diagnostics">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/references/" class="navigation navigation-next navigation-unique" aria-label="Next page: References">
+                        <a href="/vaft/develop/reference/formula/dimensional/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: dimensional">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -626,7 +775,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#reading-the-vest-database" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reading the VEST database</a></li><li class="page-toc-item page-toc-level-2"><a href="#database-write-access-and-data-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Database write access and data policy</a></li><li class="page-toc-item page-toc-level-2"><a href="#vaft-maintenance-bugs-and-features" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">VAFT maintenance, bugs, and features</a></li><li class="page-toc-item page-toc-level-2"><a href="#diagnostic-and-heating-system-enquiries" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Diagnostic and heating-system enquiries</a></li><li class="page-toc-item page-toc-level-2"><a href="#contact-routes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Contact routes</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-lab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The lab</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-common-equation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The common equation</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-the-general-equation-to-salpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From the general equation to $s$–$\alpha$</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-normalisation-contract" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The normalisation contract</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-indices" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability indices</a></li><li class="page-toc-item page-toc-level-2"><a href="#how-c_a-and-delta-relate" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">How $C_A$ and $\Delta’$ relate</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-is-left-for-the-numerical-study" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What is left for the numerical study</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -642,11 +791,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "References",
+            "title": "Formula reference: dimensional",
             "level": "1.2",
             "depth": 1,
-            "path": "_pages/references.md",
-            "ref": "_pages/references.md",
+            "path": "_guide/Formula_reference_dimensional.md",
+            "ref": "_guide/Formula_reference_dimensional.md",
             "articles": []
         },
         
@@ -738,8 +887,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_pages/contact.md",
-        "mtime": "2026-07-01 12:10:00 +0000",
+        "path": "_guide/Ballooning_formulations.md",
+        "mtime": "2026-10-05 12:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
