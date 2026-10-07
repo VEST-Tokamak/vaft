@@ -91,7 +91,7 @@ rotation.metadata["driver"]      # name "time", unit "s", and every frame's time
   - A phase array combined with `time` is refused, because it is ambiguous.
   - So is a single phase with `animation=True`, which is a static diagram.
 - **Units and direction.** `rotation_frequency` is a frequency $f$ in Hz. The synthetic island of
-  #886 (`vaft.process.magnetic_island.IslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
+  #886 (`vaft.process.magnetic_island.MagneticIslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
   rad/s. A positive $f$ moves the O-points towards $+\theta^*$ on a section. At fixed $\theta^*$, it
   moves them towards $-\phi$, which is clockwise seen from above.
 - **Physics, not pictures.** Every state is the static diagram at that phase, with the same O/X
@@ -722,7 +722,7 @@ vaft.diagram.rational_surface_topology(profile="reversed_shear", m=2, n=1)
 | Diagram | Concept |
 | --- | --- |
 | `current_profile_shapes` | $j(r) \to I(r) \to B_\theta(r) \to l_i$ at fixed $I_p$. Peaked, broad and hollow are shapes of the *current density*. $l_i$ is one number for the whole profile: a more centrally enclosed current tends to a larger $l_i$, but different profiles can share one $l_i$ |
-| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Not every hollow current reverses the shear |
+| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a wide weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Every $q$ has $s \to 0$ on axis, so each column carries a narrow $s \approx 0$ band there; the width of the flat core is the discriminator. Not every hollow current reverses the shear |
 | `q_profile_landmarks` | $q_0$ on axis; $q_{\min}$, equal to $q_0$ only when $q$ is monotonic; $q_{95} = q(\psi_N = 0.95)$, which is not at $r/a = 0.95$; $q_a$, the boundary value of a cylinder or limited plasma. In a diverted equilibrium $q \to \infty$ at the separatrix, so $q_{95}$ is quoted. In the cylinder $q_a = q_\mathrm{cyl}$; in a shaped torus $q_{95}$ and the edge $q$ differ from $q_\mathrm{cyl}$ and $q^*$ |
 | `rational_surface_topology` | A monotonic $q$ crosses one $m/n$ once. A reversed-shear $q$ can cross it twice, $q(r_1) = q(r_2) = m/n$ with $r_1 < r_{\min} < r_2$: a *double-resonant configuration*. A double tearing mode is the instability in which tearing layers on the two surfaces couple, and only a stability calculation can say whether it grows |
 
