@@ -123,6 +123,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
                     
                         <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
@@ -172,6 +178,18 @@
                     <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
                     
                         <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
                     </li>
                 
                     
@@ -324,7 +342,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>17b1125</code>. What is described
+  <code>ee26126</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -502,7 +520,7 @@ points. The separatrix and $w$ are only visible in the poloidal section.</p>
     </ul>
   </li>
   <li><strong>Units and direction.</strong> <code class="language-plaintext highlighter-rouge">rotation_frequency</code> is a frequency $f$ in Hz. The synthetic island of
-#886 (<code class="language-plaintext highlighter-rouge">vaft.process.magnetic_island.IslandSpec</code>) takes the angular frequency $\omega = 2\pi f$ in
+#886 (<code class="language-plaintext highlighter-rouge">vaft.process.magnetic_island.MagneticIslandSpec</code>) takes the angular frequency $\omega = 2\pi f$ in
 rad/s. A positive $f$ moves the O-points towards $+\theta^<em>$ on a section. At fixed $\theta^</em>$, it
 moves them towards $-\phi$, which is clockwise seen from above.</li>
   <li><strong>Physics, not pictures.</strong> Every state is the static diagram at that phase, with the same O/X
@@ -647,6 +665,7 @@ boundary. Projections: <code class="language-plaintext highlighter-rouge">hugill
 
 <p>The $\rho_<em>$ and $\nu_</em>$ axes follow the ITPA confinement-database convention, Verdoolaege et al., <em>Nucl. Fusion</em> 61 (2021) 076006, Eqs. (1a) and (1c), which Hillesheim et al. use. $n$ and $T$ are volume averages with $T_e = T_i$. The functions that evaluate them are <code class="language-plaintext highlighter-rouge">rho_star_from_M_T_B_R_epsilon</code>, <code class="language-plaintext highlighter-rouge">nu_star_from_n_T_B_R_epsilon_kappa_I</code> and <code class="language-plaintext highlighter-rouge">omega_i_tau_E_from_B_tau_E_M</code> in <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium</code>. VAFT has other $\nu_<em>$ and $\rho_</em>$ definitions (issue 353): Sauter’s local $\nu_<em>$, pedestal $\nu^</em>_e$, edge and separatrix collisionalities. Each is a different quantity, so it cannot be drawn on these axes. A missing input leaves the state <em>unassessed</em>: it is counted per group, in a warning and in the legend, and is never estimated. Each projection carries its meaning as metadata:</p>
 
+<!-- docs-snippet: skip fragment (placeholder name table, a dimensionless-similarity table, is never built on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.diagram</span> <span class="kn">import</span> <span class="n">_op_space</span>
 <span class="kn">from</span> <span class="n">vaft.plot.dimensionless_space</span> <span class="kn">import</span> <span class="n">dimensionless_similarity</span>
 
@@ -1723,7 +1742,7 @@ These are concept figures, not equilibria and not stability results.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">q_profile_topologies</code></td>
-      <td>Peaked current gives a monotonic $q$, broad current a weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s &lt; 0$ inside $q_{\min}$. Not every hollow current reverses the shear</td>
+      <td>Peaked current gives a monotonic $q$, broad current a wide weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s &lt; 0$ inside $q_{\min}$. Every $q$ has $s \to 0$ on axis, so each column carries a narrow $s \approx 0$ band there; the width of the flat core is the discriminator. Not every hollow current reverses the shear</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">q_profile_landmarks</code></td>
@@ -2240,7 +2259,7 @@ unless it is computed by a <code class="language-plaintext highlighter-rouge">va
   <li><code class="language-plaintext highlighter-rouge">sputtering_threshold_bohdansky</code>, a named empirical fit that needs the surface binding energy.</li>
 </ul>
 
-<p>Projectile and target species go through <code class="language-plaintext highlighter-rouge">vaft.spectroscopy</code> and are drawn apart: projectile blue,
+<p>Projectile and target species go through <code class="language-plaintext highlighter-rouge">vaft.data.atomic</code> and are drawn apart: projectile blue,
 target dark. Each diagram’s model names the IMAS paths of the quantities it shows, under
 <code class="language-plaintext highlighter-rouge">wall.global_quantities.neutral[:]</code>: the recycling particle and energy coefficients, the fluxes from the
 plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
@@ -2308,7 +2327,7 @@ $R_E$. The canonical sputtering figure uses $E_s = 8.68$ eV, the sublimation ene
 
 <h2 id="spectroscopy-and-ionization">Spectroscopy and ionization</h2>
 
-<p>Concept diagrams in the vocabulary of <code class="language-plaintext highlighter-rouge">vaft.spectroscopy</code>. <code class="language-plaintext highlighter-rouge">parse_emission_term</code> and <code class="language-plaintext highlighter-rouge">parse_line_label</code> are
+<p>Concept diagrams in the vocabulary of <code class="language-plaintext highlighter-rouge">vaft.data.atomic</code> and <code class="language-plaintext highlighter-rouge">vaft.data.spectroscopy</code>. <code class="language-plaintext highlighter-rouge">parse_emission_term</code> and <code class="language-plaintext highlighter-rouge">parse_line_label</code> are
 the same parsers <code class="language-plaintext highlighter-rouge">emission=</code> uses in <code class="language-plaintext highlighter-rouge">vaft.plot</code>, so a term that selects a trace selects the same diagram.
 Metadata is progressive, and nothing is fabricated:</p>
 <ul>
@@ -2508,7 +2527,9 @@ only where the mode is tracked: at $\theta = \pi/2$ and $\theta = 0$. Electrons 
 the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full-wave solutions are out of
 scope.</p>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">o_mode_cutoff</span><span class="p">()</span>                                  <span class="c1"># n_O^2 = P, cutoff at omega_pe
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">math</span>
+
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">o_mode_cutoff</span><span class="p">()</span>                                  <span class="c1"># n_O^2 = P, cutoff at omega_pe
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">x_mode_dispersion</span><span class="p">(</span><span class="n">omega_pe_over_omega_ce</span><span class="o">=</span><span class="mf">1.2</span><span class="p">)</span>    <span class="c1"># L, R cutoffs; upper-hybrid resonance
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">cma_diagram</span><span class="p">()</span>                                    <span class="c1"># P, R, L, S = 0 and Y = 1 in (X, Y)
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">profile_propagation</span><span class="p">()</span>                            <span class="c1"># layers along an example midplane
@@ -5114,7 +5135,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 04:24:03 +0000"
+        "time": "2026-10-07 05:04:24 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -123,6 +123,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
                     
                         <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
@@ -172,6 +178,18 @@
                     <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
                     
                         <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
                     </li>
                 
                     
@@ -324,7 +342,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>17b1125</code>. What is described
+  <code>ee26126</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -452,7 +470,7 @@ so <code class="language-plaintext highlighter-rouge">import vaft</code> does no
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.data</code></td>
-      <td>GEQDSK read/write and packaged sample files</td>
+      <td>GEQDSK read/write, packaged sample files, and atomic and spectral-line identity (<code class="language-plaintext highlighter-rouge">vaft.data.atomic</code>, <code class="language-plaintext highlighter-rouge">vaft.data.spectroscopy</code>)</td>
       <td>this page</td>
       <td><a href="/vaft/develop/reference/api/data/">API</a></td>
     </tr>
@@ -487,13 +505,23 @@ so <code class="language-plaintext highlighter-rouge">import vaft</code> does no
       <td><a href="/vaft/develop/reference/api/gui/">API</a></td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">vaft</code>, <code class="language-plaintext highlighter-rouge">vaft.compat</code>, <code class="language-plaintext highlighter-rouge">vaft.ods_access</code>, <code class="language-plaintext highlighter-rouge">vaft.spectroscopy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft</code>, <code class="language-plaintext highlighter-rouge">vaft.compat</code>, <code class="language-plaintext highlighter-rouge">vaft.ods_access</code>, <code class="language-plaintext highlighter-rouge">vaft.spectroscopy</code> (deprecated alias of <code class="language-plaintext highlighter-rouge">vaft.data.atomic</code>/<code class="language-plaintext highlighter-rouge">vaft.data.spectroscopy</code>, removed in 0.10.0)</td>
       <td>Top level and small utilities</td>
       <td> </td>
       <td><a href="/vaft/develop/reference/api/core/">API</a></td>
     </tr>
   </tbody>
 </table>
+
+<p>Atomic and spectroscopic concerns follow the same layering as the rest of the package (#1711).
+Identity is data: <code class="language-plaintext highlighter-rouge">vaft.data.atomic</code> owns elements, isotopes, charge states and species notation
+(<code class="language-plaintext highlighter-rouge">AtomicSpecies</code>, <code class="language-plaintext highlighter-rouge">parse_species</code>), and <code class="language-plaintext highlighter-rouge">vaft.data.spectroscopy</code> owns spectral-line identity and the
+IMAS <code class="language-plaintext highlighter-rouge">processed_line.label</code> codec (<code class="language-plaintext highlighter-rouge">SpectralLineIdentity</code>, <code class="language-plaintext highlighter-rouge">parse_line_label</code>, <code class="language-plaintext highlighter-rouge">parse_emission_term</code>).
+Atomic equations are <code class="language-plaintext highlighter-rouge">vaft.formula.atomic</code>, and ODS-aware radiation and composition processing is
+<code class="language-plaintext highlighter-rouge">vaft.process.atomic</code> / <code class="language-plaintext highlighter-rouge">vaft.process.impurity</code>. The labels a diagnostic writes belong to
+<code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>, and selecting and presenting lines belongs to <code class="language-plaintext highlighter-rouge">vaft.plot</code>. An <code class="language-plaintext highlighter-rouge">AtomicSpecies</code>
+carries identity only. Densities and populations belong to the composition and multi-species state
+models built on it.</p>
 
 <p>Everything in an ODS is in <strong>IMAS SI units</strong>: seconds, amperes, tesla, weber, m$^{-3}$, and eV or J
 where the Data Dictionary says so. The plotting layer is the only place that rescales (for example A
@@ -1834,7 +1862,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 04:24:03 +0000"
+        "time": "2026-10-07 05:04:24 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

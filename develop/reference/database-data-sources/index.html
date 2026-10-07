@@ -123,6 +123,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
                     
                         <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
@@ -172,6 +178,18 @@
                     <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
                     
                         <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
                     </li>
                 
                     
@@ -324,7 +342,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>17b1125</code>. What is described
+  <code>ee26126</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -363,6 +381,7 @@ you are talking to explains almost every argument on this page:</p>
 the preset’s quantities. The acquisition timestamp comes from
 <code class="language-plaintext highlighter-rouge">dataset_description.pulse_time_begin</code>; older shots may have no timestamp.</p>
 
+<!-- docs-snippet: skip needs-database (summarises a shot range from a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
 
 <span class="n">df</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">summary</span><span class="p">((</span><span class="mi">38000</span><span class="p">,</span> <span class="mi">46000</span><span class="p">),</span> <span class="n">preset</span><span class="o">=</span><span class="sh">"</span><span class="s">shot_overview</span><span class="sh">"</span><span class="p">)</span>
@@ -421,6 +440,7 @@ slice that corresponds to it (#1655):</p>
 stored in canonical <code class="language-plaintext highlighter-rouge">core_transport</code>: one row per shot, model entry, and time
 slice. It reads no TGLF or CGYRO native output and does not combine models.</p>
 
+<!-- docs-snippet: skip needs-database (summarises a shot range from a VEST database source) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">transport</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">summary</span><span class="p">((</span><span class="mi">39915</span><span class="p">,</span> <span class="mi">39916</span><span class="p">),</span> <span class="n">preset</span><span class="o">=</span><span class="sh">"</span><span class="s">turbulent_transport</span><span class="sh">"</span><span class="p">)</span>
 <span class="n">transport</span><span class="p">[[</span><span class="sh">"</span><span class="s">shot</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">time_s</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">source</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">model_index</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">rho_grid_min</span><span class="sh">"</span><span class="p">,</span>
            <span class="sh">"</span><span class="s">rho_grid_max</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">q_e_peak_abs_W_m2</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">q_i_peak_abs_W_m2</span><span class="sh">"</span><span class="p">]]</span>
@@ -1456,7 +1476,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 04:24:03 +0000"
+        "time": "2026-10-07 05:04:24 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

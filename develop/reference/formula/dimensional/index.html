@@ -123,6 +123,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
                     
                         <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
@@ -172,6 +178,18 @@
                     <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
                     
                         <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
                     </li>
                 
                     
@@ -324,7 +342,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>17b1125</code>. What is described
+  <code>ee26126</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -441,7 +459,7 @@ $I_p \propto B R$ and $P = W/\tau_E$, $W \propto n T R^3$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dimension_matrix"><code>dimension_matrix</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="dimension_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/formula/dimensional.py#L154-L198" title="vaft/formula/dimensional.py, lines 154–198 at 17b1125">source</a>
+<a class="ref-source" data-source="dimension_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/formula/dimensional.py#L154-L198" title="vaft/formula/dimensional.py, lines 154–198 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>dimension_matrix(variables, dimensions=mappingproxy({&#39;n&#39;: (-3, 0, 0, 0), &#39;T&#39;: (2, 1, -2, 0), &#39;W&#39;: (2, 1, -2, 0), &#39;B&#39;: (0, 1, -2, -1), &#39;R&#39;: (1, 0, 0, 0), &#39;a&#39;: (1, 0, 0, 0), &#39;I_p&#39;: (0, 0, 0, 1), &#39;P&#39;: (2, 1, -3, 0), &#39;tau&#39;: (0, 0, 1, 0), &#39;e&#39;: (0, 0, 1, 1), &#39;m_i&#39;: (0, 1, 0, 0), &#39;mu0&#39;: (1, 1, -2, -2), &#39;eps0&#39;: (-3, -1, 4, 2)}))</code></pre>
     <details class="ref-code" data-source-code="dimension_matrix"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 154–198</span></summary>
@@ -549,7 +567,7 @@ temperature row.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dimensionless_groups"><code>dimensionless_groups</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="dimensionless_groups" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/formula/dimensional.py#L248-L280" title="vaft/formula/dimensional.py, lines 248–280 at 17b1125">source</a>
+<a class="ref-source" data-source="dimensionless_groups" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/formula/dimensional.py#L248-L280" title="vaft/formula/dimensional.py, lines 248–280 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>dimensionless_groups(variables, dimensions=mappingproxy({&#39;n&#39;: (-3, 0, 0, 0), &#39;T&#39;: (2, 1, -2, 0), &#39;W&#39;: (2, 1, -2, 0), &#39;B&#39;: (0, 1, -2, -1), &#39;R&#39;: (1, 0, 0, 0), &#39;a&#39;: (1, 0, 0, 0), &#39;I_p&#39;: (0, 0, 0, 1), &#39;P&#39;: (2, 1, -3, 0), &#39;tau&#39;: (0, 0, 1, 0), &#39;e&#39;: (0, 0, 1, 1), &#39;m_i&#39;: (0, 1, 0, 0), &#39;mu0&#39;: (1, 1, -2, -2), &#39;eps0&#39;: (-3, -1, 4, 2)}))</code></pre>
     <details class="ref-code" data-source-code="dimensionless_groups"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 248–280</span></summary>
@@ -643,7 +661,7 @@ conventional one.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#express_in_basis"><code>express_in_basis</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="express_in_basis" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/formula/dimensional.py#L326-L372" title="vaft/formula/dimensional.py, lines 326–372 at 17b1125">source</a>
+<a class="ref-source" data-source="express_in_basis" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/formula/dimensional.py#L326-L372" title="vaft/formula/dimensional.py, lines 326–372 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>express_in_basis(target, basis)</code></pre>
     <details class="ref-code" data-source-code="express_in_basis"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 326–372</span></summary>
@@ -751,7 +769,7 @@ are the powers of the basis groups that build the target group.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#monomial_dimension"><code>monomial_dimension</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="monomial_dimension" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/formula/dimensional.py#L283-L323" title="vaft/formula/dimensional.py, lines 283–323 at 17b1125">source</a>
+<a class="ref-source" data-source="monomial_dimension" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/formula/dimensional.py#L283-L323" title="vaft/formula/dimensional.py, lines 283–323 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>monomial_dimension(exponents, variables, dimensions=mappingproxy({&#39;n&#39;: (-3, 0, 0, 0), &#39;T&#39;: (2, 1, -2, 0), &#39;W&#39;: (2, 1, -2, 0), &#39;B&#39;: (0, 1, -2, -1), &#39;R&#39;: (1, 0, 0, 0), &#39;a&#39;: (1, 0, 0, 0), &#39;I_p&#39;: (0, 0, 0, 1), &#39;P&#39;: (2, 1, -3, 0), &#39;tau&#39;: (0, 0, 1, 0), &#39;e&#39;: (0, 0, 1, 1), &#39;m_i&#39;: (0, 1, 0, 0), &#39;mu0&#39;: (1, 1, -2, -2), &#39;eps0&#39;: (-3, -1, 4, 2)}))</code></pre>
     <details class="ref-code" data-source-code="monomial_dimension"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 283–323</span></summary>
@@ -854,7 +872,7 @@ are the powers of the basis groups that build the target group.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#rational_null_space"><code>rational_null_space</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="rational_null_space" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/formula/dimensional.py#L201-L245" title="vaft/formula/dimensional.py, lines 201–245 at 17b1125">source</a>
+<a class="ref-source" data-source="rational_null_space" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/formula/dimensional.py#L201-L245" title="vaft/formula/dimensional.py, lines 201–245 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>rational_null_space(matrix)</code></pre>
     <details class="ref-code" data-source-code="rational_null_space"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 201–245</span></summary>
@@ -959,7 +977,7 @@ the same space.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#similarity_constraint_vectors"><code>similarity_constraint_vectors</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="similarity_constraint_vectors" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/formula/dimensional.py#L375-L409" title="vaft/formula/dimensional.py, lines 375–409 at 17b1125">source</a>
+<a class="ref-source" data-source="similarity_constraint_vectors" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/formula/dimensional.py#L375-L409" title="vaft/formula/dimensional.py, lines 375–409 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>similarity_constraint_vectors(kept_groups)</code></pre>
     <details class="ref-code" data-source-code="similarity_constraint_vectors"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 375–409</span></summary>
@@ -1056,7 +1074,7 @@ variables held fixed (shape, $q$, ion mass) are not coordinates.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#state_exponents_from_engineering_exponents"><code>state_exponents_from_engineering_exponents</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="state_exponents_from_engineering_exponents" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/formula/dimensional.py#L412-L467" title="vaft/formula/dimensional.py, lines 412–467 at 17b1125">source</a>
+<a class="ref-source" data-source="state_exponents_from_engineering_exponents" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/formula/dimensional.py#L412-L467" title="vaft/formula/dimensional.py, lines 412–467 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>state_exponents_from_engineering_exponents(a_I, a_B, a_P, a_n=0, a_R=0)</code></pre>
     <details class="ref-code" data-source-code="state_exponents_from_engineering_exponents"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 412–467</span></summary>
@@ -1400,7 +1418,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 04:24:03 +0000"
+        "time": "2026-10-07 05:04:24 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

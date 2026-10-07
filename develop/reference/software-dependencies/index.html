@@ -1,0 +1,1048 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Software dependencies · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/pipeline-graph/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/credibility-applicability/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Software dependencies</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>ee26126</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Software_dependencies">Software dependencies</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>The Python packages VAFT needs, grouped by the capability each provides, generated from pyproject.toml and the vaft._ecosystem registry (python -m vaft._ecosystem_catalog, issue 1648).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Which capabilities are part of the core, which an optional extra enables, and which only development needs, with each requirement exactly as pyproject.toml states it.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>A software dependency is a Python package VAFT imports to implement part of VAFT itself. External
+scientific solvers such as EFIT or CHEASE are a different relation – independent implementations
+VAFT integrates through <code class="language-plaintext highlighter-rouge">vaft.code</code> – and are described on the
+<a href="/vaft/develop/reference/external-codes/">external scientific codes</a> page.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/software_dependency_ecosystem.svg" alt="Which software capabilities are core and which are optional" /></p>
+
+<p><strong>Optional is not experimental, and required is not more important.</strong> A capability is optional
+when the core works without it; a mandatory storage library is less scientifically specialized
+than an optional physics backend. Version constraints have one owner, <code class="language-plaintext highlighter-rouge">pyproject.toml</code>, and are
+shown here exactly as it states them. Which modules import which package is shown, from the
+source, by the <a href="/vaft/develop/reference/dependency-graph/">dependency explorer</a>.</p>
+
+<h2 id="required-core">Required core</h2>
+
+<p><code class="language-plaintext highlighter-rouge">pip install vaft</code> installs every package below.</p>
+
+<h3 id="scientific-data-representation">Scientific data representation</h3>
+
+<p>The OMAS/IMAS data model every VAFT layer reads and writes.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">omas</code></td>
+      <td><code class="language-plaintext highlighter-rouge">omas==0.95.2</code></td>
+      <td>OMAS data structures (ODS) and their IMAS mapping</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">xmltodict</code></td>
+      <td><code class="language-plaintext highlighter-rouge">xmltodict&gt;=0.13.0</code></td>
+      <td>lets omas serialize equilibrium.code.parameters (EFIT namelists)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">imas_core</code></td>
+      <td><code class="language-plaintext highlighter-rouge">imas_core&gt;=5.6.0,&lt;6</code></td>
+      <td>the IMAS access layer imas_python runs on</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">imas_python</code></td>
+      <td><code class="language-plaintext highlighter-rouge">imas_python&gt;=2.1.0,&lt;3</code></td>
+      <td>native IMAS IDS objects</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="numerical-computing">Numerical computing</h3>
+
+<p>Arrays, solvers, statistics and uncertainty propagation.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">numpy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">numpy&gt;=2.0.0,&lt;3</code></td>
+      <td>arrays everywhere</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">scipy</code></td>
+      <td><code class="language-plaintext highlighter-rouge">scipy&gt;=1.13.0,&lt;2</code></td>
+      <td>integration, interpolation, optimization and linear algebra</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">statsmodels</code></td>
+      <td><code class="language-plaintext highlighter-rouge">statsmodels&gt;=0.14.6,&lt;0.16</code></td>
+      <td>regression for confinement scalings and statistical analysis</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">uncertainties</code></td>
+      <td><code class="language-plaintext highlighter-rouge">uncertainties&gt;=3.2.2,&lt;4</code></td>
+      <td>uncertainty propagation for Thomson scattering and plotted errors</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="tabular-and-labelled-data">Tabular and labelled data</h3>
+
+<p>Tables, labelled arrays and spreadsheet exchange.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">openpyxl</code></td>
+      <td><code class="language-plaintext highlighter-rouge">openpyxl</code></td>
+      <td>Excel shot logs and summary sheets</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pandas</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pandas&gt;=2.2.2</code></td>
+      <td>tables of shots, signals and summaries</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">xarray</code></td>
+      <td><code class="language-plaintext highlighter-rouge">xarray&gt;=2024.4.0</code></td>
+      <td>labelled arrays for plotting and export</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="image-processing">Image processing</h3>
+
+<p>Camera frames and contour extraction.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">opencv-python</code></td>
+      <td><code class="language-plaintext highlighter-rouge">opencv-python&gt;=4.9.0.80</code></td>
+      <td>visible-camera frames and geometry</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">scikit-image</code></td>
+      <td><code class="language-plaintext highlighter-rouge">scikit-image</code></td>
+      <td>contours of flux surfaces and images</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="storage-and-remote-access">Storage and remote access</h3>
+
+<p>HDF5 files, the HSDS service and the encrypted raw-data access.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">cryptography</code></td>
+      <td><code class="language-plaintext highlighter-rouge">cryptography&gt;=42.0.0</code></td>
+      <td>decrypting the stored raw-database credentials</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">h5py</code></td>
+      <td><code class="language-plaintext highlighter-rouge">h5py&gt;=3.16,&lt;4</code></td>
+      <td>HDF5 files</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">h5pyd</code></td>
+      <td><code class="language-plaintext highlighter-rouge">h5pyd==0.24.0</code></td>
+      <td>the HSDS service, pinned because newer releases empty attributes on it</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="database-access">Database access</h3>
+
+<p>The VEST shot database.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mysql-connector-python</code></td>
+      <td><code class="language-plaintext highlighter-rouge">mysql-connector-python&gt;=8.4.0</code></td>
+      <td>the VEST raw shot database</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="configuration-and-code-file-formats">Configuration and code file formats</h3>
+
+<p>YAML configuration and the Fortran namelists of EFIT, EFUND and g-/k-files.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">f90nml</code></td>
+      <td><code class="language-plaintext highlighter-rouge">f90nml&gt;=1.4.4</code></td>
+      <td>Fortran namelists of EFIT/EFUND inputs and g-/k-files</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">PyYAML</code></td>
+      <td><code class="language-plaintext highlighter-rouge">PyYAML&gt;=6.0.2,&lt;7</code></td>
+      <td>machine descriptions, configurations and the generated documentation catalogs</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="visualization">Visualization</h3>
+
+<p>Static and interactive figures.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">matplotlib</code></td>
+      <td><code class="language-plaintext highlighter-rouge">matplotlib&gt;=3.7.3,&lt;4</code></td>
+      <td>every static figure</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plotly</code></td>
+      <td><code class="language-plaintext highlighter-rouge">plotly&gt;=5.24,&lt;7</code></td>
+      <td>interactive panels and the GUI</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">seaborn</code></td>
+      <td><code class="language-plaintext highlighter-rouge">seaborn</code></td>
+      <td>confinement-scaling regression and residual plots</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="workflow-execution">Workflow execution</h3>
+
+<p>The production Snakemake pipelines.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">snakemake</code></td>
+      <td><code class="language-plaintext highlighter-rouge">snakemake</code></td>
+      <td>the production pipelines’ scheduler</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tqdm</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tqdm&gt;=4.67.3</code></td>
+      <td>progress bar in verbose OMAS/IMAS loading (load_omas_imas), reached through omas’s star import</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">wexpect</code></td>
+      <td><code class="language-plaintext highlighter-rouge">wexpect; sys_platform == 'win32'</code></td>
+      <td>Windows-only; declared but imported by no VAFT module today</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="interactive-notebooks-and-gui">Interactive notebooks and GUI</h3>
+
+<p>The Jupyter kernel and widgets the notebooks use, and the browser GUI.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Package</th>
+      <th>Requirement</th>
+      <th>Used for</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ipykernel</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ipykernel&gt;=6.29.4</code></td>
+      <td>the notebooks’ kernel</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ipython</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ipython</code></td>
+      <td>inline display in notebooks</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ipywidgets</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ipywidgets</code></td>
+      <td>notebook widgets</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">panel</code></td>
+      <td><code class="language-plaintext highlighter-rouge">panel&gt;=1.9,&lt;2</code></td>
+      <td>the browser GUI (vaft gui), served locally or over SSH port forwarding</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="optional-capabilities-and-development">Optional capabilities and development</h2>
+
+<p>Each extra adds a capability the core does not need. <code class="language-plaintext highlighter-rouge">dev</code> and <code class="language-plaintext highlighter-rouge">architecture</code> are for working on
+VAFT itself.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Extra</th>
+      <th>Install</th>
+      <th>Capability</th>
+      <th>What it enables</th>
+      <th>Requirements</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">sklearn</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[sklearn]"</code></td>
+      <td>Machine learning and surrogates</td>
+      <td>Gaussian-process profile fitting with scikit-learn</td>
+      <td><code class="language-plaintext highlighter-rouge">scikit-learn</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">surrogate</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[surrogate]"</code></td>
+      <td>Machine learning and surrogates</td>
+      <td>TGLF neural-network surrogate inference</td>
+      <td><code class="language-plaintext highlighter-rouge">onnxruntime</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">tokamaker</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[tokamaker]"</code></td>
+      <td>In-process solver backends</td>
+      <td>TokaMaker free-boundary equilibria, in process (OpenFUSIONToolkit)</td>
+      <td><code class="language-plaintext highlighter-rouge">openfusiontoolkit</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ml</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[ml]"</code></td>
+      <td>Machine learning and surrogates</td>
+      <td>the torch and scikit-learn backends of vaft.process.ml and ONNX export</td>
+      <td><code class="language-plaintext highlighter-rouge">torch</code>, <code class="language-plaintext highlighter-rouge">onnx</code>, <code class="language-plaintext highlighter-rouge">onnxruntime</code>, <code class="language-plaintext highlighter-rouge">scikit-learn</code>, <code class="language-plaintext highlighter-rouge">skl2onnx</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vtk</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[vtk]"</code></td>
+      <td>3-D and video output</td>
+      <td>3-D scenes as PyVista multiblocks and ParaView files</td>
+      <td><code class="language-plaintext highlighter-rouge">pyvista&gt;=0.44</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">jupyter3d</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[jupyter3d]"</code></td>
+      <td>3-D and video output</td>
+      <td>interactive 3-D scenes in Jupyter</td>
+      <td><code class="language-plaintext highlighter-rouge">k3d&gt;=2.16</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">video</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[video]"</code></td>
+      <td>3-D and video output</td>
+      <td>encoding animations to .mp4/.webm</td>
+      <td><code class="language-plaintext highlighter-rouge">av&gt;=13</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">accel</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[accel]"</code></td>
+      <td>Acceleration</td>
+      <td>nothing yet: no VAFT module imports numba</td>
+      <td><code class="language-plaintext highlighter-rouge">numba</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mcp</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[mcp]"</code></td>
+      <td>Agent interfaces</td>
+      <td>the local, read-only MCP server for agent clients</td>
+      <td><code class="language-plaintext highlighter-rouge">mcp&gt;=1.26,&lt;2</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gui</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[gui]"</code></td>
+      <td>Agent interfaces</td>
+      <td>nothing: Panel is core now; the empty extra keeps vaft[gui] working</td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">architecture</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install "vaft[architecture]"</code></td>
+      <td>Architecture and documentation tooling</td>
+      <td>the import graph behind the dependency explorer</td>
+      <td><code class="language-plaintext highlighter-rouge">grimp&gt;=3.17,&lt;4</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">dev</code></td>
+      <td><code class="language-plaintext highlighter-rouge">pip install -e ".[dev]"</code></td>
+      <td>Testing, quality and notebooks</td>
+      <td>running the test suite and contributing</td>
+      <td><code class="language-plaintext highlighter-rouge">pytest</code>, <code class="language-plaintext highlighter-rouge">onnxruntime</code>, <code class="language-plaintext highlighter-rouge">scikit-learn</code>, <code class="language-plaintext highlighter-rouge">av&gt;=13</code>, <code class="language-plaintext highlighter-rouge">pytest-xdist</code>, <code class="language-plaintext highlighter-rouge">pre-commit</code>, <code class="language-plaintext highlighter-rouge">black</code>, <code class="language-plaintext highlighter-rouge">flake8</code>, <code class="language-plaintext highlighter-rouge">ruff</code>, <code class="language-plaintext highlighter-rouge">ipykernel&gt;=7.2.0</code>, <code class="language-plaintext highlighter-rouge">mcp&gt;=1.26,&lt;2</code>, <code class="language-plaintext highlighter-rouge">nbclient&gt;=0.10</code>, <code class="language-plaintext highlighter-rouge">nbformat&gt;=5.10</code>, <code class="language-plaintext highlighter-rouge">grimp&gt;=3.17,&lt;4</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Check what the current environment can actually use with <code class="language-plaintext highlighter-rouge">python install/check_vaft_environment.py</code>.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/pipeline-graph/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: VAFT pipeline lineage explorer">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" class="navigation navigation-next navigation-unique" aria-label="Next page: Credibility and applicability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#required-core" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Required core</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#scientific-data-representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Scientific data representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#numerical-computing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Numerical computing</a></li><li class="page-toc-item page-toc-level-3"><a href="#tabular-and-labelled-data" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Tabular and labelled data</a></li><li class="page-toc-item page-toc-level-3"><a href="#image-processing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Image processing</a></li><li class="page-toc-item page-toc-level-3"><a href="#storage-and-remote-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Storage and remote access</a></li><li class="page-toc-item page-toc-level-3"><a href="#database-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Database access</a></li><li class="page-toc-item page-toc-level-3"><a href="#configuration-and-code-file-formats" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configuration and code file formats</a></li><li class="page-toc-item page-toc-level-3"><a href="#visualization" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Visualization</a></li><li class="page-toc-item page-toc-level-3"><a href="#workflow-execution" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Workflow execution</a></li><li class="page-toc-item page-toc-level-3"><a href="#interactive-notebooks-and-gui" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Interactive notebooks and GUI</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#optional-capabilities-and-development" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Optional capabilities and development</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Credibility and applicability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Credibility_and_applicability.md",
+            "ref": "_guide/Credibility_and_applicability.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Software_dependencies.md",
+        "mtime": "2026-10-04 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-07 05:04:24 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

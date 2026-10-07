@@ -123,6 +123,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
                     
                         <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
@@ -172,6 +178,18 @@
                     <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
                     
                         <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
                     </li>
                 
                     
@@ -324,7 +342,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>17b1125</code>. What is described
+  <code>ee26126</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -410,7 +428,7 @@ on VEST) and passed in; this module holds no such number (issue #420).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_line_radiation_power_series"><code>compute_line_radiation_power_series</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="compute_line_radiation_power_series" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/process/atomic.py#L346-L617" title="vaft/process/atomic.py, lines 346–617 at 17b1125">source</a>
+<a class="ref-source" data-source="compute_line_radiation_power_series" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/process/atomic.py#L345-L616" title="vaft/process/atomic.py, lines 345–616 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>compute_line_radiation_power_series(ods, eq_indices, eq_times, volume_series, line_radiation_species=None, impurity_fractions=None, Z_eff=None, *, return_assumptions=False)</code></pre>
 
@@ -534,10 +552,10 @@ only (no equilibrium at its time) has no <code class="language-plaintext highlig
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#compute_time_match_atol"><code>compute_time_match_atol</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="compute_time_match_atol" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/process/atomic.py#L62-L106" title="vaft/process/atomic.py, lines 62–106 at 17b1125">source</a>
+<a class="ref-source" data-source="compute_time_match_atol" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/process/atomic.py#L61-L105" title="vaft/process/atomic.py, lines 61–105 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>compute_time_match_atol(time_array, base_atol=1e-06)</code></pre>
-    <details class="ref-code" data-source-code="compute_time_match_atol"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 62–106</span></summary>
+    <details class="ref-code" data-source-code="compute_time_match_atol"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 61–105</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">compute_time_match_atol</span><span class="p">(</span><span class="n">time_array</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">base_atol</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">_DEFAULT_TIME_MATCH_ATOL</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">An absolute time-matching tolerance adapted to the native time spacing.
@@ -636,10 +654,10 @@ a quarter of the smallest spacing can never reach the neighbouring slice.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#find_time_match_index"><code>find_time_match_index</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="find_time_match_index" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/process/atomic.py#L109-L137" title="vaft/process/atomic.py, lines 109–137 at 17b1125">source</a>
+<a class="ref-source" data-source="find_time_match_index" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/process/atomic.py#L108-L136" title="vaft/process/atomic.py, lines 108–136 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>find_time_match_index(time_array, target_time)</code></pre>
-    <details class="ref-code" data-source-code="find_time_match_index"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 109–137</span></summary>
+    <details class="ref-code" data-source-code="find_time_match_index"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 108–136</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">find_time_match_index</span><span class="p">(</span><span class="n">time_array</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span> <span class="n">target_time</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">Index of the time closest to ``target_time``, within the adaptive tolerance.
@@ -705,10 +723,10 @@ a quarter of the smallest spacing can never reach the neighbouring slice.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#integrate_emissivity_profile"><code>integrate_emissivity_profile</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="integrate_emissivity_profile" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/process/atomic.py#L281-L343" title="vaft/process/atomic.py, lines 281–343 at 17b1125">source</a>
+<a class="ref-source" data-source="integrate_emissivity_profile" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/process/atomic.py#L280-L342" title="vaft/process/atomic.py, lines 280–342 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>integrate_emissivity_profile(emissivity_profile, volume_profile, total_volume)</code></pre>
-    <details class="ref-code" data-source-code="integrate_emissivity_profile"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 281–343</span></summary>
+    <details class="ref-code" data-source-code="integrate_emissivity_profile"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 280–342</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">integrate_emissivity_profile</span><span class="p">(</span>
     <span class="n">emissivity_profile</span><span class="p">:</span> <span class="n">ndarray</span><span class="p">,</span>
@@ -835,10 +853,10 @@ warning from this function.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalize_atomic_symbol"><code>normalize_atomic_symbol</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="normalize_atomic_symbol" href="https://github.com/VEST-Tokamak/vaft/blob/17b11259824f1fc8c3faa6ce14a18a40a8eb9f9f/vaft/process/atomic.py#L140-L180" title="vaft/process/atomic.py, lines 140–180 at 17b1125">source</a>
+<a class="ref-source" data-source="normalize_atomic_symbol" href="https://github.com/VEST-Tokamak/vaft/blob/ee26126898c66c9d3f349a55000dfc04c48cdb05/vaft/process/atomic.py#L139-L179" title="vaft/process/atomic.py, lines 139–179 at ee26126">source</a>
 </header>
     <pre class="ref-signature"><code>normalize_atomic_symbol(label)</code></pre>
-    <details class="ref-code" data-source-code="normalize_atomic_symbol"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 140–180</span></summary>
+    <details class="ref-code" data-source-code="normalize_atomic_symbol"><summary>Show source <span class="ref-note">vaft/process/atomic.py, lines 139–179</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalize_atomic_symbol</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">Normalize an element or ion label to a supported atomic symbol.
@@ -1138,7 +1156,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 04:24:03 +0000"
+        "time": "2026-10-07 05:04:24 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
