@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines twelve extras (ten optional-dependency groups, the empty `gui` alias, and `dev`); none is needed for the first result on this page:
+The project defines twelve extras (ten optional-dependency groups, the empty `gui` alias, and `dev`); none is needed for the first result on this page. The [software dependencies]({{ site.baseurl }}/reference/software-dependencies/) page groups every dependency and extra by the capability it provides, and [external scientific codes]({{ site.baseurl }}/reference/external-codes/) covers the solvers VAFT integrates but does not install as Python packages:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -82,7 +82,9 @@ used to recover.
 
 ## 2. Produce the first offline result
 
-The packaged sample follows the same OMAS/IMAS paths as a VEST shot:
+The packaged sample follows the same OMAS/IMAS paths as a VEST shot. A `pip install vaft` ships
+shot 39915 in its OMAS form only (`omas.json.gz`, read by both `vaft.omas.load` and `vaft.imas.load`);
+its IMAS netCDF twin, `vaft.data.sample(39915, representation="imas")`, needs a repository checkout.
 
 ```python
 import matplotlib.pyplot as plt

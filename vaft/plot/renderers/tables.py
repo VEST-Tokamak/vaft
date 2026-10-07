@@ -31,6 +31,7 @@ __all__ = [
     "TextView",
     "equilibrium_table_fit_quality",
     "equilibrium_table_summary",
+    "equilibrium_table_validation",
     "equilibrium_text_summary",
     "format_quantity",
     "render_table",
@@ -42,7 +43,10 @@ __all__ = [
 DEFAULT_FORMAT = ".4g"
 
 #: How a status reads in the text forms.
-STATUS_LABELS = {"": "", "pass": "PASS", "warn": "WARN", "fail": "FAIL", "info": "INFO"}
+STATUS_LABELS = {
+    "": "", "pass": "PASS", "warn": "WARN", "fail": "FAIL", "info": "INFO",
+    "indeterminate": "INDETERMINATE", "not_available": "NOT_AVAILABLE",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -526,7 +530,42 @@ _SLICE_OPTIONAL = (
     optional_paths=_SLICE_OPTIONAL,
 )
 def equilibrium_table_summary(model: Table, *, show: bool = False) -> RenderedTable:
-    """The selected equilibrium slice's global quantities, tabulated."""
+    """The selected equilibrium slice's global quantities, tabulated.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the table as well as returning it.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    The global quantities of one reconstructed slice -- the slice
+    :func:`equilibrium_overview` draws -- as a Quantity / Value / Unit table
+    for reports and for comparing slices or shots number by number.  A quantity
+    the slice does not store but that can be derived from it is shown with a
+    note saying so; one that is neither is shown as not stored.
+
+    Options
+    -------
+    ``time=`` and ``time_slice=`` choose the slice exactly as for
+    :func:`equilibrium_overview`; ``units=`` sets the flux display unit.
+
+    Limitations
+    -----------
+    The numbers are reconstruction outputs without their uncertainties, and a
+    derived value is computed from the stored slice, not refitted.
+
+    See Also
+    --------
+    equilibrium_table_fit_quality : how well the same slice fits its constraints.
+    """
     return render_table(model, show=show)
 
 
@@ -550,7 +589,141 @@ def equilibrium_table_summary(model: Table, *, show: bool = False) -> RenderedTa
     ),
 )
 def equilibrium_table_fit_quality(model: Table, *, show: bool = False) -> RenderedTable:
-    """EFIT goodness of fit at one slice, by constraint family."""
+    """EFIT goodness of fit at one slice, by constraint family.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the table as well as returning it.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    For one EFIT slice and each constraint family -- the magnetic sensor arrays
+    and the scalar plasma-current and diamagnetic-flux constraints -- the table
+    states whether it was fitted, how many channels were enabled, disabled or
+    missing, its chi-square and share of the total, and the normalized
+    residuals z = (measured - reconstructed) * weight / k: their RMS, mean bias
+    and largest magnitude with the channel that has it.  The caption gives the
+    reduced chi-square over EFIT's own count of degrees of freedom.  It answers
+    which family dominates the fit, whether a family is systematically offset
+    (flagged when the bias exceeds two standard errors), and which channel to
+    inspect.
+
+    Options
+    -------
+    ``time_slice=`` selects the stored slice.
+
+    Limitations
+    -----------
+    Chi-square and z are measured in units of the uncertainties EFIT was given,
+    so they judge the fit against those uncertainties, not against the truth: a
+    small chi-square can mean generous uncertainties, and a family given small
+    uncertainties dominates the total whatever its information content.  A good
+    fit to external magnetics does not validate the internal profiles, which
+    those constraints determine only weakly.
+
+    See Also
+    --------
+    equilibrium_overview_fit_quality : the same metrics across slices, plotted.
+    equilibrium_table_summary : the global quantities of the slice.
+    """
+    return render_table(model, show=show)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="table",
+    quantity="validation",
+    model=Table,
+    description=(
+        "Every registered validation check's verdict at one equilibrium slice -- "
+        "verification, diagnostic fit, physical validity, independent validation: "
+        "the number each status was decided on, the registry criterion, the status "
+        "(NOT_AVAILABLE and INDETERMINATE kept as such) and its reason; the "
+        "aggregate status and the count per status in the caption."
+    ),
+    ids=("equilibrium", "magnetics", "core_profiles", "thomson_scattering"),
+    required_paths=_SLICE_REQUIRED,
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.profiles_1d.pressure",
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.chi_squared",
+        "magnetics.diamagnetic_flux.{j}.data",
+    ),
+)
+def equilibrium_table_validation(model: Table, *, show: bool = False) -> RenderedTable:
+    """The validation verdicts of one equilibrium slice, one row per registered check.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the text form.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    For one equilibrium slice, every check of the validation registry in its
+    registry order, one row each: the category (verification, diagnostic fit,
+    physical validity, independent validation), the check, the measure and
+    the number the status was decided on, the registry's criterion (a
+    tolerance pair, or "rule" with the method as a note), the status, and the
+    reason the check itself gave.  The status is printed as a word -- pass,
+    warn, fail, indeterminate or not_available -- and carried as a
+    ``data-status`` attribute in the HTML form; no colour is drawn.
+    ``not_available`` means the evidence was never produced (the input lacks
+    what the check reads) and ``indeterminate`` that it was produced but did
+    not decide; neither is a pass, and both keep their reason in the note
+    rather than being dropped.  The caption aggregates the rows the way
+    :func:`vaft.validation.equilibrium.aggregate_status` does -- the worst of
+    fail, warn and indeterminate wins, and pass needs every row to pass, so a
+    mix of pass and not_available reads indeterminate -- and counts each
+    status.  The table is read to find which check holds a slice back and
+    why, and which checks the input could not even be put to.  It flags and
+    never edits: the numbers are the stored equilibrium's and the statuses
+    are the registered checks' own, with their tolerances; the view adds no
+    physics and no threshold.
+
+    Options
+    -------
+    ``time=`` and ``time_slice=`` select the slice the checks run on, by
+    nearest stored time or by index; without either the representative slice
+    of the overview is used, and the title says which and why.  ``title=``
+    replaces the title.  The set of checks is the registry's and is not
+    selectable here.
+
+    Limitations
+    -----------
+    A row judges the slice against the check's tolerance in the units the
+    check uses, so an all-pass table states that the registered checks found
+    nothing, not that the reconstruction is right: the internal profiles are
+    weakly constrained by external magnetics whatever the fit quality says,
+    and a check that is not_available contributes no evidence.  Continuity
+    is the one row decided over the whole IDS rather than the slice.  A value
+    shown in the Value column was graded; a measure the verdict was not
+    decided on is moved to the note so it does not read as a grade.  The
+    verdicts come from the validation functions as they are: a tolerance
+    that is a round figure rather than a qualified threshold is marked so in
+    the registry, not here.
+
+    See Also
+    --------
+    equilibrium_table_fit_quality : the goodness of fit per constraint family, in numbers.
+    equilibrium_overview_verification : the verification checks drawn across slices.
+    """
     return render_table(model, show=show)
 
 

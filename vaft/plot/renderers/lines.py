@@ -98,7 +98,43 @@ def plasma_current_time(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Measured plasma current history from the Rogowski coil."""
+    """Measured plasma current history from the Rogowski coil.
+
+    Interpretation
+    --------------
+    The toroidal plasma current against time.  It is the first trace read for
+    any discharge: breakdown and current rise, flat-top, termination and
+    current quench, and the time windows other analyses use.  It normalizes
+    many derived quantities (normalized beta, the Greenwald density, q
+    estimates) and compares discharges at a glance.
+
+    Options
+    -------
+    ``synthetic=`` overlays, as markers at each equilibrium slice, the value
+    the reconstruction predicts for this signal, so measurement and fit can be
+    compared where the fit exists.  ``orientation=`` draws the current positive
+    whatever the stored sign; ``x=`` replaces time by the sample index, for
+    checking acquisition rather than physics.
+
+    Convention
+    ----------
+    The stored sign follows the machine's current direction in the IMAS
+    convention.  The default display draws the dominant polarity positive and
+    says "sign flipped" in the title when it did; ``orientation="canonical"``
+    keeps the stored sign, which is what tells the current direction.
+
+    Limitations
+    -----------
+    A Rogowski coil measures all current threading it.  Depending on where it
+    sits and on the processing that produced the stored waveform, currents
+    induced in the vessel and passive structure may be included; they matter
+    most at breakdown and during the current quench.
+
+    See Also
+    --------
+    equilibrium_time_plasma_current : the current the reconstruction fitted.
+    current_overview : plasma, coil and eddy currents together.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -123,7 +159,46 @@ def diamagnetic_flux_time(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Measured diamagnetic flux history."""
+    """Measured diamagnetic flux history.
+
+    Interpretation
+    --------------
+    The change in toroidal flux through the plasma cross-section caused by the
+    plasma.  Through radial pressure balance it measures the perpendicular
+    pressure relative to the poloidal field: in the large-aspect-ratio limit a
+    plasma with poloidal beta above 1 expels toroidal flux (diamagnetic), one
+    below it draws flux in (paramagnetic).  It is the main magnetic measurement of stored energy and
+    poloidal beta, and the one that separates beta_p from l_i in a
+    reconstruction.
+
+    Options
+    -------
+    ``synthetic=`` overlays, as markers at each equilibrium slice, the value
+    the reconstruction predicts for this signal, so measurement and fit can be
+    compared where the fit exists.  By default the dominant polarity is
+    drawn positive, so a diamagnetic shot, whose stored flux is negative, is
+    drawn positive too and the title says "sign flipped";
+    ``orientation="canonical"`` keeps the stored sign and is needed to read
+    para- or diamagnetism from the plot.
+
+    Convention
+    ----------
+    In VEST products a positive stored flux is a paramagnetic plasma (#1196),
+    a negative one a diamagnetic plasma.  The sign carries that meaning only
+    under ``orientation="canonical"``.
+
+    Limitations
+    -----------
+    The plasma's contribution is small beside the vacuum toroidal flux, so the
+    trace depends on how the toroidal-field pickup and vessel currents were
+    compensated, and integrated signals can drift.  Turning it into beta or
+    stored energy needs the plasma shape, i.e. a reconstruction.
+
+    See Also
+    --------
+    equilibrium_time_beta_p : the reconstruction's poloidal beta.
+    equilibrium_time_diamagnetic_flux : measured against reconstructed constraint.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -150,7 +225,42 @@ def flux_loop_time_flux(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Poloidal flux measured by each selected flux loop."""
+    """Poloidal flux measured by each selected flux loop.
+
+    Interpretation
+    --------------
+    The poloidal flux linked by each flux loop against time.  Flux loops sample
+    psi at fixed points outside the plasma: their common rise follows the
+    ohmic-coil and plasma flux, and the differences between loops carry the
+    plasma's position and shape.  They are primary constraints of a magnetic
+    equilibrium reconstruction, and the loop voltage is their time derivative.
+
+    Options
+    -------
+    ``selection=`` / ``channels=`` choose the sensors and ``layout=`` whether
+    they share one axes or are split into panels or groups.  ``validity=``
+    decides what happens to channels the data flag as invalid: drawn but
+    demoted (the default, so a reader sees them), removed, or treated as valid.
+    ``synthetic=`` overlays, as markers at each equilibrium slice, the value
+    the reconstruction predicts for this signal, so measurement and fit can be
+    compared where the fit exists.
+
+    Convention
+    ----------
+    Flux is in full weber, not weber per radian.
+
+    Limitations
+    -----------
+    Each trace is the total flux at the loop -- coils, vessel currents and
+    plasma together -- so the plasma's own contribution needs the vacuum
+    response subtracted.  Integrated signals can drift, and a flagged channel
+    is still drawn unless ``validity=`` says otherwise.
+
+    See Also
+    --------
+    flux_loop_spatial_flux : the same loops against position at one time.
+    magnetics_overview_plasma_residual : the signal left after the vacuum response.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -175,7 +285,33 @@ def flux_loop_time_voltage(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Loop voltage measured by each selected flux loop."""
+    """Loop voltage measured by each selected flux loop.
+
+    Interpretation
+    --------------
+    The voltage induced in each flux loop, the rate of change of the poloidal
+    flux it links.  It shows the inductive drive applied to the plasma -- the
+    breakdown voltage, the ramp-up and flat-top loop voltage -- and its spatial
+    variation between loops.
+
+    Options
+    -------
+    ``selection=`` / ``channels=`` choose the sensors and ``layout=`` whether
+    they share one axes or are split into panels or groups.  ``validity=``
+    decides what happens to channels the data flag as invalid: drawn but
+    demoted (the default, so a reader sees them), removed, or treated as valid.
+
+    Limitations
+    -----------
+    The voltage at a loop is not the voltage at the plasma surface or on axis,
+    and it contains the inductive change of the plasma's own flux; the
+    resistive part needs the inductive correction.
+
+    See Also
+    --------
+    flux_loop_time_flux : the integrated flux of the same loops.
+    summary_time_voltage_consumption : resistive and inductive flux consumption.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -202,7 +338,37 @@ def b_field_probe_time_field(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Poloidal field measured by each selected B-field probe."""
+    """Poloidal field measured by each selected B-field probe.
+
+    Interpretation
+    --------------
+    The poloidal field each magnetic probe measures along its own orientation,
+    against time.  Probes around the vessel sample the field at the boundary of
+    the plasma region, which depends on the plasma current, its position and
+    the current distribution; they are, with the flux loops, the main
+    constraints of a magnetic reconstruction.
+
+    Options
+    -------
+    ``selection=`` / ``channels=`` choose the sensors and ``layout=`` whether
+    they share one axes or are split into panels or groups.  ``validity=``
+    decides what happens to channels the data flag as invalid: drawn but
+    demoted (the default, so a reader sees them), removed, or treated as valid.
+    ``synthetic=`` overlays, as markers at each equilibrium slice, the value
+    the reconstruction predicts for this signal, so measurement and fit can be
+    compared where the fit exists.
+
+    Limitations
+    -----------
+    Each probe measures one component, along its axis, of the total field --
+    coils, vessel currents and plasma together.  Probe signals are integrated
+    from induced voltages and can drift.
+
+    See Also
+    --------
+    b_field_probe_spatial_field : the same probes against position at one time.
+    mirnov_spectrogram : the fluctuating part of the probe signals.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -278,7 +444,33 @@ def mirnov_time_voltage(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Raw or preprocessed Mirnov coil voltage traces."""
+    """Raw or preprocessed Mirnov coil voltage traces.
+
+    Interpretation
+    --------------
+    The voltage induced in each Mirnov coil, proportional to the rate of change
+    of the field through it.  The traces show when MHD activity, sawtooth-like
+    crashes or other fast magnetic events happen and how strongly each coil
+    responds, before any spectral analysis.
+
+    Options
+    -------
+    ``selection=`` / ``channels=`` choose the coils and ``layout=`` how they
+    are arranged.
+
+    Limitations
+    -----------
+    A coil voltage weights each frequency by that frequency, so a fast mode
+    looks stronger than a slow one of equal field amplitude.  Slow equilibrium
+    changes and pickup also appear, and comparing amplitudes between coils
+    requires their effective areas.  The traces are as raw or as preprocessed
+    as the stored signal.
+
+    See Also
+    --------
+    mirnov_spectrogram : the frequency content of one coil against time.
+    mirnov_spatial_phase : toroidal phase across the coils, for mode numbers.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -429,7 +621,31 @@ def equilibrium_time_beta_p(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Poloidal beta history."""
+    """Poloidal beta history.
+
+    Interpretation
+    --------------
+    Poloidal beta at each reconstructed slice: the volume-averaged plasma
+    pressure relative to the magnetic pressure of the poloidal field produced
+    by the plasma current.  It measures how much pressure the plasma current
+    confines, and enters the Shafranov shift and the vertical field needed for
+    radial equilibrium.  beta_p near 1 separates a diamagnetic from a
+    paramagnetic plasma.
+
+    Limitations
+    -----------
+    Beta is a reconstruction output.  With magnetic constraints alone, poloidal
+    beta and the internal inductance are not separately well determined --
+    mainly their sum beta_p + l_i / 2 is -- particularly for nearly circular
+    plasmas; a diamagnetic or kinetic pressure constraint improves it.
+    Proximity to an empirical beta limit is context, not a stability verdict:
+    the actual limit depends on the profiles, the shape and the wall.
+
+    See Also
+    --------
+    diamagnetic_flux_time : the measurement most directly related to beta_p.
+    equilibrium_time_li : the internal inductance it is entangled with.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -454,7 +670,29 @@ def equilibrium_time_beta_t(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Toroidal beta history."""
+    """Toroidal beta history.
+
+    Interpretation
+    --------------
+    Toroidal beta at each reconstructed slice: the volume-averaged plasma
+    pressure relative to the magnetic pressure of the vacuum toroidal field at
+    the reference radius.  It measures how efficiently the toroidal field
+    confines pressure; a reactor's fusion power density scales as beta_t^2 B^4
+    at fixed temperature.
+
+    Limitations
+    -----------
+    Beta is a reconstruction output.  With magnetic constraints alone, poloidal
+    beta and the internal inductance are not separately well determined --
+    mainly their sum beta_p + l_i / 2 is -- particularly for nearly circular
+    plasmas; a diamagnetic or kinetic pressure constraint improves it.
+    Proximity to an empirical beta limit is context, not a stability verdict:
+    the actual limit depends on the profiles, the shape and the wall.
+
+    See Also
+    --------
+    equilibrium_time_beta_n : toroidal beta on the Troyon scale.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -479,7 +717,29 @@ def equilibrium_time_beta_n(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Normalized beta history."""
+    """Normalized beta history.
+
+    Interpretation
+    --------------
+    Normalized beta beta_N = beta_t[%] a B0 / I_p[MA] at each reconstructed
+    slice: the toroidal beta scaled by the Troyon normalization, which removes
+    most of the dependence on current and field and so compares discharges of
+    different current and field on one scale.  It is the usual ordinate for
+    judging how close a plasma comes to ideal pressure-driven limits.
+
+    Limitations
+    -----------
+    Beta is a reconstruction output.  With magnetic constraints alone, poloidal
+    beta and the internal inductance are not separately well determined --
+    mainly their sum beta_p + l_i / 2 is -- particularly for nearly circular
+    plasmas; a diamagnetic or kinetic pressure constraint improves it.
+    Proximity to an empirical beta limit is context, not a stability verdict:
+    the actual limit depends on the profiles, the shape and the wall.
+
+    See Also
+    --------
+    equilibrium_time_beta : beta_p, beta_t and beta_N together.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 
@@ -604,7 +864,29 @@ def equilibrium_time_q95(
     show: bool = False,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Safety factor at the 95% flux surface."""
+    """Safety factor at the 95% flux surface.
+
+    Interpretation
+    --------------
+    q95, the safety factor on the flux surface enclosing 95 % of the poloidal
+    flux, at each reconstructed slice.  It summarizes the edge field-line pitch
+    -- the plasma current relative to the toroidal field and the shape -- in
+    one number that stays finite for a diverted plasma, and is the usual
+    coordinate for the low-q operating boundary: discharges approaching q95 of
+    about 2 meet the external-kink limit and disrupt more often.
+
+    Limitations
+    -----------
+    q95 exists only where a reconstruction exists; the line between slice
+    markers joins them visually and is not a reconstruction.  Its accuracy is
+    the equilibrium's: it depends on the boundary and the current-profile
+    parametrisation.
+
+    See Also
+    --------
+    summary_time_estimated_q95 : a q95 estimated from scalings without a reconstruction.
+    equilibrium_profile_q : the whole q profile at one slice.
+    """
     return render_line_series(model, ax=ax, show=show, **style)
 
 

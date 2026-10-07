@@ -14,12 +14,18 @@ sections:
       - id: equilibrium-kinetic-profiles
         title: Equilibrium and kinetic profiles
         url: /workflows/equilibrium-kinetic-profiles/
+      - id: plasma-parameter-inference
+        title: Plasma parameter inference
+        url: /workflows/plasma-parameter-inference/
       - id: electromagnetic-modeling
         title: Electromagnetic modeling
         url: /workflows/electromagnetic-modeling/
       - id: mhd-stability
         title: MHD stability
         url: /workflows/mhd-stability/
+      - id: fluctuation-coherence
+        title: Cross-diagnostic fluctuation coherence
+        url: /workflows/fluctuation-coherence/
       - id: operations-statistical-analysis
         title: Operations and statistical analysis
         url: /workflows/operations-statistical-analysis/
@@ -32,6 +38,9 @@ sections:
   - id: reference
     title: Library and data reference
     items:
+      - id: scientific-architecture
+        title: Scientific architecture
+        url: /reference/scientific-architecture/
       - id: api
         title: VAFT API
         url: /reference/api/
@@ -41,18 +50,33 @@ sections:
       - id: credibility-applicability
         title: Credibility and applicability
         url: /reference/credibility-applicability/
+      - id: plasma-models
+        title: Plasma models, orderings, and scales
+        url: /reference/plasma-models/
       - id: dependency-graph
         title: Dependency explorer
         url: /reference/dependency-graph/
       - id: pipeline-graph
         title: Pipeline lineage explorer
         url: /reference/pipeline-graph/
+      - id: ontology
+        title: Scientific ontology explorer
+        url: /reference/ontology/
+      - id: software-dependencies
+        title: Software dependencies
+        url: /reference/software-dependencies/
+      - id: external-codes
+        title: External scientific codes
+        url: /reference/external-codes/
       - id: mcp
         title: MCP server for agents
         url: /reference/mcp/
       - id: formula-reference
         title: Formula reference
         url: /reference/formula/
+      - id: reduced-representations
+        title: Reduced representations
+        url: /reference/reduced-representations/
       - id: diagrams
         title: Scientific diagrams
         url: /reference/diagrams/
@@ -65,6 +89,9 @@ sections:
       - id: reduced-stability-diagnostics
         title: Reduced stability diagnostics
         url: /reference/reduced-stability-diagnostics/
+      - id: ballooning-formulations
+        title: Ballooning formulations
+        url: /reference/ballooning-formulations/
       - id: equilibrium-representations
         title: Equilibrium representations
         url: /reference/equilibrium-representations/

@@ -196,7 +196,10 @@ def _camera_scalar(ods: Any, selection: DiagnosticSelection):
     time = np.empty(count)
     summed = np.empty(count)
     for index in range(count):
-        time[index] = float(path_value(ods, f"{prefix}.{index}.time"))
+        when = path_value(ods, f"{prefix}.{index}.time")
+        if when is None:
+            raise ValueError(f"{prefix}.{index}: time is missing")
+        time[index] = float(when)
         frame = path_value(ods, f"{prefix}.{index}.image_raw")
         if frame is None:
             raise ValueError(f"{prefix}.{index}: image_raw is missing")
@@ -222,7 +225,7 @@ def _camera_scalar(ods: Any, selection: DiagnosticSelection):
 def _uv_scalar(ods: Any, selection: DiagnosticSelection):
     if not isinstance(selection.emission, str) or not selection.emission:
         raise ValueError("spectrometer_uv requires an explicit emission identity")
-    from vaft.spectroscopy import matches, parse_emission_term, parse_line_label
+    from vaft.data.spectroscopy import matches, parse_emission_term, parse_line_label
 
     container = "spectrometer_uv.channel"
     if selection.channel is None:

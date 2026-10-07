@@ -42,10 +42,17 @@ Rules, not invented tolerances (#142):
   whether an edge scan exists, and a truncated run must sit at the scan's peak
   of Re dW_edge, searched as ``dcon.F:253`` does: from ``pre_edge`` on
   (:meth:`~vaft.code.gpec.DconEdgeScan.peak_search_start`), over filled
-  entries only.
-* ``dcon_resolution``: the sign of W_t at two equilibrium resolutions. A
-  disagreement is ``indeterminate`` (the sign is not resolved), not a failure
-  of the run.
+  entries only. ``pre_edge`` counts the nominal scan points below q(psiedge),
+  which DCON takes from its cubic ``sq`` spline (``sing.f:224``,
+  ``direct.f:194``); the check evaluates the same cubic on the same nodes and
+  brackets it by its distance to the linear interpolant plus
+  ``Q_AT_PSIEDGE_ATOL``. When the two ends of that bracket start the search
+  at different entries and reach different verdicts, the status is
+  ``indeterminate``, not ``fail``: the peak was placed, the count was not.
+* ``dcon_resolution``: the sign of W_t at two equilibrium resolutions of the
+  same n. A disagreement is ``indeterminate`` (the sign is not resolved), not
+  a failure of the run; a check run at a different n is ``fail``, as in
+  ``matching_resolution``, because it is not a resolution check at all.
 * ``matching_matrices``: Δ′ exists, is finite, and is msing × msing.
 * ``matching_surfaces``: each rational surface satisfies ``q_s = m/n``; ``fail``
   when ``|n q_s - m| > 1e-6`` (exactly 0 on 398 production RDCON/STRIDE runs),
@@ -78,6 +85,7 @@ from vaft.validation.registry import CheckSpec
 
 __all__ = [
     "STABILITY_CHECKS",
+    "Q_AT_PSIEDGE_ATOL",
     "SELF_CONSISTENCY_RTOL",
     "SURFACE_IDENTITY_ATOL",
     "SURFACE_MATCH_PSI_ATOL",
@@ -110,9 +118,11 @@ STABILITY_CHECKS: dict[str, CheckSpec] = {
         _spec("verification.dcon_local_criteria", "", _PROVIDER_DCON,
               "fail on missing or non-finite evaluated D_I/D_R/C_A; a criterion switched off is not requested"),
         _spec("verification.dcon_edge", "", _PROVIDER_DCON,
-              "fail when the requested psiedge disagrees with the edge scan, or a truncated run is off the Re dW_edge peak"),
+              "fail when the requested psiedge disagrees with the edge scan, or a truncated run is off the Re dW_edge peak; "
+              "indeterminate when q(psiedge) is too close to a nominal scan point to place the search start"),
         _spec("verification.dcon_resolution", "", _PROVIDER_DCON,
-              "indeterminate when the sign of W_t differs between two resolutions; not_available without a check run"),
+              "indeterminate when the sign of W_t differs between two resolutions of the same n; "
+              "fail when the check run is a different n; not_available without a check run"),
         _spec("verification.matching_matrices", "", _PROVIDER_MATCHING,
               "fail unless Delta_prime exists, is finite and msing x msing"),
         _spec("verification.matching_surfaces", "", _PROVIDER_MATCHING,
@@ -132,6 +142,12 @@ SURFACE_IDENTITY_ATOL = 1e-6
 #: Heuristic (labelled): two resolutions' rational surfaces are the same surface
 #: when their psi_N differ by at most this.
 SURFACE_MATCH_PSI_ATOL = 1e-3
+
+#: Floor of the bracket on q(psiedge) in ``dcon_edge``. VAFT's cubic spline
+#: and DCON's ``sq`` spline share the nodes but not the boundary condition
+#: (not-a-knot vs ``"extrap"``, ``direct.f:194``); on the #792 profile they
+#: differ by ~1e-5 at psi_N 0.93, and this is one order above that.
+Q_AT_PSIEDGE_ATOL = 1e-4
 
 
 def _result(status: ValidationStatus, **fields: Any) -> dict[str, Any]:
@@ -236,8 +252,10 @@ def _dcon_local_criteria(out: Any) -> dict[str, Any]:
                    missing_or_nonfinite=problems, **fields)
 
 
-#: DCON's own defaults (dcon_mod.f:64,121,124), used when dcon.in exists but omits the key.
-_DCON_DEFAULT_PSIEDGE = 1.0
+#: DCON's own default (dcon_mod.f:124), used when dcon.in exists but omits the
+#: key. psiedge's default lives with the reader
+#: (:attr:`~vaft.code.gpec.DconEvaluation.requested_psiedge`) so the mhd_linear
+#: payload and this check name the same requested edge.
 _DCON_DEFAULT_NPERQ_EDGE = 20
 
 
@@ -259,9 +277,7 @@ def _dcon_edge(out: Any) -> dict[str, Any]:
     # truncated run, but it is never below the scan's last point.
     treatment = out.edge_treatment
     scan = out.edge_scan
-    requested = None
-    if _namelist_known(out):
-        requested = out.evaluation.psiedge if out.evaluation.psiedge is not None else _DCON_DEFAULT_PSIEDGE
+    requested = None if out.evaluation is None else out.evaluation.requested_psiedge
     fields = {"edge_treatment": treatment, "requested_psiedge": requested}
     if requested is None or out.psilim is None:
         return _result(ValidationStatus.NOT_AVAILABLE, reason="requested psiedge or psilim unknown", **fields)
@@ -277,20 +293,45 @@ def _dcon_edge(out: Any) -> dict[str, Any]:
         return _result(ValidationStatus.NOT_AVAILABLE, reason="no q profile or n to place the peak search", **fields)
     # dcon.F:253 searches dw_edge(pre_edge:i_edge): past the pre-edge entries
     # (sing.f:226-238) and over filled entries only (unfilled keep psi_edge = 0).
+    # pre_edge counts nominal points below q(psiedge) from DCON's cubic sq
+    # spline; a linear interpolant is ~1e-3 off on the mpsi grid and moves the
+    # count by one on a few per cent of psiedge values. The cubic on the same
+    # nodes is bracketed by its distance to the linear value (plus the
+    # boundary-condition floor) and the search is run from both ends.
     nperq = out.evaluation.nperq_edge or _DCON_DEFAULT_NPERQ_EDGE
-    q_at_psiedge = float(np.interp(requested, np.asarray(out.psi_n, float), np.asarray(out.q, float)))
+    grid, q = np.asarray(out.psi_n, float), np.asarray(out.q, float)
+    if grid.ndim != 1 or grid.size < 2 or not np.all(np.diff(grid) > 0):
+        return _result(ValidationStatus.NOT_AVAILABLE, reason="q profile grid is not strictly increasing", **fields)
+    from scipy.interpolate import CubicSpline
+
+    q_at_psiedge = float(CubicSpline(grid, q)(requested))
+    q_linear = float(np.interp(requested, grid, q))
+    band = max(abs(q_at_psiedge - q_linear), Q_AT_PSIEDGE_ATOL)
     first = scan.peak_search_start(q_at_psiedge, int(out.n_tor), nperq)
-    searched = (np.arange(psi.size) >= first) & (psi > 0) & np.isfinite(dw)
-    if not searched.any():
+    starts = sorted({first, *(scan.peak_search_start(q_at_psiedge + sign * band, int(out.n_tor), nperq) for sign in (-1, 1))})
+    fields.update(psilim=float(out.psilim), q_at_psiedge=q_at_psiedge, peak_search_start=first)
+    verdicts: dict[int, Optional[float]] = {}
+    for start in starts:
+        searched = (np.arange(psi.size) >= start) & (psi > 0) & np.isfinite(dw)
+        if not searched.any():
+            verdicts[start] = None
+            continue
+        verdicts[start] = float(psi[np.flatnonzero(searched)[int(np.argmax(dw[searched]))]])
+    if all(peak is None for peak in verdicts.values()):
         return _result(ValidationStatus.FAIL, reason="truncated run without a usable edge scan", **fields)
-    index = np.flatnonzero(searched)[int(np.argmax(dw[searched]))]
-    peak = float(psi[index])
-    at_peak = math.isclose(peak, float(out.psilim), rel_tol=0, abs_tol=1e-9)
+    at_peak = {start: peak is not None and math.isclose(peak, float(out.psilim), rel_tol=0, abs_tol=1e-9)
+               for start, peak in verdicts.items()}
+    if len(set(at_peak.values())) > 1:
+        return _result(
+            ValidationStatus.INDETERMINATE,
+            reason="q(psiedge) within interpolation error of a nominal scan point: the search start is ambiguous",
+            peak_search_start_bracket=starts,
+            psi_n_at_dW_peak=[verdicts[start] for start in starts],
+            **fields,
+        )
     return _result(
-        ValidationStatus.PASS if at_peak else ValidationStatus.FAIL,
-        psilim=float(out.psilim),
-        psi_n_at_dW_peak=peak,
-        peak_search_start=first,
+        ValidationStatus.PASS if at_peak[first] else ValidationStatus.FAIL,
+        psi_n_at_dW_peak=verdicts[first],
         **fields,
     )
 
@@ -298,6 +339,9 @@ def _dcon_edge(out: Any) -> dict[str, Any]:
 def _dcon_resolution(out: Any, check: Any) -> dict[str, Any]:
     if check is None:
         return _not_requested("no second-resolution run")
+    if int(check.n_tor) != int(out.n_tor):
+        return _result(ValidationStatus.FAIL, reason="check run is a different n",
+                       n_tor=[int(out.n_tor), int(check.n_tor)])
     a, b = out.total1, check.total1
     if not (_finite(a) and _finite(b)):
         return _result(ValidationStatus.NOT_AVAILABLE, reason="W_t missing in one run")
@@ -422,7 +466,8 @@ def validate_stability(
     are :class:`~vaft.code.gpec.Pest3MatchingOutput` (RDCON or STRIDE),
     likewise. Any may be None: its checks are then ``not_available`` and not
     requested, and the top-level status aggregates only the blocks given. A
-    DCON check run is the caller's to match (DconOutput records no n). The
+    check run must be the same case at another resolution: a different ``n_tor``
+    fails its resolution check (a different solver likewise, for matching). The
     report has the shape of :func:`vaft.validation.validate_equilibrium`'s::
 
         {"schema_version": 1, "status": ..., "summary": {"dcon": ..., "matching": ...},

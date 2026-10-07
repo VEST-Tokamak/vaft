@@ -148,11 +148,56 @@ def sample(shot: int, representation: str = "omas") -> Path:
     if not path.is_file():
         if record.get("package") == "repository-only":
             raise FileNotFoundError(
-                f"VAFT sample shot {int(shot)} is a repository-only {storage_name} "
-                "artifact. Clone the VAFT GitHub repository to access it."
+                _repository_only_message(int(shot), storage_name, path, representations)
             )
         raise FileNotFoundError(f"Registered VAFT sample artifact is missing: {path}")
     return path
+
+
+def _repository_only_message(
+    shot: int, storage_name: str, path: Path, representations: dict
+) -> str:
+    """Explain a repository-only sample representation that an install lacks.
+
+    Names the missing file and, when another representation of the same shot
+    is installed (the OMAS form of 39915 ships in the wheel while its IMAS
+    netCDF twin is repository-only since 0.8.0), says which adapter to use.
+    """
+    media = {
+        "imas": "IMAS netCDF",
+        "omas": "OMAS JSON",
+    }.get(storage_name, storage_name)
+    message = (
+        f"VAFT sample shot {shot} is a repository-only {storage_name} artifact: "
+        f"{path.name} ({media} form) is not included in the PyPI distribution. "
+        "Clone the VAFT GitHub repository to access it."
+    )
+    shipped = sorted(
+        name
+        for name, other in representations.items()
+        if name != storage_name and (path.parent / other["path"]).is_file()
+    )
+    if shipped:
+        message += " The shipped form of this shot loads with " + " or ".join(
+            f'representation="{name}" ({representations[name]["path"]})'
+            for name in shipped
+        ) + "."
+    return message
+
+
+def _require_shipped_fixture(path: Path) -> Path:
+    """Return ``path`` or raise a FileNotFoundError that names the unified fixture.
+
+    The unified VEST diagnostics fixture ships in the wheel since 0.8.0, so a
+    missing file means an incomplete installation, not a repository-only sample.
+    """
+    if path.is_file():
+        return path
+    raise FileNotFoundError(
+        f"{path} is missing: the unified VEST diagnostics fixture ships with vaft "
+        "(vaft/data/unified/vest_diagnostics); reinstall the package or check the "
+        "checkout, it is not a repository-only sample."
+    )
 
 
 def unified_diagnostics_manifest() -> dict:
@@ -160,7 +205,7 @@ def unified_diagnostics_manifest() -> dict:
     import hashlib
 
     root = data_path("unified/vest_diagnostics")
-    with require_repository_sample(root / "manifest.yaml").open("r", encoding="utf-8") as handle:
+    with _require_shipped_fixture(root / "manifest.yaml").open("r", encoding="utf-8") as handle:
         manifest = yaml.safe_load(handle)
     if (
         manifest.get("schema_version") != 1
@@ -218,7 +263,7 @@ def unified_diagnostics_fixture():
     from vaft.omas import load
 
     manifest = unified_diagnostics_manifest()
-    return load(data_path("unified/vest_diagnostics") / manifest["artifact"]["path"])
+    return load(_require_shipped_fixture(data_path("unified/vest_diagnostics") / manifest["artifact"]["path"]))
 
 
 def sample_geqdsk(name: str = "efit/g039915.00319"):

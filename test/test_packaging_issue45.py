@@ -70,7 +70,8 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/omas/*.json" not in package_data
     assert "data/samples/*/manifest.yaml" in package_data
     assert "data/samples/39915/omas.json.gz" in package_data
-    assert "data/samples/39915/imas.nc" in package_data
+    # the IMAS netCDF twin of the same product is repository-only (0.8.0)
+    assert "data/samples/39915/imas.nc" not in package_data
     assert "data/samples/39915/source/*" not in package_data
     assert "data/samples/41524/imas.nc" not in package_data
     assert "data/samples/41672/imas.nc" not in package_data
@@ -116,10 +117,11 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/legacy/langmuir_probe_positions.csv" in manifest
     assert "include vaft/data/samples/*/manifest.yaml" in manifest
     assert "include vaft/data/samples/39915/omas.json.gz" in manifest
-    assert "include vaft/data/samples/39915/imas.nc" in manifest
+    assert "include vaft/data/samples/39915/imas.nc" not in manifest
     assert "include vaft/data/wheel_samples/39915/manifest.yaml" in manifest
     assert "include vaft/data/wheel_samples/39915/omas.json.gz" in manifest
-    assert "include vaft/data/wheel_samples/39915/imas.nc" in manifest
+    # the hook no longer reads the compact IMAS twin, so the sdist drops it (0.8.0)
+    assert "include vaft/data/wheel_samples/39915/imas.nc" not in manifest
     assert "include vaft/data/geometry/VEST_static_geometry.json.gz" in manifest
 
 
@@ -219,12 +221,14 @@ def test_verify_dist_requires_the_runtime_data_outside_vaft_data(tmp_path):
         "vaft/code/nice/vest_reference_param.xml",
         "vaft/code/nice/upstream_compat.h",
         "vaft/diagram/templates/standalone.tex",
+        # cold review 0.8.0 plot-gui-packaging F5: image_path() raises at render time without it
+        "vaft/diagram/images/vest_machine.jpg",
     }
     assert outside <= verify_dist.REQUIRED_FILES
     for name in sorted(outside):
         assert (ROOT / name).is_file(), name
     package_data = _pyproject()["tool"]["setuptools"]["package-data"]["vaft"]
-    assert {"code/nice/*.xml", "code/nice/*.h", "diagram/templates/*.tex"} <= set(package_data)
+    assert {"code/nice/*.xml", "code/nice/*.h", "diagram/templates/*.tex", "diagram/images/*.jpg"} <= set(package_data)
 
     def wheel(without: str) -> Path:
         path = tmp_path / f"vaft-0.0-{abs(hash(without))}-py3-none-any.whl"

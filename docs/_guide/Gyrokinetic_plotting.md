@@ -89,6 +89,7 @@ In VAFT, CGYRO's input is a renaming of the TGLF local input, so a TGLF–CGYRO 
 
 These figures are built from existing Lane Y products by `workflow/gyrokinetic/build_plot_example.py`. The state is shot 39915 at 0.317 s (magnetics lineage), and the field model is EM ($A_\parallel$). The registered plots read only the IMAS IDS, never solver files.
 
+<!-- docs-snippet: skip fragment (illustrative: single_ky_odss, tglf and sat_rules are the Lane Y products that build_plot_example.py loads, not built on this page) -->
 ```python
 import vaft.omas
 from vaft.machine_mapping.gyrokinetics import merge_linear_scan

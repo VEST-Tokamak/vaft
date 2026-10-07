@@ -92,6 +92,9 @@ def _fem_payload(count: int = 1):
             },
             "ConstMHD": {
                 "Ip": np.linspace(10_000.0, 20_000.0, count),
+                # The FEM post-processing pairs Lint with the closed-surface
+                # current; equal to Ip here so the ratio is 1 unless a test sets it.
+                "IpReconstructedClosed": np.linspace(10_000.0, 20_000.0, count),
                 "Lint": np.ones(count) * 0.3,
             },
             "FluxSurface": _surfaces(count),
@@ -135,6 +138,146 @@ def test_gse_multislice_maps_profiles_flux_and_passive_wall(tmp_path):
     assert np.allclose(ods["equilibrium.vacuum_toroidal_field.b0"], [0.17, 0.17])
     assert len(ods["pf_passive.loop"]) == 2
     assert np.allclose(ods["pf_passive.loop.1.current"], [3.0, 4.0])
+
+
+def test_gse_energy_mhd_is_the_kinetic_energy_not_the_magnetic_one(tmp_path):
+    # VFIT's post-processing writes Wkin = 3/2 * <p>_V * V (IMAS energy_mhd,
+    # 3/2 int p dV) and Wmag = int Bp^2 dV / (2 mu0) (only used for Lint).
+    # Give them clearly different values so a swapped mapping cannot pass.
+    volume = np.array([0.8, 0.9])
+    mean_pressure = np.array([400.0, 600.0])
+    w_kin = 1.5 * mean_pressure * volume
+    w_mag = np.array([3_000.0, 4_000.0])
+    payload = _gse_payload()
+    payload["ProfFitShape"]["Volume"] = volume
+    payload["ProfFitConstMHD"]["Wkin"] = w_kin
+    payload["ProfFitConstMHD"]["Wmag"] = w_mag
+
+    ods = read_vfit(_write(tmp_path / "Equilibrium.mat", payload)).to_omas()
+
+    for index in range(2):
+        energy = ods[f"equilibrium.time_slice.{index}.global_quantities.energy_mhd"]
+        assert energy == pytest.approx(w_kin[index])
+        assert energy == pytest.approx(1.5 * mean_pressure[index] * volume[index])
+        assert energy != pytest.approx(w_mag[index])
+
+
+def test_gse_without_wkin_leaves_energy_mhd_unset(tmp_path):
+    payload = _gse_payload(count=1)
+    payload["ProfFitConstMHD"]["Wmag"] = 3_000.0
+
+    ods = read_vfit(_write(tmp_path / "Equilibrium.mat", payload)).to_omas()
+
+    assert "equilibrium.time_slice.0.global_quantities.energy_mhd" not in ods
+
+
+def test_gse_li_3_is_built_from_wmag_not_copied_from_lint(tmp_path):
+    # The GSE Lint is li(1) (normalised by the boundary-averaged Bp), so it
+    # must not land in li_3. IMAS li_3 = 2 int Bp^2 dV / (mu0^2 Ip^2 R0) with
+    # int Bp^2 dV = 2 mu0 Wmag and VFIT's R0 = 0.4 m.
+    mu0 = 4e-7 * np.pi
+    payload = _gse_payload()
+    ip = payload["ProfFitConstMHD"]["Ip"]
+    w_mag = np.array([30.0, 90.0])
+    payload["ProfFitConstMHD"]["Wmag"] = w_mag
+    expected = 4.0 * w_mag / (mu0 * ip**2 * 0.4)
+
+    ods = read_vfit(_write(tmp_path / "Equilibrium.mat", payload)).to_omas()
+
+    for index in range(2):
+        li_3 = ods[f"equilibrium.time_slice.{index}.global_quantities.li_3"]
+        assert li_3 == pytest.approx(expected[index])
+        assert li_3 != pytest.approx(payload["ProfFitConstMHD"]["Lint"][index])
+
+
+def test_gse_without_wmag_leaves_li_3_unset(tmp_path):
+    payload = _gse_payload(count=1)
+    del payload["ProfFitConstMHD"]["Wmag"]  # Lint (li(1)) stays
+
+    ods = read_vfit(_write(tmp_path / "Equilibrium.mat", payload)).to_omas()
+
+    assert "equilibrium.time_slice.0.global_quantities.li_3" not in ods
+
+
+def test_fem_li_3_is_renormalised_from_the_magnetic_axis_to_r0(tmp_path):
+    # The FEM Lint is already the li_3 form, but divided by Rmag instead of
+    # VFIT's 0.4 m reference radius.
+    payload = _fem_payload()
+    payload["ConstMHD"]["Lint"] = np.array([0.5])
+    payload["ConstShape"]["Rmag"] = np.array([0.48])
+
+    ods = read_vfit(_write(tmp_path / "ElementAnalysis.mat", payload)).to_omas()
+
+    assert ods["equilibrium.time_slice.0.global_quantities.li_3"] == pytest.approx(
+        0.5 * 0.48 / 0.4
+    )
+
+
+def test_fem_li_3_is_renormalised_from_the_closed_surface_current_to_ip(tmp_path):
+    """The FEM Lint is 4 W / (mu0 Ic^2 Rmag) with Ic = IpReconstructedClosed;
+    IMAS li_3 uses the slice's own ip, so the stored value carries (Ic/ip)^2
+    (cold review 0.8.0 delta-absorb-18 F1). Donor 44780 at 302 ms: ip 263.1 kA,
+    Ic 237.0 kA, Lint 1.5 at Rmag 0.4 would be read back 1.232x too large."""
+    from vaft.formula.equilibrium import internal_inductance_from_li_3_R0
+
+    payload = _fem_payload()
+    payload["ConstMHD"]["Ip"] = np.array([2.0e5])
+    payload["ConstMHD"]["IpReconstructedClosed"] = np.array([1.0e5])
+    payload["ConstMHD"]["Lint"] = np.array([0.5])
+    payload["ConstShape"]["Rmag"] = np.array([0.48])
+
+    ods = read_vfit(_write(tmp_path / "ElementAnalysis.mat", payload)).to_omas()
+
+    li_3 = ods["equilibrium.time_slice.0.global_quantities.li_3"]
+    assert li_3 == pytest.approx(0.5 * 0.48 / 0.4 * 0.5**2)  # 0.15
+    # Inverting with the slice ip, as formula_wrapper does, recovers the donor's own W_mag.
+    mu0 = 4e-7 * np.pi
+    w_donor = 0.5 * mu0 * 1.0e5**2 * 0.48 / 4.0
+    w_back = internal_inductance_from_li_3_R0(li_3, 0.4) * 2.0e5**2 / 2.0
+    assert w_back == pytest.approx(w_donor)
+    assert "li_3" not in ods["equilibrium.ids_properties.comment"]
+
+
+def test_fem_li_3_at_the_donor_302ms_slice_is_divided_by_1_232(tmp_path):
+    # The verifier's probe numbers: ip 263.1 kA, Ic 237.0 kA, stored 0.3589 before the fix.
+    payload = _fem_payload()
+    payload["ConstMHD"]["Ip"] = np.array([263.1e3])
+    payload["ConstMHD"]["IpReconstructedClosed"] = np.array([237.0e3])
+    payload["ConstShape"]["Rmag"] = np.array([0.4])
+    payload["ConstMHD"]["Lint"] = np.array([0.3589])
+
+    ods = read_vfit(_write(tmp_path / "ElementAnalysis.mat", payload)).to_omas()
+
+    assert ods["equilibrium.time_slice.0.global_quantities.li_3"] == pytest.approx(
+        0.3589 / 1.232, rel=2e-3
+    )
+
+
+@pytest.mark.parametrize("closed", [0.0, None])
+def test_fem_li_3_is_unset_with_a_note_when_the_closed_current_is_zero_or_absent(tmp_path, closed):
+    # Donor 44780 at 296 ms: IpReconstructedClosed 0.0 kA, Lint 2.1e9. Not invertible.
+    payload = _fem_payload()
+    if closed is None:
+        del payload["ConstMHD"]["IpReconstructedClosed"]
+    else:
+        payload["ConstMHD"]["IpReconstructedClosed"] = np.array([closed])
+    payload["ConstMHD"]["Lint"] = np.array([2.1e9])
+
+    ods = read_vfit(_write(tmp_path / "ElementAnalysis.mat", payload)).to_omas()
+
+    assert "equilibrium.time_slice.0.global_quantities.li_3" not in ods
+    assert "li_3 left unset at t=0.3000 s" in ods["equilibrium.ids_properties.comment"]
+
+
+def test_fem_li_3_outside_the_sanity_window_is_unset_with_a_note(tmp_path):
+    payload = _fem_payload()
+    payload["ConstMHD"]["IpReconstructedClosed"] = np.array([1.0e4])
+    payload["ConstMHD"]["Lint"] = np.array([2.1e9])  # 2.1e9 * 0.15 / 0.4 * 1 = 7.9e8
+
+    ods = read_vfit(_write(tmp_path / "ElementAnalysis.mat", payload)).to_omas()
+
+    assert "equilibrium.time_slice.0.global_quantities.li_3" not in ods
+    assert "outside (0, 10)" in ods["equilibrium.ids_properties.comment"]
 
 
 def test_fem_omits_unavailable_pressure_and_appends(tmp_path):

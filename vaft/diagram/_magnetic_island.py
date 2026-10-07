@@ -701,7 +701,7 @@ def magnetic_island(
         each time of ``time``, its phase advancing as
         $\phi_0(t) = \phi_0 + 2\pi f\,(t - t_0)$ from ``phase`` at the first
         time.  ``f`` is a frequency in Hz -- the rotation of #886
-        (:class:`vaft.process.magnetic_island.IslandSpec`) takes the angular
+        (:class:`vaft.process.magnetic_island.MagneticIslandSpec`) takes the angular
         frequency $\omega = 2\pi f$ in rad/s.  A positive ``f`` moves the
         O-points towards $+\theta^*$ on a section, and towards $-\phi$
         (clockwise seen from above) at fixed $\theta^*$.  The geometry of

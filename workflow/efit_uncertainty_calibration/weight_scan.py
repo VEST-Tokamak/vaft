@@ -624,7 +624,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.bases and args.stage != 4:
         parser.error("--bases applies to --stage 4 only")
     if args.settings and args.stage in (3, 4):
-        parser.error("--settings applies to stages 1, 2 and 5; stages 3 and 4 solve their own")
+        parser.error("--settings applies to stages 1, 2, 5 and 6; stages 3 and 4 solve their own")
 
     _INPUTS.update(products_dir=args.products_dir, thomson_root=args.thomson_root)
     ctx = _context(args.efit_home)

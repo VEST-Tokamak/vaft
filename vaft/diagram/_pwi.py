@@ -18,7 +18,7 @@ Level 0 of the issue's enrichment: semantics only. No reflection or
 sputtering coefficient, threshold or yield is drawn unless computed from a
 ``vaft.formula.pwi`` relation with inputs the caller supplies (a threshold
 needs the surface binding energy). Projectile and target species are checked
-against :mod:`vaft.spectroscopy`'s element vocabulary and kept visually apart
+against :mod:`vaft.data.atomic`'s element vocabulary and kept visually apart
 (projectile blue, target dark).
 """
 
@@ -35,7 +35,7 @@ from vaft.formula.pwi import (
     recycling_coefficient,
     sputtering_threshold_bohdansky,
 )
-from vaft.spectroscopy import ATOMIC_NUMBERS, parse_species
+from vaft.data.atomic import ATOMIC_NUMBERS, parse_species
 
 from ._concept import box, connector
 from ._equations import formula_equation
@@ -76,7 +76,7 @@ def _species(name) -> str:
     """The element symbol (D and T kept as isotopes of hydrogen, named as such) of a species name."""
     sp = parse_species(name)
     if sp is None or sp.element not in ATOMIC_NUMBERS:
-        raise ValueError(f"{name!r} is not a species vaft.spectroscopy recognises")
+        raise ValueError(f"{name!r} is not a species vaft.data.atomic recognises")
     if sp.element == "H" and sp.mass_number in (2, 3):
         return {2: "D", 3: "T"}[sp.mass_number]
     return sp.element

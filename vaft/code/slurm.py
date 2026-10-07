@@ -103,6 +103,10 @@ SCRATCH_DIRECTORY = ".vaft-slurm"
 _MODES = ("auto", "step", "batch")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _SCHEDULER_PREFIXES = ("SLURM_", "SBATCH_", "SRUN_")
+#: What ``ExecutionRequest.label`` may look like: it names the scratch
+#: directory (and the remote staging directory), so it is one path component
+#: with no separators, no ``..`` and nothing a shell or sbatch could misread.
+_LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 #: An sbatch error that means the controller was never reached, so the job
 #: cannot have been accepted and resubmitting cannot duplicate it.
 _UNREACHED = ("Unable to contact slurm controller",)
@@ -133,6 +137,22 @@ def exported_environment(overlay: Mapping[str, str], parent: Optional[Mapping[st
         and not str(key).startswith(_SCHEDULER_PREFIXES)
         and parent.get(str(key)) != str(value)
     }
+
+
+def _scratch_name(label: str) -> str:
+    """The directory name for one run: the request's label and a fresh suffix.
+
+    The label is spliced into a path that is created, written and -- by the
+    remote backend -- ``rm -rf``'d, so anything but a single plain component
+    is refused here rather than resolved somewhere else.
+    """
+    label = str(label or "")
+    if label and not _LABEL.match(label):
+        raise ValueError(
+            f"ExecutionRequest.label must be one path component of letters, digits, '.', '_' "
+            f"and '-' starting with a letter or digit, got {label!r}"
+        )
+    return f"{label or 'job'}-{uuid.uuid4().hex[:8]}"
 
 
 def _submission_environment() -> dict[str, str]:
@@ -611,7 +631,7 @@ class SlurmBackend:
     def _run_batch(self, request: ExecutionRequest) -> ExecutionResult:
         sbatch = self._tool("sbatch")
         workdir = Path(request.workdir).resolve()
-        scratch = workdir / SCRATCH_DIRECTORY / f"{request.label or 'job'}-{uuid.uuid4().hex[:8]}"
+        scratch = workdir / SCRATCH_DIRECTORY / _scratch_name(request.label)
         scratch.mkdir(parents=True)
         stdin = None
         if request.stdin is not None:

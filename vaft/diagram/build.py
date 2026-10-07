@@ -40,9 +40,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         for projection in ("poloidal", "top", "3d")
     },
     # stability and operational-space charts, at their documented defaults
-    **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
+    **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
     # reduced stability diagnostics (#1635)
     **{f"{name}.svg": (name, {}) for name in ("stability_diagnostic_taxonomy", "interchange_criteria")},
+    "ballooning_formulation_hierarchy.svg": ("ballooning_formulation_hierarchy", {}),  # #1637
     **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},
     # single-particle motion
     **{f"{name}.svg": (name, {}) for name in ("exb_drift", "curvature_drift", "magnetization_current",
@@ -66,6 +67,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings (#1627)
     "ordering_contract_map.svg": ("ordering_contract_map", {}),
     "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
+    # reduced physical representations (#1626)
+    "reduced_representation_hierarchy.svg": ("reduced_representation_hierarchy", {}),
+    **{f"reduction_graph_{f}.svg": ("reduction_graph", {"family": f})
+       for f in ("current_q", "pressure_energy", "kinetic_profiles", "dimensionless_similarity")},
     # tokamak geometry and flux coordinates
     **{f"tokamak_torus_{p}.svg": ("tokamak_torus", {"projection": p}) for p in ("3d", "poloidal")},
     **{f"flux_surfaces_{s}.svg": ("flux_surfaces", {"shape": s}) for s in ("circular", "shifted")},
@@ -120,6 +125,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for p in ("monotonic", "reversed_shear")},
     **{f"rational_surface_topology_{p}.svg": ("rational_surface_topology", {"profile": p})
        for p in ("monotonic", "reversed_shear")},
+    # current diffusion and current drive (#1605)
+    "current_diffusion.svg": ("current_diffusion", {}),
+    **{f"current_drive_profiles_{d}.svg": ("current_drive_profiles", {"deposition": d})
+       for d in ("off_axis", "on_axis")},
     # canonical field configurations, reconnection topology and ideal-MHD waves (#1063)
     **{f"slab_field_configuration_{k}.svg": ("slab_field_configuration", {"kind": k})
        for k in ("uniform", "sheared", "reversed", "guide")},
@@ -224,11 +233,16 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # the VEST data platform: reference view and compact companion (#1550)
     "vest_data_platform.svg": ("vest_data_platform", {}),
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
+    "software_dependency_ecosystem.svg": ("software_dependency_ecosystem", {}),
+    "external_code_integration.svg": ("external_code_integration", {}),
     # the physics-workflow spine, level 2 below the platform overview (#1585)
     **{f"{name}.svg": (name, {}) for name in (
         "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
         "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
         "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport")},
+    # plasma parameter inference: architecture and provenance (#1601)
+    "parameter_inference_overview.svg": ("parameter_inference_overview", {"references": True}),
+    "parameter_inference_dependency_graph.svg": ("parameter_inference_dependency_graph", {"references": True}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),

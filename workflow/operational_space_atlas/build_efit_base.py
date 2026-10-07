@@ -32,6 +32,8 @@ CROSSCHECK_RTOL; the MANIFEST counts the rows that disagree.
 The slice is matched to ``equilibrium.time`` by time (1 us: the state times come
 from the same product, so a neighbouring slice must never stand in), never by
 index; a row whose time has no slice is kept with ``base_status = time_unmatched``.
+``vacuum_toroidal_field.b0`` is paired with the slice on the same ``equilibrium.time`` base (or stored once for a
+constant field); a product whose ``b0`` has any other length gives ``base_status = failed`` and no values.
 The product's sha256 is checked against the state's ``efit_product_sha256``; a
 regenerated product gives ``base_status = product_changed`` and no values. Lane K's state columns (labels, R_p) are carried
 through unchanged. Nothing is written outside ``--out``.
@@ -127,7 +129,9 @@ def _bp2_volume_integral(ods, k: int) -> float:
     rr, zz = np.meshgrid(r, z, indexing="ij")
     outline = np.c_[np.asarray(ods[f"{ts}.boundary.outline.r"]), np.asarray(ods[f"{ts}.boundary.outline.z"])]
     inside = _Path(outline).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
-    dv = 2.0 * np.pi * rr * (r[1] - r[0]) * (z[1] - z[0])
+    # Per-cell widths: the DD allows a non-equispaced grid, and a stretched grid with
+    # the first spacing applied everywhere gave a fraction of the integral.
+    dv = 2.0 * np.pi * rr * np.gradient(r)[:, None] * np.gradient(z)[None, :]
     return float(np.sum((dpsi_dr**2 + dpsi_dz**2) / rr**2 * dv * inside))
 
 
@@ -184,7 +188,18 @@ def _row(ods, t_s: float) -> dict:
     a, r_geo = pick("minor_radius"), pick("major_radius")
     area = pick("cross_section_area")
     b0_all = np.atleast_1d(np.asarray(ods["equilibrium.vacuum_toroidal_field.b0"], dtype=float))
-    b0 = abs(float(b0_all[min(k, b0_all.size - 1)]))   # a constant field is stored once
+    # b0 lives on equilibrium.time (IMAS DD: vacuum_toroidal_field.b0[time]); a constant field may be stored
+    # once. Any other length is a base this slice cannot be paired with: refuse it rather than index-clamp.
+    if b0_all.size == 1:
+        b0 = abs(float(b0_all[0]))
+    elif b0_all.size == times.size:
+        b0 = abs(float(b0_all[k]))
+    else:
+        return {"base_status": "failed", "dt_slice_s": dt,
+                "base_reason": f"vacuum_toroidal_field.b0 has {b0_all.size} entries for {times.size} equilibrium times"}
+    if not np.isfinite(b0):
+        return {"base_status": "failed", "dt_slice_s": dt,
+                "base_reason": f"vacuum_toroidal_field.b0 is not finite at slice {k} (t = {times[k]:.4g} s)"}
     r0 = float(ods["equilibrium.vacuum_toroidal_field.r0"])
     kappa_a = area / (math.pi * a * a)
     b_geo = b0 * r_ref / r_geo  # vacuum field at R_geo, from the field at the resolved reference radius

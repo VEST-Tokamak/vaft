@@ -75,9 +75,10 @@ def test_the_catalog_counts_the_known_public_surface():
         # #351 added the dimensionless-to-engineering inverse map: 97 + 1 = 98.
         # #670 moved neo-Alcator, Goldston L-mode and their quadrature in: 101 + 3 = 104.
         # #1713 added confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
-        "equilibrium": 105,  # +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        # #1691 added the volume beta and its normalized form: 105 + 2 = 107.
+        "equilibrium": 110,  # +volume-radius shear and Miller alpha (#1637), +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
-        "stability": 44,  # +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
+        "stability": 45,  # +ggj_resistive_interchange_index_from_ideal (#939), +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
         "atomic": 11,  # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046), +mean square charge, transient abundances, coronal relaxation time (#1565)
         "statistics": 22,
@@ -99,7 +100,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # internal inductive-voltage splits: 30 + 2 = 32.
         "startup": 32,
         "particle": 13,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
-        "geometry": 15,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063), +enclosed current, flux, l_i (#1604)
+        "geometry": 16,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063), +enclosed current, flux, l_i (#1604), +current diffusion (#1605)
         "ripple": 6,  # TF ripple field and orbit consequences (#1070)
         "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
         "nbi": 6,  # beam rate, attenuation, birth density, shine-through, momentum rate (#1136)
@@ -108,11 +109,13 @@ def test_the_catalog_counts_the_known_public_surface():
         "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951), MARFE (#1209), blobs (#1211)
         "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
         "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
-        "boundaries": 13,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580)
+        "boundaries": 14,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580), +spherical-tokamak Hugill coordinates (#1602)
         "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
         "dimensional": 7,  # dimension matrix, exact null space, Pi groups, basis change, similarity constraints (#1621)
         "sensitivity": 5,  # finite-difference Jacobian, J Sigma J^T, Monte Carlo, SVD spectrum, linearity ratio (#1642)
         "ordering": 13,  # asymptotic ordering parameters (#1627)
+        "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure (#1606)
+        "kinetic": 2,  # electron collision time and electron-ion energy exchange, multi-species (#1606)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
@@ -217,7 +220,8 @@ def test_the_star_import_neither_loads_nor_binds_the_catalog():
 
 def test_touching_describe_loads_the_catalog_and_nothing_physical():
     loaded = _loaded_after("import vaft.formula; vaft.formula.describe")
-    assert loaded == {"vaft.formula.catalog", "vaft.formula._docstring"}
+    # _taxonomy is the Reduction vocabulary (#1626): pure tuples, no physics
+    assert loaded == {"vaft.formula.catalog", "vaft.formula._docstring", "vaft.formula._taxonomy"}
 
 
 def test_describing_one_formula_imports_only_its_category():
@@ -226,6 +230,7 @@ def test_describing_one_formula_imports_only_its_category():
     assert loaded == {
         "vaft.formula.catalog",
         "vaft.formula._docstring",
+        "vaft.formula._taxonomy",
         "vaft.formula.constants",
         "vaft.formula.utils",
         "vaft.formula.stability",
@@ -308,7 +313,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
     "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
-    "definitions",
+    "definitions", "reduction",
 }
 
 

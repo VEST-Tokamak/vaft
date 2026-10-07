@@ -64,7 +64,10 @@ _SUBMODULES = {
     "confinement": ".confinement",
     "impurity": ".impurity",
     "species": ".species",
+    "kinetic_closure": ".kinetic_closure",
     "zeff_projection": ".zeff_projection",
+    "mode_frequency": ".mode_frequency",
+    "mhd_stability": ".mhd_stability",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -125,8 +128,17 @@ _IMPORT_ORDER = (
     # Canonical species/population state and its projections (#1567); nothing it
     # exports collides.
     "species",
+    # Dilution-aware pressure and the classical fast-ion baseline (#1606); nothing
+    # it exports collides.
+    "kinetic_closure",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
+    # Predicted mode-frequency tracks from rotation at q = m/n (#460); nothing
+    # it exports collides.
+    "mode_frequency",
+    # DCON local-criterion and edge-scan post-processing from the ODS payload
+    # (#940); nothing it exports collides.
+    "mhd_stability",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
