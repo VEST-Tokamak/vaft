@@ -26,8 +26,10 @@ _ALLOWED_DATA_FILES = {
     "legacy/sxr_te_ratio_be_al.csv",
     "legacy/langmuir_probe_positions.csv",
     "samples/39915/manifest.yaml",
+    # The IMAS netCDF twin of the same product (samples/39915/imas.nc) is
+    # repository-only since 0.8.0: listing it here would both require it
+    # and allow it, and the wheel went over its size budget carrying it.
     "samples/39915/omas.json.gz",
-    "samples/39915/imas.nc",
     "samples/41524/manifest.yaml",
     "samples/40600/manifest.yaml",
     "samples/41672/manifest.yaml",

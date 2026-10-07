@@ -70,7 +70,8 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/omas/*.json" not in package_data
     assert "data/samples/*/manifest.yaml" in package_data
     assert "data/samples/39915/omas.json.gz" in package_data
-    assert "data/samples/39915/imas.nc" in package_data
+    # the IMAS netCDF twin of the same product is repository-only (0.8.0)
+    assert "data/samples/39915/imas.nc" not in package_data
     assert "data/samples/39915/source/*" not in package_data
     assert "data/samples/41524/imas.nc" not in package_data
     assert "data/samples/41672/imas.nc" not in package_data
@@ -116,7 +117,7 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/legacy/langmuir_probe_positions.csv" in manifest
     assert "include vaft/data/samples/*/manifest.yaml" in manifest
     assert "include vaft/data/samples/39915/omas.json.gz" in manifest
-    assert "include vaft/data/samples/39915/imas.nc" in manifest
+    assert "include vaft/data/samples/39915/imas.nc" not in manifest
     assert "include vaft/data/wheel_samples/39915/manifest.yaml" in manifest
     assert "include vaft/data/wheel_samples/39915/omas.json.gz" in manifest
     assert "include vaft/data/wheel_samples/39915/imas.nc" in manifest
