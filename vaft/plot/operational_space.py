@@ -96,7 +96,11 @@ ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)", "cheng_1987_li_qa
 BOUNDARY_NAMES = {
     "freidberg_2008_kink_qstar": "External kink limit",
     "freidberg_2008_kink_current": "Freidberg kink current limit",
-    "troyon": "Troyon limit",
+    "troyon": "Troyon (ideal MHD, no wall)",
+    "strait_1988_diiid_beta_n_envelope": "DIII-D",
+    "taylor_1995_diiid_beta_n_record": "DIII-D, wall-stabilised",
+    "garstka_2002_st_beta_n_reference": "ST (START, PEGASUS)",
+    "sabbagh_2006_nstx_beta_n_record": "NSTX, wall-stabilised",
     "wesson_1989_jet_li_qpsi_lower": "Kink / double-tearing limit",
     "wesson_1989_jet_li_qpsi_upper": "Density-limit disruptions",
     "cheng_1987_li_qa_lower": "Lower: ideal external kink",
@@ -244,6 +248,68 @@ def _boundary_label(curve: _b.BoundaryCurve) -> str:
 
     fixed = ", ".join(f"{symbol(k)}={v:.3g}" for k, v in curve.fixed.items())
     return textwrap.fill(curve.key + (f" ({fixed})" if fixed else ""), width=44, subsequent_indent="  ")
+
+
+#: How a relation that is not a limit is drawn (#1691): no forbidden side and no "Stable" zone, a line style and a
+#: legend word per ``Boundary.kind``. A threshold reference also names its registered value in the legend.
+REFERENCE_KINDS = {
+    "stability_reference": ("-", "stability reference"),
+    "experimental_envelope": ("--", "envelope"),
+    "experimental_achievement": (":", "record"),
+    "reduced_comparator": ("-.", "reduced comparator"),
+}
+#: Short names written along a reference line, followed by its registered value (the legend has the full name).
+REFERENCE_SHORT_NAMES = {
+    "troyon": "Troyon",
+    "strait_1988_diiid_beta_n_envelope": "DIII-D",
+    "taylor_1995_diiid_beta_n_record": "DIII-D record",
+    "garstka_2002_st_beta_n_reference": "ST",
+    "sabbagh_2006_nstx_beta_n_record": "NSTX",
+}
+
+
+def _kind(key: str) -> str:
+    return getattr(_b.get_boundary(key), "kind", "limit")
+
+
+def _reference_label(curve: _b.BoundaryCurve, suffix: str = "") -> str:
+    """``{name}, {target} = {value}: {kind word}``: the value from the registry, not the renderer; the basis only
+    when it is not empirical (an experimental level is empirical by its kind)."""
+    entry = _b.get_boundary(curve.key)
+    value = f", {_math(entry.target.symbol)} = {entry.coefficient:.3g}" if entry.form == "threshold" else ""
+    basis = "" if _basis_word(entry) == "Empirical" else f" ({_basis_word(entry)})"
+    evidence = entry.applicability.evidence_ranges if entry.applicability is not None else {}
+    span = next(iter(evidence.values())) if evidence else None
+    shown = "" if span is None else " (◆ its discharge)" if span[0] == span[1] else " (heavy: source data)"
+    if entry.kind in ("experimental_envelope", "experimental_achievement"):
+        # another machine's operating level is not calibrated on this population by construction, so its
+        # applicability status says nothing new; it stays in ax.vaft_applicability, out of the legend
+        suffix = ""
+    return textwrap.fill(f"{BOUNDARY_NAMES.get(curve.key, curve.key)}{value}: {REFERENCE_KINDS[entry.kind][1]}"
+                         f"{basis}{shown}{suffix}", width=46, subsequent_indent="  ")
+
+
+def _draw_reference(ax, curve: _b.BoundaryCurve, x_name: str, color: str, linewidth: float, label=None) -> None:
+    """A reference line: whole where the source gives no evidence range on this x axis; otherwise light (an
+    extrapolated reference slope) with the evidence range heavy, or a marker where the evidence is one point."""
+    entry = _b.get_boundary(curve.key)
+    style = REFERENCE_KINDS[entry.kind][0]
+    evidence = (entry.applicability.evidence_ranges if entry.applicability is not None else {}).get(x_name)
+    cx, cy = np.asarray(curve.x, dtype=float), np.asarray(curve.y, dtype=float)
+    if evidence is None:
+        ax.plot(cx, cy, color=color, linewidth=linewidth, linestyle=style, label=label, zorder=2)
+        return
+    ax.plot(cx, cy, color=color, linewidth=0.6 * linewidth, linestyle=style, alpha=0.45, label=label, zorder=2)
+    low, high = (-np.inf if evidence[0] is None else evidence[0]), (np.inf if evidence[1] is None else evidence[1])
+    ok = np.isfinite(cx) & np.isfinite(cy)
+    if low == high:
+        order = np.argsort(cx[ok])
+        ax.plot([low], [np.interp(low, cx[ok][order], cy[ok][order])], marker="D", color=color,
+                markersize=2.6 * linewidth, markeredgecolor="black", markeredgewidth=0.5, linestyle="none", zorder=4)
+        return
+    inside = ok & (cx >= low) & (cx <= high)
+    ax.plot(np.where(inside, cx, np.nan), np.where(inside, cy, np.nan), color=color, linewidth=1.4 * linewidth,
+            linestyle=style, zorder=3)
 
 
 def _basis_word(entry) -> str:
@@ -931,6 +997,14 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         c = BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)]
         applicability[curve.key] = applicability_status(curve, rows, (x, y), machine_class)
         suffix = _status_suffix(*applicability[curve.key])
+        if _kind(curve.key) in REFERENCE_KINDS:   # a reference, not a limit: no forbidden side (#1691)
+            _draw_reference(ax, curve, proj.x.name, c, 1.6 * line_scale,
+                            label=None if inline else _reference_label(curve, suffix))
+            if inline:
+                from matplotlib.lines import Line2D
+                patches.append(Line2D([], [], color=c, linestyle=REFERENCE_KINDS[_kind(curve.key)][0],
+                                      linewidth=1.6 * line_scale, label=_reference_label(curve, suffix)))
+            continue
         reference = curve.key in REFERENCE_ONLY and (
             inline or proj.key in REFERENCE_PROJECTIONS or _is_spherical(machine_class))
         ax.plot(curve.x, curve.y, color=c, linewidth=1.6 * line_scale, linestyle="--" if reference else "-",
@@ -995,12 +1069,16 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
     if inline and plan.curves:
         for i, curve in enumerate(plan.curves):
             name = ALONG_LINE_NAMES.get(curve.key, BOUNDARY_NAMES.get(curve.key, curve.key))
+            entry = _b.get_boundary(curve.key)
+            if entry.kind in REFERENCE_KINDS and entry.form == "threshold":   # short: the legend has the full name
+                name = f"{REFERENCE_SHORT_NAMES.get(curve.key, entry.target.symbol)} {entry.coefficient:.3g}"
             _label_along(ax, curve, name, BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
-        limits = [curve for curve in plan.curves if curve.key not in REFERENCE_ONLY]
+        limits = [curve for curve in plan.curves
+                  if curve.key not in REFERENCE_ONLY and _kind(curve.key) not in REFERENCE_KINDS]
         words = {_allowed_word(_b.get_boundary(curve.key)) for curve in limits}
         if limits:
             _label_allowed_zone(ax, limits, xs, ys, " / ".join(sorted(words)),
-                                avoid=[curve for curve in plan.curves if curve.key in REFERENCE_ONLY])
+                                avoid=[curve for curve in plan.curves if curve not in limits])
     if trajectories:
         def colour_of(row):
             if color is None:

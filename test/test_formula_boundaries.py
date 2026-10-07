@@ -701,3 +701,35 @@ def test_takizuka_gamma_is_an_explicit_keyword_spanning_the_published_range():
     for outside in (-0.1, 1.1):
         with pytest.raises(ValueError, match="gamma"):
             B._takizuka_2004_threshold(**kw, gamma=outside)
+
+
+# Experimental beta references on the Troyon plane (#1691): references, not limits
+BETA_REFERENCES = {"strait_1988_diiid_beta_n_envelope": ("experimental_envelope", 3.5),
+                   "taylor_1995_diiid_beta_n_record": ("experimental_achievement", 4.3),
+                   "garstka_2002_st_beta_n_reference": ("experimental_envelope", 6.0),
+                   "sabbagh_2006_nstx_beta_n_record": ("experimental_achievement", 7.2)}
+
+
+@pytest.mark.parametrize("key", sorted(BETA_REFERENCES))
+def test_the_experimental_beta_references_are_registered_as_references(key):
+    entry = B.get_boundary(key)
+    kind, value = BETA_REFERENCES[key]
+    assert entry.kind == kind and entry.coefficient == pytest.approx(value)
+    assert entry.target.name == "normalized_beta" and entry.form == "threshold"
+    assert entry.applicability.machine_class and entry.sources and "Verification level" in entry.notes
+
+
+def test_troyon_is_a_stability_reference_and_limits_stay_limits():
+    assert B.get_boundary("troyon").kind == "stability_reference"
+    assert B.get_boundary("greenwald").kind == "limit"
+
+
+def test_an_unknown_kind_is_refused():
+    with pytest.raises(ValueError, match="kind"):
+        dataclasses.replace(B.get_boundary("troyon"), kind="universal_limit")
+
+
+def test_the_diiid_record_carries_its_discharge_as_a_single_evidence_point():
+    evidence = B.get_boundary("taylor_1995_diiid_beta_n_record").applicability.evidence_ranges
+    low, high = evidence["normalized_current"]
+    assert low == high == pytest.approx(12.6 / 4.3)   # discharge 80108: beta_T 12.6 % at beta_N 4.3
