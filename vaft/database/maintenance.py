@@ -147,7 +147,7 @@ def strip_impa_from_source(
 
     name = _sources.resolve(source, writable=True)
     shot = int(shot)
-    ods = load_source(shot, source=name, paths=["magnetics"])
+    ods = load_source(shot, source=name, paths=["magnetics"], cache="off")
     residue = inspect_impa_residue(ods)
     report: dict[str, Any] = {
         "shot": shot,
