@@ -149,6 +149,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
     "test_public_confinement.py",
+    "test_public_pr08_mhd_state.py",
     "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
