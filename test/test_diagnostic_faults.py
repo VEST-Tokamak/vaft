@@ -41,8 +41,10 @@ def test_the_gauge_change_is_a_calibration_not_a_fault_record():
     assert all(f["ids"] != "barometry" for f in known_diagnostic_faults(48224))
 
 
-def _write(tmp_path, entries):
-    path = tmp_path / "vest.yaml"
+def _write(tmp_path, entries, name="vest.yaml"):
+    # one file per document: the policy cache is keyed on (path, mtime), and a
+    # rewrite within the clock's resolution (Windows) would read the old one
+    path = tmp_path / name
     path.write_text(yaml.safe_dump({"diagnostic_faults": entries}))
     return str(path)
 
@@ -63,9 +65,9 @@ def test_an_entry_naming_the_wrong_label_is_refused(tmp_path):
 
 def test_an_unknown_kind_or_ids_is_refused(tmp_path):
     with pytest.raises(VestConfigurationError, match="kind"):
-        known_diagnostic_faults(10, info_file=_write(tmp_path, [BASE | {"kind": "broken"}]))
+        known_diagnostic_faults(10, info_file=_write(tmp_path, [BASE | {"kind": "broken"}], "kind.yaml"))
     with pytest.raises(VestConfigurationError, match="no record check"):
-        known_diagnostic_faults(10, info_file=_write(tmp_path, [BASE | {"ids": "tf"}]))
+        known_diagnostic_faults(10, info_file=_write(tmp_path, [BASE | {"ids": "tf"}], "ids.yaml"))
 
 
 def test_a_barometry_entry_must_name_the_main_gauge_field(tmp_path):

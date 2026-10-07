@@ -735,6 +735,32 @@ family $j \propto (1 - x^2)^\nu$ and `cylindrical_rational_surfaces` the monoton
 plots of a current profile. The data-side counterparts are `vaft.plot.equilibrium_profile_j_tor` and
 `equilibrium_profile_q` (#1505).
 
+## Current diffusion and current drive
+
+How the current-density and safety-factor profiles above form in time (#1605). Both diagrams evolve one
+reduced model: the enclosed current $I(\rho, t)$ of a straight cylinder under
+`cylindrical_current_diffusion_rate` (Faraday, Ampère and Ohm's law with a non-inductive source
+$j_\mathrm{ni}$), integrated implicitly. The resistivity is a fixed Spitzer
+$\eta(\rho)$ (`spitzer_resistivity_from_T_e_Z_eff_ln_Lambda`) on a hot-core, cold-edge $T_e(\rho)$, and
+time is in units of the core `resistive_diffusion_time` $\tau_R = \mu_0 a^2/\eta(0)$. The profiles are
+representative, not universal: there is no transport, bootstrap current or toroidal geometry.
+
+```python
+vaft.diagram.current_diffusion()
+vaft.diagram.current_drive_profiles(deposition="off_axis")   # or "on_axis"
+```
+
+![current diffusion]({{ '/assets/diagrams/current_diffusion.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![current drive, off axis]({{ '/assets/diagrams/current_drive_profiles_off_axis.svg' | relative_url }}) | ![current drive, on axis]({{ '/assets/diagrams/current_drive_profiles_on_axis.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `current_diffusion` | A fast ohmic ramp, $t_\mathrm{ramp} = 0.01\,\tau_R \ll \tau_R$ (the ordering of a fast ramp such as VEST's; the ratio is illustrative), leaves the current in an off-axis shell, depleted at the cold edge: hollow $j_\phi$, $q_{\min}$ off axis and $s < 0$ inside it. The current then penetrates and relaxes towards $j_\phi \propto 1/\eta$ with one $E_\phi$ across the radius. The relaxed profile is peaked only because the core is hotter; with a uniform $\eta$ (dashed) the same diffusion relaxes to a flat current |
+| `current_drive_profiles` | Ohmic, ECCD and NBCD rows: actuator, the source $j_\mathrm{drive}(\rho)$ it drives, the total $j_\phi(\rho, t)$ before, shortly after and long after switch-on, and $q(\rho, t)$. The driven source persists where it is deposited while the ohmic current around it readjusts resistively; the source itself does not diffuse. ECCD is narrow and modifies the local shear; NBCD is broad. NBI's pressure, rotation, fast-ion and bootstrap effects and counter-drive are not drawn |
+
 ## Field configurations, reconnection and MHD waves
 
 The canonical slab configurations, the topology of reconnection, and the linear ideal-MHD waves.
@@ -966,7 +992,7 @@ vaft.diagram.disruption_energy_pathways()
 | `disruption_timeline` | A 0-D reference model built from the formulas. A prescribed thermal quench raises the Spitzer $\eta$. The L/R current quench then induces $E_\parallel \approx 10^3E_c$ ($\approx 2\,\%$ of $E_D$). A Dreicer seed of a few kA is multiplied about 25-fold by the avalanche (at 1 MA, only a few e-folds) into a runaway plateau. Magnitudes are illustrative: no universal waveform |
 | `disruption_causal_chain` | The same sequence as cause and effect, each arrow labelled by its formula |
 | `runaway_generation` | The avalanche rate (per runaway) and the Dreicer rate (per electron) against $E/E_c$. The normalisations differ, so the two magnitudes are not compared. Nothing runs away below $E_c$, and Dreicer is drawn only within its asymptotic range, $E \le 0.1E_D$. Hot-tail seeding is not drawn |
-| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `stored_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
+| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `thermal_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
 
 ## Vertical displacement events: hot and cold VDE, halo currents
 

@@ -49,6 +49,8 @@ _SUBMODULES = {
     "dimensional": ".dimensional",
     "sensitivity": ".sensitivity",
     "ordering": ".ordering",
+    "fast_ion": ".fast_ion",
+    "kinetic": ".kinetic",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -86,6 +88,8 @@ _IMPORT_ORDER = (
     "dimensional",
     "sensitivity",
     "ordering",
+    "fast_ion",
+    "kinetic",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in
