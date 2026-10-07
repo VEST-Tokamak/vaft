@@ -7045,10 +7045,13 @@ def _build_romero_balance(ods: Any, **options: Any) -> Panels:
         # negative-current shot would enlarge |I_p - I_ni| instead of reducing it.
         ip = np.asarray([_get(ods, f"equilibrium.time_slice.{int(i)}.global_quantities.ip")
                          for i in out["time_index"]], dtype=float)
-        if np.any(np.sign(ip) != np.sign(i_ni)) or abs(i_ni) >= np.min(np.abs(ip)):
+        # The orientation check is the np.sign comparison; the magnitude is a
+        # bound on I_ni only and never replaces the signed I_p.
+        ip_magnitude = np.abs(ip)
+        if np.any(np.sign(ip) != np.sign(i_ni)) or abs(i_ni) >= ip_magnitude.min():
             raise ValueError(
                 f"non_inductive_current={i_ni:g} A must carry the sign of I_p and stay below |I_p| "
-                f"in the window ({np.min(np.abs(ip)):.4g}-{np.max(np.abs(ip)):.4g} A, sign {np.sign(ip[0]):+g})"
+                f"in the window ({ip_magnitude.min():.4g}-{ip_magnitude.max():.4g} A, sign {np.sign(ip[0]):+g})"
             )
     r_p = _romero_resistance(options.get("plasma_resistance"), t.size)
     given = None
