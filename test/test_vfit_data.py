@@ -137,6 +137,37 @@ def test_gse_multislice_maps_profiles_flux_and_passive_wall(tmp_path):
     assert np.allclose(ods["pf_passive.loop.1.current"], [3.0, 4.0])
 
 
+def test_gse_energy_mhd_is_the_kinetic_energy_not_the_magnetic_one(tmp_path):
+    # VFIT's post-processing writes Wkin = 3/2 * <p>_V * V (IMAS energy_mhd,
+    # 3/2 int p dV) and Wmag = int Bp^2 dV / (2 mu0) (only used for Lint).
+    # Give them clearly different values so a swapped mapping cannot pass.
+    volume = np.array([0.8, 0.9])
+    mean_pressure = np.array([400.0, 600.0])
+    w_kin = 1.5 * mean_pressure * volume
+    w_mag = np.array([3_000.0, 4_000.0])
+    payload = _gse_payload()
+    payload["ProfFitShape"]["Volume"] = volume
+    payload["ProfFitConstMHD"]["Wkin"] = w_kin
+    payload["ProfFitConstMHD"]["Wmag"] = w_mag
+
+    ods = read_vfit(_write(tmp_path / "Equilibrium.mat", payload)).to_omas()
+
+    for index in range(2):
+        energy = ods[f"equilibrium.time_slice.{index}.global_quantities.energy_mhd"]
+        assert energy == pytest.approx(w_kin[index])
+        assert energy == pytest.approx(1.5 * mean_pressure[index] * volume[index])
+        assert energy != pytest.approx(w_mag[index])
+
+
+def test_gse_without_wkin_leaves_energy_mhd_unset(tmp_path):
+    payload = _gse_payload(count=1)
+    payload["ProfFitConstMHD"]["Wmag"] = 3_000.0
+
+    ods = read_vfit(_write(tmp_path / "Equilibrium.mat", payload)).to_omas()
+
+    assert "equilibrium.time_slice.0.global_quantities.energy_mhd" not in ods
+
+
 def test_fem_omits_unavailable_pressure_and_appends(tmp_path):
     gse = read_vfit(_write(tmp_path / "Equilibrium.mat", _gse_payload(count=1)))
     fem = read_vfit(_write(tmp_path / "ElementAnalysis.mat", _fem_payload()))
