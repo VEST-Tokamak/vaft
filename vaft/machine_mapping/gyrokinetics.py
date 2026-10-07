@@ -802,8 +802,9 @@ def merge_linear_scan(odss: Iterable[ODS], *, rtol: float = 1e-9) -> ODS:
     compared too: ``code.name`` and the ``normalisation`` and
     ``frequency_sign_convention`` entries of ``code.parameters`` (the only place the
     mapping records them) must be the same string in every run, or the merge is
-    refused. Two runs may not carry the same ``binormal_wavevector_norm`` (to
-    ``rtol``). Wavevectors are sorted by
+    refused. Every run must carry at least one ``linear.wavevector`` (a run that
+    produced none is refused by position), and two runs may not carry the same
+    ``binormal_wavevector_norm`` (to ``rtol``). Wavevectors are sorted by
     ``binormal_wavevector_norm``; ``code`` and ``ids_properties`` come from the first
     run.
     """
@@ -841,7 +842,10 @@ def merge_linear_scan(odss: Iterable[ODS], *, rtol: float = 1e-9) -> ODS:
                 raise ValueError(
                     f"run {position} is not part of the scan: {key} is "
                     f"{value!r}, run 0 has {conventions[key]!r}")
-        for k in range(path_count(ods, f"{IDS}.linear.wavevector")):
+        count = path_count(ods, f"{IDS}.linear.wavevector")
+        if not count:
+            raise ValueError(f"run {position} carries no linear.wavevector")
+        for k in range(count):
             wave = ids[f"linear.wavevector.{k}"]
             ky = float(wave["binormal_wavevector_norm"])
             for seen, _wave in waves:

@@ -184,3 +184,17 @@ def test_merge_linear_scan_refuses_mixed_conventions():
         gk.merge_linear_scan([one, foreign_code])
     with pytest.raises(ValueError, match="repeats binormal_wavevector_norm"):
         gk.merge_linear_scan([one, copy.deepcopy(one)])
+
+
+def test_merge_linear_scan_names_a_run_without_a_wavevector():
+    """A run that produced no eigenmode is refused by position wherever it sits;
+    first in the list it used to die with KeyError, later it was silently merged."""
+    import copy
+
+    one, two = _single_ky_runs()
+    empty = copy.deepcopy(two)
+    del empty["gyrokinetics_local.linear.wavevector"]
+    with pytest.raises(ValueError, match="run 0 carries no linear.wavevector"):
+        gk.merge_linear_scan([empty, one])
+    with pytest.raises(ValueError, match="run 1 carries no linear.wavevector"):
+        gk.merge_linear_scan([one, empty])
