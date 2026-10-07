@@ -339,6 +339,14 @@ def cylindrical_safety_factor_from_r_B(r, B_theta, B_z, R0):
     A periodic cylinder; a screw pinch has the same $q$ with $R_0$ set by
     the imposed period.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: state_coordinate
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
@@ -443,6 +451,14 @@ def cylindrical_poloidal_field(r, I_enclosed):
     Only the current inside $r$ sets the field at $r$: a centrally peaked
     current makes $B_\theta$ rise fast and then fall as $1/r$, which is what
     shapes $q(r)$.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: profile_descriptor
 
     References
     ----------

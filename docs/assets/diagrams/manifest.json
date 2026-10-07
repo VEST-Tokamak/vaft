@@ -20,6 +20,11 @@
       "source_sha256": "17b14ecb60ffb7877ef2bc749927f0a340963b3f5702408594428b6cb4c99fc6",
       "svg_sha256": "249470bc2486bf686478015418436c4ff39f262b90943a2b18670f7ec99a3e88"
     },
+    "ballooning_formulation_hierarchy.svg": {
+      "call": "vaft.diagram.ballooning_formulation_hierarchy()",
+      "source_sha256": "3ea9f68cf051f32ee98c8c607ab3415d08cb096bd85bc4d4dfe536f67ca6d455",
+      "svg_sha256": "d35acbfa1a498700eafdb37dca852ab64ef5d7d36ed165a388ccb6adb352ca04"
+    },
     "ballooning_harmonic_envelope.svg": {
       "call": "vaft.diagram.ballooning_harmonic_envelope()",
       "source_sha256": "73c86da0bdf1e4a4797324501d5db6ee7cf3068fd0f4a9c957f0ffa70b22a6c3",
@@ -774,6 +779,31 @@
       "call": "vaft.diagram.rational_surface_topology(profile='reversed_shear')",
       "source_sha256": "c2765a53e2f39ea27d3338f3de2a7a4999c8eeac0b434a108b8e33ac5a0dce23",
       "svg_sha256": "cde0ce89a398bc8d8bf6a0d3ed2177709c331bf5775b2bac84105dd02de489d9"
+    },
+    "reduced_representation_hierarchy.svg": {
+      "call": "vaft.diagram.reduced_representation_hierarchy()",
+      "source_sha256": "6f776bdcf30168814d0dd3501bc95c19dabb97b6d29d6b3d57309cc0a550b6ec",
+      "svg_sha256": "6169194b7c30c80b5bb9aede363a59fbb68fc956ea28d450152fa791e95e5acd"
+    },
+    "reduction_graph_current_q.svg": {
+      "call": "vaft.diagram.reduction_graph(family='current_q')",
+      "source_sha256": "9693e3edae848d057b79935db8c2d9b19b340c01ad875cbad59b907a36620758",
+      "svg_sha256": "1f01cdfc7b1451c4a796f35e44692bed5c8dbc786840cbef1f70427f05fa9ae2"
+    },
+    "reduction_graph_dimensionless_similarity.svg": {
+      "call": "vaft.diagram.reduction_graph(family='dimensionless_similarity')",
+      "source_sha256": "0afd36bc50387a27dc20ed0091a67066b57fad45c1d65c45d9e81c1f1f58ebc5",
+      "svg_sha256": "6eedca4918fe81a1f304c6a428aa4c217bd2b67acdf69a461b5b6ec32075fc07"
+    },
+    "reduction_graph_kinetic_profiles.svg": {
+      "call": "vaft.diagram.reduction_graph(family='kinetic_profiles')",
+      "source_sha256": "f8f223f94c926f20cbf18732d67a0e00cf138cb44b50fdc95ee2a7656d291559",
+      "svg_sha256": "1bfa875fd8a40a4132a8b455597e01064635d5928daf3bd625b7d22b76ae3931"
+    },
+    "reduction_graph_pressure_energy.svg": {
+      "call": "vaft.diagram.reduction_graph(family='pressure_energy')",
+      "source_sha256": "c32f962acfc89844e7e9ec8a8ba9fc3377cc2567572b9e570b2fd9324b0c80c4",
+      "svg_sha256": "c5fb20e7b8e2a5af2a681a4d8b3429032d5e555ab4d722ed5b27237554864dda"
     },
     "refractive_index_vs_X.svg": {
       "call": "vaft.diagram.refractive_index_vs_X()",

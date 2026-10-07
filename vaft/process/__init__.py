@@ -66,6 +66,7 @@ _SUBMODULES = {
     "species": ".species",
     "kinetic_closure": ".kinetic_closure",
     "zeff_projection": ".zeff_projection",
+    "mode_frequency": ".mode_frequency",
     "mhd_stability": ".mhd_stability",
 }
 
@@ -132,6 +133,9 @@ _IMPORT_ORDER = (
     "kinetic_closure",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
+    # Predicted mode-frequency tracks from rotation at q = m/n (#460); nothing
+    # it exports collides.
+    "mode_frequency",
     # DCON local-criterion and edge-scan post-processing from the ODS payload
     # (#940); nothing it exports collides.
     "mhd_stability",

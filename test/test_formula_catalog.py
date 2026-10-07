@@ -76,7 +76,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # #670 moved neo-Alcator, Goldston L-mode and their quadrature in: 101 + 3 = 104.
         # #1713 added confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
         # #1691 added the volume beta and its normalized form: 105 + 2 = 107.
-        "equilibrium": 107,  # +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        "equilibrium": 110,  # +volume-radius shear and Miller alpha (#1637), +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
         "stability": 45,  # +ggj_resistive_interchange_index_from_ideal (#939), +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
@@ -220,7 +220,8 @@ def test_the_star_import_neither_loads_nor_binds_the_catalog():
 
 def test_touching_describe_loads_the_catalog_and_nothing_physical():
     loaded = _loaded_after("import vaft.formula; vaft.formula.describe")
-    assert loaded == {"vaft.formula.catalog", "vaft.formula._docstring"}
+    # _taxonomy is the Reduction vocabulary (#1626): pure tuples, no physics
+    assert loaded == {"vaft.formula.catalog", "vaft.formula._docstring", "vaft.formula._taxonomy"}
 
 
 def test_describing_one_formula_imports_only_its_category():
@@ -229,6 +230,7 @@ def test_describing_one_formula_imports_only_its_category():
     assert loaded == {
         "vaft.formula.catalog",
         "vaft.formula._docstring",
+        "vaft.formula._taxonomy",
         "vaft.formula.constants",
         "vaft.formula.utils",
         "vaft.formula.stability",
@@ -311,7 +313,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
     "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
-    "definitions",
+    "definitions", "reduction",
 }
 
 

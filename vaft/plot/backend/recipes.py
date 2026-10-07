@@ -60,6 +60,7 @@ from vaft.plot.models import (
     ReferenceSlope,
     Series,
     Spectrogram,
+    SpectrogramTrack,
     TextPanel,
 )
 from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
@@ -9348,6 +9349,8 @@ def declares_option(name: str, option: str) -> bool:
     """Whether plot ``name`` declares the declared-only ``option``."""
     if option in RATIONAL_SURFACE_OPTIONS:
         return name in RATIONAL_SURFACE_PLOTS
+    if option in MODE_OVERLAY_OPTIONS:
+        return name in MODE_OVERLAY_PLOTS
     if option == "include_unconverged":
         return name in UNCONVERGED_MODE_PLOTS
     return choice_options_for(name, option) is not None
@@ -10892,7 +10895,8 @@ def _build_spectrogram(
     if signal is None:
         raise ValueError(f"{recipe.signal_path.format(i=index)} is not available")
     time = _first_time(ods, recipe.time_paths, i=index)
-    if time is None or time.size != signal.size:
+    timed = time is not None and time.size == signal.size
+    if not timed:
         time = np.arange(signal.size, dtype=float)
 
     time_range = options.get("time_range")
@@ -10910,7 +10914,7 @@ def _build_spectrogram(
         time, signal, method=method, sample_rate=float(sample_rate), options=options
     )
     ceiling = _display_ceiling(result, options)
-    return Spectrogram.from_result(
+    model = Spectrogram.from_result(
         result,
         max_frequency=ceiling,
         cmap=options.get("cmap", "hot_r"),
@@ -10918,6 +10922,19 @@ def _build_spectrogram(
         value_label=recipe.value_label,
         **_spectrogram_ridge(result, options, ceiling),
     )
+    request = _mode_overlay_request(options)
+    if request is None:
+        return model
+    if not timed:
+        _warn_at_caller(
+            f"mode_overlay is not drawn: {recipe.signal_path.format(i=index)} has no time base, "
+            "so predicted tracks cannot be paired with it by time"
+        )
+        return model
+    # The map's own time axis (window centres), not the raw signal span: a
+    # track is drawn only where there is a spectrogram column under it.
+    window = (float(model.time[0]), float(model.time[-1])) if model.time.size else (np.nan, np.nan)
+    return _with_mode_overlay(model, ods, request, window)
 
 
 def _spectrogram_ridge(result: Any, options: dict, ceiling: float | None) -> dict[str, Any]:
@@ -10955,6 +10972,157 @@ def _spectrogram_ridge(result: Any, options: dict, ceiling: float | None) -> dic
         f", |jump| <= {float(jump) / 1e3:.3g} kHz" if jump is not None else ""
     )
     return {"ridge_time": ridge.time, "ridge_frequency": ridge.frequency, "ridge_label": label}
+
+
+# --- mode-frequency overlay (issue #460) -----------------------------------------
+
+#: The option that overlays predicted mode-frequency tracks on a spectrogram:
+#: ``mode_overlay=[(m, n), ...]``.  Declared-only
+#: (:data:`vaft.plot.backend.options.DECLARED_ONLY_OPTIONS`): only the plots in
+#: :data:`MODE_OVERLAY_PLOTS` take it.
+MODE_OVERLAY_OPTIONS = ("mode_overlay",)
+
+#: The fluctuation spectrograms that draw ``mode_overlay=`` tracks.  The
+#: prediction itself (:func:`vaft.process.mode_frequency.mode_frequency_tracks`)
+#: is diagnostic-independent; a spectrogram joins this set when its overlay
+#: is wanted there.
+MODE_OVERLAY_PLOTS = frozenset({"mirnov_spectrogram"})
+
+#: The model the overlay draws, named in the legend and the metadata.
+MODE_OVERLAY_MODEL = "toroidal_rotation"
+
+#: Palette slots of the overlay tracks: every slot but the tracked ridge's (2).
+_MODE_OVERLAY_COLOURS = (0, 1, 3, 4, 5, 6, 7, 8, 9)
+_MODE_OVERLAY_BRANCH_STYLES = ("--", ":", "-.")
+
+
+def mode_overlay_reads(name: str) -> tuple[str, ...]:
+    """The DD inputs ``mode_overlay=`` of plot ``name`` reads beyond the spectrogram's own.
+
+    The equilibrium that places ``|q| = m/n`` (q, psi and its range, the
+    toroidal coordinate, the outboard radius a velocity is divided by) and the
+    core-profile rotation, by preference ``rotation_frequency_tor`` then
+    ``velocity.toroidal`` (``velocity_tor`` in older files), on either flux grid.
+    """
+    if name not in MODE_OVERLAY_PLOTS:
+        return ()
+    eq = "equilibrium.time_slice.{i}"
+    cp = "core_profiles.profiles_1d.{i}"
+    return (
+        f"{eq}.time", "equilibrium.time",
+        f"{eq}.profiles_1d.q", f"{eq}.profiles_1d.psi", f"{eq}.profiles_1d.rho_tor_norm",
+        f"{eq}.profiles_1d.r_outboard",
+        f"{eq}.global_quantities.psi_axis", f"{eq}.global_quantities.psi_boundary",
+        f"{cp}.time", "core_profiles.time",
+        f"{cp}.grid.rho_tor_norm", f"{cp}.grid.rho_pol_norm",
+        f"{cp}.ion.{{j}}.rotation_frequency_tor", f"{cp}.ion.{{j}}.velocity.toroidal",
+        f"{cp}.ion.{{j}}.velocity_tor",
+    )
+
+
+def _mode_overlay_request(options: Mapping[str, Any]) -> tuple[tuple[int, int], ...] | None:
+    """The ``(m, n)`` modes asked of a spectrogram, or ``None`` when none were.
+
+    A malformed request raises: it is the caller's error, not missing data.
+    """
+    raw = options.get("mode_overlay")
+    if raw is None:
+        return None
+    from vaft.process.mode_frequency import _modes
+
+    try:
+        return _modes(raw)
+    except ValueError as exc:
+        raise ValueError(f"mode_overlay= takes (m, n) pairs, e.g. [(2, 1), (4, 2)]: {exc}") from None
+
+
+def _finite_list(values: Any) -> list[float | None]:
+    """An array as a JSON list, NaN as ``None``."""
+    return [float(v) if np.isfinite(v) else None for v in np.asarray(values, dtype=float)]
+
+
+def _with_mode_overlay(
+    model: Spectrogram, ods: Any, modes: tuple[tuple[int, int], ...], window: tuple[float, float]
+) -> Spectrogram:
+    """``model`` with the predicted tracks of ``modes`` drawn over it (issue #460).
+
+    The tracks come from :func:`vaft.process.mode_frequency.mode_frequency_tracks`;
+    this only presents them.  ``|f_pred|`` is drawn, on the equilibrium times,
+    clipped to the spectrogram's own time axis (``window``): the prediction is paired with
+    the spectrogram by time, and invalid samples stay gaps.  Missing inputs
+    warn and return ``model`` unchanged.
+    """
+    from vaft.process.mode_frequency import mode_frequency_tracks
+
+    try:
+        result = mode_frequency_tracks(ods, modes, model=MODE_OVERLAY_MODEL)
+    except ValueError as exc:
+        _warn_at_caller(f"mode_overlay is not drawn: {exc}")
+        return model
+
+    start, stop = window
+    lines: list[SpectrogramTrack] = []
+    records: list[dict[str, Any]] = []
+    branches: dict[tuple[int, int], int] = {}
+    for track in result.tracks:
+        branches[(track.m, track.n)] = branches.get((track.m, track.n), 0) + 1
+    for track in result.tracks:
+        pair = (track.m, track.n)
+        inside = (track.time >= start) & (track.time <= stop)
+        frequency = np.where(inside & track.valid, np.abs(track.predicted_frequency), np.nan)
+        label = f"{track.m}/{track.n} (q = {track.q:g}): {track.n} × f_φ"
+        if branches[pair] > 1:
+            label += f", root {track.branch + 1}"
+        drawn = bool(np.any(np.isfinite(frequency)))
+        if drawn:
+            colour = _MODE_OVERLAY_COLOURS[modes.index(pair) % len(_MODE_OVERLAY_COLOURS)]
+            lines.append(SpectrogramTrack(
+                time=track.time, frequency=frequency, label=label,
+                style={
+                    "color": palette(colour),
+                    "linestyle": _MODE_OVERLAY_BRANCH_STYLES[track.branch % len(_MODE_OVERLAY_BRANCH_STYLES)],
+                    "linewidth": 1.4, "marker": "o", "markersize": 3,
+                },
+            ))
+        elif all(status == "no_surface" for status in track.status) and track.branch == 0:
+            _warn_at_caller(
+                f"mode_overlay {track.m}/{track.n}: |q| = {track.q:g} does not occur in any equilibrium "
+                "slice; no track is drawn for it"
+            )
+        else:
+            counts: dict[str, int] = {}
+            for status, here in zip(track.status, inside):
+                key = status if here else "outside_spectrogram_window"
+                counts[key] = counts.get(key, 0) + 1
+            _warn_at_caller(
+                f"mode_overlay {label}: no valid prediction inside the spectrogram window "
+                f"[{start:g}, {stop:g}] s ({', '.join(f'{k}: {v}' for k, v in sorted(counts.items()))}); "
+                "no track is drawn"
+            )
+        records.append({
+            "label": label, "m": track.m, "n": track.n, "q": track.q, "branch": track.branch,
+            "drawn": drawn,
+            "time": _finite_list(track.time),
+            "psi_norm": _finite_list(track.psi_norm),
+            "rho_tor_norm": _finite_list(track.rho_tor_norm),
+            "r_outboard": _finite_list(track.r_outboard),
+            "toroidal_rotation_frequency": _finite_list(track.toroidal_rotation_frequency),
+            "predicted_frequency": _finite_list(track.predicted_frequency),
+            "status": list(track.status),
+        })
+    metadata = dict(model.metadata)
+    metadata["mode_overlay"] = {
+        "model": result.model,
+        "modes": [list(pair) for pair in result.modes],
+        "drawn": "|predicted_frequency| on the equilibrium times inside the analysed window",
+        "window": [start, stop],
+        "provenance": result.provenance,
+        "tracks": records,
+    }
+    return dataclasses.replace(
+        model, tracks=tuple(model.tracks) + tuple(lines),
+        tracks_title=f"predicted ({result.model} model)", metadata=metadata,
+    )
 
 
 def _build_power_spectrum(

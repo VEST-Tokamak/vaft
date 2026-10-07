@@ -346,6 +346,24 @@ vaft.diagram.timescale_hierarchy()
 | --- | --- |
 | `timescale_hierarchy` | Gyroperiods, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
 
+## Reduced representations
+
+How formulas compress plasma information, from fields to profiles to scalars and from dimensional to
+dimensionless quantities, is classified on
+[Reduced representations]({{ '/reference/reduced-representations/' | relative_url }}) (#1626). The figures
+are built from the formulas' `Reduction` docstring sections and the relation metadata in
+`vaft.formula._taxonomy`.
+
+```python
+vaft.diagram.reduced_representation_hierarchy()
+vaft.diagram.reduction_graph(family="current_q")   # "pressure_energy", "kinetic_profiles", "dimensionless_similarity"
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `reduced_representation_hierarchy` | Spatial reduction (field, profile, scalar) down, dimensionless normalisation across, so a dimensionless quantity can still be a profile. Each cell counts the catalogued formulas that land there |
+| `reduction_graph` | One family as a layered graph of quantities. A solid edge is a formula, and its catalogued reduction kind is shown as *via*. A dashed edge is a step VAFT performs elsewhere |
+
 ## Tokamak geometry and flux coordinates
 
 The parent geometry that the cylindrical and slab reductions start from. Surfaces are
@@ -625,6 +643,22 @@ vaft.diagram.field_aligned_xpoint_limitation(n_theta=24)
 ![X-point limitation]({{ '/assets/diagrams/field_aligned_xpoint_limitation.svg' | relative_url }})
 
 ![shear]({{ '/assets/diagrams/magnetic_shear_field_aligned.svg' | relative_url }})
+
+### Ballooning formulations
+
+How the reduced $s$–$\alpha$ equation follows from the general ballooning equation, and how DCON's $C_A$
+and GPEC.jl's ballooning $\Delta'$ relate to it, is on
+[Ballooning formulations]({{ '/reference/ballooning-formulations/' | relative_url }}) (#1637).
+
+```python
+vaft.diagram.ballooning_formulation_hierarchy()
+```
+
+![ballooning formulations]({{ '/assets/diagrams/ballooning_formulation_hierarchy.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `ballooning_formulation_hierarchy` | The general equation either loses its geometry step by step (large aspect ratio, shifted circles, the $1 + \Lambda^2$ metric, the $\cos\theta + \Lambda\sin\theta$ curvature) to become the CHT equation VAFT solves, or keeps it, as DCON ($C_A$, stable when positive) and GPEC.jl ($\Delta'$, stable when negative, with poles) do. All three must share the normalisation of `shear_from_volume` and `ballooning_alpha_from_volume` before their boundaries can be compared |
 
 ## Slab resonant layers: tearing and twisting parity
 
@@ -992,7 +1026,7 @@ vaft.diagram.disruption_energy_pathways()
 | `disruption_timeline` | A 0-D reference model built from the formulas. A prescribed thermal quench raises the Spitzer $\eta$. The L/R current quench then induces $E_\parallel \approx 10^3E_c$ ($\approx 2\,\%$ of $E_D$). A Dreicer seed of a few kA is multiplied about 25-fold by the avalanche (at 1 MA, only a few e-folds) into a runaway plateau. Magnitudes are illustrative: no universal waveform |
 | `disruption_causal_chain` | The same sequence as cause and effect, each arrow labelled by its formula |
 | `runaway_generation` | The avalanche rate (per runaway) and the Dreicer rate (per electron) against $E/E_c$. The normalisations differ, so the two magnitudes are not compared. Nothing runs away below $E_c$, and Dreicer is drawn only within its asymptotic range, $E \le 0.1E_D$. Hot-tail seeding is not drawn |
-| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `stored_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
+| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `thermal_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
 
 ## Vertical displacement events: hot and cold VDE, halo currents
 
@@ -1491,7 +1525,9 @@ notebook composes computation and matures reusable logic out of itself. Data and
 Process, Code and learned models, produce results and evidence. Validation interprets that evidence, and an
 optional use policy decides what a workflow does about it. The Actor contract is an optional overlay, off
 every edge. The graduation rule promotes matured logic by meaning. [Computational
-layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed view of the computation band.
+layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed view of the computation band, and
+[Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}) uses this figure as VAFT's
+normative architecture.
 
 Related issues: #1090 (the concept family), #1550 (the VEST workflow), #497 (placement of canonical visuals),
 #248, #252, #1505, #1626-#1629 (provenance, contracts and applicability), #1077, #1165, #1170, #1639,
