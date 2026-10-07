@@ -93,8 +93,12 @@ import vaft
 
 vaft.data.available_samples()                          # (39915, 41524, 41672)
 sample_path = vaft.data.sample(39915)                  # packaged OMAS artifact
-imas_path = vaft.data.sample(39915, representation="imas")
+imas_path = vaft.data.sample(39915, representation="imas")   # repository checkout only
 ```
+
+A `pip install vaft` carries only the OMAS form of 39915 (`omas.json.gz`, which both adapters read);
+its IMAS netCDF twin `imas.nc` is repository-only, so `representation="imas"` raises a
+`FileNotFoundError` naming the file from an installed wheel and needs a Git checkout.
 
 For the IMAS round trip:
 
