@@ -148,11 +148,41 @@ def sample(shot: int, representation: str = "omas") -> Path:
     if not path.is_file():
         if record.get("package") == "repository-only":
             raise FileNotFoundError(
-                f"VAFT sample shot {int(shot)} is a repository-only {storage_name} "
-                "artifact. Clone the VAFT GitHub repository to access it."
+                _repository_only_message(int(shot), storage_name, path, representations)
             )
         raise FileNotFoundError(f"Registered VAFT sample artifact is missing: {path}")
     return path
+
+
+def _repository_only_message(
+    shot: int, storage_name: str, path: Path, representations: dict
+) -> str:
+    """Explain a repository-only sample representation that an install lacks.
+
+    Names the missing file and, when another representation of the same shot
+    is installed (the OMAS form of 39915 ships in the wheel while its IMAS
+    netCDF twin is repository-only since 0.8.0), says which adapter to use.
+    """
+    media = {
+        "imas": "IMAS netCDF",
+        "omas": "OMAS JSON",
+    }.get(storage_name, storage_name)
+    message = (
+        f"VAFT sample shot {shot} is a repository-only {storage_name} artifact: "
+        f"{path.name} ({media} form) is not included in the PyPI distribution. "
+        "Clone the VAFT GitHub repository to access it."
+    )
+    shipped = sorted(
+        name
+        for name, other in representations.items()
+        if name != storage_name and (path.parent / other["path"]).is_file()
+    )
+    if shipped:
+        message += " The shipped form of this shot loads with " + " or ".join(
+            f'representation="{name}" ({representations[name]["path"]})'
+            for name in shipped
+        ) + "."
+    return message
 
 
 def _require_shipped_fixture(path: Path) -> Path:
