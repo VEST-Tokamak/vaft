@@ -265,6 +265,23 @@ def test_a_kept_and_a_merged_component_of_one_nuclide_with_distinct_charges_merg
     assert thermal != fast and thermal == thermal      # identity, never an array comparison
 
 
+def test_a_mean_square_charge_on_a_fixed_charge_ion_is_ignored_and_noted():
+    # cold review 0.8.0 delta-absorb-17 species-docs F6: z_ion_square_1d beside a scalar z_ion = Z_n
+    # (a non-VAFT writer) made the whole slice read raise unless it was exactly Z^2
+    ods = _ods([_ion("H", 1.0, 1.008, 1.0, 0.9),
+                _ion("C", 6.0, 12.011, 6.0, 0.01, z_ion_square_1d=np.full(6, 35.0))])
+    state = species_state_from_core_profiles(ods)
+    carbon = state.components[1]
+    assert carbon.component_id == "C-12/Z6/thermal" and not carbon.bundled and carbon.mean_square_charge is None
+    np.testing.assert_allclose(carbon.z_moment(2), 36.0)
+    assert "z_ion_square_1d ignored" in state.provenance["notes"]["ion.1 (C)"]
+    # a bundled scalar z_ion keeps its stored <Z^2>
+    bundled = species_state_from_core_profiles(
+        _ods([_ion("H", 1.0, 1.008, 1.0, 0.9), _ion("C", 6.0, 12.011, 5.5, 0.01, z_ion_square_1d=np.full(6, 31.0))]))
+    np.testing.assert_allclose(bundled.components[1].z_moment(2), 31.0)
+    assert bundled.provenance["notes"] == {}
+
+
 def test_a_fixed_charge_ion_beside_a_bundled_one_keeps_its_integer_charge():
     ods = _ods([_ion("H", 1.0, 1.008, 1.0, 0.9),
                 {"label": "C", "element.0.z_n": 6.0, "element.0.a": 12.011, "density_thermal": 0.01 * NE,

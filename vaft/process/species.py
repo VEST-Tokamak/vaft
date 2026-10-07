@@ -377,7 +377,9 @@ def species_state_from_core_profiles(ods: Any, *, time: Optional[float] = None,
        (or the scalar ``z_average``/``z_square_average``), its own
        temperature when stored); otherwise the ion is one component -- bundled
        with ``z_ion_1d``/``z_ion_square_1d`` when present.  A share of the ion
-       density its states do not carry is reported in the provenance notes.
+       density its states do not carry, and a ``z_ion_square_1d`` stored on an
+       ion of one integer charge state (ignored: ``<Z^2> = Z^2`` there), are
+       reported in the provenance notes.
     4. At every level, ``density_thermal`` (or ``density - density_fast``) is
        the thermal component and ``density_fast`` a separate fast one; an
        ion-level ``density_fast`` is kept even when the states carry none.
@@ -516,6 +518,12 @@ def species_state_from_core_profiles(ods: Any, *, time: Optional[float] = None,
             charge, bundled = float(z_ion), abs(float(z_ion) - round(float(z_ion))) > 1e-9
         else:
             raise ValueError(f"{base}.{ion} has no charge (z_ion or z_ion_1d)")
+        if z2 is not None and not bundled:
+            # a non-VAFT writer's <Z^2> beside one integer charge state: <Z^2> = Z^2 by
+            # definition there, so the stored profile is not a moment of this component
+            notes[f"{ion} ({label})"] = (f"z_ion_square_1d ignored: z_ion = {charge:g} is one charge state "
+                                         "(<Z^2> = Z^2); only a bundled ion carries a <Z^2> profile")
+            z2 = None
         thermal, fast = split(ion)
         add(species, charge, bundled, None if z2 is None else _profile(z2, n, "z_ion_square_1d"),
             thermal, fast, mass_amu, ion_temperature, origin, f"{base}.{ion} ({label})")
