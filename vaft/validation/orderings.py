@@ -25,6 +25,11 @@ neighbours. Every threshold is order unity -- the point where the expansion
 parameter stops separating scales -- because no other cutoff has a derivation
 behind it.
 
+Signed ratios (a Mach number, the pressure anisotropy) enter as magnitudes. A
+value of exactly zero -- a static or isotropic state -- has no logarithmic
+margin, and :func:`~vaft.validation.applicability.ordering_margin` reports it as
+``UNASSESSED`` rather than as satisfied by an infinite margin.
+
 This is the fluid-to-kinetic core of the hierarchy, not every subsidiary
 ordering of every derivation. Full Vlasov--Maxwell kinetics assumes none of
 these and has no contract; a gyrofluid shares the gyrokinetic orderings and
@@ -111,16 +116,20 @@ ORDERING_QUANTITIES: Dict[str, OrderingQuantity] = {
                             "ordering.mach_number", "ordering.thermal_speed"),
     "alfven_mach_number": _q("M_A = U / v_A", "v_A", "profile", "profile",
                              "ordering.mach_number", "stability.v_alfven_from_B_n_mi"),
-    "pressure_anisotropy": _q("|p_perp - p_par| / p", "p", "profile", "profile", "ordering.pressure_anisotropy"),
+    "pressure_anisotropy": _q("|Delta| = |p_perp - p_par| / p, the magnitude of the kernel's signed Delta", "p",
+                              "profile", "profile", "ordering.pressure_anisotropy"),
     # perturbation: per mode or fluctuation spectrum, on its wavenumber
     "k_perp_rho_i": _q("k_perp rho_i", "1 / k_perp", "mode", "perturbation", "particle.larmor_radius"),
     "k_ion_skin_depth": _q("k d_i", "1 / k", "mode", "perturbation", "ordering.inertial_length"),
     "k_electron_skin_depth": _q("k d_e", "1 / k", "mode", "perturbation", "ordering.inertial_length"),
+    "omega_tau_i": _q("omega tau_i", "1 / tau_i", "mode", "perturbation",
+                      "ordering.braginskii_ion_collision_time"),
     "k_par_over_k_perp": _q("k_par / k_perp", "1 / k_perp", "mode", "perturbation"),
     "fluctuation_amplitude": _q("delta n / n ~ e delta phi / T_e", "n, T_e / e", "mode", "perturbation"),
     # inner layer: a tearing layer or current sheet, on its width
     "ion_skin_depth_over_layer": _q("d_i / delta", "delta_layer", "local", "layer", "ordering.inertial_length"),
     "electron_skin_depth_over_layer": _q("d_e / delta", "delta_layer", "local", "layer", "ordering.inertial_length"),
+    "rho_s_over_layer": _q("rho_s / delta", "delta_layer", "local", "layer", "ordering.sound_gyroradius"),
     # time history: one discharge's evolution against its intrinsic times
     "tau_evolution_over_tau_alfven": _q("tau_evol / tau_A", "a", "time_history", "time_history",
                                         "ordering.evolution_time", "ordering.alfven_time"),
@@ -151,6 +160,7 @@ _HAZELTINE = "R. D. Hazeltine and J. D. Meiss, Plasma Confinement, Dover (2003),
 _ABEL = "I. G. Abel et al., Rep. Prog. Phys. 76 (2013) 116201"
 _FRIEMAN = "E. A. Frieman and L. Chen, Phys. Fluids 25 (1982) 502"
 _PARRA = "F. I. Parra and P. J. Catto, Plasma Phys. Control. Fusion 52 (2010) 045004"
+_ROBERTS_TAYLOR = "K. V. Roberts and J. B. Taylor, Phys. Rev. Lett. 8 (1962) 197"
 
 
 def _contract(name, model, assumptions, references, limitations=()) -> ApproximationContract:
@@ -173,18 +183,23 @@ CONTRACTS: Dict[str, ApproximationContract] = {c.name: c for c in (
         (_FREIDBERG,),
         ("describes Alfvenic dynamics, omega tau_A ~ 1: slow evolution is the equilibrium-sequence contract, "
          "not a condition on MHD",
-         "a large global S says nothing about a thin resistive layer")),
+         "a large global S says nothing about a thin resistive layer",
+         "the collisionality condition of the textbook derivation enters only through the scalar pressure: "
+         "a collisionless plasma can still satisfy ideal MHD's perpendicular dynamics")),
     _contract(
         "resistive_mhd", "resistive single-fluid MHD",
         (_QUASINEUTRAL, _LOW_FREQUENCY,
+         ("ion_skin_depth_over_a", "small", "no Hall physics on the global scale"),
          ("k_ion_skin_depth", "small", "no Hall physics on the perturbation's scale"),
          ("k_perp_rho_i", "small", "no finite-Larmor-radius physics in the perturbation"),
          ("rho_i_over_LTi", "small", "no finite-Larmor-radius physics in the equilibrium"),
          ("ion_skin_depth_over_layer", "small", "the resistive layer is wider than d_i"),
+         ("rho_s_over_layer", "small", "the resistive layer is wider than rho_s: no drift-tearing physics"),
          _SCALAR_PRESSURE),
         (_BISKAMP,),
         ("no requirement on S: resistivity is kept, not ordered out",
-         "d_i/delta is evaluated on the layer the model resolves; d_i/a small does not imply it")),
+         "the layer orderings are evaluated on the layer the model resolves; d_i/a small does not imply them",
+         "in a strong guide field rho_s, not d_i, is the two-fluid scale of the layer")),
     _contract(
         "hall_mhd", "Hall (extended) MHD",
         (_QUASINEUTRAL,
@@ -201,17 +216,18 @@ CONTRACTS: Dict[str, ApproximationContract] = {c.name: c for c in (
          ("ion_parallel_knudsen_number", "small", "ion parallel heat flux and viscosity local"),
          ("electron_magnetization", "large", "electrons gyrate many times between collisions"),
          ("ion_magnetization", "large", "ions gyrate many times between collisions"),
-         ("rho_i_over_LTi", "small", "perpendicular transport local on the Larmor scale")),
+         ("rho_i_over_LTi", "small", "perpendicular transport local on the Larmor scale"),
+         ("omega_tau_i", "small", "dynamics slow against ion collisions (Chapman-Enskog)")),
         (_BRAGINSKII,),
-        ("the parallel Knudsen number is lambda/(qR) = 1/nu_hat: the closure holds in the Pfirsch-Schlueter "
-         "regime and fails in the banana regime of a hot core",
+        ("the parallel Knudsen number is lambda/(qR), the inverse of nu_hat up to an order-one convention "
+         "factor: the closure holds in the Pfirsch-Schlueter regime and fails in the banana regime of a hot core",
          "perpendicular locality is the magnetized rho/L ordering, not a collisional one")),
     _contract(
         "flr_small_fluid", "fluid model with perturbative finite-Larmor-radius corrections",
         (("rho_i_over_LTi", "small", "ion gyroradius small against the ion temperature gradient"),
          ("rho_s_over_LTe", "small", "sound gyroradius small against the electron temperature gradient"),
          ("k_perp_rho_i", "small", "FLR corrections an expansion in k_perp rho_i")),
-        (_HINTON,)),
+        (_ROBERTS_TAYLOR, _BRAGINSKII)),
     _contract(
         "low_beta_reduced_mhd", "low-beta reduced MHD",
         (("inverse_aspect_ratio", "small", "the large-aspect-ratio expansion"),
@@ -240,7 +256,7 @@ CONTRACTS: Dict[str, ApproximationContract] = {c.name: c for c in (
          ("k_par_over_k_perp", "small", "anisotropic, field-aligned fluctuations"),
          ("fluctuation_amplitude", "small", "delta f / F_0 ~ rho*"),
          ("sonic_mach_number", "small", "low-flow ordering")),
-        (_FRIEMAN, _ABEL),
+        (_FRIEMAN, _ABEL, _PARRA),
         ("k_perp rho_i is not ordered: it may be of order one, which is what separates gyrokinetics "
          "from drift kinetics and MHD",
          "high-flow gyrokinetics allows M ~ 1",
@@ -257,13 +273,14 @@ CONTRACTS: Dict[str, ApproximationContract] = {c.name: c for c in (
         (("electron_collisionality", "small", "electrons complete their banana orbits"),
          ("ion_collisionality", "small", "ions complete their banana orbits")),
         (_HELANDER,),
-        ("nu* already carries epsilon^3/2: nu* << 1 is nu_hat << epsilon^3/2",
+        ("nu* already carries epsilon^3/2: nu* << 1 is nu_hat << epsilon^3/2, up to the order-one factor "
+         "between Sauter's collision frequency and Braginskii's",
          "the plateau between the banana and Pfirsch-Schlueter regimes has no ordering of its own",
          "the regime is per species: evaluate the electron and ion orderings separately when they differ")),
     _contract(
         "pfirsch_schlueter_neoclassical", "Pfirsch-Schlueter neoclassical transport (both species)",
-        (("electron_parallel_knudsen_number", "small", "nu_hat_e = qR/lambda_e >> 1"),
-         ("ion_parallel_knudsen_number", "small", "nu_hat_i = qR/lambda_i >> 1")),
+        (("electron_parallel_knudsen_number", "small", "nu_hat_e ~ qR/lambda_e >> 1"),
+         ("ion_parallel_knudsen_number", "small", "nu_hat_i ~ qR/lambda_i >> 1")),
         (_HELANDER,)),
     _contract(
         "quasi_static_equilibrium", "sequence of MHD equilibria",

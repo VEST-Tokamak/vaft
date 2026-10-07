@@ -48,9 +48,10 @@ def test_the_ion_skin_depth_is_three_quantities_on_three_scales():
               for k in ("ion_skin_depth_over_a", "k_ion_skin_depth", "ion_skin_depth_over_layer")}
     assert scales == {"ion_skin_depth_over_a": ("a", "global"), "k_ion_skin_depth": ("1 / k", "mode"),
                       "ion_skin_depth_over_layer": ("delta_layer", "local")}
-    # resistive MHD needs the layer to be wider than d_i; a small global d_i/a is not enough
-    assert _orderings("resistive_mhd")["ion_skin_depth_over_layer"] == "small"
-    assert "ion_skin_depth_over_a" not in _orderings("resistive_mhd")
+    # resistive MHD also needs the layer to be wider than d_i and rho_s: a small global d_i/a is not enough
+    resistive = _orderings("resistive_mhd")
+    assert resistive["ion_skin_depth_over_a"] == resistive["ion_skin_depth_over_layer"] == "small"
+    assert resistive["rho_s_over_layer"] == "small"
 
 
 def test_slow_evolution_is_the_equilibrium_sequence_not_mhd():
@@ -120,3 +121,21 @@ def test_contracts_evaluate_over_a_population():
 def test_unknown_contract_lists_the_known_ones():
     with pytest.raises(KeyError, match="ideal_single_fluid_mhd"):
         contract("full_kinetic")
+
+
+def test_braginskii_is_slow_against_collisions():
+    assert _orderings("braginskii_two_fluid")["omega_tau_i"] == "small"
+    assert ORDERING_QUANTITIES["omega_tau_i"].scope == "mode"
+
+
+def test_signed_ratios_enter_as_magnitudes_and_zero_is_unassessed():
+    from vaft.formula.ordering import pressure_anisotropy
+
+    ideal = contract("ideal_single_fluid_mhd")
+    delta = pressure_anisotropy(1.0, 2.0)  # parallel heating: Delta = -0.75
+    assert delta < 0
+    margin = {r.quantity: r.margin for r in evaluate_contract(ideal, {"pressure_anisotropy": abs(delta)}).assumptions}
+    assert margin["pressure_anisotropy"] == pytest.approx(-math.log10(0.75))
+    # an exactly isotropic state has no logarithmic margin: applicability reports it, it does not pass it
+    zero = {r.quantity: r for r in evaluate_contract(ideal, {"pressure_anisotropy": 0.0}).assumptions}
+    assert math.isnan(zero["pressure_anisotropy"].margin)

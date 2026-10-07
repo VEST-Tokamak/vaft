@@ -83,31 +83,31 @@ $d_i/a$ can be small while $d_i/\delta \sim 1$, and single-fluid MHD then fails 
 | foundational | $\lambda_D/L$ (quasineutrality), $\omega/\Omega_{ci}$ (low frequency). They hold almost everywhere in a fusion core, so they rarely discriminate |
 | global | $S$, $d_i/a$, $\epsilon = a/R_0$, $\beta$, $\beta/\epsilon$ |
 | equilibrium profile | $\rho_i/L_{T_i}$, $\rho_s/L_{T_e}$, $\lambda_{e,i}/qR$, $\Omega_{ce}\tau_e$, $\Omega_{ci}\tau_i$, $\nu_{*e}$, $\nu_{*i}$, $\Delta_{b,i}/L_p$, $M = U/v_{ti}$, $M_A = U/v_A$, $\lvert p_\perp - p_\parallel\rvert/p$ |
-| perturbation ($k$) | $k_\perp\rho_i$, $k\,d_i$, $k\,d_e$, $k_\parallel/k_\perp$, $\delta n/n$ |
-| inner layer ($\delta$) | $d_i/\delta$, $d_e/\delta$ |
+| perturbation ($k$) | $k_\perp\rho_i$, $k\,d_i$, $k\,d_e$, $\omega\tau_i$, $k_\parallel/k_\perp$, $\delta n/n$ |
+| inner layer ($\delta$) | $d_i/\delta$, $d_e/\delta$, $\rho_s/\delta$ |
 | time history | $\tau_{evol}/\tau_A$, $\tau_{age}/\tau_R$, $\tau_{transp}/\tau_{turb}$ |
 
 | Contract | Needs |
 | --- | --- |
 | `ideal_single_fluid_mhd` | $S \gg 1$; $d_i/a$, $k\,d_i$, $k_\perp\rho_i$, $\rho_i/L_{T_i}$, $\lvert p_\perp - p_\parallel\rvert/p \ll 1$; quasineutral and low frequency. Not $\tau_{evol}/\tau_A \gg 1$: ideal MHD describes Alfvénic dynamics, $\omega\tau_A \sim 1$ |
-| `resistive_mhd` | the same without $S$, and with $d_i/\delta \ll 1$ in the layer it resolves |
-| `hall_mhd` | $k\,d_e$, $d_e/\delta \ll 1$. $k\,d_i$ and $d_i/\delta$ are not ordered: Hall MHD exists to keep them of order one |
-| `braginskii_two_fluid` | $\lambda_{e,i}/qR \ll 1$, $\Omega_{ce}\tau_e$, $\Omega_{ci}\tau_i \gg 1$, $\rho_i/L_{T_i} \ll 1$ |
+| `resistive_mhd` | the same without $S$, and with $d_i/\delta$, $\rho_s/\delta \ll 1$ in the layer it resolves. In a strong guide field $\rho_s$ is the layer's two-fluid scale |
+| `hall_mhd` | $k\,d_e$, $d_e/\delta \ll 1$; quasineutral. $k\,d_i$ and $d_i/\delta$ are not ordered: Hall MHD exists to keep them of order one |
+| `braginskii_two_fluid` | $\lambda_{e,i}/qR \ll 1$, $\Omega_{ce}\tau_e$, $\Omega_{ci}\tau_i \gg 1$, $\rho_i/L_{T_i} \ll 1$, $\omega\tau_i \ll 1$; quasineutral |
 | `flr_small_fluid` | $\rho_i/L_{T_i}$, $\rho_s/L_{T_e}$, $k_\perp\rho_i \ll 1$ |
 | `low_beta_reduced_mhd` | $\epsilon$, $\beta/\epsilon$, $k_\parallel/k_\perp \ll 1$ ($\beta \sim \epsilon^2$) |
 | `high_beta_reduced_mhd` | $\epsilon$, $\beta$, $k_\parallel/k_\perp \ll 1$ ($\beta \sim \epsilon$, so $\beta/\epsilon$ is not ordered) |
-| `drift_kinetic` | $\rho_i/L_{T_i}$, $k_\perp\rho_i$, $\omega/\Omega_{ci} \ll 1$ |
-| `gyrokinetic_delta_f` | $\rho_i/L_{T_i}$, $k_\parallel/k_\perp$, $\omega/\Omega_{ci}$, $\delta n/n$, $M \ll 1$. $k_\perp\rho_i$ is not ordered, and that separates gyrokinetics from drift kinetics and MHD |
+| `drift_kinetic` | $\rho_i/L_{T_i}$, $k_\perp\rho_i$, $\omega/\Omega_{ci} \ll 1$; quasineutral |
+| `gyrokinetic_delta_f` | $\rho_i/L_{T_i}$, $k_\parallel/k_\perp$, $\omega/\Omega_{ci}$, $\delta n/n$, $M \ll 1$; quasineutral. $k_\perp\rho_i$ is not ordered, and that separates gyrokinetics from drift kinetics and MHD |
 | `local_neoclassical` | $\rho_i/L_{T_i}$, $\Delta_{b,i}/L_p$, $M \ll 1$; fails in a pedestal or barrier |
 | `banana_regime_neoclassical` | $\nu_{*e}$, $\nu_{*i} \ll 1$ |
-| `pfirsch_schlueter_neoclassical` | $\lambda_{e,i}/qR \ll 1$, i.e. $\hat\nu = qR/\lambda \gg 1$ |
+| `pfirsch_schlueter_neoclassical` | $\lambda_{e,i}/qR \ll 1$, i.e. $\hat\nu \sim qR/\lambda \gg 1$ |
 | `quasi_static_equilibrium` | $\tau_{evol}/\tau_A \gg 1$, $M$, $M_A \ll 1$ |
 | `resistively_relaxed_current` | $\tau_{age}/\tau_R \gg 1$. An order-one value is ambiguous, because $\tau_R$ has no geometric factor |
 | `gyrokinetic_transport_separation` | $\rho_i/L_{T_i} \ll 1$, $\tau_{transp}/\tau_{turb} \gg 1$ |
 
 A contract lists only what its model requires. An empty cell means the model does not order that
 quantity, which is different from requiring it to be large. The parallel Knudsen number
-$\lambda/qR = 1/\hat\nu$ is shared by the Braginskii closure and the Pfirsch–Schlüter regime: the
+$\lambda/qR$, the inverse of $\hat\nu$ up to an order-one convention factor, is shared by the Braginskii closure and the Pfirsch–Schlüter regime: the
 collisional closure is the Pfirsch–Schlüter ordering, and it fails in the banana regime of a hot core.
 The reduced-MHD contracts list only the reduction's own orderings, so evaluate them together with the
 ideal or resistive MHD contract.
@@ -115,6 +115,8 @@ ideal or resistive MHD contract.
 Every threshold is order unity. The result is a continuous margin per ordering,
 $m = \mp\log_{10}x$, and a status per contract (`SUPPORTED`, `OUTSIDE`, `UNASSESSED`, `NOT_APPLICABLE`),
 never a single valid/invalid flag. A quantity a state does not carry is `UNASSESSED`, never a violation.
+Signed ratios (Mach numbers, the pressure anisotropy) enter as magnitudes. An exactly zero value, as in a
+static or isotropic state, has no logarithmic margin and is also `UNASSESSED`.
 
 This covers the fluid-to-kinetic core of the hierarchy, not every subsidiary ordering of every derivation.
 Full Vlasov–Maxwell kinetics assumes none of these orderings and has no contract. A gyrofluid shares the
@@ -133,3 +135,4 @@ Pfirsch–Schlüter has no ordering of its own.
 8. I. G. Abel et al., Rep. Prog. Phys. 76 (2013) 116201.
 9. F. I. Parra and P. J. Catto, Plasma Phys. Control. Fusion 52 (2010) 045004.
 10. R. D. Hazeltine and J. D. Meiss, *Plasma Confinement*, Dover (2003).
+11. K. V. Roberts and J. B. Taylor, Phys. Rev. Lett. 8 (1962) 197.
