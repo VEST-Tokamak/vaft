@@ -145,12 +145,13 @@ def run_mitim_driver(
     if not source.is_file():
         raise ValueError(f"no MITIM driver named {driver!r}")
     script = workdir / f"{driver}.py"
-    script.write_text(source.read_text())
+    script.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     (workdir / "result.json").unlink(missing_ok=True)
     argument_path = workdir / "arguments.json"
-    argument_path.write_text(json.dumps(dict(arguments), indent=1, default=str))
+    argument_path.write_text(json.dumps(dict(arguments), indent=1, default=str), encoding="utf-8")
     config_path = workdir / "mitim_config.json"
-    config_path.write_text(json.dumps(mitim_user_config(config, workdir), indent=1))
+    config_path.write_text(json.dumps(mitim_user_config(config, workdir), indent=1),
+                           encoding="utf-8")
     (workdir / "mitim_scratch").mkdir(exist_ok=True)
 
     execution = resolve_backend(config).run(
@@ -166,7 +167,7 @@ def run_mitim_driver(
     result_path = workdir / "result.json"
     if result_path.is_file():
         try:
-            result = json.loads(result_path.read_text())
+            result = json.loads(result_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as error:
             result = {"status": "error", "error": f"unreadable result.json: {error}"}
     stderr = execution.stderr
@@ -176,9 +177,9 @@ def run_mitim_driver(
     record = {
         "driver": driver,
         "driver_sha256": _sha256(script),
-        "arguments": json.loads(argument_path.read_text()),
+        "arguments": json.loads(argument_path.read_text(encoding="utf-8")),
         "mitim": availability.as_dict(),
-        "mitim_config": json.loads(config_path.read_text()),
+        "mitim_config": json.loads(config_path.read_text(encoding="utf-8")),
         "mitim_config_sha256": _sha256(config_path),
         "returncode": execution.returncode,
         "runtime_status": execution.runtime_status,
@@ -186,7 +187,8 @@ def run_mitim_driver(
         "job_id": getattr(execution, "job_id", None),
         "result_status": None if result is None else result.get("status"),
     }
-    (workdir / "record.json").write_text(json.dumps(record, indent=1, default=str))
+    (workdir / "record.json").write_text(json.dumps(record, indent=1, default=str),
+                                         encoding="utf-8")
     return MITIMResult(
         returncode=execution.returncode,
         workdir=workdir,
