@@ -655,11 +655,15 @@ def _round_trip(sent, *, shot: int, source: str, ids: tuple[str, ...], occurrenc
     from ..omas.comparison import ParityClassification, compare_ods
     from . import load as load_remote
 
+    # cache="off": the check must read the server, and a copy of what was just
+    # uploaded is never read again -- with "auto" every validated replica
+    # piled up in ~/.cache/vaft/hsds (539 GiB on vestserver, #1758).
     replica = load_remote(
         shot,
         source=source,
         paths=list(ids),
         occurrence=occurrence or None,
+        cache="off",
     )
     comparison = compare_ods(
         sent,
