@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from vaft.code import mitim
+from vaft.compat import IS_WINDOWS
 from vaft.code.gacode._types import GACODEConfig
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -294,7 +295,7 @@ def test_drivers_import_only_mitim_and_the_standard_library():
     drivers = ROOT / "vaft" / "code" / "mitim" / "drivers"
     for path in drivers.glob("*.py"):
         assert "vaft" not in "".join(
-            line for line in path.read_text().splitlines(True) if line.lstrip().startswith(("import", "from"))
+            line for line in path.read_text(encoding="utf-8").splitlines(True) if line.lstrip().startswith(("import", "from"))
         ), path.name
 
 
@@ -329,9 +330,15 @@ def test_the_callers_pythonpath_never_reaches_the_mitim_interpreter(ready, profi
     assert mitim.mitim_availability(ready).ready
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS,
+    reason="an extension-less #!/bin/sh file is not a program on Windows (CreateProcess, "
+           "WinError 193), so the probe would report not_installed; the timeout path is "
+           "exercised on the POSIX legs",
+)
 def test_a_slow_probe_is_a_timeout_not_a_broken_install(tmp_path):
     slow = tmp_path / "python"
-    slow.write_text("#!/bin/sh\nsleep 5\n")
+    slow.write_text("#!/bin/sh\nsleep 5\n", encoding="ascii")
     slow.chmod(0o755)
     found = mitim.mitim_availability(mitim.MITIMConfig(python=str(slow)), timeout=1)
     assert found.status == "probe_timeout"
@@ -381,6 +388,15 @@ def test_a_surface_mitim_ran_elsewhere_is_reported_missing(ready, profile, tmp_p
     assert not result.ok and result.result["status"] == "partial"
     assert result.result["missing_r_over_a"] == [0.4]
     assert result.result["shifted_r_over_a"] == {0.4: pytest.approx(0.41)}
+    # The run directory says the same as the returned result (cold review 0.8.0
+    # delta-absorb-17 transport F6): record.json, result.json and result.record.
+    assert result.record["result_status"] == "partial"
+    assert result.record["missing_r_over_a"] == [0.4]
+    on_disk = json.loads((tmp_path / "run" / "record.json").read_text(encoding="utf-8"))
+    assert on_disk["result_status"] == "partial" and on_disk["missing_r_over_a"] == [0.4]
+    assert on_disk["shifted_r_over_a"] == {"0.4": pytest.approx(0.41)}
+    written = json.loads((tmp_path / "run" / "result.json").read_text(encoding="utf-8"))
+    assert written["status"] == "partial" and written["missing_r_over_a"] == [0.4]
 
 
 def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile, tmp_path, monkeypatch):
@@ -391,3 +407,6 @@ def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile,
     assert sorted(outputs) == [0.4] and inputs[0.4]["DENS_1"] == 0.8
     assert result.result["status"] == "partial" and result.result["missing_r_over_a"] == [0.7]
     assert result.record["arguments"]["extra_options"] == {"ROTATION_MODEL": 1}
+    assert result.record["result_status"] == "partial"
+    on_disk = json.loads((tmp_path / "run" / "record.json").read_text(encoding="utf-8"))
+    assert on_disk["result_status"] == "partial" and on_disk["missing_r_over_a"] == [0.7]

@@ -51,6 +51,7 @@ CORE_MODULES: tuple[str, ...] = (
     # trustworthy -- and they are the cheapest tests in the repository.
     "test_coil_geometry_3d_shim.py",
     "test_compat_runtime.py",
+    "test_data_atomic.py",
     "test_data_code_namespace.py",
     "test_database_export.py",
     "test_database_namespace.py",
@@ -148,6 +149,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_eqdsk_omas_roundtrip.py",
     "test_path_exists.py",
     "test_public_confinement.py",
+    "test_public_pr08_mhd_state.py",
     "test_public_profile.py",
     "test_public_transition.py",
     "test_shotlog.py",
@@ -174,7 +176,8 @@ CORE_MODULES: tuple[str, ...] = (
     # names an API that exists -- a library rename breaks the last without its
     # author ever opening docs/, which is exactly what develop should catch.
     # The committed diagram SVGs are checked against their TikZ source too,
-    # and the generated import graph against Grimp, which stays optional (#1646).
+    # and the generated import graph against Grimp, which stays optional (#1646),
+    # and the dependency/external-code registry against pyproject and install/ (#1648).
     "test_dependency_graph.py",
     "test_diagram_render.py",
     "test_docs_api.py",
@@ -183,6 +186,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_docs_snippets.py",
     "test_docs_sources.py",
     "test_docs_thumbnails.py",
+    "test_ecosystem_catalog.py",
     "test_readme_consistency.py",
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
@@ -195,6 +199,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Dimensionless-similarity spaces (#1624): conventions never mix, missing
     # inputs are counted not imputed. Pure NumPy and Agg.
     "test_dimensionless_similarity.py",
+    # The equilibrium-state adapter (#1620) builds those tables from the packaged
+    # VEST sample and must give the atlas base table's numbers, ~10 s.
+    "test_equilibrium_state.py",
     "test_li_qa.py",
     "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
@@ -204,6 +211,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_blob.py",
     "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
+    "test_diagram_current_diffusion.py",
     "test_diagram_cylindrical_modes.py",
     "test_diagram_disruption.py",
     "test_diagram_divertor_footprint.py",
@@ -252,6 +260,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_gpec_dcon_edge_reference.py",
     "test_gpec_rdcon_criteria.py",
     "test_mhd_linear_dcon_payload.py",
+    "test_rdcon_ods_closure.py",
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
     "test_stability_rdcon_stride_benchmark.py",
@@ -278,10 +287,13 @@ CORE_MODULES: tuple[str, ...] = (
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
     # only), the plasma-current Rogowski verdict, the TF excursion repair and
-    # the shot-class pickup refusal (#1733) on synthetic records.
+    # the shot-class pickup refusal (#1733) on synthetic records, and the EFIT
+    # not-applicable verdict for sub-CUTIP class shots (#1731), whose last test
+    # runs the k-file/EFIT/EFIT-ODS scripts as subprocesses (~10 s).
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
+    "test_efit_not_applicable.py",
     "test_flux_loop_known_faults.py",
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
@@ -314,6 +326,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Ballooning normalisations (#1637): the volume shear and alpha reduce exactly
     # to s-hat and the CHT alpha for circular large-aspect-ratio surfaces.
     "test_formula_ballooning_normalisation.py",
+    # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
+    # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
+    "test_process_mhd_stability.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

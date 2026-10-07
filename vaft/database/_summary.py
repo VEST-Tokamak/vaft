@@ -2014,6 +2014,35 @@ def get_summary_preset(name: str) -> SummaryPreset:
         ) from exc
 
 
+#: Exception families raised by the transport under the HSDS client (requests,
+#: urllib3, the socket layer) and the builtins they derive from.  h5pyd folds
+#: every failure into a bare ``IOError`` whose *message* says what happened, so
+#: the type alone cannot tell "server unreachable" from "domain not found"; the
+#: chained cause/context the ``except`` block left behind can.
+_TRANSPORT_MODULES = frozenset({"requests", "urllib3", "socket", "ssl", "http"})
+
+
+def _is_connection_error(exc: BaseException) -> bool:
+    """Whether ``exc`` or anything it was raised from says the source is unreachable.
+
+    A connection error is a property of the *source*, not of one shot: the next
+    shot will fail the same way after the same retry budget, so :func:`summary`
+    must stop at the first one instead of paying it for every shot in the range.
+    A data error (a missing IDS, a shot that does not exist, an extractor that
+    finds no plasma) stays a per-shot condition and is skipped as before.
+    """
+    seen: set[int] = set()
+    node: BaseException | None = exc
+    while node is not None and id(node) not in seen:
+        seen.add(id(node))
+        if isinstance(node, (ConnectionError, TimeoutError)):
+            return True
+        if (type(node).__module__ or "").split(".")[0] in _TRANSPORT_MODULES:
+            return True
+        node = node.__cause__ or node.__context__
+    return False
+
+
 def summary(
     shot_range: tuple[int, int] | None = None,
     *,
@@ -2084,6 +2113,11 @@ def summary(
                     row["source"] = source
             frames.append(pd.DataFrame(rows))
         except Exception as exc:
+            if _is_connection_error(exc):
+                raise ConnectionError(
+                    f"Shot {shot}: source {source!r} is unreachable while summarising "
+                    f"preset {preset}; stopped before trying the remaining shots"
+                ) from exc
             logger.warning("Shot %s: preset %s failed; skipping: %s", shot, preset, exc)
 
     if not frames:

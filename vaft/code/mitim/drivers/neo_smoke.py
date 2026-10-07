@@ -36,7 +36,7 @@ def split_by_radius(source, target):
 
 
 def main(argument_file):
-    args = json.loads(Path(argument_file).read_text())
+    args = json.loads(Path(argument_file).read_text(encoding="utf-8"))
     out = {"status": "error", "capability": "neo_smoke"}
     try:
         import numpy as np
@@ -60,7 +60,7 @@ def main(argument_file):
     except Exception as error:  # reported, not raised: the caller reads result.json
         out["error"] = f"{type(error).__name__}: {error}"
         out["traceback"] = traceback.format_exc()
-    Path("result.json").write_text(json.dumps(out, indent=1))
+    Path("result.json").write_text(json.dumps(out, indent=1), encoding="utf-8")
     return 0 if out["status"] == "ok" else 1
 
 

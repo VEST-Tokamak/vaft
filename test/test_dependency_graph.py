@@ -25,9 +25,12 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 
-grimp = pytest.importorskip("grimp")
+from vaft import _dependency_graph as dependency_graph
 
-from vaft import _dependency_graph as dependency_graph  # noqa: E402
+# Grimp is an optional extra. Only the snapshot (and the one test that asks
+# Grimp directly) needs it; the tests that prove vaft works *without* it, and
+# the docs/vendor pin checks, must run everywhere, so the skip lives in the
+# fixture rather than at module level.
 
 API_STAND_IN = {
     "modules": [
@@ -48,6 +51,7 @@ PROVENANCE = {"commit": "0" * 40, "ref": "test"}
 
 @pytest.fixture(scope="module")
 def snapshot():
+    pytest.importorskip("grimp")
     return dependency_graph.dependency_snapshot(API_STAND_IN, PROVENANCE)
 
 
@@ -85,6 +89,7 @@ def test_nodes_and_edges_are_unique(snapshot):
 
 
 def test_edges_are_the_import_statements_grimp_reads(snapshot):
+    grimp = pytest.importorskip("grimp")
     nodes = _nodes(snapshot)
     graph = grimp.build_graph("vaft", include_external_packages=True, cache_dir=None)
     for edge in snapshot["edges"]:
@@ -204,6 +209,29 @@ def test_without_grimp_vaft_imports_and_the_generator_says_how_to_install(tmp_pa
     assert 'pip install -e ".[architecture]"' in result.stdout
 
 
+def test_the_tests_that_need_no_grimp_run_without_grimp():
+    """This file used to importorskip grimp at module level, skipping the no-grimp tests too.
+
+    Cold review 0.8.0 tests F7: a wheel or user environment without the
+    optional extra lost exactly the tests written for it. Run this file in a
+    subprocess with grimp blocked and count: the seven grimp-free tests pass,
+    the snapshot-backed ones skip, nothing fails.
+    """
+    script = (
+        "import sys\n"
+        "sys.modules['grimp'] = None\n"
+        "import pytest\n"
+        f"sys.exit(pytest.main([{str(Path(__file__))!r}, '-q', '-p', 'no:cacheprovider',"
+        " '-k', 'not run_without_grimp']))\n"
+    )
+    result = subprocess.run([sys.executable, "-c", script], cwd=ROOT, capture_output=True, text=True)
+    summary = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else result.stderr
+    assert result.returncode == 0, summary
+    passed = re.search(r"(\d+) passed", summary)
+    assert passed and int(passed.group(1)) >= 7, summary
+    assert "failed" not in summary and "error" not in summary, summary
+
+
 def test_import_vaft_does_not_load_grimp():
     result = subprocess.run([sys.executable, "-c", "import sys, vaft; print('grimp' in sys.modules)"],
                             cwd=ROOT, capture_output=True, text=True, check=True)
@@ -260,3 +288,15 @@ def test_the_generator_module_has_no_import_time_dependency_on_grimp():
     names = {alias.name for node in top_level for alias in node.names}
     names |= {node.module for node in top_level if isinstance(node, ast.ImportFrom) and node.module}
     assert "grimp" not in names
+
+
+def test_vendored_files_are_checked_out_byte_exact():
+    """A CRLF checkout changes the pinned hash (Windows CI): every vendored file is ``-text``."""
+    manifest = yaml.safe_load((DOCS / "assets" / "lib" / "vendor.yml").read_text(encoding="utf-8"))
+    paths = [f"docs/assets/lib/{library['file']}" for library in manifest["libraries"]]
+    result = subprocess.run(["git", "check-attr", "text", "--", *paths], cwd=ROOT, capture_output=True,
+                            text=True, check=False)
+    if result.returncode != 0:
+        pytest.skip("not a git checkout")
+    for line in result.stdout.splitlines():
+        assert line.endswith(": text: unset"), line

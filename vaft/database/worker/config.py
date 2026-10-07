@@ -79,8 +79,10 @@ class WorkerConfig:
     #: Disk guard: no new batch starts while any guarded filesystem has less
     #: than this many GB (1e9 bytes) free.  ``None`` disables the guard.
     min_free_gb: float | None = None
-    #: Free space at which a paused worker resumes (hysteresis); defaults to
-    #: ``min_free_gb``.
+    #: Free space at which a paused worker resumes (hysteresis).  A
+    #: configuration file that leaves it out gets ``min_free_gb * 1.05``, so a
+    #: filesystem hovering at the limit does not pause and resume every cycle.
+    #: ``None`` (the dataclass default) resumes at ``min_free_gb`` itself.
     resume_free_gb: float | None = None
     #: Paths whose filesystems are guarded.  Empty: the pipeline's ``base_dir``
     #: (where every product lands), ``log_dir`` and the state database's directory.
@@ -171,6 +173,12 @@ def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> Wo
     if not snakemake_cmd:
         raise WorkerConfigError("snakemake_cmd must not be empty")
     timeout = data.get("run_timeout")
+    min_free_gb = _optional_float(data.get("min_free_gb"), "min_free_gb")
+    resume_free_gb = _optional_float(data.get("resume_free_gb"), "resume_free_gb")
+    if resume_free_gb is None and min_free_gb is not None:
+        # Hysteresis by default: without a margin, free space oscillating by a
+        # fraction of a GB around the limit flips pause/resume every cycle.
+        resume_free_gb = min_free_gb * 1.05
     config = WorkerConfig(
         state_db=_path(data["state_db"], relative_to=base_dir, key="state_db"),
         log_dir=_path(data["log_dir"], relative_to=base_dir, key="log_dir"),
@@ -191,8 +199,8 @@ def worker_config_from_mapping(data: Mapping[str, Any], *, base_dir: Path) -> Wo
         classifier=data.get("classifier"),
         record_shot_class=bool(data.get("record_shot_class", False)),
         stages=_stages(data.get("stages")),
-        min_free_gb=_optional_float(data.get("min_free_gb"), "min_free_gb"),
-        resume_free_gb=_optional_float(data.get("resume_free_gb"), "resume_free_gb"),
+        min_free_gb=min_free_gb,
+        resume_free_gb=resume_free_gb,
         disk_paths=tuple(
             _path(item, relative_to=base_dir, key="disk_paths")
             for item in _path_list(data.get("disk_paths"), "disk_paths")

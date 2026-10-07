@@ -65,9 +65,9 @@ from vaft.plot.models import (
 from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
 from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, UNCLASSIFIED, VALID
 from vaft.plot.registry import get_spec
-from vaft.spectroscopy import (
+from vaft.data.atomic import format_species
+from vaft.data.spectroscopy import (
     describe_available,
-    format_species,
     matches,
     parse_emission_term,
     parse_line_label,
@@ -860,11 +860,9 @@ MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOST
 DEFAULT_MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
 
 
-def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
-                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
-    """Use one source registry for selected families in composed machine plots."""
-    from vaft.plot.machine_geometry import machine_geometry_view
-
+def _shared_machine_source(ods: Any, options: Mapping[str, Any], families: tuple[str, ...]
+                           ) -> tuple[Any, tuple[str, ...], Mapping[str, Any] | None]:
+    """Resolve the geometry source, family selection and manifest of a composed view."""
     chosen = options.get("geometry_families")
     if chosen is not None:
         families = (chosen,) if isinstance(chosen, str) else tuple(chosen)
@@ -872,10 +870,31 @@ def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
     manifest = options.get("geometry_manifest")
     if geometry_data is not ods and manifest is None:
         raise ValueError("separate geometry_data requires geometry_manifest provenance")
+    return geometry_data, families, manifest
+
+
+def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
+                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
+    """Use one source registry for selected families in composed machine plots."""
+    from vaft.plot.machine_geometry import machine_geometry_view
+
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
     return machine_geometry_view(
         geometry_data, view, families=families, manifest=manifest,
         axis_length=float(options.get("axis_length", 0.25)),
     )
+
+
+def _stored_undrawable_families(ods: Any, options: Mapping[str, Any],
+                                families: tuple[str, ...]) -> list[str]:
+    """Selected families whose records are stored but drew nothing in the view."""
+    from vaft.plot.machine_geometry import machine_geometry_registry
+
+    if not families:
+        return []
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
+    return sorted({record.family for record in
+                   machine_geometry_registry(geometry_data, families=families, manifest=manifest)})
 
 
 def _machine_view_title(base: str, shared: GeometryLayers | Geometry3DLayers) -> str:
@@ -3409,6 +3428,12 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     shared = _shared_machine_view(ods, "rz", options, selected)
     layers.extend(shared.layers)
     if not layers:
+        stored = _stored_undrawable_families(ods, options, selected)
+        if stored:
+            raise ValueError(
+                f"machine geometry {', '.join(stored)} is stored but none of its "
+                "records can be drawn in the R-Z view (a position without a height)"
+            )
         raise ValueError(
             "none of the poloidal machine geometry IDS (wall, pf_active, "
             "pf_passive, magnetics, thomson_scattering, charge_exchange, "
@@ -5550,6 +5575,16 @@ def _gk_title(base: str, entries: Sequence[tuple[str, Any]]) -> str:
     return base + (f" — unmatched: {', '.join(mismatches)}" if mismatches else "")
 
 
+#: The plots that read ``include_unconverged=`` (declared-only, see
+#: :data:`vaft.plot.backend.options.DECLARED_ONLY_OPTIONS`): the two linear
+#: spectra and the overview that composes them.  Any other plot refuses it.
+UNCONVERGED_MODE_PLOTS = frozenset({
+    "gyrokinetics_spectrum_growth_rate",
+    "gyrokinetics_spectrum_frequency",
+    "gyrokinetics_overview",
+})
+
+
 def _gk_unconverged(obj: Any, mode: str) -> bool:
     """An initial-value eigenmode that reached no tolerance (``growth_rate_tolerance`` is
     written only for a converged run): its last-step value is not an eigenvalue."""
@@ -5610,7 +5645,7 @@ def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) ->
     include = bool(options.get("include_unconverged", False))
     series = [s for label, obj in _labelled(entries)
               for s in _gk_linear_series(label, obj, "growth_rate_norm", include_unconverged=include,
-                                         short=bool(options.get("short_labels")))]
+                                         short=bool(options.get("_short_labels")))]
     if not series:
         raise ValueError(f"no converged {_GK}.linear growth rates in this input "
                          "(include_unconverged=True draws initial-value runs that reached none)")
@@ -5628,7 +5663,7 @@ def _build_gk_frequency(entries: Sequence[tuple[str, Any]], **options: Any) -> P
     include = bool(options.get("include_unconverged", False))
     series = [s for label, obj in _labelled(entries)
               for s in _gk_linear_series(label, obj, "frequency_norm", include_unconverged=include,
-                                         short=bool(options.get("short_labels")))]
+                                         short=bool(options.get("_short_labels")))]
     if not series:
         raise ValueError(f"no converged {_GK}.linear frequencies in this input")
     conventions = {_gk_parameter(obj, "frequency_sign_convention") for _label, obj in entries}
@@ -5692,7 +5727,7 @@ def _gk_flux_builder(quantity: str, y_label: str):
             for s in range(total.shape[0]):
                 species = _gk_species_label(obj, s)
                 series.append(Series(x=ky[order], y=total[s][order],
-                                     label=species if options.get("short_labels") else f"{name} {species}"))
+                                     label=species if options.get("_short_labels") else f"{name} {species}"))
         if not series:
             raise ValueError(f"no ky-resolved {quantity} flux in this input")
         quasi = {_get(obj, f"{_GK}.non_linear.quasi_linear") for _label, obj in entries}
@@ -5799,14 +5834,15 @@ def _gk_local_state_lines(obj: Any) -> list[str]:
 def _build_gk_overview(obj: Any, **options: Any) -> Panels:
     """The members a run supports, plus its local state; a missing quantity drops its panel."""
     entries = [("", obj)]
+    include = bool(options.get("include_unconverged", False))
     models: list[Any] = []
     for available, build in (
         (_gk_spectrum_available("growth_rate_norm"),
-         lambda: _build_gk_growth_rate(entries, short_labels=True)),
+         lambda: _build_gk_growth_rate(entries, _short_labels=True, include_unconverged=include)),
         (_gk_spectrum_available("frequency_norm"),
-         lambda: _build_gk_frequency(entries, short_labels=True)),
+         lambda: _build_gk_frequency(entries, _short_labels=True, include_unconverged=include)),
         (_gk_flux_spectrum_available("energy"),
-         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries, short_labels=True)),
+         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries, _short_labels=True)),
         (_gk_eigenfunction_available, lambda: _build_gk_eigenfunction(obj)),
     ):
         if available(obj) is None:
@@ -5945,6 +5981,24 @@ def _tt_available(quantity: str):
     return available
 
 
+def _tt_slice_times(obj: Any, m: int) -> np.ndarray:
+    base = f"core_transport.model.{m}.profiles_1d"
+    return np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(_count(obj, base))],
+                    dtype=float)
+
+
+def _tt_reference_time(entries: Sequence[tuple[str, Any]]) -> float | None:
+    """The instant a request without ``time`` means: the first stored slice of the
+    first anomalous model, so every other model is matched to it by its own time
+    rather than by slice position."""
+    for _label, obj in entries:
+        for m in _tt_models(obj):
+            times = _tt_slice_times(obj, m)
+            if times.size:
+                return None if np.isnan(times[0]) else float(times[0])
+    return None
+
+
 def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
     base = f"core_transport.model.{m}.profiles_1d"
     count = _count(obj, base)
@@ -5952,7 +6006,7 @@ def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
         return None
     if time is None:
         return 0
-    times = np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(count)], dtype=float)
+    times = _tt_slice_times(obj, m)
     if np.all(np.isnan(times)):
         return 0
     return int(np.nanargmin(np.abs(times - float(time))))
@@ -5961,9 +6015,15 @@ def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
 def _tt_builder(quantity: str, y_label: str, y_unit: str):
     def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
         series = []
+        # Match slices by time, not by index: with no ``time`` the first model's
+        # first slice sets the instant and every model picks its nearest slice.
+        time = options.get("time")
+        if time is None:
+            time = _tt_reference_time(entries)
+        slice_times: dict[str, float | None] = {}
         for label, obj in _labelled(entries):
             for m in _tt_models(obj):
-                t = _tt_slice(obj, m, options.get("time"))
+                t = _tt_slice(obj, m, time)
                 if t is None:
                     continue
                 base = f"core_transport.model.{m}.profiles_1d.{t}"
@@ -5973,6 +6033,8 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
                     continue
                 code = _get(obj, f"core_transport.model.{m}.code.name") or f"model {m}"
                 name = (label if str(code) in label else f"{label} ({code})") if label else str(code)
+                stored = _get(obj, f"{base}.time", None)
+                slice_times[name] = None if stored is None else float(stored)
                 # one colour per model; electrons solid, ions dashed
                 color = palette(sum(1 for item in series if item.label.endswith(' e')))
                 series.append(Series(x=rho, y=electrons, label=f"{name} e", style={"color": color}))
@@ -5988,6 +6050,7 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
             series=tuple(series), coordinate_label=r"$\rho_{tor,N}$",
             y_label=y_label, y_unit=y_unit,
             title=f"{_FLUX_WORD[quantity]} flux",
+            metadata={"time": time, "slice_time": slice_times},
         )
     return builder
 
@@ -7345,8 +7408,8 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
     )
     geometry_manifest = options.get("geometry_manifest")
     if ("machine_geometry" in overlays or any(name in MACHINE_GEOMETRY_FAMILIES for name in overlays)) and geometry_manifest and geometry_manifest.get("kind") == "cross-shot-diagnostic-fixture":
-        reference = geometry_manifest["geometry_reference"]["source_shot"]
-        title += f"\nCross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+        from vaft.plot.machine_geometry import cross_shot_notice
+        title += "\n" + cross_shot_notice(geometry_manifest["geometry_reference"]["source_shot"])
     return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
 
 
@@ -9285,6 +9348,8 @@ def declares_option(name: str, option: str) -> bool:
     """Whether plot ``name`` declares the declared-only ``option``."""
     if option in RATIONAL_SURFACE_OPTIONS:
         return name in RATIONAL_SURFACE_PLOTS
+    if option == "include_unconverged":
+        return name in UNCONVERGED_MODE_PLOTS
     return choice_options_for(name, option) is not None
 
 
@@ -13150,6 +13215,8 @@ RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
 #: read off the number: a stable DCON mode and a weakly driven GPEC mode are
 #: both small and positive.
 _DRIVE_ENERGY_SOLVERS = frozenset({"gpec"})
+#: PEST3 matching codes: their mhd_linear blocks hold no eigenfunction or energy.
+_MATCHING_SOLVERS = frozenset({"rdcon", "stride"})
 
 
 def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
@@ -13161,7 +13228,9 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
     document.  A block with no ``time_slice`` attribute (DCON fragments before
     version 2, #940) is keyed on ``None`` and matches any slice; since version 2
     DCON blocks carry ``time_slice`` too, so for a cell both DCON and GPEC wrote
-    the later block in document order names the solver.
+    the later block in document order names the solver.  RDCON and STRIDE blocks
+    (version 2, #939) carry ``time_slice`` as well but write neither the
+    eigenfunction nor ``energy_perturbed``, so they never name a cell.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
     found: dict[tuple[int | None, int], str] = {}
@@ -13172,11 +13241,14 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
                 n_tor = int(named["n_tor"])
             except (KeyError, ValueError):
                 continue
+            name = str(named.get("name", "")).lower()
+            if name in _MATCHING_SOLVERS:
+                continue
             slice_index = (
                 int(named["time_slice"]) if named.get("time_slice", "").strip().isdigit()
                 else None
             )
-            found[(slice_index, n_tor)] = str(named.get("name", "")).lower()
+            found[(slice_index, n_tor)] = name
         return found
 
     def _children(node: Any, tag: str) -> list[Any]:
@@ -13192,10 +13264,13 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
             n_tor = int(_scalar(solver["@n_tor"]))
         except (TypeError, ValueError):
             continue
+        name = str(_scalar(solver.get("@name", ""))).lower()
+        if name in _MATCHING_SOLVERS:
+            continue
         slice_index = (
             int(_scalar(solver["@time_slice"])) if "@time_slice" in solver else None
         )
-        found[(slice_index, n_tor)] = str(_scalar(solver.get("@name", ""))).lower()
+        found[(slice_index, n_tor)] = name
     return found
 
 

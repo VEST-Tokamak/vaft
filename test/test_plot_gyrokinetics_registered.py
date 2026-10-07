@@ -139,6 +139,52 @@ def test_an_unconverged_initial_value_mode_is_not_drawn_unless_asked():
     assert np.nanmax(np.concatenate([s.y for s in asked.series])) == pytest.approx(50.0)
 
 
+def _unconverged_scan():
+    from vaft.machine_mapping.gyrokinetics import merge_linear_scan
+
+    one = make_gyrokinetics_local(None)
+    junk = copy.deepcopy(one)
+    wave = "gyrokinetics_local.linear.wavevector.0"
+    junk[f"{wave}.binormal_wavevector_norm"] = one[f"{wave}.binormal_wavevector_norm"] / 3
+    junk[f"{wave}.eigenmode.0.growth_rate_norm"] = 50.0
+    del junk[f"{wave}.eigenmode.0.growth_rate_tolerance"]
+    return merge_linear_scan([one, junk])
+
+
+def _largest_drawn(model):
+    return float(np.nanmax(np.concatenate([s.y for s in model.series])))
+
+
+def test_include_unconverged_is_an_option_of_the_public_entry_points():
+    """The guide says to pass include_unconverged=True; the facade, extract and the
+    overview must take it, and the plots that never read it must refuse it by name
+    (cold review 0.8.0 delta-absorb-17-transport F2)."""
+    import vaft.plot
+    from vaft.plot.backend.options import OPTION_SCHEMA
+
+    assert OPTION_SCHEMA["include_unconverged"].kind == "bool"
+    scan = _unconverged_scan()
+    assert _largest_drawn(vaft.plot.extract("gyrokinetics_spectrum_growth_rate", scan)) < 50.0
+    asked = vaft.plot.extract("gyrokinetics_spectrum_growth_rate", scan, include_unconverged=True)
+    assert _largest_drawn(asked) == pytest.approx(50.0)
+    figure, ax = vaft.omas.plot_gyrokinetics_spectrum_growth_rate(scan, include_unconverged=True)
+    assert max(float(np.nanmax(line.get_ydata())) for line in ax.get_lines()) == pytest.approx(50.0)
+    figure, ax = vaft.omas.plot_gyrokinetics_spectrum_growth_rate(scan)
+    assert max(float(np.nanmax(line.get_ydata())) for line in ax.get_lines()) < 50.0
+    def finite_points(model):
+        return int(sum(np.isfinite(s.y).sum() for s in model.series))
+
+    frequency = vaft.plot.extract("gyrokinetics_spectrum_frequency", scan)
+    assert finite_points(vaft.plot.extract("gyrokinetics_spectrum_frequency", scan,
+                                           include_unconverged=True)) == finite_points(frequency) + 1
+    overview = vaft.plot.extract("gyrokinetics_overview", scan, include_unconverged=True)
+    assert _largest_drawn(overview.models[0]) == pytest.approx(50.0)
+    assert _largest_drawn(vaft.plot.extract("gyrokinetics_overview", scan).models[0]) < 50.0
+    for name in ("gyrokinetics_spectrum_energy_flux", "gyrokinetics_profile_eigenfunction"):
+        with pytest.raises(ValueError, match="does not take an option named 'include_unconverged'"):
+            vaft.plot.extract(name, scan, include_unconverged=True)
+
+
 def test_labels_name_the_run_once(gk):
     """An entry label that already names the run is not repeated, and inside the
     overview (whose suptitle names the run) a lone mode carries no label at all."""

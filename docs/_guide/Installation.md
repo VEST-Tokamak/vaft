@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines twelve extras (ten optional-dependency groups, the empty `gui` alias, and `dev`); none is needed for the first result on this page:
+The project defines twelve extras (ten optional-dependency groups, the empty `gui` alias, and `dev`); none is needed for the first result on this page. The [software dependencies]({{ site.baseurl }}/reference/software-dependencies/) page groups every dependency and extra by the capability it provides, and [external scientific codes]({{ site.baseurl }}/reference/external-codes/) covers the solvers VAFT integrates but does not install as Python packages:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |

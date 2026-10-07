@@ -135,10 +135,18 @@ def observed_tau(table: pd.DataFrame, scaling: str) -> pd.Series:
 
 
 def h_factor_of(table: pd.DataFrame, scaling: str) -> pd.Series:
-    """Observed tau_E (with the scaling's energy basis) over its prediction [-]."""
+    """Observed tau_E (with the scaling's energy basis) over its prediction [-].
+
+    ``attrs`` carries the basis provenance of :func:`observed_tau` and the
+    ``kappa_definition`` of the prediction: the ``extra_scalings`` names use
+    the boundary elongation ``kappa``, the others ``kappa_area`` through
+    ``vaft.data.public.predict_confinement_time``.
+    """
     tau = observed_tau(table, scaling)
-    h = (tau / predict_tau(table, scaling)).rename(f"h_{scaling}")
+    predicted = predict_tau(table, scaling)
+    h = (tau / predicted).rename(f"h_{scaling}")
     h.attrs.update(tau.attrs)
+    h.attrs["kappa_definition"] = predicted.attrs.get("kappa_definition", "unrecorded")
     return h
 
 

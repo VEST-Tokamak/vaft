@@ -44,7 +44,9 @@ against integrated pairs plus the research community and ownership:
 ``scientific_representation``, ``experimental_research_infrastructure``,
 ``scientific_credibility``, ``research_modality_architecture``,
 ``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform
-(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the physics-workflow
+(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the software
+and external-code ecosystem (#1648): ``software_dependency_ecosystem`` and
+``external_code_integration``; the physics-workflow
 spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
 ``analytic_mhd_equilibrium``, ``chease_coupling``, ``tokamaker_coupling``,
@@ -56,7 +58,8 @@ vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
 and q topology (#1604): ``current_profile_shapes``, ``q_profile_landmarks``,
-``q_profile_topologies`` and ``rational_surface_topology``.
+``q_profile_topologies`` and ``rational_surface_topology``; current diffusion and
+current drive (#1605): ``current_diffusion`` and ``current_drive_profiles``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -155,6 +158,8 @@ __all__ = [
     "q_profile_landmarks",
     "q_profile_topologies",
     "rational_surface_topology",
+    "current_diffusion",
+    "current_drive_profiles",
     "slab_field_configuration",
     "current_sheet",
     "harris_sheet",
@@ -235,6 +240,8 @@ __all__ = [
     "scientific_ownership_architecture",
     "vest_data_platform",
     "vest_data_platform_overview",
+    "software_dependency_ecosystem",
+    "external_code_integration",
     "plasma_parameter_inference",
     "romero_transformer_balance",
     "resistive_zeff_inference",
@@ -345,6 +352,8 @@ _LOCATIONS = {
     "q_profile_landmarks": "._equilibrium_profiles",
     "q_profile_topologies": "._equilibrium_profiles",
     "rational_surface_topology": "._equilibrium_profiles",
+    "current_diffusion": "._current_diffusion",
+    "current_drive_profiles": "._current_diffusion",
     "slab_field_configuration": "._field_configurations",
     "current_sheet": "._field_configurations",
     "harris_sheet": "._field_configurations",
@@ -425,6 +434,8 @@ _LOCATIONS = {
     "scientific_ownership_architecture": "._research_concepts",
     "vest_data_platform": "._platform",
     "vest_data_platform_overview": "._platform",
+    "software_dependency_ecosystem": "._ecosystem",
+    "external_code_integration": "._ecosystem",
     "plasma_parameter_inference": "._workflow_specs",
     "romero_transformer_balance": "._workflow_specs",
     "resistive_zeff_inference": "._workflow_specs",
