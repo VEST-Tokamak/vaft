@@ -67,13 +67,23 @@ flowchart TD
 | `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page | [API]({{ site.baseurl }}/reference/api/plot/) |
 | `vaft.diagram` | Explanatory schematics (magnetic-island topology, ...) drawn from `vaft.formula` and rendered to SVG | [Scientific diagrams]({{ site.baseurl }}/reference/diagrams/) | [API]({{ site.baseurl }}/reference/api/diagram/) |
 | `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP) | this page | [API]({{ site.baseurl }}/reference/api/code/) |
-| `vaft.data` | GEQDSK read/write and packaged sample files | this page | [API]({{ site.baseurl }}/reference/api/data/) |
+| `vaft.data` | GEQDSK read/write, packaged sample files, and atomic and spectral-line identity (`vaft.data.atomic`, `vaft.data.spectroscopy`) | this page | [API]({{ site.baseurl }}/reference/api/data/) |
 | `vaft.imas` | OMAS to IMAS Access Layer bridge | [Data structures]({{ site.baseurl }}/guide/Data_structures/) | [API]({{ site.baseurl }}/reference/api/imas/) |
 | `vaft.validation` | Scientific assessment: benchmarks, comparisons, regression evidence | | [API]({{ site.baseurl }}/reference/api/validation/) |
 | `vaft.cli` | Command-line workflows over the library APIs | | [API]({{ site.baseurl }}/reference/api/cli/) |
 | `vaft.mcp` | Local, read-only MCP server over the discovery APIs, for agent clients (`vaft[mcp]`) | [MCP server]({{ site.baseurl }}/reference/mcp/) | [API]({{ site.baseurl }}/reference/api/mcp/) |
-| `vaft.gui` | Optional browser GUI over the plot catalog and interactive controls (`vaft[gui]`) | [Browser GUI]({{ site.baseurl }}/workflows/gui/) | [API]({{ site.baseurl }}/reference/api/gui/) |
-| `vaft`, `vaft.compat`, `vaft.ods_access`, `vaft.spectroscopy` | Top level and small utilities | | [API]({{ site.baseurl }}/reference/api/core/) |
+| `vaft.gui` | Browser GUI over the plot catalog and interactive controls | [Browser GUI]({{ site.baseurl }}/workflows/gui/) | [API]({{ site.baseurl }}/reference/api/gui/) |
+| `vaft`, `vaft.compat`, `vaft.ods_access`, `vaft.spectroscopy` (deprecated alias of `vaft.data.atomic`/`vaft.data.spectroscopy`, removed in 0.10.0) | Top level and small utilities | | [API]({{ site.baseurl }}/reference/api/core/) |
+
+Atomic and spectroscopic concerns follow the same layering as the rest of the package (#1711).
+Identity is data: `vaft.data.atomic` owns elements, isotopes, charge states and species notation
+(`AtomicSpecies`, `parse_species`), and `vaft.data.spectroscopy` owns spectral-line identity and the
+IMAS `processed_line.label` codec (`SpectralLineIdentity`, `parse_line_label`, `parse_emission_term`).
+Atomic equations are `vaft.formula.atomic`, and ODS-aware radiation and composition processing is
+`vaft.process.atomic` / `vaft.process.impurity`. The labels a diagnostic writes belong to
+`vaft.machine_mapping`, and selecting and presenting lines belongs to `vaft.plot`. An `AtomicSpecies`
+carries identity only. Densities and populations belong to the composition and multi-species state
+models built on it.
 
 Everything in an ODS is in **IMAS SI units**: seconds, amperes, tesla, weber, m$^{-3}$, and eV or J
 where the Data Dictionary says so. The plotting layer is the only place that rescales (for example A

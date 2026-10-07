@@ -767,11 +767,46 @@
                 - {index: 8, r: 0.106, z: 0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
                 - {index: 9, r: 0.13, z: -0.696, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
                 - {index: 10, r: 0.106, z: -0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+            # Lower-inboard loops #14/#15 (issue #1793): an up-down mirror scan of
+            # every plasma shot (loop 9 vs 7, 10 vs 8, minus the Z=+-0.805 pair)
+            # finds them off during plasma only; and #12, #13, #15 flat zero from
+            # 48816. Segments are contiguous because a revision replaces the lists.
+            - from_shot: 46749
+              to_shot: 47985
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
+                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loop #15 (field 246) off its up-down mirror #13 during plasma: -15 to -45 mWb per 100 kA, 46976-48038 (46748 last clean, no plasma shot 46749-46975; 48224 clean again); plasma-free baseline agrees (issue #1793)"}
             - from_shot: 47986
+              to_shot: 48038
               probes:
                 - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
               flux_loops:
                 - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
+                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loop #15 (field 246) off its up-down mirror #13 during plasma: -15 to -45 mWb per 100 kA, 46976-48038 (46748 last clean, no plasma shot 46749-46975; 48224 clean again); plasma-free baseline agrees (issue #1793)"}
+            - from_shot: 48039
+              to_shot: 48392
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
+            - from_shot: 48393
+              to_shot: 48815
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+            - from_shot: 48816
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loop #12 (field 243) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
+                - {index: 8, r: 0.106, z: 0.62, reason: "Flux loop #13 (field 244) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
+                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loop #15 (field 246) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
 
     # Kinetic-profile construction policy (issue #420): the VEST decisions a
     # pipeline hands to the machine-independent vaft.process.profile and
@@ -1347,7 +1382,7 @@
   #
   # Source: the EC officer's `MID 6KW ECH ASSY.stp` (Inventor 2026 AP214
   # export, 2026-09-21, sha256 a4f7b9dd...711c), reduced by
-  # validation/ec_launcher_cad_266/extract_launcher_geometry.py. The assembly
+  # vaft/validation/studies/ec_launcher_cad_266/extract_launcher_geometry.py. The assembly
   # carries the vessel section (`MIDDLE SHIELD PART`: an r = 800 mm cylinder,
   # z = +-587 mm, radial r = 82.6 mm port holes at z = -360 / 0 / +360 mm), so
   # the machine axis is recovered from the CAD rather than assumed.

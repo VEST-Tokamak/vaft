@@ -259,6 +259,14 @@ def make_neoclassical(sample: ODS) -> ODS:
     return _with_core_profiles(sample, zeff=True)
 
 
+def make_zeff_profile(sample: ODS) -> ODS:
+    """core_profiles_profile_zeff -- the stored Z_eff with the provenance record a
+    vaft.process.impurity writer leaves beside it (#1565)."""
+    ods = _with_core_profiles(sample, zeff=True)
+    ods["core_profiles.profiles_1d.0.zeff_fit.parameters"] = "origin=assumed; method=impurity_model_preset"
+    return ods
+
+
 # ---------------------------------------------------------------------------
 # camera_visible_* -- adapted from test/test_camera_visible_image_api.py (_with_frames):
 # 39915 has a packaged pose, so frames added at the equilibrium slice time project.
@@ -429,6 +437,11 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "summary_time_power_balance": make_power_balance,
     # Same shape: every current-carrying 39915 slice gets electron profiles.
     "summary_time_resistive_zeff": make_power_balance,
+    "core_profiles_profile_zeff": make_zeff_profile,
+    # The sample's magnetics and UV lines time the plasma, so the coronal
+    # check runs; the charge states come from synthetic ADF11 tables.
+    "impurity_profile_composition": make_neoclassical,
+    "impurity_profile_charge_state_fraction": make_core_profiles,
     "camera_visible_image": make_camera,
     "camera_visible_image_frame": make_camera,
     "camera_visible_image_efit_overlay": make_camera,
@@ -454,6 +467,11 @@ OPTIONS: dict[str, dict] = {
     # vacuum resonant pairs are different objects drawn on the same axes.
     "mhd_linear_geometry_island": {"field": "total"},
 }
+
+from _adf11_synthetic import synthetic_adf11_tables  # noqa: E402
+
+OPTIONS["impurity_profile_composition"] = {"adf11_tables": synthetic_adf11_tables()}
+OPTIONS["impurity_profile_charge_state_fraction"] = {"adf11_tables": synthetic_adf11_tables()}
 
 #: Names no factory could make build, with the exact error.
 UNSUPPORTED: dict[str, str] = {}
@@ -609,3 +627,61 @@ def make_field_line_plane(_sample: ODS) -> ODS:
 
 
 SYNTHETIC["field_line_topology_field_connection_length"] = make_field_line_plane
+
+
+# ---------------------------------------------------------------------------
+# gyrokinetics_* (#1591): a real CGYRO linear run (the packaged EM fixture) mapped
+# with vaft.machine_mapping.gyrokinetics, plus a quasilinear ky-resolved flux block
+# of the shape the TGLF mapping writes. turbulent_transport_*: two anomalous
+# core_transport models (TGLF and CGYRO) on one radial grid.
+# ---------------------------------------------------------------------------
+def make_gyrokinetics_local(_sample: ODS) -> ODS:
+    from vaft.code.gacode import cgyro
+    from vaft.code.gacode.cgyro import collect_cgyro_outputs
+    from vaft.machine_mapping.gyrokinetics import gyrokinetics_local_from_cgyro
+
+    from test_cgyro_adapter import tglf_local
+
+    local = cgyro.cgyro_input_from_tglf(tglf_local())
+    run = collect_cgyro_outputs(Path(__file__).parent / "data" / "gacode" / "cgyro_linear_48224_r0.7_em")
+    out = ODS()
+    parameters = cgyro.cgyro_parameters(local, cgyro.CGYROConfig(field_model="em-aperp"))
+    gyrokinetics_local_from_cgyro(out, local, run, provenance={"parameters": parameters}, time=0.3)
+    ky = np.array([0.2, 0.4, 0.8, 1.6])
+    out["gyrokinetics_local.non_linear.binormal_wavevector_norm"] = ky
+    out["gyrokinetics_local.non_linear.quasi_linear"] = 1
+    for quantity, scale in (("energy", 2.0), ("particles", 0.5)):
+        out[f"gyrokinetics_local.non_linear.fluxes_2d_k_x_sum.{quantity}_phi_potential"] = (
+            scale * np.outer([1.0, 0.6, 0.3], np.exp(-((ky - 0.6) / 0.4) ** 2)))
+    return out
+
+
+def make_turbulent_transport(_sample: ODS) -> ODS:
+    out = ODS()
+    rho = np.linspace(0.3, 0.8, 6)
+    out["core_transport.ids_properties.homogeneous_time"] = 1
+    out["core_transport.time"] = np.array([0.317])
+    for m, (code, scale) in enumerate((("TGLF", 1.0), ("CGYRO", 0.4))):
+        base = f"core_transport.model.{m}"
+        out[f"{base}.identifier.index"] = 6
+        out[f"{base}.identifier.name"] = "anomalous"
+        out[f"{base}.code.name"] = code
+        profile = f"{base}.profiles_1d.0"
+        out[f"{profile}.time"] = 0.317
+        out[f"{profile}.grid_flux.rho_tor_norm"] = rho
+        out[f"{profile}.electrons.energy.flux"] = scale * 1e4 * rho**2
+        out[f"{profile}.electrons.particles.flux"] = scale * 1e19 * rho
+        out[f"{profile}.ion.0.label"] = "H+"
+        out[f"{profile}.ion.0.energy.flux"] = scale * 5e3 * rho**2
+        out[f"{profile}.ion.0.particles.flux"] = scale * 1e19 * rho
+    return out
+
+
+for _name in ("gyrokinetics_spectrum_growth_rate", "gyrokinetics_spectrum_frequency",
+              "gyrokinetics_spectrum_energy_flux", "gyrokinetics_spectrum_particle_flux",
+              "gyrokinetics_profile_eigenfunction", "gyrokinetics_overview"):
+    SYNTHETIC[_name] = make_gyrokinetics_local
+for _name in ("turbulent_transport_profile_energy_flux", "turbulent_transport_profile_particle_flux",
+              "turbulent_transport_overview"):
+    SYNTHETIC[_name] = make_turbulent_transport
+del _name

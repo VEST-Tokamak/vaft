@@ -65,9 +65,9 @@ from vaft.plot.models import (
 from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
 from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, UNCLASSIFIED, VALID
 from vaft.plot.registry import get_spec
-from vaft.spectroscopy import (
+from vaft.data.atomic import format_species
+from vaft.data.spectroscopy import (
     describe_available,
-    format_species,
     matches,
     parse_emission_term,
     parse_line_label,
@@ -860,11 +860,9 @@ MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOST
 DEFAULT_MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
 
 
-def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
-                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
-    """Use one source registry for selected families in composed machine plots."""
-    from vaft.plot.machine_geometry import machine_geometry_view
-
+def _shared_machine_source(ods: Any, options: Mapping[str, Any], families: tuple[str, ...]
+                           ) -> tuple[Any, tuple[str, ...], Mapping[str, Any] | None]:
+    """Resolve the geometry source, family selection and manifest of a composed view."""
     chosen = options.get("geometry_families")
     if chosen is not None:
         families = (chosen,) if isinstance(chosen, str) else tuple(chosen)
@@ -872,10 +870,31 @@ def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
     manifest = options.get("geometry_manifest")
     if geometry_data is not ods and manifest is None:
         raise ValueError("separate geometry_data requires geometry_manifest provenance")
+    return geometry_data, families, manifest
+
+
+def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
+                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
+    """Use one source registry for selected families in composed machine plots."""
+    from vaft.plot.machine_geometry import machine_geometry_view
+
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
     return machine_geometry_view(
         geometry_data, view, families=families, manifest=manifest,
         axis_length=float(options.get("axis_length", 0.25)),
     )
+
+
+def _stored_undrawable_families(ods: Any, options: Mapping[str, Any],
+                                families: tuple[str, ...]) -> list[str]:
+    """Selected families whose records are stored but drew nothing in the view."""
+    from vaft.plot.machine_geometry import machine_geometry_registry
+
+    if not families:
+        return []
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
+    return sorted({record.family for record in
+                   machine_geometry_registry(geometry_data, families=families, manifest=manifest)})
 
 
 def _machine_view_title(base: str, shared: GeometryLayers | Geometry3DLayers) -> str:
@@ -1205,24 +1224,26 @@ def _topview_reads() -> tuple[str, ...]:
         else:
             reads += [f"{container}.{{i}}.position.r", f"{container}.{{i}}.position.phi"]
     # The shared machine-space registry reads these IDS paths for all views.
-    for container in ("thomson_scattering.channel", "charge_exchange.channel", "langmuir_probes.embedded"):
-        for suffix in ("position", "position.0"):
-            for coordinate in ("r", "z", "phi"):
-                reads += [f"{container}.{{i}}.{suffix}.{coordinate}",
-                          f"{container}.{{i}}.{suffix}.{coordinate}.data"]
+    # Each family is declared in its DD shape: charge exchange stores time
+    # traces, the others static coordinates; only interferometer reflects.
+    for container, leaf in (("thomson_scattering.channel", ""), ("charge_exchange.channel", ".data"),
+                            ("langmuir_probes.embedded", "")):
+        reads += [f"{container}.{{i}}.position.{coordinate}{leaf}" for coordinate in ("r", "z", "phi")]
         reads.append(f"{container}.{{i}}.name")
-    for container in ("interferometer.channel", "soft_x_rays.channel"):
-        for endpoint in ("first_point", "second_point", "third_point"):
+    for container, endpoints in (("interferometer.channel", ("first_point", "second_point", "third_point")),
+                                 ("soft_x_rays.channel", ("first_point", "second_point"))):
+        for endpoint in endpoints:
             for coordinate in ("r", "z", "phi"):
                 reads.append(f"{container}.{{i}}.line_of_sight.{endpoint}.{coordinate}")
         reads += [f"{container}.{{i}}.name", f"{container}.{{i}}.identifier"]
     for coordinate in ("r", "z", "phi"):
         reads += [f"ec_launchers.beam.{{i}}.launching_position.{coordinate}",
-                  f"ec_launchers.beam.{{i}}.launching_position.{coordinate}.data",
                   f"nbi.unit.{{i}}.beamlets_group.{{j}}.position.{coordinate}"]
     reads += ["ec_launchers.beam.{i}.steering_angle_pol", "ec_launchers.beam.{i}.steering_angle_tor",
               "ec_launchers.beam.{i}.name", "nbi.unit.{i}.name",
-              "dataset_description.data_entry.machine", "dataset_description.data_entry.pulse"]
+              "dataset_description.data_entry.machine", "dataset_description.data_entry.pulse",
+              # _exclude_crossshot_equilibrium recognises the composite fixture by its comment.
+              "dataset_description.ids_properties.comment"]
     return tuple(dict.fromkeys(reads))
 
 
@@ -3407,6 +3428,12 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     shared = _shared_machine_view(ods, "rz", options, selected)
     layers.extend(shared.layers)
     if not layers:
+        stored = _stored_undrawable_families(ods, options, selected)
+        if stored:
+            raise ValueError(
+                f"machine geometry {', '.join(stored)} is stored but none of its "
+                "records can be drawn in the R-Z view (a position without a height)"
+            )
         raise ValueError(
             "none of the poloidal machine geometry IDS (wall, pf_active, "
             "pf_passive, magnetics, thomson_scattering, charge_exchange, "
@@ -5458,6 +5485,609 @@ RECIPES["neoclassical_profile_bootstrap_current"] = CallableRecipe(
     backend=OMAS_BOUND,
     reason='vaft.validation.neoclassical.bootstrap_models subscripts the ODS; the stored-series fallback reads core_profiles.code.name with `in`',
 )
+
+
+# --- Gyrokinetics (#1591): local flux tube (gyrokinetics_local) and radial
+# turbulent transport (core_transport) ----------------------------------------
+#
+# Standardized views: they read the IMAS IDS in its own (GKDB) normalisation and
+# never convert to solver-native units -- that lives in vaft.machine_mapping. A
+# `gyrokinetics_local` IDS holds ONE local simulation, so a comparison is several
+# entries; what makes two entries comparable is checked from each IDS's own
+# metadata and stated on the figure, never assumed from the overlay.
+
+_GK = "gyrokinetics_local"
+_GK_FIELDS = ("phi_potential", "a_field_parallel", "b_field_parallel")
+
+
+def _gk_parameter(obj: Any, key: str, base: str = _GK) -> str | None:
+    """One ``<key>value</key>`` entry of ``<base>.code.parameters``, or ``None``."""
+    text = _get(obj, f"{base}.code.parameters")
+    if not text:
+        return None
+    match = re.search(fr"<{key}>(.*?)</{key}>", str(text))
+    return match.group(1) if match else None
+
+
+def _gk_label(label: str, obj: Any) -> str:
+    code = _get(obj, f"{_GK}.code.name") or "gyrokinetics_local"
+    extras = []
+    sat = _gk_parameter(obj, "sat_rule")
+    if sat is not None:
+        extras.append(f"SAT{sat}")
+    field = _get(obj, f"{_GK}.model.include_a_field_parallel")
+    if field is not None:
+        extras.append("EM" if int(field) else "ES")
+    text = " ".join([str(code), *extras])
+    if not label:
+        return text
+    # a caller's label is kept and only what it does not already say is added
+    # ("CGYRO" -> "CGYRO EM", never "CGYRO: CGYRO EM")
+    missing = [token for token in text.split() if token not in label.split()]
+    return " ".join([label, *missing])
+
+
+def _gk_signature(obj: Any) -> dict[str, Any]:
+    """What must agree for two local runs to be one comparison."""
+    charges = tuple(
+        _get(obj, f"{_GK}.species.{s}.charge_norm") for s in range(_count(obj, f"{_GK}.species"))
+    )
+    return {
+        "surface (r_minor_norm)": _get(obj, f"{_GK}.flux_surface.r_minor_norm"),
+        "q": _get(obj, f"{_GK}.flux_surface.q"),
+        "magnetic shear": _get(obj, f"{_GK}.flux_surface.magnetic_shear_r_minor"),
+        "species": charges,
+        "field model": (_get(obj, f"{_GK}.model.include_a_field_parallel"),
+                        _get(obj, f"{_GK}.model.include_b_field_parallel")),
+        "frequency sign convention": _gk_parameter(obj, "frequency_sign_convention"),
+        "normalisation": _gk_parameter(obj, "normalisation"),
+    }
+
+
+def _gk_mismatches(entries: Sequence[tuple[str, Any]]) -> list[str]:
+    """Keys on which the entries disagree (scalars to 1e-3 relative)."""
+    signatures = [_gk_signature(obj) for _label, obj in entries]
+    if len(signatures) < 2:
+        return []
+    out = []
+    for key in signatures[0]:
+        values = [sig[key] for sig in signatures]
+        first = values[0]
+        for other in values[1:]:
+            if isinstance(first, (int, float)) and isinstance(other, (int, float)):
+                if not np.isclose(float(first), float(other), rtol=1e-3, atol=0.0):
+                    out.append(key)
+                    break
+            elif first != other:
+                out.append(key)
+                break
+    return out
+
+
+def _labelled(entries: Sequence[tuple[str, Any]]) -> list[tuple[str, Any]]:
+    """Entry labels only when there is more than one entry to tell apart."""
+    entries = list(entries)
+    return entries if len(entries) > 1 else [("", obj) for _label, obj in entries]
+
+
+def _gk_title(base: str, entries: Sequence[tuple[str, Any]]) -> str:
+    mismatches = _gk_mismatches(entries)
+    return base + (f" — unmatched: {', '.join(mismatches)}" if mismatches else "")
+
+
+#: The plots that read ``include_unconverged=`` (declared-only, see
+#: :data:`vaft.plot.backend.options.DECLARED_ONLY_OPTIONS`): the two linear
+#: spectra and the overview that composes them.  Any other plot refuses it.
+UNCONVERGED_MODE_PLOTS = frozenset({
+    "gyrokinetics_spectrum_growth_rate",
+    "gyrokinetics_spectrum_frequency",
+    "gyrokinetics_overview",
+})
+
+
+def _gk_unconverged(obj: Any, mode: str) -> bool:
+    """An initial-value eigenmode that reached no tolerance (``growth_rate_tolerance`` is
+    written only for a converged run): its last-step value is not an eigenvalue."""
+    return (_get(obj, f"{mode}.initial_value_run") == 1
+            and _get(obj, f"{mode}.growth_rate_tolerance") is None)
+
+
+def _gk_linear_series(label: str, obj: Any, leaf: str, *, include_unconverged: bool = False,
+                      short: bool = False) -> list[Series]:
+    """One series per eigenmode index over ``linear.wavevector[:]``; absent modes are NaN.
+
+    Unconverged initial-value modes are left out unless ``include_unconverged``."""
+    waves = _count(obj, f"{_GK}.linear.wavevector")
+    if not waves:
+        return []
+    ky = np.full(waves, np.nan)
+    modes = max(_count(obj, f"{_GK}.linear.wavevector.{k}.eigenmode") for k in range(waves))
+    values = np.full((waves, max(modes, 1)), np.nan)
+    for k in range(waves):
+        wave = f"{_GK}.linear.wavevector.{k}"
+        ky[k] = _get(obj, f"{wave}.binormal_wavevector_norm", np.nan)
+        for m in range(_count(obj, f"{wave}.eigenmode")):
+            if not include_unconverged and _gk_unconverged(obj, f"{wave}.eigenmode.{m}"):
+                continue
+            value = _get(obj, f"{wave}.eigenmode.{m}.{leaf}")
+            if value is not None:
+                values[k, m] = float(value)
+    order = np.argsort(ky)
+    name = _gk_label(label, obj)
+    drawn = [m for m in range(values.shape[1]) if not np.all(np.isnan(values[:, m]))]
+    series = []
+    for m in drawn:
+        if short:   # inside an overview whose suptitle names the run
+            text = f"mode {m + 1}" if len(drawn) > 1 else ""
+        else:
+            text = name if m == 0 else f"{name} (mode {m + 1})"
+        series.append(Series(
+            x=ky[order], y=values[order, m],
+            label=text,
+            style={} if m == 0 else {"linestyle": ":"},
+        ))
+    return series
+
+
+def _gk_spectrum_available(leaf: str):
+    def available(obj: Any) -> str | None:
+        for k in range(_count(obj, f"{_GK}.linear.wavevector")):
+            wave = f"{_GK}.linear.wavevector.{k}"
+            for m in range(_count(obj, f"{wave}.eigenmode")):
+                mode = f"{wave}.eigenmode.{m}"
+                if _has(obj, f"{mode}.{leaf}") and not _gk_unconverged(obj, mode):
+                    return None
+        return f"no converged {_GK}.linear eigenmode carries {leaf}"
+    return available
+
+
+def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
+    include = bool(options.get("include_unconverged", False))
+    series = [s for label, obj in _labelled(entries)
+              for s in _gk_linear_series(label, obj, "growth_rate_norm", include_unconverged=include,
+                                         short=bool(options.get("_short_labels")))]
+    if not series:
+        raise ValueError(f"no converged {_GK}.linear growth rates in this input "
+                         "(include_unconverged=True draws initial-value runs that reached none)")
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label=r"$k_y\rho_{ref}$",
+        y_label=r"$\gamma\,R_0/v_{th,ref}$",
+        title=_gk_title("Growth rate", entries),
+        metadata={"x": "binormal_wavevector_norm", "y": "growth_rate_norm",
+                  "normalisation": "GKDB: L_ref=R0, B_ref=Btor(R0), v_thref=sqrt(2Te/mD)"},
+    )
+
+
+def _build_gk_frequency(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
+    include = bool(options.get("include_unconverged", False))
+    series = [s for label, obj in _labelled(entries)
+              for s in _gk_linear_series(label, obj, "frequency_norm", include_unconverged=include,
+                                         short=bool(options.get("_short_labels")))]
+    if not series:
+        raise ValueError(f"no converged {_GK}.linear frequencies in this input")
+    conventions = {_gk_parameter(obj, "frequency_sign_convention") for _label, obj in entries}
+    if conventions == {"ion_diamagnetic_negative"}:
+        sign = "ion dia. < 0"
+    elif None in conventions and len(conventions) == 1:
+        sign = "sign convention not recorded"
+    else:
+        sign = "sign conventions differ"
+    return Profile1D(
+        series=tuple(series),
+        coordinate_label=r"$k_y\rho_{ref}$",
+        y_label=fr"$\omega\,R_0/v_{{th,ref}}$ ({sign})",
+        title=_gk_title("Frequency", entries),
+        metadata={"x": "binormal_wavevector_norm", "y": "frequency_norm",
+                  "frequency_sign_convention": sorted(c or "unrecorded" for c in conventions)},
+    )
+
+
+def _gk_species_label(obj: Any, index: int) -> str:
+    charge = _get(obj, f"{_GK}.species.{index}.charge_norm")
+    if charge is None:
+        return f"species {index + 1}"
+    return "e" if float(charge) < 0 else f"Z={float(charge):g}"
+
+
+_FLUX_WORD = {"energy": "Energy", "particles": "Particle"}
+
+
+def _gk_flux_spectrum_available(quantity: str):
+    def available(obj: Any) -> str | None:
+        if not _has(obj, f"{_GK}.non_linear.binormal_wavevector_norm"):
+            return f"no {_GK}.non_linear.binormal_wavevector_norm"
+        for field in _GK_FIELDS:
+            if _has(obj, f"{_GK}.non_linear.fluxes_2d_k_x_sum.{quantity}_{field}"):
+                return None
+        return f"no ky-resolved {quantity} flux (non_linear.fluxes_2d_k_x_sum)"
+    return available
+
+
+_GK_FLUX_TAIL = 1e-2
+
+
+def _gk_flux_builder(quantity: str, y_label: str):
+    def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
+        series = []
+        for label, obj in _labelled(entries):
+            ky = _array(obj, f"{_GK}.non_linear.binormal_wavevector_norm")
+            if ky is None:
+                continue
+            total = None
+            for field in _GK_FIELDS:
+                values = _array(obj, f"{_GK}.non_linear.fluxes_2d_k_x_sum.{quantity}_{field}")
+                if values is not None:
+                    total = values if total is None else total + values
+            if total is None:
+                continue
+            total = np.atleast_2d(total)
+            name = _gk_label(label, obj)
+            order = np.argsort(ky)
+            for s in range(total.shape[0]):
+                species = _gk_species_label(obj, s)
+                series.append(Series(x=ky[order], y=total[s][order],
+                                     label=species if options.get("_short_labels") else f"{name} {species}"))
+        if not series:
+            raise ValueError(f"no ky-resolved {quantity} flux in this input")
+        quasi = {_get(obj, f"{_GK}.non_linear.quasi_linear") for _label, obj in entries}
+        kind = "quasilinear" if quasi == {1} else ("nonlinear" if quasi == {0} else "mixed QL/NL")
+        # Display range only: beyond the last k_y where any species carries at least
+        # _GK_FLUX_TAIL of its peak |flux| the curves are flat at zero (TGLF's grid
+        # reaches the ETG range); nothing is dropped from the model's series.
+        x_end = 0.0
+        for item in series:
+            y = np.abs(np.asarray(item.y, dtype=float))
+            peak = np.nanmax(y) if y.size else 0.0
+            if peak > 0:
+                x_end = max(x_end, float(np.max(np.asarray(item.x)[y >= _GK_FLUX_TAIL * peak])))
+        x_full = max(float(np.nanmax(item.x)) for item in series)
+        x_limits = (0.0, min(x_full, 1.1 * x_end)) if 0 < x_end < x_full else None
+        return Profile1D(
+            series=tuple(series),
+            x_limits=x_limits,
+            coordinate_label=r"$k_y\rho_{ref}$",
+            y_label=y_label + " per $k_y$",
+            title=_gk_title(f"{_FLUX_WORD[quantity]} flux, {kind}", entries),
+            metadata={"x": "non_linear.binormal_wavevector_norm",
+                      "y": f"non_linear.fluxes_2d_k_x_sum.{quantity}_* (summed over fields)"},
+        )
+    return builder
+
+
+def _gk_eigenfunction_available(obj: Any) -> str | None:
+    for k in range(_count(obj, f"{_GK}.linear.wavevector")):
+        if _has(obj, f"{_GK}.linear.wavevector.{k}.eigenmode.0.fields.phi_potential_perturbed_norm"):
+            return None
+    return f"no {_GK}.linear eigenmode carries a phi eigenfunction"
+
+
+def _build_gk_eigenfunction(obj: Any, **options: Any) -> Profile1D:
+    """phi of the most unstable leading eigenmode against the DD's poloidal angle.
+
+    The complex amplitude is read as written (``_array`` would drop the imaginary
+    part); its phase convention is the mapping's, stated in the eigenmode's
+    ``code.parameters``, and repeated in the title.
+    """
+    best, best_gamma = None, -np.inf
+    for k in range(_count(obj, f"{_GK}.linear.wavevector")):
+        mode = f"{_GK}.linear.wavevector.{k}.eigenmode.0"
+        if not _has(obj, f"{mode}.fields.phi_potential_perturbed_norm") or _gk_unconverged(obj, mode):
+            continue
+        gamma = _get(obj, f"{mode}.growth_rate_norm", -np.inf)
+        if gamma is not None and float(gamma) > best_gamma:
+            best, best_gamma = k, float(gamma)
+    if best is None:
+        raise ValueError(f"no converged {_GK}.linear eigenmode carries a phi eigenfunction")
+    mode = f"{_GK}.linear.wavevector.{best}.eigenmode.0"
+    angle = _array(obj, f"{mode}.angle_pol")
+    phi = np.asarray(_get(obj, f"{mode}.fields.phi_potential_perturbed_norm"), dtype=complex)
+    phi = phi[:, -1] if phi.ndim == 2 else phi
+    ky = _get(obj, f"{_GK}.linear.wavevector.{best}.binormal_wavevector_norm")
+    normalisation = _gk_parameter(obj, "field_normalisation", base=mode) or "as stored"
+    x = angle / np.pi
+    return Profile1D(
+        series=(
+            Series(x=x, y=np.abs(phi), label=r"$|\phi|$", style={"color": "emphasis:strong"}),
+            Series(x=x, y=phi.real, label=r"Re $\phi$"),
+            Series(x=x, y=phi.imag, label=r"Im $\phi$"),
+        ),
+        coordinate_label=r"angle_pol / $\pi$",
+        y_label=r"$\phi$",
+        title=fr"Eigenfunction, $k_y\rho_{{ref}}$ = {float(ky):.3g}",
+        metadata={"angle": "clockwise from the LFS midplane (DD angle_pol)",
+                  "field_normalisation": normalisation},
+    )
+
+
+def _gk_local_state_lines(obj: Any) -> list[str]:
+    """The local state the run was given, as text (species gradients in R0/L)."""
+    fs = f"{_GK}.flux_surface"
+    lines = []
+    for label, path, fmt in (
+        ("r/R0", f"{fs}.r_minor_norm", ".3f"), ("q", f"{fs}.q", ".3f"),
+        ("s", f"{fs}.magnetic_shear_r_minor", ".3f"), ("kappa", f"{fs}.elongation", ".3f"),
+        ("beta_ref", f"{_GK}.species_all.beta_reference", ".3g"),
+    ):
+        value = _get(obj, path)
+        lines.append(f"{label} = {format(float(value), fmt)}" if value is not None
+                     else f"{label}: unavailable")
+    gradients = []
+    for s in range(_count(obj, f"{_GK}.species")):
+        base = f"{_GK}.species.{s}"
+        ln = _get(obj, f"{base}.density_log_gradient_norm")
+        lt = _get(obj, f"{base}.temperature_log_gradient_norm")
+        if ln is not None and lt is not None:
+            gradients.append(f"{_gk_species_label(obj, s):>4s} {float(ln):5.2f} {float(lt):5.2f}")
+    if gradients:
+        lines += ["", "    R0/Ln R0/LT", *gradients]
+    code = _get(obj, f"{_GK}.code.name")
+    if code:
+        commit = _get(obj, f"{_GK}.code.commit")
+        lines.append(f"code: {code}" + (f" {str(commit)[:7]}" if commit else ""))
+    locality = _gk_parameter(obj, "locality_verdict")
+    if locality:
+        lines.append(f"locality: {locality}")
+    return lines
+
+
+def _build_gk_overview(obj: Any, **options: Any) -> Panels:
+    """The members a run supports, plus its local state; a missing quantity drops its panel."""
+    entries = [("", obj)]
+    include = bool(options.get("include_unconverged", False))
+    models: list[Any] = []
+    for available, build in (
+        (_gk_spectrum_available("growth_rate_norm"),
+         lambda: _build_gk_growth_rate(entries, _short_labels=True, include_unconverged=include)),
+        (_gk_spectrum_available("frequency_norm"),
+         lambda: _build_gk_frequency(entries, _short_labels=True, include_unconverged=include)),
+        (_gk_flux_spectrum_available("energy"),
+         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries, _short_labels=True)),
+        (_gk_eigenfunction_available, lambda: _build_gk_eigenfunction(obj)),
+    ):
+        if available(obj) is None:
+            models.append(build())
+    # Plots fill a two-row grid column by column; the local state is a full-height
+    # column on the right, so its lines have room and no plot is squeezed by text.
+    rows = 2 if len(models) > 1 else 1
+    plot_cols = -(-len(models) // rows)
+    spans = [(i % rows, i // rows, 1, 1) for i in range(len(models))]
+    models.append(TextPanel(lines=tuple(_gk_local_state_lines(obj)), title="Local state"))
+    spans.append((0, plot_cols, rows, 1))
+    r_minor = _get(obj, f"{_GK}.flux_surface.r_minor_norm")
+    where = f"r/R0 = {float(r_minor):.3f}" if r_minor is not None else "surface not recorded"
+    return Panels(models=tuple(models), nrows=rows, ncols=plot_cols + 1, share_x=False,
+                  spans=tuple(spans),
+                  suptitle=options.get("title", f"{_gk_label('', obj)} — {where}"))
+
+
+def _gk_overview_available(obj: Any) -> str | None:
+    if not _has(obj, f"{_GK}.flux_surface.r_minor_norm"):
+        return f"no {_GK} in this input"
+    return None
+
+
+_GK_COMMON_READS = (
+    f"{_GK}.code.name", f"{_GK}.code.commit", f"{_GK}.code.parameters",
+    f"{_GK}.model.include_a_field_parallel", f"{_GK}.model.include_b_field_parallel",
+    f"{_GK}.flux_surface.r_minor_norm", f"{_GK}.flux_surface.q",
+    f"{_GK}.flux_surface.magnetic_shear_r_minor", f"{_GK}.species.{{i}}.charge_norm",
+)
+_GK_LINEAR_READS = (
+    f"{_GK}.linear.wavevector.{{i}}.binormal_wavevector_norm",
+)
+
+
+def _gk_eigen_reads(leaf: str) -> tuple[str, ...]:
+    return (*_GK_COMMON_READS, *_GK_LINEAR_READS,
+            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.{leaf}",
+            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.initial_value_run",
+            f"{_GK}.linear.wavevector.{{i}}.eigenmode.{{j}}.growth_rate_tolerance")
+
+
+def _gk_flux_reads(quantity: str) -> tuple[str, ...]:
+    return (*_GK_COMMON_READS, f"{_GK}.non_linear.binormal_wavevector_norm",
+            f"{_GK}.non_linear.quasi_linear",
+            *(f"{_GK}.non_linear.fluxes_2d_k_x_sum.{quantity}_{f}" for f in _GK_FIELDS))
+
+
+_GK_EIGENFUNCTION_READS = (
+    *_GK_COMMON_READS, *_GK_LINEAR_READS,
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.growth_rate_norm",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.angle_pol",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.fields.phi_potential_perturbed_norm",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.code.parameters",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.initial_value_run",
+    f"{_GK}.linear.wavevector.{{i}}.eigenmode.0.growth_rate_tolerance",
+)
+
+RECIPES["gyrokinetics_spectrum_growth_rate"] = CallableRecipe(
+    builder=_build_gk_growth_rate,
+    description="Linear growth rate against k_y from gyrokinetics_local, every eigenmode, "
+                "every entry overlaid; entries that are not one comparison are named.",
+    available=_gk_spectrum_available("growth_rate_norm"),
+    reads=_gk_eigen_reads("growth_rate_norm"),
+    backend=NEUTRAL,
+    multi_entry=True,
+)
+RECIPES["gyrokinetics_spectrum_frequency"] = CallableRecipe(
+    builder=_build_gk_frequency,
+    description="Linear real frequency against k_y from gyrokinetics_local, with the sign "
+                "convention each IDS records.",
+    available=_gk_spectrum_available("frequency_norm"),
+    reads=_gk_eigen_reads("frequency_norm"),
+    backend=NEUTRAL,
+    multi_entry=True,
+)
+RECIPES["gyrokinetics_spectrum_energy_flux"] = CallableRecipe(
+    builder=_gk_flux_builder("energy", r"$Q/Q_{ref}$"),
+    description="ky-resolved energy flux per species from gyrokinetics_local "
+                "(non_linear.fluxes_2d_k_x_sum), quasilinear or nonlinear as recorded.",
+    available=_gk_flux_spectrum_available("energy"),
+    reads=_gk_flux_reads("energy"),
+    backend=NEUTRAL,
+    multi_entry=True,
+)
+RECIPES["gyrokinetics_spectrum_particle_flux"] = CallableRecipe(
+    builder=_gk_flux_builder("particles", r"$\Gamma/\Gamma_{ref}$"),
+    description="ky-resolved particle flux per species from gyrokinetics_local.",
+    available=_gk_flux_spectrum_available("particles"),
+    reads=_gk_flux_reads("particles"),
+    backend=NEUTRAL,
+    multi_entry=True,
+)
+RECIPES["gyrokinetics_profile_eigenfunction"] = CallableRecipe(
+    builder=_build_gk_eigenfunction,
+    description="phi eigenfunction of the most unstable leading mode against the DD "
+                "poloidal angle: magnitude, real and imaginary parts.",
+    available=_gk_eigenfunction_available,
+    reads=_GK_EIGENFUNCTION_READS,
+    backend=NEUTRAL,
+)
+RECIPES["gyrokinetics_overview"] = CallableRecipe(
+    builder=_build_gk_overview,
+    description="One local gyrokinetic run: growth rate, frequency, flux spectrum and "
+                "eigenfunction where the run carries them, and its local state.",
+    available=_gk_overview_available,
+    reads=tuple(dict.fromkeys((
+        *_gk_eigen_reads("growth_rate_norm"), *_gk_eigen_reads("frequency_norm"),
+        *_gk_flux_reads("energy"), *_GK_EIGENFUNCTION_READS,
+        f"{_GK}.flux_surface.elongation", f"{_GK}.species_all.beta_reference",
+        f"{_GK}.species.{{i}}.density_log_gradient_norm",
+        f"{_GK}.species.{{i}}.temperature_log_gradient_norm",
+    ))),
+    backend=NEUTRAL,
+)
+
+
+# --- turbulent transport from core_transport ---------------------------------
+
+_ANOMALOUS = 6
+
+
+def _tt_models(obj: Any) -> list[int]:
+    return [m for m in range(_count(obj, "core_transport.model"))
+            if _get(obj, f"core_transport.model.{m}.identifier.index") == _ANOMALOUS]
+
+
+def _tt_available(quantity: str):
+    def available(obj: Any) -> str | None:
+        for m in _tt_models(obj):
+            base = f"core_transport.model.{m}.profiles_1d"
+            for t in range(_count(obj, base)):
+                if _has(obj, f"{base}.{t}.electrons.{quantity}.flux"):
+                    return None
+        return f"no anomalous (index 6) core_transport model carries electrons.{quantity}.flux"
+    return available
+
+
+def _tt_slice_times(obj: Any, m: int) -> np.ndarray:
+    base = f"core_transport.model.{m}.profiles_1d"
+    return np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(_count(obj, base))],
+                    dtype=float)
+
+
+def _tt_reference_time(entries: Sequence[tuple[str, Any]]) -> float | None:
+    """The instant a request without ``time`` means: the first stored slice of the
+    first anomalous model, so every other model is matched to it by its own time
+    rather than by slice position."""
+    for _label, obj in entries:
+        for m in _tt_models(obj):
+            times = _tt_slice_times(obj, m)
+            if times.size:
+                return None if np.isnan(times[0]) else float(times[0])
+    return None
+
+
+def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
+    base = f"core_transport.model.{m}.profiles_1d"
+    count = _count(obj, base)
+    if not count:
+        return None
+    if time is None:
+        return 0
+    times = _tt_slice_times(obj, m)
+    if np.all(np.isnan(times)):
+        return 0
+    return int(np.nanargmin(np.abs(times - float(time))))
+
+
+def _tt_builder(quantity: str, y_label: str, y_unit: str):
+    def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
+        series = []
+        # Match slices by time, not by index: with no ``time`` the first model's
+        # first slice sets the instant and every model picks its nearest slice.
+        time = options.get("time")
+        if time is None:
+            time = _tt_reference_time(entries)
+        slice_times: dict[str, float | None] = {}
+        for label, obj in _labelled(entries):
+            for m in _tt_models(obj):
+                t = _tt_slice(obj, m, time)
+                if t is None:
+                    continue
+                base = f"core_transport.model.{m}.profiles_1d.{t}"
+                rho = _array(obj, f"{base}.grid_flux.rho_tor_norm")
+                electrons = _array(obj, f"{base}.electrons.{quantity}.flux")
+                if rho is None or electrons is None:
+                    continue
+                code = _get(obj, f"core_transport.model.{m}.code.name") or f"model {m}"
+                name = (label if str(code) in label else f"{label} ({code})") if label else str(code)
+                stored = _get(obj, f"{base}.time", None)
+                slice_times[name] = None if stored is None else float(stored)
+                # one colour per model; electrons solid, ions dashed
+                color = palette(sum(1 for item in series if item.label.endswith(' e')))
+                series.append(Series(x=rho, y=electrons, label=f"{name} e", style={"color": color}))
+                ions = [_array(obj, f"{base}.ion.{i}.{quantity}.flux")
+                        for i in range(_count(obj, f"{base}.ion"))]
+                ions = [v for v in ions if v is not None and v.shape == rho.shape]
+                if ions:
+                    series.append(Series(x=rho, y=np.sum(ions, axis=0), label=f"{name} i",
+                                         style={"linestyle": "--", "color": color}))
+        if not series:
+            raise ValueError(f"no turbulent {quantity} flux profile in this input")
+        return Profile1D(
+            series=tuple(series), coordinate_label=r"$\rho_{tor,N}$",
+            y_label=y_label, y_unit=y_unit,
+            title=f"{_FLUX_WORD[quantity]} flux",
+            metadata={"time": time, "slice_time": slice_times},
+        )
+    return builder
+
+
+def _tt_reads(quantity: str) -> tuple[str, ...]:
+    base = "core_transport.model.{i}"
+    return (f"{base}.identifier.index", f"{base}.code.name",
+            f"{base}.profiles_1d.{{j}}.time", f"{base}.profiles_1d.{{j}}.grid_flux.rho_tor_norm",
+            f"{base}.profiles_1d.{{j}}.electrons.{quantity}.flux",
+            f"{base}.profiles_1d.{{j}}.ion.{{k}}.{quantity}.flux")
+
+
+RECIPES["turbulent_transport_profile_energy_flux"] = CallableRecipe(
+    builder=_tt_builder("energy", "energy flux", "W.m^-2"),
+    description="Turbulent electron and ion energy flux against rho_tor_norm, one series "
+                "pair per anomalous core_transport model and entry.",
+    available=_tt_available("energy"),
+    reads=_tt_reads("energy"),
+    backend=NEUTRAL,
+    multi_entry=True,
+    time_axis=OWN_TIME,
+)
+RECIPES["turbulent_transport_profile_particle_flux"] = CallableRecipe(
+    builder=_tt_builder("particles", "particle flux", "m^-2.s^-1"),
+    description="Turbulent electron and ion particle flux against rho_tor_norm.",
+    available=_tt_available("particles"),
+    reads=_tt_reads("particles"),
+    backend=NEUTRAL,
+    multi_entry=True,
+    time_axis=OWN_TIME,
+)
+RECIPES["turbulent_transport_overview"] = PanelRecipe(
+    members=("turbulent_transport_profile_energy_flux", "turbulent_transport_profile_particle_flux"),
+    ncols=2,
+    share_x=True,
+    suptitle="Turbulent transport (core_transport, anomalous models)",
+)
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
     description="Wall, coils, passive structure and diagnostic positions composed.",
@@ -5857,6 +6487,484 @@ RECIPES["summary_time_resistive_zeff"] = CallableRecipe(
     backend=OMAS_BOUND,
     reason="vaft.omas.resistive_zeff.compute_resistive_zeff_ods subscripts the ODS and traces geometry on a scratch ODS",
     windowed=True,
+)
+
+
+# ---------------------------------------------------------------------------
+# Impurity composition and the radial Z_eff (#1565 Sec. 8, Lane L)
+#
+# Two questions, kept apart: what Z_eff(rho) the ODS stores and on what
+# authority (core_profiles_profile_zeff), and what the slice's own T_e, n_e
+# imply for a stated elemental composition through atomic-data charge states
+# (impurity_profile_composition, impurity_profile_charge_state_fraction).
+# The second is a model and is titled as one; neither presents an assumed or
+# derived value as a measurement.
+# ---------------------------------------------------------------------------
+
+#: The normalizations the composition view draws:
+#: :data:`vaft.process.impurity.NORMALIZATIONS` without ``resistive_closure``,
+#: which needs a resistive target and its projection, neither of which the
+#: slice holds.
+IMPURITY_NORMALIZATIONS = ("ne_weighted_mean", "axis", "fixed")
+#: Charge-state models of :func:`vaft.process.impurity.resolve_radial_composition`.
+IMPURITY_IONIZATIONS = ("coronal", "transient")
+#: How far apart a core_profiles and an equilibrium slice may be and still be
+#: paired for the volume weights [s] -- the resolver's own tolerance.
+_IMPURITY_SLICE_TOLERANCE = 5e-4
+
+_CORE_PROFILES_SLICE_READS = (
+    "core_profiles.time", "core_profiles.profiles_1d.{i}.time",
+    "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+)
+_ZEFF_PROFILE_READS = (
+    *_CORE_PROFILES_SLICE_READS,
+    "core_profiles.profiles_1d.{i}.zeff",
+    "core_profiles.profiles_1d.{i}.zeff_fit.parameters",
+)
+_IMPURITY_COMPOSITION_READS = (
+    *_ZEFF_PROFILE_READS,
+    "core_profiles.profiles_1d.{i}.electrons.temperature",
+    "core_profiles.profiles_1d.{i}.electrons.density_thermal",
+    "core_profiles.profiles_1d.{i}.electrons.density",
+    "equilibrium.time", "equilibrium.time_slice.{i}.time",
+    "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
+    "equilibrium.time_slice.{i}.profiles_1d.volume",
+    *_ONSET_READS,
+)
+
+#: How a stored Z_eff is labelled, by the ``origin`` its ``zeff_fit.parameters``
+#: record states (:func:`vaft.process.impurity.composition_record_origin`).
+_ZEFF_ORIGIN_LABELS = {
+    "measured": ("measured", {"color": "role:measured"}),
+    "assumed": ("assumed, not measured", {"color": "role:reconstructed", "linestyle": "--"}),
+    "derived": ("derived, not measured", {"color": "role:reconstructed"}),
+    "inferred": ("inferred, not measured", {"color": "role:reconstructed"}),
+    "unknown": ("unrecognised origin", {"color": "emphasis:medium", "linestyle": "--"}),
+    None: ("origin not recorded", {"color": "emphasis:medium", "linestyle": "--"}),
+}
+
+
+def _core_profiles_slice(ods: Any, options: Mapping[str, Any], qualifies: Any = None) -> tuple[int, str, float]:
+    """``(index, base path, time)`` of the core_profiles slice ``time_slice=`` names.
+
+    Without one, the first slice ``qualifies(ods, base)`` accepts -- the slice
+    the recipe's ``available`` predicate found -- else slice 0.
+    """
+    total = _count(ods, "core_profiles.profiles_1d")
+    raw = options.get("time_slice")
+    index = 0 if raw is None else int(raw)
+    if raw is None and qualifies is not None:
+        index = next((i for i in range(total) if qualifies(ods, f"core_profiles.profiles_1d.{i}")), 0)
+    if not 0 <= index < total:
+        raise ValueError(f"time_slice={raw!r} is outside the {total} stored core_profiles slices")
+    times = slice_times(ods, "core_profiles.profiles_1d")
+    return index, f"core_profiles.profiles_1d.{index}", float(times[index])
+
+
+def _slice_title_time(t: float) -> str:
+    return f"t = {t * 1e3:.2f} ms" if np.isfinite(t) else "slice time not stored"
+
+
+def _record_field(record: Any, key: str) -> str:
+    """One ``key=value`` field of a ``*_fit.parameters`` record, ``""`` when absent."""
+    for part in str(record or "").replace("\n", ";").split(";"):
+        name, sep, value = part.partition("=")
+        if sep and name.strip().lower() == key:
+            return value.strip()
+    return ""
+
+
+def _stored_zeff(ods: Any, base: str) -> tuple[np.ndarray, np.ndarray, str | None, Any] | None:
+    """``(rho, zeff, origin, record)`` the slice stores, or ``None`` without a usable one."""
+    from vaft.process.impurity import composition_record_origin
+
+    zeff = _array(ods, f"{base}.zeff")
+    rho = _array(ods, f"{base}.grid.rho_tor_norm")
+    if zeff is None or rho is None or zeff.shape != rho.shape:
+        return None
+    record = _get(ods, f"{base}.zeff_fit.parameters")
+    return rho, zeff, composition_record_origin(record), record
+
+
+def _has_stored_zeff(ods: Any, base: str) -> bool:
+    return _stored_zeff(ods, base) is not None
+
+
+def _zeff_profile_available(ods: Any) -> str | None:
+    """Why no slice can draw its stored Z_eff (zeff on its own rho grid), or ``None``."""
+    for index in range(_count(ods, "core_profiles.profiles_1d")):
+        if _has_stored_zeff(ods, f"core_profiles.profiles_1d.{index}"):
+            return None
+    return "core_profiles.profiles_1d.{i}.zeff on a grid.rho_tor_norm of the same length"
+
+
+def _build_zeff_profile(ods: Any, **options: Any) -> Profile1D:
+    """The Z_eff(rho) a core_profiles slice stores, labelled by the origin its record states.
+
+    The label comes from ``zeff_fit.parameters`` (``origin=...; method=...``,
+    the grammar of :func:`vaft.process.impurity.composition_record_text`): only
+    ``origin=measured`` is drawn as a measurement; an assumed, derived or
+    inferred profile says so, and one without a record says that instead of
+    passing for a measurement.
+    """
+    _, base, t = _core_profiles_slice(ods, options, _has_stored_zeff)
+    stored = _stored_zeff(ods, base)
+    if stored is None:
+        raise ValueError(f"{base} carries no zeff on a grid.rho_tor_norm of the same length")
+    rho, zeff, origin, record = stored
+    label, style = _ZEFF_ORIGIN_LABELS[origin]
+    method = _record_field(record, "method")
+    finite = np.isfinite(zeff)
+    if not finite.any():
+        raise ValueError(f"{base}.zeff holds no finite value")
+    series = Series(x=rho, y=zeff, label=f"Z_eff ({label})", style=style,
+                    valid_mask=None if finite.all() else finite)
+    return Profile1D(
+        series=(series,),
+        coordinate_label="rho_tor_norm",
+        y_label="Z_eff",
+        y_unit="",
+        title=f"Z_eff stored in core_profiles, {_slice_title_time(t)}: {label}"
+              + (f" ({method})" if method else ""),
+        metadata={"origin": origin or "", "record": "" if record is None else str(record), "time": t},
+    )
+
+
+def _impurity_weights(options: Mapping[str, Any]) -> tuple[dict[str, float], float, str]:
+    """``(elemental weights, target Z_eff, label)`` of the ``impurity_model=`` option.
+
+    ``"vest"`` (the default) is the ``vest.yaml`` impurity-model preset, an
+    assumption with its own status; a mapping ``{element: relative density}``
+    is the caller's composition.  ``target_zeff=`` overrides either target.
+    """
+    model = options.get("impurity_model", "vest")
+    if model is None or (isinstance(model, str) and model.lower() == "vest"):
+        from vaft.machine_mapping.core_profiles import vest_impurity_model
+
+        preset = vest_impurity_model(None)
+        if preset is None:
+            raise ValueError("vest.yaml holds no impurity_model preset; pass impurity_model={element: weight}")
+        weights = {str(s["element"]): float(s["relative_density"]) for s in preset["species"]}
+        target, source = float(preset["target_zeff"]), f"VEST preset, {preset.get('status', 'assumed')}"
+    elif isinstance(model, Mapping) and model:
+        weights = {str(element): float(weight) for element, weight in model.items()}
+        target, source = 2.0, "caller"
+    else:
+        raise ValueError(f"impurity_model must be 'vest' or a non-empty {{element: weight}} mapping; got {model!r}")
+    if options.get("target_zeff") is not None:
+        target = float(options["target_zeff"])
+    if any(not np.isfinite(w) or w < 0.0 for w in weights.values()) or not any(weights.values()):
+        raise ValueError(f"impurity_model weights must be non-negative and not all zero; got {weights!r}")
+    smallest = min(w for w in weights.values() if w > 0.0)
+    ratio = ":".join(f"{w / smallest:.3g}" for w in weights.values())
+    return weights, target, f"{':'.join(weights)} = {ratio} ({source})"
+
+
+def _volume_weights_at(ods: Any, t: float, rho: np.ndarray) -> np.ndarray | None:
+    """``dV`` per rho point from the equilibrium V(rho_tor_norm) of the same time, or ``None``.
+
+    The slice is matched BY TIME within :data:`_IMPURITY_SLICE_TOLERANCE`;
+    points beyond the equilibrium's rho range get ``dV = 0`` (``np.interp``
+    clamps), as in the Lane L atlas.
+    """
+    if not np.isfinite(t) or not np.all(np.isfinite(rho)) or not _count(ods, "equilibrium.time_slice"):
+        return None
+    times = slice_times(ods, "equilibrium.time_slice")
+    if not np.isfinite(times).any():
+        return None
+    index = int(np.nanargmin(np.abs(times - t)))
+    if abs(times[index] - t) > _IMPURITY_SLICE_TOLERANCE:
+        return None
+    base = f"equilibrium.time_slice.{index}.profiles_1d"
+    rho_eq, volume = _array(ods, f"{base}.rho_tor_norm"), _array(ods, f"{base}.volume")
+    if rho_eq is None or volume is None or rho_eq.shape != volume.shape:
+        return None
+    ok = np.isfinite(rho_eq) & np.isfinite(volume)
+    if not ok.any():
+        return None
+    order = np.argsort(rho_eq[ok])
+    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
+    v = np.interp(edges, rho_eq[ok][order], volume[ok][order])
+    dv = np.clip(np.diff(v), 0.0, None)
+    # A constant or zero V(rho) weighs nothing; the caller then says the
+    # stand-in is used rather than the resolver failing on a NaN amplitude.
+    return dv if np.sum(dv) > 0.0 else None
+
+
+def _plasma_age(ods: Any, t: float, options: Mapping[str, Any]) -> tuple[float | None, str]:
+    """``(age, how it was found)``: ``plasma_age_s=``, else the slice time minus the plasma onset.
+
+    The onset is :func:`vaft.omas.plasma_timing.plasma_timing`'s, read from the
+    diagnostics the ODS carries; an age that is unknown or not positive is
+    ``None`` with the reason, and the coronal check is then not drawn.
+    """
+    if options.get("plasma_age_s") is not None:
+        age = float(options["plasma_age_s"])
+        if not np.isfinite(age) or age <= 0.0:
+            raise ValueError(f"plasma_age_s must be a positive number of seconds; got {options['plasma_age_s']!r}")
+        return age, "given"
+    if not _count(ods, "magnetics.ip"):
+        return None, "no magnetics.ip to time the plasma by"
+    from vaft.omas.plasma_timing import plasma_timing
+
+    try:
+        timing = plasma_timing(ods)
+    except (KeyError, ValueError, IndexError, TypeError) as error:
+        return None, f"plasma timing failed: {error}"
+    if not timing.found or timing.onset is None:
+        return None, "no plasma onset found"
+    if not np.isfinite(t):
+        return None, "the slice stores no time"
+    age = float(t) - float(timing.onset)
+    if age <= 0.0:
+        return None, f"slice at or before the plasma onset ({timing.onset * 1e3:.2f} ms)"
+    return age, f"onset {timing.onset * 1e3:.2f} ms from {timing.source}"
+
+
+def _impurity_inputs(ods: Any, options: Mapping[str, Any]) -> dict[str, Any]:
+    """Everything the composition views resolve from the slice and the options, once."""
+    _, base, t = _core_profiles_slice(ods, options, _has_kinetic_profiles)
+    rho, te, ne = _kinetic_profiles(ods, base)
+    missing = [name for name, value in (("grid.rho_tor_norm", rho), ("electrons.temperature", te),
+                                        ("electrons.density_thermal (or density)", ne)) if value is None]
+    if missing:
+        raise ValueError(f"{base} has no {', '.join(missing)}")
+    if not rho.shape == te.shape == ne.shape:
+        raise ValueError(f"{base}: rho, T_e and n_e differ in length ({rho.size}, {te.size}, {ne.size})")
+    ionization = options.get("ionization") or "coronal"
+    if ionization not in IMPURITY_IONIZATIONS:
+        raise ValueError(f"ionization must be one of {IMPURITY_IONIZATIONS}; got {ionization!r}")
+    age, age_source = _plasma_age(ods, t, options)
+    if ionization == "transient" and age is None:
+        raise ValueError(f"ionization='transient' needs the plasma age: pass plasma_age_s= ({age_source})")
+    weights, target, composition = _impurity_weights(options)
+    return {
+        "base": base, "time": t, "rho": rho, "te": te, "ne": ne,
+        "weights": weights, "target": target, "composition": composition,
+        "ionization": ionization, "age": age, "age_source": age_source,
+        "volume_weights": _volume_weights_at(ods, t, rho),
+        "tables": options.get("adf11_tables"), "cache_dir": options.get("adf11_cache_dir"),
+    }
+
+
+def _radial_composition(inputs: Mapping[str, Any], normalization: str) -> Any:
+    from vaft.process.impurity import resolve_radial_composition
+
+    return resolve_radial_composition(
+        inputs["te"], inputs["ne"], inputs["rho"], inputs["weights"],
+        normalization=normalization, target_zeff=inputs["target"],
+        ionization=inputs["ionization"], plasma_age_s=inputs["age"],
+        volume_weights=inputs["volume_weights"], tables=inputs["tables"],
+        cache_dir=inputs["cache_dir"], time=inputs["time"],
+    )
+
+
+def _kinetic_profiles(ods: Any, base: str) -> tuple[Any, Any, Any]:
+    """``(rho, T_e, n_e)`` of one slice, n_e in either spelling; ``None`` for what is absent."""
+    ne = _array(ods, f"{base}.electrons.density_thermal")
+    if ne is None:
+        ne = _array(ods, f"{base}.electrons.density")
+    return _array(ods, f"{base}.grid.rho_tor_norm"), _array(ods, f"{base}.electrons.temperature"), ne
+
+
+def _has_kinetic_profiles(ods: Any, base: str) -> bool:
+    rho, te, ne = _kinetic_profiles(ods, base)
+    return rho is not None and te is not None and ne is not None and rho.shape == te.shape == ne.shape
+
+
+def _impurity_available(ods: Any) -> str | None:
+    """Why no slice holds rho, T_e and n_e (either spelling) of one length, or ``None``."""
+    for index in range(_count(ods, "core_profiles.profiles_1d")):
+        if _has_kinetic_profiles(ods, f"core_profiles.profiles_1d.{index}"):
+            return None
+    return ("core_profiles.profiles_1d.{i}.electrons.temperature and electrons.density_thermal "
+            "(or density) on a grid.rho_tor_norm of the same length")
+
+
+def _age_text(inputs: Mapping[str, Any]) -> str:
+    if inputs["age"] is None:
+        return f"no plasma age ({inputs['age_source']}): coronal check not drawn"
+    return f"plasma age {inputs['age'] * 1e3:.1f} ms ({inputs['age_source']})"
+
+
+#: At most this many markers per curve flag the points that are not coronal:
+#: a Thomson-fitted grid has ~100 points, and a cross on each buries the curve.
+_NOT_CORONAL_MARKERS = 25
+
+
+def _not_coronal(rho: np.ndarray, y: np.ndarray, result: Any, label: str) -> list[Series]:
+    """Markers on the points whose plasma is too young for the coronal charge states.
+
+    Every such point is flagged, thinned evenly to :data:`_NOT_CORONAL_MARKERS`
+    so the curve stays readable; the first and last of each run are kept so
+    the flagged span is not shortened.
+    """
+    if result.coronal_valid is None:
+        return []
+    bad = ~np.asarray(result.coronal_valid, dtype=bool) & np.isfinite(y)
+    if not bad.any():
+        return []
+    where = np.flatnonzero(bad)
+    stride = max(1, int(np.ceil(where.size / _NOT_CORONAL_MARKERS)))
+    edges = where[np.r_[True, np.diff(where) > 1] | np.r_[np.diff(where) > 1, True]]
+    keep = np.union1d(where[::stride], edges)
+    return [Series(x=rho[keep], y=y[keep], label=label,
+                   style={"marker": "x", "markersize": 4, "linestyle": "none", "color": "emphasis:alert"})]
+
+
+def _build_impurity_composition(ods: Any, **options: Any) -> Panels:
+    """Radial Z_eff, charge moments, reduced impurity and dilution from the slice's own T_e, n_e.
+
+    The elemental composition (``impurity_model=``, the VEST preset by
+    default) is distributed over charge states by
+    :func:`vaft.process.impurity.resolve_radial_composition` -- coronal, or
+    transient at the plasma age -- and scaled by each normalization in
+    ``normalizations=``; the first drives the moment, Z_I,eff and dilution
+    panels.  Points where the plasma is younger than the coronal relaxation
+    time are marked; a Z_eff the slice already stores is overlaid under the
+    origin its record states.
+    """
+    inputs = _impurity_inputs(ods, options)
+    asked = options.get("normalizations") or ("ne_weighted_mean", "fixed")
+    asked = (asked,) if isinstance(asked, str) else tuple(dict.fromkeys(asked))
+    unknown = [name for name in asked if name not in IMPURITY_NORMALIZATIONS]
+    if unknown:
+        raise ValueError(f"normalizations must be drawn from {IMPURITY_NORMALIZATIONS}; got {unknown!r}")
+    primary = _radial_composition(inputs, asked[0])
+    others = []
+    for name in asked[1:]:
+        try:
+            others.append((name, _radial_composition(inputs, name)))
+        except ValueError as error:
+            warnings.warn(f"normalization {name!r} not drawn: {error}", UserWarning, stacklevel=2)
+    rho, ionization = inputs["rho"], inputs["ionization"]
+    target = inputs["target"]
+
+    weighting = ("equilibrium dV" if inputs["volume_weights"] is not None
+                 else "rho drho stand-in, no equilibrium V at this time")
+
+    def rule(name: str, result: Any) -> str:
+        """What the normalization closed, stated as the resolver closed it."""
+        if name == "ne_weighted_mean":
+            return f"<Z_eff>_ne = {target:g} ({weighting})"
+        if name == "axis":
+            return f"Z_eff(rho={result.normalization.get('at_rho', float('nan')):.2f}) = {target:g}"
+        return f"fully stripped at Z_eff = {target:g}"
+
+    zeff_traces = [Series(x=rho, y=primary.zeff, label=rule(asked[0], primary),
+                          style={"color": palette(0), "lw": 1.8})]
+    for k, (name, result) in enumerate(others, start=1):
+        zeff_traces.append(Series(x=rho, y=result.zeff, label=rule(name, result),
+                                  style={"color": palette(k), "linestyle": "--"}))
+    stored = _stored_zeff(ods, inputs["base"])
+    if stored is not None:
+        label, style = _ZEFF_ORIGIN_LABELS[stored[2]]
+        zeff_traces.append(Series(x=stored[0], y=stored[1], label=f"stored ({label})",
+                                  style={**style, "linestyle": ":"}))
+    young = "" if inputs["age"] is None else f"not coronal at {inputs['age'] * 1e3:.3g} ms"
+    zeff_traces += _not_coronal(rho, primary.zeff, primary, young)
+    zeff_panel = Profile1D(series=tuple(zeff_traces), coordinate_label="rho_tor_norm",
+                           y_label="Z_eff", y_unit="",
+                           title=f"{ionization} charge states; {rule(asked[0], primary).split(' (')[0]}: "
+                                 f"n_s/n_e = {primary.scale:.3g} w_s")
+
+    moments: list[Series] = []
+    for k, element in enumerate(primary.elements):
+        colour = palette(k)
+        z_n = primary.charge_state_fractions[k].shape[-1] - 1
+        moments.append(Series(x=rho, y=primary.mean_charge[:, k], label=f"<Z>_{element}",
+                              style={"color": colour, "lw": 1.8}))
+        if ionization == "transient":
+            moments.append(Series(x=rho, y=primary.coronal_mean_charge[:, k],
+                                  label=f"<Z>_{element} coronal", style={"color": colour, "linestyle": "--"}))
+        moments.append(Series(x=rho, y=np.full(rho.size, float(z_n)), label=f"{element}{z_n}+ fully stripped",
+                              style={"color": colour, "linestyle": ":", "lw": 1.0}))
+        moments += _not_coronal(rho, primary.mean_charge[:, k], primary, young if k == 0 else "")
+    moment_panel = Profile1D(series=tuple(moments), coordinate_label="rho_tor_norm",
+                             y_label="<Z>", y_unit="", title=_age_text(inputs))
+
+    reduced = Profile1D(
+        series=(Series(x=rho, y=primary.effective_charge, label="Z_I,eff = S2/S1",
+                       style={"color": palette(0)}),),
+        coordinate_label="rho_tor_norm", y_label="Z_I,eff", y_unit="",
+    )
+    fractions = [Series(x=rho, y=primary.dilution_fraction, label="dilution 1 - n_H/n_e",
+                        style={"color": "emphasis:strong", "lw": 1.8})]
+    for k, element in enumerate(primary.elements):
+        fractions.append(Series(x=rho, y=primary.elemental_fractions[:, k], label=f"n_{element}/n_e",
+                                style={"color": palette(k), "linestyle": ("-", "--", ":", "-.")[k % 4]}))
+    fraction_panel = Profile1D(series=tuple(fractions), coordinate_label="rho_tor_norm",
+                               y_label="n / n_e", y_unit="")
+    return Panels(
+        models=(zeff_panel, moment_panel, reduced, fraction_panel), ncols=1, share_x=True,
+        # One line: the renderer anchors a suptitle above the top axes and a
+        # second line would grow off the canvas; the details sit in the
+        # panel titles, which the layout makes room for.
+        suptitle=(f"Impurity composition (model): {inputs['composition']}, "
+                  f"{_slice_title_time(inputs['time'])}"),
+    )
+
+
+def _build_impurity_charge_states(ods: Any, **options: Any) -> Panels:
+    """Charge-state fractions f_q(rho) of each element, one panel per element.
+
+    The distribution depends on T_e, n_e and -- for ``ionization="transient"``
+    -- the plasma age only, not on how much of each element there is, so it is
+    taken from :func:`vaft.process.impurity.charge_state_moments` per element
+    and no normalization (or its target) can make it fail.
+    """
+    from vaft.process.impurity import charge_state_moments
+
+    inputs = _impurity_inputs(ods, options)
+    rho, te, ne = inputs["rho"], inputs["te"], inputs["ne"]
+    # The atomic data refuse a non-positive or non-finite T_e or n_e (a fitted
+    # edge often reaches zero); those points are left undefined, as the
+    # composition resolver leaves them.
+    valid = np.isfinite(te) & np.isfinite(ne) & (te > 0.0) & (ne > 0.0)
+    if not valid.any():
+        raise ValueError(f"{inputs['base']} has no point with positive, finite T_e and n_e")
+    panels = []
+    for k, element in enumerate(inputs["weights"]):
+        solved = np.asarray(charge_state_moments(
+            element, te[valid], ne[valid], ionization=inputs["ionization"], age_s=inputs["age"],
+            tables=inputs["tables"], cache_dir=inputs["cache_dir"])["fractions"], dtype=float)
+        fractions = np.full((rho.size, solved.shape[-1]), np.nan)
+        fractions[valid] = solved
+        traces = tuple(
+            Series(x=rho, y=fractions[:, q], label=f"{element}{q}+" if q else f"{element}0",
+                   style={"color": palette(q)})
+            for q in range(fractions.shape[-1])
+        )
+        panels.append(Profile1D(series=traces, coordinate_label="rho_tor_norm",
+                                y_label="f_q", y_unit="",
+                                title=f"{element}, {inputs['ionization']}"
+                                      + ("" if k else f"; {_age_text(inputs)}")))
+    return Panels(
+        models=tuple(panels), ncols=1, share_x=True, share_y=True,
+        suptitle=f"Charge-state fractions (model from T_e, n_e), {_slice_title_time(inputs['time'])}",
+    )
+
+
+RECIPES["core_profiles_profile_zeff"] = CallableRecipe(
+    builder=_build_zeff_profile,
+    description="Stored core_profiles Z_eff(rho), labelled by the origin its zeff_fit record states (#1565).",
+    available=_zeff_profile_available,
+    reads=_ZEFF_PROFILE_READS,
+    backend=NEUTRAL,
+)
+RECIPES["impurity_profile_composition"] = CallableRecipe(
+    builder=_build_impurity_composition,
+    description="Radial Z_eff, <Z>, Z_I,eff and dilution from T_e, n_e through ADF11 charge states (#1565 Sec. 8).",
+    available=_impurity_available,
+    reads=_IMPURITY_COMPOSITION_READS,
+    backend=NEUTRAL,
+)
+RECIPES["impurity_profile_charge_state_fraction"] = CallableRecipe(
+    builder=_build_impurity_charge_states,
+    description="Charge-state fractions f_q(rho) of each impurity element from T_e, n_e (#1565 Sec. 8).",
+    available=_impurity_available,
+    reads=_IMPURITY_COMPOSITION_READS,
+    backend=NEUTRAL,
 )
 
 
@@ -6300,8 +7408,8 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
     )
     geometry_manifest = options.get("geometry_manifest")
     if ("machine_geometry" in overlays or any(name in MACHINE_GEOMETRY_FAMILIES for name in overlays)) and geometry_manifest and geometry_manifest.get("kind") == "cross-shot-diagnostic-fixture":
-        reference = geometry_manifest["geometry_reference"]["source_shot"]
-        title += f"\nCross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+        from vaft.plot.machine_geometry import cross_shot_notice
+        title += "\n" + cross_shot_notice(geometry_manifest["geometry_reference"]["source_shot"])
     return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
 
 
@@ -8176,6 +9284,441 @@ def _profile_reference_lines(ods: Any, time_slice: int, coordinate: str, traces:
     return tuple(lines)
 
 
+# --- rational surfaces (issue #506) ------------------------------------------
+
+#: The options that ask a view to mark rational surfaces: ``rational_q=`` (a
+#: q value or several) and ``resonances=`` (``(m, n)`` harmonics).  Both are
+#: declared-only (:data:`vaft.plot.backend.options.DECLARED_ONLY_OPTIONS`):
+#: only the plots in :data:`RATIONAL_SURFACE_PLOTS` take them.
+RATIONAL_SURFACE_OPTIONS = ("rational_q", "resonances")
+
+#: The 2-D equilibrium maps (contours ``psi_N(R, Z) = root``) and the 1-D
+#: profiles (vertical markers on a flux abscissa) that draw rational surfaces.
+RATIONAL_SURFACE_PLOTS = frozenset({
+    "equilibrium_field_psi",
+    "equilibrium_field_2d",
+    "equilibrium_profile_pressure",
+    "equilibrium_profile_q",
+    "equilibrium_profile_j_tor",
+    "equilibrium_profile_pprime",
+    "equilibrium_profile_f",
+    "equilibrium_profile_ffprime",
+    "electron_temperature_profile",
+    "electron_density_profile",
+})
+
+
+def rational_surface_reads(name: str) -> tuple[str, ...]:
+    """The DD inputs the rational-surface overlay of plot ``name`` reads.
+
+    Beyond the base view's own: the q profile and its flux grid, the psi
+    range that normalises it, the toroidal coordinate a ``rho_tor_norm``
+    root is read from (stored, else integrated from q through phi), and per
+    family the boundary and axis that keep a 2-D contour inside the plasma,
+    or the core-profile time that picks the equilibrium slice.
+    """
+    base = "equilibrium.time_slice.{i}"
+    reads = [
+        f"{base}.time",
+        f"{base}.profiles_1d.q",
+        f"{base}.profiles_1d.psi",
+        f"{base}.profiles_1d.psi_norm",
+        f"{base}.profiles_1d.rho_tor_norm",
+        f"{base}.profiles_1d.phi",
+        f"{base}.global_quantities.psi_axis",
+        f"{base}.global_quantities.psi_boundary",
+    ]
+    recipe = RECIPES.get(name)
+    if isinstance(recipe, FieldRecipe):
+        reads += [
+            f"{base}.profiles_2d.0.grid.dim1",
+            f"{base}.profiles_2d.0.grid.dim2",
+            f"{base}.profiles_2d.0.psi",
+            f"{base}.boundary.outline.r",
+            f"{base}.boundary.outline.z",
+            f"{base}.global_quantities.magnetic_axis.r",
+            f"{base}.global_quantities.magnetic_axis.z",
+        ]
+    if isinstance(recipe, ProfileRecipe) and recipe.slice_container == "core_profiles.profiles_1d":
+        reads += ["core_profiles.profiles_1d.{i}.time", "core_profiles.time"]
+    return tuple(reads)
+
+
+def declares_option(name: str, option: str) -> bool:
+    """Whether plot ``name`` declares the declared-only ``option``."""
+    if option in RATIONAL_SURFACE_OPTIONS:
+        return name in RATIONAL_SURFACE_PLOTS
+    if option == "include_unconverged":
+        return name in UNCONVERGED_MODE_PLOTS
+    return choice_options_for(name, option) is not None
+
+
+def _rational_request(options: Mapping[str, Any]) -> tuple[tuple[float, ...], tuple[tuple[int, int], ...]] | None:
+    """``(q_targets, resonances)`` asked of a view, or ``None`` when neither was."""
+    raw_q, raw_res = options.get("rational_q"), options.get("resonances")
+    if raw_q is None and raw_res is None:
+        return None
+    q_targets: tuple[float, ...] = ()
+    if raw_q is not None:
+        if isinstance(raw_q, (str, bytes)):
+            raise ValueError(f"rational_q= takes q values, not {raw_q!r}")
+        try:
+            q_targets = tuple(float(v) for v in np.atleast_1d(np.asarray(raw_q, dtype=float)).ravel())
+        except (TypeError, ValueError):
+            raise ValueError(f"rational_q= takes a q value or several; got {raw_q!r}") from None
+    resonances: tuple[tuple[int, int], ...] = ()
+    if raw_res is not None:
+        pairs = list(raw_res) if not isinstance(raw_res, (str, bytes)) else [raw_res]
+        if len(pairs) == 2 and all(isinstance(v, (int, float, np.integer, np.floating)) for v in pairs):
+            pairs = [tuple(pairs)]  # one (m, n) passed bare
+        resonances = tuple(tuple(pair) if not isinstance(pair, (str, bytes)) else pair for pair in pairs)
+    if not q_targets and not resonances:
+        raise ValueError("rational_q= and resonances= are empty: name a q value or an (m, n) harmonic")
+    return q_targets, resonances
+
+
+def _warn_at_caller(message: str) -> None:
+    """A ``UserWarning`` attributed to the first frame outside the vaft package.
+
+    ``warnings.warn(skip_file_prefixes=...)`` does this from Python 3.12; the
+    package supports 3.10, so the frames are counted here instead.
+    """
+    import os
+    import sys
+
+    package = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))) + os.sep
+    frame, level = sys._getframe(0), 1
+    while frame is not None and os.path.abspath(frame.f_code.co_filename).startswith(package):
+        frame, level = frame.f_back, level + 1
+    warnings.warn(message, UserWarning, stacklevel=level)
+
+
+def _label_digits(surfaces: Sequence[Any]) -> int:
+    """Significant digits that tell every requested ``q_target`` apart (6 at least)."""
+    values = [surface.q_target for surface in surfaces]
+    for digits in range(6, 18):
+        if len({f"{value:.{digits}g}" for value in values}) == len(values):
+            return digits
+    return 17
+
+
+def _rational_label(surface: Any, digits: int = 6) -> str:
+    """``q = 2`` for a plain value, ``2/1, 4/2 (q = 2)`` for harmonics."""
+    value = f"q = {surface.q_target:.{digits}g}"
+    if surface.harmonics:
+        return f"{', '.join(f'{m}/{n}' for m, n in surface.harmonics)} ({value})"
+    return value
+
+
+def _resolve_rational_surfaces(
+    ods: Any,
+    time_slice: int,
+    request: tuple[tuple[float, ...], tuple[tuple[int, int], ...]],
+    *,
+    psi_norm: Any = None,
+    psi_norm_reference: str = "",
+    rho_tor_norm: Any = None,
+) -> tuple[tuple[Any, ...], str]:
+    """The rational surfaces of one equilibrium slice, through the one resolver.
+
+    Every overlay comes through here, and the location itself through
+    :func:`vaft.process.equilibrium.rational_surfaces`; no view searches ``q``.
+    ``psi_norm`` defaults to the 2-D map's normalisation (global
+    ``psi_axis``/``psi_boundary``, else the profile's ends) and
+    ``rho_tor_norm`` to the slice's authentic toroidal radius
+    (:func:`_rho_tor_of_psi_norm`), left unavailable when the slice has none.
+    A profile view passes its own abscissa instead, so a marker lands where
+    its curve is drawn, and names its normalisation in
+    ``psi_norm_reference``.  Returns ``(surfaces, psi_norm_reference)``, the
+    latter ``"global"`` (``psi_axis``/``psi_boundary``), ``"profile_ends"`` or
+    ``"stored_psi_norm"``.  An absent surface warns and is returned as absent;
+    a slice that cannot be resolved raises ``ValueError``.
+    """
+    from vaft.process.equilibrium import rational_surfaces
+
+    base = f"equilibrium.time_slice.{time_slice}.profiles_1d"
+    q = _array(ods, f"{base}.q")
+    psi = _array(ods, f"{base}.psi")
+    if q is None or psi is None or q.size != psi.size or q.size < 2:
+        raise ValueError(
+            f"rational_q=/resonances= need {base}.q and {base}.psi on one grid; "
+            f"equilibrium slice {time_slice} of this input has not got them"
+        )
+    if psi_norm is None:
+        span = _psi_axis_boundary(ods, time_slice)
+        if span is None:
+            raise ValueError(
+                f"rational_q=/resonances= need the psi range of equilibrium slice {time_slice} "
+                "(global psi_axis/psi_boundary or profiles_1d.psi)"
+            )
+        psi_norm = (psi - span[0]) / (span[1] - span[0])
+        stored = [
+            _finite_scalar(_get(ods, f"equilibrium.time_slice.{time_slice}.global_quantities.{leaf}"))
+            for leaf in ("psi_axis", "psi_boundary")
+        ]
+        psi_norm_reference = "global" if None not in stored else "profile_ends"
+    if rho_tor_norm is None:
+        try:
+            rho_tor_norm = _rho_tor_of_psi_norm(ods, time_slice)[1]
+        except ValueError:
+            rho_tor_norm = None
+    surfaces = rational_surfaces(
+        psi_norm, q, q_targets=request[0], resonances=request[1], rho_tor_norm=rho_tor_norm,
+    )
+    span = np.abs(q[np.isfinite(q)])
+    instant = _finite_scalar(_get(ods, f"equilibrium.time_slice.{time_slice}.time"))
+    when = f" (t = {instant * 1e3:.2f} ms)" if instant is not None else ""
+    digits = _label_digits(surfaces)
+    for surface in surfaces:
+        if not surface.present:
+            _warn_at_caller(
+                f"{_rational_label(surface, digits)} does not occur in equilibrium slice {time_slice}{when}: "
+                f"|q| spans [{span.min():.3g}, {span.max():.3g}]; no surface is drawn for it"
+            )
+    return surfaces, psi_norm_reference or "profile_ends"
+
+
+def _rational_metadata(
+    surfaces: Sequence[Any], ods: Any, time_slice: int, coordinate: str,
+    psi_norm_reference: str, **extra: Any
+) -> dict[str, Any]:
+    """The resolved surfaces as plain values, for ``extract_*`` and ``to_xarray``.
+
+    ``psi_norm_reference`` says which psi range normalised the roots'
+    ``psi_norm``: a 2-D map uses the global ``psi_axis``/``psi_boundary`` its
+    contours are drawn in, a profile the abscissa it draws (the profile's ends
+    or a stored ``psi_norm``), so each overlay matches its own view.
+    """
+    instant = _finite_scalar(_get(ods, f"equilibrium.time_slice.{time_slice}.time"))
+    digits = _label_digits(surfaces)
+    return {
+        "equilibrium_time_slice": int(time_slice),
+        "equilibrium_time": instant,
+        "coordinate": coordinate,
+        "psi_norm_reference": psi_norm_reference,
+        **extra,
+        "surfaces": [
+            {
+                "label": _rational_label(surface, digits),
+                "q_target": surface.q_target,
+                "harmonics": [list(pair) for pair in surface.harmonics],
+                "requested_q": surface.requested_q,
+                "status": surface.status,
+                "method": surface.method,
+                "roots": [
+                    {
+                        "root_index": root.root_index,
+                        "psi_norm": root.psi_norm,
+                        "rho_pol_norm": root.rho_pol_norm,
+                        "rho_tor_norm": root.rho_tor_norm,
+                    }
+                    for root in surface.roots
+                ],
+            }
+            for surface in surfaces
+        ],
+    }
+
+
+def _rational_contour_layers(
+    ods: Any, recipe: FieldRecipe, time_slice: int, surfaces: Sequence[Any]
+) -> list[GeometryLayer]:
+    """``psi_N(R, Z) = root`` for every root, one legend entry per q value.
+
+    The map's own normalisation (global ``psi_axis``/``psi_boundary``, else the
+    profile's ends) on the stored psi grid, contoured without pyplot.  Where
+    the same psi_N recurs outside the plasma (beside the coils) the pieces
+    outside the stored boundary are dropped; with no boundary, a piece that
+    does not enclose the magnetic axis is.
+    """
+    import contourpy
+    from matplotlib.path import Path
+
+    r = _array(ods, recipe.r_path.format(i=time_slice))
+    z = _array(ods, recipe.z_path.format(i=time_slice))
+    psi = _array(ods, recipe.value_path.format(i=time_slice))
+    span = _psi_axis_boundary(ods, time_slice)
+    if r is None or z is None or psi is None or span is None:
+        return []
+    values = psi.T if recipe.values_order == "rz" or psi.shape != (z.size, r.size) else psi
+    normalized = (np.asarray(values, dtype=float) - span[0]) / (span[1] - span[0])
+    generator = contourpy.contour_generator(x=r, y=z, z=np.ma.masked_invalid(normalized))
+
+    outline = None
+    if recipe.boundary_paths:
+        boundary_r = _array(ods, recipe.boundary_paths[0].format(i=time_slice))
+        boundary_z = _array(ods, recipe.boundary_paths[1].format(i=time_slice))
+        if boundary_r is not None and boundary_z is not None and boundary_r.size >= 3:
+            outline = Path(np.column_stack([boundary_r, boundary_z]))
+    axis_base = f"equilibrium.time_slice.{time_slice}.global_quantities.magnetic_axis"
+    axis_r = _finite_scalar(_get(ods, f"{axis_base}.r"))
+    axis_z = _finite_scalar(_get(ods, f"{axis_base}.z"))
+
+    def belongs(piece: np.ndarray) -> bool:
+        if outline is not None:
+            # A surface just inside the edge runs along the outline; most of
+            # it, not all, has to fall inside.
+            return bool(np.mean(outline.contains_points(piece, radius=1e-9)) >= 0.5)
+        if axis_r is not None and axis_z is not None and piece.shape[0] >= 3:
+            return bool(Path(piece).contains_point((axis_r, axis_z)))
+        return True
+
+    layers: list[GeometryLayer] = []
+    digits = _label_digits(surfaces)
+    for colour, surface in enumerate(surfaces):
+        label = _rational_label(surface, digits)
+        for root in surface.roots:
+            pieces = [np.asarray(p, dtype=float) for p in generator.lines(root.psi_norm)]
+            pieces = [p for p in pieces if p.shape[0] >= 2 and belongs(p)]
+            if not pieces:
+                continue
+            joined = np.concatenate(
+                [np.vstack([p, [[np.nan, np.nan]]]) for p in pieces[:-1]] + [pieces[-1]]
+            )
+            layers.append(GeometryLayer(
+                r=joined[:, 0], z=joined[:, 1], kind="polyline", label=label,
+                style={"color": palette(colour), "linestyle": "--", "linewidth": 1.2},
+                role=EQUILIBRIUM_ROLE,
+            ))
+            label = ""  # one legend entry per q value, however many roots
+    return layers
+
+
+def _with_rational_contours(field: Field2D, ods: Any, recipe: FieldRecipe, options: Mapping[str, Any]) -> Field2D:
+    """``field`` with the requested rational surfaces drawn over it (unchanged if none)."""
+    request = _rational_request(options)
+    if request is None:
+        return field
+    time_slice = options.get("time_slice", 0)
+    try:
+        surfaces, reference = _resolve_rational_surfaces(ods, time_slice, request)
+    except ValueError as exc:
+        # A failed or degenerate slice has no surfaces to draw; the map is
+        # still worth drawing, so the overlay is dropped and the reason said.
+        _warn_at_caller(f"rational surfaces are not drawn on equilibrium slice {time_slice}: {exc}")
+        return field
+    layers = _rational_contour_layers(ods, recipe, time_slice, surfaces)
+    metadata = dict(field.metadata)
+    metadata["rational_surfaces"] = _rational_metadata(surfaces, ods, time_slice, "psi_norm", reference)
+    return dataclasses.replace(field, overlays=tuple(field.overlays) + tuple(layers), metadata=metadata)
+
+
+#: The profile abscissae a rational surface can be marked on, by the root
+#: coordinate that places it.  ``sqrt_phi_norm`` is sqrt(|phi|/|phi_edge|),
+#: rho_tor_norm's own definition, so it takes the toroidal root.
+_RATIONAL_ROOT_COORDINATE = {
+    "psi_norm": "psi_norm",
+    "rho_tor_norm": "rho_tor_norm",
+    "sqrt_phi_norm": "rho_tor_norm",
+}
+
+
+def _rational_reference_lines(
+    entries: Sequence[tuple[str, Any]],
+    recipe: ProfileRecipe,
+    coordinate: str,
+    options: Mapping[str, Any],
+) -> tuple[tuple[ReferenceLine, ...], dict[str, Any]]:
+    """Markers at the requested rational surfaces, on the abscissa actually drawn.
+
+    The equilibrium slice is the view's own for an equilibrium profile, and
+    the one nearest the profile's time for a core profile, whose times are
+    recorded and, when they differ, stated in the legend and a warning.  An
+    abscissa no root can be placed on (a midplane radius, a sample index, an
+    unavailable toroidal radius) draws no marker and says why.
+    """
+    request = _rational_request(options)
+    if request is None or not entries:
+        return (), {}
+    entry_label, ods = entries[0]
+    if len(entries) > 1:
+        _warn_at_caller(
+            f"rational surfaces are marked for the first entry ({entry_label}) only; "
+            "each entry has its own q profile"
+        )
+    root_coordinate = _RATIONAL_ROOT_COORDINATE.get(coordinate)
+    if root_coordinate is None:
+        _warn_at_caller(
+            f"rational surfaces are not marked on a {coordinate} abscissa: a root is located "
+            "in flux (psi_norm, rho_tor_norm, sqrt_phi_norm), and placing it on this axis "
+            "would be a guess"
+        )
+        return (), {}
+
+    time_slice = options.get("time_slice", 0)
+    extra: dict[str, Any] = {}
+    suffix = ""
+    if recipe.slice_container == "core_profiles.profiles_1d":
+        profile_time = slice_times(ods, "core_profiles.profiles_1d")
+        instant = float(profile_time[time_slice]) if 0 <= time_slice < profile_time.size else np.nan
+        if not np.isfinite(instant) or not _count(ods, "equilibrium.time_slice"):
+            _warn_at_caller(
+                f"rational surfaces are not marked: core_profiles.profiles_1d[{time_slice}] stores no "
+                "time or there is no equilibrium to take q from"
+            )
+            return (), {}
+        eq_slice = resolve_slice_option(ods, "equilibrium.time_slice", time=instant, name="rational surfaces")
+        try:
+            surfaces, reference = _resolve_rational_surfaces(ods, eq_slice, request)
+        except ValueError as exc:
+            _warn_at_caller(f"rational surfaces are not marked from equilibrium slice {eq_slice}: {exc}")
+            return (), {}
+        eq_time = _finite_scalar(_get(ods, f"equilibrium.time_slice.{eq_slice}.time"))
+        extra = {"profile_slice": int(time_slice), "profile_time": instant}
+        if eq_time is not None and abs(eq_time - instant) > 1e-9:
+            suffix = f" [eq. t = {eq_time * 1e3:.2f} ms]"
+            _warn_at_caller(
+                f"rational surfaces come from equilibrium slice {eq_slice} (t = {eq_time:g} s), "
+                f"not the profile's own time (t = {instant:g} s); the legend says so"
+            )
+    else:
+        eq_slice = time_slice
+        q = _array(ods, f"equilibrium.time_slice.{eq_slice}.profiles_1d.q")
+        size = q.size if q is not None else 0
+        # The view's own abscissa, so the marker sits where its curve is drawn.
+        psi_view, got = _equilibrium_coordinate_values(ods, recipe, "psi_norm", eq_slice, size)
+        toroidal = None
+        if root_coordinate == "rho_tor_norm":
+            toroidal, got_toroidal = _equilibrium_coordinate_values(ods, recipe, coordinate, eq_slice, size)
+            if got_toroidal != coordinate:
+                toroidal = None
+        stored_psi_norm = _array(ods, f"equilibrium.time_slice.{eq_slice}.profiles_1d.psi_norm")
+        view_reference = (
+            "stored_psi_norm" if stored_psi_norm is not None and stored_psi_norm.size == size
+            else "profile_ends"
+        )
+        try:
+            surfaces, reference = _resolve_rational_surfaces(
+                ods, eq_slice, request,
+                psi_norm=psi_view if got == "psi_norm" else None,
+                psi_norm_reference=view_reference if got == "psi_norm" else "",
+                rho_tor_norm=toroidal,
+            )
+        except ValueError as exc:
+            # A failed or degenerate slice: the profile is drawn, unmarked.
+            _warn_at_caller(f"rational surfaces are not marked on equilibrium slice {eq_slice}: {exc}")
+            return (), {}
+
+    lines: list[ReferenceLine] = []
+    unplaced: list[str] = []
+    digits = _label_digits(surfaces)
+    for colour, surface in enumerate(surfaces):
+        label = _rational_label(surface, digits) + suffix
+        for root in surface.roots:
+            x = root.psi_norm if root_coordinate == "psi_norm" else root.rho_tor_norm
+            if x is None:
+                unplaced.append(_rational_label(surface, digits))
+                continue
+            lines.append(ReferenceLine(x, label, {"color": palette(colour), "linestyle": "--"}))
+            label = ""
+    if unplaced:
+        _warn_at_caller(
+            f"{', '.join(dict.fromkeys(unplaced))}: not marked on the {coordinate} axis, because "
+            f"equilibrium slice {eq_slice} supplies no authentic toroidal radius"
+        )
+    return tuple(lines), _rational_metadata(surfaces, ods, eq_slice, coordinate, reference, **extra)
+
+
 def _default_x_limits(ods: Any, coordinate: str, traces: Sequence[Series]) -> tuple[float, float] | None:
     if coordinate in _FLUX_COORDINATES:
         return (0.0, 1.0)
@@ -8562,6 +10105,14 @@ def _build_profile_1d(
         reference_lines = _profile_reference_lines(first_ods, time_slice, drawn_coordinate, scaled)
         if x_limits is None:
             x_limits = _default_x_limits(first_ods, drawn_coordinate, scaled)
+    metadata: dict[str, Any] = {}
+    if recipe.index != "channel":
+        rational_lines, rational = _rational_reference_lines(
+            trace_entries, recipe, drawn_coordinate, options,
+        )
+        reference_lines = reference_lines + rational_lines
+        if rational:
+            metadata["rational_surfaces"] = rational
     return Profile1D(
         series=scaled,
         coordinate_label=_COORDINATE_LABELS.get(drawn_coordinate, drawn_coordinate),
@@ -8571,6 +10122,7 @@ def _build_profile_1d(
         x_limits=x_limits,
         display=y_display,
         reference_lines=reference_lines,
+        metadata=metadata,
     )
 
 
@@ -9034,6 +10586,16 @@ def _style_scalar_field(field: Field2D, spec: EquilibriumField, unit: str | None
 
 
 def _build_field_2d(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
+    """A 2-D map, with the requested rational surfaces over it (issue #506)."""
+    base = {k: v for k, v in options.items() if k not in RATIONAL_SURFACE_OPTIONS}
+    field = _build_field_2d_base(ods, recipe, **base)
+    if not recipe.boundary_paths:
+        # Only a map of the equilibrium itself owns a q profile to resolve.
+        return field
+    return _with_rational_contours(field, ods, recipe, options)
+
+
+def _build_field_2d_base(ods: Any, recipe: FieldRecipe, **options: Any) -> Field2D:
     time_slice = options.get("time_slice", 0)
     plot_name = options.get("_plot_name")
     if "yunit" in options:
@@ -10318,41 +11880,72 @@ def _global_scalar(ods: Any, index: int, leaf: str) -> float:
         return np.nan
 
 
-def _slice_global_lines(
+def slice_global_cells(
     ods: Any, index: int, derived: Any = None, *, flux_display: Any = None
-) -> list[str]:
-    """Formatted global-quantity lines for one slice, per the display policy.
+) -> list[tuple[str, Any]]:
+    """``(label, TableCell)`` per global quantity of one slice, unformatted.
 
     A quantity the slice stores is read from ``ods``; one it does not store is
     read from ``derived`` -- the private copy on which
-    ``vaft.omas.update_equilibrium_derived_profiles`` has run (issue #475) --
-    and shown like any other value.  "not stored" is left for what is neither
-    stored nor derivable.
+    ``vaft.omas.update_equilibrium_derived_profiles`` has run (issue #475);
+    neither leaves the cell empty.  Each cell keeps the stored value and the
+    unit and display subject the policy converts it by, so the slice
+    overview's text panel and the table/text views (issue #1180) format the
+    same values the same way.  The poloidal flux rows carry the stored flux
+    convention, resolved once per slice (issue #478), and ``flux_display``'s
+    unit when the caller chose one.
     """
-    from vaft.plot.display import resolve_display
+    from vaft.plot.display import QUANTITIES
+    from vaft.plot.models import TableCell
 
-    lines = []
-    width = max(len(label) for label, _, _ in _SLICE_GLOBAL_QUANTITIES)
+    cells: list[tuple[str, Any]] = []
     for label, leaf, unit in _SLICE_GLOBAL_QUANTITIES:
         value = _global_scalar(ods, index, leaf)
         dimensionless = _SLICE_DIMENSIONLESS.get(label)
         if not np.isfinite(value) and derived is not None:
             value = _global_scalar(derived, index, leaf)
         if not np.isfinite(value):
-            lines.append(f"{label:<{width}}  not stored")
+            cells.append((label, TableCell(None)))
             continue
-        shown_unit = unit
         if unit == "psi":
             if flux_display is None:
                 flux_display = _flux_display(ods, index)
-            value, shown_unit = value * flux_display.scale, flux_display.unit
+            quantity = QUANTITIES.get(flux_display.quantity)
+            if quantity is not None:
+                stored = quantity.canonical_unit
+            else:  # pragma: no cover - a flux display always names a flux quantity
+                from .convention import psi_convention
+
+                stored = psi_convention(ods, index)
+            cell = TableCell(value, unit=stored, subject="equilibrium", display_unit=flux_display.unit)
         elif unit or dimensionless:
-            try:
-                display = resolve_display(unit, subject="equilibrium", quantity=dimensionless)
-                value, shown_unit = value * display.scale, display.unit
-            except ValueError:
-                pass
-        lines.append(f"{label:<{width}}  {value:.4g} {shown_unit}".rstrip())
+            cell = TableCell(value, unit=unit, subject="equilibrium", quantity=dimensionless or "")
+        else:
+            cell = TableCell(value)
+        cells.append((label, cell))
+    return cells
+
+
+def _slice_global_lines(
+    ods: Any, index: int, derived: Any = None, *, flux_display: Any = None
+) -> list[str]:
+    """Formatted global-quantity lines for one slice, per the display policy.
+
+    The values are :func:`slice_global_cells`, written by the table renderer's
+    own formatter; "not stored" is left for what is neither stored nor
+    derivable.
+    """
+    from vaft.plot.renderers.tables import format_quantity
+
+    cells = slice_global_cells(ods, index, derived, flux_display=flux_display)
+    width = max(len(label) for label, _ in cells)
+    lines = []
+    for label, cell in cells:
+        text, unit = format_quantity(cell)
+        if text is None:
+            lines.append(f"{label:<{width}}  not stored")
+        else:
+            lines.append(f"{label:<{width}}  {text} {unit}".rstrip())
     return lines
 
 
@@ -11622,6 +13215,8 @@ RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
 #: read off the number: a stable DCON mode and a weakly driven GPEC mode are
 #: both small and positive.
 _DRIVE_ENERGY_SOLVERS = frozenset({"gpec"})
+#: PEST3 matching codes: their mhd_linear blocks hold no eigenfunction or energy.
+_MATCHING_SOLVERS = frozenset({"rdcon", "stride"})
 
 
 def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
@@ -11633,7 +13228,9 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
     document.  A block with no ``time_slice`` attribute (DCON fragments before
     version 2, #940) is keyed on ``None`` and matches any slice; since version 2
     DCON blocks carry ``time_slice`` too, so for a cell both DCON and GPEC wrote
-    the later block in document order names the solver.
+    the later block in document order names the solver.  RDCON and STRIDE blocks
+    (version 2, #939) carry ``time_slice`` as well but write neither the
+    eigenfunction nor ``energy_perturbed``, so they never name a cell.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
     found: dict[tuple[int | None, int], str] = {}
@@ -11644,11 +13241,14 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
                 n_tor = int(named["n_tor"])
             except (KeyError, ValueError):
                 continue
+            name = str(named.get("name", "")).lower()
+            if name in _MATCHING_SOLVERS:
+                continue
             slice_index = (
                 int(named["time_slice"]) if named.get("time_slice", "").strip().isdigit()
                 else None
             )
-            found[(slice_index, n_tor)] = str(named.get("name", "")).lower()
+            found[(slice_index, n_tor)] = name
         return found
 
     def _children(node: Any, tag: str) -> list[Any]:
@@ -11664,10 +13264,13 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
             n_tor = int(_scalar(solver["@n_tor"]))
         except (TypeError, ValueError):
             continue
+        name = str(_scalar(solver.get("@name", ""))).lower()
+        if name in _MATCHING_SOLVERS:
+            continue
         slice_index = (
             int(_scalar(solver["@time_slice"])) if "@time_slice" in solver else None
         )
-        found[(slice_index, n_tor)] = str(_scalar(solver.get("@name", ""))).lower()
+        found[(slice_index, n_tor)] = name
     return found
 
 
@@ -14338,6 +15941,8 @@ _CALLABLE_TIME_AXES: dict[str, str] = {
     **dict.fromkeys(
         (
             "neoclassical_profile_bootstrap_current",
+            "core_profiles_profile_zeff", "impurity_profile_composition",
+            "impurity_profile_charge_state_fraction",
             "electron_temperature_profile_gradient", "electron_density_profile_gradient",
             "ion_temperature_profile_gradient",
         ),
@@ -14901,7 +16506,16 @@ def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, *
         # The plot's "auto" is the full-shot magnetics trace when there is one:
         # the equilibrium slices then overlay it as the check (issue #1583).
         resolved = ("magnetics" if _magnetics_usable(ods) else "equilibrium") if source == "auto" else source
-        result = edge_q_estimate(ods, source=resolved, **kwargs)
+        try:
+            result = edge_q_estimate(ods, source=resolved, **kwargs)
+        except ValueError as error:
+            if "configuration" in kwargs and str(error).startswith("configuration "):
+                # The formula names its own argument; the view's option is start_configuration.
+                raise ValueError(
+                    f"start_configuration={kwargs['configuration']!r} applies to q95_scaling='start' only; "
+                    f"the {str(kwargs.get('scaling', 'start')).upper()} guideline has no configuration factor"
+                ) from error
+            raise
         name = result.label if key == "estimated_q95" else quantity_label
         titles.add(name)
         time = np.asarray(result.time, dtype=float)
@@ -14955,3 +16569,7 @@ for _name in EDGE_Q_VIEWS:
             "start_configuration": ChoiceDeclaration(None, START_CONFIGURATIONS),
         },
     )
+
+# The non-graphical views (issue #1180) keep their builders in their own module
+# and register into RECIPES here, once every helper they share is defined.
+from . import tables as _tables  # noqa: E402,F401

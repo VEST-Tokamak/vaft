@@ -138,7 +138,7 @@ def mitim_availability(config: MITIMConfig | None = None, *, timeout: float = 30
 
     with tempfile.TemporaryDirectory(prefix="vaft-mitim-probe-") as scratch:
         config_path = Path(scratch) / "mitim_config.json"
-        config_path.write_text(json.dumps(mitim_user_config(config, scratch)))
+        config_path.write_text(json.dumps(mitim_user_config(config, scratch)), encoding="utf-8")
         # The caller's PYTHONPATH/PYTHONHOME would put VAFT-side (other-version)
         # packages ahead of MITIM's own; only an explicit config.env value passes.
         environment = {key: value for key, value in os.environ.items()

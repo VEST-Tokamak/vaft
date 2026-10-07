@@ -14,12 +14,18 @@ sections:
       - id: equilibrium-kinetic-profiles
         title: Equilibrium and kinetic profiles
         url: /workflows/equilibrium-kinetic-profiles/
+      - id: plasma-parameter-inference
+        title: Plasma parameter inference
+        url: /workflows/plasma-parameter-inference/
       - id: electromagnetic-modeling
         title: Electromagnetic modeling
         url: /workflows/electromagnetic-modeling/
       - id: mhd-stability
         title: MHD stability
         url: /workflows/mhd-stability/
+      - id: fluctuation-coherence
+        title: Cross-diagnostic fluctuation coherence
+        url: /workflows/fluctuation-coherence/
       - id: operations-statistical-analysis
         title: Operations and statistical analysis
         url: /workflows/operations-statistical-analysis/
@@ -38,6 +44,12 @@ sections:
       - id: computational-layers
         title: Computational layers
         url: /reference/computational-layers/
+      - id: credibility-applicability
+        title: Credibility and applicability
+        url: /reference/credibility-applicability/
+      - id: plasma-models
+        title: Plasma models, orderings, and scales
+        url: /reference/plasma-models/
       - id: dependency-graph
         title: Dependency explorer
         url: /reference/dependency-graph/
@@ -65,6 +77,12 @@ sections:
       - id: geometric-approximations
         title: Geometric approximations
         url: /reference/geometric-approximations/
+      - id: asymptotic-orderings
+        title: Asymptotic orderings
+        url: /reference/asymptotic-orderings/
+      - id: reduced-stability-diagnostics
+        title: Reduced stability diagnostics
+        url: /reference/reduced-stability-diagnostics/
       - id: equilibrium-representations
         title: Equilibrium representations
         url: /reference/equilibrium-representations/

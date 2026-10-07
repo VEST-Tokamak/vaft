@@ -300,7 +300,8 @@ class Animation:
         values = self.driver.values
         span = (
             f"t = {min(values):.4f}-{max(values):.4f} s" if self.driver.unit == "s"
-            else f"{self.driver.coordinate} {min(values)}-{max(values)}"
+            else f"{self.driver.coordinate} {min(values):g}-{max(values):g}"
+            + (f" {self.driver.unit}" if self.driver.unit else "")
         )
         return f"{len(self)} frames of {self.driver.name} ({span}), {self.fps:g} fps"
 
@@ -442,8 +443,11 @@ class Animation:
         """The state a frame shows, in the frame: the static title need not name it."""
         driver = self.driver
         value = driver.values[position]
-        coordinate = f"t = {value:.5f} s" if driver.unit == "s" else f"{driver.coordinate} {value:g}"
-        return f"{self.label}  {coordinate}  ({driver.name} {driver.indices[position]})"
+        if driver.unit == "s":
+            coordinate = f"t = {value:.5f} s"
+        else:
+            coordinate = f"{driver.coordinate} {value:.4g}" + (f" {driver.unit}" if driver.unit else "")
+        return f"{self.label}  {coordinate}  ({driver.name} {driver.indices[position]})".strip()
 
     def _layout(self) -> tuple[dict[int, Any], tuple[int, int]]:
         """The union of every state's axis limits per data axes, and the largest frame.

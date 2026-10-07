@@ -9,6 +9,8 @@ substituted value.
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pandas as pd
 
@@ -31,6 +33,15 @@ SCALING_INPUTS: dict[str, tuple[str, str]] = {
     "R": ("R", "r_geo_m"),
     "epsilon": ("epsilon", "epsilon"),
     "kappa": ("kappa", None),
+}
+
+#: What each elongation column of the canonical table is, for the
+#: ``kappa_definition`` provenance of a prediction (the ITER97-L and IPB98
+#: sources do not settle which one they regressed on: ``elongation_note`` in
+#: :data:`vaft.formula.constants._SCALING_COEFS`).
+KAPPA_DEFINITIONS: dict[str, str] = {
+    "kappa_area": "kappa_area: area elongation, cross-section area / (pi a^2)",
+    "kappa": "kappa: boundary (LCFS) elongation b/a",
 }
 
 
@@ -71,6 +82,8 @@ def predict_confinement_time(
     pandas.Series
         Predicted thermal confinement time indexed like ``table``, ``NaN``
         where an input the scaling uses is missing or non-positive [s].
+        ``attrs["kappa_definition"]`` states which elongation column the
+        scaling was fed (or that it uses none).
 
     Notes
     -----
@@ -106,7 +119,10 @@ def predict_confinement_time(
         result[row] = confinement_time_from_engineering_parameters(
             scaling=scaling, input_density_definition="line_avg", **kwargs
         )
-    return pd.Series(result, index=table.index, name=f"tau_e_{scaling}_s")
+    out = pd.Series(result, index=table.index, name=f"tau_e_{scaling}_s")
+    out.attrs["kappa_definition"] = (KAPPA_DEFINITIONS.get(kappa_column, f"{kappa_column}: column as supplied")
+                                     if "kappa" in used else "no elongation term")
+    return out
 
 
 def h_factor(
@@ -114,8 +130,9 @@ def h_factor(
     scaling: str = "H98y2",
     *,
     kappa_column: str = "kappa_area",
+    thermal_as_global=False,
 ) -> pd.Series:
-    """Confinement enhancement factor ``tau_e_th_s / tau_scaling`` per row.
+    """Confinement enhancement factor ``tau_observed / tau_scaling`` per row, on the scaling's energy basis.
 
     Parameters
     ----------
@@ -125,16 +142,91 @@ def h_factor(
         Scaling name, default ``"H98y2"`` [str].
     kappa_column : str, optional
         Elongation column, default ``"kappa_area"`` [str].
+    thermal_as_global : bool or collection of str, optional
+        Where a global (or unaudited-basis) scaling finds no ``tau_e_global_s``,
+        use ``tau_e_th_s`` instead: ``True`` on every row, a collection of
+        machine names on those machines' rows only (e.g. ``{"VEST"}``, an
+        ohmic machine without fast ions; one name may be given as a string);
+        default ``False``, strict [-].
 
     Returns
     -------
     pandas.Series
         H-factor indexed like ``table``; ``NaN`` where the measurement or the
-        prediction is missing [-].
+        prediction is missing, or where the scaling needs a global confinement
+        time the row does not have.  ``attrs`` records ``energy_basis``,
+        ``kappa_definition`` (the elongation column the prediction used) and,
+        when thermal times stood in for global ones, ``approximation`` and
+        ``substituted_rows`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``thermal_as_global`` names machines and the table has no ``machine``
+        column.
+    TypeError
+        ``thermal_as_global`` is a number that is not a bool (``numpy.bool_``
+        is accepted as a bool).
+
+    Warns
+    -----
+    UserWarning
+        A global or unaudited scaling (ITER89-P, NSTX 2006 L, Kurskiev 2022,
+        the Goldston 1984 forms) on rows that have ``tau_e_th_s`` but no
+        ``tau_e_global_s`` while ``thermal_as_global`` does not cover them:
+        those rows are ``NaN`` by the audit gate of #1713, and the warning
+        names the scaling and the way out. Thermal scalings never warn.
+
+    Notes
+    -----
+    A thermal scaling (IPB98(y,2), ITER97-L, NSTX 2006 H) is compared with
+    ``tau_e_th_s``, a global one (ITER89-P, NSTX 2006 L) with
+    ``tau_e_global_s`` (#1713): the basis comes from
+    :func:`vaft.formula.equilibrium.confinement_scaling_basis` and the
+    resolution from :func:`vaft.process.confinement.resolve_observed_confinement`.
+    For thermal scalings the result is unchanged from before #1713.  The gate
+    is deliberate: an H factor formed from a thermal time against a global
+    scaling is not the conventional one unless the fast-ion energy is
+    negligible, which only the caller can assert (``thermal_as_global``).
     """
+    from vaft.formula.equilibrium import confinement_scaling_basis
+    from vaft.process.confinement import resolve_observed_confinement
+
     predicted = predict_confinement_time(table, scaling, kappa_column=kappa_column)
-    measured = pd.to_numeric(table["tau_e_th_s"], errors="coerce")
-    return (measured / predicted).rename(f"h_{scaling}")
+    basis = confinement_scaling_basis(scaling).energy_basis
+    thermal = pd.to_numeric(table["tau_e_th_s"], errors="coerce").to_numpy(float)
+    glob = (pd.to_numeric(table["tau_e_global_s"], errors="coerce").to_numpy(float)
+            if "tau_e_global_s" in table else None)
+    strict = resolve_observed_confinement(thermal, basis, tau_global=glob)
+    relaxed = resolve_observed_confinement(thermal, basis, tau_global=glob, thermal_as_global=True)
+    if isinstance(thermal_as_global, (bool, np.bool_)):
+        # A flag derived from data (``(table.machine == "VEST").all()``) is a
+        # numpy bool, not a Python one; both mean every row.
+        allow = np.full(len(table), bool(thermal_as_global))
+    elif isinstance(thermal_as_global, (int, float, np.number)):
+        raise TypeError("thermal_as_global is a bool or a collection of machine names, "
+                        f"not {type(thermal_as_global).__name__}")
+    else:
+        # One machine name is one name, not a set of its letters.
+        names = {thermal_as_global} if isinstance(thermal_as_global, str) else set(thermal_as_global)
+        if "machine" not in table:
+            raise ValueError("thermal_as_global names machines, but the table has no 'machine' column")
+        allow = table["machine"].isin(names).to_numpy()
+    tau = np.where(allow, relaxed.tau, strict.tau)
+    # Rows the energy-basis gate (#1713) blanks although a thermal time is there:
+    # say so once, with the scaling, instead of returning NaN silently.
+    gated = ~allow & ~np.isfinite(strict.tau) & np.isfinite(relaxed.tau)
+    if gated.any():
+        warnings.warn(
+            f"h_factor({scaling!r}): {strict.reason}; {int(gated.sum())} of {len(table)} rows are NaN "
+            f"(energy basis {basis!r}, audit gate #1713). Pass thermal_as_global=True or the machine names "
+            "to compare with tau_e_th_s (recorded in attrs), or supply tau_e_global_s.",
+            UserWarning, stacklevel=2)
+    out = (pd.Series(tau, index=table.index) / predicted).rename(f"h_{scaling}")
+    substituted = allow & (relaxed.energy_basis_used == "thermal") & (basis != "thermal")
+    out.attrs.update(energy_basis=basis, approximation=relaxed.approximation if substituted.any() else None,
+                     substituted_rows=int(substituted.sum()), kappa_definition=predicted.attrs["kappa_definition"])
+    return out
 
 
 def confinement_coverage(

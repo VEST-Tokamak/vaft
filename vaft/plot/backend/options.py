@@ -71,6 +71,17 @@ def _specs() -> tuple[OptionSpec, ...]:
                                "on a time axis or refused -- never accepted and ignored"),
         OptionSpec("conductivity_model", "choice", "recipes.ZEFF_CONDUCTIVITY_MODELS",
                    "parallel conductivity model of the resistive Z_eff view (#1214)"),
+        # Impurity composition views (#1565 Sec. 8).
+        OptionSpec("normalizations", "multi", "recipes.IMPURITY_NORMALIZATIONS",
+                   "how the elemental densities are scaled; the first drives the moment panels"),
+        OptionSpec("ionization", "choice", "recipes.IMPURITY_IONIZATIONS",
+                   "charge-state model: coronal, or transient at the plasma age"),
+        OptionSpec("plasma_age_s", "float",
+                   description="time since the plasma onset in seconds; default from plasma_timing"),
+        OptionSpec("impurity_model", description="'vest' (the vest.yaml preset) or {element: relative density}"),
+        OptionSpec("target_zeff", "float", description="Z_eff the normalization rule closes at"),
+        OptionSpec("adf11_tables", description="{element: (acd, scd)} ADF11 tables overriding OPEN-ADAS"),
+        OptionSpec("adf11_cache_dir", "str", description="directory OPEN-ADAS ADF11 files are cached in"),
         # Romero's balance (#1590): the resistance is the caller's estimate,
         # never assumed; the non-inductive current defaults to 0 (Ohmic).
         OptionSpec("plasma_resistance", description="plasma resistance in ohm, one value or one per slice"),
@@ -209,6 +220,11 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "(an explicit None is refused: in profile_gradient it means 'none')"),
         OptionSpec("convention", "choice", "recipes.GRADIENT_CONVENTIONS",
                    "code preset resolving gradient_coordinate and reference_length"),
+        # Rational-surface overlays (issue #506): flux-surface contours on an
+        # equilibrium map, vertical markers on a flux-coordinate profile.
+        OptionSpec("rational_q", description="safety-factor values whose surfaces are drawn, e.g. [1, 1.5, 2]"),
+        OptionSpec("resonances",
+                   description="(m, n) harmonics whose q = m/n surfaces are drawn; (2, 1) and (4, 2) share one"),
         # Edge-q estimates (issue #1583): where shape and current come from, the
         # stand-in shape, and the q95 scaling; the defaults are vest.yaml's.
         # Only the summary_time_* edge-q views take them (DECLARED_ONLY_OPTIONS).
@@ -220,6 +236,12 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
         OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
                    "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
+        # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that
+        # reached no growth-rate tolerance is left out unless asked for.  Only
+        # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
+        OptionSpec("include_unconverged", "bool",
+                   description="gyrokinetic linear spectra: also draw initial-value eigenmodes "
+                               "that reached no growth_rate_tolerance (a last-step value, not an eigenvalue)"),
     )
 
 
@@ -232,9 +254,11 @@ EXTRACTION_OPTIONS: frozenset[str] = frozenset(OPTION_SCHEMA)
 #: Options only a computed view that declares them takes (issue #551).  Any
 #: other plot refuses them by name, exactly as it refuses an unknown option.
 DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
-    "gradient_coordinate", "reference_length", "convention",
+    "gradient_coordinate", "reference_length", "convention", "rational_q", "resonances",
     # issue #1583: the edge-q views' choices.
     "estimate_from", "q95_scaling", "start_configuration",
+    # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
+    "include_unconverged",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);
@@ -311,7 +335,7 @@ def validate_options(name: str, options: Mapping[str, Any]) -> None:
         if spec is not None and key in DECLARED_ONLY_OPTIONS:
             from . import recipes
 
-            if recipes.choice_options_for(name, key) is None:
+            if not recipes.declares_option(name, key):
                 spec = None
         if spec is None:
             raise ValueError(

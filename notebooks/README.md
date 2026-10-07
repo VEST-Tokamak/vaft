@@ -88,11 +88,13 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `plotting_sample_using_vaft_plot_module.ipynb`: Existing examples for plotting sample data with the VAFT plot module.
 - `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`: Existing profile-fitting and kinetic-diagnostic example notebook.
 - `confinement_time_scaling.ipynb`: Existing confinement time scaling analysis notebook.
+- `single_machine_confinement_scaling_and_dimensional_analysis.ipynb`: What one machine can identify about confinement scaling — engineering fits with their identifiability diagnostics, Buckingham-Pi groups from an exact dimension-matrix null space, the Connor–Kadomtsev constraint derived from the quasi-neutral similarity assumption, the engineering/dimensionless equivalence test, and VEST's Tier A result sorted into four failure modes (#1621).
 - `tokamak_power_balance.ipynb`: Radiation loss channels on one power-density basis — a temperature scan at assumed flat density, then the same channels integrated over the measured Thomson profiles of the packaged kinetic-EFIT sample (shot 48224 at 300 ms), which the flat estimate underestimates by a factor of two.
 - `shot_characteristics_classification.ipynb`: Per-shot feature records from the packaged shots — timing with its detector and agreement, equilibrium descriptors, a class label with its threshold sensitivity shown, a review state beside the automatic proposal, and the summary table an aggregation rule would write.
 - `vest_daily_monitoring.ipynb`: Existing daily monitoring notebook for VEST data review.
 - `multiple_tokamak_comparison.ipynb`: Cross-device comparison against public upstream data — VEST, DIII-D, MAST-U, JET, TCV and SPARC equilibria fetched from their own repositories as IMAS netCDF, ODS JSON and GEQDSK, loaded through one `vaft.omas.load` path, then compared as physical and normalized geometry, global descriptors, COCOS conventions and profiles.
-- `multi_machine_database_comparison.ipynb`: Published multi-machine databases mapped into common VAFT semantics (#1205) and compared with VEST through the same APIs — ITPA DB5.2.3 H-mode confinement (IPB98(y,2) reproduces the database's own H-factor), the public TCV and ITPA TC-26 L-H transition sets as one event table, and ITPA PR08 profiles mapped to `core_profiles`, `equilibrium`, `core_sources` and `core_transport` without interpolation. Downloads are checksum-pinned; TC-26 is read from a local copy set in `VAFT_TC26_CSV`.
+- `multi_machine_confinement_database.ipynb`: The confinement branch of the multi-machine examples: published multi-machine databases mapped into common VAFT semantics (#1205) and compared with VEST through the same APIs — ITPA DB5.2.3 H-mode confinement (IPB98(y,2) reproduces the database's own H-factor), the public TCV and ITPA TC-26 L-H transition sets as one event table, and ITPA PR08 profiles mapped to `core_profiles`, `equilibrium`, `core_sources` and `core_transport` without interpolation. Downloads are checksum-pinned; TC-26 is read from a local copy set in `VAFT_TC26_CSV`.
+- `multi_machine_operation_space_database.ipynb`: The equilibrium branch of the multi-machine examples (#1620): public equilibria from VEST, DIII-D, MAST-U, JET, TCV, SPARC and ITER, normalized to COCOS 11 and reduced by `vaft.omas.equilibrium_state_table` to one row per slice under the quantity names of `vaft.formula.boundaries`, then drawn on every registered operational-space projection whose axes the equilibrium alone supplies, with its registered boundaries. Projections that need density or power are listed as unsupported, and slices that fail Ampere's law in their flux family are reported and left out. Needs network.
 - `publication_figures.ipynb`: Publication figures built from packaged data — three reconstructions of shot 48224 at 300 ms (EFIT, its CHEASE refinement, kinetic EFIT) overlaid through the canonical renderers, and a Mirnov spectrogram of shot 45531 from the packaged raw archive. Sections needing the external stability history report that and skip.
 
 ## Recommended Reading Order
@@ -124,9 +126,11 @@ Use the following order as the main technical path through the notebooks. Existi
 23. `vest_daily_monitoring.ipynb`
 24. `fast_camera_video_analysis.ipynb`
 25. `confinement_time_scaling.ipynb`
-26. `multiple_tokamak_comparison.ipynb`
-27. `multi_machine_database_comparison.ipynb`
-28. `publication_figures.ipynb`
+26. `single_machine_confinement_scaling_and_dimensional_analysis.ipynb`
+27. `multiple_tokamak_comparison.ipynb`
+28. `multi_machine_confinement_database.ipynb`
+29. `multi_machine_operation_space_database.ipynb`
+30. `publication_figures.ipynb`
 
 For a shorter review focused only on the notebooks still waiting on an external
 Fortran code, read their **Requirements to run this page** sections:

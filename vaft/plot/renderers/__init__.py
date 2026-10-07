@@ -5,7 +5,11 @@ Importing this package registers every canonical renderer in
 application code imports them from there rather than reaching into these modules.
 """
 
-from . import fields, geometry, images, lines, panels, profiles, spectra, spectrograms
+from . import fields, geometry, gyrokinetics, images, lines, panels, profiles, spectra, spectrograms
+# The non-graphical views (issue #1180) register here too.  Their renderers are
+# exported from vaft.plot, not from this package, whose ``render_*`` names are
+# the Matplotlib bodies that take ``ax=``/``format=``/``theme=``.
+from . import tables
 from . import edge_q
 from .fields import render_field_2d
 from .geometry import draw_geometry_layer, render_geometry_layers
@@ -21,6 +25,7 @@ __all__ = [
     "edge_q",
     "fields",
     "geometry",
+    "gyrokinetics",
     "images",
     "lines",
     "panels",
@@ -36,4 +41,5 @@ __all__ = [
     "render_spectrogram",
     "spectra",
     "spectrograms",
+    "tables",
 ]

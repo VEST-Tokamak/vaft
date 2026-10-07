@@ -24,6 +24,9 @@ Layout::
     wall_reduction.py the reduced-wall order study: full vs reduced, both vs data (#494)
     stage_evidence.py per-stage preconditions and metrics, composed from domain providers
     kinetic_state.py  Thomson against EFIT pressure per slice, the atlas state key (#1430, #1454)
+    credibility.py    the six credibility axes (E/T/I/A/N/V) evidence is placed on (#1639)
+    applicability.py  ordering assumptions: continuous margins and contract status (#1639, #1628)
+    sensitivity.py    Jacobian provenance, derivative and linear-vs-sampled UQ comparisons (#1642)
 
 The dependency direction runs one way: :mod:`vaft.database.production_qa`
 consumes ``stage_evidence`` to decide which figures a stage owes and how to
@@ -95,12 +98,24 @@ _COHORT_EXPORTS = (
     "summarize_by_cohort",
 )
 
+#: Equilibrium-quality cohorts (#1644): why a slice is good, admissible or
+#: unreconstructible, composed from the study criteria, the EFIT evidence and
+#: the generic report -- a review surface, not another status model.
+_QUALITY_EXPORTS = (
+    "efit_evidence_columns",
+    "equilibrium_quality_crosswalk",
+    "equilibrium_quality_failure_census",
+    "equilibrium_quality_summary",
+    "equilibrium_quality_table",
+)
+
 __all__ = [
     "CATEGORIES",
     "ValidationStatus",
     *_EQUILIBRIUM_EXPORTS,
     *_REGIME_EXPORTS,
     *_COHORT_EXPORTS,
+    *_QUALITY_EXPORTS,
     *_EVIDENCE_EXPORTS,
     *_ARTIFACT_EXPORTS,
 ]
@@ -141,6 +156,13 @@ def __getattr__(name: str):
         from . import equilibrium_cohorts
 
         value = getattr(equilibrium_cohorts, name)
+        globals()[name] = value
+        return value
+
+    if name in _QUALITY_EXPORTS:
+        from . import equilibrium_quality
+
+        value = getattr(equilibrium_quality, name)
         globals()[name] = value
         return value
 

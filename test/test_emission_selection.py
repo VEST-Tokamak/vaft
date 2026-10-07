@@ -278,7 +278,7 @@ def test_no_two_lines_of_one_channel_claim_the_same_wavelength():
 def test_the_label_agrees_with_the_wavelength_it_is_stored_beside():
     """The Angstrom suffix and ``wavelength_central`` state the same thing."""
     from vaft.machine_mapping.spectrometer_uv import SIGNALS
-    from vaft.spectroscopy import parse_line_label
+    from vaft.data.spectroscopy import parse_line_label
 
     for _, _, _, label, wavelength in SIGNALS:
         identity = parse_line_label(label)

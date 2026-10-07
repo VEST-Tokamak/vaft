@@ -58,6 +58,12 @@ def supports_backend(model_type: type, backend: str) -> bool:
     member can be drawn is decided per instance by :func:`renderer_for`.
     """
     backend = resolve_render_backend(backend)
+    from .models import Table, TextSummary
+
+    if issubclass(model_type, (Table, TextSummary)):
+        # A table or text view is presented as text by its own renderer
+        # (issue #1180); no drawing library draws it.
+        return False
     if backend == "matplotlib":
         return True
     return _plotly_covers(model_type)

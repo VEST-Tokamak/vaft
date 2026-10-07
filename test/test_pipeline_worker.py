@@ -151,10 +151,11 @@ class FakeRunner:
                     # An unrecorded PF circuit (#1568): eddy records no_output
                     # and replication records skipped.
                     status = "skipped" if target.kind == "replication" else "no_output"
-                elif behaviour == "eddy_no_output" and target.stage not in ("raw", "diagnostics"):
-                    # Unscoped, the constraint step then fails on the eddy result.
-                    failed = True
-                    continue
+                elif behaviour == "eddy_no_output" and target.stage in ("efit", "chease"):
+                    # Unscoped, the constraint step records the eddy result as
+                    # `EFIT not applicable` (#205's carrier): EFIT and CHEASE
+                    # end no_output and their replication records skipped.
+                    status = "skipped" if target.kind == "replication" else "no_output"
                 elif behaviour == "efit_no_output" and target.stage in ("efit", "chease"):
                     # What replicate_stage records for a stage that produced nothing.
                     status = "skipped" if target.kind == "replication" else "no_output"
@@ -429,8 +430,13 @@ def _scope_pipeline(tmp_path, stages):
     pipeline_path.write_text(_yaml.safe_dump(pipeline), encoding="utf-8")
 
 
-def test_a_vacuum_shot_fails_the_whole_pipeline(setup, tmp_path):
-    """Without a scope a vacuum shot never reaches EFIT and is retried until given up."""
+def test_a_shot_failing_at_the_constraint_step_is_given_up(setup, tmp_path):
+    """A constraint-step fault (before #205: every vacuum shot) is retried until given up.
+
+    Since #205 a vacuum shot records EFIT as not applicable instead (EFIT
+    ``no_output``, replication ``skipped``: the partial case above); a
+    ``Plasma`` shot whose current never reaches CUTIP still fails like this.
+    """
     _, make_worker, _ = setup
     _scope_pipeline(tmp_path, None)
     source = FakeSource()
@@ -529,13 +535,14 @@ def test_an_efit_no_output_that_replication_refuses_is_failed_and_retried(setup,
 
 @pytest.mark.parametrize(
     ("stages", "verdict"),
-    [(["raw", "diagnostics", "eddy"], S.PARTIAL), (None, S.FAILED)],
+    [(["raw", "diagnostics", "eddy"], S.PARTIAL), (None, S.PARTIAL)],
 )
 def test_an_eddy_with_an_unrecorded_pf_circuit(setup, tmp_path, stages, verdict):
     """#1568: inside a diagnostics/eddy scope the shot is partial and not retried.
 
-    Unscoped, the EFIT constraint step refuses the eddy result, so the shot
-    still fails there -- like a vacuum shot (#205).
+    Unscoped, the EFIT constraint step carries the eddy result on as `EFIT not
+    applicable` (#205), so the shot is partial there too rather than failing
+    until `gave_up` (cold review 0.8.0 delta-absorb-16 F1).
     """
     _, make_worker, _ = setup
     _scope_pipeline(tmp_path, stages)
@@ -547,10 +554,11 @@ def test_an_eddy_with_an_unrecorded_pf_circuit(setup, tmp_path, stages, verdict)
     settle_cycles(worker)
     row = worker.state.shot(101)
     assert row["state"] == verdict
-    if verdict == S.PARTIAL:
-        assert row["attempts"] == 0 and "eddy=no_output" in row["reason"]
-        worker.run_cycle()
-        assert len(runner.plans) == 1
+    assert row["attempts"] == 0 and "eddy=no_output" in row["reason"]
+    if stages is None:
+        assert "efit=no_output" in row["reason"]
+    worker.run_cycle()
+    assert len(runner.plans) == 1
 
 
 def test_a_chease_run_of_solver_verdicts_is_partial_not_retried(setup):
@@ -1142,3 +1150,155 @@ def test_a_schema_1_state_file_is_migrated(tmp_path):
         row = state.shot(5)
         assert row["reprocessed"] == 0 and row["field_codes"] is None
         assert state.exclude(5, reason="operator")
+
+
+# --------------------------------------------------------------------------- #
+# Disk guard
+# --------------------------------------------------------------------------- #
+def test_a_full_disk_pauses_new_batches_and_resumes_when_space_returns(setup, tmp_path, caplog):
+    source = FakeSource()
+    source.add(100)
+    free = {"bytes": int(150e9)}
+    config, make_worker, _ = setup
+    worker, runner = make_worker(source=source)
+    worker.config = dataclasses.replace(config, min_free_gb=200.0, resume_free_gb=220.0)
+    worker.disk_free = lambda path: free["bytes"]
+
+    with caplog.at_level("WARNING", logger="vaft.database.worker.service"):
+        first = worker.run_cycle()
+        second = worker.run_cycle()
+    # Detection and settling go on; only the batch waits.
+    assert first.queued == [100] and first.run_id is None and second.run_id is None
+    assert "below 200 GB free" in first.disk_paused and "150.0 GB free" in first.disk_paused
+    assert worker.state.shot(100)["state"] == S.QUEUED and runner.plans == []
+    assert "below 200 GB" in worker.state.disk_paused()
+    kinds = [e["kind"] for e in worker.state.events()]
+    assert kinds.count("disk_paused") == 1  # the transition, not every cycle
+    assert sum("pausing new-shot processing" in r.message for r in caplog.records) == 1
+
+    # Above the pause limit but below the resume limit: still paused (hysteresis).
+    free["bytes"] = int(210e9)
+    assert "below 220 GB free" in worker.run_cycle().disk_paused and runner.plans == []
+
+    free["bytes"] = int(230e9)
+    resumed = worker.run_cycle()
+    assert resumed.disk_paused is None and resumed.run_shots == [100]
+    assert worker.state.disk_paused() is None
+    assert [e["kind"] for e in worker.state.events()].count("disk_resumed") == 1
+
+
+def test_free_space_hovering_at_the_limit_pauses_once(setup, tmp_path, caplog):
+    """Without an explicit resume_free_gb the guard still has a margin.
+
+    Free space oscillating +-0.1 GB around min_free_gb (a cache prune loop
+    fighting new products) must not produce a pause/resume pair per cycle
+    (cold review 0.8.0 delta-absorb-17 F1).
+    """
+    source = FakeSource()
+    source.add(100)
+    config, make_worker, _ = setup
+    mapping = {
+        "state_db": "state/worker.sqlite", "log_dir": "logs", "workflow_dir": str(WORKFLOW),
+        "pipeline_config": str(config.pipeline_config), "first_shot": 100, "poll_interval": 60,
+        "quiet_seconds": 600, "cores": 2, "snakemake_cmd": "snakemake",
+    }
+    guarded = worker_config_from_mapping({**mapping, "min_free_gb": 200}, base_dir=tmp_path)
+    assert guarded.resume_free_gb == pytest.approx(210.0)
+    explicit = worker_config_from_mapping(
+        {**mapping, "min_free_gb": 200, "resume_free_gb": 200}, base_dir=tmp_path
+    )
+    assert explicit.resume_free_gb == 200.0  # an explicit value is kept as given
+    assert worker_config_from_mapping(mapping, base_dir=tmp_path).resume_free_gb is None
+
+    worker, runner = make_worker(source=source)
+    worker.config = guarded
+    free = {"gb": 199.9}
+    worker.disk_free = lambda path: int(free["gb"] * 1e9)
+    with caplog.at_level("WARNING", logger="vaft.database.worker.service"):
+        for cycle in range(10):
+            free["gb"] = 199.9 if cycle % 2 == 0 else 200.1
+            assert worker.run_cycle().disk_paused is not None
+    kinds = [e["kind"] for e in worker.state.events()]
+    assert kinds.count("disk_paused") == 1 and kinds.count("disk_resumed") == 0
+    assert sum("new-shot processing" in r.message for r in caplog.records) == 1
+    assert runner.plans == []
+
+    free["gb"] = 210.5
+    resumed = worker.run_cycle()
+    assert resumed.disk_paused is None and resumed.run_shots == [100]
+    assert [e["kind"] for e in worker.state.events()].count("disk_resumed") == 1
+
+
+def test_the_disk_guard_watches_the_filedb_logs_and_state(setup, tmp_path):
+    config, make_worker, _ = setup
+    worker, _ = make_worker(source=FakeSource())
+    worker.config = dataclasses.replace(config, min_free_gb=200.0)
+    seen = []
+    worker.disk_free = lambda path: seen.append(path) or int(1e12)
+    assert not (tmp_path / "filedb").exists()
+    assert worker.disk_shortage() is None
+    # The FileDB does not exist yet: its nearest existing ancestor is measured.
+    assert seen[0] == str(tmp_path) and len(seen) == 3
+    assert [str(p) for p in worker.guarded_paths()] == [
+        str(tmp_path / "filedb"), str(config.log_dir), str(config.state_db.parent),
+    ]
+    worker.config = dataclasses.replace(worker.config, disk_paths=(tmp_path / "x",))
+    assert worker.guarded_paths() == [tmp_path / "x"]
+
+
+def test_an_unreadable_filesystem_pauses_the_worker(setup):
+    config, make_worker, _ = setup
+    source = FakeSource()
+    source.add(100)
+    worker, runner = make_worker(source=source)
+    worker.config = dataclasses.replace(config, min_free_gb=200.0)
+
+    def broken(path):
+        raise OSError(5, "Input/output error")
+
+    worker.disk_free = broken
+    report = worker.run_cycle()
+    assert "free space unreadable (OSError" in report.disk_paused
+    assert worker.state.disk_paused() is not None and runner.plans == []
+
+
+def test_without_min_free_gb_there_is_no_guard(setup):
+    _, make_worker, _ = setup
+    worker, _ = make_worker(source=FakeSource())
+    worker.disk_free = lambda path: 0
+    assert worker.disk_shortage() is None
+
+
+@pytest.mark.parametrize("keys, message", [
+    ({"min_free_gb": 0}, "min_free_gb must be positive"),
+    ({"min_free_gb": "200GB"}, "min_free_gb must be a number"),
+    ({"min_free_gb": True}, "min_free_gb must be a number"),
+    ({"min_free_gb": float("nan")}, "min_free_gb must be a number"),
+    ({"min_free_gb": 200, "resume_free_gb": 100}, "resume_free_gb must not be below"),
+    ({"resume_free_gb": 220}, "need min_free_gb"),
+    ({"disk_paths": ["/srv"]}, "need min_free_gb"),
+])
+def test_a_malformed_disk_guard_is_refused(setup, tmp_path, keys, message):
+    base = {
+        "state_db": "s.sqlite", "log_dir": "logs", "workflow_dir": str(WORKFLOW),
+        "pipeline_config": str(tmp_path / "p.yaml"), "first_shot": 1, "poll_interval": 1,
+        "quiet_seconds": 1, "cores": 1, "snakemake_cmd": "snakemake",
+    }
+    with pytest.raises(WorkerConfigError, match=message):
+        worker_config_from_mapping({**base, **keys}, base_dir=tmp_path)
+
+
+def test_status_reports_a_disk_pause(setup, capsys, tmp_path):
+    config, make_worker, _ = setup
+    worker, _ = make_worker(source=FakeSource())
+    worker.state.set_disk_paused("below 200 GB free (/srv: 150.0 GB free)")
+    config_path = tmp_path / "worker.yaml"
+    config_path.write_text(yaml.safe_dump({
+        "state_db": str(config.state_db), "log_dir": str(config.log_dir),
+        "workflow_dir": str(WORKFLOW), "pipeline_config": str(config.pipeline_config),
+        "first_shot": 100, "poll_interval": 60, "quiet_seconds": 600, "cores": 2,
+        "snakemake_cmd": "snakemake",
+    }), encoding="utf-8")
+    from vaft.cli.pipeline_worker import main
+    assert main(["status", "--config", str(config_path)]) == 0
+    assert "PAUSED for disk space: below 200 GB" in capsys.readouterr().out

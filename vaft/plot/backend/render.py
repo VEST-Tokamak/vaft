@@ -12,7 +12,7 @@ from dataclasses import replace
 from typing import Any, Mapping, Sequence
 
 from vaft.plot.backends import renderer_for, resolve_render_backend
-from vaft.plot.registry import get_spec
+from vaft.plot.registry import NON_GRAPHICAL_VIEWS, get_spec
 
 from .options import split_options, validate_options
 from .recipes import (
@@ -21,7 +21,13 @@ from .recipes import (
     missing_required_path,
 )
 
-__all__ = ["STATE_SELECTORS", "frame_renderers", "refuse_when_unsupported", "render_entries"]
+__all__ = [
+    "STATE_SELECTORS",
+    "frame_renderers",
+    "refuse_when_unsupported",
+    "render_entries",
+    "render_text_view",
+]
 
 #: Keywords that each pick one state of a time-resolved plot (issue #1380).
 STATE_SELECTORS = ("time", "time_slice", "time_index", "frame_index")
@@ -65,8 +71,14 @@ def render_entries(
     :class:`vaft.plot._animation.Animation` with ``save("x.mp4")``;
     ``fps=``/``duration=`` set the playback, never the physics.
     """
-    backend = resolve_render_backend(backend)
     spec = get_spec(name)
+    if spec.view in NON_GRAPHICAL_VIEWS:
+        return render_text_view(
+            spec, entries, ax=ax, show=show, backend=backend, namespace=namespace,
+            subject=subject, interactive=interactive, animation=animation,
+            controls=controls, interaction_backend=interaction_backend, **options,
+        )
+    backend = resolve_render_backend(backend)
     if animation:
         if interactive:
             raise TypeError(
@@ -132,6 +144,61 @@ def render_entries(
     return result
 
 
+def render_text_view(
+    spec: Any,
+    entries: Sequence[tuple[str, Any]],
+    *,
+    ax: Any = None,
+    show: bool = False,
+    backend: str | None = None,
+    namespace: str = "vaft.omas",
+    subject: str = "ods",
+    interactive: bool = False,
+    animation: bool = False,
+    controls: str | Sequence[str] = "auto",
+    interaction_backend: str = "auto",
+    **options: Any,
+) -> Any:
+    """A ``table`` or ``text`` view (issue #1180): the model, presented as text.
+
+    The model is built exactly as for a figure; the renderer returns a
+    :class:`vaft.plot.renderers.tables.TextView` instead of ``(Figure, Axes)``
+    -- printed when ``show=True``.  The keywords that only mean something to
+    a drawn figure are refused by name rather than ignored: ``ax=``,
+    ``format=``, ``theme=``, ``figure_options=``, ``backend="plotly"``, the
+    interaction switches and any renderer style keyword.
+    """
+    kind = f"plot_{spec.stem} is a {spec.view} view and returns text, not a figure"
+    refused = []
+    if ax is not None:
+        refused.append("ax=")
+    if backend not in (None, "matplotlib"):
+        refused.append(f"backend={backend!r}")
+    for key in ("format", "theme", "figure_options"):
+        if options.get(key) not in (None, "", "none"):
+            refused.append(f"{key}=")
+    if interactive:
+        refused.append("interactive=True")
+    if animation:
+        refused.append("animation=True")
+    if controls != "auto" or interaction_backend != "auto":
+        refused.append("controls=/interaction_backend=")
+    options = {k: v for k, v in options.items() if k not in ("format", "theme", "figure_options")}
+    extraction, style = split_options(options)
+    refused += [f"{key}=" for key in sorted(style)]
+    if refused:
+        raise TypeError(
+            f"{kind}; {', '.join(refused)} "
+            f"{'applies' if len(refused) == 1 else 'apply'} to drawn figures only "
+            "(Matplotlib/Plotly presentation). Print it, or export it with "
+            ".text(), .markdown() or .html()."
+        )
+    validate_options(spec.name, extraction)
+    refuse_when_unsupported(spec.name, entries, namespace=namespace, subject=subject)
+    model = _mark_cross_shot(spec.name, build_model(spec.name, entries, **extraction), entries)
+    return spec.renderer(model, show=show)
+
+
 def _panel_marks(figure_options: Any, model: Any) -> tuple[Any, Any]:
     """Hand ``panel_labels`` to a composite model, which draws its marks itself.
 
@@ -165,19 +232,29 @@ def _mark_cross_shot(name: str, model: Any, entries: Sequence[tuple[str, Any]]) 
     field = "suptitle" if isinstance(model, Panels) else "title"
     if not hasattr(model, field):
         return model
+    from vaft.plot.machine_geometry import CROSS_SHOT_NOTICE, cross_shot_notice
+
     title = getattr(model, field)
-    notice = "Cross-shot composite — not a physical VEST discharge"
-    if notice in title:
+    if name == "kinetic_overview_profiles" and CROSS_SHOT_NOTICE in title:
+        # The kinetic overview writes the shared notice itself and names the
+        # equilibrium source and geometry reference from composite_provenance;
+        # the generic context line below would only repeat the reference.
         return model
     if name == "machine_geometry_poloidal":
-        context = "Other-shot diagnostic coordinates projected onto geometry reference shot 39915"
+        # The shared machine view (machine_geometry_view) already writes this
+        # two-line notice into its title; a recipe that bypassed it gets the
+        # same wording here, and one that carried it is left alone.
+        wanted = cross_shot_notice(39915)
     elif name.startswith("equilibrium_"):
-        context = "Equilibrium: source shot 48224, PF era 2507; fixture machine geometry reference: shot 39915"
+        wanted = (f"{CROSS_SHOT_NOTICE}\nEquilibrium: source shot 48224, PF era 2507; "
+                  "fixture machine geometry reference: shot 39915")
     else:
-        context = "Fixture machine geometry reference: shot 39915; source IDS retains its own coordinates"
-    return replace(model, **{field: (
-        f"{title}\n{notice}\n{context}"
-    )})
+        wanted = (f"{CROSS_SHOT_NOTICE}\nFixture machine geometry reference: shot 39915; "
+                  "source IDS retains its own coordinates")
+    missing = [line for line in wanted.split("\n") if line not in title]
+    if not missing:
+        return model
+    return replace(model, **{field: "\n".join([title, *missing])})
 
 
 def _render_interactive(

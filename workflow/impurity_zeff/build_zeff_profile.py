@@ -143,7 +143,7 @@ def build(filedb: Path, atlas: Path, out: Path, *, tolerance: float, cache_dir: 
     from vaft.machine_mapping.core_profiles import vest_impurity_model
     from vaft.process.impurity import resolve_radial_composition
 
-    rows = [r for r in csv.DictReader(open(atlas / "state.csv"))
+    rows = [r for r in csv.DictReader(open(atlas / "state.csv", encoding="utf-8"))
             if r["efit_lineage"] == "magnetics" and r["efit_quality"] in ("good", "admissible")]
     rows.sort(key=lambda r: (int(r["shot"]), float(r["time_efit_s"])))
     model = vest_impurity_model(None)
@@ -240,7 +240,7 @@ def build(filedb: Path, atlas: Path, out: Path, *, tolerance: float, cache_dir: 
     for name, table, columns in (("states.csv", states, list(STATE_COLUMNS)),
                                  ("zeff_profile.csv", profiles, None)):
         columns = columns or sorted({k for x in table for k in x}, key=lambda c: (c not in ("shot", "time_efit_s", "efit_lineage", "efit_quality", "ionization", "normalization", "rho"), c))
-        with open(out / name, "w", newline="") as handle:
+        with open(out / name, "w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=columns, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(table)
@@ -258,7 +258,7 @@ def build(filedb: Path, atlas: Path, out: Path, *, tolerance: float, cache_dir: 
         "models": [list(m) for m in MODELS], "inputs_sha256": inputs,
         "states": len(states), "profile_rows": len(profiles), "state_columns": STATE_COLUMNS,
     }
-    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1, default=str) + "\n")
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1, default=str) + "\n", encoding="utf-8")
     return manifest
 
 

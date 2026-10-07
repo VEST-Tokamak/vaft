@@ -412,6 +412,40 @@ class DconEdgeScan:
             return None
         return cls(psi_n=psi_n, q=q, dW=dW)
 
+    def peak_search_start(self, q_at_psiedge: float, n_tor: int, nperq_edge: int = 20) -> int:
+        """Index of the first entry DCON's peak search looks at.
+
+        ``sing.f:226-238`` lays the scan on a nominal grid
+        ``INT(q(psiedge)) + i/(nperq_edge*n)`` and sets ``pre_edge`` past every
+        nominal point below ``q(psiedge)``; ``dcon.F:253`` then takes
+        ``MAXLOC(REAL(dw_edge(pre_edge:i_edge)))``. The earlier entries are
+        still filled (``ode.f:1302`` needs only ``psi >= psiedge`` and ``q`` at
+        or above the nominal value, which they meet on the first steps), so
+        they sit in the file with ``psi_n >= psiedge`` but never take part in
+        the truncation. Returns the 0-based ``pre_edge - 1``.
+        """
+        step = 1.0 / (nperq_edge * int(n_tor))
+        nominal = self.q_edge_start(n_tor, nperq_edge) + np.arange(self.psi_n.size) * step
+        return int(np.count_nonzero(nominal < q_at_psiedge))
+
+    def q_edge_start(self, n_tor: int, nperq_edge: int = 20) -> int:
+        """DCON's ``qedgestart = INT(q(psiedge))``, recovered exactly from the scan.
+
+        An unfilled entry (``psi_n == 0``) keeps its nominal
+        ``qedgestart + i/(nperq_edge*n)``. With every entry filled,
+        ``size_edge = CEILING((qlim0 - qedgestart)*n*nperq_edge)`` puts the last
+        entry's q in ``[qedgestart + (size-1)*step, qlim0]``, which pins the
+        integer as ``CEILING(q[-1] - size*step)``. Taking ``INT`` of an
+        interpolated ``q(psiedge)`` instead is wrong by a whole unit when that
+        value lands just across an integer.
+        """
+        step = 1.0 / (nperq_edge * int(n_tor))
+        psi, q = np.asarray(self.psi_n, dtype=float), np.asarray(self.q, dtype=float)
+        unfilled = np.flatnonzero(psi <= 0)
+        if unfilled.size:
+            return int(round(q[unfilled[0]] - unfilled[0] * step))
+        return int(np.ceil(q[-1] - psi.size * step))
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "psi_n": self.psi_n.tolist(),
@@ -472,6 +506,11 @@ def _namelist_float(values: dict[str, str], key: str) -> Optional[float]:
         return None
 
 
+#: DCON's ``psiedge`` when ``dcon.in`` omits the key (``dcon/dcon_mod.f:121``):
+#: the full edge, no truncation scan.
+DCON_DEFAULT_PSIEDGE = 1.0
+
+
 @dataclass
 class DconEvaluation:
     """Which local-stability criteria this DCON run was asked to evaluate.
@@ -498,6 +537,10 @@ class DconEvaluation:
     #: overwrites ``psiedge`` (along with ``qhigh`` and ``sas_flag``) at runtime
     #: before re-integrating -- see :attr:`DconOutput.edge_treatment`.
     psiedge: Optional[float] = None
+    #: Free-boundary energies requested (``vac_flag``); DCON's default is off.
+    vac_flag: Optional[bool] = None
+    #: Edge-scan points per unit q per n (``nperq_edge``); DCON's default is 20.
+    nperq_edge: Optional[int] = None
     #: Where the flags came from -- ``"dcon.in"``, or ``""`` when no namelist
     #: was found beside the output and nothing can be claimed.
     source: str = ""
@@ -512,6 +555,19 @@ class DconEvaluation:
         """Whether ``ca1`` may be read as physics."""
         return self.bal_flag is True
 
+    @property
+    def requested_psiedge(self) -> Optional[float]:
+        """The ``psiedge`` the run asked for, with DCON's default filled in.
+
+        ``None`` only when no ``dcon.in`` was found (``source`` empty): then
+        nothing was asked for that can be named. A namelist that omits the key
+        asked for :data:`DCON_DEFAULT_PSIEDGE`, and every reader of the run
+        (the validation layer, the ``mhd_linear`` payload) must say so alike.
+        """
+        if self.source != "dcon.in":
+            return None
+        return DCON_DEFAULT_PSIEDGE if self.psiedge is None else float(self.psiedge)
+
     @classmethod
     def from_run_dir(cls, run_dir: Path) -> "DconEvaluation":
         values = _namelist_values(run_dir / "dcon.in")
@@ -522,6 +578,8 @@ class DconEvaluation:
             bal_flag=_namelist_bool(values, "bal_flag"),
             thmax0=_namelist_float(values, "thmax0"),
             psiedge=_namelist_float(values, "psiedge"),
+            vac_flag=_namelist_bool(values, "vac_flag"),
+            nperq_edge=None if _namelist_float(values, "nperq_edge") is None else int(_namelist_float(values, "nperq_edge")),
             source="dcon.in",
         )
 
@@ -531,6 +589,8 @@ class DconEvaluation:
             "bal_flag": self.bal_flag,
             "thmax0": self.thmax0,
             "psiedge": self.psiedge,
+            "vac_flag": self.vac_flag,
+            "nperq_edge": self.nperq_edge,
             "source": self.source,
         }
 
@@ -541,6 +601,8 @@ class DconEvaluation:
             bal_flag=payload.get("bal_flag"),
             thmax0=payload.get("thmax0"),
             psiedge=payload.get("psiedge"),
+            vac_flag=payload.get("vac_flag"),
+            nperq_edge=payload.get("nperq_edge"),
             source=str(payload.get("source", "")),
         )
 

@@ -174,7 +174,7 @@ def test_slide_figures_use_the_slide_format():
     table = _population_with_verdict()
     before = dict(matplotlib.rcParams)
     out = figures.slide_figures(table, figures.exponent_table(*_closures()))
-    assert set(out) == {"tau_population", "tau_predicted_vs_measured", "exponents"}
+    assert set(out) == {"tau_population", "tau_predicted_vs_measured", "exponents", "vest_h_factor"}
     for fig in out.values():
         width, height = fig.get_size_inches()
         assert width == pytest.approx(11.0) and height <= 5.8 + 1e-9
@@ -183,3 +183,61 @@ def test_slide_figures_use_the_slide_format():
     assert {k: v for k, v in matplotlib.rcParams.items() if before.get(k) != v} == {}
     with pytest.raises(ValueError, match="presentation format"):
         figures.slide_figures(table, figures.exponent_table(*_closures()), fmt=None)
+
+
+def test_every_scaling_is_tagged_and_the_vest_h_figure_draws():
+    figures = _figures()
+    assert set(figures.SCALING_TAGS) == set(figures.ALL_SCALINGS)
+    assert {db for db, _ in figures.SCALING_TAGS.values()} <= set(figures.DATABASE_COLOURS)
+    assert figures.tagged_label("NSTX2006L").endswith("[single ST | L]")
+    vest = pd.DataFrame([{**ROW.iloc[0].to_dict(), "tau_e_th_s": 1.5e-3 * k} for k in (1.0, 1.2, 0.8)])
+    fig, ax = figures.vest_h_factor_figure(vest, ("ITER97L", "H98y2"))
+    by_position = {tick: label.get_text() for tick, label in zip(ax.get_yticks(), ax.get_yticklabels())}
+    # Drawn top to bottom in the order given; the axis names only the scaling.
+    assert by_position[max(by_position)] == figures.LABELS["ITER97L"]
+    assert by_position[min(by_position)] == figures.LABELS["H98y2"]
+    # Colour = fit database, hatch = regime, each with a legend of what is drawn.
+    boxes = [p for p in ax.patches if p.get_hatch() is not None]
+    assert {b.get_hatch() for b in boxes} == {"//", "--"}
+    texts = [[t.get_text() for t in leg.get_texts()] for leg in ax.findobj(matplotlib.legend.Legend)]
+    assert ["multi"] in texts and ["L-mode", "H-mode"] in texts
+    assert figures.mode_hatch("ohmic") == "" and figures.mode_hatch("ohmic+L") not in ("", "//", "--")
+    assert figures.mode_hatch("I-mode") in figures.SPARE_HATCHES
+    matplotlib.pyplot.close(fig)
+
+
+
+def test_observed_tau_uses_the_scaling_basis_and_approximates_only_for_ohmic_machines():
+    figures = _figures()
+    table = pd.DataFrame({"machine": ["VEST", "JET"], "tau_e_th_s": [1e-3, 0.3]})
+    thermal = figures.observed_tau(table, "H98y2")
+    assert list(thermal) == [1e-3, 0.3] and thermal.attrs["approximation"] is None
+    glob = figures.observed_tau(table, "ITER89P")
+    assert glob.iloc[0] == 1e-3 and np.isnan(glob.iloc[1])  # JET has no global tau_E here
+    assert "W_global ~ W_th" in glob.attrs["approximation"] and glob.attrs["substituted_rows"] == 1
+    with_global = figures.observed_tau(table.assign(tau_e_global_s=[np.nan, 0.35]), "ITER89P")
+    assert with_global.iloc[1] == 0.35
+    assert figures.basis_marker("ITER89P") == "*" and figures.basis_marker("ITER97L") == ""
+    # No machine column: nothing is known to be ohmic, so a global scaling stays strict.
+    assert np.isnan(figures.observed_tau(table.drop(columns="machine"), "ITER89P")).all()
+
+
+def test_both_iter97_paths_state_which_elongation_they_use():
+    # Lane D's h_factor_of feeds ITER97-L the boundary kappa, the public h_factor
+    # kappa_area: the numbers differ by (kappa/kappa_area)^0.64 and neither path
+    # may leave the choice unrecorded (cold review 0.8.0 delta-absorb-16 confinement F3).
+    from vaft.data.public import h_factor, predict_confinement_time
+    figures = _figures()
+    table = ROW.assign(machine="VEST", tau_e_th_s=2e-3)
+    lane_d = figures.h_factor_of(table, "ITER97L")
+    public = h_factor(table, "ITER97L")
+    assert lane_d.attrs["kappa_definition"].startswith("kappa:") and "boundary" in lane_d.attrs["kappa_definition"]
+    assert public.attrs["kappa_definition"].startswith("kappa_area:") and "area" in public.attrs["kappa_definition"]
+    assert lane_d.iloc[0] == pytest.approx(public.iloc[0] * (1.5 / 1.6) ** 0.64)
+    # Choosing the boundary column on the public path makes the two paths agree, and says so.
+    same = h_factor(table, "ITER97L", kappa_column="kappa")
+    assert same.attrs["kappa_definition"] == lane_d.attrs["kappa_definition"]
+    assert same.iloc[0] == pytest.approx(lane_d.iloc[0])
+    # Scalings without an elongation term say so instead of naming a column.
+    assert predict_confinement_time(table, "NSTX2006H").attrs["kappa_definition"] == "no elongation term"
+    assert figures.h_factor_of(table, "NeoAlcator").attrs["kappa_definition"] == "no elongation term"

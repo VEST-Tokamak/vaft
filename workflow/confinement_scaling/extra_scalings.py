@@ -1,20 +1,15 @@
-"""Ohmic and L-mode confinement scalings missing from ``vaft.formula`` (Lane D figures, #548).
+"""Ohmic and L-mode confinement scalings for the Lane D figures (#548), evaluated on table columns.
 
-VEST is an ohmic L-mode plasma, so the ohmic and L-mode scalings matter for it as
-much as IPB98 does. ``vaft.formula.constants._SCALING_COEFS`` carries pure power
-laws only. Neo-Alcator goes through q, and Goldston's ohmic/auxiliary combination
-is a quadrature, so neither fits that table. Generalizing the scaling API is #670,
-and Lane D touches ``vaft.formula`` only for defects. These are therefore
-workflow-local, transcribed from the original papers and evaluated in the
-papers' own units, so the unit conversion can be checked. They should move into
-``vaft.formula`` under #670.
+The formulas live in ``vaft.formula`` since #670; this module only maps the
+canonical confinement columns onto them, row by row, NaN where an input is
+missing.
 
-| name | formula (paper units) | source |
+| name | formula | ``vaft.formula`` |
 |---|---|---|
-| ``NeoAlcator`` | tau = 7.1e-22 n[cm^-3] a[cm]^1.04 R[cm]^2.04 q^0.5 | Goldston, PPCF 26 (1984) 87, eq. (3) |
-| ``Goldston84L`` | tau = 6.4e-8 I_p[A] P_tot[W]^-1/2 R[cm]^1.75 a[cm]^-0.37 kappa^1/2 | same, eq. (6), L-mode, deuterium |
-| ``Goldston84OhmicL`` | 1/tau^2 = 1/tau_(3)^2 + 1/tau_(6)^2 | same, eq. (11) applied to eqs. (3) and (6) |
-| ``ITER97L`` | tau_th = 0.023 I_p[MA]^0.96 B_T^0.03 R^1.83 eps^-0.06 kappa^0.64 n[1e19 m^-3]^0.40 M^0.20 P[MW]^-0.73 | Kaye et al., NF 37 (1997) 1303 |
+| ``NeoAlcator`` | Goldston, PPCF 26 (1984) 87, eq. (3) | ``neo_alcator_confinement_time_from_n_a_R_q`` |
+| ``Goldston84L`` | same, eq. (6), L-mode, deuterium | ``goldston_l_mode_confinement_time_from_I_P_R_a_kappa`` |
+| ``Goldston84OhmicL`` | eq. (11) applied to eqs. (3) and (6) | ``ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux`` |
+| ``ITER97L`` | Kaye et al., NF 37 (1997) 1303 | ``confinement_time_from_engineering_parameters(scaling="ITER97L")`` |
 
 Inputs come from the canonical confinement columns:
 - n is the line average;
@@ -24,12 +19,9 @@ Inputs come from the canonical confinement columns:
 - P is ``p_loss_W``;
 - M is ``m_eff_amu``.
 
-Caveats:
-- Goldston 1984 did eq. (11) with the <nT> form of tau_AUX (its eq. 8), not eq. (6).
-  Combining eqs. (3) and (6) in quadrature is the common usage, and it is labelled
-  as such.
-- Goldston's q is the limiter q of mostly circular plasmas.
-- ITER97L is the thermal fit to the hydrogenic L-mode standard set.
+Caveats are in each formula's docstring: Goldston's eq. (11) used the <nT> form of
+tau_AUX, his q is the limiter q of mostly circular plasmas, and ITER97L is the
+thermal fit to the hydrogenic L-mode standard set.
 """
 
 from __future__ import annotations
@@ -44,6 +36,12 @@ LABELS = {
     "ITER97L": "ITER97-L (Kaye 1997)",
 }
 NAMES = tuple(LABELS)
+
+#: The elongation these scalings are fed, recorded as ``attrs["kappa_definition"]`` of
+#: :func:`predict`. ``vaft.data.public.predict_confinement_time`` feeds ``kappa_area``
+#: by default, so an ITER97-L H factor from the two paths differs by (kappa/kappa_area)^0.64.
+KAPPA_DEFINITION = "kappa: boundary (LCFS) elongation b/a"
+_USES_KAPPA = frozenset({"Goldston84L", "Goldston84OhmicL", "ITER97L"})
 
 
 def _col(table: pd.DataFrame, name: str) -> np.ndarray:
@@ -63,35 +61,59 @@ def q_cyl(table: pd.DataFrame) -> np.ndarray:
     return out
 
 
+def _rowwise(func, table: pd.DataFrame, columns: tuple[str, ...]) -> np.ndarray:
+    """``func`` on the rows where every column is finite and positive, NaN elsewhere."""
+    args = [_col(table, c) for c in columns]
+    ok = np.logical_and.reduce([np.isfinite(a) for a in args])
+    out = np.full(len(table), np.nan)
+    if ok.any():
+        out[ok] = func(*(a[ok] for a in args))
+    return out
+
+
 def neo_alcator(table: pd.DataFrame) -> np.ndarray:
-    """Goldston 1984 eq. (3), in its CGS units [s]."""
-    n_cm3 = _col(table, "n_e_line_avg_m3") * 1e-6
-    a_cm = _col(table, "a_m") * 100.0
-    r_cm = _col(table, "r_geo_m") * 100.0
-    return 7.1e-22 * n_cm3 * a_cm**1.04 * r_cm**2.04 * q_cyl(table) ** 0.5
+    """Goldston 1984 eq. (3) [s]."""
+    from vaft.formula.equilibrium import neo_alcator_confinement_time_from_n_a_R_q
+
+    n, a, r = (_col(table, c) for c in ("n_e_line_avg_m3", "a_m", "r_geo_m"))
+    q = q_cyl(table)
+    ok = np.isfinite(n) & np.isfinite(a) & np.isfinite(r) & np.isfinite(q)
+    out = np.full(len(table), np.nan)
+    if ok.any():
+        out[ok] = neo_alcator_confinement_time_from_n_a_R_q(n[ok], a[ok], r[ok], q[ok])
+    return out
 
 
 def goldston_l(table: pd.DataFrame) -> np.ndarray:
-    """Goldston 1984 eq. (6): I_p in A, P_tot in W, R and a in cm [s]."""
-    ip = _col(table, "i_p_A")
-    p = _col(table, "p_loss_W")
-    r_cm = _col(table, "r_geo_m") * 100.0
-    a_cm = _col(table, "a_m") * 100.0
-    kappa = _col(table, "kappa")
-    return 6.4e-8 * ip * p**-0.5 * r_cm**1.75 * a_cm**-0.37 * kappa**0.5
+    """Goldston 1984 eq. (6) [s]."""
+    from vaft.formula.equilibrium import goldston_l_mode_confinement_time_from_I_P_R_a_kappa
+
+    return _rowwise(goldston_l_mode_confinement_time_from_I_P_R_a_kappa, table,
+                    ("i_p_A", "p_loss_W", "r_geo_m", "a_m", "kappa"))
 
 
 def goldston_ohmic_l(table: pd.DataFrame) -> np.ndarray:
-    """Eqs. (3) and (6) combined as Goldston 1984 eq. (11), 1/tau^2 = sum 1/tau_i^2 [s]."""
-    return (neo_alcator(table) ** -2 + goldston_l(table) ** -2) ** -0.5
+    """Eqs. (3) and (6) combined as Goldston 1984 eq. (11) [s]."""
+    from vaft.formula.equilibrium import ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux
+
+    t_oh, t_l = neo_alcator(table), goldston_l(table)
+    ok = np.isfinite(t_oh) & np.isfinite(t_l)
+    out = np.full(len(table), np.nan)
+    if ok.any():
+        out[ok] = ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(t_oh[ok], t_l[ok])
+    return out
 
 
 def iter97_l(table: pd.DataFrame) -> np.ndarray:
-    """Kaye et al. 1997, ITER97-L thermal: I_p MA, n 1e19 m^-3, P MW [s]."""
-    return (0.023 * (_col(table, "i_p_A") / 1e6) ** 0.96 * _col(table, "b_t_T") ** 0.03
-            * _col(table, "r_geo_m") ** 1.83 * _col(table, "epsilon") ** -0.06 * _col(table, "kappa") ** 0.64
-            * (_col(table, "n_e_line_avg_m3") / 1e19) ** 0.40 * _col(table, "m_eff_amu") ** 0.20
-            * (_col(table, "p_loss_W") / 1e6) ** -0.73)
+    """Kaye et al. 1997, ITER97-L thermal [s]."""
+    from vaft.formula.equilibrium import confinement_time_from_engineering_parameters
+
+    def one(ip, b, p, n, m, r, eps, kappa):
+        return np.array([confinement_time_from_engineering_parameters(*row, scaling="ITER97L")
+                         for row in zip(ip, b, p, n, m, r, eps, kappa)])
+
+    return _rowwise(one, table, ("i_p_A", "b_t_T", "p_loss_W", "n_e_line_avg_m3", "m_eff_amu",
+                                 "r_geo_m", "epsilon", "kappa"))
 
 
 _FUNCTIONS = {"NeoAlcator": neo_alcator, "Goldston84L": goldston_l,
@@ -99,7 +121,9 @@ _FUNCTIONS = {"NeoAlcator": neo_alcator, "Goldston84L": goldston_l,
 
 
 def predict(table: pd.DataFrame, name: str) -> pd.Series:
-    """Predicted tau_E of a workflow-local scaling, indexed like ``table`` [s]."""
+    """Predicted tau_E of one of these scalings, indexed like ``table`` [s]."""
     if name not in _FUNCTIONS:
         raise KeyError(f"unknown scaling {name!r}; known: {NAMES}")
-    return pd.Series(_FUNCTIONS[name](table), index=table.index, name=f"tau_e_{name}_s")
+    out = pd.Series(_FUNCTIONS[name](table), index=table.index, name=f"tau_e_{name}_s")
+    out.attrs["kappa_definition"] = KAPPA_DEFINITION if name in _USES_KAPPA else "no elongation term"
+    return out

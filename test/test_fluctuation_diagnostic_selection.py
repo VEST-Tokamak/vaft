@@ -90,6 +90,22 @@ def test_raw_mirnov_and_ambiguous_selection_are_rejected():
         select_fluctuation_records(ods, [DiagnosticSelection("spectrometer_uv")])
 
 
+def test_camera_frame_without_time_is_the_contract_value_error():
+    ods = _ods()
+    frames = ods["camera_visible"]["channel"][0]["detector"][0]["frame"]
+    del frames[2]["time"]
+    with pytest.raises(ValueError, match=r"frame\.2: time is missing"):
+        select_fluctuation_records(ods, [DiagnosticSelection(
+            "camera_visible", channel=0, region=(0, 2, 1, 3), background_frames=2
+        )])
+    del frames[3]["image_raw"]
+    frames[2]["time"] = 0.002
+    with pytest.raises(ValueError, match=r"frame\.3: image_raw is missing"):
+        select_fluctuation_records(ods, [DiagnosticSelection(
+            "camera_visible", channel=0, region=(0, 2, 1, 3), background_frames=2
+        )])
+
+
 def test_camera_temporal_component_and_uv_emission_identity():
     ods = _ods()
     time = np.arange(8) / 1_000

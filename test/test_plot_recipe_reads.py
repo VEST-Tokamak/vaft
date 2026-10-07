@@ -30,6 +30,10 @@ from _read_recorder import accessor_reads, assert_models_equal, ods_reads, undec
 from _synthetic_inputs import OPTIONS, SYNTHETIC
 
 NEUTRAL = frozenset({
+    "gyrokinetics_spectrum_growth_rate", "gyrokinetics_spectrum_frequency",
+    "gyrokinetics_spectrum_energy_flux", "gyrokinetics_spectrum_particle_flux",
+    "gyrokinetics_profile_eigenfunction", "gyrokinetics_overview",
+    "turbulent_transport_profile_energy_flux", "turbulent_transport_profile_particle_flux",
     "nbi_profile_electron_heating", "nbi_profile_ion_heating", "nbi_profile_current_drive",
     "interferometer_spectrogram", "passive_structure_time_current",
     "impa_time_field", "impa_time_voltage", "impa_profile_field",
@@ -45,6 +49,10 @@ NEUTRAL = frozenset({
     "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
     "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
     "coil_3d_profile_current", "coil_3d_spectrum_current",
+    # #1565: accessor reads only; the plasma onset comes from
+    # vaft.omas.plasma_timing, which reads through vaft.ods_access.
+    "core_profiles_profile_zeff", "impurity_profile_composition",
+    "impurity_profile_charge_state_fraction",
     # Built on vaft.omas helpers that read through vaft.ods_access, which
     # dispatches to the registered accessor: native on an IMAS entry too.
     "pf_plasma_geometry_poloidal",
@@ -58,6 +66,8 @@ NEUTRAL = frozenset({
     # issue #1099: the FLARE connection-length map reads plasma_initiation
     # through the accessor only.
     "field_line_topology_field_connection_length",
+    # issue #1180: the fit-quality table reads vaft.omas.efit_quality's metrics.
+    "equilibrium_table_fit_quality",
     # issue #1583: the edge-q estimates read through vaft.omas.edge_q, which
     # reads through vaft.ods_access.
     "summary_time_estimated_q95", "summary_time_q_star_cylindrical",
@@ -74,6 +84,10 @@ OMAS_BOUND = frozenset({
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
+    # issue #1180: the slice summaries derive what a g-file omits as the overview does.
+    "equilibrium_table_summary", "equilibrium_text_summary",
+    # roadmap #1242 C2: validate_equilibrium deep-copies the ODS for the virial wrapper.
+    "equilibrium_table_validation",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
     # issue #888: the startup views solve vessel currents on a private copy.
     "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",

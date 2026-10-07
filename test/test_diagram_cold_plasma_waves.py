@@ -89,3 +89,121 @@ def test_labels_off_and_determinism():
                     if isinstance(i, Label) and i.role not in ("axes", "ticks")]
     with pytest.raises(ValueError):
         vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=0.0)
+
+
+# --- #1113 section A and E: omega-k, n^2-X, n^2-Y, oblique -----------------------------------------
+
+
+def test_omega_k_branches_start_on_their_cutoffs():
+    m = vaft.diagram.wave_dispersion_omega_k(omega_pe_over_omega_ce=1.2).model
+    r = 1.2
+    assert m.parameters["omega_P"] == pytest.approx(r, rel=1e-6)
+    assert m.parameters["omega_L"] == pytest.approx((-1 + np.sqrt(1 + 4 * r**2)) / 2, rel=1e-6)
+    assert m.parameters["omega_R"] == pytest.approx((1 + np.sqrt(1 + 4 * r**2)) / 2, rel=1e-6)
+    assert m.parameters["omega_S"] == pytest.approx(np.sqrt(1 + r**2), rel=1e-6)
+    x_branches = [c for n, c in m.curves.items() if n.startswith("X ")]
+    lower = min(x_branches, key=lambda c: c[:, 1].min())
+    k, w = lower.T
+    # the lower X branch starts at the L cutoff and runs to the upper-hybrid resonance from below, turning slow
+    assert w.min() == pytest.approx(m.parameters["omega_L"], abs=0.01)
+    assert w.max() < m.parameters["omega_S"] and w.max() == pytest.approx(m.parameters["omega_S"], abs=0.05)
+    assert np.any(w < k)  # it crosses the light line
+    upper = max(x_branches, key=lambda c: c[:, 1].min())
+    assert upper[:, 1].min() == pytest.approx(m.parameters["omega_R"], abs=0.01)
+    assert np.all(upper[:, 1] >= upper[:, 0] - 1e-9)  # the R-cutoff branch stays fast
+
+
+def test_refractive_index_vs_X_layers_are_the_closed_forms():
+    Y = 0.5
+    p = vaft.diagram.refractive_index_vs_X(Y=Y).model.parameters
+    assert p["X_P"] == pytest.approx(1.0, abs=1e-9)
+    assert p["X_R"] == pytest.approx(1 - Y, abs=1e-9)
+    assert p["X_L"] == pytest.approx(1 + Y, abs=1e-9)
+    assert p["X_S"] == pytest.approx(1 - Y**2, abs=1e-9)
+
+
+def test_refractive_index_vs_Y_o_branch_is_flat_and_layers_located():
+    X = 0.5
+    m = vaft.diagram.refractive_index_vs_Y(X=X).model
+    o = np.vstack([c for n, c in m.curves.items() if n.startswith("O ")])
+    np.testing.assert_allclose(o[:, 1], 1 - X, atol=1e-12)
+    assert m.parameters["Y_R"] == pytest.approx(1 - X, abs=1e-9)
+    assert m.parameters["Y_S"] == pytest.approx(np.sqrt(1 - X), abs=1e-9)
+
+
+@pytest.mark.parametrize("deg", [30.0, 60.0])
+def test_oblique_resonance_is_the_cone_A_equals_zero(deg):
+    th = np.radians(deg)
+    Y = 0.5
+    p = vaft.diagram.refractive_index_vs_X(Y=Y, theta=th).model.parameters
+    # A = S sin^2 + P cos^2 with S = 1 - X/(1 - Y^2), P = 1 - X
+    X_A = 1.0 / (np.sin(th) ** 2 / (1 - Y**2) + np.cos(th) ** 2)
+    assert p["X_A"] == pytest.approx(X_A, rel=1e-6)
+    assert "X_S" not in p
+
+
+def test_oblique_branches_are_unnamed_and_one_colour():
+    d = vaft.diagram.wave_dispersion_omega_k(theta=np.radians(60))
+    names = {n.split(" ")[0] for n in d.model.curves if n.split(" ")[0] in ("O", "X", "+", "-")}
+    assert names == {"+", "-"}
+    assert {it.style for it in d.scene.items if getattr(it, "role", "").split(" ")[0] in ("+", "-")} == {"boundary"}
+    assert d.model.parameters["omega_A"] < 1.0 < d.model.parameters["omega_A2"]  # below and above |Omega_e|
+
+
+def test_profile_theta_default_and_perpendicular_are_the_committed_figure():
+    base = vaft.diagram.profile_propagation()
+    assert vaft.diagram.profile_propagation(theta=np.pi / 2).tikz == base.tikz
+    oblique = vaft.diagram.profile_propagation(theta=np.radians(60)).model
+    assert "any_propagating_fraction" in oblique.parameters and "O_propagating_fraction" not in oblique.parameters
+    assert any(n.startswith("A ") for n in oblique.curves) and not any(n.startswith("S ") for n in oblique.curves)
+
+
+@pytest.mark.parametrize("build", ["wave_dispersion_omega_k", "refractive_index_vs_X", "refractive_index_vs_Y",
+                                   "profile_propagation"])
+@pytest.mark.parametrize("bad", [-0.1, 0.0, 0.05, 2.0, "1", True])
+def test_theta_is_validated(build, bad):
+    with pytest.raises(ValueError):
+        getattr(vaft.diagram, build)(theta=bad)
+
+
+def test_new_views_are_deterministic_with_labels_off():
+    for name in ("wave_dispersion_omega_k", "refractive_index_vs_X", "refractive_index_vs_Y"):
+        build = getattr(vaft.diagram, name)
+        assert build().scene == build().scene
+        assert not [i for i in build(labels=False).scene.items
+                    if isinstance(i, Label) and i.role not in ("axes", "ticks")]
+    with pytest.raises(ValueError):
+        vaft.diagram.refractive_index_vs_X(Y=1.5)
+    with pytest.raises(ValueError):
+        vaft.diagram.refractive_index_vs_Y(X=0.0)
+
+
+@pytest.mark.parametrize("deg", [5.0, 30.0, 60.0])
+def test_oblique_profile_curves_never_chord_across_a_gap(deg):
+    m = vaft.diagram.profile_propagation(theta=np.radians(deg)).model
+    R = np.linspace(m.parameters["R0"] - m.parameters["a"], m.parameters["R0"] + m.parameters["a"], 1201)
+    step = R[1] - R[0]
+    for name, curve in m.curves.items():
+        if name.startswith(("n2_O", "n2_X")):
+            assert np.all(np.diff(curve[:, 0]) < 1.5 * step), name
+
+
+@pytest.mark.parametrize("deg", [5.0, 20.0, 60.0])
+def test_both_oblique_resonances_are_found_down_to_the_smallest_angle(deg):
+    p = vaft.diagram.wave_dispersion_omega_k(theta=np.radians(deg)).model.parameters
+    assert p["omega_A"] < 1.0 < p["omega_A2"]
+    q = vaft.diagram.refractive_index_vs_Y(X=0.5, theta=np.radians(deg)).model.parameters
+    assert "Y_A" in q
+
+
+def test_omega_k_labels_only_layers_on_the_chart_and_numbers_are_validated():
+    d = vaft.diagram.wave_dispersion_omega_k(omega_pe_over_omega_ce=3.0)
+    for item in d.scene.items:
+        if getattr(item, "role", "").startswith("layer") and hasattr(item, "text"):
+            name = item.role.split(" ")[1]
+            assert d.model.parameters[f"omega_{name}"] < 4.0
+    for bad in (True, "1.2", 0.0, 3.5):
+        with pytest.raises(ValueError):
+            vaft.diagram.wave_dispersion_omega_k(omega_pe_over_omega_ce=bad)
+    with pytest.raises(ValueError):
+        vaft.diagram.refractive_index_vs_X(Y="0.5")

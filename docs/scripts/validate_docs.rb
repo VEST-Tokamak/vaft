@@ -219,7 +219,7 @@ if (ROOT / "_data" / "plot_catalog.yml").file?
   check_snapshot_sources(errors, "plot", plot_snapshot, registry_source)
   plots = plot_snapshot.fetch("plots", [])
   errors << "plot snapshot has no plots" unless plots.is_a?(Array) && !plots.empty?
-  require_fields(errors, "plot", plots, %w[id name status subject view quantity domain description model adapter renderer ids required_paths optional_paths backends source])
+  require_fields(errors, "plot", plots, %w[id name status subject view quantity domain description model adapter renderer ids required_paths optional_paths backends source documentation])
   subjects = plot_snapshot.fetch("subjects", []).map { |item| item["name"] }
   views = plot_snapshot.fetch("views", [])
   plots.each do |item|

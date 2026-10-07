@@ -16,10 +16,12 @@ from pathlib import Path
 import pytest
 
 from vaft.code import mitim
+from vaft.compat import IS_WINDOWS
 from vaft.code.gacode._types import GACODEConfig
 
 ROOT = Path(__file__).resolve().parents[1]
 NEO_RUN = ROOT / "test" / "data" / "gacode" / "neo_vest_48224_profile"
+TGLF_RUN = ROOT / "test" / "data" / "gacode" / "tglf_reg05"
 SAMPLE = ROOT / "vaft" / "data" / "kineticEfit" / "ods_48224_300ms.json"
 
 NEOTOOLS = '''
@@ -33,7 +35,7 @@ class NEO:
         self.folder = Path(folder)
         self.folder.mkdir(parents=True, exist_ok=True)
         assert Path(input_gacode).is_file()
-    def run(self, subfolder, cold_start=True, code_settings=None):
+    def run(self, subfolder, cold_start=True, code_settings=None, extraOptions=None):
         mode = os.environ.get("STUB_MODE", "ok")
         if mode == "sleep":
             time.sleep(30)
@@ -45,13 +47,61 @@ class NEO:
         target = self.folder / subfolder
         target.mkdir(parents=True, exist_ok=True)
         if mode != "empty":
+            roa_for = json.loads(os.environ.get("STUB_ROA_FOR", "{}"))   # MITIM's own map
             for rho in self.rhos:
                 for path in Path(os.environ["STUB_NEO_RUN"]).iterdir():
                     shutil.copy(path, target / f"{path.name}_{rho:.4f}")
+                if f"{rho:.4f}" in roa_for:
+                    (target / f"input.neo_{rho:.4f}").write_text(
+                        f"RMIN_OVER_A = {roa_for[f'{rho:.4f}']}\\nDENS_1 = 0.8\\nTEMP_1 = 1.0\\n")
         (self.folder / "seen_env.json").write_text(json.dumps(
             {"MITIM_CONFIG": os.environ.get("MITIM_CONFIG"), "PATH": os.environ.get("PATH")}))
     def read(self, label):
         pass
+'''
+
+
+TGLFTOOLS = '''
+import os, shutil
+from pathlib import Path
+
+class TGLFinput:
+    @classmethod
+    def initialize_in_memory(cls, parameters):
+        self = cls(); self.parameters = dict(parameters); self.file = None; return self
+    def write_state(self):
+        Path(self.file).write_text("".join(f"{k} = {v}\\n" for k, v in self.parameters.items()))
+
+class TGLF:
+    def __init__(self, rhos):
+        self.rhos = list(rhos)
+    def prep(self, input_gacode, folder, cold_start=True, forceIfcold_start=True):
+        self.folder = Path(folder); self.folder.mkdir(parents=True, exist_ok=True)
+        assert Path(input_gacode).is_file()
+    def run(self, subfolder, code_settings=None, extraOptions=None, cold_start=True, forceIfcold_start=True):
+        target = self.folder / subfolder; target.mkdir(parents=True, exist_ok=True)
+        (self.folder / "options.txt").write_text(repr((code_settings, extraOptions)))
+        import json
+        roa_for = json.loads(os.environ.get("STUB_ROA_FOR", "{}"))   # MITIM's own rho -> r/a
+        for rho in self.rhos:
+            label = f"{rho:.4f}"
+            for path in Path(os.environ["STUB_TGLF_RUN"]).iterdir():
+                if path.name != "input.tglf":
+                    shutil.copy(path, target / f"{path.name}_{label}")
+            roa = roa_for.get(label, rho)
+            (target / f"input.tglf_{label}").write_text(f"SAT_RULE = 3\\nRMIN_LOC = {roa}\\n")
+'''
+
+PROFILESTOOLS = '''
+class gacode_state:
+    def __init__(self, path):
+        self.derived = {"roa": [0.0, 0.5, 1.0]}
+        self.profiles = {"rho(-)": [0.0, 0.4, 1.0]}
+    def derive_quantities(self, mi_ref=None):
+        pass
+    def to_tglf(self, r, code_settings="SAT0", r_is_rho=True):
+        assert r_is_rho is False
+        return {roa: {"SAT_RULE": 3, "RMIN_LOC": roa, "NKY": 19} for roa in r}
 '''
 
 
@@ -64,6 +114,11 @@ def _stub_mitim(root: Path, *, version="5.3.0", portals=True) -> Path:
     (package / "templates" / "input.neo.controls").write_text("")
     (package / "mitim_tools" / "gacode_tools" / "__init__.py").write_text("")
     (package / "mitim_tools" / "gacode_tools" / "NEOtools.py").write_text(NEOTOOLS)
+    (package / "mitim_tools" / "gacode_tools" / "TGLFtools.py").write_text(TGLFTOOLS)
+    (package / "mitim_tools" / "gacode_tools" / "PROFILEStools.py").write_text(PROFILESTOOLS)
+    (package / "mitim_tools" / "misc_tools").mkdir()
+    (package / "mitim_tools" / "misc_tools" / "__init__.py").write_text("")
+    (package / "mitim_tools" / "misc_tools" / "PLASMAtools.py").write_text("md_u = 2.0\n")
     if portals:
         (package / "mitim_modules" / "portals").mkdir(parents=True)
         for init in ("mitim_modules/__init__.py", "mitim_modules/portals/__init__.py"):
@@ -91,6 +146,7 @@ def ready(tmp_path, monkeypatch):
     home = _stub_gacode(tmp_path)
     monkeypatch.setenv("PYTHONPATH", str(site))
     monkeypatch.setenv("STUB_NEO_RUN", str(NEO_RUN))
+    monkeypatch.setenv("STUB_TGLF_RUN", str(TGLF_RUN))
     monkeypatch.setenv("STUB_MODE", "ok")
     config = mitim.MITIMConfig(python=sys.executable,
                                gacode=GACODEConfig(home=str(home), platform="STUB"),
@@ -104,10 +160,17 @@ def ready(tmp_path, monkeypatch):
 def test_importing_the_adapter_never_imports_mitim():
     import subprocess
 
-    code = "import sys, vaft.code.mitim; print(any(m.startswith(('mitim_tools','mitim_modules')) for m in sys.modules))"
-    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
-                         env={**os.environ, "PYTHONPATH": str(ROOT)}, check=True)
-    assert out.stdout.strip() == "False"
+    # An editable install elsewhere can win over PYTHONPATH, so the child names the
+    # tree it imported and the test skips rather than test another checkout.
+    code = ("import sys; sys.path.insert(0, sys.argv[1]); import vaft, vaft.code.mitim; "
+            "print(vaft.__file__); "
+            "print(any(m.startswith(('mitim_tools','mitim_modules')) for m in sys.modules))")
+    out = subprocess.run([sys.executable, "-c", code, str(ROOT)], capture_output=True, text=True,
+                         env={**os.environ, "PYTHONPATH": str(ROOT)}, check=False)
+    lines = out.stdout.strip().splitlines()
+    if out.returncode != 0 or not lines or not lines[0].startswith(str(ROOT)):
+        pytest.skip(f"the child imported another vaft checkout: {lines[:1] or out.stderr[-200:]}")
+    assert lines[-1] == "False"
 
 
 def test_no_interpreter_is_configuration_missing(monkeypatch):
@@ -232,7 +295,7 @@ def test_drivers_import_only_mitim_and_the_standard_library():
     drivers = ROOT / "vaft" / "code" / "mitim" / "drivers"
     for path in drivers.glob("*.py"):
         assert "vaft" not in "".join(
-            line for line in path.read_text().splitlines(True) if line.lstrip().startswith(("import", "from"))
+            line for line in path.read_text(encoding="utf-8").splitlines(True) if line.lstrip().startswith(("import", "from"))
         ), path.name
 
 
@@ -267,9 +330,83 @@ def test_the_callers_pythonpath_never_reaches_the_mitim_interpreter(ready, profi
     assert mitim.mitim_availability(ready).ready
 
 
+@pytest.mark.skipif(
+    IS_WINDOWS,
+    reason="an extension-less #!/bin/sh file is not a program on Windows (CreateProcess, "
+           "WinError 193), so the probe would report not_installed; the timeout path is "
+           "exercised on the POSIX legs",
+)
 def test_a_slow_probe_is_a_timeout_not_a_broken_install(tmp_path):
     slow = tmp_path / "python"
-    slow.write_text("#!/bin/sh\nsleep 5\n")
+    slow.write_text("#!/bin/sh\nsleep 5\n", encoding="ascii")
     slow.chmod(0o755)
     found = mitim.mitim_availability(mitim.MITIMConfig(python=str(slow)), timeout=1)
     assert found.status == "probe_timeout"
+
+
+def _mitim_maps_back(monkeypatch, profile, surfaces, shift=None):
+    import json
+
+    rho = mitim.rho_tor_norm_at(profile, surfaces)
+    roa = {f"{x:.4f}": r + (shift or {}).get(r, 0.0) for x, r in zip(rho, surfaces)}
+    monkeypatch.setenv("STUB_ROA_FOR", json.dumps(roa))
+
+
+def test_mitim_tglf_runs_at_the_bridged_rho_and_is_keyed_back_by_r_over_a(ready, profile, tmp_path, monkeypatch):
+    surfaces = [0.4, 0.7]
+    _mitim_maps_back(monkeypatch, profile, surfaces)
+    result, outputs = mitim.run_mitim_tglf(profile, surfaces, tmp_path / "run", ready,
+                                           extra_options={"NKY": 12})
+    assert result.ok, (result.stderr, result.result)
+    rho = mitim.rho_tor_norm_at(profile, surfaces)
+    assert result.record["arguments"]["rho_tor_norm"] == pytest.approx(list(rho))
+    assert result.record["arguments"]["r_over_a"] == surfaces
+    assert result.result["status"] == "ok"
+    assert sorted(outputs) == surfaces and all(o.gbflux is not None for o in outputs.values())
+    assert "{'NKY': 12}" in (tmp_path / "run" / "tglf" / "options.txt").read_text()
+
+
+def test_mitim_local_inputs_are_written_at_exact_r_over_a(ready, profile, tmp_path):
+    result, parsed = mitim.mitim_tglf_local_inputs(profile, [0.3, 0.6], tmp_path / "run", ready)
+    assert result.ok, (result.stderr, result.result)
+    assert sorted(parsed) == [0.3, 0.6]
+    assert parsed[0.6]["RMIN_LOC"] == 0.6 and parsed[0.6]["NKY"] == 19
+    assert result.result["rho_tor_norm"] == pytest.approx([0.24, 0.52])   # MITIM's own map
+
+
+def test_colliding_rho_labels_are_refused_before_running(ready, profile, tmp_path):
+    with pytest.raises(ValueError, match="collide"):
+        mitim.run_mitim_tglf(profile, [0.5, 0.50001], tmp_path / "run", ready)
+
+
+def test_a_surface_mitim_ran_elsewhere_is_reported_missing(ready, profile, tmp_path, monkeypatch):
+    # MITIM maps r/a 0.4 back to 0.41: that surface is not the one asked for.
+    surfaces = [0.4, 0.7]
+    _mitim_maps_back(monkeypatch, profile, surfaces, shift={0.4: 0.01})
+    result, outputs = mitim.run_mitim_tglf(profile, surfaces, tmp_path / "run", ready)
+    assert sorted(outputs) == [0.7]
+    assert not result.ok and result.result["status"] == "partial"
+    assert result.result["missing_r_over_a"] == [0.4]
+    assert result.result["shifted_r_over_a"] == {0.4: pytest.approx(0.41)}
+    # The run directory says the same as the returned result (cold review 0.8.0
+    # delta-absorb-17 transport F6): record.json, result.json and result.record.
+    assert result.record["result_status"] == "partial"
+    assert result.record["missing_r_over_a"] == [0.4]
+    on_disk = json.loads((tmp_path / "run" / "record.json").read_text(encoding="utf-8"))
+    assert on_disk["result_status"] == "partial" and on_disk["missing_r_over_a"] == [0.4]
+    assert on_disk["shifted_r_over_a"] == {"0.4": pytest.approx(0.41)}
+    written = json.loads((tmp_path / "run" / "result.json").read_text(encoding="utf-8"))
+    assert written["status"] == "partial" and written["missing_r_over_a"] == [0.4]
+
+
+def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile, tmp_path, monkeypatch):
+    surfaces = [0.4, 0.7]
+    _mitim_maps_back(monkeypatch, profile, surfaces, shift={0.7: 0.02})
+    result, outputs, inputs = mitim.run_mitim_neo(profile, surfaces, tmp_path / "run", ready,
+                                                  extra_options={"ROTATION_MODEL": 1})
+    assert sorted(outputs) == [0.4] and inputs[0.4]["DENS_1"] == 0.8
+    assert result.result["status"] == "partial" and result.result["missing_r_over_a"] == [0.7]
+    assert result.record["arguments"]["extra_options"] == {"ROTATION_MODEL": 1}
+    assert result.record["result_status"] == "partial"
+    on_disk = json.loads((tmp_path / "run" / "record.json").read_text(encoding="utf-8"))
+    assert on_disk["result_status"] == "partial" and on_disk["missing_r_over_a"] == [0.7]

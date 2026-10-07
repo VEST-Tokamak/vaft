@@ -77,6 +77,7 @@ _NOTHING_BY_DESIGN = re.compile(
     r"|failed: refined_gfiles=0\b"  # CHEASE ran: every slice a solver verdict
     r"|skipped: no EFIT gfiles\b"   # CHEASE: nothing upstream to refine
     r"|skipped: required input unavailable\b"  # eddy: a PF circuit was never recorded (#1568)
+    r"|skipped: not applicable: "  # EFIT: a vacuum / BD-failure shot has no plasma current (#205)
     r"|skipped: \w+\.run=false\b)"   # switched off on purpose
 )
 
@@ -654,11 +655,15 @@ def _round_trip(sent, *, shot: int, source: str, ids: tuple[str, ...], occurrenc
     from ..omas.comparison import ParityClassification, compare_ods
     from . import load as load_remote
 
+    # cache="off": the check must read the server, and a copy of what was just
+    # uploaded is never read again -- with "auto" every validated replica
+    # piled up in ~/.cache/vaft/hsds (539 GiB on vestserver, #1758).
     replica = load_remote(
         shot,
         source=source,
         paths=list(ids),
         occurrence=occurrence or None,
+        cache="off",
     )
     comparison = compare_ods(
         sent,
