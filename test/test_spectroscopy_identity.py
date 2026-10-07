@@ -2,23 +2,26 @@
 
 These four are routinely conflated and must not be.  ``C III`` and ``C3+``
 name *different* ions; ``D`` is hydrogen with a mass number rather than an
-element of its own.  :mod:`vaft.spectroscopy` is where those distinctions are
+element of its own.  :mod:`vaft.data.atomic` (species) and
+:mod:`vaft.data.spectroscopy` (lines) are where those distinctions are
 defined, so this is where they are pinned.
 """
 
 import pytest
 
-from vaft.spectroscopy import (
-    LineIdentity,
-    Species,
+from vaft.data.atomic import AtomicSpecies as Species
+from vaft.data.atomic import (
     charge_state_of,
-    describe_available,
     format_species,
     ionization_stage_of,
+    parse_species,
+)
+from vaft.data.spectroscopy import SpectralLineIdentity as LineIdentity
+from vaft.data.spectroscopy import (
+    describe_available,
     matches,
     parse_emission_term,
     parse_line_label,
-    parse_species,
 )
 
 

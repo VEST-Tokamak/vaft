@@ -41,3 +41,8 @@ test/data/gacode/** text=auto eol=lf
 # (vaft.diagram.build --check hashes the bytes), so a CRLF checkout would
 # read as a hand edit on Windows CI.
 docs/assets/diagrams/** text=auto eol=lf
+
+# Vendored browser libraries (docs/assets/lib/vendor.yml pins each file's sha256
+# against the npm tarball). A CRLF checkout of cytoscape.min.js hashed to
+# d75e3c87... on Windows CI against the pinned 5f3b5b52...; keep them byte-exact.
+docs/assets/lib/** -text

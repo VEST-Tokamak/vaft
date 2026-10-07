@@ -13,7 +13,7 @@ where :mod:`vaft.plot` shows data and results. The boundary:
 
 Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
-``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``,
+``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``, ``hugill_st``,
 ``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); reduced stability
 diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
@@ -24,6 +24,7 @@ of the island: ``rational_surface``, ``delta_prime`` and
 the classification ``collision_processes``; geometric approximations:
 ``geometry_ordering_map``, ``field_line_geometry``, ``mode_number_mapping`` and
 ``mhd_mode_geometry_map`` (#1574);
+asymptotic orderings (#1627): ``timescale_hierarchy``;
 tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
 ``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
@@ -42,12 +43,16 @@ against integrated pairs plus the research community and ownership:
 ``scientific_representation``, ``experimental_research_infrastructure``,
 ``scientific_credibility``, ``research_modality_architecture``,
 ``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform
-(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the physics-workflow
+(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the software
+and external-code ecosystem (#1648): ``software_dependency_ecosystem`` and
+``external_code_integration``; the physics-workflow
 spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
 ``analytic_mhd_equilibrium``, ``chease_coupling``, ``tokamaker_coupling``,
 ``dcon_rdcon_stability``, ``gpec_plasma_response``, ``flare_field_line_topology``,
-``neo_neoclassical`` and ``tglf_cgyro_local_transport``; the spatial
+``neo_neoclassical`` and ``tglf_cgyro_local_transport``; plasma parameter
+inference (#1601): ``parameter_inference_overview`` and
+``parameter_inference_dependency_graph``; the spatial
 vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
@@ -74,6 +79,7 @@ __all__ = [
     "stability_diagnostic_taxonomy",
     "interchange_criteria",
     "hugill",
+    "hugill_st",
     "troyon",
     "li_qa",
     "exb_drift",
@@ -93,6 +99,7 @@ __all__ = [
     "field_line_geometry",
     "mode_number_mapping",
     "mhd_mode_geometry_map",
+    "timescale_hierarchy",
     "tokamak_torus",
     "flux_surfaces",
     "shaping_family",
@@ -228,6 +235,8 @@ __all__ = [
     "scientific_ownership_architecture",
     "vest_data_platform",
     "vest_data_platform_overview",
+    "software_dependency_ecosystem",
+    "external_code_integration",
     "plasma_parameter_inference",
     "romero_transformer_balance",
     "resistive_zeff_inference",
@@ -241,6 +250,8 @@ __all__ = [
     "flare_field_line_topology",
     "neo_neoclassical",
     "tglf_cgyro_local_transport",
+    "parameter_inference_overview",
+    "parameter_inference_dependency_graph",
     "tokamak_top_view",
     "cocos_orientation",
     "machine_and_equilibrium_geometry",
@@ -259,6 +270,7 @@ _LOCATIONS = {
     "stability_diagnostic_taxonomy": "._reduced_stability",
     "interchange_criteria": "._reduced_stability",
     "hugill": "._stability_space",
+    "hugill_st": "._stability_space",
     "troyon": "._stability_space",
     "li_qa": "._li_qa",
     "exb_drift": "._particle_motion",
@@ -277,6 +289,7 @@ _LOCATIONS = {
     "geometry_ordering_map": "._geometry",
     "field_line_geometry": "._geometry",
     "mode_number_mapping": "._geometry",
+    "timescale_hierarchy": "._orderings",
     "mhd_mode_geometry_map": "._mode_geometry",
     "tokamak_torus": "._tokamak_geometry",
     "flux_surfaces": "._tokamak_geometry",
@@ -413,6 +426,8 @@ _LOCATIONS = {
     "scientific_ownership_architecture": "._research_concepts",
     "vest_data_platform": "._platform",
     "vest_data_platform_overview": "._platform",
+    "software_dependency_ecosystem": "._ecosystem",
+    "external_code_integration": "._ecosystem",
     "plasma_parameter_inference": "._workflow_specs",
     "romero_transformer_balance": "._workflow_specs",
     "resistive_zeff_inference": "._workflow_specs",
@@ -426,6 +441,8 @@ _LOCATIONS = {
     "flare_field_line_topology": "._workflow_specs",
     "neo_neoclassical": "._workflow_specs",
     "tglf_cgyro_local_transport": "._workflow_specs",
+    "parameter_inference_overview": "._workflow_specs",
+    "parameter_inference_dependency_graph": "._workflow_specs",
     "tokamak_top_view": "._spatial",
     "cocos_orientation": "._spatial",
     "machine_and_equilibrium_geometry": "._spatial",

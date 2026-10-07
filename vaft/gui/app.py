@@ -17,6 +17,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from ._require import require_panel
+from .catalog_view import describe, group_options, matching_names
 from .composer import CompositionEditor
 from .figure import EXPORT_FORMATS, VIDEO_FORMATS, DisplaySize
 from .options_form import FigureOptionsForm
@@ -29,6 +30,7 @@ LOOPBACK = frozenset({"127.0.0.1", "localhost", "::1"})
 #: Controls that select a time, in the order a plot is asked for them.
 TIME_CONTROLS = ("time_slice", "time_index", "time")
 
+_SCOPE_LABELS = {"Available": "available", "All supported": "all"}
 _SOURCE_LABELS = {"Sample": "sample", "File": "file", "Database shot": "shot"}
 #: What a hosted server opens: nothing from its own disk or the reader's.
 _HOSTED_SOURCE_LABELS = {"Sample": "sample", "Database shot": "shot"}
@@ -85,6 +87,11 @@ class BrowserApp:
         self._preferred_plot = plot
         self._renderer_choice = "plotly"
         self._plot_count = 0
+        #: The last single plot drawn, for coming back from a composition.
+        self._last_drawn: str | None = None
+        #: Which discovery records the selector offers (``None``: all); a
+        #: workspace narrows the explorer this way, e.g. to one diagnostic.
+        self.plot_filter: Callable[[Any], bool] | None = None
         self._updating = False
         #: Called with no arguments whenever what is open or the selected time
         #: may have changed; the shell publishes it to the shared selection.
@@ -129,10 +136,23 @@ class BrowserApp:
         # -- plot, or several composed into one figure (#1467)
         self.mode = pn.widgets.RadioButtonGroup(options=_MODE_LABELS, value="plot")
         self.plot = pn.widgets.Select(label="Plot", groups={"": []}, disabled=True)
+        # What the selector lists: the discovery catalog, searched and with or
+        # without the plots this source cannot draw (#1172).
+        self.search = pn.widgets.TextInput(
+            name="", placeholder="Search plots: ip, psi, profile ...", sizing_mode="stretch_width",
+        )
+        self.scope = pn.widgets.RadioButtonGroup(options=_SCOPE_LABELS, value="available")
+        self.about = pn.pane.Markdown("", sizing_mode="stretch_width", styles={"font-size": "0.9em"})
+        self.about_card = pn.Card(
+            self.about, title="About this plot", collapsed=True, sizing_mode="stretch_width",
+        )
         self.renderer = pn.widgets.RadioButtonGroup(options=_RENDERER_LABELS, value="plotly", disabled=True)
         self.controls = pn.Column()
         self.composer = CompositionEditor(on_draw=lambda editor: self.draw_composition())
-        self.plot_box = pn.Column(self.plot, self.renderer, self.controls, sizing_mode="stretch_width")
+        self.plot_box = pn.Column(
+            self.search, self.scope, self.plot, self.about_card, self.renderer, self.controls,
+            sizing_mode="stretch_width",
+        )
         self.compose_box = pn.Column(*self.composer.widgets(), visible=False, sizing_mode="stretch_width")
 
         # -- the figure: reproducible options (#1421) and the preview size
@@ -179,6 +199,8 @@ class BrowserApp:
         self.ids_button.on_click(lambda _event: self._load_chosen_ids())
         self.load_button.on_click(lambda _event: self._load_requested())
         self.plot.param.watch(self._on_plot, "value")
+        self.search.param.watch(self._relist, "value")
+        self.scope.param.watch(self._relist, "value")
         self.renderer.param.watch(self._on_renderer, "value")
         self.mode.param.watch(self._on_mode, "value")
         for widget in (self.width, self.height):
@@ -262,8 +284,17 @@ class BrowserApp:
             self._show_error(error)
             return False
         names = [name for members in groups.values() for name in members]
+        if self.plot_filter is not None:
+            offered = {record.name for record in self.session.catalog() if self._offered(record)}
+            names = [name for name in names if name in offered]
         self._plot_count = len(names)
         self.composer.set_plots(names)
+        self._updating = True
+        try:
+            self.search.value = ""  # a search for the old sources must not hide the new ones
+        finally:
+            self._updating = False
+        groups = self._plot_groups()
         self._update_status()
         database = self.session.database
         self.ids_choice.param.update(
@@ -282,8 +313,11 @@ class BrowserApp:
                 self._clear_plot(keep_selector=True)
             return True
         if not names:
-            # The previous plot was released with its sources.
-            self._clear_plot()
+            # The previous plot was released with its sources.  The list still
+            # shows (All supported: the plots and why they cannot be drawn).
+            listed = any(options for options in groups.values())
+            self.plot.param.update(groups=groups, value=None, disabled=not listed)
+            self._clear_plot(keep_selector=listed)
             return True
         # The plot on screen stays when the new sources offer it: adding a
         # shot to compare should not jump to another plot.
@@ -361,9 +395,74 @@ class BrowserApp:
         self._update_status()
 
     # -- plot -----------------------------------------------------------------
+    def _plot_groups(self) -> dict[str, Any]:
+        """The selector's groups: discovery's records, searched, by subject."""
+        records = [record for record in self.session.full_catalog() if self._offered(record)]
+        groups = group_options(
+            records, unavailable=self.scope.value == "all",
+            names=matching_names(self.search.value, records),
+        )
+        return groups or {"": {}}
+
+    def _offered(self, record: Any) -> bool:
+        return self.plot_filter is None or bool(self.plot_filter(record))
+
+    def set_plot_filter(self, plot_filter: Callable[[Any], bool] | None) -> None:
+        """Offer only the plots ``plot_filter`` accepts, and draw the first if the one on screen is not."""
+        self.plot_filter = plot_filter
+        if self.session.ods is None:
+            return
+        self._relist()
+        offered = [record.name for record in self.session.catalog() if self._offered(record)]
+        # The composer and the count offer the same plots as the selector.
+        self._plot_count = len(offered)
+        self.composer.set_plots(offered)
+        self._update_status()
+        if self._last_drawn not in offered:
+            self._last_drawn = None  # never redrawn from outside the filter
+        if self.mode.value == "compose":
+            return  # the composition on screen stays; the plot box is hidden
+        if self.session.plot in offered:
+            return
+        if offered and self.plot.value == offered[0]:
+            self.show(offered[0], renderer=self._renderer_for(offered[0]))  # same value: no watcher call
+        elif offered:
+            self.plot.value = offered[0]
+        else:
+            self.session.release()
+            self._clear_plot(keep_selector=True)
+            self._changed()
+
+    def _relist(self, _event: Any = None) -> None:
+        """List the plots again after a search or a change of scope."""
+        if self._updating or self.session.ods is None:
+            return
+        groups = self._plot_groups()
+        listed = {value for options in groups.values() for value in options.values()}
+        # The plot on screen stays selected while the search lists it, and is
+        # selected again when a later search lists it once more.
+        current = self.plot.value or self.session.plot
+        self._updating = True
+        try:
+            self.plot.param.update(groups=groups, value=current if current in listed else None)
+        finally:
+            self._updating = False
+
     def _on_plot(self, event: Any) -> None:
-        if event.new:
-            self.show(event.new, renderer=self._renderer_for(event.new))
+        if self._updating or not event.new:
+            return
+        record = self.session.capability(event.new)
+        self.about.object = describe(record)
+        if record is not None and getattr(record, "available", True) is False:
+            # Shown so the reader learns why; nothing to draw.
+            self.session.release()
+            self._clear_plot(keep_selector=True)
+            self.about_card.collapsed = False
+            self.alert.object = f"{event.new} cannot be drawn here: {record.reason or 'the data it needs is missing'}"
+            self.alert.visible = True
+            self._changed()
+            return
+        self.show(event.new, renderer=self._renderer_for(event.new))
 
     def _renderer_for(self, name: str) -> str:
         """The renderer the reader last chose, where ``name`` offers it."""
@@ -392,6 +491,7 @@ class BrowserApp:
     def show(self, name: str, *, renderer: str = "auto", **options: Any) -> bool:
         """Draw ``name`` with its controls; ``False`` when it could not be drawn."""
         self._clear_error()
+        self.about.object = describe(self.session.capability(name))
         try:
             drawn = self.session.select(name, renderer=renderer, **options)
         except Exception as error:
@@ -418,6 +518,7 @@ class BrowserApp:
         self._name_download()
         if self.session.database:
             self._update_status()  # the plot may have fetched IDS
+        self._last_drawn = name
         self._refresh()
         return True
 
@@ -536,11 +637,19 @@ class BrowserApp:
         composing = event.new == "compose"
         self.plot_box.visible, self.compose_box.visible = not composing, composing
         if not composing and self.session.composition is not None:
-            # Back to one plot: the selector's plot is drawn again.
-            if self.plot.value:
-                self.show(self.plot.value, renderer=self._renderer_for(self.plot.value))
-            else:
-                self._clear_plot(keep_selector=True)
+            # Back to one plot: the selector's plot (or, when a search hides
+            # it, the last one drawn) is drawn again -- only if it can be.
+            name = self.plot.value or self._last_drawn
+            record = self.session.capability(name) if name else None
+            drawable = name and (record is None or getattr(record, "available", True) is not False) and (
+                record is None or self._offered(record)
+            )
+            if drawable and self.show(name, renderer=self._renderer_for(name)):
+                return
+            # Nothing to draw: the composition goes too, or it would still be
+            # exported and reproduced while the screen is empty.
+            self.session.release()
+            self._clear_plot(keep_selector=True)
 
     def draw_composition(self) -> bool:
         """Draw the editor's composition; ``False`` when it was refused."""
@@ -887,7 +996,8 @@ def serve(
     readers are not this server's user, so the app opens samples and database
     shots only -- no server paths, no file browser, no uploads -- the password
     is always asked and must be given (a service's restart would otherwise
-    change it unseen), and the proxy's ``X-Forwarded-*`` headers are trusted.
+    change it unseen) unless ``auth="none"`` leaves authentication to a proxy
+    that does it by itself, and the proxy's ``X-Forwarded-*`` headers are trusted.
     ``prefix`` serves the app under a URL path, e.g. ``/gui`` when the proxy
     passes ``https://host/gui/`` through.  The proxy's public host name goes
     in ``websocket_origin``.

@@ -91,7 +91,7 @@ rotation.metadata["driver"]      # name "time", unit "s", and every frame's time
   - A phase array combined with `time` is refused, because it is ambiguous.
   - So is a single phase with `animation=True`, which is a static diagram.
 - **Units and direction.** `rotation_frequency` is a frequency $f$ in Hz. The synthetic island of
-  #886 (`vaft.process.magnetic_island.IslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
+  #886 (`vaft.process.magnetic_island.MagneticIslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
   rad/s. A positive $f$ moves the O-points towards $+\theta^*$ on a section. At fixed $\theta^*$, it
   moves them towards $-\phi$, which is clockwise seen from above.
 - **Physics, not pictures.** Every state is the static diagram at that phase, with the same O/X
@@ -114,6 +114,7 @@ which has no closed form, is a schematic, and the figure says so.
 vaft.diagram.peeling_ballooning()
 vaft.diagram.s_alpha_ballooning(s_max=1.5, alpha_max=3.5)
 vaft.diagram.hugill(elongation=1.0)                       # no size parameter: R, a, B cancel
+vaft.diagram.hugill_st(elongation=1.8)                   # spherical-tokamak q_cyl (Sykes et al. 2000, MAST)
 vaft.diagram.troyon(aspect_ratio=3.0, elongation=1.7)      # registered Troyon limit, ~2.76
 vaft.diagram.li_qa(reference="wesson_1989")                # JET empirical l_i-q_psi space
 vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-stable l_i-q(a) domain
@@ -130,6 +131,7 @@ vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-sta
 | Peeling–ballooning | Which edge instability limits the pedestal? | $\alpha_\mathrm{max}$, $J_{B,\mathrm{max}}$ (arbitrary units) | **Schematic.** Two linear margins joined by a smooth maximum. The ★, where the peeling and ballooning limits meet (typical ELM onset), is computed where the two margins are equal |
 | $s$–$\alpha$ | How does shear set the ballooning limit, and where is second stability? | $\alpha$, $s$ | The first and second stability boundaries come from `s_alpha_marginal_alpha`, which applies Newcomb's criterion to the Connor–Hastie–Taylor equation. The dashed line is the $0.6\,s$ approximation of `ballooning_stability_criterion`. Not resolved below $s \approx 0.05$ |
 | Hugill | Where is the density limit? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The registered `greenwald_hugill` line (slope $\pi/50\kappa_a$ in $1/q_\mathrm{cyl}$ against $\bar n_e R/B_T$) and `murakami_hugill` ($\bar n_e R/B_T = 1$). The registered `low_q` is on the equilibrium $q_\psi$, not $q_\mathrm{cyl}$, so it is not drawn; `q_limit=` adds a dashed *reference* $q_\mathrm{cyl}$ line |
+| Hugill (ST) | Where is the density limit in a spherical tokamak? | $\bar n_e R/B_T$, $1/q^{ST}_\mathrm{cyl}$ with $q^{ST}_\mathrm{cyl} = 2.5a^2(1+\kappa^2)B_T/(RI_p)$ | `vaft.diagram.hugill_st(elongation=1.8)`: the Hugill limit as Sykes et al. (2000, MAST) define it (`sykes_2000_st_hugill`) and the Greenwald limit on these axes (`greenwald_hugill_st`, derived); Murakami dashed as a historical conventional-tokamak reference. Not substitutable with the conventional `hugill` axes (#1602) |
 | $l_i$–$q$ | Where do current-profile peaking and edge q allow stable operation? | Wesson: $q_\psi$, $l_i(3)$. Cheng: cylinder $q(a)$, $l_i$ | Two separate references, never mixed. Wesson 1989 Fig. 6: the JET *empirical* boundaries (kink and double tearing below, density-limit disruptions above), with the registered `low_q` closing $q_\psi = 2$. Cheng 1987 Fig. 4: the *theoretical* MHD-stable domain of a cylinder with $q(0) = 1.01$ (ideal kink below, resistive kinks above), plotted as $l_i$ rather than $l_i/2$ |
 | Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` limit, $\beta_N \le 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
 
@@ -143,6 +145,30 @@ projection's quantities in its units: a `q95` column never carries a $q_\psi$ or
 boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`,
 `li_qa_wesson`, `li_qa_cheng`. See
 #944 and #636.
+
+### Dimensionless similarity spaces
+
+The limit diagrams above ask whether a state crosses a boundary. A similarity space asks where a state sits relative to other machines and to reactor designs, and which extrapolation separates them. In $\nu_*$–$\rho_*$, $\rho_*$ is the size / finite-gyroradius direction ($1/\rho_*$ is roughly the number of ion gyroradii across the minor radius) and $\nu_*$ the collisionality direction ($1/\nu_*$ is roughly the number of trapped-ion bounce orbits before a collision). $\beta_N$–$\rho_*$ splits MHD-normalised pressure from machine scale. $\Omega_{ci}\tau_{E,\mathrm{th}}$–$\rho_*$ splits confinement time, counted in gyro-orbits, from size. All three come from the ARC physics-basis comparison (Hillesheim et al., *J. Plasma Phys.* 92 (2026) E69, Fig. 6). They are zero-dimensional and draw no boundary by default (Luce, Petty and Cordey, *PPCF* 50 (2008) 043001, explain why these coordinates separate transport mechanisms).
+
+| Projection | Question it answers | Axes (exact quantity) |
+| --- | --- | --- |
+| `rho_star_nu_star` | Is the extrapolation in size, in collisionality, or both? | `rho_star_verdoolaege_2021`, `nu_star_verdoolaege_2021` |
+| `rho_star_beta_n` | How much is pressure, how much is scale? | `rho_star_verdoolaege_2021`, `normalized_beta` |
+| `rho_star_omega_ci_tau_e` | Size against confinement time in gyro-orbits | `rho_star_verdoolaege_2021`, `omega_ci_tau_e_th` |
+
+The $\rho_*$ and $\nu_*$ axes follow the ITPA confinement-database convention, Verdoolaege et al., *Nucl. Fusion* 61 (2021) 076006, Eqs. (1a) and (1c), which Hillesheim et al. use. $n$ and $T$ are volume averages with $T_e = T_i$. The functions that evaluate them are `rho_star_from_M_T_B_R_epsilon`, `nu_star_from_n_T_B_R_epsilon_kappa_I` and `omega_i_tau_E_from_B_tau_E_M` in `vaft.formula.equilibrium`. VAFT has other $\nu_*$ and $\rho_*$ definitions (issue 353): Sauter's local $\nu_*$, pedestal $\nu^*_e$, edge and separatrix collisionalities. Each is a different quantity, so it cannot be drawn on these axes. A missing input leaves the state *unassessed*: it is counted per group, in a warning and in the legend, and is never estimated. Each projection carries its meaning as metadata:
+
+<!-- docs-snippet: skip fragment (placeholder name table, a dimensionless-similarity table, is never built on the page) -->
+```python
+from vaft.diagram import _op_space
+from vaft.plot.dimensionless_space import dimensionless_similarity
+
+print(_op_space.get_projection("rho_star_nu_star").interpretation.describe())
+fig, ax = dimensionless_similarity(table, "rho_star_nu_star", group="machine")   # ARC V3A overlaid
+ax.vaft_exclusions.summary()
+```
+
+The only built-in reference point is ARC V3A ($\beta_N = 1.8$, $\rho_* = 0.0017$, $\nu_* = 0.031$, $\Omega_{ci}\tau_{E,\mathrm{th}} = 4.1\times10^8$), the values Hillesheim et al. state in Sec. 4. Their SPARC, ITER and EU-DEMO points appear only as plotted markers, so they are not digitised. Pass such points as `reference_table=` with a `source` column. See #1624.
 
 ### Reduced stability diagnostics
 
@@ -305,6 +331,20 @@ vaft.diagram.mhd_mode_geometry_map()
 | `field_line_geometry` | The same $q$ field line on a torus and on the cylinder straightened at $R_0$, and the tilt of the sheared-slab field lines growing with $x$ |
 | `mode_number_mapping` | The cylinder's $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of `local_slab_from_cylinder` is its tangent there |
 | `mhd_mode_geometry_map` | Pressure-driven, current-driven, resonant and $n = 0$ mode families in slab, cylinder and torus. Exact relabelling, limits, analogues and branches are drawn as four different arrows. The text is [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}) |
+
+## Asymptotic orderings
+
+The scale separations a reduced model assumes, evaluated rather than assumed. The kernels are in
+`vaft.formula.ordering`, and [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}) (#1627)
+explains them.
+
+```python
+vaft.diagram.timescale_hierarchy()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `timescale_hierarchy` | Gyroperiods, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
 
 ## Tokamak geometry and flux coordinates
 
@@ -683,7 +723,7 @@ vaft.diagram.rational_surface_topology(profile="reversed_shear", m=2, n=1)
 | Diagram | Concept |
 | --- | --- |
 | `current_profile_shapes` | $j(r) \to I(r) \to B_\theta(r) \to l_i$ at fixed $I_p$. Peaked, broad and hollow are shapes of the *current density*. $l_i$ is one number for the whole profile: a more centrally enclosed current tends to a larger $l_i$, but different profiles can share one $l_i$ |
-| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Not every hollow current reverses the shear |
+| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a wide weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Every $q$ has $s \to 0$ on axis, so each column carries a narrow $s \approx 0$ band there; the width of the flat core is the discriminator. Not every hollow current reverses the shear |
 | `q_profile_landmarks` | $q_0$ on axis; $q_{\min}$, equal to $q_0$ only when $q$ is monotonic; $q_{95} = q(\psi_N = 0.95)$, which is not at $r/a = 0.95$; $q_a$, the boundary value of a cylinder or limited plasma. In a diverted equilibrium $q \to \infty$ at the separatrix, so $q_{95}$ is quoted. In the cylinder $q_a = q_\mathrm{cyl}$; in a shaped torus $q_{95}$ and the edge $q$ differ from $q_\mathrm{cyl}$ and $q^*$ |
 | `rational_surface_topology` | A monotonic $q$ crosses one $m/n$ once. A reversed-shear $q$ can cross it twice, $q(r_1) = q(r_2) = m/n$ with $r_1 < r_{\min} < r_2$: a *double-resonant configuration*. A double tearing mode is the instability in which tearing layers on the two surfaces couple, and only a stability calculation can say whether it grows |
 
@@ -975,7 +1015,7 @@ unless it is computed by a `vaft.formula.pwi` relation from inputs the caller su
 - `recycling_coefficient`;
 - `sputtering_threshold_bohdansky`, a named empirical fit that needs the surface binding energy.
 
-Projectile and target species go through `vaft.spectroscopy` and are drawn apart: projectile blue,
+Projectile and target species go through `vaft.data.atomic` and are drawn apart: projectile blue,
 target dark. Each diagram's model names the IMAS paths of the quantities it shows, under
 `wall.global_quantities.neutral[:]`: the recycling particle and energy coefficients, the fluxes from the
 plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
@@ -1007,7 +1047,7 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 
 ## Spectroscopy and ionization
 
-Concept diagrams in the vocabulary of `vaft.spectroscopy`. `parse_emission_term` and `parse_line_label` are
+Concept diagrams in the vocabulary of `vaft.data.atomic` and `vaft.data.spectroscopy`. `parse_emission_term` and `parse_line_label` are
 the same parsers `emission=` uses in `vaft.plot`, so a term that selects a trace selects the same diagram.
 Metadata is progressive, and nothing is fabricated:
 - level 0 is the semantic identity (stage, charge, element);
@@ -1128,6 +1168,8 @@ the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full
 scope.
 
 ```python
+import math
+
 vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutoff at omega_pe
 vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
 vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
@@ -1625,6 +1667,7 @@ unsupported capability. Node style says how a quantity was obtained:
 | reconstructed | the solution of an inverse problem |
 | derived | computed deterministically from existing state |
 | inferred | estimated with a model, prior or closure |
+| synthetic (assumption-completed) | completed from an equilibrium and explicit assumptions with no kinetic data; never a measurement |
 | model assumption / prior | an assumed value or prior the result depends on; drawn entering from the side |
 | model choice / convention | a model choice or convention (basis, sign, conductivity model, mode numbers); drawn from the side |
 | machine geometry / static data | static machine data: geometry, Green tables, circuits; drawn from the side |
@@ -1651,6 +1694,8 @@ vaft.diagram.gpec_plasma_response()
 vaft.diagram.flare_field_line_topology()
 vaft.diagram.neo_neoclassical()
 vaft.diagram.tglf_cgyro_local_transport()
+vaft.diagram.parameter_inference_overview()
+vaft.diagram.parameter_inference_dependency_graph()
 ```
 
 ### Plasma parameter inference: ion temperature and species
@@ -1950,6 +1995,68 @@ Follow-up TODOs (implementation or IMAS mapping):
 - Squareness zeta enters as 0 (VEST equilibria carry no squareness); Z_EFF is not written to input.cgyro by design: CGYRO recomputes it from the species list (Z_EFF_METHOD=2).
 - No implemented local-gyrokinetic validity criterion (rho*): compare_with_oracle checks only the input translation against CGYRO's own projection.
 - No TGLF to gyrokinetics_local mapping.
+
+### Plasma parameter inference: completing the kinetic profiles
+
+Where inference sits: diagnostics and the equilibrium give reconstructed but incomplete kinetic profiles; explicit assumptions and the closures VAFT implements complete them, and every completed quantity keeps its origin on the way to simulation.
+
+![Plasma parameter inference: completing the kinetic profiles]({{ '/assets/diagrams/parameter_inference_overview.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Thomson scattering | measured | $T_e,\ n_e\ \mathrm{at}\ (R, Z)$ |  | `thomson_scattering.channel[:]` |
+| Charge exchange (optional) | measured | $T_i^{\mathrm{CX}}\ \mathrm{at}\ (R, Z)$ |  | `charge_exchange.channel[:].ion[0].t_i` |
+| Magnetic equilibrium | reconstructed | $p_{\mathrm{eq}}(\psi),\ q,\ \langle j\cdot B\rangle,\ \mathrm{geometry}$ |  | `equilibrium.time_slice[:].profiles_1d` |
+| Reconstructed kinetic profiles | reconstructed | $T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted}),\ [T_i(\rho)], p_{\mathrm{eq}}(\rho),\ q(\rho)$ |  | `core_profiles.profiles_1d[:].electrons` |
+| Fitting assumptions | model choice / convention (enters Reconstructed kinetic profiles) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ GP}, \mathrm{order}\ N,\ x = \rho_{\mathrm{tor},N}\ \mathrm{or}\ \psi_N, T, n > 0,\ \sigma\text{-}\mathrm{weighted}$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
+| Closure assumptions | model assumption / prior (enters Reconstructed kinetic profiles) | $\mathrm{common}\ T_i,\ \mathrm{impurity\ species},\ Z_{\mathrm{eff}}, \sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda$ |  |  |
+| Thermodynamic closure | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Impurity closure | inferred |  | `vaft.process.impurity.resolve_impurity_composition` |  |
+| Resistive closure | inferred | $V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar}), \sigma_\parallel:\ \mathrm{Spitzer\ \|\ neoclassical\ (Sauter,\ Redl)}$ | `vaft.process.resistive_zeff.infer_resistive_zeff` |  |
+| Completed kinetic profiles | derived | $n_e, T_e, T_i, n_s, Z_{\mathrm{eff}}, \mathrm{each\ with\ origin=\ldots;\ method=\ldots}$ |  | `core_profiles.profiles_1d[:].{electrons, ion[:], zeff}` |
+| Simulation-ready | code input | $\mathrm{every\ input\ quantity\ with\ its\ origin}$ |  |  |
+
+References:
+
+1. L. L. Lao et al., Nucl. Fusion 25 (1985) 1611
+2. J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 4.25
+3. J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002
+4. L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977
+5. O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834
+6. A. Redl et al., Phys. Plasmas 28 (2021) 022502
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is on develop as resolve_radial_composition(normalization='resistive_closure') (#1565, #1566, PR #1659); this diagram still draws the scalar resistive closure only.
+- Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an explicit assumption (#553).
+- Provenance is recorded per quantity where it exists (core_profiles origin=...; method=... records for composition, the T_i result's origin/method fields); there is no single runtime provenance object, by design (#1601 is documentation-first).
+
+### Inferred quantities depend on inferred quantities
+
+Provenance propagates: a composition assumption fixes the ion densities, which set the pressure-partition T_i, whose gradients reach the gyrokinetic input beside an assumed zero ExB shear. Every link below the measurements carries the assumptions above it.
+
+![Inferred quantities depend on inferred quantities]({{ '/assets/diagrams/parameter_inference_dependency_graph.svg' | relative_url }})
+
+| Node | Kind | Variables | API | IDS |
+| --- | --- | --- | --- | --- |
+| Electron profiles | measured | $T_e(\rho),\ n_e(\rho)$ |  | `core_profiles.profiles_1d[:].electrons.{temperature, density_thermal}` |
+| Equilibrium pressure | reconstructed | $p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})$ |  | `equilibrium.time_slice[:].profiles_1d.pressure` |
+| Impurity source | model assumption / prior (enters Ion densities) | $\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}$ |  |  |
+| Ion densities | derived |  | `vaft.process.impurity.resolve_impurity_composition` |  |
+| Pressure-partition ion temperature | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Ion pressure | derived | $p_i(\rho),\ dp_i/dr$ |  |  |
+| Normalized gradients | derived | $a/L_{T_i},\ a/L_{n_i},\ T_i/T_e$ | `vaft.code.gacode.tglf.prepare_tglf_input` |  |
+| ExB shear | model assumption / prior (enters Gyrokinetic input) | $\gamma_E = 0\ \ (\mathrm{assumed})$ |  |  |
+| Gyrokinetic input | code input | $\mathrm{local\ state\ with\ origins}$ | `vaft.code.gacode.cgyro.prepare_cgyro_input` |  |
+
+References:
+
+1. L. L. Lao et al., Nucl. Fusion 25 (1985) 1611
+2. J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 4.25
+
+Follow-up TODOs (implementation or IMAS mapping):
+
+- E_r, rotation and gamma_E are not inferred from data (#553): gamma_E = 0 enters the gyrokinetic input as an assumption, and force balance is future scope.
 
 ## Using the committed assets
 

@@ -236,6 +236,12 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
         OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
                    "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
+        # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that
+        # reached no growth-rate tolerance is left out unless asked for.  Only
+        # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
+        OptionSpec("include_unconverged", "bool",
+                   description="gyrokinetic linear spectra: also draw initial-value eigenmodes "
+                               "that reached no growth_rate_tolerance (a last-step value, not an eigenvalue)"),
     )
 
 
@@ -251,6 +257,8 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "gradient_coordinate", "reference_length", "convention", "rational_q", "resonances",
     # issue #1583: the edge-q views' choices.
     "estimate_from", "q95_scaling", "start_configuration",
+    # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
+    "include_unconverged",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);

@@ -315,9 +315,12 @@ def q_profile_topologies(profiles: Sequence[str] = ("monotonic", "weak_shear", "
 
     Columns of the reduced cylinder at one $I_p$ and $q_a$: the peaked
     current gives a monotonic $q$ with $q_\min = q_0$; the broad current a
-    core where $q$ is nearly flat ($|s| < 0.1$, drawn as $s \approx 0$);
-    the hollow current a $q$ whose minimum is off axis, with $s < 0$ inside
-    $q_\min$. $s = (r/q)\,dq/dr$ is ``shear_from_r_q``. This is a profile
+    wide core where $q$ is nearly flat; the hollow current a $q$ whose
+    minimum is off axis, with $s < 0$ inside $q_\min$. $s = (r/q)\,dq/dr$
+    is ``shear_from_r_q``, and $|s| < 0.1$ is drawn as $s \approx 0$. Every
+    $q$ has $s \to 0$ on axis, so each column carries a narrow
+    $s \approx 0$ band there; what singles out the broad current is the
+    width of its flat core, not the band itself. This is a profile
     topology, not a stability diagram; $q$ depends on the enclosed current
     and the geometry, and not every hollow current reverses the shear.
     """

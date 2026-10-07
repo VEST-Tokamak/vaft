@@ -33,6 +33,7 @@ This directory builds the VEST Tier A confinement table on a validated ohmic pow
 - **P_net** = P_OH − dW/dt. This is `p_loss_W`; radiation is not subtracted, as in DB5 `PLTH`.
 - **P_transport** is NaN: VEST maps no bolometer.
 - **τ_E** = W_mhd / P_net. The kinetic counterpart is `tau_e_kin_s`, which uses the magnetics dW/dt.
+- **H factors** (`figures.h_factor_of`, `vaft.data.public.h_factor`) compare each scaling on its declared energy basis (#1713): a thermal scaling (IPB98(y,2), ITER97-L, NSTX 2006 H) against `tau_e_th_s`, a global or unaudited one (ITER89-P, NSTX 2006 L, Kurskiev 2022, Goldston 1984) against `tau_e_global_s`. Where no global time exists the public `h_factor` returns NaN and warns, naming the scaling and the gate; `thermal_as_global=True` (or the machine names, here `{"VEST"}`: ohmic, no fast ions) uses the thermal time instead and records the approximation in `attrs`. `h_factor_of` applies that substitution for `OHMIC_MACHINES` by itself. The two paths feed ITER97-L (and the Goldston 1984 forms) different elongations: `h_factor_of` the boundary `kappa` (`extra_scalings.py`), the public `h_factor` the area elongation `kappa_area` by default, so their H97 differ by $(\kappa/\kappa_a)^{0.64}$ (about 6 % on Tier A); which one Kaye 1997 regressed on is not settled (`elongation_note` in `vaft.formula.constants`), and each result records its choice in `attrs["kappa_definition"]`.
 - **EFIT verdicts** come from Lane K's state table under criteria v2 (#1521), as two separate columns:
   - `efit_quality` (good / admissible / ...) grades the fit alone;
   - `thomson_consistent` is True when the EFIT pressure lies within [1, 2]·p_e of the Thomson fit, False outside, and NaN where no Thomson profile was matched.
@@ -84,7 +85,7 @@ This writes `coefficients.csv`, `summary.csv`, `influence.csv`, `identifiability
 python closures.py --table ~/runs/campaign/atlas/confinement/table.csv --out ~/runs/campaign/atlas/confinement/closures
 ```
 
-This writes `closures.csv`, `odr_scan.csv`, `nstx_comparison.csv` and `MANIFEST.json`. Every dimensionless index divides by 1 + α_P, so read `one_plus_aP_over_se` before any μ: within about 2σ of zero, the completed indices are undetermined.
+This writes `closures.csv`, `odr_scan.csv`, `nstx_comparison.csv` and `MANIFEST.json`. With `--model-spread ~/runs/campaign/atlas/efit_model_spread/model_spread.csv` (the #579 ensemble) it also writes `odr_model_spread.csv`: the ODR of W with the per-state EFIT model-form spread as the per-row W error (unimodal and all rows, with 0 and 0.1 intrinsic scatter in quadrature, and the tight 'viable' spread), against the constant 0.2 of the scan, on the rows the ensemble covers. Every dimensionless index divides by 1 + α_P, so read `one_plus_aP_over_se` before any μ: within about 2σ of zero, the completed indices are undetermined.
 
 Then the extensions:
 

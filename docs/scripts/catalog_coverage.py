@@ -353,13 +353,19 @@ def check_api(snapshot: dict, root: Path) -> list[str]:
     inventory = yaml.safe_load((root / "docs" / "api_inventory.yml").read_text(encoding="utf-8")) or {}
     prefixes = {prefix for page in inventory.get("pages") or [] for prefix in page.get("modules") or []}
     undeclared = set(inventory.get("undeclared") or [])
+    scripts = list(inventory.get("scripts") or [])
+
+    def is_script(name: str) -> bool:
+        # issue studies run with `python -m` and are never imported (#1756), as in vaft._api_catalog.is_script
+        return any(name == prefix or (prefix != "vaft" and name.startswith(prefix + ".")) for prefix in scripts)
 
     def on_a_page(name: str) -> bool:
         # the root "vaft" covers only itself, as in vaft._api_catalog.covers
         return any(name == prefix or (prefix != "vaft" and name.startswith(prefix + ".")) for prefix in prefixes)
 
     names = ["vaft"] + [info.name for info in pkgutil.walk_packages(vaft.__path__, "vaft.")]
-    public = sorted(name for name in names if not any(part.startswith("_") for part in name.split(".")))
+    public = sorted(name for name in names
+                    if not any(part.startswith("_") for part in name.split(".")) and not is_script(name))
     #: every published name -> the object it is bound to (kept alive, so no id is ever reused)
     published: dict[str, object] = {}
     with warnings.catch_warnings():
