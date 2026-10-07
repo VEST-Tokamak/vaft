@@ -11,50 +11,50 @@ English | [한국어](README.ko.md) · [PyPI](https://pypi.org/project/vaft/) ·
 
 > **Connecting nuclear fusion knowledge across disciplines for integrated tokamak research**
 
-**VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research.** It connects experimental data, reconstructed and simulated plasma states, and analysis workflows through shared data structures and traceable results.
+**VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research.** It connects experimental data, reconstructed plasma states, simulation results, and analysis workflows through IMAS-defined data structures and recorded processing history.
 
 ## What VAFT connects
 
-VAFT links machine-specific measurements, [IMAS](https://imas.iter.org/)/[OMAS](https://gafusion.github.io/omas/) representations, processing and visualization, and community physics codes. Standardized data complements the original scientific artifacts; it gives researchers a common way to compare and reuse them.
+VAFT maps device-specific diagnostics and machine data into the common data model defined by the [IMAS Data Dictionary](https://imas-data-dictionary.readthedocs.io/en/latest/). [OMAS](https://gafusion.github.io/omas/) provides a Python interface to those structures. VAFT uses the standardized records for processing and visualization and to exchange data with established physics codes such as EFIT and CHEASE. Native diagnostic files and solver outputs remain available alongside those records.
 
 ![Fusion research ecosystem connected by VAFT](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/fusion_research_ecosystem_presentation.svg)
 
-Experimental work, theory and modeling, and data-driven methods contribute to shared scientific states that researchers can test, compare, and reuse. VAFT connects those states and activities; it does not replace the specialized physics codes behind them.
+The diagram places experiments, theory and modeling, and data-driven studies around measured, reconstructed, and simulated plasma states. VAFT lets researchers exchange and compare those states without replacing their specialized physics codes.
 
-[Explore the diagram and its detailed version](https://vest-tokamak.github.io/vaft/reference/diagrams/).
+[Explore the diagram and its detailed version](https://vest-tokamak.github.io/vaft/develop/reference/diagrams/).
 
 ## Four enabling perspectives
 
 ![Four complementary capabilities of VAFT](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/vaft_four_pillars.svg)
 
-The four pillars are complementary capabilities, not successive stages: a standard interface and traceable pipeline make results comparable and reproducible, while the data repository and machine archive keep their evidence and context usable. Together they support four ways to think about the framework:
+These four capabilities work together rather than as successive stages. IMAS mappings provide a common interface; recorded configurations make processing traceable; and the repository and archive retain the data and machine context needed to interpret a result. For researchers, they address four practical needs:
 
-- **Representation:** map machine data and plasma states into interoperable IMAS structures while retaining their source and conventions.
-- **Research infrastructure:** discover and share validated native and standardized data, notebooks, and machine knowledge.
-- **Credibility:** record provenance, configuration, and checks so traceable, reproducible workflows produce verifiable results.
-- **Research practice and portability:** connect experiments, reconstruction, modeling, and interpretation in workflows that can extend beyond one device.
+- **Representation:** map diagnostic channels, device geometry, equilibria, and profiles to named IMAS structures while retaining source and flux conventions.
+- **Research infrastructure:** keep native files and standardized shot records accessible, alongside notebooks and device configuration history.
+- **Credibility:** record calibrations, mapping versions, solver settings, and quality checks so workflows are traceable and reproducible and results are verifiable.
+- **Research practice and portability:** use the same data paths for reconstruction, modeling, and plotting; adapt those workflows to another device by supplying its mappings.
 
 ## How results are produced
 
 ![VAFT's managed scientific workflow](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/scientific_workflow.svg)
 
-Machine descriptions and measurements enter through ingestion and mapping; diagnostic processing, reconstruction, and interpretive simulation then read and write a shared IMAS scientific state. Configuration and provenance follow each product, while verification, validation, and quality assessment help turn it into analysis-ready data.
+Machine descriptions and diagnostic measurements are registered and mapped to IMAS data structures. Diagnostic processing, equilibrium reconstruction, and simulation read and write those structures; the workflow records configurations and provenance and checks data quality before results are reused in analysis.
 
 ## Research with VAFT
 
-Start with [offline sample data](tutorial/README.md), then [explore shots and diagnostics](https://vest-tokamak.github.io/vaft/workflows/data-access-imas/), [reconstruct equilibria and fit profiles](https://vest-tokamak.github.io/vaft/workflows/equilibrium-kinetic-profiles/), or [work through research notebooks](notebooks/README.md). The [workflows](https://vest-tokamak.github.io/vaft/workflows/start-here/) show how these steps fit together.
+Start with [offline sample data](tutorial/README.md), then [explore shots and diagnostics](https://vest-tokamak.github.io/vaft/workflows/data-access-imas/) or [reconstruct equilibria and fit profiles](https://vest-tokamak.github.io/vaft/workflows/equilibrium-kinetic-profiles/). The [research notebooks](notebooks/README.md) and [workflow guide](https://vest-tokamak.github.io/vaft/workflows/start-here/) show complete examples.
 
 ## VEST reference implementation
 
-The [VEST tokamak](https://vest-tokamak.github.io/vaft/reference/vest-systems/) at Seoul National University is VAFT's end-to-end reference implementation, from device-specific data through standardized analysis products. VAFT's data model and workflow interfaces are designed for research beyond VEST.
+The [VEST tokamak](https://vest-tokamak.github.io/vaft/reference/vest-tokamak-physics/) at Seoul National University is VAFT's reference implementation: its diagnostics are mapped to IMAS and used in reconstruction, modeling, and analysis workflows. VAFT separates VEST-specific mappings from the data structures and tools those workflows share.
 
 ![VAFT's machine-agnostic architecture](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/machine_agnostic_architecture.svg)
 
-Device-specific access and mapping absorb differences before data reaches the common IMAS model and shared research framework. The figure shows the architecture intended for other devices and future studies; it does not claim that every device integration is already implemented.
+A new device needs its own data access and diagnostic mappings; downstream tools can then work with the same IMAS structures. This is the intended path for extending VAFT beyond VEST, not a claim that every device integration is already implemented.
 
 ## Quick start
 
-Install the published package, then inspect the bundled sample without database credentials or external fusion codes:
+Install the published package, then inspect the packaged VEST sample without database credentials or external fusion codes:
 
 ```bash
 pip install vaft
@@ -71,6 +71,6 @@ For a plotted first result, follow [Start here](https://vest-tokamak.github.io/v
 
 ## Learn more
 
-- [Documentation](https://vest-tokamak.github.io/vaft/) · [Data access](https://vest-tokamak.github.io/vaft/reference/database-data-sources/) · [Equilibrium representations](https://vest-tokamak.github.io/vaft/reference/equilibrium-representations/)
+- [Documentation](https://vest-tokamak.github.io/vaft/) · [IMAS concepts](https://vest-tokamak.github.io/vaft/reference/imas-concepts/) · [Data access](https://vest-tokamak.github.io/vaft/reference/database-data-sources/) · [Equilibrium representations](https://vest-tokamak.github.io/vaft/develop/reference/equilibrium-representations/)
 - [Tutorials](tutorial/README.md) · [Notebook catalog](notebooks/README.md) · [Contributing](CONTRIBUTING.md)
 - [Citation and acknowledgements](https://vest-tokamak.github.io/vaft/reference/vest-tokamak-physics/) · [References](https://vest-tokamak.github.io/vaft/reference/references/) · [Third-party notices](THIRD_PARTY_NOTICES.md)
