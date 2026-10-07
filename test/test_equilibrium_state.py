@@ -180,3 +180,20 @@ def test_operation_space_notebook_discovers_projections_and_restates_no_boundary
                     for entry in [B.get_boundary(key)] if getattr(entry, "coefficient", None) not in (None, 0.0, 1.0, 2.0)}
     restated = {key: c for key, c in coefficients.items() for v in literals if math.isclose(v, c, rel_tol=0.02)}
     assert coefficients and not restated, restated
+
+
+def test_operation_space_notebook_displays_at_screen_size_and_exports_print_sizes_only():
+    """Inline output uses the screen preset; a journal preset is only an export (#1815)."""
+    code = _code(NEW_NOTEBOOK)
+    assert "figure.dpi" not in code                      # no notebook-global raster override
+    assert 'FORMAT, THEME = "screen"' in code
+    assert 'EXPORT_FORMAT = "double_column"' in code and "VAFT_FIGURE_EXPORT_DIR" in code
+    assert 'fontsize="x-small"' not in code               # presentation-owned text follows the active format
+    assert 'rc()["legend.fontsize"]' in code
+
+
+def test_operation_space_notebook_draws_the_pr08_population_with_declared_conventions():
+    code = _code(NEW_NOTEBOOK)
+    assert "fetch_pr08_population()" in code and "pr08_mhd_state_table(" in code
+    assert 'attrs.get("conventions"' in code                  # one population only where both tables agree
+    assert "projection_coverage(P)" in code
