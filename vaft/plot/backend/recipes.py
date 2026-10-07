@@ -9353,6 +9353,8 @@ def declares_option(name: str, option: str) -> bool:
         return name in MODE_OVERLAY_PLOTS
     if option == "include_unconverged":
         return name in UNCONVERGED_MODE_PLOTS
+    if option in VACUUM_BENCHMARK_OPTIONS:
+        return name in VACUUM_BENCHMARK_PLOTS
     return choice_options_for(name, option) is not None
 
 
@@ -14989,13 +14991,23 @@ def _channel_position(channel: Any) -> str:
     collides with its neighbour's.  What a reader needs from it is which side
     of the machine the channel is on.
     """
-    name = str(channel.name)
-    for prefix in ("MagneticFieldProbe_", "Flux Loop - "):
-        if name.startswith(prefix):
-            name = name[len(prefix):]
-            break
+    name = channel_short_name(channel.name)
     family = str(channel.family).replace("_flux_loop", "").replace("_", " ")
     return f"{name} · {family}" if family else name
+
+
+#: The instrument prefixes a magnetic channel name repeats on every channel of
+#: its kind; :func:`channel_short_name` drops them.
+CHANNEL_NAME_PREFIXES = ("MagneticFieldProbe_", "Flux Loop - ")
+
+
+def channel_short_name(name: Any) -> str:
+    """A magnetic channel's name without its instrument prefix (:data:`CHANNEL_NAME_PREFIXES`)."""
+    name = str(name)
+    for prefix in CHANNEL_NAME_PREFIXES:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
 
 
 def _build_magnetics_vacuum(ods: Any, **options: Any) -> Panels:
@@ -15137,6 +15149,261 @@ RECIPES["magnetics_overview_plasma_residual"] = CallableRecipe(
     reads=("pf_active", "pf_passive", "em_coupling", "magnetics", "wall", "tf", *_ONSET_READS),
     backend=OMAS_BOUND,
     reason='vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics deep-copies the ODS',
+)
+
+
+# ---------------------------------------------------------------------------
+# Plasma-free vacuum benchmark scores (issue #190, plotting roadmap #1242 C3)
+# ---------------------------------------------------------------------------
+#
+# The #139 figures above draw one shot's waveforms; these views draw the
+# benchmark's per-channel *scores* (vaft.validation.vacuum_benchmark), and the
+# aggregate table in vaft.plot.backend.tables compares them across shots.  The
+# benchmark states no threshold and no verdict, so neither do the views: the
+# zero line on the improvement panel is the point where the wall term adds
+# nothing, a reference and not a pass mark.
+
+#: The views that run :func:`vaft.validation.vacuum_benchmark.run_benchmark_case`.
+VACUUM_BENCHMARK_PLOTS = frozenset({
+    "magnetics_overview_vacuum_benchmark",
+    "magnetics_table_vacuum_benchmark",
+    "magnetics_table_vacuum_benchmark_aggregate",
+})
+
+#: The benchmark's own knobs, taken only by :data:`VACUUM_BENCHMARK_PLOTS`
+#: (``per_family=`` is shared with the #139 vacuum figures).
+VACUUM_BENCHMARK_OPTIONS = ("resistance_scale", "n_tau")
+
+#: What a benchmark case reads: the PF and passive-loop circuits and their
+#: coupling, the magnetics it scores, the wall and TF the static model and the
+#: forward response read, the data entry, and the plasma-timing inputs (the UV
+#: lines and the summary's time convention) the plasma-free interval is cut
+#: at.  ``run_benchmark_case`` deep-copies whatever it is given, so the views
+#: hand it a private copy of just these IDS (:func:`_isolated_copy`), and
+#: declare them whole.
+_VACUUM_BENCHMARK_ROOTS = (
+    "pf_active", "pf_passive", "em_coupling", "magnetics", "wall", "tf",
+    "dataset_description", "spectrometer_uv", "summary",
+)
+_VACUUM_BENCHMARK_READS = (*_VACUUM_BENCHMARK_ROOTS, *_ONSET_READS)
+
+#: The three per-channel scores, as the benchmark's metrics name them.
+VACUUM_BENCHMARK_SCORES = ("improvement", "normalized_residual", "correlation")
+
+
+def _positive_option(options: Mapping[str, Any], key: str, default: float) -> float:
+    value = options.get(key)
+    if value is None:
+        return float(default)
+    if isinstance(value, bool):
+        raise ValueError(f"{key}= takes a positive number; got {value!r}")
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{key}= takes a positive number; got {value!r}") from None
+    if not np.isfinite(number) or number <= 0.0:
+        raise ValueError(f"{key}= takes a positive number; got {value!r}")
+    return number
+
+
+def vacuum_benchmark_options(options: Mapping[str, Any]) -> dict[str, Any]:
+    """The :func:`~vaft.validation.vacuum_benchmark.run_benchmark_case` keywords a view passes on.
+
+    ``per_family`` (``None``: every usable channel, the benchmark's default; or
+    a positive count per family), ``resistance_scale`` and ``n_tau``; each is
+    type-checked here so a wrong value is refused by name, not deep inside the
+    solver.
+    """
+    from vaft.validation.vacuum_benchmark import DEFAULT_HISTORY_TIME_CONSTANTS
+
+    per_family = options.get("per_family")
+    if per_family is not None:
+        if isinstance(per_family, bool) or not isinstance(per_family, (int, np.integer)) or per_family < 1:
+            raise ValueError(
+                f"per_family= takes a positive channel count per family, or None for every "
+                f"usable channel; got {per_family!r}"
+            )
+        per_family = int(per_family)
+    return {
+        "per_family": per_family,
+        "resistance_scale": _positive_option(options, "resistance_scale", 1.0),
+        "n_tau": _positive_option(options, "n_tau", DEFAULT_HISTORY_TIME_CONSTANTS),
+    }
+
+
+def _pulse_number(ods: Any) -> int | None:
+    pulse = _get(ods, "dataset_description.data_entry.pulse")
+    try:
+        number = int(pulse)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _vest_machine_era(shot: int | None) -> str | None:
+    """The VEST machine era of ``shot`` (``vaft.omas.vest_upstream``), or ``None``."""
+    if shot is None:
+        return None
+    from vaft.omas.vest_upstream import machine_era_for_shot
+
+    try:
+        return machine_era_for_shot(shot).name
+    except ValueError:
+        return None
+
+
+def vacuum_benchmark_case(ods: Any, options: Mapping[str, Any]) -> dict[str, Any]:
+    """One benchmark case of ``ods``, labelled by its data entry's pulse.
+
+    :func:`~vaft.validation.vacuum_benchmark.run_benchmark_case` unchanged,
+    with ``shot`` the stored pulse and ``machine_era`` the VEST era that pulse
+    falls in (``None`` for an ODS without a pulse).  A shot that cannot supply
+    a plasma-free case raises :class:`~vaft.validation.vacuum_benchmark.BenchmarkError`.
+    """
+    from vaft.validation.vacuum_benchmark import run_benchmark_case
+
+    keywords = vacuum_benchmark_options(options)
+    shot = _pulse_number(ods)
+    # The benchmark deep-copies its argument whole; a copy of only the IDS it
+    # reads keeps that copy (and the reads) to those.
+    private = _isolated_copy(ods, _VACUUM_BENCHMARK_ROOTS)
+    return run_benchmark_case(private, shot=shot, machine_era=_vest_machine_era(shot), **keywords)
+
+
+def benchmark_channel_status(row: Mapping[str, Any], flagged: Iterable[str]) -> str:
+    """``evaluated``, ``flagged`` or ``excluded`` for one ``metrics.channels`` row.
+
+    ``flagged`` is evaluated but named in the case's ``channels.flagged`` (it
+    contradicts its own probe array) and so kept out of the scored spread;
+    ``excluded`` had too few usable samples to be scored at all.
+    """
+    if row.get("status") != "evaluated":
+        return "excluded"
+    return "flagged" if row["name"] in set(flagged) else "evaluated"
+
+
+def _ms(value: Any) -> str:
+    try:
+        return f"{float(value) * 1e3:.1f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def vacuum_benchmark_window_text(case: Mapping[str, Any]) -> str:
+    """The case's windows: validation inside solver input, in ms."""
+    validation = case["validation_window"]
+    solver = case["solver_input_window"]
+    return (
+        f"validation {_ms(validation[0])}–{_ms(validation[1])} ms inside solver input "
+        f"{_ms(solver[0])}–{_ms(solver[1])} ms"
+    )
+
+
+def _benchmark_excluded_text(case: Mapping[str, Any], limit: int = 4) -> str:
+    names = [channel_short_name(entry["channel"]) for entry in case["channels"]["excluded"]]
+    if not names:
+        return "excluded: none"
+    shown = ", ".join(names[:limit])
+    more = f" (+{len(names) - limit} more)" if len(names) > limit else ""
+    return f"excluded (not plotted): {shown}{more}"
+
+
+def _build_magnetics_vacuum_benchmark(ods: Any, **options: Any) -> Panels:
+    case = vacuum_benchmark_case(ods, options)
+    rows = case["metrics"]["channels"]
+    if not rows:
+        raise ValueError("the benchmark case holds no magnetic channel to score")
+    flagged = {entry["channel"] for entry in case["channels"]["flagged"]}
+    statuses = [benchmark_channel_status(row, flagged) for row in rows]
+    families = list(dict.fromkeys(str(row["family"]) for row in rows))
+    positions = np.arange(1, len(rows) + 1, dtype=float)
+    x_label = "channel # (benchmark order, grouped by family)"
+    titles = {
+        "improvement": ("eddy improvement", "1 − RMS(coil+eddy) / RMS(coil)"),
+        "normalized_residual": ("normalized residual", "RMS(residual) / range(measured)"),
+        "correlation": ("correlation", "measured vs coil+eddy"),
+    }
+
+    panels = []
+    for key in VACUUM_BENCHMARK_SCORES:
+        values = np.array([float(row.get(key, np.nan)) for row in rows], dtype=float)
+        series = []
+        if key == "improvement":
+            series.append(Series(
+                x=np.array([0.5, len(rows) + 0.5]), y=np.zeros(2),
+                label="0: the wall term adds nothing (reference)",
+                style={"linestyle": "--", "color": "emphasis:low", "lw": 0.9},
+            ))
+        for colour, family in enumerate(families):
+            members = [
+                index for index, (row, status) in enumerate(zip(rows, statuses))
+                if str(row["family"]) == family and status == "evaluated"
+            ]
+            if not members:
+                continue
+            series.append(Series(
+                x=positions[members], y=values[members], label=family.replace("_", " "),
+                style={"color": palette(colour % 6), "marker": "o", "markersize": 4,
+                       "linestyle": "none"},
+            ))
+        marked = [index for index, status in enumerate(statuses) if status == "flagged"]
+        if marked:
+            series.append(Series(
+                x=positions[marked], y=values[marked], label="flagged (array contradiction)",
+                style={"color": "emphasis:strong", "marker": "D", "markersize": 6,
+                       "linestyle": "none", "markerfacecolor": "none",
+                       "markeredgecolor": "emphasis:strong", "markeredgewidth": 1.2},
+            ))
+        name, formula = titles[key]
+        panels.append(LineSeries(
+            series=tuple(series), x_label=x_label, y_label=name,
+            title=f"{name}: {formula}",
+        ))
+
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    scored = case["metrics"]["summary"]["scored"]
+    drive = case["coil_drive"]
+    solver = case["solver"]
+    fraction = drive.get("coil_drive_fraction")
+    fraction_text = "—" if fraction is None else f"{fraction:.2f}"
+    driven = "driven" if drive.get("sufficiently_driven") else "NOT sufficiently driven"
+    history = "met" if solver.get("sufficient") else "NOT met"
+    validation, solver_window = case["validation_window"], case["solver_input_window"]
+    suptitle = "\n".join((
+        f"Vacuum benchmark — shot {pulse} ({case['case_type']}, resistance "
+        f"×{case['static_model']['resistance_scale']:g})",
+        f"validation {_ms(validation[0])}–{_ms(validation[1])} ms in solver input "
+        f"{_ms(solver_window[0])}–{_ms(solver_window[1])} ms",
+        f"scored medians ({scored['count']} ch.): improvement "
+        f"{scored['improvement']['median']:.2f}, norm. residual "
+        f"{scored['normalized_residual']['median']:.3f}, correlation "
+        f"{scored['correlation']['median']:.3f}",
+        f"{len(flagged)} flagged; {_benchmark_excluded_text(case)}; coil drive {fraction_text} "
+        f"({driven}); history {_ms(solver.get('available_history'))}/"
+        f"{_ms(solver.get('required_history'))} ms ({history})",
+    ))
+    # The three panels stacked; the fourth row holds the one legend they
+    # share (the families and the flagged marker are the same in each).
+    return Panels(
+        models=tuple(panels),
+        nrows=4,
+        ncols=1,
+        share_x=True,
+        share_legend=True,
+        suptitle=suptitle,
+    )
+
+
+RECIPES["magnetics_overview_vacuum_benchmark"] = CallableRecipe(
+    builder=_build_magnetics_vacuum_benchmark,
+    description="Per-channel scores of the plasma-free vacuum benchmark: eddy improvement, "
+                "normalized residual and correlation, by family, flagged probes marked.",
+    reads=_VACUUM_BENCHMARK_READS,
+    backend=OMAS_BOUND,
+    reason=(
+        "vaft.validation.vacuum_benchmark.run_benchmark_case deep-copies the ODS and "
+        "re-solves the passive-wall currents from the PF currents alone"
+    ),
 )
 
 

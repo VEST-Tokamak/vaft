@@ -34,6 +34,8 @@ __all__ = [
     "equilibrium_table_validation",
     "equilibrium_text_summary",
     "format_quantity",
+    "magnetics_table_vacuum_benchmark",
+    "magnetics_table_vacuum_benchmark_aggregate",
     "render_table",
     "render_text_summary",
 ]
@@ -723,6 +725,180 @@ def equilibrium_table_validation(model: Table, *, show: bool = False) -> Rendere
     --------
     equilibrium_table_fit_quality : the goodness of fit per constraint family, in numbers.
     equilibrium_overview_verification : the verification checks drawn across slices.
+    """
+    return render_table(model, show=show)
+
+
+#: What the vacuum benchmark needs: the PF currents on their time base (the
+#: interval and the wall solve) and the passive loops' resistances (the wall
+#: model it solves); the magnetics it scores vary by shot and are optional.
+_BENCHMARK_IDS = ("pf_active", "pf_passive", "magnetics", "em_coupling", "wall")
+_BENCHMARK_REQUIRED = (
+    "pf_active.time",
+    "pf_active.coil.{i}.current.data",
+    "pf_passive.loop.{i}.resistance",
+)
+_BENCHMARK_OPTIONAL = (
+    "magnetics.b_field_pol_probe.{i}.field.data",
+    "magnetics.flux_loop.{i}.flux.data",
+    "magnetics.ip.{i}.data",
+    "em_coupling.mutual_passive_active",
+)
+
+
+@renderer(
+    domain="magnetics",
+    subject="magnetics",
+    view="table",
+    quantity="vacuum_benchmark",
+    model=Table,
+    description=(
+        "The plasma-free vacuum benchmark of one shot (issue #190), one row per channel: "
+        "family, kind, status (evaluated, flagged, excluded), eddy improvement, normalized "
+        "residual, correlation, wall authority and the reason a channel is flagged or "
+        "excluded; windows, solver history, coil drive and scored medians in the caption."
+    ),
+    ids=_BENCHMARK_IDS,
+    required_paths=_BENCHMARK_REQUIRED,
+    optional_paths=_BENCHMARK_OPTIONAL,
+)
+def magnetics_table_vacuum_benchmark(model: Table, *, show: bool = False) -> RenderedTable:
+    """The vacuum benchmark's per-channel scores of one shot, one row per channel.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the text form.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    The shot is run through :func:`vaft.validation.vacuum_benchmark.run_benchmark_case`:
+    the passive wall is re-solved from the measured PF currents alone over the
+    plasma-free stretch, and every usable B probe and flux loop is compared
+    with the coil-only and coil+eddy forward response inside the validation
+    window.  One row per scored channel, in the benchmark's order (grouped by
+    family): the eddy improvement 1 - RMS(coil+eddy)/RMS(coil) -- what the wall
+    model is worth on that channel -- the residual RMS as a fraction of the
+    channel's swing, the correlation of measured with coil+eddy (near 1 with a
+    large residual points at a gain, not the wall), and the wall authority, the
+    eddy term's share of the reading in whose light a small or negative
+    improvement is read.  Status is a fact, not a grade: ``flagged`` is a probe
+    that contradicts its own array, scored but kept out of the medians as a
+    sensor finding; ``excluded`` had too few usable samples.  The caption
+    states the case type, the validation window inside the solver-input
+    window, the solver history against the slowest wall time constant, the
+    coil drive inside the window and the scored medians, so a row can be
+    traced to the conditions it was measured under.  The table answers which
+    channels and families the wall model reproduces and which it does not.
+
+    Options
+    -------
+    ``per_family=`` limits the case to that many channels per family (the
+    default scores every usable channel, which qualifying a machine model
+    needs).  ``resistance_scale=`` multiplies every passive-loop resistance by
+    one global factor -- the benchmark's resistance study, never a per-loop
+    fit.  ``n_tau=`` sets how many slowest wall time constants of solver
+    history must elapse before the validation window opens.  ``title=``
+    replaces the title.
+
+    Limitations
+    -----------
+    The benchmark states no acceptance threshold and no verdict, and neither
+    does the table: #190 defers acceptance bounds until the VEST benchmark
+    distribution has been inspected.  A score is measured against one shot's
+    plasma-free stretch, so it says nothing about the model with plasma, and a
+    low improvement where the wall authority is small is a rounding of the
+    model's error rather than a finding about the wall.  A flagged probe is a
+    sensor finding from its array neighbours, not a proof that the probe is
+    faulty.  A case the coils did not drive inside its window is reported (the
+    caption says so) and its improvements are ratios of noise.
+
+    See Also
+    --------
+    magnetics_overview_vacuum_benchmark : the same scores drawn per channel.
+    magnetics_table_vacuum_benchmark_aggregate : the benchmark across shots.
+    magnetics_overview_vacuum : one shot's measured, coil and coil+eddy waveforms.
+    """
+    return render_table(model, show=show)
+
+
+@renderer(
+    domain="magnetics",
+    subject="magnetics",
+    view="table",
+    quantity="vacuum_benchmark_aggregate",
+    model=Table,
+    description=(
+        "The plasma-free vacuum benchmark across shots (issue #190): median eddy "
+        "improvement, normalized residual and correlation and the worst channel by case, "
+        "family, PF excitation and machine era; undriven cases, flagged channels and the "
+        "summary in the caption."
+    ),
+    ids=_BENCHMARK_IDS,
+    required_paths=_BENCHMARK_REQUIRED,
+    optional_paths=_BENCHMARK_OPTIONAL,
+)
+def magnetics_table_vacuum_benchmark_aggregate(model: Table, *, show: bool = False) -> RenderedTable:
+    """The vacuum benchmark across shots, by case, family, excitation and machine era.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the text form.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    Every entry is run through :func:`vaft.validation.vacuum_benchmark.run_benchmark_case`
+    and the cases are cross-tabulated by
+    :func:`vaft.validation.vacuum_benchmark.aggregate_benchmark`.  One row per
+    group of each axis -- case (the entry's label), magnetic family, PF
+    excitation (the coils that carried current) and machine era (the VEST era
+    the pulse falls in, ``unknown`` without a pulse) -- with the number of cases
+    and channels in it, the median eddy improvement, normalized residual and
+    correlation, and the channel with the lowest improvement.  Which axis a poor
+    median concentrates on is the diagnosis the cross-tabs exist for: one
+    channel across excitations points at probe calibration or geometry, many
+    channels whenever one PF coil dominates at that coil, a change across eras
+    at the static model's provenance, one shot among consistent neighbours at
+    that shot's acquisition.  An entry that cannot supply a plasma-free case
+    -- it lacks the PF or passive-loop circuits the case is solved from, or
+    the benchmark refuses it -- is a case row with the reason, never dropped.  The caption lists
+    the cases the coils did not drive, the flagged probes per case and the
+    summary medians over driven, unflagged channel rows.
+
+    Options
+    -------
+    ``per_family=``, ``resistance_scale=`` and ``n_tau=`` are passed to every
+    case as in :func:`magnetics_table_vacuum_benchmark`; ``label=`` names the
+    entries, and so the case rows.  ``title=`` replaces the title.
+
+    Limitations
+    -----------
+    No threshold and no verdict, as in the benchmark itself.  The cross-tab
+    medians count every evaluated channel, the flagged and undriven ones too
+    (the notes say so); only the caption's summary leaves them out.  A median
+    over a group of one case is that case, not a distribution, and the
+    packaged samples are few: a cross-tab over them shows the structure of the
+    analysis, not the VEST benchmark distribution.
+
+    See Also
+    --------
+    magnetics_table_vacuum_benchmark : one case, channel by channel.
+    magnetics_overview_vacuum_benchmark : one case's scores drawn per channel.
     """
     return render_table(model, show=show)
 

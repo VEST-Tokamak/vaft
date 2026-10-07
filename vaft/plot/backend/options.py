@@ -177,6 +177,15 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("max_harmonics", "int"), OptionSpec("max_length_m", "float"), OptionSpec("n_tor", "int"),
         OptionSpec("ncols", "int"), OptionSpec("noverlap", "int"), OptionSpec("nperseg", "int"),
         OptionSpec("per_family", "bool"),
+        # The plasma-free vacuum benchmark (#190, roadmap #1242 C3): the one
+        # global wall-resistance factor its resistance study varies, and the
+        # wall time constants of solver history the validation window waits for.
+        # Only recipes.VACUUM_BENCHMARK_PLOTS take them (DECLARED_ONLY_OPTIONS).
+        OptionSpec("resistance_scale", "float",
+                   description="vacuum benchmark: global scale factor on every passive-loop resistance"),
+        OptionSpec("n_tau", "float",
+                   description="vacuum benchmark: slowest wall time constants of solver history "
+                               "before the validation window opens"),
         # wall eigenmode views (vaft #473)
         OptionSpec("basis"), OptionSpec("segment"), OptionSpec("mode"), OptionSpec("max_modes", "int"),
         OptionSpec("whole_wall", "bool"), OptionSpec("remap_em_coupling", "bool"), OptionSpec("rows"),
@@ -265,6 +274,8 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "mode_overlay",
     # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
     "include_unconverged",
+    # roadmap #1242 C3: the vacuum benchmark's knobs.
+    "resistance_scale", "n_tau",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);

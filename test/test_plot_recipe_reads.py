@@ -89,6 +89,9 @@ OMAS_BOUND = frozenset({
     # roadmap #1242 C2: validate_equilibrium deep-copies the ODS for the virial wrapper.
     "equilibrium_table_validation",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
+    # roadmap #1242 C3: run_benchmark_case deep-copies the ODS and re-solves the wall.
+    "magnetics_overview_vacuum_benchmark", "magnetics_table_vacuum_benchmark",
+    "magnetics_table_vacuum_benchmark_aggregate",
     # issue #888: the startup views solve vessel currents on a private copy.
     "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",
     # issue #952: the kinetic profile fits call the vaft.process.profile mappers
