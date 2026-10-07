@@ -18,6 +18,10 @@ from vaft.process.equilibrium import extract_flux_surface_contours
 
 DEFAULT_SECTION_PHI = port_phi("6MR")
 DEFAULT_FLUX_LEVELS = (0.25, 0.5, 0.75, 0.95)
+__all__ = [
+    "DEFAULT_SECTION_PHI", "DEFAULT_FLUX_LEVELS", "Section",
+    "build_equilibrium_section", "valid_equilibrium_indices",
+]
 
 
 def valid_equilibrium_indices(data: Any, *, require_flux_surfaces: bool = True) -> tuple[int, ...]:
