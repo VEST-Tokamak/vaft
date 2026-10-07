@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>e63d9fe</code>. What is described
+  <code>8b2e2b3</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1636,6 +1636,134 @@ whose physics is not documented.</p>
   </li>
 </ul>
 
+<h2 id="11-the-implemented-record-1727">11. The implemented record (#1727)</h2>
+
+<p>Phase B encodes the vocabulary of §10 as <code class="language-plaintext highlighter-rouge">vaft.code.formalism.PlasmaFormalism</code>. It is an immutable record with
+controlled values and is not a model class:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.code.gacode</span> <span class="kn">import</span> <span class="n">cgyro</span>
+<span class="n">cgyro</span><span class="p">.</span><span class="nf">plasma_formalism</span><span class="p">(</span><span class="n">config</span><span class="p">).</span><span class="nf">as_dict</span><span class="p">()</span>   <span class="c1"># versioned, JSON-ready
+</span></code></pre></div></div>
+
+<p><strong>What the record enforces:</strong></p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">None</code> means not applicable and <code class="language-plaintext highlighter-rouge">"unknown"</code> means undocumented. The two required fields can be neither.</li>
+  <li>Only generically impossible combinations are refused:
+    <ul>
+      <li><strong>fluid:</strong> a kinetic equation, or no fluid model;</li>
+      <li><strong>kinetic:</strong> a fluid model, no kinetic equation, or the test-species <code class="language-plaintext highlighter-rouge">fokker_planck</code> equation;</li>
+      <li><strong>hybrid:</strong> missing a fluid model, a kinetic equation or a coupling;</li>
+      <li><strong>particle:</strong> a fluid model, an equation other than <code class="language-plaintext highlighter-rouge">fokker_planck</code>, or no orbit representation;</li>
+      <li><strong>reduced:</strong> a kinetic equation or a fluid model, since its parent theory goes in <code class="language-plaintext highlighter-rouge">derived_from</code>;</li>
+      <li><strong>any bulk description:</strong>
+        <ul>
+          <li><code class="language-plaintext highlighter-rouge">derived_from</code> outside a reduced model;</li>
+          <li>a coupling outside hybrid and particle formulations;</li>
+          <li>a drift-kinetic or gyrokinetic equation with full orbits (both remove the gyro-phase);</li>
+          <li>a distribution formulation without a kinetic equation;</li>
+          <li>an orbit representation or a population where neither has meaning.</li>
+        </ul>
+      </li>
+    </ul>
+  </li>
+  <li>There is no field for “kinetic profiles were used”: that is a property of the inputs.</li>
+  <li>Solver-specific physics goes in <code class="language-plaintext highlighter-rouge">extensions</code>. These are JSON values only, copied and frozen on construction, so the
+record pickles, deep-copies and round-trips through <code class="language-plaintext highlighter-rouge">to_json()</code> unchanged.</li>
+  <li><strong>Mixed modes.</strong> A mode that switches representation mid-run records its dominant representation, with the
+switch in <code class="language-plaintext highlighter-rouge">extensions</code>. Examples: ASCOT5 <code class="language-plaintext highlighter-rouge">SIM_MODE=3</code>, guiding centre then full orbit near the wall; NUBEAM’s
+guiding centre plus FLR sampling.</li>
+</ul>
+
+<p><strong>Where the implemented names differ from the §10 proposal:</strong></p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">fokker_planck</code> (proposed as <code class="language-plaintext highlighter-rouge">fokker_planck_test_particle</code>) and <code class="language-plaintext highlighter-rouge">guiding_center</code> (proposed as <code class="language-plaintext highlighter-rouge">guiding_centre</code>).</li>
+  <li>New values: <code class="language-plaintext highlighter-rouge">gyrocenter</code> (the gyrokinetic orbit representation); <code class="language-plaintext highlighter-rouge">mhd_displacement</code> and <code class="language-plaintext highlighter-rouge">prescribed</code> field models;
+<code class="language-plaintext highlighter-rouge">time_dependent</code>; and the <code class="language-plaintext highlighter-rouge">equilibrium</code> operation.</li>
+  <li><code class="language-plaintext highlighter-rouge">reduced_mhd</code> is <strong>not</strong> a fluid model: it is an ordering on one (§2.1).</li>
+  <li><code class="language-plaintext highlighter-rouge">numerical_representation</code> (continuum vs PIC) is deliberately not a common axis. It changes no physics, so it
+stays in <code class="language-plaintext highlighter-rouge">extensions</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">SCHEMA_VERSION</code> changes with any field or vocabulary change, and <code class="language-plaintext highlighter-rouge">from_dict</code> reads only its own version.</li>
+</ul>
+
+<p><strong>IMAS.</strong> The record is not mapped to an IMAS field. No standard location for it has been identified (#1727 §12), so
+VAFT run provenance stays authoritative. CGYRO runs store the record as <code class="language-plaintext highlighter-rouge">provenance["plasma_formalism"]</code>, beside
+the #1353 <code class="language-plaintext highlighter-rouge">provenance["formalism"]</code> that the <code class="language-plaintext highlighter-rouge">gyrokinetics_local</code> mapping already writes.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>theory concept (§2)</th>
+      <th>field</th>
+      <th>example backend mode</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ideal / resistive MHD</td>
+      <td><code class="language-plaintext highlighter-rouge">bulk_description="fluid"</code>, <code class="language-plaintext highlighter-rouge">fluid_model</code></td>
+      <td>DCON ideal; RDCON + RMATCH</td>
+    </tr>
+    <tr>
+      <td>MHD + drift-kinetic response</td>
+      <td><code class="language-plaintext highlighter-rouge">"hybrid"</code>, <code class="language-plaintext highlighter-rouge">kinetic_equation="drift_kinetic"</code>, <code class="language-plaintext highlighter-rouge">kinetic_coupling="energy"</code>, <code class="language-plaintext highlighter-rouge">orbit_representation="bounce_averaged"</code></td>
+      <td>DCON <code class="language-plaintext highlighter-rouge">kin_flag=t</code></td>
+    </tr>
+    <tr>
+      <td>kinetic closure on a given displacement</td>
+      <td><code class="language-plaintext highlighter-rouge">"hybrid"</code>, <code class="language-plaintext highlighter-rouge">kinetic_coupling="closure"</code></td>
+      <td>PENTRC on a GPEC ξ</td>
+    </tr>
+    <tr>
+      <td>standalone drift kinetics</td>
+      <td><code class="language-plaintext highlighter-rouge">"kinetic"</code>, <code class="language-plaintext highlighter-rouge">"drift_kinetic"</code></td>
+      <td>NEO</td>
+    </tr>
+    <tr>
+      <td>local δf gyrokinetics</td>
+      <td><code class="language-plaintext highlighter-rouge">"kinetic"</code>, <code class="language-plaintext highlighter-rouge">"gyrokinetic"</code>, <code class="language-plaintext highlighter-rouge">spatial_domain="local"</code>, <code class="language-plaintext highlighter-rouge">distribution_formulation="delta_f"</code></td>
+      <td>CGYRO</td>
+    </tr>
+    <tr>
+      <td>gyrokinetic-derived reduced model</td>
+      <td><code class="language-plaintext highlighter-rouge">"reduced"</code>, <code class="language-plaintext highlighter-rouge">derived_from="gyrokinetic"</code>, <code class="language-plaintext highlighter-rouge">regime="quasilinear"</code></td>
+      <td>TGLF, TGLF-NN</td>
+    </tr>
+    <tr>
+      <td>test particles</td>
+      <td><code class="language-plaintext highlighter-rouge">"particle"</code>, <code class="language-plaintext highlighter-rouge">kinetic_equation="fokker_planck"</code> or <code class="language-plaintext highlighter-rouge">None</code>, <code class="language-plaintext highlighter-rouge">orbit_representation</code></td>
+      <td>ASCOT5, NUBEAM; SIMPLE (no equation)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>CGYRO is the reference integration.</strong></p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">cgyro.plasma_formalism(config)</code> builds the shared record.</li>
+  <li>The existing #1353 record, <code class="language-plaintext highlighter-rouge">cgyro.formalism()</code>, is now read from it, with unchanged keys and values. The two cannot
+disagree.</li>
+  <li>CGYRO’s own detail stays in <code class="language-plaintext highlighter-rouge">extensions</code>: the <code class="language-plaintext highlighter-rouge">em-aperp</code> / <code class="language-plaintext highlighter-rouge">em-aperp-bpar</code> split, the continuum representation,
+Miller geometry and gyrokinetic electrons.</li>
+</ul>
+
+<p><strong>Deferred to Phase C.</strong></p>
+<ul>
+  <li><strong>GPEC suite (#1734):</strong>
+    <ul>
+      <li>derive the record from <code class="language-plaintext highlighter-rouge">dcon.in</code> <code class="language-plaintext highlighter-rouge">kin_flag</code> and the <code class="language-plaintext highlighter-rouge">pentrc.in</code> settings;</li>
+      <li>write it into the <code class="language-plaintext highlighter-rouge">mhd_linear</code> provenance.</li>
+    </ul>
+  </li>
+  <li><strong>GACODE (#1735):</strong>
+    <ul>
+      <li>derive NEO and TGLF records;</li>
+      <li>read <code class="language-plaintext highlighter-rouge">AE_FLAG</code>, <code class="language-plaintext highlighter-rouge">EQUILIBRIUM_MODEL</code>, <code class="language-plaintext highlighter-rouge">GLOBAL_FLAG</code> and the collision model back from <code class="language-plaintext highlighter-rouge">input.cgyro.gen</code>, instead
+of trusting the configuration object.</li>
+    </ul>
+  </li>
+  <li><strong>NUBEAM and ASCOT5:</strong> no Phase C issue yet.</li>
+</ul>
+
+
 
 </section>
             </div><div class="search-results">
@@ -1715,7 +1843,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-why-one-fidelity-axis-does-not-work" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Why one “fidelity” axis does not work</a></li><li class="page-toc-item page-toc-level-2"><a href="#2-theory-foundations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Theory foundations</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#21-fluid-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.1 Fluid hierarchy</a></li><li class="page-toc-item page-toc-level-3"><a href="#22-drift-kinetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.2 Drift kinetics</a></li><li class="page-toc-item page-toc-level-3"><a href="#23-gyrokinetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.3 Gyrokinetics</a></li><li class="page-toc-item page-toc-level-3"><a href="#24-particle-orbit-descriptions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.4 Particle-orbit descriptions</a></li><li class="page-toc-item page-toc-level-3"><a href="#25-kinetic-mhd-and-hybrid-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.5 Kinetic-MHD and hybrid models</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#3-the-gpec-suite-mode-by-mode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. The GPEC suite, mode by mode</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#31-dcon-ideal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.1 DCON ideal</a></li><li class="page-toc-item page-toc-level-3"><a href="#32-dcon-kinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.2 DCON kinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#33-gpec-kinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.3 GPEC kinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#34-rdcon-stride-and-rmatch" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.4 RDCON, STRIDE and RMATCH</a></li><li class="page-toc-item page-toc-level-3"><a href="#35-pentrc" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.5 PENTRC</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#4-gacode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. GACODE</a></li><li class="page-toc-item page-toc-level-2"><a href="#5-orbit-and-fast-ion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">5. Orbit and fast-ion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#6-what-kinetic-means-in-vaft-names" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">6. What “kinetic” means in VAFT names</a></li><li class="page-toc-item page-toc-level-2"><a href="#7-orderings-and-scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">7. Orderings and scales</a></li><li class="page-toc-item page-toc-level-2"><a href="#8-unresolved" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">8. Unresolved</a></li><li class="page-toc-item page-toc-level-2"><a href="#9-stress-test-against-external-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">9. Stress test against external codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#10-recommended-minimal-vocabulary-for-phase-b-1727" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">10. Recommended minimal vocabulary for Phase B (#1727)</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-why-one-fidelity-axis-does-not-work" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Why one “fidelity” axis does not work</a></li><li class="page-toc-item page-toc-level-2"><a href="#2-theory-foundations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Theory foundations</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#21-fluid-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.1 Fluid hierarchy</a></li><li class="page-toc-item page-toc-level-3"><a href="#22-drift-kinetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.2 Drift kinetics</a></li><li class="page-toc-item page-toc-level-3"><a href="#23-gyrokinetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.3 Gyrokinetics</a></li><li class="page-toc-item page-toc-level-3"><a href="#24-particle-orbit-descriptions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.4 Particle-orbit descriptions</a></li><li class="page-toc-item page-toc-level-3"><a href="#25-kinetic-mhd-and-hybrid-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.5 Kinetic-MHD and hybrid models</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#3-the-gpec-suite-mode-by-mode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. The GPEC suite, mode by mode</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#31-dcon-ideal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.1 DCON ideal</a></li><li class="page-toc-item page-toc-level-3"><a href="#32-dcon-kinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.2 DCON kinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#33-gpec-kinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.3 GPEC kinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#34-rdcon-stride-and-rmatch" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.4 RDCON, STRIDE and RMATCH</a></li><li class="page-toc-item page-toc-level-3"><a href="#35-pentrc" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.5 PENTRC</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#4-gacode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. GACODE</a></li><li class="page-toc-item page-toc-level-2"><a href="#5-orbit-and-fast-ion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">5. Orbit and fast-ion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#6-what-kinetic-means-in-vaft-names" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">6. What “kinetic” means in VAFT names</a></li><li class="page-toc-item page-toc-level-2"><a href="#7-orderings-and-scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">7. Orderings and scales</a></li><li class="page-toc-item page-toc-level-2"><a href="#8-unresolved" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">8. Unresolved</a></li><li class="page-toc-item page-toc-level-2"><a href="#9-stress-test-against-external-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">9. Stress test against external codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#10-recommended-minimal-vocabulary-for-phase-b-1727" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">10. Recommended minimal vocabulary for Phase B (#1727)</a></li><li class="page-toc-item page-toc-level-2"><a href="#11-the-implemented-record-1727" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">11. The implemented record (#1727)</a></li></ul>
     </nav>
 </aside>
 
@@ -1833,7 +1961,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:36:02 +0000"
+        "time": "2026-10-07 11:46:04 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
