@@ -115,6 +115,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_profile_coordinates.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
+    # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
+    # analytic fixtures only, a few seconds.
+    "test_mode_frequency_overlay.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
@@ -177,7 +180,8 @@ CORE_MODULES: tuple[str, ...] = (
     # author ever opening docs/, which is exactly what develop should catch.
     # The committed diagram SVGs are checked against their TikZ source too,
     # and the generated import graph against Grimp, which stays optional (#1646),
-    # and the dependency/external-code registry against pyproject and install/ (#1648).
+    # the dependency/external-code registry against pyproject and install/ (#1648),
+    # and the generated ontology's identity contract (#1702).
     "test_dependency_graph.py",
     "test_diagram_render.py",
     "test_docs_api.py",
@@ -187,6 +191,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_docs_sources.py",
     "test_docs_thumbnails.py",
     "test_ecosystem_catalog.py",
+    "test_ontology_graph.py",
     "test_readme_consistency.py",
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
@@ -207,6 +212,7 @@ CORE_MODULES: tuple[str, ...] = (
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
+    "test_diagram_ballooning_formulations.py",
     "test_diagram_blob.py",
     "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
@@ -234,6 +240,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
+    "test_diagram_reduced_representations.py",
     "test_diagram_reduced_stability.py",
     "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
@@ -288,12 +295,15 @@ CORE_MODULES: tuple[str, ...] = (
     # only), the plasma-current Rogowski verdict, the TF excursion repair and
     # the shot-class pickup refusal (#1733) on synthetic records, and the EFIT
     # not-applicable verdict for sub-CUTIP class shots (#1731), whose last test
-    # runs the k-file/EFIT/EFIT-ODS scripts as subprocesses (~10 s).
+    # runs the k-file/EFIT/EFIT-ODS scripts as subprocesses (~10 s), and the
+    # explicit-drive magnetic decomposition (#1795) on the packaged 39915
+    # product (two eddy solves per case, ~20 s).
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_efit_not_applicable.py",
     "test_flux_loop_known_faults.py",
+    "test_magnetic_decomposition.py",
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
@@ -324,9 +334,19 @@ CORE_MODULES: tuple[str, ...] = (
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
     "test_formula_ordering.py",
+    # Reduced-representation taxonomy (#1626): the Reduction vocabulary, its
+    # parser, the catalog's exposure and filters, and the family metadata.
+    "test_formula_taxonomy.py",
+    # Ballooning normalisations (#1637): the volume shear and alpha reduce exactly
+    # to s-hat and the CHT alpha for circular large-aspect-ratio surfaces.
+    "test_formula_ballooning_normalisation.py",
     # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
     # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
     "test_process_mhd_stability.py",
+    # Plasma-formalism provenance (lane AP, #1727): the seven audited cases as
+    # records, the generic impossibilities, serialization and CGYRO's derived
+    # #1353 record. Pure Python, ~3 s.
+    "test_plasma_formalism.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
     "test_core_q_context.py",

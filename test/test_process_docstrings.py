@@ -121,6 +121,8 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
+    "mode_frequency_tracks",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -356,6 +358,9 @@ CONVENTION_SENSITIVE = frozenset({
     "resolve_rational_surface",
     # #506: |q| = |m/n| resonance; rho_tor_norm never rebuilt from psi_norm
     "rational_surfaces",
+    # #460: |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
+    # a velocity divided by R_out of the surface (never R_axis)
+    "mode_frequency_tracks",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

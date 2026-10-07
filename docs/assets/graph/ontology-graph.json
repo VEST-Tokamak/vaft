@@ -1,0 +1,15 @@
+---
+layout: null
+sitemap: false
+---
+{%- comment -%}
+The generated ontology (_data/ontology_graph.yml, written by
+python -m vaft._ontology_graph), served to the ontology explorer.  The
+snapshot's source checksums are the build's receipt and are left out.
+{%- endcomment -%}
+{%- assign o = site.data.ontology_graph -%}
+{%- if o -%}
+{"schema_version": {{ o.schema_version | jsonify }}, "provenance": {{ o.provenance | jsonify }}, "kinds": {{ o.kinds | jsonify }}, "relations": {{ o.relations | jsonify }}, "views": {{ o.views | jsonify }}, "nodes": {{ o.nodes | jsonify }}, "edges": {{ o.edges | jsonify }}}
+{%- else -%}
+null
+{%- endif -%}

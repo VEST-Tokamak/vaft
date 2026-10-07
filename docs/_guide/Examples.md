@@ -9,7 +9,7 @@ guide:
   architecture: Executable examples and immutable provenance connecting develop source to published outputs.
   prerequisites: The pinned companion source, its documented environment, and optional public HSDS configuration.
   expected: A complete notebook inventory and verified artifact cards with hashes and execution context.
-  status: Inventory tracks this branch. The nine published output cards are legacy artifacts that predate the current notebooks (issue #156).
+  status: "Inventory tracks this branch. The nine published output cards are legacy artifacts that predate the current notebooks (issue #156)."
 related:
   notebooks: [database-initialization, plotting-sample, fluctuation-diagnostics, kinetic-efit, chease-refinement, confinement-scaling, external-codes, pipeline-overview]
   api: [database, omas, imas, mapping, process, plot, code]
