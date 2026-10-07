@@ -1010,7 +1010,7 @@ vaft.diagram.disruption_energy_pathways()
 | `disruption_timeline` | A 0-D reference model built from the formulas. A prescribed thermal quench raises the Spitzer $\eta$. The L/R current quench then induces $E_\parallel \approx 10^3E_c$ ($\approx 2\,\%$ of $E_D$). A Dreicer seed of a few kA is multiplied about 25-fold by the avalanche (at 1 MA, only a few e-folds) into a runaway plateau. Magnitudes are illustrative: no universal waveform |
 | `disruption_causal_chain` | The same sequence as cause and effect, each arrow labelled by its formula |
 | `runaway_generation` | The avalanche rate (per runaway) and the Dreicer rate (per electron) against $E/E_c$. The normalisations differ, so the two magnitudes are not compared. Nothing runs away below $E_c$, and Dreicer is drawn only within its asymptotic range, $E \le 0.1E_D$. Hot-tail seeding is not drawn |
-| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `stored_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
+| `disruption_energy_pathways` | Thermal energy leaves by conduction and radiation. Magnetic energy $\tfrac12L_pI_p^2$ goes to ohmic heating, the vessel and coils, runaway kinetic energy and halo currents (#1042). The existing `thermal_energy_from_p_V`, `virial_thermal_energy` and `magnetic_energy_from_li_B_pa_V_p` compute the two pools |
 
 ## Vertical displacement events: hot and cold VDE, halo currents
 

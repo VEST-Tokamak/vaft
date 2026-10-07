@@ -677,8 +677,9 @@ def power_limit_from_beta(beta_N: float,
 
     Limitations
     -----------
-    $\beta B_0^2V/2\mu_0$ is the stored energy at beta $\beta$
-    (:func:`vaft.formula.equilibrium.stored_energy_from_beta_V`), not a power;
+    $\beta B_0^2V/2\mu_0$ is the pressure volume integral $\langle p\rangle V$
+    at beta $\beta$ (:func:`vaft.formula.equilibrium.stored_energy_from_beta_V`),
+    two thirds of the thermal energy, and not a power;
     no time scale enters, and no source records what limit was intended.  Kept
     for compatibility.  Tracked in #362.
 
