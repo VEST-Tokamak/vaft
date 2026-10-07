@@ -9,7 +9,7 @@ title: VAFT — Versatile Analysis Framework for Tokamak
   <img class="vaft-hero-logo vaft-hero-logo-light" src="{{ site.baseurl }}/assets/brand/vaft-wordmark.svg" alt="VAFT">
   <img class="vaft-hero-logo vaft-hero-logo-dark" src="{{ site.baseurl }}/assets/brand/vaft-wordmark-dark.svg" alt="VAFT">
   <p class="vaft-hero-tagline">Connecting fusion knowledge across disciplines for integrated research</p>
-  <p class="vaft-hero-summary">From VEST signals to standardized IMAS data and reproducible tokamak analysis.</p>
+  <p class="vaft-hero-summary">Machine-agnostic workflows for interoperable IMAS data and reproducible tokamak analysis.</p>
   <p class="vaft-hero-commands"><code>vaft.setup()</code> <code>vaft help</code></p>
 </section>
 

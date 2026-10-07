@@ -25,6 +25,9 @@ test('homepage hero keeps the approved message and readable theme logo', async (
   await expect(page.locator('.vaft-hero-tagline')).toHaveText(
     'Connecting fusion knowledge across disciplines for integrated research',
   );
+  await expect(page.locator('.vaft-hero-summary')).toHaveText(
+    'Machine-agnostic workflows for interoperable IMAS data and reproducible tokamak analysis.',
+  );
   await expect(page.locator('.vaft-hero-logo-light')).toBeVisible();
   await expect(page.locator('.vaft-hero-logo-dark')).toBeHidden();
   await page.locator('.book').evaluate((book) => book.classList.add('color-theme-2'));
