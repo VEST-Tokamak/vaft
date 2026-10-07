@@ -29,6 +29,8 @@ import numpy as np
 
 __all__ = [
     "DEFAULT_RATIONALS",
+    "DEFAULT_Q_NOISE_ATOL",
+    "DEFAULT_Q_NOISE_RTOL",
     "CoreQContext",
     "RationalCrossing",
     "RationalProximity",
@@ -45,11 +47,20 @@ __all__ = [
 #: these are the modes that matter; pass ``rationals=`` to ask for others.
 DEFAULT_RATIONALS: tuple[tuple[int, int], ...] = ((1, 1), (3, 2), (2, 1), (5, 2), (3, 1))
 
-#: Fraction of the profile's |q| scale below which a sample-to-sample change is
-#: treated as flat when reading the profile's shape, so rounding noise in a flat
-#: core does not invent extrema. Scaled by max|q|, not by the profile's own range,
-#: which on a flat profile is the noise itself.
-_SHAPE_RTOL = 1e-6
+#: Default ``q_noise_atol``: how far |q| must move back from an extremum before
+#: the profile is said to turn there. EFIT profiles carry axis and edge wiggles of
+#: a few 1e-3 that a sample-to-sample sign test reads as reversed shear; a real
+#: reversal is far deeper. Explicit and overridable, never a physics boundary.
+DEFAULT_Q_NOISE_ATOL = 0.02
+
+#: Default ``q_noise_rtol``: the same tolerance as a fraction of ``|q|``. The
+#: packaged VEST slices wiggle by 0.02 near q = 2.2 within the first few samples;
+#: a physical reversal (``q_axis - q_min``) is a far larger share of q.
+DEFAULT_Q_NOISE_RTOL = 0.02
+
+#: How far ``q[0]`` may stand from its neighbours before it is an outlier: the
+#: same rule as :data:`vaft.data._derived.AXIS_Q_OUTLIER_RATIO` (#317).
+_AXIS_NEIGHBOURS = slice(1, 5)
 
 
 @dataclass(frozen=True)
@@ -173,7 +184,12 @@ class CoreQContext:
     coordinate: str
     #: Sign of q in the source convention (+1, -1, or 0 for mixed); every q here is |q|.
     q_sign: int
+    #: ``|q|`` at the first sample, as stored (never repaired).
     q_axis: float
+    psi_n_at_q_axis: float
+    #: The stored ``q[0]`` is more than a factor AXIS_Q_OUTLIER_RATIO away from its
+    #: neighbours (the EFIT q0 artifact); it is then left out of every derived field.
+    axis_q_outlier: bool
     q_min: float
     psi_n_at_q_min: float
     rho_at_q_min: float
@@ -182,6 +198,7 @@ class CoreQContext:
     q_profile_topology: str
     shear_sign_changes_rho: tuple[float, ...]
     q95: Optional[float]
+    q95_reason: str
     q_boundary: Optional[float]
     q_boundary_reason: str
     #: A :class:`vaft.data.equilibrium.Topology` value, or ``unknown``.
@@ -232,13 +249,23 @@ class CoreQContext:
         return record
 
 
-def _shear(rho: np.ndarray, q_abs: np.ndarray) -> np.ndarray:
+def _shear(rho: np.ndarray, q_abs: np.ndarray, usable: np.ndarray) -> np.ndarray:
+    """``d ln|q| / d ln rho`` on the usable samples; NaN elsewhere.
+
+    At ``rho = 0`` the definition gives exactly 0 whatever the profile does,
+    which would put a spurious one-sample low-shear region on every axis; the
+    axis takes the value of the first sample beside it instead, the limit the
+    profile actually approaches.
+    """
     from vaft.formula.equilibrium import shear_from_r_q
 
     shear = np.full(rho.shape, np.nan)
-    finite = np.isfinite(rho) & np.isfinite(q_abs) & (q_abs > 0)
-    if finite.sum() >= 2:
-        shear[finite] = shear_from_r_q(rho[finite], q_abs[finite])
+    ok = usable & (q_abs > 0)
+    index = np.flatnonzero(ok)
+    if index.size >= 3:
+        shear[index] = shear_from_r_q(rho[index], q_abs[index])
+        if rho[index[0]] == 0.0:
+            shear[index[0]] = shear[index[1]]
     return shear
 
 
@@ -335,27 +362,52 @@ def low_shear_regions(rho, shear, threshold, *, psi_n=None, q=None, pressure=Non
     return tuple(regions)
 
 
-def _profile_topology(rho: np.ndarray, q_abs: np.ndarray, shear: np.ndarray, weak_shear: float):
-    finite = np.isfinite(rho) & np.isfinite(q_abs)
-    r, q = rho[finite], q_abs[finite]
-    if r.size < 3:
-        return "undetermined", ()
-    dq = np.diff(q)
-    flat = np.abs(dq) <= _SHAPE_RTOL * max(float(np.max(np.abs(q))), 1e-300)
-    signs = np.sign(dq)[~flat]
-    centres = (0.5 * (r[:-1] + r[1:]))[~flat]
-    changes = [float(0.5 * (centres[k] + centres[k + 1])) for k in range(signs.size - 1) if signs[k] != signs[k + 1]]
-    if signs.size == 0:
-        return "weak_shear", ()
-    if not changes:
-        s = shear[finite]
-        core = np.isfinite(s)
-        if core.any() and np.nanmax(np.abs(s[core])) < weak_shear:
-            return "weak_shear", ()
-        return "monotonic", ()
-    if len(changes) == 1 and signs[0] < 0 < signs[-1]:
-        return "reversed_shear", tuple(changes)
-    return "multi_extremum", tuple(changes)
+def _turning_points(q: np.ndarray, atol: float, rtol: float = 0.0) -> list[int]:
+    """Indices where |q| turns, once it has moved back by more than the noise (a zigzag filter).
+
+    The noise at a sample is ``max(atol, rtol * |q|)`` taken at the running extremum.
+    """
+    turns: list[int] = []
+    anchor, direction = 0, 0
+    for i in range(1, q.size):
+        tol = max(atol, rtol * abs(q[anchor]))
+        if direction == 0:
+            # The first move beyond the noise away from q[0] sets the direction.
+            if abs(q[i] - q[0]) > max(atol, rtol * abs(q[0])):
+                direction = 1 if q[i] > q[0] else -1
+                anchor = i
+        elif direction > 0:
+            if q[i] >= q[anchor]:
+                anchor = i
+            elif q[anchor] - q[i] > tol:
+                turns.append(anchor)
+                anchor, direction = i, -1
+        else:
+            if q[i] <= q[anchor]:
+                anchor = i
+            elif q[i] - q[anchor] > tol:
+                turns.append(anchor)
+                anchor, direction = i, 1
+    return turns
+
+
+def _profile_topology(rho, q_abs, shear, usable, weak_shear, atol, rtol):
+    index = np.flatnonzero(usable)
+    if index.size < 3:
+        return "undetermined", (), ()
+    q = q_abs[index]
+    turns = _turning_points(q, atol, rtol)
+    changes = tuple(float(rho[index[k]]) for k in turns)
+    values = tuple(float(q[k]) for k in turns)
+    if not turns:
+        s = shear[index]
+        finite = np.isfinite(s)
+        if not finite.any() or np.max(np.abs(s[finite])) < weak_shear:
+            return "weak_shear", (), ()
+        return "monotonic", (), ()
+    if len(turns) == 1 and q[turns[0]] < q[0]:
+        return "reversed_shear", changes, values
+    return "multi_extremum", changes, values
 
 
 def _near_rational_regions(rho, q_abs, shear, rationals, shear_threshold, dq_threshold):
@@ -389,6 +441,8 @@ def core_q_context_from_profiles(
     near_rational_delta_q: float = 0.1,
     weak_shear: float = 0.1,
     tangency_atol: float = 1e-3,
+    q_noise_atol: float = DEFAULT_Q_NOISE_ATOL,
+    q_noise_rtol: float = DEFAULT_Q_NOISE_RTOL,
     boundary_topology: str = "unknown",
     boundary_reason: str = "not supplied",
     time_slice: Optional[int] = None,
@@ -419,8 +473,13 @@ def core_q_context_from_profiles(
         ``|s|`` below which a profile with no extremum is called ``weak_shear``
         rather than ``monotonic`` [-].
     tangency_atol : float, optional
-        ``|q_min - m/n|`` within which an uncrossed rational is flagged as a
-        possible tangency between samples [-].
+        ``|q - m/n|`` at q_min or at a turning point within which an uncrossed
+        rational is flagged as a possible tangency between samples [-].
+    q_noise_atol : float, optional
+        How far ``|q|`` must move back from an extremum before the profile is
+        said to turn there; wiggles smaller than this are not shape [-].
+    q_noise_rtol : float, optional
+        The same, as a fraction of ``|q|``; the larger of the two applies [-].
     boundary_topology : str, optional
         Boundary topology already known to the caller [-].
     boundary_reason : str, optional
@@ -471,7 +530,13 @@ def core_q_context_from_profiles(
     ``d ln|q| / d ln rho`` in the recorded coordinate, signed, so the two
     surfaces of a reversed-shear pair have opposite signs. ``q_axis`` is
     ``|q|`` at the first sample and ``q_min`` the smallest ``|q|``: they are
-    equal only for a monotonic profile.
+    equal only for a monotonic profile. A first sample more than
+    ``AXIS_Q_OUTLIER_RATIO`` from its neighbours (the EFIT q0 artifact, #317)
+    is reported as ``q_axis`` with ``axis_q_outlier`` set and left out of every
+    derived field, never repaired. A ``rho_tor_norm`` that is the
+    ``sqrt(psi_n)`` proxy (#276) is named as the poloidal radius it is. The
+    profile turns only where ``|q|`` moves back by more than
+    ``max(q_noise_atol, q_noise_rtol |q|)``.
 
     Applicability
     -------------
@@ -500,89 +565,133 @@ def core_q_context_from_profiles(
         raise ValueError("at least three finite samples are needed")
     if np.any(np.diff(psi[finite]) <= 0):
         raise ValueError("psi_n must increase")
-    for value in (*shear_thresholds, near_rational_delta_q, weak_shear, tangency_atol):
+    for value in (*shear_thresholds, near_rational_delta_q, weak_shear, tangency_atol, q_noise_atol, q_noise_rtol):
         if not value > 0:
             raise ValueError(f"thresholds must be positive, got {value!r}")
 
     signs = np.sign(q_raw[finite])
     q_sign = int(signs[0]) if np.all(signs == signs[0]) else 0
     q_abs = np.abs(q_raw)
-    if rho_tor_norm is not None:
-        rho = np.asarray(rho_tor_norm, dtype=float).ravel()
-        if rho.shape != psi.shape:
-            raise ValueError("rho_tor_norm is not on the psi_n grid")
-        coordinate = "rho_tor_norm"
-    else:
-        rho = np.sqrt(np.clip(psi, 0.0, None))
-        coordinate = "rho_pol_norm (sqrt psi_n)"
-    shear = _shear(rho, q_abs)
 
-    i_min = int(np.nanargmin(np.where(finite, q_abs, np.nan)))
+    # 1. The axis sample: kept as stored, left out of every derived field when it
+    #    is the EFIT q0 outlier (#317) -- it would otherwise invent reversed shear.
     i_axis = int(np.flatnonzero(finite)[0])
-    topology, changes = _profile_topology(rho, q_abs, shear, weak_shear)
+    neighbours = q_abs[finite][_AXIS_NEIGHBOURS]
+    axis_outlier = False
+    if neighbours.size >= 3 and np.median(neighbours) > 0:
+        from vaft.data._derived import AXIS_Q_OUTLIER_RATIO
 
+        ratio = q_abs[i_axis] / float(np.median(neighbours))
+        axis_outlier = not (1.0 / AXIS_Q_OUTLIER_RATIO <= ratio <= AXIS_Q_OUTLIER_RATIO)
+    usable = finite.copy()
+    if axis_outlier:
+        usable[i_axis] = False
+    q_used = np.where(usable, q_raw, np.nan)
+
+    # 2. The radius, named, and only when it is a real increasing coordinate.
+    coordinate = "rho_pol_norm (sqrt psi_n)"
+    rho = np.sqrt(np.clip(psi, 0.0, None))
+    rho_note = "sqrt(psi_n)"
+    if rho_tor_norm is not None:
+        candidate = np.asarray(rho_tor_norm, dtype=float).ravel()
+        from vaft.data._derived import is_rho_pol_proxy
+
+        if candidate.shape != psi.shape:
+            raise ValueError("rho_tor_norm is not on the psi_n grid")
+        valid = np.isfinite(candidate[finite]).all() and np.all(np.diff(candidate[finite]) > 0)
+        if not valid:
+            rho_note = "rho_tor_norm given but not finite and increasing; sqrt(psi_n) used"
+        elif is_rho_pol_proxy(candidate[finite], psi[finite]):
+            rho_note = "rho_tor_norm given but it is the sqrt(psi_n) proxy (#276); named as such"
+        else:
+            rho, coordinate, rho_note = candidate, "rho_tor_norm", "rho_tor_norm as given"
+    # Duplicate radii (psi_n clipped below 0) cannot carry a derivative.
+    usable &= np.concatenate(([True], np.diff(rho) > 0)) | ~np.isfinite(rho)
+    usable &= np.isfinite(rho)
+    shear = _shear(rho, q_abs, usable)
+
+    # 3. Landmarks and shape, on the usable samples.
+    used_index = np.flatnonzero(usable)
+    i_min = int(used_index[np.argmin(q_abs[used_index])])
+    topology, changes, turn_values = _profile_topology(rho, q_abs, shear, usable, weak_shear, q_noise_atol, q_noise_rtol)
+
+    # 4. Rational crossings through the canonical finder; |q| never bridges a gap.
     surfaces = rational_surfaces(
-        psi, q_raw, resonances=tuple((int(m), int(n)) for m, n in rationals),
-        rho_tor_norm=None if rho_tor_norm is None else rho,
+        psi, q_used, resonances=tuple((int(m), int(n)) for m, n in rationals),
+        rho_tor_norm=rho if coordinate == "rho_tor_norm" else None,
     )
     crossings: list[RationalCrossing] = []
     pairs: list[DoubleResonantPair] = []
     by_target: dict[float, list[RationalCrossing]] = {}
+    shear_ok = np.isfinite(shear)
     for surface in surfaces:
         m, n = surface.harmonics[0]
         for root in surface.roots:
-            r = root.rho_tor_norm if rho_tor_norm is not None else root.rho_pol_norm
-            r = float(np.interp(root.psi_norm, psi[finite], rho[finite])) if r is None else float(r)
-            ok = np.isfinite(shear)
-            s = float(np.interp(root.psi_norm, psi[ok], shear[ok])) if ok.sum() >= 2 else None
+            r = float(np.interp(root.psi_norm, psi[usable], rho[usable]))
+            s_val = float(np.interp(root.psi_norm, psi[shear_ok], shear[shear_ok])) if shear_ok.sum() >= 2 else None
             crossing = RationalCrossing(m=abs(int(m)), n=abs(int(n)), q_target=float(surface.q_target),
-                                        psi_n=float(root.psi_norm), rho=r, shear=s, root_index=root.root_index)
+                                        psi_n=float(root.psi_norm), rho=r, shear=s_val, root_index=root.root_index)
             crossings.append(crossing)
             by_target.setdefault(float(surface.q_target), []).append(crossing)
-    for target, items in by_target.items():
+    for items in by_target.values():
         for inner, outer in zip(items, items[1:]):
-            pairs.append(DoubleResonantPair(m=inner.m, n=inner.n, inner=inner, outer=outer))
+            # Every consecutive pair; never across a gap in the profile.
+            between = (psi > inner.psi_n) & (psi < outer.psi_n)
+            if np.all(np.isfinite(q_used[between])):
+                pairs.append(DoubleResonantPair(m=inner.m, n=inner.n, inner=inner, outer=outer))
 
     q_min = float(q_abs[i_min])
+    extrema = (q_min, *turn_values)
     proximity = []
     for m, n in rationals:
         target = abs(m / n)
         count = len(by_target.get(float(target), []))
-        delta = q_min - target
         proximity.append(RationalProximity(
-            m=int(m), n=int(n), q_rational=float(target), delta_q=float(delta), crossing_count=count,
-            tangent_candidate=bool(count == 0 and abs(delta) <= tangency_atol),
+            m=int(m), n=int(n), q_rational=float(target), delta_q=float(q_min - target), crossing_count=count,
+            tangent_candidate=bool(count == 0 and any(abs(v - target) <= tangency_atol for v in extrema)),
         ))
 
+    # 5. Low-shear regions per explicit threshold.
     regions: list[LowShearRegion] = []
     near: list[NearRationalLowShearRegion] = []
+    q_for_regions = np.where(usable, q_abs, np.nan)
     for threshold in shear_thresholds:
-        regions.extend(low_shear_regions(rho, shear, threshold, psi_n=psi, q=q_abs, pressure=pressure))
-        near.extend(_near_rational_regions(rho, q_abs, shear, rationals, threshold, near_rational_delta_q))
+        regions.extend(low_shear_regions(rho, shear, threshold, psi_n=psi, q=q_for_regions, pressure=pressure))
+        near.extend(_near_rational_regions(rho, q_for_regions, shear, rationals, threshold, near_rational_delta_q))
 
-    q95 = None
-    if psi[finite][0] <= 0.95 <= psi[finite][-1]:
-        q95 = float(np.interp(0.95, psi[finite], q_abs[finite]))
-    if boundary_topology == "limited":
-        q_boundary = float(q_abs[np.flatnonzero(finite)[-1]])
-        q_boundary_reason = "limited boundary: |q| at the last closed surface"
-    else:
-        q_boundary = None
+    # 6. Edge q: q95 and q_boundary stay distinct quantities.
+    last = int(used_index[-1])
+    q95, q95_reason = None, "psi_n grid does not reach 0.95"
+    if psi[used_index[0]] <= 0.95 <= psi[last]:
+        q95 = float(np.interp(0.95, psi[usable], q_abs[usable]))
+        q95_reason = "|q| interpolated at psi_n = 0.95"
+    q_boundary = None
+    if boundary_topology != "limited":
         q_boundary_reason = (
             "not reported: a separatrix q is not a finite boundary q"
             if boundary_topology not in ("unknown", "ambiguous")
             else f"not reported: boundary topology is {boundary_topology}"
         )
+    elif psi[last] < 1.0 - 1e-6:
+        q_boundary_reason = f"not reported: the last usable sample is at psi_n = {psi[last]:.4g}, inside the boundary"
+    else:
+        q_boundary = float(q_abs[last])
+        q_boundary_reason = "limited boundary: |q| at the last closed surface"
 
+    # 7. Pressure enclosed by each q=1 surface, only from a real volume profile.
     enclosed: list[EnclosedPressure] = []
     if volume is None or pressure is None:
         enclosed_reason = "no volume profile" if volume is None else "no pressure profile"
     else:
         v = np.asarray(volume, dtype=float).ravel()
         p = np.asarray(pressure, dtype=float).ravel()
-        ok = finite & np.isfinite(v) & np.isfinite(p)
-        if v.shape != psi.shape or p.shape != psi.shape or ok.sum() < 2:
+        ok = finite & np.isfinite(v) & np.isfinite(p) if v.shape == psi.shape == p.shape else None
+        if ok is None or ok.sum() < 2:
             enclosed_reason = "volume or pressure not usable on the psi_n grid"
+        elif not np.all(np.diff(v[ok]) > 0):
+            enclosed_reason = "volume does not increase outward"
+        elif abs(v[ok][0]) > 1e-6 * v[ok][-1] or psi[ok][0] > 1e-6:
+            enclosed_reason = "volume profile does not start on the axis"
         else:
             enclosed_reason = "integral of p dV from the axis to each q=1 surface (trapezoid)"
             cumulative = np.concatenate(([0.0], np.cumsum(0.5 * (p[ok][1:] + p[ok][:-1]) * np.diff(v[ok]))))
@@ -598,13 +707,16 @@ def core_q_context_from_profiles(
         coordinate=coordinate,
         q_sign=q_sign,
         q_axis=float(q_abs[i_axis]),
+        psi_n_at_q_axis=float(psi[i_axis]),
+        axis_q_outlier=bool(axis_outlier),
         q_min=q_min,
         psi_n_at_q_min=float(psi[i_min]),
         rho_at_q_min=float(rho[i_min]),
-        q_min_on_axis=bool(i_min == i_axis),
+        q_min_on_axis=bool(i_min == used_index[0]),
         q_profile_topology=topology,
         shear_sign_changes_rho=changes,
         q95=q95,
+        q95_reason=q95_reason,
         q_boundary=q_boundary,
         q_boundary_reason=q_boundary_reason,
         boundary_topology=str(boundary_topology),
@@ -618,14 +730,20 @@ def core_q_context_from_profiles(
         pressure_inside_q1_reason=enclosed_reason,
         provenance={
             "coordinate": coordinate,
-            "shear": "d ln|q| / d ln rho in the recorded coordinate (vaft.formula.equilibrium.shear_from_r_q)",
+            "radius": rho_note,
+            "shear": "d ln|q| / d ln rho in the recorded coordinate (vaft.formula.equilibrium.shear_from_r_q); "
+                     "on axis the value beside it",
             "rational_surfaces": "vaft.process.equilibrium.rational_surfaces, |q| = |m/n|, linear interpolation",
+            "axis_q_outlier": "q[0] vs the median of its next four samples, AXIS_Q_OUTLIER_RATIO (#317); "
+                              "an outlier is kept as q_axis but excluded from every derived field",
             "rationals": [list(pair) for pair in rationals],
             "shear_thresholds": [float(t) for t in shear_thresholds],
             "near_rational_delta_q": float(near_rational_delta_q),
             "weak_shear": float(weak_shear),
             "tangency_atol": float(tangency_atol),
-            "q95": "|q| interpolated at psi_n = 0.95",
+            "q_noise_atol": float(q_noise_atol),
+            "q_noise_rtol": float(q_noise_rtol),
+            "double_resonant_pairs": "every consecutive same-m/n pair not separated by a gap",
         },
     )
 
@@ -652,6 +770,8 @@ def core_q_context(ods: Any, time_slice: int = 0, **options: Any) -> CoreQContex
     ------
     KeyError
         The slice has no ``profiles_1d.psi`` or ``q``, or no axis/boundary flux.
+    ValueError
+        ``psi_axis`` equals ``psi_boundary`` (an empty slice).
 
     Processing steps
     ----------------
@@ -714,7 +834,7 @@ def core_q_context(ods: Any, time_slice: int = 0, **options: Any) -> CoreQContex
         representation = derive_boundary_representation(as_equilibrium(ods, time_index=int(time_slice)))
         topology = getattr(representation.topology, "value", str(representation.topology))
         reason = representation.reason or "derive_boundary_representation (flux map)"
-    except Exception as exc:  # no psi map, no wall: an unclassified boundary, not an error
+    except (KeyError, LookupError, ValueError, RuntimeError) as exc:  # no psi map, no wall: unclassified
         topology, reason = "unknown", f"boundary not classified: {type(exc).__name__}: {exc}"
 
     options.setdefault("boundary_topology", topology)
