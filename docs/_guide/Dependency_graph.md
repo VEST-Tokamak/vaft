@@ -34,6 +34,8 @@ What the graph deliberately does **not** say:
   imports, so they never appear here. How the production pipelines run them, and what flows between
   their stages, is the [pipeline lineage explorer]({{ site.baseurl }}/reference/pipeline-graph/). *External packages* are third-party top-level import names;
   the standard library is left out.
+- Scientific meaning is a third, separate graph: the
+  [scientific ontology explorer]({{ site.baseurl }}/reference/ontology/).
 
 Layers are the package hierarchy and nothing more: `vaft.<layer>.*` belongs to `<layer>`, and the
 private packages and modules directly under `vaft` are `other`. Public objects, their summaries

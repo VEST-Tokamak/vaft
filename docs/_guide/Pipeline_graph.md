@@ -63,7 +63,9 @@ server, runs no solver, and needs no credentials.
 themselves are described in <a href="{{ site.baseurl }}/workflows/automated-pipelines/">Automated pipelines</a>.</p></noscript>
 
 The source dependency graph of the library itself is a different relation; see the
-[dependency explorer]({{ site.baseurl }}/reference/dependency-graph/). Regenerate this snapshot
+[dependency explorer]({{ site.baseurl }}/reference/dependency-graph/). What the stages' products
+*mean* -- which concept an IDS represents, which diagnostic measures it -- is the
+[scientific ontology explorer]({{ site.baseurl }}/reference/ontology/). Regenerate this snapshot
 locally with:
 
 ```bash
