@@ -1437,7 +1437,10 @@ simulation run. Experiment and simulation are parallel, epistemically distinct p
 validation and synthesis yield qualified states and feed new questions back to planning. Knowledge is
 preserved and transferred, and the states serve generic research contexts; only the reference
 implementation, VEST, is named. The `"presentation"` figure is a one-slide projection of the same model,
-and a test checks that every item it draws stands for items of the full figure.
+with shared scientific states feeding experimental planning and operation, physics interpretation and
+discovery, and modelling, prediction and validation. Curved arrows show exchange between neighbouring uses;
+they do not prescribe a fixed sequence. A test checks that its roles, verbs, states and uses map back to
+the detailed figure's roles, activities and states.
 
 `scientific_ownership_architecture` shows where scientific logic lives as research software matures (#1645).
 Research groups Studies by membership, not by execution order, and neither executes anything. A workflow or

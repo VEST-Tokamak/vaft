@@ -342,8 +342,8 @@
     },
     "fusion_research_ecosystem_presentation.svg": {
       "call": "vaft.diagram.fusion_research_ecosystem(detail='presentation')",
-      "source_sha256": "01feed82aecab656481dc65e9363489833fa2a02d6badde2a939c9cf3266ef08",
-      "svg_sha256": "4d13899d7bc39265ed667576737848f806262bf719ed6392e731bc602d7d67aa"
+      "source_sha256": "9a6b906cef0944a8a90145f4707876e567b5d6430d2ab5fbfa81c5f4f9d40030",
+      "svg_sha256": "fcd39796ee0300212d5d7dc8fe7568a5f6da0bd19419147fada8ec2cfd5390b8"
     },
     "fusion_science_knowledge_lifecycle.svg": {
       "call": "vaft.diagram.fusion_science_knowledge_lifecycle()",

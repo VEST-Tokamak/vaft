@@ -1051,10 +1051,11 @@ PRESENTATION_VERBS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
     ("Compare", ("test",)), ("Learn", ("preserve",)),
 )
 PRESENTATION_STATES: Tuple[str, ...] = ("planned", "measured", "reconstructed", "simulated", "predicted", "qualified")
-PRESENTATION_CONTEXTS: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
-    ("experiments", "Fusion experiments", ("existing", "campaigns")),
-    ("predictive", "Predictive & design studies", ("design",)),
-    ("future", "Future research", ("future", "population")),
+#: ways to use the shared states, projected from the detailed figure's research activities
+PRESENTATION_USES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
+    ("experiments", "Experimental planning\n& operation", ("ask", "produce")),
+    ("interpretation", "Physics interpretation\n& discovery", ("infer", "test", "preserve")),
+    ("modelling", "Modelling, prediction\n& validation", ("model", "test")),
 )
 #: compact references of the detailed figure
 ECOSYSTEM_REFERENCES: Tuple[str, ...] = (
@@ -1088,8 +1089,11 @@ def fusion_research_ecosystem(detail: str = "full", *, labels: bool = True) -> D
     ``"presentation"``
         a one-slide projection of the same model: three role groups, the
         activity verbs (plan, observe, infer, model, test, compare, learn),
-        the shared scientific states at the centre and three research
-        contexts.
+        the shared scientific states at the centre and three ways they are
+        used: experimental planning and operation, physics interpretation
+        and discovery, and modelling, prediction and validation. Paired
+        curved arrows show exchange between adjacent uses, not a fixed
+        sequence of stages.
 
     The research-learning cycle itself is ``fusion_science_knowledge_lifecycle``.
     """
@@ -1101,6 +1105,8 @@ def fusion_research_ecosystem(detail: str = "full", *, labels: bool = True) -> D
     roles = dict(ECOSYSTEM_ROLES)
     states = dict(ECOSYSTEM_STATES)
     if detail == "presentation":
+        items.append(Polyline.of([(-9.0, -3.2), (9.0, -3.2), (9.0, 9.5), (-9.0, 9.5)],
+                                 "fill=white,draw=white", role="background", closed=True))
         items.append(Label((0.0, 8.6), "{\\Large\\textbf{Connecting the activities of fusion research}}",
                            "concept plain", anchor="south", role="title"))
         items += band(-8.6, 8.6, 6.1, 8.25, "research community", role="community")
@@ -1119,22 +1125,43 @@ def fusion_research_ecosystem(detail: str = "full", *, labels: bool = True) -> D
             states[k].lower() for k in PRESENTATION_STATES), style="concept hub", role="node:states", latex=True)
         items += list(hub.items)
         _down_or_up(items, edges, activities, hub, "activities", "states", both=True)
-        context_boxes: List[Box] = []
-        for i, (key, name, _) in enumerate(PRESENTATION_CONTEXTS):
-            b = box((i - 1) * 5.6, -0.65, 5.0, 0.95, name, style="concept base", role=f"context:{key}")
-            context_boxes.append(b)
+        use_boxes: List[Box] = []
+        use_y, use_h = -0.75, 1.35
+        for i, (key, name, _) in enumerate(PRESENTATION_USES):
+            b = box((i - 1) * 5.6, use_y, 5.0, use_h,
+                    "\\\\".join(_tex(line) for line in name.splitlines()),
+                    style="concept base", role=f"use:{key}", latex=True)
+            use_boxes.append(b)
             items += list(b.items)
-            _down_or_up(items, edges, Box(b.x, hub.y, b.width, hub.height, ()), b, "states", f"context:{key}")
-        items.append(Label((8.6, -1.25), "Reference implementation: VEST", "concept annotation", anchor="north east",
+            _down_or_up(items, edges, Box(b.x, hub.y, b.width, hub.height, ()), b, "states", f"use:{key}")
+        for i, (left, right) in enumerate(zip(use_boxes, use_boxes[1:])):
+            left_key, right_key = PRESENTATION_USES[i][0], PRESENTATION_USES[i + 1][0]
+            # Exchange is shown above and below the boxes so the arrows do not cross their text.
+            x0, x1 = left.x + 0.35 * left.width, right.x - 0.35 * right.width
+            for direction, start, end, y, control_y in (
+                ("forward", x0, x1, use_y + 0.5 * use_h + 0.05, use_y + 0.5 * use_h + 0.65),
+                ("return", x1, x0, use_y - 0.5 * use_h - 0.05, use_y - 0.5 * use_h - 0.75),
+            ):
+                points = []
+                for step in range(17):
+                    t = step / 16
+                    points.append(((1 - t) * start + t * end, (1 - t) ** 2 * y + 2 * (1 - t) * t * control_y
+                                   + t ** 2 * y))
+                src, dst = (left_key, right_key) if direction == "forward" else (right_key, left_key)
+                items.append(Polyline.of(points, "->,islandblue!60,line width=1.2pt",
+                                         role=f"edge:use:{src}->use:{dst}"))
+                _record(edges, f"use:{src}", f"use:{dst}",
+                        "forward" if direction == "forward" else "feedback")
+        items.append(Label((8.6, -1.7), "Reference implementation: VEST", "concept annotation", anchor="north east",
                            role="reference"))
-        _note(items, labels, -1.85, "Different research roles plan, produce, infer, test, and reuse shared "
-              "scientific states")
+        _note(items, labels, -2.45, "Shared scientific states connect experiment, prediction, and physics "
+              "discovery across research roles")
         model = {"detail": detail, "roles": tuple(k for k, *_ in PRESENTATION_ROLES),
                  "role_projection": {k: v for k, _, v in PRESENTATION_ROLES},
                  "verbs": tuple(v for v, _ in PRESENTATION_VERBS),
                  "verb_projection": {v: g for v, g in PRESENTATION_VERBS}, "states": PRESENTATION_STATES,
-                 "contexts": tuple(k for k, *_ in PRESENTATION_CONTEXTS),
-                 "context_projection": {k: v for k, _, v in PRESENTATION_CONTEXTS}, "reference": "VEST",
+                 "uses": tuple(k for k, *_ in PRESENTATION_USES),
+                 "use_projection": {k: v for k, _, v in PRESENTATION_USES}, "reference": "VEST",
                  "edges": tuple(edges)}
         return Diagram("fusion_research_ecosystem", Scene(tuple(items)), model=model)
     # the detailed figure
