@@ -30,7 +30,8 @@ from vaft.plot.backends import RENDER_BACKENDS, render_backends_for, renderer_fo
 from vaft.plot.backend.recipes import build_model
 from vaft.plot.models import (
     Field2D, Geometry3DLayer, Geometry3DLayers, GeometryLayer, GeometryLayers, Image2D, ImageSequence,
-    LineSeries, Panels, PowerSpectrum, Profile1D, Series, Spectrogram, TextPanel,
+    LineSeries, Panels, PowerSpectrum, Profile1D, Series, Spectrogram, Table, TableCell, TableColumn, TextItem,
+    TextPanel, TextSection, TextSummary,
 )
 from vaft.plot.plotly import PLOTLY_MODELS
 
@@ -70,7 +71,18 @@ def _minimal(model_type):
     if model_type is Panels:
         return Panels(models=(LineSeries(series=(Series(x=x, y=x, label="a"),), y_label="y"),
                               LineSeries(series=(Series(x=x, y=-x, label="b"),), y_label="y")))
+    if model_type is Table:
+        return Table(columns=(TableColumn("quantity"), TableColumn("value", kind="value")),
+                     rows=((TableCell("I_p"), TableCell(1.0e5, unit="A", subject="plasma_current")),))
+    if model_type is TextSummary:
+        return TextSummary(sections=(TextSection("Global", (TextItem(label="I_p", value=1.0e5, unit="A"),)),))
     raise AssertionError(model_type)
+
+
+#: The table and text views (#1180) are presented as text by their own
+#: renderer: no drawing library draws them, so discovery offers no backend and
+#: backend='plotly' is refused by name like any uncovered model kind.
+_TEXT_VIEW_MODELS = (Table, TextSummary)
 
 
 _SPECS = list(registry.specs())
@@ -94,7 +106,8 @@ def test_every_spec_is_drawn_by_plotly_or_refused_by_name(spec):
     else:
         with pytest.raises(NotImplementedError, match=f"plot_{spec.stem} does not currently support backend='plotly'"):
             renderer_for(spec, model, "plotly")
-        assert render_backends_for(spec) == ("matplotlib",)
+        expected = () if issubclass(spec.model, _TEXT_VIEW_MODELS) else ("matplotlib",)
+        assert render_backends_for(spec) == expected
 
 
 def test_the_adapter_returns_a_native_plotly_figure(sample, monkeypatch):

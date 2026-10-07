@@ -68,7 +68,7 @@ def test_machine_view_keeps_diagnostic_geometry_distinct(fixture_data):
     )
     interferometer = [layer for layer in model.layers if layer.label == "Interferometer LOS"]
     langmuir = [layer for layer in model.layers if layer.label == "Langmuir sites"]
-    sxr = [layer for layer in model.layers if layer.label == "SXR LOS"]
+    sxr = [layer for layer in model.layers if layer.label == "Soft X-ray LOS"]
     assert len(interferometer) == 1
     assert interferometer[0].kind == "polyline"
     # The three stored corners remain on the sampled Cartesian LOS, including
