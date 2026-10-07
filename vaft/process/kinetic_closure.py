@@ -543,8 +543,15 @@ def infer_kinetic_closure(
     else:
         resolved = resolve_impurity_composition(ods, time=time, tolerance=tolerance, composition=composition,
                                                 machine_preset=machine_preset, shot=shot)
-        main = np.broadcast_to(np.asarray(resolved.main_ion_fraction, dtype=float), ne.shape)
+        main = np.asarray(resolved.main_ion_fraction, dtype=float)
         fractions = np.asarray(resolved.impurity_fractions, dtype=float)
+        # a profile composition must sit on this slice's grid: a scalar broadcasts, any
+        # other length (a malformed zeff of another length) is named, not broadcast
+        for array in (main, fractions):
+            profile_points = array.shape[0] if array.ndim > (1 if array is fractions else 0) else ne.size
+            if profile_points != ne.size:
+                raise ValueError(f"composition resolved on a grid of {profile_points} points, n_e has {ne.size}")
+        main = np.broadcast_to(main, ne.shape)
         if fractions.ndim == 1:
             fractions = np.broadcast_to(fractions, ne.shape + fractions.shape)
         densities = {f"{resolved.main_ion}+": ne * main}

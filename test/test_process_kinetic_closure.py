@@ -172,6 +172,24 @@ def test_no_dilution_keys_the_main_ion_by_its_stored_label():
     assert set(infer_kinetic_closure(ods, dilution="none", ti_te_ratio=1.0).ion_densities) == {"H+"}
 
 
+@pytest.mark.parametrize("length", [3, 1])
+def test_a_composition_on_another_grid_than_n_e_is_named_not_broadcast(length):
+    """A measured zeff of another length than the slice's grid reached a bare numpy
+    broadcast error (length 3) or was silently taken as constant (length 1)
+    (cold review 0.8.0 delta-absorb-19 F5)."""
+    from vaft.process.impurity import ImpurityComposition, ImpuritySpecies
+
+    ods = _ods()
+    ods["core_profiles.profiles_1d.0.zeff"] = np.full(length, 2.0)
+    ods["core_profiles.profiles_1d.0.zeff_fit.parameters"] = "origin=measured; method=bremsstrahlung"
+    comp = ImpurityComposition(species=(ImpuritySpecies("C", 6),), target_zeff=2.0)
+    with pytest.raises(ValueError, match=rf"grid of {length} points, n_e has {NE.size}"):
+        infer_kinetic_closure(ods, composition=comp, ti_te_ratio=1.0)
+    ods["core_profiles.profiles_1d.0.zeff"] = np.full(NE.size, 2.0)   # the well-formed slice resolves
+    closure = infer_kinetic_closure(ods, composition=comp, ti_te_ratio=1.0)
+    assert closure.ion_densities["C6+"].shape == NE.shape
+
+
 def test_thermal_and_fast_stay_separate():
     fast = fast_ion_slowing_down_estimate(NE, TE, {"H+": (NE, 1.0, 1.0)}, 1e20 * (1 - RHO**2), 20e3, A_b=1.0)
     closure = infer_kinetic_closure(_ods(), dilution="none", ti_te_ratio=1.0, fast_ion=fast)
