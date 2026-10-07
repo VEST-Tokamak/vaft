@@ -257,10 +257,12 @@ def _entry(status, **slice_fields):
     return {"status": status, "counts": {status: 1}, "slices": [one]}
 
 
-def _report(*, dia_fitted: bool) -> dict:
+def _report(*, dia_fitted: bool, dia_entry: dict | None = None) -> dict:
     fit = {"global": _entry("warn", value=3.1)}
     if dia_fitted:
-        fit["diamagnetic_flux"] = _entry("pass", value=0.4)
+        fit["diamagnetic_flux"] = _entry("pass", value=0.4, fit_role="fitted", sigma_from_weight=1.0)
+    if dia_entry is not None:
+        fit["diamagnetic_flux"] = dia_entry
     return {
         "status": "warn",
         "verification": {"convergence": _entry("pass", error=1e-5)},
@@ -299,6 +301,40 @@ def test_a_fitted_diamagnetic_flux_takes_every_check_against_it_off_v():
     for key in ("physical_validity.diamagnetic_flux", "independent_validation.virial_measured_mu_i"):
         assert (evidence[key].axis, evidence[key].role) == ("inference", "used_for_inference"), key
     assert evidence["independent_validation.thomson_pressure"].axis == "independent_validation"
+
+
+def _dia_axis(report):
+    item = {e.key: e for e in evidence_from_equilibrium_report(report)}["physical_validity.diamagnetic_flux"]
+    return item.axis, item.role
+
+
+def test_an_ungraded_but_fitted_diamagnetic_flux_is_still_inference():
+    # cold review 0.8.0 delta-absorb-17 species-docs F3: the fit decision is the weight, not the grade
+    ungraded = _entry("not_available", reason="uncertainty model is 'unknown' (#891)",
+                      fit_role="fitted", sigma_from_weight=1.0, measured=1.4e-3, chi_squared=7e-16)
+    assert _dia_axis(_report(dia_fitted=False, dia_entry=ungraded)) == ("inference", "used_for_inference")
+    older = _entry("not_available", reason="uncertainty model is 'unknown' (#891)", sigma_from_weight=0.5)
+    assert _dia_axis(_report(dia_fitted=False, dia_entry=older)) == ("inference", "used_for_inference")
+
+
+@pytest.mark.parametrize("entry", [
+    _entry("not_available", reason="no reconstructed diamagnetic_flux constraint on this slice", fit_role="absent"),
+    _entry("not_available", reason="uncertainty model is 'unknown' (#891)", fit_role="prescribed",
+           sigma_from_weight=float("nan"), measured=1.4e-3),
+    _entry("pass", value=0.4, fit_role="prescribed", sigma_from_weight=float("nan")),
+], ids=["absent", "weight-zero-ungraded", "weight-zero-graded"])
+def test_an_unfitted_diamagnetic_flux_stays_independent_validation(entry):
+    assert _dia_axis(_report(dia_fitted=False, dia_entry=entry)) == ("independent_validation", "independent_validation")
+
+
+def test_the_packaged_sample_s_fitted_flux_never_lands_on_the_independent_axis():
+    from vaft.omas import sample_ods
+    from vaft.validation import validate_equilibrium
+
+    report = validate_equilibrium(sample_ods(), checks=("diagnostic_fit", "physical_validity"), time_slice=0)
+    dia = report["diagnostic_fit"]["diamagnetic_flux"]
+    assert dia["slices"][0]["fit_role"] == "fitted" and dia["slices"][0]["sigma_from_weight"] == pytest.approx(1.0)
+    assert _dia_axis(report) == ("inference", "used_for_inference")
 
 
 def test_fitted_data_is_never_independent_validation():
