@@ -1,7 +1,7 @@
 <!DOCTYPE HTML>
 <html lang="en" >
     <head><meta charset="UTF-8">
-<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Asymptotic orderings · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
 <meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
 "><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/formula/virial/" />
+            <link rel="prev" href="/vaft/develop/reference/process/species/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/process/signal_processing/" />
+            <link rel="next" href="/vaft/develop/reference/formula/ordering/" />
         
     </head>
     <body>
@@ -199,7 +199,7 @@
                     </li>
                 
                     
-                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    <li class="chapter active" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
                     
                         <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
                     </li>
@@ -223,7 +223,7 @@
                     </li>
                 
                     
-                    <li class="chapter active" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
                     
                         <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
                     </li>
@@ -316,7 +316,7 @@
                     <h1>
                         <i class="fa fa-circle-o-notch fa-spin"></i>
                         
-                            <a href="." >Process reference</a>
+                            <a href="." >Asymptotic orderings</a>
                         
                     </h1>
                 </div>
@@ -342,332 +342,151 @@
             <div class="search-noresults">
                 <section class="normal markdown-section">
                     
-                        <h1 id="/reference/Process_reference">Process reference</h1>
+                        <h1 id="/reference/Asymptotic_orderings">Asymptotic orderings</h1>
                     
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Index of the generated per-function reference for the vaft.process computation layer.</dd>
+    <dt>Architecture position</dt><dd>The asymptotic ordering parameters reduced plasma models expand in - Lundquist number, inertial lengths, gyroradii, Knudsen numbers, magnetization, evolution times - as explicit-length kernels in vaft.formula.ordering, kept separate from performance and similarity quantities.</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
-    <dt>Expected result</dt><dd>Which submodule holds a routine, whether it is machine-independent or VEST policy, what it does to its input, and where its method and defaults came from.</dd>
+    <dt>Expected result</dt><dd>What each ordering parameter tests, which length or species it must name, which model assumption it bears on, and a worked timescale hierarchy.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
   </dl>
 </aside>
 
-<p><code class="language-plaintext highlighter-rouge">vaft.process</code> is the <strong>computation layer</strong> of VAFT.  Almost every function in it takes plain NumPy
-arrays and scalars and returns arrays, tuples or dataclasses; it does not read or write ODS.  The
-ODS-aware layer lives in <code class="language-plaintext highlighter-rouge">vaft.omas</code> (mainly <code class="language-plaintext highlighter-rouge">vaft.omas.process_wrapper</code>), which pulls geometry and
-signals out of an ODS, calls into <code class="language-plaintext highlighter-rouge">vaft.process</code>, and writes the results back.</p>
+<p>Some dimensionless numbers say how well a plasma performs, or where it sits in similarity space
+($\beta_N$, $\rho_<em>$, $\nu_</em>$). Others are the small or large parameters a model’s derivation expands
+in. A Lundquist number tests whether resistive diffusion is slow compared with Alfvénic dynamics.
+$d_i/L$, $\rho_i/L$, a Knudsen number or $\Omega\tau$ each test a different reduction. This page covers
+the second kind: <strong>asymptotic ordering parameters</strong> (#1627). The question they answer is which reduced
+models the scale separation of a given state justifies.</p>
 
-<blockquote>
-  <p>Rule of thumb: <strong><code class="language-plaintext highlighter-rouge">vaft.process</code> is the math, <code class="language-plaintext highlighter-rouge">vaft.omas.compute_*</code> is the API you usually call.</strong></p>
-</blockquote>
+<p>The kernels are in <a href="/vaft/develop/reference/formula/ordering/"><code class="language-plaintext highlighter-rouge">vaft.formula.ordering</code></a>. Their
+inputs come from VAFT’s Alfvén speed, Spitzer resistivity, gyrofrequency and Larmor radius formulas, and
+the inertial length calls the plasma frequency. The
+characteristic length, the resistivity and the collision time are always explicit arguments, so a global
+scale cannot be silently swapped for a layer scale.</p>
 
-<p>Every public processing function is documented under one contract, and these pages are generated
-from those docstrings by <code class="language-plaintext highlighter-rouge">python -m vaft.process.catalog</code>.  Where a formula page answers <em>what is
-this quantity and when is it valid</em>, a process page answers <em>how is this input turned into this
-output</em>: the parameters and returns with their units, the processing steps in order, the defaults
-that change the result and what kind of value each is, the conventions assumed, the machine scope,
-the limitations, and the provenance of the method.  Nothing here is written by hand, so the site
-and <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code> always agree.</p>
+<h2 id="the-parameters-and-what-they-test">The parameters and what they test</h2>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft.process</span> <span class="k">as</span> <span class="n">P</span>
-
-<span class="nf">print</span><span class="p">(</span><span class="n">P</span><span class="p">.</span><span class="nf">describe</span><span class="p">(</span><span class="sh">"</span><span class="s">repair_clipped_interval</span><span class="sh">"</span><span class="p">))</span>     <span class="c1"># one routine, rendered
-</span><span class="n">P</span><span class="p">.</span><span class="nf">search</span><span class="p">(</span><span class="sh">"</span><span class="s">vest.yaml</span><span class="sh">"</span><span class="p">)</span>                             <span class="c1"># every routine whose text mentions it
-</span><span class="n">P</span><span class="p">.</span><span class="nf">list_processes</span><span class="p">(</span><span class="n">category</span><span class="o">=</span><span class="sh">"</span><span class="s">signal_processing</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># imports only that submodule
-</span></code></pre></div></div>
-
-<p>The discovery layer is loaded on first use only; <code class="language-plaintext highlighter-rouge">import vaft.process.signal_processing</code> never
-touches it.</p>
-
-<h2 id="categories">Categories</h2>
-
-<p>The layer is being brought under the contract one submodule at a time
-(<a href="https://github.com/VEST-Tokamak/vaft/issues/252">#252</a>).  A category gets a reference page when
-every function in it conforms; until then its count is shown and its page is absent.</p>
-
-<table class="ref-table">
-  <thead><tr><th>Category</th><th>Module</th><th>Functions</th><th>Under contract</th><th>Contents</th></tr></thead>
+<table>
+  <thead>
+    <tr>
+      <th>Quantity</th>
+      <th>Kernel</th>
+      <th>Tests</th>
+      <th>Must name</th>
+    </tr>
+  </thead>
   <tbody>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/profile/">profile</a></td>
-    <td><code>vaft.process.profile</code></td>
-    <td>28</td>
-    <td>yes</td>
-    <td>Kinetic profiles: from diagnostic points to a stored ``core_profiles`` slice.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/equilibrium/">equilibrium</a></td>
-    <td><code>vaft.process.equilibrium</code></td>
-    <td>80</td>
-    <td>yes</td>
-    <td>Axisymmetric equilibrium: from a flux map to the quantities derived from it.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/camera_geometry/">camera_geometry</a></td>
-    <td><code>vaft.process.camera_geometry</code></td>
-    <td>4</td>
-    <td>yes</td>
-    <td>Pinhole camera projection math for the VEST FAST camera.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/signal_processing/">signal_processing</a></td>
-    <td><code>vaft.process.signal_processing</code></td>
-    <td>27</td>
-    <td>yes</td>
-    <td>Conditioning of one waveform on a plain time axis.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/fluctuation/">fluctuation</a></td>
-    <td><code>vaft.process.fluctuation</code></td>
-    <td>11</td>
-    <td>yes</td>
-    <td>Diagnostic-independent spectral analysis of scalar fluctuation time series.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/soft_x_rays/">soft_x_rays</a></td>
-    <td><code>vaft.process.soft_x_rays</code></td>
-    <td>10</td>
-    <td>yes</td>
-    <td>VEST soft X-ray fluctuation and two-filter analysis routines.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/electromagnetics/">electromagnetics</a></td>
-    <td><code>vaft.process.electromagnetics</code></td>
-    <td>10</td>
-    <td>yes</td>
-    <td>Axisymmetric electromagnetic response: what a current does elsewhere, and how the vessel answers.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/numerical/">numerical</a></td>
-    <td><code>vaft.process.numerical</code></td>
-    <td>1</td>
-    <td>yes</td>
-    <td>Numerical primitives on plain arrays.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/magnetics/">magnetics</a></td>
-    <td><code>vaft.process.magnetics</code></td>
-    <td>16</td>
-    <td>yes</td>
-    <td>Magnetic diagnostics: from a coil voltage to a current, a flux, or a mode number.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/perturbation/">perturbation</a></td>
-    <td><code>vaft.process.perturbation</code></td>
-    <td>27</td>
-    <td>yes</td>
-    <td>Resonant response at the rational surfaces: windows, reductions, ratios.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/statistical_analysis/">statistical_analysis</a></td>
-    <td><code>vaft.process.statistical_analysis</code></td>
-    <td>11</td>
-    <td>yes</td>
-    <td>Log-linear regression of confinement time against engineering parameters.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/atomic/">atomic</a></td>
-    <td><code>vaft.process.atomic</code></td>
-    <td>5</td>
-    <td>yes</td>
-    <td>Atomic-radiation processing on OMAS data structures.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/langmuir/">langmuir</a></td>
-    <td><code>vaft.process.langmuir</code></td>
-    <td>8</td>
-    <td>yes</td>
-    <td>Backend-independent VEST triple Langmuir probe physics.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/impa/">impa</a></td>
-    <td><code>vaft.process.impa</code></td>
-    <td>14</td>
-    <td>yes</td>
-    <td>Generic algorithms for the VEST Internal Magnetic Probe Array.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/onset/">onset</a></td>
-    <td><code>vaft.process.onset</code></td>
-    <td>13</td>
-    <td>yes</td>
-    <td>Onset and active-window primitives on plain arrays (issue #409).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/wall_modes/">wall_modes</a></td>
-    <td><code>vaft.process.wall_modes</code></td>
-    <td>22</td>
-    <td>yes</td>
-    <td>Segment-wise eigenmode basis of a passive wall, with global coupling (vaft #473).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/coils_non_axisymmetric/">coils_non_axisymmetric</a></td>
-    <td><code>vaft.process.coils_non_axisymmetric</code></td>
-    <td>3</td>
-    <td>yes</td>
-    <td>Kernels on non-axisymmetric coil sets: toroidal mode content and vacuum field.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/camera_fluctuation/">camera_fluctuation</a></td>
-    <td><code>vaft.process.camera_fluctuation</code></td>
-    <td>7</td>
-    <td>yes</td>
-    <td>Fluctuation analysis of FAST-camera image sequences.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/line_of_sight/">line_of_sight</a></td>
-    <td><code>vaft.process.line_of_sight</code></td>
-    <td>3</td>
-    <td>yes</td>
-    <td>Line integrals of a poloidal-plane field along diagnostic sightlines (issue #886).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/magnetic_island/">magnetic_island</a></td>
-    <td><code>vaft.process.magnetic_island</code></td>
-    <td>4</td>
-    <td>yes</td>
-    <td>An analytic magnetic island placed on an axisymmetric equilibrium (issue #886).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/field_line_topology/">field_line_topology</a></td>
-    <td><code>vaft.process.field_line_topology</code></td>
-    <td>10</td>
-    <td>yes</td>
-    <td>Relative heat-load proxies from field-line tracing products (issue #1099).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/ml/">ml</a></td>
-    <td><code>vaft.process.ml</code></td>
-    <td>21</td>
-    <td>yes</td>
-    <td>Backend-neutral machine-learning processing: data to published model (#669).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/transients/">transients</a></td>
-    <td><code>vaft.process.transients</code></td>
-    <td>2</td>
-    <td>yes</td>
-    <td>Measurements of a plasma-current transient on plain arrays.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/nbi/">nbi</a></td>
-    <td><code>vaft.process.nbi</code></td>
-    <td>1</td>
-    <td>yes</td>
-    <td>Reduced neutral-beam attenuation along a prescribed 1-D path (vaft #1136).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/profile_gradients/">profile_gradients</a></td>
-    <td><code>vaft.process.profile_gradients</code></td>
-    <td>5</td>
-    <td>yes</td>
-    <td>Profile gradients with an explicit coordinate, gradient coordinate and reference length.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/resistive_zeff/">resistive_zeff</a></td>
-    <td><code>vaft.process.resistive_zeff</code></td>
-    <td>7</td>
-    <td>yes</td>
-    <td>Resistive effective charge from the transformer balance and a conductivity model.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/transport_state/">transport_state</a></td>
-    <td><code>vaft.process.transport_state</code></td>
-    <td>9</td>
-    <td>yes</td>
-    <td>Resolved transport states: one qualified plasma state shared by TGLF, NEO and classical.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/confinement/">confinement</a></td>
-    <td><code>vaft.process.confinement</code></td>
-    <td>17</td>
-    <td>yes</td>
-    <td>Power balance and slice qualification for energy-confinement scaling (vaft #548).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/impurity/">impurity</a></td>
-    <td><code>vaft.process.impurity</code></td>
-    <td>11</td>
-    <td>yes</td>
-    <td>Impurity composition: which mixture a plasma is assumed, derived or measured to carry, resolved once.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/species/">species</a></td>
-    <td><code>vaft.process.species</code></td>
-    <td>4</td>
-    <td>yes</td>
-    <td>Canonical species/population state and physics-specific projections of it (issue #1567).</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/zeff_projection/">zeff_projection</a></td>
-    <td><code>vaft.process.zeff_projection</code></td>
-    <td>6</td>
-    <td>yes</td>
-    <td>Resistive projection of an effective-charge profile: Z_eff(rho) -&gt; R_p -&gt; Z_eff^res,equiv.</td>
-  </tr>
-  <tr>
-    <td><a href="/vaft/develop/reference/process/cocos/">cocos</a></td>
-    <td><code>vaft.process.cocos</code></td>
-    <td>6</td>
-    <td>yes</td>
-    <td>Operational COCOS handling: consistency checking against Sauter Eq. 23.</td>
-  </tr>
+    <tr>
+      <td>$\tau_A = L/v_A$, $\tau_R = \mu_0L^2/\eta$</td>
+      <td><code class="language-plaintext highlighter-rouge">alfven_time</code>, <code class="language-plaintext highlighter-rouge">resistive_diffusion_time</code></td>
+      <td>the two ends of the MHD hierarchy</td>
+      <td>$L$, $\eta$ model, $Z_{eff}$, $\ln\Lambda$</td>
+    </tr>
+    <tr>
+      <td>$S = \tau_R/\tau_A$</td>
+      <td><code class="language-plaintext highlighter-rouge">lundquist_number</code></td>
+      <td>resistivity perturbatively small <strong>at that scale</strong></td>
+      <td>$L$: global $a$ or a layer width</td>
+    </tr>
+    <tr>
+      <td>$R_m = \mu_0VL/\eta$</td>
+      <td><code class="language-plaintext highlighter-rouge">magnetic_reynolds_number</code></td>
+      <td>flux freezing in a flow</td>
+      <td>a measured or modelled $V$</td>
+    </tr>
+    <tr>
+      <td>$d_i/L$, $d_e/L$</td>
+      <td><code class="language-plaintext highlighter-rouge">inertial_length</code></td>
+      <td>Hall and electron-inertia corrections</td>
+      <td>species; global $a$ vs layer $\delta$</td>
+    </tr>
+    <tr>
+      <td>$\rho_s/L_T$, $\rho_i/L$</td>
+      <td><code class="language-plaintext highlighter-rouge">sound_gyroradius</code>, <code class="language-plaintext highlighter-rouge">particle.larmor_radius</code></td>
+      <td>finite-Larmor-radius corrections</td>
+      <td>the local gradient length</td>
+    </tr>
+    <tr>
+      <td>$Kn = \lambda/L$</td>
+      <td><code class="language-plaintext highlighter-rouge">thermal_speed</code>, <code class="language-plaintext highlighter-rouge">braginskii_*_collision_time</code>, <code class="language-plaintext highlighter-rouge">mean_free_path</code>, <code class="language-plaintext highlighter-rouge">knudsen_number</code></td>
+      <td>local collisional fluid closure</td>
+      <td>species; $L_T$, $L_n$ or $L_\parallel$</td>
+    </tr>
+    <tr>
+      <td>$\chi = \lvert\Omega\rvert\tau$</td>
+      <td><code class="language-plaintext highlighter-rouge">magnetization</code></td>
+      <td>strongly magnetized transport</td>
+      <td>species</td>
+    </tr>
+    <tr>
+      <td>$\tau_{evol}/\tau_A$</td>
+      <td><code class="language-plaintext highlighter-rouge">evolution_time</code></td>
+      <td>the plasma evolves through a sequence of equilibria</td>
+      <td>the state variable ($I_p$, $W$, axis position)</td>
+    </tr>
   </tbody>
 </table>
 
-<h2 id="machine-independent-or-vest-policy">Machine-independent or VEST policy</h2>
+<p>Some distinctions must not be blurred:</p>
+<ul>
+  <li><strong>A large global $S$ does not make resistivity irrelevant in a tearing layer.</strong> The layer’s own $S$, and
+$d_i/\delta$, $\rho_s/\delta$, decide that.</li>
+  <li><strong>Global $\rho_*$ is a similarity coordinate. Local $\rho_i/L_T$ is an FLR ordering.</strong> They are not
+interchangeable.</li>
+  <li><strong>$\tau_{evol}/\tau_A \gg 1$ is physics.</strong> It says nothing about whether an EFIT run converged, and
+convergence says nothing about it.</li>
+  <li><strong>$Kn$ and $\Omega\tau$ are independent.</strong> A plasma can be strongly magnetized and collisionless along
+the field at the same time.</li>
+</ul>
 
-<p>Every function’s <strong>Applicability</strong> section opens with one of two sentences, and each page badges
-it.  <em>Machine-independent</em> means the caller supplies every machine-specific number – an
-acquisition rail, a chord length, a processing window – and the routine infers nothing about the
-hardware; the VEST values are read from <code class="language-plaintext highlighter-rouge">vest.yaml</code> by <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code>, never here.
-<em>VEST-specific</em> means the routine embeds a VEST constant, a VEST column name or a VEST
-acquisition-era rule, and its page says which and for what shot range.</p>
+<h2 id="a-worked-hierarchy">A worked hierarchy</h2>
 
-<h2 id="where-a-default-came-from">Where a default came from</h2>
+<p><img src="/vaft/develop/assets/diagrams/timescale_hierarchy.svg" alt="timescale hierarchy" /></p>
 
-<p>A default that changes the result is classified on its page as one of: physical constant,
-literature value, diagnostic calibration, empirical estimate, validated-workflow default,
-machine-specific setting, acquisition-era policy, legacy compatibility value, or numerical
-convenience.  A legacy compatibility value is one that arrived with a ported routine and whose
-derivation is not recorded; the page says so rather than inventing one.</p>
+<p><code class="language-plaintext highlighter-rouge">timescale_hierarchy</code> evaluates the hierarchy of one illustrative low-field spherical-tokamak state rather
+than assuming it. Every time comes from a formula kernel; only the pulse length is an input.</p>
+<ul>
+  <li><strong>Clearly ordered:</strong> $S$ and $\tau_{evol}/\tau_A$, both about $10^4$.</li>
+  <li><strong>Of order one, so not ordered:</strong>
+    <ul>
+      <li>$\tau_{pulse}/\tau_R \approx 0.7$. Resistive relaxation has to be checked, not assumed either way.
+$\tau_R$ carries no geometric factor, and the slowest cylindrical mode decays $j_{01}^2 \approx 5.8$
+times faster.</li>
+      <li>$d_i/a \approx 0.3$, so Hall corrections are not globally negligible.</li>
+    </ul>
+  </li>
+</ul>
 
-<h2 id="refreshing-this-snapshot">Refreshing this snapshot</h2>
+<p>These numbers come from an illustrative state, not a measured discharge. Answering the same questions
+across the VEST database is the ordering atlas of #1629.</p>
 
-<p>From a checkout of the <code class="language-plaintext highlighter-rouge">develop</code> branch, run:</p>
+<h2 id="ordering-contracts">Ordering contracts</h2>
 
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft.process.catalog <span class="nt">--output</span> docs/_data/process_catalog.yml
-</code></pre></div></div>
+<p>Whether an ordering holds depends on the model that assumes it. Ideal single-fluid MHD needs $S \gg 1$,
+$d_i/L \ll 1$, $\rho_i/L \ll 1$ and $\tau_{evol}/\tau_A \gg 1$ all at once, not $S$ alone. A local collisional
+fluid needs $Kn \ll 1$, and a strongly magnetized one needs $\Omega\tau \gg 1$.</p>
 
-<p>The snapshot records the SHA-256 of every <code class="language-plaintext highlighter-rouge">vaft/process/*.py</code> source file, the private
-<code class="language-plaintext highlighter-rouge">_equilibrium_parametric.py</code> included; documentation validation compares them when
-<code class="language-plaintext highlighter-rouge">VAFT_REGISTRY_SOURCE</code> points to the corresponding source checkout.  The same text is available
-offline as <code class="language-plaintext highlighter-rouge">vaft.process.describe("&lt;name&gt;")</code>, <code class="language-plaintext highlighter-rouge">vaft.process.search("&lt;text&gt;")</code> and
-<code class="language-plaintext highlighter-rouge">vaft.process.list_processes(category="&lt;category&gt;")</code>.</p>
+<p>These contracts will be registered as <code class="language-plaintext highlighter-rouge">ApproximationContract</code> objects of <code class="language-plaintext highlighter-rouge">vaft.validation.applicability</code>
+(#1639, PR #1695). They report a continuous ordering margin per assumption ($\mp\log_{10}x$), not a
+valid/invalid flag. They follow in a second #1627 PR once that module is on develop.</p>
+
+<h2 id="references">References</h2>
+
+<ol>
+  <li>S. I. Braginskii, in <em>Reviews of Plasma Physics</em>, Vol. 1, Consultants Bureau (1965), p. 205.</li>
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).</li>
+  <li>D. Biskamp, <em>Magnetic Reconnection in Plasmas</em>, Cambridge University Press (2000).</li>
+  <li>H. R. Strauss, Phys. Fluids 19 (1976) 134.</li>
+  <li>F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239.</li>
+</ol>
 
 
 <section class="related-resources" aria-labelledby="related-resources-title">
   <h2 id="related-resources-title">Related resources</h2>
   <div class="related-resources-grid">
-    
-    <div class="related-resource-group" data-resource-kind="notebooks">
-      <h3>Notebooks</h3>
-      <ul>
-        
-          
-          <li data-resource-id="confinement-scaling">
-            
-              
-                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/confinement_time_scaling.ipynb">Confinement-time scaling</a>
-              
-            <span class="resource-status resource-status-runnable">runnable</span>
-            
-          </li>
-        
-      </ul>
-    </div>
     
     
     <div class="related-resource-group" data-resource-kind="api">
@@ -675,27 +494,14 @@ offline as <code class="language-plaintext highlighter-rouge">vaft.process.descr
       <ul>
         
           
-          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
-        
-          
           <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
         
           
-          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/machine-mapping/"><code>vaft.machine_mapping</code></a></li>
+          <li data-resource-id="diagram"><a href="/vaft/develop/reference/diagrams/"><code>vaft.diagram</code></a></li>
         
       </ul>
     </div>
     
-    
-    <div class="related-resource-group" data-resource-kind="data-sources">
-      <h3>Input data</h3>
-      <ul>
-        
-          
-          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
-        
-      </ul>
-    </div>
     
     
   </div>
@@ -757,13 +563,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/formula/virial/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: virial">
+                        <a href="/vaft/develop/reference/process/species/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: species">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/process/signal_processing/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: signal_processing">
+                        <a href="/vaft/develop/reference/formula/ordering/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: ordering">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -779,7 +585,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Categories</a></li><li class="page-toc-item page-toc-level-2"><a href="#machine-independent-or-vest-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Machine-independent or VEST policy</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-a-default-came-from" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where a default came from</a></li><li class="page-toc-item page-toc-level-2"><a href="#refreshing-this-snapshot" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Refreshing this snapshot</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-parameters-and-what-they-test" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The parameters and what they test</a></li><li class="page-toc-item page-toc-level-2"><a href="#a-worked-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A worked hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#ordering-contracts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ordering contracts</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -795,11 +601,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Process reference: signal_processing",
+            "title": "Formula reference: ordering",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Process_reference_signal_processing.md",
-            "ref": "_guide/Process_reference_signal_processing.md",
+            "path": "_guide/Formula_reference_ordering.md",
+            "ref": "_guide/Formula_reference_ordering.md",
             "articles": []
         },
         
@@ -891,8 +697,8 @@ window.MathJax = {
         "gitbook": "*"
     },
     "file": {
-        "path": "_guide/Process_reference.md",
-        "mtime": "2026-09-03 10:00:00 +0000",
+        "path": "_guide/Asymptotic_orderings.md",
+        "mtime": "2026-10-05 16:00:00 +0000",
         "type": "markdown"
     },
     "gitbook": {
