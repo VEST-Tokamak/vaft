@@ -29,7 +29,7 @@ from vaft.formula.equilibrium import (
     inductive_voltage_from_dW_magdt_I_p,
     bremsstrahlung_power_density_from_n_e_T_e_Z_eff,
     bremsstrahlung_power_density_from_T_e_p_Z_eff,
-    stored_energy_from_p_V,
+    thermal_energy_from_p_V,
     confinement_time_from_engineering_parameters,
     confinement_time_from_P_loss_W_th,
     inverse_aspect_ratio_from_a_R,
@@ -590,7 +590,7 @@ def compute_tau_E_exp(ods, time_slice: int, Z_eff: float = 2.0) -> float:
         volume = float(eq_ts['global_quantities.volume']) if 'global_quantities.volume' in eq_ts else np.nan
         
         # Calculate thermal energy: W_th = p_vol_average * 3/2 * volume
-        W_th = p_vol_avg_val * (3.0 / 2.0) * volume  # [J]
+        W_th = thermal_energy_from_p_V(p_vol_avg_val, volume)  # [J], 3/2 <p> V
     except Exception as e:
         raise ValueError(f"Could not determine stored thermal energy for time_slice[{time_slice}]: {e}")
     
@@ -1316,7 +1316,7 @@ def compute_power_balance(
         volume = float(eq_ts['global_quantities.volume'])
         volume_series[k] = volume
         # W_th = 3/2 * <p>_V * V for an ideal plasma (W = 3/2 integral p dV)
-        W_th[k] = p_vol_avg[k] * (3.0 / 2.0) * volume
+        W_th[k] = thermal_energy_from_p_V(p_vol_avg[k], volume)
     
     # Calculate dW/dt robustly on finite W_th points only.
     # This prevents NaNs at trailing slices from contaminating earlier finite slices.

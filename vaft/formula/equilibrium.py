@@ -2411,27 +2411,31 @@ def ion_pressure(n_i: Union[float, np.ndarray],
 
 def stored_energy_from_p_V(p: Union[float, np.ndarray],
                           V: float) -> Union[float, np.ndarray]:
-    r"""Stored energy as pressure times volume, $W = pV$.
+    r"""Pressure volume integral $\int p\,dV \approx \langle p\rangle V$ -- not the thermal (stored) energy.
 
-    $$W = \int p\,dV \approx p\,V$$
+    $$\int p\,dV \approx p\,V$$
 
     Parameters
     ----------
     p : float or np.ndarray
-        Pressure; a volume-averaged value gives the total energy [Pa].
+        Pressure; the volume average gives the integral over the plasma [Pa].
     V : float
         Plasma volume [m^3].
 
     Returns
     -------
     float or np.ndarray
-        Energy $pV$ [J].
+        $\int p\,dV$ [J].
 
     Convention
     ----------
-    $pV$ is the *magnetic-like* energy normalisation; the thermal energy of an
-    ideal gas is $W_{th} = \tfrac{3}{2}\int p\,dV$, so multiply by 1.5 for the
-    IMAS ``energy_thermal`` convention.
+    Despite the historical name this is $\int p\,dV$, two thirds of the
+    thermal energy: the stored kinetic energy of an ideal gas is
+    $W_{th} = \tfrac{3}{2}\int p\,dV$ (``thermal_energy_from_p_V``,
+    ``virial.virial_thermal_energy``, ``kinetic_energy_from_beta_p_B_pa_V_p``,
+    and the IMAS ``energy_mhd`` for the total and ``energy_thermal`` for the
+    thermal pressure). It is the
+    quantity $\beta_p$ is normalised by (``beta_poloidal_from_pressure_integral``).
 
     Assumptions
     -----------
@@ -2441,12 +2445,58 @@ def stored_energy_from_p_V(p: Union[float, np.ndarray],
     return p * V
 
 
+def thermal_energy_from_p_V(p: Union[float, np.ndarray],
+                            V: float) -> Union[float, np.ndarray]:
+    r"""Thermal (stored kinetic) energy of the plasma, $W_{th} = \tfrac{3}{2}\int p\,dV$.
+
+    $$W_{th} = \frac{3}{2}\int p\,dV \approx \frac{3}{2}\,\langle p\rangle V$$
+
+    Parameters
+    ----------
+    p : float or np.ndarray
+        Pressure; the volume average gives the energy of the whole plasma [Pa].
+    V : float
+        Plasma volume [m^3].
+
+    Returns
+    -------
+    float or np.ndarray
+        $W_{th}$ [J].
+
+    Convention
+    ----------
+    The ideal-gas $\tfrac{3}{2}nT$ per unit volume, summed over species, the
+    same energy as ``virial.virial_thermal_energy`` and
+    ``kinetic_energy_from_beta_p_B_pa_V_p``. With the total pressure (thermal
+    plus fast particles) it is the IMAS
+    ``equilibrium...global_quantities.energy_mhd``; with the thermal pressure
+    only, ``summary.global_quantities.energy_thermal``. ``stored_energy_from_p_V`` is
+    two thirds of it, $\int p\,dV$.
+
+    Physical interpretation
+    -----------------------
+    The energy confinement time divides this by the loss power
+    (``confinement_time_from_P_loss_W_th``).
+
+    Assumptions
+    -----------
+    Isotropic Maxwellian species ($p = nT$ per species); ``p`` is the volume
+    average when ``V`` is the total volume.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.5.
+    """
+    return 1.5 * p * V
+
+
 def stored_energy_from_beta_V(beta: float,
                             B0: float,
                             V: float) -> float:
-    r"""Stored energy from toroidal beta, $W = \beta B_0^2 V/(2\mu_0)$.
+    r"""Pressure volume integral $\langle p\rangle V$ from toroidal beta -- not the thermal energy.
 
-    $$W = \beta\,\frac{B_0^2}{2\mu_0}\,V$$
+    $$\langle p\rangle V = \beta\,\frac{B_0^2}{2\mu_0}\,V$$
 
     Parameters
     ----------
@@ -2466,7 +2516,8 @@ def stored_energy_from_beta_V(beta: float,
     ----------
     Uses the fraction form of $\beta_t$; a percentage input is 100 times too
     large.  As for :func:`stored_energy_from_p_V`, the result is $\langle p\rangle
-    V$, so the thermal energy is 1.5 times it.
+    V = \int p\,dV$ despite the name; the thermal energy is 1.5 times it
+    (``thermal_energy_from_p_V``).
 
     References
     ----------
