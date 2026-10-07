@@ -340,11 +340,13 @@ explains them.
 
 ```python
 vaft.diagram.timescale_hierarchy()
+vaft.diagram.ordering_contract_map()
 ```
 
 | Diagram | Concept |
 | --- | --- |
-| `timescale_hierarchy` | Gyroperiods, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
+| `timescale_hierarchy` | Inverse gyrofrequencies, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
+| `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered |
 
 ## Reduced representations
 
@@ -1514,7 +1516,10 @@ simulation run. Experiment and simulation are parallel, epistemically distinct p
 validation and synthesis yield qualified states and feed new questions back to planning. Knowledge is
 preserved and transferred, and the states serve generic research contexts; only the reference
 implementation, VEST, is named. The `"presentation"` figure is a one-slide projection of the same model,
-and a test checks that every item it draws stands for items of the full figure.
+with shared scientific states feeding experimental planning and operation, physics interpretation and
+discovery, and modelling, prediction and validation. Curved arrows show exchange between neighbouring uses;
+they do not prescribe a fixed sequence. A test checks that its roles, verbs, states and uses map back to
+the detailed figure's roles, activities and states.
 
 `scientific_ownership_architecture` shows where scientific logic lives as research software matures (#1645).
 Research groups Studies by membership, not by execution order, and neither executes anything. A workflow or

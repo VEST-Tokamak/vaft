@@ -65,6 +65,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
     "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings (#1627)
+    "ordering_contract_map.svg": ("ordering_contract_map", {}),
     "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
     # reduced physical representations (#1626)
     "reduced_representation_hierarchy.svg": ("reduced_representation_hierarchy", {}),

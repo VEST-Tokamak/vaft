@@ -349,18 +349,20 @@ def _rotation_slices(ods: Any, ion_index: int) -> list[_RotationSlice]:
 def _is_proxy_grid(ods: Any, base: str, grid: np.ndarray) -> bool:
     """Whether a core profile's ``grid.rho_tor_norm`` is the ``sqrt(psi_N)`` proxy.
 
-    The equilibrium side's test (:func:`vaft.data._derived.is_rho_pol_proxy`),
-    against the profile's own ``grid.psi`` when it stores one, else a uniform
-    ``psi_N``; a stored ``grid.rho_pol_norm`` equal to it settles it too.
+    The equilibrium side's test (:func:`vaft.data._derived.is_rho_pol_proxy`)
+    against the profile's own ``grid.psi``; a stored ``grid.rho_pol_norm``
+    equal to the grid settles it too.  A profile that stores neither is taken
+    at its word: without a ``psi`` of its own there is nothing to test the
+    grid against, and ``sqrt(linspace(0, 1, n))`` is a legitimate toroidal
+    grid as well as the proxy (every VAFT writer stores ``grid.psi``, so the
+    proxy an older file wrote is still caught).
     """
     from vaft.data._derived import is_rho_pol_proxy
 
     psi = _array(ods, f"{base}.grid.psi")
-    psi_norm = None
     if psi is not None and psi.size == grid.size and np.all(np.isfinite(psi)) and psi[-1] != psi[0]:
-        psi_norm = (psi - psi[0]) / (psi[-1] - psi[0])
-    if is_rho_pol_proxy(grid, psi_norm):
-        return True
+        if is_rho_pol_proxy(grid, (psi - psi[0]) / (psi[-1] - psi[0])):
+            return True
     rho_pol = _array(ods, f"{base}.grid.rho_pol_norm")
     return bool(
         rho_pol is not None and rho_pol.size == grid.size
@@ -468,8 +470,8 @@ def mode_frequency_tracks(ods, modes, *, model="toroidal_rotation", ion_index=0,
        writing the input).
     2. Read every timed rotation profile, preferring ``rotation_frequency_tor``
        over ``velocity.toroidal``, on ``rho_tor_norm`` over ``rho_pol_norm``; a
-       ``grid.rho_tor_norm`` that is the ``sqrt(psi_N)`` proxy is read as the
-       ``rho_pol_norm`` it is.
+       ``grid.rho_tor_norm`` that is the ``sqrt(psi_N)`` proxy of the profile's
+       own ``grid.psi`` is read as the ``rho_pol_norm`` it is.
     3. Per slice, locate ``|q| = |m/n|`` once per distinct ratio with
        :func:`~vaft.process.equilibrium.rational_surfaces`.
     4. Per root, evaluate ``omega_phi`` on the two rotation profiles that

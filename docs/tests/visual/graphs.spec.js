@@ -217,6 +217,8 @@ test('the representations view shows where a concept lives in the Data Dictionar
 test('the assessment view links a concept to the check that assesses it', async ({ page }) => {
   await openOntology(page, '#view=assessment&focus=concept:plasma_current');
   await expect(page.locator('.vg-details')).toContainText('diagnostic_fit.ip');
+});
+
 test('in-site navigation between the explorers leaks no handlers or dividers', async ({ page }) => {
   await page.goto('workflows/start-here/');
   for (const label of ['Dependency explorer', 'Pipeline lineage explorer', 'Dependency explorer']) {

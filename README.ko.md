@@ -1,351 +1,82 @@
-# VAFT - 토카막을 위한 다목적 분석 프레임워크
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/VEST-Tokamak/vaft/fc294b61bdb9e0d722f7eb1ea7c962ddda532959/docs/assets/brand/vaft-wordmark-dark-1024.png">
+    <img src="https://raw.githubusercontent.com/VEST-Tokamak/vaft/fc294b61bdb9e0d722f7eb1ea7c962ddda532959/docs/assets/brand/vaft-wordmark-1024.png" alt="VAFT" width="480">
+  </picture>
+</p>
 
-<!-- README.ko.md -->
-[English](README.md) | 한국어
+# VAFT — 토카막을 위한 다목적 분석 프레임워크
 
-[PyPI](https://pypi.org/project/vaft/)
-[Python](https://pypi.org/project/vaft/)
-[License](LICENSE)
+[English](README.md) | 한국어 · [PyPI](https://pypi.org/project/vaft/) · [라이선스](LICENSE)
 
-> **핵융합 과학 지식을 통합해, 찾고 검증하고 비교하고 연구할 수 있게 합니다.**
+> **여러 분야의 핵융합 지식을 연결해 통합적인 토카막 연구를 돕습니다**
 
-**VAFT는 장치 독립적(machine-agnostic) 토카막 연구를 위한 표준화되고, 검증
-가능하며, 상호운용 가능한 과학 프레임워크입니다.** 실험 데이터, 재구성·시뮬레이션된
-플라즈마 상태, 분석 워크플로를 하나로 통합해, 핵융합 과학 지식을 찾고(discover)
-검증하고(verify) 비교하고(compare) 연구할(study) 수 있게 합니다.
+**VAFT는 IMAS 데이터 구조를 활용해 토카막 데이터를 정리하고 분석하는 과학 프레임워크입니다.** 실험 데이터, 재구성된 플라즈마 상태, 시뮬레이션 결과와 분석 과정을 공통 데이터 구조와 기록된 처리 이력으로 연결합니다.
 
-서울대학교 [VEST 토카막](https://eng.snu.ac.kr/)에서의 전체 구현은 일상적인 실험
-데이터 처리, 검증, 모델링, 물리 분석, 그리고 연구자와 기관 간의 공동 활용을
-지원하며, 현대적이고 재현 가능한 데이터 기반 핵융합 연구의 참조 구현(reference
-implementation) 역할을 합니다.
+## VAFT가 연결하는 것
 
-> Hong-Sik Yun, Sunjae Lee *et al* 2025 *Plasma Phys. Control. Fusion* **67** 115021
-> ([doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a))
+VAFT는 장치별 진단·운전 데이터를 [IMAS Data Dictionary](https://imas-data-dictionary.readthedocs.io/en/latest/)가 정의한 공통 데이터 모델에 맞춰 옮깁니다. [OMAS](https://gafusion.github.io/omas/)는 이 구조를 다루는 Python 인터페이스입니다. VAFT는 표준 데이터로 처리·시각화 작업을 수행하고 EFIT·CHEASE 같은 기존 물리 코드와 데이터를 주고받습니다. 진단 원본 파일과 코드 출력도 표준 데이터와 함께 이용할 수 있습니다.
 
-## VAFT란 무엇인가
+![VAFT가 연결하는 핵융합 연구 생태계](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/fusion_research_ecosystem_presentation.svg)
 
-여기서 "프레임워크"가 뜻하는 네 가지입니다.
+그림은 실험, 이론·모델링, 데이터 기반 연구가 측정·재구성·시뮬레이션된 플라즈마 상태를 함께 활용하는 모습을 보여 줍니다. VAFT는 연구자가 이 상태를 주고받고 비교하도록 돕되, 분야별 물리 코드를 대체하지는 않습니다.
 
-![VAFT의 네 기둥](docs/assets/diagrams/vaft_four_pillars.svg)
+[그림 설명과 상세 버전 보기](https://vest-tokamak.github.io/vaft/develop/reference/diagrams/).
 
-### 표준화된 데이터 인터페이스 (Standardized Data Interface)
+## 이를 가능하게 하는 네 관점
 
-표준화된 데이터 표현, 과학적 데이터 처리, 검증, 시각화, 물리 코드를 공통 API
-뒤의 개별 도구로 두지 않고 하나의 일관된 과학 워크플로로 통합합니다. VEST 고유
-신호, [IMAS](https://imas.iter.org/)/[OMAS](https://gafusion.github.io/omas/) 표현,
-VAFT 처리 및 플로팅, 검증(V&V), 그리고 EFIT, CHEASE, GPEC, TokaMaker, VFIT 등
-커뮤니티 물리 코드가 재구현이 아니라 **상호운용**됩니다.
+![VAFT를 이루는 네 가지 역량](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/vaft_four_pillars.svg)
 
-### 추적·재현 가능한 파이프라인 (Traceable & Reproducible Pipeline)
+그림의 네 기둥은 차례로 수행하는 단계가 아니라 함께 작동하는 역량입니다. IMAS 매핑은 공통 인터페이스를 제공하고, 기록된 설정은 처리 과정을 추적할 수 있게 하며, 저장소와 아카이브는 결과를 해석하는 데 필요한 데이터와 장치 정보를 남깁니다. 연구자에게는 다음 네 가지가 중요합니다.
 
-장치 설계와 실험 데이터 취득에서 재구성·시뮬레이션된 물리 상태까지, 전체
-워크플로에 걸쳐 추적 가능하고 재현 가능한 데이터 산출물을 만듭니다. 추적
-가능성은 결과가 어디서 왔는지를 기록하고, 재현 가능성은 그 결과를 다시 만들 수
-있게 합니다. 이 둘이 함께 있어야 결과를 provenance, 처리 이력, 가정에 비추어
-*검증*할 수 있습니다. 버전 관리 대상은 소스 코드에 그치지 않고 장치 기술과 형상,
-진단 매핑, 교정, 관례, 처리 로직, 검증 기준, 모델 설정, 스키마 버전을 포함합니다.
+- **표현:** 진단 채널, 장치 형상, 평형과 프로파일을 출처·자속 관례와 함께 IMAS 구조에 맞춰 옮깁니다.
+- **연구 인프라:** 진단 원본 파일과 샷별 표준 기록을 노트북·장치 구성 이력과 함께 찾아 쓸 수 있게 합니다.
+- **신뢰성:** 교정값, 매핑 버전, 코드 설정과 품질 점검 결과를 기록해 작업 과정을 추적·재현하고 결과를 검증할 수 있게 합니다.
+- **연구 방식과 이식성:** 재구성·모델링·시각화에 같은 데이터 경로를 사용하고, 다른 장치의 매핑을 마련해 워크플로를 확장합니다.
 
-### FAIR 과학 데이터 저장소 (FAIR Scientific Data Repository)
+## 결과가 만들어지는 과정
 
-검증된 데이터를 고유 형식과 표준 형식 양쪽으로 보존·탐색·접근·공유하며, FAIR 원칙
-(Findability, Accessibility, Interoperability, Reusability)을 따릅니다.
-IMAS/OMAS, FileDB와 고유 산출물, [HSDS](https://github.com/HDFGroup/hsds) 기반
-저장소, 지연·부분 로딩, 프로그래밍 API는 한 샷에 어떤 실험·모델링 정보가 있는지
-찾는 기반입니다. 표준화된 접근은 고유 과학 산출물을 **대체하는 것이 아니라
-보완**합니다.
+![VAFT의 관리되는 과학 워크플로](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/scientific_workflow.svg)
 
-### 장치 지식 아카이브 (Machine Knowledge Archive)
+장치 정보와 진단 측정값을 등록하고 IMAS 데이터 구조에 맞춰 옮깁니다. 진단 처리·평형 재구성·시뮬레이션은 이 구조를 읽고 기록하며, 워크플로는 설정과 출처를 남기고 데이터 품질을 점검해 결과를 분석에 쓸 수 있게 합니다.
 
-장치 지식의 살아 있는 아카이브입니다. 2012년 운전 개시 이후 VEST 토카막의 장치 구성과
-이력, 실험 이력, 운영상의 결정, 기술 문서, 튜토리얼, 예제 노트북, 기관의 과학 지식을
-장기적인 검증·비교·연구에 쓸 수 있도록 연구자 세대와 협력 기관에 걸쳐 보존합니다.
+## VAFT로 할 수 있는 연구
 
-네 가지가 함께 연구 학습 순환을 완성합니다. 실험에서 출발해 장치 기술과 원시 데이터, 처리,
-모델링과 해석을 거쳐 비교와 발견에 이르고, 거기서 나온 새 질문이 다음 실험을 이끕니다.
+[오프라인 예제](tutorial/README.md)로 시작해 [샷과 진단 데이터를 탐색](https://vest-tokamak.github.io/vaft/workflows/data-access-imas/)하거나 [평형을 재구성하고 프로파일을 피팅](https://vest-tokamak.github.io/vaft/workflows/equilibrium-kinetic-profiles/)할 수 있습니다. [연구 노트북](notebooks/README.md)과 [워크플로 안내](https://vest-tokamak.github.io/vaft/workflows/start-here/)에 전체 예제가 있습니다.
 
-![연구 학습 순환](docs/assets/diagrams/fusion_science_knowledge_lifecycle.svg)
+## 여러 장치에 적용하는 구조
 
-## VAFT로 무엇을 할 수 있나요?
+![VAFT의 장치 독립 구조](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/machine_agnostic_architecture.svg)
 
-| 하고 싶은 일 | 시작점 |
-| --- | --- |
-| 설치 없이 VEST 데이터를 살펴보기 | [튜토리얼 01](tutorial/01_getting_started_with_vaft.ipynb) — 패키지 데이터로 오프라인 실행 |
-| 실제 샷을 불러와 그리기 | [빠른 시작](#빠른-시작), 이후 [`notebooks/README.md`](notebooks/README.md) |
-| 평형을 재구성하거나 정밀화하기 | [`notebooks/`](notebooks/README.md) — EFIT, CHEASE, TokaMaker, TES |
-| 진단 신호 해석하기 | [`notebooks/`](notebooks/README.md) — 자기, 연X선, 요동, 고속 카메라 |
-| 다수 샷을 한 번에 분석하기 | [`notebooks/`](notebooks/README.md) — 데이터베이스 규모 분석 |
-| 데이터 모델 이해하기 | [IMAS 개념 문서](https://vest-tokamak.github.io/vaft/reference/imas-concepts/) |
+이 구조는 장치별 데이터 접근·매핑을 공통 IMAS 데이터 모델과 그 위의 분석 도구에서 분리합니다. 다른 장치를 연결하려면 해당 장치의 데이터 접근 방법과 매핑이 필요합니다.
 
-## VEST에서의 연구
+## VEST 참조 구현
 
-### VEST에서 수행되어 온 연구
+서울대학교의 [VEST 토카막](https://vest-tokamak.github.io/vaft/reference/vest-tokamak-physics/)은 이 구조를 실제로 적용한 참조 구현입니다. 그림은 VEST의 한 샷이 실험 데이터 처리를 거쳐 샷별 데이터베이스에 들어가는 흐름을 보여 줍니다.
 
-2012년부터 서울대학교에서 운전된 VEST는 장치 운전, 진단 개발, 방전 최적화,
-플라즈마 물리 연구를 위한 자체 실험 토카막으로 사용되어 왔으며, 10년 이상에
-걸쳐 장치 고유의 실험 지식과 분석 관행을 축적했습니다.
+![VEST 실험에서 분석까지 이어지는 데이터 플랫폼](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/vest_data_platform_overview.svg)
 
-- **소형·구형 토카막 운전** — `R ≈ 0.4` m, `I_p < 300` kA, 최대 약 40 ms 방전
-- **진단 개발 및 실험 해석** — 자기, 운동학적, 영상, 분광 진단의 교정과 해석
-- **방전 형성·가열·전류 구동** — 시동, 코일 운전·가스 주입·벽 상태·자기
-  위상 최적화, NBI·EC·헬리시티 주입·병합 시나리오
-- **붕괴 및 과도 MHD 현상** — 수직 변위 사건, 티어링 모드, 내부 재결합 사건
-- **평형 재구성 및 해석** — 자체 개발 VFIT 프레임워크
-- **가둠 및 성능** — 고`I_p`·장펄스 운전, 운전 한계, 구형 토카막 스케일링 비교
-
-### VAFT가 다음으로 가능하게 하는 것
-
-1. **협력적·개방형 연구** — 검증된 데이터와 재현 가능한 워크플로의 기관 간 공유
-2. **데이터베이스 규모 물리 연구** — 선별된 샷이 아닌 대규모 방전 집단의 통계 분석
-3. **통합 데이터 분석 및 모델링** — 다중 진단, 재구성 상태, 안정성·플라즈마 응답 모델
-4. **다중 장치 연구** — VEST를 넘어선 표준 표현의 확장
-5. **데이터 기반·AI 연구** — 이상 탐지, 대리 모델, 기계학습을 위한 검증된 데이터셋
-6. **과학 지식 관리 및 보존** — 데이터 산출물, 절차, 출처(provenance), 관행의 보존
-
-> **성숙도.** 1–3은 구현되어 일상적으로 사용 중입니다. 4는 개발 중입니다.
-> 5–6은 부분 구현 상태로, 검증된 데이터셋과 출처 기록은 현재 존재하지만
-> 시맨틱 지식 그래프, 기계 판독 가능한 provenance, 디지털 트윈 통합, 자율 연구
-> 에이전트는 **현재 기능이 아니라 장기 방향**입니다.
-
-## 주요 기능
-
-| 기능 | 설명 |
-| --- | --- |
-| **원격 데이터베이스 접근** | 단일 함수 호출로 VEST HSDS 서버에서 샷별 OMAS ODS 데이터를 불러옵니다. |
-| **장치 매핑** | VEST 고유 진단 신호를 표준 IMAS IDS로 변환합니다(자기 진단, 톰슨 산란, 바로미터, PF active, TF, UV 분광기, 전하 교환 등). |
-| **평형 및 안정성** | EFIT, CHEASE, GPEC(DCON/RDCON) 인터페이스를 제공하며 IDS 형식의 코드 입출력을 지원합니다. |
-| **물리 공식** | 평형 물리량(폴로이달/토로이달 자속, 안전 계수), 안정성 지표(베타 한계, 풍선 모드), 가둠 시간 스케일링 법칙(ITER89P, H98y2), Green 함수를 제공합니다. |
-| **신호 처리** | 평활화, 기준선 제거, 잡음 저감, 전자기장 계산, 와전류 모델링을 지원합니다. |
-| **프로파일 피팅** | 운동론 진단(톰슨 산란, CES)을 평형 자속면에 매핑하고 GP, 다항식 또는 지수 모델로 피팅합니다. |
-| **시각화** | 시간 파형, 1D/2D 프로파일, 자속면 등고선, 상면도, 운전 공간 지도를 제공합니다. |
-| **IMAS 상호운용성** | OMAS ODS와 IMAS-Python(AL5) 데이터 구조 간 변환 및 NetCDF 내보내기를 지원합니다. |
-
-
-## 아키텍처
-
-이질적인 장치·실험 원천은 관리되는 파이프라인을 거쳐 품질이 검증된 분석용 데이터가 됩니다.
-진단 처리, 평형 재구성과 분포 피팅, 해석 시뮬레이션은 공통 데이터 모델(IMAS)의 표준화된 과학 상태를 공유하고, 검증·확인과
-품질 평가 결과는 처리 설정으로 되돌아가 파이프라인을 개선합니다.
-
-![관리되는 과학 처리 파이프라인](docs/assets/diagrams/scientific_workflow.svg)
-
-현재 VEST 배포 구성은 샷별 데이터베이스를 중심으로 합니다. 실험 데이터 처리가 각 샷의 진단 데이터를 기록하고,
-재구성·물리 추론과 시뮬레이션은 같은 샷에서 읽고 다시 기록하며, 사용자는 Python API, CLI, GUI, MCP, 문서를 통해
-로컬 또는 HPC 클러스터에서 접근합니다:
-
-![VEST 데이터 플랫폼](docs/assets/diagrams/vest_data_platform.svg)
-
-### VEST 데이터베이스에서 사용할 수 있는 IMAS IDS
-
-**실험 데이터:**
-`dataset_description` · `magnetics` · `tf` · `pf_active` · `barometry` · `ec_launchers` · `spectrometer_uv` · `thomson_scattering` · `charge_exchange`
-
-**모델링 데이터:**
-`wall` · `em_coupling` · `pf_passive` · `equilibrium` (EFIT/CHEASE) · `core_profiles` · `mhd_linear` (DCON/RDCON)
-
-
+평형 재구성·물리량 추론과 시뮬레이션은 이 데이터베이스의 데이터를 읽고 결과를 다시 기록합니다. VAFT는 아래쪽에서 데이터 접근·분석을 담당하며, 각 단계의 구성 요소는 [VEST 플랫폼 상세 그림](https://vest-tokamak.github.io/vaft/develop/reference/diagrams/#the-vest-data-platform)에서 볼 수 있습니다.
 
 ## 빠른 시작
 
-### 설치
-
-VAFT를 처음 설치하거나 수업용 PC를 준비한다면
-[`install/README.md`](install/README.md)를 따르세요. Linux, macOS, 네이티브
-Windows, WSL2용 원커맨드 부트스트랩과 환경 점검 도구, 기존 체크아웃 갱신 절차가
-정리되어 있습니다.
-
-```bash
-git clone https://github.com/VEST-Tokamak/vaft.git
-cd vaft
-bash install/linux.sh          # 또는 macos.sh / windows_wsl.sh / windows_native.ps1
-conda run -n vaft python install/check_vaft_environment.py
-```
-
-소스에서 직접 설치:
-
-```bash
-git clone https://github.com/VEST-Tokamak/vaft.git
-cd vaft
-python -m pip install -e .
-```
-
-```bash
-# 개발 도구
-python -m pip install -e ".[dev]"
-```
-
-#### 설치된 VAFT를 최신 버전으로 업데이트
-
-VAFT는 editable 모드로 설치되므로 체크아웃을 업데이트하면 VAFT도 함께 바뀝니다.
-체크아웃 폴더에서, 직접 고친 내용을 먼저 따로 보관한 뒤 받습니다.
-
-```bash
-git status
-git stash push -m "before VAFT update"   # git status에 modified 파일이 있을 때만
-git pull --ff-only
-git stash pop                             # stash한 경우에만
-conda run -n vaft python -m pip install -e .
-conda run -n vaft python install/check_vaft_environment.py
-```
-
-마지막으로 Jupyter 커널을 재시작하세요. 노트북을 실행만 해도 출력이 파일에 저장되어
-modified로 표시됩니다. 단계별 설명과 `git pull`이나 `git stash pop`이 멈췄을 때의
-대처, 복구 중 절대 실행하면 안 되는 명령은
-[`install/README.md`](install/README.md#updating-vaft)에 있습니다.
-
-#### 레거시 NumPy 1 설치
-
-NumPy 1을 요구하는 외부 패키지가 있을 때에만 사용하세요. `h5pyd==0.24.0`이 NumPy 2를 요구한다고 선언하는 이슈가 있으므로, NumPy를 교체한 뒤 `h5pyd`는 `--no-deps`로 설치합니다.
-
-```bash
-python -m pip install -e .
-python -m pip install --force-reinstall --no-deps "numpy>=1.26.4,<2"
-python -m pip install --force-reinstall --no-deps h5pyd==0.24.0
-```
-
-이는 레거시 호환성 옵션이며, `pip check`는 의도적으로 우회한 NumPy 요구 사항을 보고할 수 있습니다.
-
-#### PyPI 릴리스 패키지 설치
+공개된 패키지를 설치하고, 데이터베이스 계정이나 외부 물리 코드 없이 패키지에 포함된 VEST 예제를 살펴보세요.
 
 ```bash
 pip install vaft
 ```
 
-가장 최근에 공개된 릴리스를 설치합니다. `develop`의 미공개 변경 사항이 필요하면 소스에서
-설치하세요.
-
-**지원 Python 버전**: 3.10 -- 3.14
-**기본 수치 연산 스택**: NumPy 2.x (`numpy>=2.0.0,<3`)
-
-외부 코드 설치 루트와 VAFT 런타임 경로는 프로세스 환경 변수로 설정합니다.
-`{CODE}HOME` 디렉터리 구조, 호환 변수 및 셸 설정 예시는
-[외부 핵융합 코드 초기화 노트북](notebooks/initialize_external_fusion_codes.ipynb)을 참고하세요.
-
-### VEST 데이터베이스 연결
-
-원격 VEST HSDS 데이터베이스를 사용하려면 HSDS 자격 증명을 설정하세요.
-
-```bash
-vaft hsds configure
-```
-
-> upstream `hsconfigure`는 쓰지 마세요. 비밀번호 입력이 화면에 그대로 보이고, 이미 저장된 비밀번호를
-> 프롬프트 기본값으로 출력합니다. `vaft hsds configure`는 같은 h5pyd `~/.hscfg`를 숨김 입력과 `0600`
-> 권한으로 씁니다. Windows에서는 파일 권한이 적용되지 않으며, 파일은 사용자 프로필의 권한을 따릅니다.
-> `.hscfg`는 절대 커밋하지 마세요.
-
-프롬프트에 다음 값을 입력합니다. 비밀번호는 화면에 표시되지 않습니다.
-
-| 항목 | 값 |
-| --- | --- |
-| 서버 엔드포인트 | `http://147.46.36.244:5101` |
-| 사용자 이름 | [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr)에 문의 |
-| 비밀번호 | [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr)에 문의 |
-
-`connection ok` 메시지가 표시되면 연결된 것입니다. 자세한 내용은 [상세 안내서](https://vest-tokamak.github.io/vaft/guide/Quick_start_guide/)를 참조하세요.
-
-### 기본 사용법
-
-<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
 ```python
 import vaft
 
-# 원격 데이터베이스에서 샷 불러오기
-ods = vaft.database.load(39915)
-
-# IMAS 구조 데이터를 직접 접근
-time = ods['magnetics.time']
-ip = ods['magnetics.ip.0.data']
+ods = vaft.omas.sample_ods()
+print(sorted(ods.keys()))
 ```
 
-### 프로파일 피팅
+그림을 그리는 첫 예제는 [시작 안내](https://vest-tokamak.github.io/vaft/workflows/start-here/)에 있습니다. 소스 설치와 운영체제별 환경 설정은 [install/README.md](install/README.md)를 참고하세요.
 
-<!-- docs-snippet: skip fragment (placeholder name geq is never defined on the page) -->
-```python
-# 톰슨 산란 데이터를 평형의 반경 좌표(기본 rho_tor_norm)에 매핑한 뒤 프로파일 피팅
-mapped = vaft.process.equilibrium_mapping_thomson_scattering(ods, geq)
-vaft.process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped, fitting_function_te='gp', fitting_function_ne='gp'
-)
-```
+## 자세한 문서
 
-### IMAS 변환
-
-```python
-# OMAS ODS ↔ IMAS-Python 데이터 엔트리 변환
-vaft.imas.save(ods, "./shot")
-```
-
-
-## 라이브러리 모듈
-
-```
-vaft/
-├── database/          # 원격 데이터베이스 접근(HSDS, raw SQL)
-├── machine_mapping/   # 장치 고유 진단 신호를 IDS로 변환(70개 이상 함수)
-├── formula/           # 물리 공식(평형, 안정성, Green 함수)
-├── process/           # 신호 처리, EM 모델링, 프로파일 피팅
-├── plot/              # 시각화(시간, 1D, 2D, 상면도, 분석)
-├── omas/              # ODS 유틸리티(샷 메타데이터, 샘플 데이터)
-├── imas/              # IMAS-Python(AL5) 상호운용성
-├── code/              # 코드 인터페이스(EFIT, CHEASE, GPEC, TES, TokaMaker, Snakemake)
-└── data/              # 샘플 데이터, 형상 자산, 보정 테이블
-```
-
-
-## 예제 노트북
-
-| 노트북 | 설명 |
-| --- | --- |
-| [database_initialization_and_load](notebooks/database_initialization_and_load.ipynb) | 핵심 데이터 로딩 및 프레임워크 기초 |
-| [plotting_sample_using_vaft_plot_module](notebooks/plotting_sample_using_vaft_plot_module.ipynb) | plot 모듈을 사용한 시각화 예제 |
-| [profile_fitting_using_equilibrium_and_kinetic_diagnostics](notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) | 톰슨/CES 매핑 및 프로파일 피팅 |
-| [read_and_convert_data_structure](notebooks/read_and_convert_data_structure.ipynb) | ODS/IMAS 데이터 구조 변환 |
-| [imas_omas_data_conversion](notebooks/imas_omas_data_conversion.ipynb) | IMAS ↔ OMAS 상호운용성 |
-| [vest_experimental_data_list](notebooks/vest_experimental_data_list.ipynb) | VEST 샷 데이터베이스 탐색 |
-| [confinement_time_scaling](notebooks/confinement_time_scaling.ipynb) | 에너지 가둠 시간 스케일링 분석 |
-| [vest_daily_monitoring](notebooks/vest_daily_monitoring.ipynb) | 일일 실험 모니터링 대시보드 |
-| [publication_figures](notebooks/publication_figures.ipynb) | 출판물 그림 재현 |
-| [verify_exist_shot_and_load](notebooks/verify_exist_shot_and_load.ipynb) | 샷 존재 여부 확인 및 TS/CX 데이터 불러오기 |
-| [tokamak_power_balance](notebooks/tokamak_power_balance.ipynb) | 토카막 전력 수지 및 복사 성분 분해 |
-| [verification_and_validation](notebooks/verification_and_validation.ipynb) | 검증 및 유효성 확인 예제 |
-| [soft_x_ray_signal_analysis](notebooks/soft_x_ray_signal_analysis.ipynb) | 연 X선 신호 분석 |
-| [analytic_island_model_and_synthetic_response_model](notebooks/analytic_island_model_and_synthetic_response_model.ipynb) | 평형 위에 놓은 해석적 자기섬과 합성 연 X선 응답 |
-| [equilibrium_refinement_using_chease](notebooks/equilibrium_refinement_using_chease.ipynb) | CHEASE를 이용한 평형 정교화 |
-| [forward_equilibrium_using_TES](notebooks/forward_equilibrium_using_TES.ipynb) | TES를 이용한 순방향 평형 재구성 |
-| [forward_equilibrium_using_TokaMaker](notebooks/forward_equilibrium_using_TokaMaker.ipynb) | TokaMaker(Open FUSION Toolkit)를 이용한 순방향 자유경계 평형 계산 |
-| [time_dependent_equilibrium_using_TokaMaker](notebooks/time_dependent_equilibrium_using_TokaMaker.ipynb) | TokaMaker를 이용한 진공용기 와전류·벽 고유모드·준정적 시간 전개 |
-| [free_boundary_pf_coil_scan](notebooks/free_boundary_pf_coil_scan.ipynb) | TokaMaker를 이용한 자유경계 PF 코일 스캔·토폴로지 전이 |
-| [kinetic_efit_end_to_end](notebooks/kinetic_efit_end_to_end.ipynb) | 엔드투엔드 kinetic-EFIT 워크플로 |
-
-
-## 관련 자료
-
-**이 저장소 안에서**
-
-- **튜토리얼 과정**: [`tutorial/`](tutorial/README.md) — 오프라인으로 시작하는 6개 세션
-- **예제 노트북**: [`notebooks/`](notebooks/README.md) — 주제별 연구 워크플로
-- **설치 및 환경**: [`install/`](install/README.md) — 플랫폼별 부트스트랩과 점검
-- **기여 안내**: [`CONTRIBUTING.md`](CONTRIBUTING.md) · **제3자 고지**: [`THIRD_PARTY_NOTICES.ko.md`](THIRD_PARTY_NOTICES.ko.md)
-
-**외부 자료**
-
-- **문서 사이트**: [vest-tokamak.github.io/vaft](https://vest-tokamak.github.io/vaft/)
-- **논문**: H.-S. Yun, S. Lee *et al*, "Developing an IMAS-compatible platform for the university-scale tokamak VEST and its application to operating characteristics analysis", *Plasma Phys. Control. Fusion* **67** 115021 (2025). [doi:10.1088/1361-6587/ae1b6a](https://doi.org/10.1088/1361-6587/ae1b6a)
-- **OMAS**: [gafusion.github.io/omas](https://gafusion.github.io/omas/) — IMAS 데이터 구조를 위한 Python API
-- **OMFIT**: [omfit.io](https://omfit.io/) — 통합 모델링 및 실험 데이터 분석 프레임워크
-- **HSDS**: [github.com/HDFGroup/hsds](https://github.com/HDFGroup/hsds) — HDF5 REST 기반 데이터 서비스
-- **IMAS**: [github.com/iterorganization/IMAS-Data-Dictionary](https://github.com/iterorganization/IMAS-Data-Dictionary) — ITER 통합 모델링 및 분석 도구 모음
-
-
-## 기여
-
-기여를 환영합니다. [이슈](https://github.com/VEST-Tokamak/vaft/issues)를 열거나 풀 리퀘스트를 제출해 주세요.
-
-데이터베이스 쓰기 권한은 [peppertonic18@snu.ac.kr, satelite2517@snu.ac.kr](mailto:peppertonic18@snu.ac.kr)로 문의하세요.
-
-
-## 감사의 글
-
-저자들은 기술적 조언을 제공한 General Atomics의 O Meneghini와 J McClenaghan에게 감사드립니다. 데이터 처리의 일부는 OMFIT 통합 모델링 프레임워크의 코드 API를 사용하여 수행되었습니다[1]. 이 연구는 한국 정부(MSIT)가 지원하는 한국연구재단(NRF) 연구비(RS-2021-NR057187, RS-2023-00281276, RS-2024-00409564, RS-2025-02304810)의 지원을 받았습니다.
-
-
+- [문서 사이트](https://vest-tokamak.github.io/vaft/) · [IMAS 개념](https://vest-tokamak.github.io/vaft/reference/imas-concepts/) · [데이터 접근](https://vest-tokamak.github.io/vaft/reference/database-data-sources/) · [평형 표현](https://vest-tokamak.github.io/vaft/develop/reference/equilibrium-representations/)
+- [튜토리얼](tutorial/README.md) · [노트북 목록](notebooks/README.md) · [기여 안내](CONTRIBUTING.md)
+- [논문 인용과 감사의 글](https://vest-tokamak.github.io/vaft/reference/vest-tokamak-physics/) · [참고 자료](https://vest-tokamak.github.io/vaft/reference/references/) · [제3자 고지](THIRD_PARTY_NOTICES.ko.md)

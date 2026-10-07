@@ -46,6 +46,7 @@ import numpy as np
 from vaft.formula.magnetics import project_poloidal_field
 from vaft.ods_access import path_count as _count
 from vaft.omas.vacuum_magnetics import FLUX_LOOP, select_vacuum_channels
+from vaft.validation.imas import VALIDITY_VALID, validity_mask
 
 __all__ = [
     "VALIDITY_HALF_WIDTH_S",
@@ -211,6 +212,30 @@ def _at(time_axis: np.ndarray, values: np.ndarray, t: float) -> np.ndarray:
     return np.array([np.interp(t, time_axis, row) for row in values]) if len(values) else np.zeros(0)
 
 
+def _measured_at(ods: Any, row: Mapping[str, Any], t0: float, min_validity: int) -> float:
+    """A selected channel's measurement at ``t0``, read from valid samples only.
+
+    Selection asks whether *any* sample in the validity window is usable (the
+    eddy-benchmark question); this point-in-time read asks the stricter one:
+    the two samples bracketing ``t0`` must themselves be valid, else the
+    interpolation would return the flagged value -- an integrator that railed
+    one sample before ``t0`` gave its rail, not the field (cold review 0.8.0
+    delta-absorb-19 F2).  An ODS carrying no validity accepts every sample.
+    """
+    node = f"magnetics.{row['kind']}.{row['index']}.{'flux' if row['kind'] == FLUX_LOOP else 'field'}"
+    time, data = np.asarray(row["time"], dtype=float), np.asarray(row["data"], dtype=float)
+    accepted = validity_mask(ods, node, min_validity=min_validity)
+    if accepted.size != time.size:
+        accepted = np.full(time.size, bool(accepted.all()))
+    after = int(np.searchsorted(time, t0))
+    bracket = {after} if after < time.size and time[after] == t0 else {after - 1, after}
+    if not all(accepted[i] for i in bracket):
+        raise ValueError(f"{row['name']} is invalid at {t0} s (a bracketing sample is below validity "
+                         f"{min_validity}); pass channels= to exclude it")
+    # anti-alias: a point read at t0 between two valid samples, no sample rate is reduced
+    return float(np.interp(t0, time[accepted], data[accepted]))
+
+
 def decompose_magnetic_response(
     ods: Any,
     time: float,
@@ -306,7 +331,8 @@ def decompose_magnetic_response(
     for row in rows:
         if not (row["time"][0] <= t0 <= row["time"][-1]):
             raise ValueError(f"time {t0} s is outside the {row['name']} grid")
-    measured = np.array([float(np.interp(t0, row["time"], row["data"])) for row in rows])
+    measured = np.array([_measured_at(ods, row, t0, VALIDITY_VALID if min_validity is None else min_validity)
+                         for row in rows])
     if not np.isfinite(measured).all():
         bad = [row["name"] for row, v in zip(rows, measured) if not np.isfinite(v)]
         raise ValueError(f"non-finite measured signal at {t0} s on {bad}; pass channels= to exclude them")

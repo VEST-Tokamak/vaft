@@ -362,13 +362,13 @@
     },
     "fusion_research_ecosystem.svg": {
       "call": "vaft.diagram.fusion_research_ecosystem()",
-      "source_sha256": "889b7d46b2353f86d161e568d56a279d2e2855133d7ff872115e296f7375dfb6",
-      "svg_sha256": "7ff16857d11ef24caaa9df7af396321f6cb20d44d58930a2f65ca3368bb75992"
+      "source_sha256": "a5f900b6f9590145f7c5964609d785eb187a1f9e560da2a5bb84ac7d91492f8c",
+      "svg_sha256": "0e51b27478ccfdc8bdeb76e498ca30e84a37667a582f186863467c72917cca3d"
     },
     "fusion_research_ecosystem_presentation.svg": {
       "call": "vaft.diagram.fusion_research_ecosystem(detail='presentation')",
-      "source_sha256": "15709df6beca7579eeed832406dd504c665d8e4eda12df6b2c9ecb968ac93fb5",
-      "svg_sha256": "fd0757c08133fa3eabde59030311651151d9dd1e0467b76d9d73aefe622a42e5"
+      "source_sha256": "9a6b906cef0944a8a90145f4707876e567b5d6430d2ab5fbfa81c5f4f9d40030",
+      "svg_sha256": "fcd39796ee0300212d5d7dc8fe7568a5f6da0bd19419147fada8ec2cfd5390b8"
     },
     "fusion_science_knowledge_lifecycle.svg": {
       "call": "vaft.diagram.fusion_science_knowledge_lifecycle()",
@@ -654,6 +654,11 @@
       "call": "vaft.diagram.o_mode_cutoff()",
       "source_sha256": "10a55ba7515dbba60bd0cb8ec83e68de888754f606310f71cb72f72bde410865",
       "svg_sha256": "f991d004e0ac0cb3aa1c61af4286f7626200c27573a737ee2757377d2310eecb"
+    },
+    "ordering_contract_map.svg": {
+      "call": "vaft.diagram.ordering_contract_map()",
+      "source_sha256": "ab708de13fa36bb7a16579090c1c6f254c451a76d882af3ff5ff88f4ea877024",
+      "svg_sha256": "15018ae3717e8268abe01222afe99cad4f3cf3997be6006a1fbc1008124514a5"
     },
     "parameter_inference_dependency_graph.svg": {
       "call": "vaft.diagram.parameter_inference_dependency_graph(references=True)",

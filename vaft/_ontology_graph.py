@@ -316,10 +316,14 @@ def _plots(graph: _Graph) -> None:
 
 
 def _diagnostics(graph: _Graph) -> None:
-    from vaft.machine_mapping.registry import load_diagnostic_registry
+    from vaft.machine_mapping.registry import load_diagnostic_registry, validate_diagnostic_registry
+    from vaft.plot import taxonomy
 
     origin = "vaft.machine_mapping.registry"
     records = load_diagnostic_registry()
+    # A record's `subject` must be a vocabulary subject; the registry loader does not
+    # know the vocabulary (machine_mapping never imports vaft.plot), so check it here.
+    validate_diagnostic_registry(records, subjects=taxonomy.SUBJECTS)
     # Identity is the record's declared taxonomy `subject`, never a spelling match: a
     # record that alone names its subject *is* that diagnostic; several records naming
     # one subject (magnetics.ip, magnetics.internal_probe, ...) are parts of it.
@@ -433,18 +437,32 @@ def _external_codes(graph: _Graph) -> None:
 
 
 def _ambiguous_aliases(graph: _Graph) -> None:
-    """An alias that is also another node's own name identifies nothing; drop and audit it."""
-    names: dict[str, set] = {}
+    """An alias that identifies two different subjects identifies nothing; drop and audit it.
+
+    Ids are namespaced, so an alias may share its bare spelling with a node of
+    another kind (``tf`` is an alias of ``machine:tf_coil`` and the name of
+    ``ids:tf``): the alias still resolves to exactly one subject.  What makes an
+    alias ambiguous is resolving elsewhere -- two nodes claiming it, or the
+    vocabulary resolving it to a different concept than the node that lists it.
+    """
+    claims: dict[str, set] = {}
     for node in graph.nodes.values():
-        names.setdefault(node["id"].split(":", 1)[1], set()).add(node["id"])
+        for alias in node["facets"].get("aliases") or []:
+            claims.setdefault(alias, set()).add(node["id"])
     for node in graph.nodes.values():
         aliases = node["facets"].get("aliases") or []
-        kept = [alias for alias in aliases if not (names.get(alias, set()) - {node["id"]})]
-        for alias in sorted(set(aliases) - set(kept)):
-            graph.miss(alias, node["origins"][0],
-                       f"alias of {node['id']} also names {', '.join(sorted(names[alias] - {node['id']}))}")
-        if aliases:
-            node["facets"]["aliases"] = kept
+        if not aliases:
+            continue
+        kept = []
+        for alias in aliases:
+            resolved = resolve_term(alias)
+            others = (claims[alias] - {node["id"]}) | ({resolved} if resolved not in (None, node["id"]) else set())
+            if others:
+                graph.miss(alias, node["origins"][0],
+                           f"alias of {node['id']} also identifies {', '.join(sorted(others))}")
+            else:
+                kept.append(alias)
+        node["facets"]["aliases"] = kept
 
 
 def _views(graph: _Graph) -> None:
