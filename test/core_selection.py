@@ -196,6 +196,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Dimensionless-similarity spaces (#1624): conventions never mix, missing
     # inputs are counted not imputed. Pure NumPy and Agg.
     "test_dimensionless_similarity.py",
+    # The equilibrium-state adapter (#1620) builds those tables from the packaged
+    # VEST sample and must give the atlas base table's numbers, ~10 s.
+    "test_equilibrium_state.py",
     "test_li_qa.py",
     "test_operational_space.py",
     # Diagram physics: every drawn O-point, drift and field is the formula's.
