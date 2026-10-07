@@ -285,7 +285,13 @@ def test_a_data_path_is_read_without_creating_it():
         tools.inspect_data_path("equilibrium.time_slice.*.global_quantities.q_95", shot=39915)
 
 
-def test_time_matching_refuses_what_it_cannot_match():
+def test_time_matching_refuses_what_it_cannot_match(monkeypatch):
+    # An unmatchable time or tolerance is refused before the whole-shot
+    # extraction, which costs seconds per call (cold review 0.8.0 tests F4).
+    import vaft.database._summary
+
+    monkeypatch.setattr(vaft.database._summary, "extract_equilibrium_global",
+                        lambda *a, **k: pytest.fail("extracted the shot before validating the arguments"))
     for time, tolerance in ((float("nan"), None), (0.32, float("nan")), (0.32, float("inf")), (0.32, 0.0)):
         with pytest.raises(tools.ToolInputError):
             tools.get_equilibrium_summary(shot=39915, time=time, tolerance=tolerance)
