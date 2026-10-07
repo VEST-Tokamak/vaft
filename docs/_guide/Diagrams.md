@@ -2027,7 +2027,7 @@ References:
 
 Follow-up TODOs (implementation or IMAS mapping):
 
-- Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is in progress in Lane L / Lane Z (#1565, #1566, PR #1659) and is not on develop.
+- Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is on develop as resolve_radial_composition(normalization='resistive_closure') (#1565, #1566, PR #1659); this diagram still draws the scalar resistive closure only.
 - Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an explicit assumption (#553).
 - Provenance is recorded per quantity where it exists (core_profiles origin=...; method=... records for composition, the T_i result's origin/method fields); there is no single runtime provenance object, by design (#1601 is documentation-first).
 

@@ -45,6 +45,17 @@ def _canonical_urls() -> set[str]:
     }
 
 
+# --- stale branch-state claims -----------------------------------------------
+
+
+def test_the_inference_page_does_not_call_the_merged_zeff_chain_unmerged():
+    # cold review 0.8.0 delta-absorb-17 species-docs F5: PR #1659 (resolve_radial_composition with
+    # normalization="resistive_closure") merged before the page landed
+    page = (DOCS / "_guide" / "Plasma_parameter_inference.md").read_text(encoding="utf-8")
+    assert "Not on `develop` yet" not in page and "in progress" not in page.lower()
+    assert 'normalization="resistive_closure"' in page
+
+
 # --- navigation and redirects ------------------------------------------------
 
 

@@ -532,7 +532,8 @@ _SPECS = (
                ("resistive", "state", ""), ("state", "simulation", "")),
         side=(("assumptions", "reconstructed"), ("fitting", "reconstructed")),
         todos=("Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive "
-               "closure) is in progress in Lane L / Lane Z (#1565, #1566, PR #1659) and is not on develop.",
+               "closure) is on develop as resolve_radial_composition(normalization='resistive_closure') "
+               "(#1565, #1566, PR #1659); this diagram still draws the scalar resistive closure only.",
                "Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an "
                "explicit assumption (#553).",
                "Provenance is recorded per quantity where it exists (core_profiles origin=...; method=... records "
