@@ -115,6 +115,8 @@ DEFINITIONAL = frozenset({
     "register_augmentation",
     "register_loss",
     "save_dataset",
+    # core_q_context (#1798): connected |s| < threshold intervals -- pure geometry.
+    "low_shear_regions",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
@@ -272,6 +274,10 @@ PIPELINE = frozenset({
     "split_groups",
     "train_model",
     "window_dataset",
+    # core_q_context (#1798): |q| -> radius and shear -> landmarks and shape ->
+    # rational crossings and pairs -> low-shear regions -> enclosed pressure
+    "core_q_context_from_profiles",
+    "core_q_context",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -672,6 +678,10 @@ CONVENTION_SENSITIVE = frozenset({
     "dcon_local_stability",
     "dcon_edge_scan",
     "dcon_edge_comparison",
+    # core_q_context (#1798): |q| resonance with the source sign kept, shear in the
+    # named radial coordinate, q_boundary only on a limited boundary.
+    "core_q_context_from_profiles",
+    "core_q_context",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

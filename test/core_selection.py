@@ -347,6 +347,9 @@ CORE_MODULES: tuple[str, ...] = (
     # records, the generic impossibilities, serialization and CGYRO's derived
     # #1353 record. Pure Python, ~3 s.
     "test_plasma_formalism.py",
+    # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
+    # profiles with known answers and the packaged 39915 slice. Under 15 s.
+    "test_core_q_context.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
