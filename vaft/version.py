@@ -66,8 +66,11 @@ __all__ = ["__version__"]
 #   BREAKING: a magnetics processing override applies ON TOP of the shot's
 #   era policy; a shadowed legacy key set off its default, and time_start/
 #   time_end/sample_count without window_override, are refused (#1541,
-#   #1729, #1766); VFIT Wkin maps to energy_mhd and li_3 follows the IMAS
-#   definition, so VFIT-derived W and li_3 change (#1771, #1775)
+#   #1729, #1766); VFIT Wkin maps to energy_mhd, the GSE li_3 is built
+#   from Wmag and the FEM li_3 is renormalised to R0 and to the slice ip,
+#   so VFIT-derived W and li_3 change (#1771, #1775, #1812); the EFIT
+#   not-applicable verdict judges CUTIP on the box-averaged current
+#   (#1792); flux loops #14/#15 are faults during plasma (#1796)
 # - startup: Romero's exact plasma-transformer identities and first-order
 #   current-diffusion closure, loop voltage at the boundary with its
 #   inductive part, Townsend coefficients for H2/He/Ar, the burn-through
@@ -194,7 +197,9 @@ __all__ = ["__version__"]
 #   the accel extra (#1007, #1012); omas 0.95.2 (an ODS is unhashable);
 #   vaft.help() and `vaft help` (#1203); `vaft shotlog`, `vaft hsds
 #   configure`, `vaft pipeline-worker`, `vaft gui`, `python -m vaft.mcp`;
-#   the architecture extra (grimp, #1646); wheel ~25.9 MiB, cap 26 MiB
+#   the architecture extra (grimp, #1646); the 39915 sample ships in its
+#   OMAS form only, the IMAS netCDF twin is repository-only, so the wheel
+#   is ~16.6 MiB under the 26 MiB cap (#1806)
 # - docs and tutorials: source-synchronised API reference with
 #   revision-pinned source links (#162, #1069), generated plot/diagram
 #   catalogs with a coverage gate, the Formula / Process / Code layers and
@@ -228,15 +233,17 @@ __all__ = ["__version__"]
 #   carry slow-DAQ magnetics and must be regenerated with everything
 #   derived from them (#1731); products for shots >= 43017 built before
 #   0.8.0 differ from the release mapper (regeneration note in
-#   DEPLOYMENT.md); species_state_from_composition rejects a bundled-ion
-#   composition and the credibility adapter keys "fitted flux" on the
-#   grade status (#1791 open); a forwarded remote-backend variable equal
-#   to the laptop's is dropped from job.sh (decision pending); five
+#   DEPLOYMENT.md); EFIT dirs mixed across runs and 210 HSDS products
+#   with stale-instant slices (#1786; generate_kfile now keeps one
+#   superseded generation per shot, #1812); a forwarded remote-backend
+#   variable equal to the laptop's is dropped from job.sh (decision
+#   pending); five
 #   non-era-coupled legacy magnetics keys still apply; the EC launcher is
 #   absent from the top and 3-D views; CHEASE not-launchable is recorded
 #   skipped; the inferred-T_i sigma floor borrows #874's 17 %; the #1644
 #   notebook cell 12 is stale; three pipeline-3 sheet tests wait for
-#   regenerated xlsx; imas.nc ships twice and wheel_samples is sdist dead
-#   weight; the Takizuka L-H gamma is not reachable through
+#   regenerated xlsx; the multi-machine op-space notebook outputs were
+#   cleared pending a networked re-run (#1813); the Takizuka L-H gamma is
+#   not reachable through
 #   boundary_value; #926, #927, #825 and #1338 remain open
 

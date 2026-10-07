@@ -44,6 +44,11 @@ _TWO_PI = _psi_to_internal()
 # this basis too.
 _VFIT_R0 = 0.4
 
+# Sanity window for an imported li_3: outside it the value is a degenerate
+# slice (a closed region holding almost no current, 1.5e9 on the 44780 donor
+# at 296 ms), not an inductance.
+_LI_3_MAX = 10.0
+
 
 def _native(value: Any) -> Any:
     """Turn scipy's MATLAB objects into plain dictionaries and ndarrays."""
@@ -229,16 +234,21 @@ class VFITResult:
         ods["equilibrium.code.name"] = "VFIT"
         ods["equilibrium.code.version"] = "MAT import"
 
+        notes: list[str] = []
         for source_index, time in enumerate(self.times):
             destination = time_index + source_index
             if self.kind == "gse":
                 self._gse_slice(ods, destination, source_index, float(time))
             else:
-                self._fem_slice(ods, destination, source_index, float(time))
+                self._fem_slice(ods, destination, source_index, float(time), notes)
             try:
                 ods.set_time_array("equilibrium.time", destination, float(time))
             except Exception:
                 ods[f"equilibrium.time.{destination}"] = float(time)
+        if notes:
+            # Provenance of a leaf that is NOT there: the comment is the only
+            # free-text leaf of the IDS a consumer reads.
+            ods["equilibrium.ids_properties.comment"] += "; " + "; ".join(notes)
 
         if include_pf_passive:
             self._pf_passive(ods)
@@ -635,7 +645,7 @@ class VFITResult:
                 )
 
     def _fem_slice(
-        self, ods: Any, destination: int, source_index: int, time: float
+        self, ods: Any, destination: int, source_index: int, time: float, notes: list[str]
     ) -> None:
         contour = _field(self.raw, "Contour")
         shape = _field(self.raw, "ConstShape")
@@ -658,21 +668,47 @@ class VFITResult:
             "Profile.J",
         )
         self._write_profiles(eqt, psin, psi_axis, psi_boundary, q, j_tor=current)
-        # The FEM post-processing computes Lint = 4 W_mag / (mu0 I^2 Rmag),
-        # W_mag = int Bp^2 dV / (2 mu0) and I the current inside the closed
-        # surfaces (IpReconstructedClosed, not ConstMHD.Ip): the li_3 form
-        # normalised by the magnetic axis. Only the radius is changed here.
+        # The FEM post-processing computes Lint = 4 W_mag / (mu0 Ic^2 Rmag),
+        # W_mag = int Bp^2 dV / (2 mu0) and Ic the current inside the closed
+        # surfaces (IpReconstructedClosed, not ConstMHD.Ip): the li_3 form,
+        # but normalised by the magnetic axis and by the closed-surface
+        # current. IMAS li_3 = 2 int Bp^2 dV / (mu0^2 Ip^2 R0) with Ip the
+        # slice's own global_quantities.ip, which is what a reader inverts it
+        # with (vaft.omas.formula_wrapper, vaft.formula.startup). (Ip/Ic)^2 is
+        # 1.2-12.6 on the 44780 donor series, so the current is renormalised
+        # too; without Ic, or with Ic or Ip zero, the value is not invertible
+        # and is left unset with a note in ids_properties.comment.
         lint = _slice_field(
             mhd, "Lint", source_index, self.time_count, required=False, axis=0
         )
+        closed = _slice_field(
+            mhd, "IpReconstructedClosed", source_index, self.time_count, required=False, axis=0
+        )
         if lint is not None:
-            li_3 = (
-                _scalar(lint, "ConstMHD.Lint")
-                * float(eqt["global_quantities.magnetic_axis.r"])
-                / _VFIT_R0
-            )
-            if np.isfinite(li_3):
+            ip = float(eqt["global_quantities.ip"])
+            li_3 = np.nan
+            if closed is None:
+                notes.append(f"li_3 left unset at t={time:.4f} s: IpReconstructedClosed is absent")
+            else:
+                ic = _scalar(closed, "ConstMHD.IpReconstructedClosed")
+                if ic == 0.0 or ip == 0.0 or not np.isfinite(ic) or not np.isfinite(ip):
+                    notes.append(
+                        f"li_3 left unset at t={time:.4f} s: closed-surface current {ic:g} A"
+                        f" or plasma current {ip:g} A is zero or not finite"
+                    )
+                else:
+                    li_3 = (
+                        _scalar(lint, "ConstMHD.Lint")
+                        * float(eqt["global_quantities.magnetic_axis.r"])
+                        / _VFIT_R0
+                        * (ic / ip) ** 2
+                    )
+            if np.isfinite(li_3) and 0.0 < li_3 < _LI_3_MAX:
                 eqt["global_quantities.li_3"] = float(li_3)
+            elif closed is not None and np.isfinite(li_3):
+                notes.append(
+                    f"li_3 left unset at t={time:.4f} s: {li_3:g} is outside (0, {_LI_3_MAX:g})"
+                )
 
     def _gse_slice(
         self, ods: Any, destination: int, source_index: int, time: float

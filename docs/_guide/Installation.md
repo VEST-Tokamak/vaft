@@ -82,7 +82,9 @@ used to recover.
 
 ## 2. Produce the first offline result
 
-The packaged sample follows the same OMAS/IMAS paths as a VEST shot:
+The packaged sample follows the same OMAS/IMAS paths as a VEST shot. A `pip install vaft` ships
+shot 39915 in its OMAS form only (`omas.json.gz`, read by both `vaft.omas.load` and `vaft.imas.load`);
+its IMAS netCDF twin, `vaft.data.sample(39915, representation="imas")`, needs a repository checkout.
 
 ```python
 import matplotlib.pyplot as plt

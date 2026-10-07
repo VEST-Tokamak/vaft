@@ -119,6 +119,8 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
+    "mode_frequency_tracks",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -139,6 +141,9 @@ PIPELINE = frozenset({
     # species (#1567): match -> nuclide/charge/population per ion -> state
     "species_state_from_core_profiles",
     "project_species_state",
+    # kinetic_closure (#1606): v_c -> tau_s -> n_f, W_f -> p_f; slice -> composition -> pressures
+    "fast_ion_slowing_down_estimate",
+    "infer_kinetic_closure",
     # zeff_projection (#1566): R_p of the profile -> root / Lane Z's window objective
     "project_zeff_profile_to_resistive_scalar",
     "project_window_to_resistive_scalar",
@@ -307,6 +312,8 @@ STATEFUL = frozenset({
     "surface_composition_profile",
     # species (#1567): a core_profiles slice -> canonical components
     "species_state_from_core_profiles",
+    # kinetic_closure (#1606): a fitted slice -> derived kinetic densities and pressures
+    "infer_kinetic_closure",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
@@ -345,6 +352,9 @@ CONVENTION_SENSITIVE = frozenset({
     "resolve_rational_surface",
     # #506: |q| = |m/n| resonance; rho_tor_norm never rebuilt from psi_norm
     "rational_surfaces",
+    # #460: |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
+    # a velocity divided by R_out of the surface (never R_axis)
+    "mode_frequency_tracks",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",
@@ -642,6 +652,9 @@ CONVENTION_SENSITIVE = frozenset({
     "resolve_radial_composition",
     "populate_radial_impurity_profiles",
     "surface_composition_profile",
+    # kinetic_closure (#1606): thermal and fast never share a field; the legacy fallback
+    "assemble_pressure",
+    "infer_kinetic_closure",
     # zeff_projection (#1566): same model, states and objective on both sides
     "profile_conductivity_model",
     "spitzer_resistive_equivalent_zeff",

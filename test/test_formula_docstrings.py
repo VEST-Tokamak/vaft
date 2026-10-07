@@ -99,6 +99,8 @@ CONVENTION_SENSITIVE = frozenset({
     "ggj_resistive_interchange_index",
     "magnetic_well_from_specific_volume",
     "bussac_internal_kink_energy",
+    # moves by (2 pi)^2 with the flux label: psi must be per radian (#1637)
+    "ballooning_alpha_from_volume",
     # the growth rate is in Alfven units v_A/(qR); Dirichlet ends on the extended angle (#1075)
     "s_alpha_ballooning_eigenmode",
     "ballooning_radial_wavenumber",
@@ -246,6 +248,8 @@ CONVENTION_SENSITIVE = frozenset({
     "cylindrical_enclosed_current",
     "cylindrical_poloidal_flux",
     "cylindrical_internal_inductance",
+    "cylindrical_current_diffusion_rate",
+    "resistive_diffusion_time",
     # single-particle motion: charge signs, vector orientation, half-step velocities
     "gyrofrequency",
     "larmor_radius",

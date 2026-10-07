@@ -380,6 +380,14 @@ def ballooning_alpha_from_p_B_R(p: Union[float, np.ndarray],
     ``numpy.gradient`` along the supplied axis (second-order interior, first-order
     ends), sign-sensitive to the direction of ``R``.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: differential
+    locality: flux_surface_local
+    role: stability_coordinate
+
     References
     ----------
     .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40
@@ -627,6 +635,14 @@ def greenwald_fraction(n_e: float,
     used in the Greenwald database; a volume average gives a systematically
     lower fraction.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: regime_coordinate
+
     References
     ----------
     .. [1] M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27, Sec. 2.
@@ -661,8 +677,9 @@ def power_limit_from_beta(beta_N: float,
 
     Limitations
     -----------
-    $\beta B_0^2V/2\mu_0$ is the stored energy at beta $\beta$
-    (:func:`vaft.formula.equilibrium.stored_energy_from_beta_V`), not a power;
+    $\beta B_0^2V/2\mu_0$ is the pressure volume integral $\langle p\rangle V$
+    at beta $\beta$ (:func:`vaft.formula.equilibrium.stored_energy_from_beta_V`),
+    two thirds of the thermal energy, and not a power;
     no time scale enters, and no source records what limit was intended.  Kept
     for compatibility.  Tracked in #362.
 
@@ -1101,6 +1118,14 @@ def kadomtsev_mixing_radius(r, q):
     Complete (Kadomtsev) reconnection in a cylinder; large aspect ratio.
     Many sawteeth reconnect only partly, so $r_\mathrm{mix}$ is an upper bound
     on the region a real crash flattens.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: scalar_0d
+    kind: feature_extraction
+    locality: global
+    role: profile_descriptor
 
     References
     ----------
@@ -1597,6 +1622,14 @@ def rhostar_from_Te_a_Bt(Te_eV: float,
     ``m_e`` argument it accepted -- so the result was neither dimensionless nor
     proportional to $\rho_*$ across devices, and no rescaling recovered it. The
     dead ``m_e`` parameter is gone with the defect.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
 
     References
     ----------

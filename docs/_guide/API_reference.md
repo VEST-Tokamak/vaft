@@ -863,3 +863,5 @@ Browse the package on GitHub: [`vaft/`](https://github.com/VEST-Tokamak/vaft/tre
 * [Formula reference]({{ site.baseurl }}/reference/formula/) — every `vaft.formula` function with definition, units, conventions and references.
 * [Magnetics]({{ site.baseurl }}/guide/Magnetics/) — plotting the magnetics IDS.
 * [Examples]({{ site.baseurl }}/guide/examples/) — the notebook index.
+
+What these objects mean scientifically -- which concept a plot draws, which diagnostic measures it, which Data Dictionary path represents it -- is generated in the [scientific ontology explorer]({{ site.baseurl }}/reference/ontology/).

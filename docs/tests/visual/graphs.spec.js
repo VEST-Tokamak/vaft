@@ -182,6 +182,41 @@ test('selecting a stage shows what it owns and where it is published, offline', 
   expect(remote.filter((url) => /hsds|:5101/.test(url))).toEqual([]);
 });
 
+// The scientific ontology explorer (#1702).
+
+async function openOntology(page, hash = '') {
+  await page.goto(`reference/ontology/${hash}`);
+  await expect(count(page)).toContainText(/\d+ nodes/);
+}
+
+test('the ontology explorer opens on the compact concepts view', async ({ page }) => {
+  await openOntology(page);
+  await expect(page.locator('input[name="vg-view"][value="concepts"]')).toBeChecked();
+  const kinds = await page.evaluate(() => document.querySelector('.vg-root').vaftGraph.cy.nodes().map((n) => n.data('kind')));
+  expect(kinds).toContain('concept');
+  expect(kinds).not.toContain('dd_path');
+});
+
+test('an alias resolves to its canonical concept, and a family member stays itself', async ({ page }) => {
+  await openOntology(page);
+  await search(page, 'I_p');
+  await expect(page.locator('.vg-title')).toHaveText('plasma_current');
+  await expect(page.locator('.vg-details')).toContainText('Aliases');
+  await search(page, 'beta_n');
+  await expect(page.locator('.vg-title')).toHaveText('beta_n');
+  await expect(page.locator('.vg-details')).toContainText('member of');
+});
+
+test('the representations view shows where a concept lives in the Data Dictionary', async ({ page }) => {
+  await openOntology(page, '#view=representations&focus=concept:plasma_current');
+  await expect(page.locator('.vg-details')).toContainText('magnetics/ip(:)/data');
+  const ids = await shownIds(page);
+  expect(ids).toContain('dd:magnetics/ip(:)/data');
+});
+
+test('the assessment view links a concept to the check that assesses it', async ({ page }) => {
+  await openOntology(page, '#view=assessment&focus=concept:plasma_current');
+  await expect(page.locator('.vg-details')).toContainText('diagnostic_fit.ip');
 test('in-site navigation between the explorers leaks no handlers or dividers', async ({ page }) => {
   await page.goto('workflows/start-here/');
   for (const label of ['Dependency explorer', 'Pipeline lineage explorer', 'Dependency explorer']) {

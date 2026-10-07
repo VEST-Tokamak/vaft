@@ -124,6 +124,11 @@ def validate_diagnostic_registry(registry: Mapping[str, Mapping[str, Any]]) -> N
                 raise DiagnosticRegistryError(f"{context}: responsible people require names")
             if "email" in person and not _EMAIL.fullmatch(str(person["email"])):
                 raise DiagnosticRegistryError(f"{context}: invalid responsible email")
+        if "subject" in record:
+            from vaft.plot.taxonomy import SUBJECTS
+
+            if record["subject"] not in SUBJECTS:
+                raise DiagnosticRegistryError(f"{context}: subject {record['subject']!r} is not a vaft.plot.taxonomy subject")
         source = record["source"]
         if not isinstance(source, Mapping) or not isinstance(source.get("type"), str):
             raise DiagnosticRegistryError(f"{context}: source requires a type")

@@ -290,7 +290,7 @@ end
 { "Plot_reference.md" => "plot_catalog.yml", "Diagram_reference.md" => "diagram_catalog.yml",
   "Api_reference_core.md" => "api_catalog.yml", "Dependency_graph.md" => "dependency_graph.yml",
   "Pipeline_graph.md" => "pipeline_graph.yml", "External_codes.md" => "ecosystem.yml",
-  "Software_dependencies.md" => "ecosystem.yml" }.each do |page, snapshot|
+  "Software_dependencies.md" => "ecosystem.yml", "Ontology.md" => "ontology_graph.yml" }.each do |page, snapshot|
   next unless (ROOT / "_guide" / page).file?
   errors << "_guide/#{page} is published but _data/#{snapshot} was not generated (declare its generator in generators.yml)" unless (ROOT / "_data" / snapshot).file?
 end
@@ -427,6 +427,49 @@ if (ROOT / "_data" / "ecosystem.yml").file?
     errors << "/reference/external-codes/ renders #{rendered.sort.inspect}, not the catalog's #{code_ids.sort.inspect}" unless rendered.sort == code_ids.sort
   else
     errors << "/reference/external-codes/ is not built"
+  end
+end
+
+# The scientific ontology explorer (#1702): the receipt, provenance and
+# endpoint checks the other graphs have, plus its own contract -- namespaced
+# unique ids, every edge between known nodes and of a declared relation, and
+# every internal link a node carries pointing at a built page.
+if (ROOT / "_data" / "ontology_graph.yml").file?
+  onto = data("ontology_graph.yml")
+  %w[schema_version generator source kinds relations views nodes edges unresolved].each do |field|
+    errors << "ontology snapshot missing #{field}" unless onto.key?(field)
+  end
+  check_snapshot_sources(errors, "ontology", onto, registry_source)
+  onto_commit = onto.dig("provenance", "commit").to_s
+  errors << "ontology was generated from #{onto_commit[0, 7]}, but this track is built from #{SITE_PROVENANCE['commit'].to_s[0, 7]}" unless SITE_PROVENANCE["commit"].to_s.empty? || onto_commit == SITE_PROVENANCE["commit"].to_s
+  onto_ids = onto.fetch("nodes", []).map { |node| node["id"] }
+  errors << "ontology repeats node ids" unless onto_ids.uniq.size == onto_ids.size
+  kinds = onto.fetch("kinds", {}).keys.to_set
+  onto.fetch("nodes", []).each do |node|
+    prefix = node["id"].to_s.split(":", 2).first
+    expected = node["kind"] == "dd_path" ? "dd" : node["kind"]
+    errors << "ontology node #{node['id']} is not namespaced by its kind #{node['kind']}" unless prefix == expected && kinds.include?(node["kind"])
+  end
+  relations = onto.fetch("relations", {}).keys.to_set
+  known_onto = onto_ids.to_set
+  onto.fetch("edges", []).each do |edge|
+    errors << "ontology edge #{edge['source']} -> #{edge['target']} has undeclared relation #{edge['kind']}" unless relations.include?(edge["kind"])
+    errors << "ontology edge #{edge['source']} -> #{edge['target']} names an unknown node" unless known_onto.include?(edge["source"]) && known_onto.include?(edge["target"])
+  end
+  onto.fetch("nodes", []).flat_map { |node| %w[plot_url api_url code_url diagnostics_url].map { |key| node.dig("facets", key) } }
+    .compact.map(&:to_s).reject(&:empty?).map { |url| url.split("#").first }.uniq.each do |url|
+    errors << "ontology links to #{url}, which is not built" unless output_path("#{BASEURL}#{url}")
+  end
+  endpoint = output_path("#{BASEURL}/assets/graph/ontology-graph.json")
+  if endpoint.nil?
+    errors << "assets/graph/ontology-graph.json is not built"
+  else
+    begin
+      served = JSON.parse(endpoint.read(encoding: "UTF-8"))
+      errors << "assets/graph/ontology-graph.json does not serve the generated snapshot" unless served.is_a?(Hash) && served["nodes"].to_a.size == onto_ids.size && served["edges"].to_a.size == onto.fetch("edges", []).size
+    rescue JSON::ParserError => error
+      errors << "assets/graph/ontology-graph.json is not JSON: #{error.message[0, 120]}"
+    end
   end
 end
 
