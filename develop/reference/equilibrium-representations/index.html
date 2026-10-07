@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8b2e2b3</code>. What is described
+  <code>bf8fa55</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -687,6 +687,42 @@ Reading a solver’s angle (<code class="language-plaintext highlighter-rouge">s
 from the equilibrium (<code class="language-plaintext highlighter-rouge">straight_field_line_map</code>).</p>
 
 <h2 id="the-hierarchy-in-vaft">The hierarchy in VAFT</h2>
+
+<p><code class="language-plaintext highlighter-rouge">EquilibriumData</code> is a single-slice, axisymmetric working model for numerical
+algorithms, not a persistence format. GEQDSK, ODS, and native IDS remain the
+storage and interchange records. A <code class="language-plaintext highlighter-rouge">DerivedValue</code> records its SI unit,
+definition, source fields, convention, method, tolerances, and quality; missing
+or ambiguous inputs produce an unavailable value with a reason. VAFT does not
+guess one COCOS index when observable signs admit several.</p>
+
+<p>The normalized radial coordinates are
+$\psi_N=(\psi-\psi_{axis})/(\psi_{boundary}-\psi_{axis})$,
+$\rho_{pol,N}=\sqrt{\psi_N}$, and
+$\rho_{tor,N}=\sqrt{\int q\,d\psi/\int_{boundary}q\,d\psi}$.
+A non-monotonic toroidal-flux mapping is reported, rather than repaired by
+taking absolute values. Shape descriptors use
+<code class="language-plaintext highlighter-rouge">major_radius=(R_out+R_in)/2</code>; the LCFS area centroid is recorded separately
+because it is the radius needed for Pappus’s volume theorem. Poloidal-field
+calculations honor the COCOS <code class="language-plaintext highlighter-rouge">e_Bp</code> factor, so <code class="language-plaintext highlighter-rouge">beta_p</code> and <code class="language-plaintext highlighter-rouge">li</code> agree across
+Wb and Wb/rad representations.</p>
+
+<p>Local Miller fits report RMS, maximum, and Hausdorff contour errors. Fits near
+the separatrix (<code class="language-plaintext highlighter-rouge">psi_n &gt;= 0.995</code>) or within <code class="language-plaintext highlighter-rouge">0.05a</code> of an X-point are flagged
+because the local form is unreliable there. The analytic Solov’ev model assumes
+axisymmetric constant-<code class="language-plaintext highlighter-rouge">p'</code> and constant-<code class="language-plaintext highlighter-rouge">FF'</code> solutions; it is an example and
+regression model rather than a general experimental equilibrium solver. Edge
+<code class="language-plaintext highlighter-rouge">dRsep</code> is the upper-minus-lower X-point flux-surface radius at the outboard
+midplane, and is reported only for diverted configurations.</p>
+
+<p>Boundary topology is inferred from the flux map without machine-specific
+geometry. Stationary points are classified by the Hessian determinant; a
+saddle becomes an active X-point only if its flux matches the boundary within
+a curvature- and grid-dependent window and the confined region reaches it.
+Irrelevant numerical saddles remain in <code class="language-plaintext highlighter-rouge">x_points</code> with <code class="language-plaintext highlighter-rouge">active=False</code>.
+A diverted boundary yields upper single-null, lower single-null, or
+double-null topology. A wall-contacting LCFS without an active X-point is
+limited; a clipped region, missing wall, or indeterminate boundary is
+<code class="language-plaintext highlighter-rouge">AMBIGUOUS</code> with a reason.</p>
 
 <p>The branches of #1201 §2, their category, and where each starts in the code. <strong>Status</strong> follows the
 acceptance audit posted on #1201: <em>met</em> means a public API plus a test or documentation demonstrates
@@ -1184,7 +1220,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 11:46:04 +0000"
+        "time": "2026-10-07 12:15:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

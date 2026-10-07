@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8b2e2b3</code>. What is described
+  <code>bf8fa55</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -717,6 +717,35 @@ and returns <code class="language-plaintext highlighter-rouge">[]</code> / <code
 </ul>
 
 <h2 id="eager-and-lazy-hsds-access">Eager and lazy HSDS access</h2>
+
+<h3 id="source-namespaces-and-data-products">Source namespaces and data products</h3>
+
+<p>Each remote operation names one analysis lineage with <code class="language-plaintext highlighter-rouge">source</code>. The default <code class="language-plaintext highlighter-rouge">main</code>
+holds VAFT-native results; <code class="language-plaintext highlighter-rouge">public</code> is the readable, legacy lineage and is never
+written by VAFT. Other established sources include <code class="language-plaintext highlighter-rouge">chease-mhd-stability</code>
+(CHEASE refinement and linear MHD), <code class="language-plaintext highlighter-rouge">vfit-element</code>, <code class="language-plaintext highlighter-rouge">vfit-gse</code>,
+<code class="language-plaintext highlighter-rouge">electron-efit</code>, <code class="language-plaintext highlighter-rouge">kinetic-efit</code>, and the sparse <code class="language-plaintext highlighter-rouge">impa</code> diagnostic source.
+A missing shot in <code class="language-plaintext highlighter-rouge">impa</code> means no IMPA product was published for that shot; it
+does not say whether the shot exists in <code class="language-plaintext highlighter-rouge">main</code>. Reads never silently union
+sources. Use <code class="language-plaintext highlighter-rouge">vaft.database.compose(shot)</code> when analysis needs products from
+<code class="language-plaintext highlighter-rouge">main</code> and <code class="language-plaintext highlighter-rouge">impa</code> together while retaining each channel’s origin.
+<code class="language-plaintext highlighter-rouge">python -m vaft.cli summary sources</code> lists the catalog; custom namespaces must
+be declared in <code class="language-plaintext highlighter-rouge">VAFT_HSDS_EXTRA_SOURCES</code>.</p>
+
+<p>Eager <code class="language-plaintext highlighter-rouge">load()</code> stages a complete shot when <code class="language-plaintext highlighter-rouge">paths</code> is absent. With
+<code class="language-plaintext highlighter-rouge">paths=["equilibrium"]</code>, it stages only that IDS and <code class="language-plaintext highlighter-rouge">dataset_description</code>,
+normally using a validated local domain cache. Byte-exact per-IDS images avoid
+repeated <code class="language-plaintext highlighter-rouge">hsget</code> requests when available; <code class="language-plaintext highlighter-rouge">transport="canonical"</code> bypasses
+them and <code class="language-plaintext highlighter-rouge">transport="h5image"</code> requires them. Direct lazy <code class="language-plaintext highlighter-rouge">open()</code> reads
+selected leaves from the canonical IDS domain and currently supports occurrence</p>
+<ol>
+  <li>Native lazy IMAS also requires the exact stored Data Dictionary version.</li>
+</ol>
+
+<p>Canonical IMAS images remain authoritative after a save. The default
+<code class="language-plaintext highlighter-rouge">derived_cache="auto"</code> also creates per-IDS images; the historical full-ODS
+cache is readable but is published only on explicit request. The explicit
+options are <code class="language-plaintext highlighter-rouge">"none"</code>, <code class="language-plaintext highlighter-rouge">"imas-images"</code>, <code class="language-plaintext highlighter-rouge">"omas"</code>, and <code class="language-plaintext highlighter-rouge">"both"</code>.</p>
 
 <p><code class="language-plaintext highlighter-rouge">vaft.database.load</code> materializes data before returning it. The default representation is an
 <strong>OMAS ODS</strong>:</p>
@@ -1388,7 +1417,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#cross-shot-parameter-history" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cross-shot parameter history</a></li><li class="page-toc-item page-toc-level-2"><a href="#transport-summary-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transport summary hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-flat-namespace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The flat namespace</a></li><li class="page-toc-item page-toc-level-2"><a href="#connecting-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Connecting to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#listing-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Listing shots</a></li><li class="page-toc-item page-toc-level-2"><a href="#eager-and-lazy-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Eager and lazy HSDS access</a></li><li class="page-toc-item page-toc-level-2"><a href="#local-omas-imas-and-filedb-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local OMAS, IMAS, and FileDB paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting-a-shot-as-local-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting a shot as local files</a></li><li class="page-toc-item page-toc-level-2"><a href="#saving-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Saving to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#native-imas-ids-objects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Native IMAS IDS objects</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#which-load-is-which" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which load is which</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-signals-mysql" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ signals (MySQL)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#finding-field-codes-and-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Finding field codes and shots</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-range-and-timing-rules" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot-range and timing rules</a></li><li class="page-toc-item page-toc-level-3"><a href="#processing-new-shots-automatically" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Processing new shots automatically</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#working-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Working offline</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-to-go-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where to go next</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#cross-shot-parameter-history" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cross-shot parameter history</a></li><li class="page-toc-item page-toc-level-2"><a href="#transport-summary-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transport summary hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-flat-namespace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The flat namespace</a></li><li class="page-toc-item page-toc-level-2"><a href="#connecting-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Connecting to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#listing-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Listing shots</a></li><li class="page-toc-item page-toc-level-2"><a href="#eager-and-lazy-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Eager and lazy HSDS access</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#source-namespaces-and-data-products" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Source namespaces and data products</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#local-omas-imas-and-filedb-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local OMAS, IMAS, and FileDB paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting-a-shot-as-local-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting a shot as local files</a></li><li class="page-toc-item page-toc-level-2"><a href="#saving-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Saving to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#native-imas-ids-objects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Native IMAS IDS objects</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#which-load-is-which" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which load is which</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-signals-mysql" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ signals (MySQL)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#finding-field-codes-and-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Finding field codes and shots</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-range-and-timing-rules" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot-range and timing rules</a></li><li class="page-toc-item page-toc-level-3"><a href="#processing-new-shots-automatically" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Processing new shots automatically</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#working-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Working offline</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-to-go-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where to go next</a></li></ul>
     </nav>
 </aside>
 
@@ -1506,7 +1535,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 11:46:04 +0000"
+        "time": "2026-10-07 12:15:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

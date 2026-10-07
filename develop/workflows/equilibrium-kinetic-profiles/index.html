@@ -13,7 +13,7 @@
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
 
 <link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
-<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
 
 <meta name="HandheldFriendly" content="true"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>8b2e2b3</code>. What is described
+  <code>bf8fa55</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1215,6 +1215,20 @@ equally, including ones the diagnostic itself flagged as unreliable.</p>
 
 <h2 id="equilibrium-reconstruction-with-efit">Equilibrium reconstruction with EFIT</h2>
 
+<p>EFIT’s process-level <code class="language-plaintext highlighter-rouge">result.ok</code> is retained for compatibility. For scientific
+use, inspect <code class="language-plaintext highlighter-rouge">result.usable</code> and <code class="language-plaintext highlighter-rouge">result.slice_statuses</code>: each time slice
+separately reports runtime, output, numerical, and physical status, with stable
+codes in <code class="language-plaintext highlighter-rouge">vaft.code.EFIT_FAILURE_CODES</code>. A status can be serialized through
+<code class="language-plaintext highlighter-rouge">to_dict()</code> and <code class="language-plaintext highlighter-rouge">from_dict()</code>.</p>
+
+<p>Typed <code class="language-plaintext highlighter-rouge">EFITConfig</code>, <code class="language-plaintext highlighter-rouge">EFITProfileConfig</code>, and <code class="language-plaintext highlighter-rouge">EFITNumericsConfig</code> make
+routine k-file settings explicit. <code class="language-plaintext highlighter-rouge">prepare_efit_inputs(ods, config)</code> records
+the resolved settings, stable hash, VAFT version, provenance, and k-file
+checksums in <code class="language-plaintext highlighter-rouge">efit_configuration.json</code>. For deterministic parameter scans
+that do not run the EFIT binary, <code class="language-plaintext highlighter-rouge">vaft.code.efit_parameter_grid()</code> accepts
+dotted paths such as <code class="language-plaintext highlighter-rouge">profile.kppcur</code> and
+<code class="language-plaintext highlighter-rouge">constraints.group_weights.bpol_probe</code>.</p>
+
 <p>The profiles above are mapped on an equilibrium, and on VEST that equilibrium is an EFIT
 reconstruction: <code class="language-plaintext highlighter-rouge">vaft.code.efit</code> writes the k-files, runs the code and collects its output. The
 per-shot stages live in <a href="/vaft/develop/workflows/automated-pipelines/">Automated pipelines</a> and
@@ -1660,7 +1674,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 11:46:04 +0000"
+        "time": "2026-10-07 12:15:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
