@@ -244,9 +244,8 @@ __all__ = ["__version__"]
 #   absent from the top and 3-D views; CHEASE not-launchable is recorded
 #   skipped; the inferred-T_i sigma floor borrows #874's 17 %; the #1644
 #   notebook cell 12 is stale; three pipeline-3 sheet tests wait for
-#   regenerated xlsx; the multi-machine op-space notebook outputs were
-#   cleared pending a networked re-run (#1813); the Takizuka L-H gamma is
-#   not reachable through boundary_value; the delta-19b review findings
+#   regenerated xlsx; the Takizuka L-H gamma is not reachable through
+#   boundary_value; the delta-19b review findings
 #   are carried to #1838: vaft.process.core_q_context binds the submodule,
 #   not the function (#1810), the camera equilibrium-section overlay
 #   projects probes through the provisional pose frame (#746) and draws no
