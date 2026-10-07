@@ -348,7 +348,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>14d26f1</code>. What is described
+  <code>8adf724</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -519,6 +519,14 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
     <td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td>
     <td><code>vaft.formula.ordering</code></td><td>13</td><td>Asymptotic ordering parameters: the scale separations reduced models assume.</td>
   </tr>
+  <tr id="fast_ion">
+    <td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td>
+    <td><code>vaft.formula.fast_ion</code></td><td>8</td><td>Classical fast-ion slowing down: critical velocity, slowing-down time, distribution, density and pressure.</td>
+  </tr>
+  <tr id="kinetic">
+    <td><a href="/vaft/develop/reference/formula/kinetic/">kinetic</a></td>
+    <td><code>vaft.formula.kinetic</code></td><td>2</td><td>Collisional closures of a multi-species plasma: electron collision time and electron-ion energy exchange.</td>
+  </tr>
   </tbody>
 </table>
 
@@ -580,7 +588,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 444 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 454 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1530,6 +1538,26 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="thermal_speed ordering"><td><a href="/vaft/develop/reference/formula/ordering/#thermal_speed"><code>thermal_speed</code></a></td><td><a href="/vaft/develop/reference/formula/ordering/">ordering</a></td><td>Thermal speed of a species.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="critical_energy_from_T_e_A_b_n_species fast_ion"><td><a href="/vaft/develop/reference/formula/fast_ion/#critical_energy_from_T_e_A_b_n_species"><code>critical_energy_from_T_e_A_b_n_species</code></a></td><td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td><td>Critical energy of a fast ion of mass number A_b: E_c = m_b v_c^2 / 2.
+</td></tr>
+  <tr data-ref-row="critical_velocity_from_T_e_n_species fast_ion"><td><a href="/vaft/develop/reference/formula/fast_ion/#critical_velocity_from_T_e_n_species"><code>critical_velocity_from_T_e_n_species</code></a></td><td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td><td>Critical speed at which a fast ion’s drag on electrons equals its drag on the field ions.
+</td></tr>
+  <tr data-ref-row="fast_ion_density_from_source fast_ion"><td><a href="/vaft/develop/reference/formula/fast_ion/#fast_ion_density_from_source"><code>fast_ion_density_from_source</code></a></td><td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td><td>Fast-ion density held by a steady source slowing down classically.
+</td></tr>
+  <tr data-ref-row="fast_ion_energy_density_from_source fast_ion"><td><a href="/vaft/develop/reference/formula/fast_ion/#fast_ion_energy_density_from_source"><code>fast_ion_energy_density_from_source</code></a></td><td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td><td>Kinetic-energy density held by a steady source slowing down classically.
+</td></tr>
+  <tr data-ref-row="fast_ion_pressure_from_energy_density fast_ion"><td><a href="/vaft/develop/reference/formula/fast_ion/#fast_ion_pressure_from_energy_density"><code>fast_ion_pressure_from_energy_density</code></a></td><td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td><td>Scalar fast-ion pressure of an isotropic fast population: p_f = 2 W_f / 3.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="slowing_down_distribution fast_ion"><td><a href="/vaft/develop/reference/formula/fast_ion/#slowing_down_distribution"><code>slowing_down_distribution</code></a></td><td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td><td>Steady isotropic classical slowing-down distribution of a monoenergetic source.
+</td></tr>
+  <tr data-ref-row="slowing_down_time_between_speeds fast_ion"><td><a href="/vaft/develop/reference/formula/fast_ion/#slowing_down_time_between_speeds"><code>slowing_down_time_between_speeds</code></a></td><td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td><td>Time a fast ion takes to slow from one speed to a lower one under classical drag.
+</td></tr>
+  <tr data-ref-row="slowing_down_time_from_T_e_n_e_A_b_Z_b fast_ion"><td><a href="/vaft/develop/reference/formula/fast_ion/#slowing_down_time_from_T_e_n_e_A_b_Z_b"><code>slowing_down_time_from_T_e_n_e_A_b_Z_b</code></a></td><td><a href="/vaft/develop/reference/formula/fast_ion/">fast_ion</a></td><td>Spitzer slowing-down time of a fast ion on electrons.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="electron_collision_time_from_T_e_n_species kinetic"><td><a href="/vaft/develop/reference/formula/kinetic/#electron_collision_time_from_T_e_n_species"><code>electron_collision_time_from_T_e_n_species</code></a></td><td><a href="/vaft/develop/reference/formula/kinetic/">kinetic</a></td><td>Braginskii electron collision time against a mixture of ion species.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="electron_ion_energy_exchange_time_from_T_e_n_species kinetic"><td><a href="/vaft/develop/reference/formula/kinetic/#electron_ion_energy_exchange_time_from_T_e_n_species"><code>electron_ion_energy_exchange_time_from_T_e_n_species</code></a></td><td><a href="/vaft/develop/reference/formula/kinetic/">kinetic</a></td><td>Time in which electrons and a mixture of ion species exchange thermal energy.
+</td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No formula matches.</p>
@@ -1794,7 +1822,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 06:39:15 +0000"
+        "time": "2026-10-07 08:07:33 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
