@@ -1015,6 +1015,11 @@
       "source_sha256": "40b02241eecbc439d7f28f3667075d0ace01387d3047c7cedfa3dd3864c39e99",
       "svg_sha256": "3a365f453dbe07ca9f16fa463699d5563128cc32d885188f34a08251bf372e63"
     },
+    "timescale_hierarchy.svg": {
+      "call": "vaft.diagram.timescale_hierarchy()",
+      "source_sha256": "ece36b52874284d8fa4f361b11665377795ea26e0f8ca45ac92cd217d2b543d0",
+      "svg_sha256": "2cff77699b586bc6cdc7b6462632b854141e4b7452db7d54d5ea5e84ca6dac90"
+    },
     "tokamak_top_view.svg": {
       "call": "vaft.diagram.tokamak_top_view()",
       "source_sha256": "721d31cd067f2ad1e67b09e5ff5a7fbf518d5c1853644eea1292241356de14b6",
