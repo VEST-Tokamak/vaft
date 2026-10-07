@@ -288,3 +288,15 @@ def test_the_generator_module_has_no_import_time_dependency_on_grimp():
     names = {alias.name for node in top_level for alias in node.names}
     names |= {node.module for node in top_level if isinstance(node, ast.ImportFrom) and node.module}
     assert "grimp" not in names
+
+
+def test_vendored_files_are_checked_out_byte_exact():
+    """A CRLF checkout changes the pinned hash (Windows CI): every vendored file is ``-text``."""
+    manifest = yaml.safe_load((DOCS / "assets" / "lib" / "vendor.yml").read_text(encoding="utf-8"))
+    paths = [f"docs/assets/lib/{library['file']}" for library in manifest["libraries"]]
+    result = subprocess.run(["git", "check-attr", "text", "--", *paths], cwd=ROOT, capture_output=True,
+                            text=True, check=False)
+    if result.returncode != 0:
+        pytest.skip("not a git checkout")
+    for line in result.stdout.splitlines():
+        assert line.endswith(": text: unset"), line
