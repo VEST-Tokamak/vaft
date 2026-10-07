@@ -52,6 +52,8 @@ _IMPORT_ORDER = (
     "dimensional",
     "sensitivity",
     "ordering",
+    "fast_ion",
+    "kinetic",
 )
 
 
