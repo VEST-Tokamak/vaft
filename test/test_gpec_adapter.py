@@ -1037,6 +1037,34 @@ def test_a_memory_stop_is_not_reported_as_a_timeout(monkeypatch, tmp_path, case,
     assert record.reason.startswith("dcon ")
 
 
+@pytest.mark.parametrize("filename", ["dcon.exe", "dcon.cmd"])
+def test_a_limit_stop_names_the_solver_without_its_windows_launch_suffix(monkeypatch, filename):
+    """The gate's Windows leg read "dcon.cmd was stopped ..." (#1689 tests, PR #1533 stubs)."""
+    from vaft import compat
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.gpec import _runtime as rt
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", True)
+    assert rt.program_name(Path("gpec") / "bin" / filename) == "dcon"
+    assert rt.program_name(Path("gpec") / "bin" / "dcon.x") == "dcon.x"
+    execution = ExecutionResult(returncode=None, timed_out=True, runtime_status="memory_limit",
+                                peak_rss_mb=100.0, elapsed_s=3.0)
+    monkeypatch.setattr(rt, "resolve_backend", lambda config: type("B", (), {"run": lambda self, request: execution})())
+    with pytest.raises(rt.GPECLimitStop) as caught:
+        rt.run_subprocess(Path("gpec") / "bin" / filename, Path("."), Path("dcon.log"),
+                          config=gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), timeout=7.0))
+    assert caught.value.reason.startswith("dcon was stopped by the memory limit")
+
+
+def test_a_limit_stop_keeps_a_posix_program_name_whole(monkeypatch):
+    from vaft import compat
+    from vaft.code.gpec import _runtime as rt
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", False)
+    assert rt.program_name(Path("gpec") / "bin" / "dcon") == "dcon"
+    assert rt.program_name(Path("gpec") / "bin" / "dcon.exe") == "dcon.exe"
+
+
 def test_find_gpec_executable_is_none_without_an_installation(no_gpec_env):
     assert gpec.find_gpec_executable("dcon") is None
 
