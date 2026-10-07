@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>bf8fa55</code>. What is described
+  <code>f5626c3</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -451,7 +451,10 @@ fact and says which (<em>From</em> in the detail panel):</p>
 <p><strong>Identity is strict.</strong> <code class="language-plaintext highlighter-rouge">ip</code> and <code class="language-plaintext highlighter-rouge">I_p</code> are registered aliases of <code class="language-plaintext highlighter-rouge">plasma_current</code> and resolve to
 it; <code class="language-plaintext highlighter-rouge">beta_n</code>, <code class="language-plaintext highlighter-rouge">beta_p</code> and <code class="language-plaintext highlighter-rouge">beta_t</code> are three concepts in one family, not synonyms. A term that
 no registry resolves is never turned into a new concept by guessing: it is listed below as
-unresolved, with where it came from, so a gap in the vocabulary is visible. A concept is linked to
+unresolved, with where it came from, so a gap in the vocabulary is visible. Ids are namespaced, so
+an alias may share its bare spelling with a node of another kind (<code class="language-plaintext highlighter-rouge">tf</code> is an alias of the toroidal
+field coil and the name of the <code class="language-plaintext highlighter-rouge">tf</code> IDS) and still resolve to exactly one subject; only an alias
+that identifies two different subjects is dropped and listed as unresolved. A concept is linked to
 a Data Dictionary path (<em>represented by</em>) only where that is unambiguous: a plot of that single
 quantity that reads exactly one quantity path.</p>
 
@@ -482,7 +485,7 @@ quantity that reads exactly one quantity path.</p>
 
 <script src="/vaft/develop/assets/graph/viewer.js"></script>
 
-<p class="vg-meta">848 nodes and 3817 typed relations in this snapshot; 196 unresolved terms.</p>
+<p class="vg-meta">848 nodes and 3817 typed relations in this snapshot; 189 unresolved terms.</p>
 
 <noscript><p class="vg-noscript">The explorer is interactive and needs JavaScript. The registries
 it reads are documented in the <a href="/vaft/develop/reference/plot/">plot reference</a>,
@@ -556,10 +559,11 @@ the <a href="/vaft/develop/reference/vest-diagnostics/">VEST diagnostics</a> pag
 
 <h2 id="unresolved-terms">Unresolved terms</h2>
 
-<p>These terms appear in a registry but resolve to no concept of the vocabulary. They are kept
-here, not merged by similarity, until the vocabulary or the registry is changed on purpose.</p>
+<p>These terms appear in a registry but resolve to no single concept of the vocabulary: nothing
+defines them, or an alias identifies two different subjects. They are kept here, not merged by
+similarity, until the vocabulary or the registry is changed on purpose.</p>
 
-<details><summary>196 unresolved terms</summary>
+<details><summary>189 unresolved terms</summary>
 
 | Term | From | Where |
 | --- | --- | --- |
@@ -736,13 +740,6 @@ here, not merged by similarity, until the vocabulary or the registry is changed 
 | `wall_reduction` | `vaft.plot.registry` | quantity of passive_structure_field_wall_reduction; quantity of passive_structure_overview_wall_reduction |
 | `wall_time` | `vaft.plot.registry` | quantity of passive_structure_overview_wall_time |
 | `zeff` | `vaft.plot.registry` | quantity of core_profiles_profile_zeff |
-| `coils_non_axisymmetric` | `vaft.plot.taxonomy` | alias of machine:coil_3d also names ids:coils_non_axisymmetric |
-| `gyrokinetics_local` | `vaft.plot.taxonomy` | alias of concept:gyrokinetics also names ids:gyrokinetics_local |
-| `nubeam` | `vaft.plot.taxonomy` | alias of machine:nbi also names code:nubeam |
-| `pf_active` | `vaft.plot.taxonomy` | alias of machine:pf_coil also names dd:pf_active, ids:pf_active |
-| `pf_passive` | `vaft.plot.taxonomy` | alias of machine:passive_structure also names dd:pf_passive, ids:pf_passive |
-| `tf` | `vaft.plot.taxonomy` | alias of machine:tf_coil also names dd:tf, ids:tf |
-| `vacuum_field` | `vaft.plot.taxonomy` | alias of concept:vacuum also names plot:vacuum_field |
 | `continuity` | `vaft.validation.registry` | checked by verification.continuity |
 | `convention` | `vaft.validation.registry` | checked by verification.convention |
 | `convergence` | `vaft.validation.registry` | checked by verification.convergence |
@@ -981,7 +978,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 12:15:20 +0000"
+        "time": "2026-10-07 12:46:39 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>bf8fa55</code>. What is described
+  <code>f5626c3</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -484,7 +484,7 @@ its time; elsewhere the track holds NaN and states why.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#mode_frequency_tracks"><code>mode_frequency_tracks</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="mode_frequency_tracks" href="https://github.com/VEST-Tokamak/vaft/blob/bf8fa55fe4ddfdbd7ae63cd7c0fc6cb625ad8338/vaft/process/mode_frequency.py#L415-L668" title="vaft/process/mode_frequency.py, lines 415–668 at bf8fa55">source</a>
+<a class="ref-source" data-source="mode_frequency_tracks" href="https://github.com/VEST-Tokamak/vaft/blob/f5626c30443fc4e9c91a7bc78c7e407202921c0d/vaft/process/mode_frequency.py#L417-L670" title="vaft/process/mode_frequency.py, lines 417–670 at f5626c3">source</a>
 </header>
     <pre class="ref-signature"><code>mode_frequency_tracks(ods, modes, *, model=&#39;toroidal_rotation&#39;, ion_index=0, time_tolerance=0.0)</code></pre>
 
@@ -551,8 +551,8 @@ the surface, <code class="language-plaintext highlighter-rouge">R_out</code>, be
 writing the input).</li>
         <li>Read every timed rotation profile, preferring <code class="language-plaintext highlighter-rouge">rotation_frequency_tor</code>
 over <code class="language-plaintext highlighter-rouge">velocity.toroidal</code>, on <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> over <code class="language-plaintext highlighter-rouge">rho_pol_norm</code>; a
-<code class="language-plaintext highlighter-rouge">grid.rho_tor_norm</code> that is the <code class="language-plaintext highlighter-rouge">sqrt(psi_N)</code> proxy is read as the
-<code class="language-plaintext highlighter-rouge">rho_pol_norm</code> it is.</li>
+<code class="language-plaintext highlighter-rouge">grid.rho_tor_norm</code> that is the <code class="language-plaintext highlighter-rouge">sqrt(psi_N)</code> proxy of the profile’s
+own <code class="language-plaintext highlighter-rouge">grid.psi</code> is read as the <code class="language-plaintext highlighter-rouge">rho_pol_norm</code> it is.</li>
         <li>Per slice, locate <code class="language-plaintext highlighter-rouge">|q| = |m/n|</code> once per distinct ratio with
 <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.rational_surfaces</code>.</li>
         <li>Per root, evaluate <code class="language-plaintext highlighter-rouge">omega_phi</code> on the two rotation profiles that
@@ -810,7 +810,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 12:15:20 +0000"
+        "time": "2026-10-07 12:46:39 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
