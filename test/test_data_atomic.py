@@ -67,23 +67,27 @@ def test_the_old_module_warns_and_reexports_the_same_objects():
     assert legacy.parse_species("C III alpha") is None
 
 
-def test_nothing_in_vaft_imports_the_old_module():
+def test_nothing_in_vaft_or_its_tests_imports_the_old_module():
+    # the test tree too: a test importing the alias becomes a collection error under
+    # -W error::DeprecationWarning today and when the alias is removed (cold review 0.8.0)
     import ast
     from pathlib import Path
 
     import vaft
 
-    root = Path(vaft.__file__).parent
+    package = Path(vaft.__file__).parent
+    tests = Path(__file__).resolve().parent
     offenders = []
-    for path in root.rglob("*.py"):
-        if path == root / "spectroscopy.py":
-            continue
-        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
-            if isinstance(node, ast.ImportFrom) and node.module == LEGACY:
-                offenders.append(f"{path.relative_to(root)}:{node.lineno}")
-            elif isinstance(node, ast.Import) and any(alias.name == LEGACY for alias in node.names):
-                offenders.append(f"{path.relative_to(root)}:{node.lineno}")
-            elif (isinstance(node, ast.ImportFrom) and node.module == "vaft"
-                  and any(alias.name == "spectroscopy" for alias in node.names)):
-                offenders.append(f"{path.relative_to(root)}:{node.lineno}")
+    for root in (package, tests):
+        for path in sorted(root.rglob("*.py")):
+            if path == package / "spectroscopy.py":
+                continue
+            for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+                if isinstance(node, ast.ImportFrom) and node.module == LEGACY:
+                    offenders.append(f"{path.relative_to(root.parent)}:{node.lineno}")
+                elif isinstance(node, ast.Import) and any(alias.name == LEGACY for alias in node.names):
+                    offenders.append(f"{path.relative_to(root.parent)}:{node.lineno}")
+                elif (isinstance(node, ast.ImportFrom) and node.module == "vaft"
+                      and any(alias.name == "spectroscopy" for alias in node.names)):
+                    offenders.append(f"{path.relative_to(root.parent)}:{node.lineno}")
     assert not offenders, f"import vaft.data.atomic / vaft.data.spectroscopy instead: {offenders}"
