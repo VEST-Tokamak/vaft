@@ -1,0 +1,43 @@
+{
+ "contract_version": "1",
+ "generated_at": "2026-10-02T11:20:49+00:00",
+ "command": [
+  "workflow/kinetic_state/build_state.py",
+  "--filedb",
+  "/home/user1/runs/campaign/filedb",
+  "--analysis",
+  "/home/user1/runs/campaign/tierA_analysis.json",
+  "--out",
+  "/home/user1/runs/campaign/atlas/v1"
+ ],
+ "vaft_git": "cf150d1b62276886c83ec933555d6f0685f36fd7",
+ "vaft_dirty": false,
+ "criteria_sha": "a24092602a7ff86b2f6aa253f3d86d9738d1a092",
+ "inputs": {
+  "filedb": "/home/user1/runs/campaign/filedb",
+  "analysis": "/home/user1/runs/campaign/tierA_analysis.json",
+  "analysis_sha256": "a96e19da44d0977e90cd4fd7980042b1fc6f64c5dd7a59e0b4072b3523de19bd"
+ },
+ "rows": {
+  "state": 150,
+  "profiles": 405
+ },
+ "labels": {
+  "derived_with": "criteria.slice_labels",
+  "differ_from_stored": 3,
+  "differing": [
+   [
+    39916,
+    320
+   ],
+   [
+    40329,
+    323
+   ],
+   [
+    42962,
+    333
+   ]
+  ]
+ }
+}

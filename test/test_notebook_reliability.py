@@ -787,60 +787,54 @@ def test_notebook_references_to_packaged_data_resolve():
     assert failures == []
 
 
-def test_verification_notebook_loads_the_summary_sheets(monkeypatch):
-    """The cells that broke in issues #151/#181 must execute against the real sheets.
+def test_verification_notebook_snapshot_contract():
+    """The offline virial quantities must refer to the selected EFIT states."""
+    import hashlib
+    import json
 
-    Compiling a cell cannot catch ``from … import EXPECTED_COLUMNS`` against a
-    module that no longer defines it, nor a ``KeyError`` from a renamed sheet
-    column, so run the offline cells: 1 (bootstrap), 3 (volume-averaged sheet),
-    4 (scatter plot over its columns), 6 (equilibrium history sheet).
-    """
-    import matplotlib
+    import numpy as np
+    import pandas as pd
 
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
+    snapshot = NOTEBOOKS / "data" / "verification_and_validation"
+    manifest = json.loads((snapshot / "snapshot_manifest.json").read_text())
+    for relative, expected in manifest["sha256"].items():
+        assert hashlib.sha256((snapshot / relative).read_bytes()).hexdigest() == expected
+    export_script = NOTEBOOKS.parent / manifest["virial_export_script"]
+    assert hashlib.sha256(export_script.read_bytes()).hexdigest() == manifest["virial_export_script_sha256"]
 
-    notebook_path = NOTEBOOKS / "verification_and_validation.ipynb"
-    book = nbformat.read(notebook_path, as_version=4)
-    monkeypatch.chdir(ROOT)
-    monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
-
-    # Cell 2 asks the remote database which shots have core profiles; the
-    # offline cells only need the resulting list, and an empty one keeps the
-    # regeneration branch from reaching the network.
-    namespace = {"core_profile_shots": []}
-    for index in (1, 3, 4, 6):
-        source = book.cells[index].source
-        exec(compile(source, f"{notebook_path.name}:cell-{index}", "exec"), namespace)
-
-    preset = namespace["volume_preset"]
-    assert set(preset.columns) <= set(namespace["volume_df"].columns)
-    assert len(namespace["plot_df"]) > 0
-    assert not namespace["eq_df"].empty
-    plt.close("all")
+    state = pd.read_csv(snapshot / "v1/state.csv")
+    profiles = pd.read_csv(snapshot / "v1/profiles.csv")
+    virial = pd.read_csv(snapshot / "v1/virial_identity.csv")
+    key = ["shot", "time_efit_s", "efit_lineage"]
+    assert (len(state), len(profiles), len(virial)) == (150, 405, 150)
+    assert not state.duplicated(key).any()
+    assert not virial.duplicated(key).any()
+    joined = state.merge(virial, on=key, validate="one_to_one", suffixes=("", "_virial"))
+    assert len(joined) == len(state)
+    assert (joined.efit_product_sha256 == joined.efit_product_sha256_virial).all()
+    assert (joined.efit_product == joined.efit_product_virial).all()
+    assert (virial.identities_available == 3).all()
+    virial_pairs = virial[["beta_p_volume", "beta_p_pair_13", "li_volume", "li_pair_13"]].to_numpy(dtype=float)
+    assert np.isfinite(virial_pairs).all() and (virial_pairs > 0).all()
+    assert set(map(tuple, profiles[key].to_numpy())) <= set(map(tuple, state[key].to_numpy()))
 
 
-def test_verification_notebook_refuses_to_regenerate_without_target_shots():
-    """An empty shot list must not become a full-namespace scan.
+def test_verification_notebook_uses_english_atlas_content():
+    """The saved page must not show legacy XLSX data or Korean cached output."""
+    import re
 
-    ``vaft.database.summary(None, ...)`` means *every* shot in the namespace, so
-    passing ``None`` when no core-profile shot was found would open the whole
-    remote database instead of doing nothing.
-    """
-    notebook_path = NOTEBOOKS / "verification_and_validation.ipynb"
-    book = nbformat.read(notebook_path, as_version=4)
-    source = book.cells[3].source
-
-    namespace = {
-        "SKIP_VOLUME_AVERAGED_REGEN": False,
-        "core_profile_shots": [],
-        "output_path": NOTEBOOKS / "does-not-exist.xlsx",
-        "generate_volume_averaged_parameter_sheet": lambda *a, **k: pytest.fail(
-            "regeneration was attempted with no target shots"
-        ),
-    }
-    with pytest.raises(RuntimeError, match="core_profile"):
-        exec(compile(source, f"{notebook_path.name}:cell-3", "exec"), namespace)
+    book = nbformat.read(NOTEBOOKS / "verification_and_validation.ipynb", as_version=4)
+    readable = []
+    for cell in book.cells:
+        readable.append(cell.source)
+        for output in cell.get("outputs", []):
+            readable.append(str(output.get("text", "")))
+            readable.append(str(output.get("data", {}).get("text/plain", "")))
+    text = "\n".join(readable)
+    assert not re.search(r"[가-힣]", text)
+    assert "volume_averaged_parameters.xlsx" not in text
+    assert "equilibrium_global_history.xlsx" not in text
+    assert "virial_identity.csv" in text
 
 
 def test_the_backend_guard_selects_inline_inside_an_agg_pinned_kernel():
