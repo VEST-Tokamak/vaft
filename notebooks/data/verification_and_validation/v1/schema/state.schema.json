@@ -1,0 +1,365 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "VAFT kinetic state state table, contract v1 (#1454)",
+ "type": "object",
+ "required": [
+  "contract_version",
+  "shot",
+  "time_efit_s",
+  "efit_lineage",
+  "efit_quality"
+ ],
+ "properties": {
+  "contract_version": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "state key contract version (#1454)"
+  },
+  "shot": {
+   "type": [
+    "integer",
+    "null"
+   ],
+   "description": "VEST shot number"
+  },
+  "time_efit_s": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "EFIT slice time, rounded to 1e-4 s"
+  },
+  "efit_lineage": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "magnetics | electron_kinetic",
+   "enum": [
+    "magnetics",
+    "electron_kinetic"
+   ]
+  },
+  "efit_quality": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "criteria.py label of the magnetics slice at this time: good | admissible",
+   "enum": [
+    "good",
+    "admissible"
+   ]
+  },
+  "efit_setting": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "EFIT preset name"
+  },
+  "efit_product": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "FileDB product the row was computed from"
+  },
+  "efit_product_sha256": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "sha256 of that product file"
+  },
+  "ti_lineage": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "none | ti_eq_te_assumed | pressure_partition_inferred"
+  },
+  "ti_te_ratio_assumed": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "Ti/Te the reconstruction assumed (electron_kinetic only)"
+  },
+  "efit_status": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "valid | unavailable: whether this row's reconstruction could be read at this time"
+  },
+  "efit_status_reason": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "why not valid"
+  },
+  "kinetic_admissible": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "pass | fail: criteria admissibility veto on the kinetic fit itself"
+  },
+  "kinetic_admissible_reasons": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "veto reasons, ';'-joined"
+  },
+  "kinetic_chi2": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "electron-EFIT total chi-square"
+  },
+  "paired_kin_status": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "magnetics rows: valid | failed | unavailable | not_attempted for the electron EFIT at this time"
+  },
+  "paired_kin_reason": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "electron-EFIT failure reason"
+  },
+  "ts_status": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "matched | unmatched | invalid"
+  },
+  "ts_reason": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "why not matched"
+  },
+  "time_ts_s": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "Thomson sample time used"
+  },
+  "dt_ts_efit_s": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "t_TS - t_EFIT"
+  },
+  "ts_tolerance_s": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "allowed |dt|: max(0.5 median magnetics-EFIT cadence, 1 ms)"
+  },
+  "ts_points": {
+   "type": [
+    "integer",
+    "null"
+   ],
+   "description": "Thomson channels inside the LCFS"
+  },
+  "rho_coordinate": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "rho_tor_norm | unavailable"
+  },
+  "r_sum": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "sum p_EFIT / sum p_e over the channels"
+  },
+  "log_ratio": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "ln(sum p_e / sum p_EFIT), the criteria quantity"
+  },
+  "criteria_log_ratio": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "the same quantity as recorded in the analysis JSON (cross-check)"
+  },
+  "psi_norm_lo": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "lowest channel psi_N"
+  },
+  "psi_norm_hi": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "highest channel psi_N"
+  },
+  "cp_time_s": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "core_profiles slice time used for p_e(rho)"
+  },
+  "r_w": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "int p_EFIT dV / int p_e dV over [psi_norm_lo, psi_norm_hi], p_e from core_profiles"
+  },
+  "r_w_full": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "same over the whole plasma; extrapolates the core_profiles fit"
+  },
+  "r_w_cell_weights": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "outline | psi_threshold"
+  },
+  "r_w_reason": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "why r_w is empty"
+  },
+  "r_w_on_pair_span": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "electron_kinetic rows: r_w over the paired magnetics row's psi_N span"
+  },
+  "delta_r_w": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "electron_kinetic rows: r_w_on_pair_span - r_w of the paired magnetics row"
+  },
+  "c_p": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "electron_kinetic rows: ln(r_w_on_pair_span / r_w of the paired magnetics row)"
+  },
+  "ip_measured_a": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "measured Ip [A]"
+  },
+  "ip_reconstructed_a": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "reconstructed Ip [A]"
+  },
+  "betap": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "poloidal beta"
+  },
+  "li": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "internal inductance (magnetics rows)"
+  },
+  "q95": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "q at 95 % flux"
+  },
+  "wmhd_j": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "stored energy [J]"
+  },
+  "probe_reduced_chi2": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "magnetics rows: probe reduced chi-square"
+  },
+  "loop_reduced_chi2": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "magnetics rows: flux-loop reduced chi-square"
+  },
+  "virial_status": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "magnetics rows: criteria virial verdict"
+  },
+  "gs_status": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "magnetics rows: criteria Grad-Shafranov verdict"
+  },
+  "thomson_criterion_status": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "magnetics rows: criteria Thomson verdict, band [1, 2] p_e (criteria v2)"
+  },
+  "thomson_consistent": {
+   "type": [
+    "boolean",
+    "null"
+   ],
+   "description": "magnetics rows: this row's setting is consistent with Thomson, criteria v2 band [1, 2] p_e on criteria_log_ratio; never a gate"
+  }
+ }
+}

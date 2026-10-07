@@ -1,0 +1,38 @@
+{
+  "snapshot_version": 1,
+  "source_host": "147.46.36.244:2222",
+  "source_atlas": "/home/user1/runs/campaign/atlas",
+  "source_filedb": "/home/user1/runs/campaign/filedb",
+  "source_atlas_generated_at": "2026-10-02T11:20:49+00:00",
+  "snapshot_captured_at": "2026-10-07T15:41:54.344913+00:00",
+  "source_atlas_vaft_git": "cf150d1b62276886c83ec933555d6f0685f36fd7",
+  "virial_compute_git": "2dfbdd282d25f0af010ea4bc2ccc62b2b208286a",
+  "virial_formula_sha256": {
+    "vaft/omas/process_wrapper.py": "c795f58eff5ae5e2e6eed572fefd02c083ca94a7281d7492e8fafaff2b81d168",
+    "vaft/formula/virial.py": "de55cfb61740832e6221d30c1e22c401898e3789204dd8cd6cff9ebfe5c6fb59"
+  },
+  "virial_export_script": "workflow/kinetic_state/export_virial_identity.py",
+  "virial_export_script_sha256": "886c25653cbf968e7450fd59858bb9b95e83053d8771dcbf0101a944dfeffd36",
+  "rows": {
+    "v1/state.csv": 150,
+    "v1/profiles.csv": 405,
+    "v1/virial_identity.csv": 150,
+    "equilibrium_quality/cohort_table.csv": 641,
+    "equilibrium_quality/constraint_points.csv": 37389,
+    "confinement/table.csv": 133
+  },
+  "sha256": {
+    "v1/state.csv": "d023ee87da53b7cf09a48a79663d2987f423bafe696099781a1b4100f202480a",
+    "v1/profiles.csv": "f2daafa6f89298115e40ed27ab163788667b3b246bd24779946f12d1dfa58cf9",
+    "v1/MANIFEST.json": "10a7ac71ea940621ecac4e8b0559e330a9236e362d00a985a20adfce687f01f8",
+    "v1/virial_identity.csv": "8c7fedec3192268ff0736ea699893631dfb672caa975cd94f2385dbdb35af874",
+    "v1/schema/state.schema.json": "2753c7cf3f33125813502e44303d8218b416c768907608652f7af7ccea356298",
+    "v1/schema/profiles.schema.json": "e0a9f1f8658231e1ba253115e5adecb6e3a3ace6e0a573f3df04a785aa05a724",
+    "equilibrium_quality/cohort_table.csv": "88aafa2ccd9a7cfc2269f17294ec49ab1173332fde6c61f4a2cf7eaf95452d17",
+    "equilibrium_quality/constraint_points.csv": "ab7a2332d992c32276b03bb60730e4a6d49f3f080a1256e4f097f2d5548d88d9",
+    "equilibrium_quality/manifest.json": "298649130d473eefdd1eeb19c69f3c9b69a66d2c403935e66502469079dc90b9",
+    "equilibrium_quality/summary.json": "a7cb67ee4f08edc9ec2e0d7e24bdb6e9688693ebbb360d1023eaae17c487ab96",
+    "confinement/table.csv": "4f6d3d243fe6826fd01ec413598c6c17c1fd184848fbe924225883364aaf2f61"
+  },
+  "virial_exported_at": "2026-10-07T16:38:47.623464+00:00"
+}

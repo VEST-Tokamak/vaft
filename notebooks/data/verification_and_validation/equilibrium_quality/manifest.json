@@ -1,0 +1,11 @@
+{
+ "issue": 1644,
+ "records": "/home/user1/runs/campaign/tierA_analysis.json",
+ "records_sha256": "a96e19da44d0977e90cd4fd7980042b1fc6f64c5dd7a59e0b4072b3523de19bd",
+ "criteria": "/home/user1/vaft-eq1644/workflow/efit_uncertainty_calibration/criteria.py",
+ "criteria_sha256": "9a16fc8b74fae733ec49c0c9a8399d226063af5e976781f219e5ef78633b3749",
+ "criteria_version": 2,
+ "filedb": "/home/user1/runs/campaign/filedb",
+ "product_setting": "statistical_891",
+ "rows": 641
+}

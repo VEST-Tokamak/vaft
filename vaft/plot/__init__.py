@@ -237,6 +237,14 @@ from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
 from .renderers.tables import RenderedTable, RenderedTextSummary, render_table, render_text_summary
 from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
+from .kinetic_state import (kinetic_state_pressure_comparison,
+                            kinetic_state_virial_pair13_comparison,
+                            kinetic_state_virial_li_comparison)
+from .equilibrium_quality import (
+    equilibrium_quality_diagnostic_grid,
+    equilibrium_quality_diagnostic_slides,
+    equilibrium_quality_measured_vs_reconstructed,
+)
 from .style import save_figure
 
 # Canonical renderers are re-exported explicitly rather than bound in a loop, so
@@ -541,6 +549,12 @@ _SUPPORT_EXPORTS = (
     "plot_multi_diagnostic_participation",
     "plot_multi_diagnostic_phase",
     "plot_fluctuation_frequency_coverage",
+    "kinetic_state_pressure_comparison",
+    "kinetic_state_virial_pair13_comparison",
+    "kinetic_state_virial_li_comparison",
+    "equilibrium_quality_measured_vs_reconstructed",
+    "equilibrium_quality_diagnostic_slides",
+    "equilibrium_quality_diagnostic_grid",
     "THEMES",
     "resolve_presentation",
 )
