@@ -627,6 +627,7 @@ def core_q_context_from_profiles(
     for surface in surfaces:
         m, n = surface.harmonics[0]
         for root in surface.roots:
+            # anti-alias: spatial interpolation over psi_n, not time -- no sample rate to reduce
             r = float(np.interp(root.psi_norm, psi[usable], rho[usable]))
             s_val = float(np.interp(root.psi_norm, psi[shear_ok], shear[shear_ok])) if shear_ok.sum() >= 2 else None
             crossing = RationalCrossing(m=abs(int(m)), n=abs(int(n)), q_target=float(surface.q_target),
@@ -663,6 +664,7 @@ def core_q_context_from_profiles(
     last = int(used_index[-1])
     q95, q95_reason = None, "psi_n grid does not reach 0.95"
     if psi[used_index[0]] <= 0.95 <= psi[last]:
+        # anti-alias: spatial interpolation over psi_n, not time -- no sample rate to reduce
         q95 = float(np.interp(0.95, psi[usable], q_abs[usable]))
         q95_reason = "|q| interpolated at psi_n = 0.95"
     q_boundary = None
@@ -696,6 +698,7 @@ def core_q_context_from_profiles(
             enclosed_reason = "integral of p dV from the axis to each q=1 surface (trapezoid)"
             cumulative = np.concatenate(([0.0], np.cumsum(0.5 * (p[ok][1:] + p[ok][:-1]) * np.diff(v[ok]))))
             for crossing in (c for c in crossings if c.q_target == 1.0):
+                # anti-alias: spatial interpolation over psi_n, not time -- no sample rate to reduce
                 enclosed.append(EnclosedPressure(
                     psi_n=crossing.psi_n, rho=crossing.rho,
                     volume=float(np.interp(crossing.psi_n, psi[ok], v[ok])),
