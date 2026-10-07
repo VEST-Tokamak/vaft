@@ -153,21 +153,26 @@ It is never interchangeable with a local composition $Z_{\mathrm{eff}}^{\mathrm{
 `resolve_impurity_composition` carries it beside a composition under its own provenance and never uses
 it as a target. See the [resistive Z_eff diagram]({{ '/reference/diagrams/' | relative_url }}).
 
-## Atomic-model-constrained Z_eff(ρ) — in progress
+## Atomic-model-constrained Z_eff(ρ)
 
-*Not on `develop` yet* (Lane L / Lane Z: #1565, #1566, #1569, PR #1659). The intended chain combines
-radial structure from atomic physics with a global amplitude from the resistive closure:
+On `develop` since PR #1659 (Lane L / Lane Z: #1565, #1566, #1569):
+`vaft.process.impurity.resolve_radial_composition(..., normalization="resistive_closure", projection=...,
+resistive_target=...)`. The chain combines radial structure from atomic physics with a global amplitude
+from the resistive closure:
 
 ```text
 T_e(ρ), n_e(ρ), plasma age  +  elemental-ratio prior (C/O)
     -> transient charge states f_{s,q}(ρ)  ->  <Z>_s(ρ), <Z²>_s(ρ)
     -> n_C/n_e = a w_C,  n_O/n_e = a w_O  ->  Z_eff(ρ; a)
     -> resistive projection  Z_eff(ρ; a) --P_R--> Z_eff^res,equiv(a)
-    -> a* = argmin_a [Z_eff^res,equiv(a) - Z_eff^res,obs]²   ->   Z_eff(ρ; a*)
+    -> a*: Z_eff^res,equiv(a*) = Z_eff^res,obs  (bracketed root-find)   ->   Z_eff(ρ; a*)
 ```
 
-Atomic physics sets the radial charge-state structure; the resistive closure sets one impurity amplitude.
-The result is closure-inferred, not a unique composition measurement.
+Atomic physics sets the radial charge-state structure (`ionization="coronal"` or `"transient"` with
+`plasma_age_s`); the resistive closure sets one impurity amplitude, the `projection` callable being the
+resistive projection `P_R` of #1566 and `resistive_target` the observed resistive Z_eff. The result is
+closure-inferred, not a unique composition measurement; `populate_radial_impurity_profiles` writes it to
+`core_profiles` with `<Z>(ρ)`, `<Z²>(ρ)` per element.
 
 ## Rotation and force balance — future scope
 
@@ -281,7 +286,17 @@ ODS-level entry point.
 
 ### E — atomic + resistive Z_eff(ρ)
 
-In progress; see [above](#atomic-model-constrained-z_effρ--in-progress).
+```python
+from vaft.process.impurity import resolve_radial_composition, populate_radial_impurity_profiles
+
+radial = resolve_radial_composition(te, ne, rho, {"C": 1, "O": 1},
+                                    normalization="resistive_closure",
+                                    projection=P_R, resistive_target=zeff_res_obs)
+ods = populate_radial_impurity_profiles(ods, radial)
+```
+
+`P_R` is the resistive projection `Z_eff(ρ) -> scalar` (#1566; it receives NaN at undefined points and
+must ignore them); see [above](#atomic-model-constrained-z_effρ).
 
 ## Related
 
