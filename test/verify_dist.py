@@ -94,6 +94,7 @@ REQUIRED_FILES = {
     # NICE builds are force-included with (vaft.code.nice).
     "vaft/code/nice/vest_reference_param.xml",
     "vaft/code/nice/upstream_compat.h",
+    "vaft/diagram/images/vest_machine.jpg",  # the machine photo vaft.diagram scenes render onto
     # The TikZ template every vaft.diagram scene renders into.
     "vaft/diagram/templates/standalone.tex",
     # The hosted-GUI deployment templates (#1755): a server installing from

@@ -53,7 +53,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
-from vaft.spectroscopy import Species
+from vaft.data.atomic import AtomicSpecies as Species
 
 __all__ = [
     "BASES",
@@ -137,7 +137,7 @@ def _profile(value: Any, n: Optional[int], name: str) -> np.ndarray:
 class SpeciesComponent:
     """One physical component: a nuclide, in one charge state, in one kinetic population.
 
-    ``species`` carries the element and mass number (a ``vaft.spectroscopy.Species``);
+    ``species`` carries the element and mass number (a :class:`vaft.data.atomic.AtomicSpecies`);
     ``charge`` is the ionic charge -- a profile ``<Z>(rho)`` when ``bundled`` (several
     charge states of one element stored together, ``charge_range`` = their lowest and
     highest charge), with ``mean_square_charge`` ``<Z^2>(rho)`` beside it.  ``density``
@@ -315,7 +315,7 @@ _HYDROGEN_MASSES = {1: 1.00784, 2: 2.01410, 3: 3.01605}
 
 def _nuclide(z_n: float, mass: Optional[float]) -> tuple[Species, float]:
     """The nuclide of a stored ion: hydrogen isotopes by mass, other elements by Z_n."""
-    from vaft.spectroscopy import ATOMIC_NUMBERS
+    from vaft.data.atomic import ATOMIC_NUMBERS
 
     z = int(round(float(z_n)))
     if z == 1:

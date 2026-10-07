@@ -331,6 +331,20 @@ vaft.diagram.mhd_mode_geometry_map()
 | `mode_number_mapping` | The cylinder's $k_\parallel(r)$ crosses zero at $q(r_s) = m/n$. The local slab of `local_slab_from_cylinder` is its tangent there |
 | `mhd_mode_geometry_map` | Pressure-driven, current-driven, resonant and $n = 0$ mode families in slab, cylinder and torus. Exact relabelling, limits, analogues and branches are drawn as four different arrows. The text is [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}) |
 
+## Asymptotic orderings
+
+The scale separations a reduced model assumes, evaluated rather than assumed. The kernels are in
+`vaft.formula.ordering`, and [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}) (#1627)
+explains them.
+
+```python
+vaft.diagram.timescale_hierarchy()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `timescale_hierarchy` | Gyroperiods, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
+
 ## Tokamak geometry and flux coordinates
 
 The parent geometry that the cylindrical and slab reductions start from. Surfaces are
@@ -1000,7 +1014,7 @@ unless it is computed by a `vaft.formula.pwi` relation from inputs the caller su
 - `recycling_coefficient`;
 - `sputtering_threshold_bohdansky`, a named empirical fit that needs the surface binding energy.
 
-Projectile and target species go through `vaft.spectroscopy` and are drawn apart: projectile blue,
+Projectile and target species go through `vaft.data.atomic` and are drawn apart: projectile blue,
 target dark. Each diagram's model names the IMAS paths of the quantities it shows, under
 `wall.global_quantities.neutral[:]`: the recycling particle and energy coefficients, the fluxes from the
 plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
@@ -1032,7 +1046,7 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 
 ## Spectroscopy and ionization
 
-Concept diagrams in the vocabulary of `vaft.spectroscopy`. `parse_emission_term` and `parse_line_label` are
+Concept diagrams in the vocabulary of `vaft.data.atomic` and `vaft.data.spectroscopy`. `parse_emission_term` and `parse_line_label` are
 the same parsers `emission=` uses in `vaft.plot`, so a term that selects a trace selects the same diagram.
 Metadata is progressive, and nothing is fabricated:
 - level 0 is the semantic identity (stage, charge, element);

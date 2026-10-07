@@ -4,6 +4,8 @@
   catalog, controls, figure options, export.  It publishes what it has open
   and the selected time to the shared selection, and opens what another
   workspace selects.
+* **Diagnostics** -- the explorer narrowed to one diagnostic chosen from the
+  diagnostic registry (:mod:`vaft.gui.diagnostics`, #1348).
 * **Database** -- the database sources a shot can be read from, the HSDS
   credential configuration h5pyd will use (never its secrets), a connection
   check, and opening database shots in the plot explorer.
@@ -27,6 +29,11 @@ __all__ = ["DatabaseWorkspace", "PlotWorkspace", "credential_summary"]
 
 class PlotWorkspace:
     """The plot explorer, bound to the shared selection."""
+
+    #: The registry key this workspace is shown under (a subclass reusing the
+    #: explorer registers under its own).
+    name = "plots"
+    title = "Plots"
 
     def __init__(self, shell: Shell, app: Any = None) -> None:
         from .app import BrowserApp
@@ -66,7 +73,7 @@ class PlotWorkspace:
         so a workspace in the background only remembers the request.
         """
         self._pending = tuple(sources)
-        if self.shell.active == "plots":
+        if self.shell.active == self.name:
             self.activate()
 
     def activate(self) -> None:
@@ -74,7 +81,7 @@ class PlotWorkspace:
         if pending:
             self.app.choose(pending)
             if not self.app.load(list(pending)):
-                self.shell.report(self.app.alert.object or "could not open the selection", where="Plots")
+                self.shell.report(self.app.alert.object or "could not open the selection", where=self.title)
                 # The selection says what is open, and the failed request is not.
                 self._publish()
 
@@ -247,11 +254,22 @@ class DatabaseWorkspace:
         )]
 
 
+def _diagnostics(shell: Shell) -> Any:
+    from .diagnostics import DiagnosticsWorkspace  # it builds on this module
+
+    return DiagnosticsWorkspace(shell)
+
+
 def _register() -> None:
     for spec in (
         WorkspaceSpec(
             "plots", "Plots", PlotWorkspace,
             "Open samples, files or database shots and explore every plot they support.", order=10,
+        ),
+        WorkspaceSpec(
+            "diagnostics", "Diagnostics", _diagnostics,
+            "Processed diagnostics by diagnostic, from the diagnostic registry; several shots compare on each plot.",
+            order=15,
         ),
         WorkspaceSpec(
             "database", "Database", DatabaseWorkspace,
