@@ -1010,7 +1010,7 @@ def scientific_representation(organization: str = "integrated", *, labels: bool 
 
 #: research roles: functions a person may combine, not professions (key, name)
 ECOSYSTEM_ROLES: Tuple[Tuple[str, str], ...] = (
-    ("experiment", "Experiment & Diagnostics"), ("theory", "Theory & Modelling"), ("data_ai", "Data Science & AI"),
+    ("experiment", "Experiment & Engineering"), ("theory", "Theory & Modelling"), ("data_ai", "Data Science & AI"),
     ("software", "Scientific Software & Data"), ("planning", "Research Planning & Strategy"),
     ("learners", "Graduate Researchers & Learners"),
 )
@@ -1043,7 +1043,7 @@ ECOSYSTEM_CONTEXTS: Tuple[Tuple[str, str, str], ...] = (
 )
 #: the presentation rendering, a projection of the model above: (key, name, the full items it stands for)
 PRESENTATION_ROLES: Tuple[Tuple[str, str, Tuple[str, ...]], ...] = (
-    ("experiment", "Experiment & Diagnostics", ("experiment",)), ("theory", "Theory & Modelling", ("theory",)),
+    ("experiment", "Experiment & Engineering", ("experiment",)), ("theory", "Theory & Modelling", ("theory",)),
     ("data_software", "Data, AI & Software", ("data_ai", "software")),
 )
 PRESENTATION_VERBS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
@@ -1073,7 +1073,7 @@ def fusion_research_ecosystem(detail: str = "full", *, labels: bool = True) -> D
 
     ``"full"``
         the documentation figure. Research roles -- experiment and
-        diagnostics, theory and modelling, data science and AI, scientific
+        engineering, theory and modelling, data science and AI, scientific
         software and data, research planning and strategy, with graduate
         researchers and learners across every activity -- participate in
         research activities rather than owning them. A research question
