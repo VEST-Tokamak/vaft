@@ -148,7 +148,7 @@ def _has_ids(shot: int, source: str, ids: Iterable[str]) -> bool:
     from . import load as load_source
 
     try:
-        ods = load_source(shot, source=source, paths=list(ids))
+        ods = load_source(shot, source=source, paths=list(ids), cache="off")
     except Exception:  # noqa: BLE001 - absence and unreadability are both "no"
         return False
     return any(name in ods and len(ods[name]) for name in ids)
@@ -178,7 +178,7 @@ def _source_holds(shot: int, source: str, ids: Iterable[str]) -> bool:
     files = _remote_canonical_files(_remote_entries(source, shot))
     if not any(_is_ids_file(name, ids_name) for name in files for ids_name in ids):
         return False
-    ods = load_source(shot, source=source, paths=list(ids))
+    ods = load_source(shot, source=source, paths=list(ids), cache="off")
     return any(name in ods and len(ods[name]) for name in ids)
 
 
@@ -323,7 +323,7 @@ def copy_refinement(shot: int, *, source: str = RETIRING_SOURCE, apply: bool = F
         "applied": False,
         "verified": False,
     }
-    ods = load_source(shot, source=name, paths=list(REFINEMENT_IDS))
+    ods = load_source(shot, source=name, paths=list(REFINEMENT_IDS), cache="off")
     if not any(ids in ods and len(ods[ids]) for ids in REFINEMENT_IDS):
         report["detail"] = "no equilibrium to copy"
         return report
@@ -337,7 +337,7 @@ def copy_refinement(shot: int, *, source: str = RETIRING_SOURCE, apply: bool = F
     # Read back rather than trusting the write. A copy that reports success
     # without checking the destination is how a retirement deletes the only
     # remaining copy of something that never arrived.
-    written = load_source(shot, source=destination, paths=list(REFINEMENT_IDS))
+    written = load_source(shot, source=destination, paths=list(REFINEMENT_IDS), cache="off")
     report["verified"] = any(
         ids in written and len(written[ids]) for ids in REFINEMENT_IDS
     )
