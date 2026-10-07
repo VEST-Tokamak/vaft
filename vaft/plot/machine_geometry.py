@@ -96,7 +96,7 @@ _FAMILY_LABELS = {
     "charge_exchange": "CX measurement sites",
     "langmuir_probes": "Langmuir sites",
     "interferometer": "Interferometer LOS",
-    "soft_x_rays": "SXR LOS",
+    "soft_x_rays": "Soft X-ray LOS",
     "coils_non_axisymmetric": "3-D coil filament",
     "ec_launchers": "EC provisional CAD",
     "nbi": "NBI model geometry",
