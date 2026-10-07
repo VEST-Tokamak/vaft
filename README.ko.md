@@ -48,7 +48,7 @@ VAFT는 장치별 진단·운전 데이터를 [IMAS Data Dictionary](https://ima
 
 ![VAFT의 장치 독립 구조](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/machine_agnostic_architecture.svg)
 
-이 구조는 장치별 데이터 접근·매핑을 공통 IMAS 데이터 모델과 그 위의 분석 도구에서 분리합니다. 다른 장치를 연결하려면 해당 장치의 데이터 접근 방법과 매핑을 마련해야 하며, 모든 장치 지원이 구현된 것은 아닙니다.
+이 구조는 장치별 데이터 접근·매핑을 공통 IMAS 데이터 모델과 그 위의 분석 도구에서 분리합니다. 다른 장치를 연결하려면 해당 장치의 데이터 접근 방법과 매핑이 필요합니다.
 
 ## VEST 참조 구현
 

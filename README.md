@@ -48,7 +48,7 @@ Start with [offline sample data](tutorial/README.md), then [explore shots and di
 
 ![VAFT's machine-agnostic architecture](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/machine_agnostic_architecture.svg)
 
-The architecture separates device-specific data access and mapping from the common IMAS data model and the analysis tools above it. Connecting another device requires its own access and mappings; support for every device is not yet implemented.
+The architecture separates device-specific data access and mapping from the common IMAS data model and the analysis tools above it. Connecting another device requires its own data access and mappings.
 
 ## VEST reference implementation
 
