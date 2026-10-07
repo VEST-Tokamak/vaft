@@ -75,6 +75,23 @@ def test_the_snapshot_is_deterministic(snapshot):
     assert pipeline_graph._dump(pipeline_graph.pipeline_snapshot(PROVENANCE)) == pipeline_graph._dump(snapshot)
 
 
+def test_artifact_ids_never_carry_the_temporary_workspace(snapshot):
+    """An id or path with the scratch directory in it is unreproducible (the Windows gate)."""
+    for node in snapshot["nodes"]:
+        if node["kind"] == "artifact":
+            assert not re.match(r"^[A-Za-z]:/|^/", node["path"]), node["id"]
+            assert "vaft-pipeline-graph-" not in node["id"], node["id"]
+
+
+def test_workspace_prefixes_are_spelled_like_pipeline_paths():
+    """PipelinePaths renders POSIX separators on every platform; the stripped prefixes must too."""
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    assert pipeline_graph._workspace_prefixes(PureWindowsPath(r"C:\Temp\ws")) == (
+        "C:/Temp/ws/filedb", "C:/Temp/ws/unused")
+    assert pipeline_graph._workspace_prefixes(PurePosixPath("/tmp/ws")) == ("/tmp/ws/filedb", "/tmp/ws/unused")
+
+
 def test_nodes_and_edges_are_unique_and_closed(snapshot):
     ids = [node["id"] for node in snapshot["nodes"]]
     assert len(ids) == len(set(ids))

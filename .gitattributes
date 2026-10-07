@@ -46,3 +46,8 @@ docs/assets/diagrams/** text=auto eol=lf
 # against the npm tarball). A CRLF checkout of cytoscape.min.js hashed to
 # d75e3c87... on Windows CI against the pinned 5f3b5b52...; keep them byte-exact.
 docs/assets/lib/** -text
+# The unified-diagnostics fixture manifest pins the sha256 of the geometry
+# source artifacts it derives from (#1610); a CRLF checkout hashed
+# vest_MID.dat to fc32c016... on Windows CI against the LF e718d702... it records.
+vaft/data/gpec/*.dat text=auto eol=lf
+vaft/data/nubeam/** text=auto eol=lf
