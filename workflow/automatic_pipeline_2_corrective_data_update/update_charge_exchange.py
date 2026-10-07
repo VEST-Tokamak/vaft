@@ -85,7 +85,7 @@ def update_charge_exchange_auto(ion_matfile):
         return None
 
     try:
-        ods = database.load(shotnumber, source=SOURCE)
+        ods = database.load(shotnumber, source=SOURCE, cache="off")
     except Exception as exc:  # noqa: BLE001
         print(f"[ERROR] Failed to load ODS for shot {shotnumber}: {exc}")
         return None
