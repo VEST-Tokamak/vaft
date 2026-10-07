@@ -348,6 +348,19 @@ def test_negative_rotation_is_drawn_as_magnitude():
     assert model.metadata["mode_overlay"]["tracks"][0]["predicted_frequency"][1] == pytest.approx(-F0)
 
 
+def test_a_negative_toroidal_mode_number_is_labelled_by_the_magnitude_it_draws(shot):
+    # The sign of n is a frame choice (a VEST clock-frame fit is the IMAS
+    # mirror), the drawn line is |n f_phi|: the multiplier reads |n|, the
+    # signed hypothesis stays in the mode name and the metadata.
+    model = vo.extract_mirnov_spectrogram(shot, mode_overlay=[(2, -1)])
+    (track,) = model.tracks
+    assert track.label == "2/-1 (q = 2): 1 × f_φ"
+    assert np.allclose(track.frequency[np.isfinite(track.frequency)], F0)
+    record = model.metadata["mode_overlay"]["tracks"][0]
+    assert record["label"] == track.label and record["n"] == -1
+    assert record["predicted_frequency"][1] == pytest.approx(-F0)
+
+
 def test_without_the_option_the_spectrogram_is_unchanged(shot):
     plain = vo.extract_mirnov_spectrogram(shot)
     base = R._build_spectrogram(shot, R.RECIPES["mirnov_spectrogram"])

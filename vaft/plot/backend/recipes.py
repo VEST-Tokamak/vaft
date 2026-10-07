@@ -11080,7 +11080,12 @@ def _with_mode_overlay(
         pair = (track.m, track.n)
         inside = (track.time >= start) & (track.time <= stop)
         frequency = np.where(inside & track.valid, np.abs(track.predicted_frequency), np.nan)
-        label = f"{track.m}/{track.n} (q = {track.q:g}): {track.n} × f_φ"
+        # The line is |n f_phi|, so the multiplier is |n|: a hypothesis with a
+        # negative n (the sign of n is a frame choice -- a fit in the VEST
+        # clock frame carries the opposite sign to IMAS phi) is drawn at the
+        # same magnitude as its mirror and must not read "-1 × f_φ" over a
+        # positive line.  The signed n stays in the mode name and the metadata.
+        label = f"{track.m}/{track.n} (q = {track.q:g}): {abs(track.n)} × f_φ"
         if branches[pair] > 1:
             label += f", root {track.branch + 1}"
         drawn = bool(np.any(np.isfinite(frequency)))
