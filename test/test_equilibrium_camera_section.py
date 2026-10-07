@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import json
 
 import cv2
@@ -17,7 +18,9 @@ from vaft.machine_mapping.camera_visible import vfit_camera_visible_dynamic, vfi
 from vaft.omas import plot_camera_visible_image, plot_machine_geometry_poloidal
 from vaft.omas.process_wrapper import camera_projection_for
 from vaft.omas.sample import sample_ods
-from vaft.plot.equilibrium_section import DEFAULT_SECTION_PHI, _camera_layer, build_equilibrium_section
+from vaft.plot.equilibrium_section import (
+    DEFAULT_SECTION_PHI, _camera_layer, build_equilibrium_section, valid_equilibrium_indices,
+)
 from vaft.plot.models import GeometryLayer
 
 
@@ -73,6 +76,23 @@ def test_projection_marks_invalid_vertices_as_gaps():
     actual = _camera_layer(layer, 0.0, Projection())
     assert np.isfinite(actual.r[[0, 2]]).all()
     assert np.isnan(actual.r[1]) and np.isnan(actual.z[1])
+
+
+def test_complete_section_selection_checks_flux_grid_shape():
+    slice_data = {
+        "boundary": {"outline": {"r": [1.0, 2.0, 1.5], "z": [-0.5, -0.5, 0.5]}},
+        "global_quantities": {
+            "magnetic_axis": {"r": 1.5, "z": 0.0},
+            "psi_axis": 0.0, "psi_boundary": 1.0,
+        },
+        "profiles_2d": [{"grid": {"dim1": [1.0, 2.0], "dim2": [-0.5, 0.5]},
+                         "psi": [[0.0, 0.5], [0.5, 1.0]]}],
+    }
+    incomplete = deepcopy(slice_data)
+    incomplete["profiles_2d"][0]["psi"] = [[0.0, 0.5]]
+    data = {"equilibrium": {"time": [0.1, 0.2], "time_slice": [slice_data, incomplete]}}
+    assert valid_equilibrium_indices(data) == (0,)
+    assert valid_equilibrium_indices(data, require_flux_surfaces=False) == (0, 1)
 
 
 def test_single_frame_and_rz_use_the_same_section(same_shot):

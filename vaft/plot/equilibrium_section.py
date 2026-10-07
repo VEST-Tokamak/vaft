@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 
 from vaft.machine_mapping.registry import port_phi
-from vaft.plot.backend.access import array, count, get, has
+from vaft.plot.backend.access import array, count, get
 from vaft.plot.models import GeometryLayer, GeometryLayers
 from vaft.process.equilibrium import extract_flux_surface_contours
 
@@ -20,21 +20,42 @@ DEFAULT_SECTION_PHI = port_phi("6MR")
 DEFAULT_FLUX_LEVELS = (0.25, 0.5, 0.75, 0.95)
 
 
-def valid_equilibrium_indices(data: Any) -> tuple[int, ...]:
-    """Stored slices with an LCFS and a nondegenerate psi normalization."""
+def valid_equilibrium_indices(data: Any, *, require_flux_surfaces: bool = True) -> tuple[int, ...]:
+    """Stored slices with every input the requested section needs."""
     times = array(data, "equilibrium.time")
     if times is None:
         return ()
     valid = []
     for index in range(times.size):
         base = f"equilibrium.time_slice.{index}"
+        lcfs_r = array(data, f"{base}.boundary.outline.r")
+        lcfs_z = array(data, f"{base}.boundary.outline.z")
+        axis_r = get(data, f"{base}.global_quantities.magnetic_axis.r")
+        axis_z = get(data, f"{base}.global_quantities.magnetic_axis.z")
         axis = get(data, f"{base}.global_quantities.psi_axis")
         boundary = get(data, f"{base}.global_quantities.psi_boundary")
-        if (np.isfinite(times[index]) and has(data, f"{base}.boundary.outline.r")
-                and has(data, f"{base}.boundary.outline.z")
-                and axis is not None and boundary is not None
-                and np.isfinite(axis) and np.isfinite(boundary) and float(axis) != float(boundary)):
-            valid.append(index)
+        if (not np.isfinite(times[index]) or lcfs_r is None or lcfs_z is None
+                or lcfs_r.shape != lcfs_z.shape or lcfs_r.size < 3
+                or not np.isfinite(lcfs_r).all() or not np.isfinite(lcfs_z).all()
+                or axis_r is None or axis_z is None
+                or not np.isfinite(axis_r) or not np.isfinite(axis_z)):
+            continue
+        if require_flux_surfaces:
+            if (axis is None or boundary is None or not np.isfinite(axis)
+                    or not np.isfinite(boundary) or float(axis) == float(boundary)):
+                continue
+            grid_r = array(data, f"{base}.profiles_2d.0.grid.dim1")
+            grid_z = array(data, f"{base}.profiles_2d.0.grid.dim2")
+            psi = array(data, f"{base}.profiles_2d.0.psi")
+            if (grid_r is None or grid_z is None or psi is None
+                    or grid_r.ndim != 1 or grid_z.ndim != 1
+                    or grid_r.size < 2 or grid_z.size < 2
+                    or psi.shape != (grid_r.size, grid_z.size)
+                    or not np.isfinite(grid_r).all() or not np.isfinite(grid_z).all()
+                    or not np.isfinite(psi).all()
+                    or not np.all(np.diff(grid_r) > 0) or not np.all(np.diff(grid_z) > 0)):
+                continue
+        valid.append(index)
     return tuple(valid)
 
 
@@ -107,7 +128,7 @@ def build_equilibrium_section(
     times = array(data, "equilibrium.time")
     if times is None or not times.size or not np.isfinite(times).all():
         raise ValueError("equilibrium.time must contain finite stored slice times")
-    valid_indices = valid_equilibrium_indices(data)
+    valid_indices = valid_equilibrium_indices(data, require_flux_surfaces=bool(flux_surface_levels))
     if not valid_indices:
         raise ValueError("no stored equilibrium slice has a complete section")
     if time is not None and time_slice is not None:

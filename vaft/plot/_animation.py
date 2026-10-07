@@ -80,13 +80,15 @@ def _equilibrium_section_context(data: Any, driver: Driver, options: Mapping[str
     from vaft.machine_mapping.pf_active import pf_geometry_version_for_shot
     from vaft.machine_mapping.pf_passive import wall_geometry_version_for_shot
     from vaft.plot.backend.access import array, get
-    from vaft.plot.equilibrium_section import DEFAULT_SECTION_PHI, valid_equilibrium_indices
+    from vaft.plot.equilibrium_section import DEFAULT_FLUX_LEVELS, DEFAULT_SECTION_PHI, valid_equilibrium_indices
     from vaft.omas.process_wrapper import camera_projection_for
 
     times = array(data, "equilibrium.time")
     if times is None or not times.size or not np.isfinite(times).all():
         raise ValueError("equilibrium_section animation needs finite equilibrium times")
-    valid_indices = valid_equilibrium_indices(data)
+    valid_indices = valid_equilibrium_indices(
+        data, require_flux_surfaces=bool(options.get("flux_surface_levels", DEFAULT_FLUX_LEVELS))
+    )
     if not valid_indices:
         raise ValueError("equilibrium_section animation needs complete equilibrium sections")
     shot = options.get("shot") or get(data, "dataset_description.data_entry.pulse")
@@ -153,10 +155,13 @@ def render_animation(
     )
     if section_overlay and not any(options.get(key) is not None for key in ("frame_index", "time_range")):
         from vaft.plot.backend.access import array
-        from vaft.plot.equilibrium_section import valid_equilibrium_indices
+        from vaft.plot.equilibrium_section import DEFAULT_FLUX_LEVELS, valid_equilibrium_indices
 
         equilibrium_times = array(entries[0][1], "equilibrium.time")
-        valid = valid_equilibrium_indices(entries[0][1])
+        valid = valid_equilibrium_indices(
+            entries[0][1],
+            require_flux_surfaces=bool(options.get("flux_surface_levels", DEFAULT_FLUX_LEVELS)),
+        )
         if equilibrium_times is None or not valid:
             raise ValueError("equilibrium_section animation requires complete equilibrium sections")
         options["time_range"] = (float(equilibrium_times[valid[0]]), float(equilibrium_times[valid[-1]]))
