@@ -256,3 +256,66 @@ def test_table_declares_the_b0_at_r_ref_convention_of_its_normalized_current(ves
     assert "geometric" in table.attrs["conventions"]["toroidal_field"]["radius_reference"]
     row = table.iloc[0]
     assert row["normalized_current"] == pytest.approx(row["plasma_current"] / (row["minor_radius"] * row["b0"]))
+
+
+def _registry_strings_in_outputs(path: Path) -> list:
+    """(cell index, boundary key, 'calibrated on (registry)' value) from every committed output table."""
+    import re
+
+    from vaft.formula import boundaries as B
+
+    keys = set(B.list_boundaries())
+    header = "calibrated on (registry)"
+    notebook = json.loads(path.read_text(encoding="utf-8"))
+    found = []
+    for index, cell in enumerate(notebook["cells"]):
+        if cell["cell_type"] != "code":
+            continue
+        texts = []
+        for output in cell.get("outputs", []):
+            texts.append("".join(output.get("text", [])))
+            texts.append("".join(output.get("data", {}).get("text/plain", [])))
+        for text in texts:
+            span = None
+            for line in text.splitlines():
+                if not line.strip():
+                    continue
+                if line[0].isspace():
+                    # a header line (the index column is blank); a wrapped frame starts a new block
+                    # with a new header. pandas right-aligns every column: the value ends where the
+                    # header ends and starts after the previous header ends.
+                    if header in line:
+                        start = line.index(header)
+                        before = list(re.finditer(r"\S+(?: \S+)*", line[:start]))
+                        span = (before[-1].end() if before else 0, start + len(header))
+                    else:
+                        span = None
+                    continue
+                token = line.split(None, 1)[0]
+                if span and token in keys:
+                    found.append((index, token, line[span[0]:span[1]].strip()))
+    return found
+
+
+def _quotes_the_registry(value: str, declared: str) -> bool:
+    declared = declared or "not stated"
+    return declared.startswith(value[:-3]) if value.endswith("...") else value == declared
+
+
+def test_notebook_outputs_quote_the_registry_as_shipped():
+    # #1778 declared the Freidberg kink limits and the ITER-1991 q95 guideline for
+    # conventional aspect ratio, which puts VEST (A = 1.43) OUTSIDE on their ST panels;
+    # the committed outputs of cells 27, 31, 35, 37 still showed the pre-#1778 strings and
+    # UNASSESSED (cold review 0.8.0 delta-absorb-18 stability-opspace F1).
+    from vaft.formula import boundaries as B
+
+    for key in ("freidberg_2008_kink_qstar", "freidberg_2008_kink_current"):
+        assert B.get_boundary(key).applicability.machine_class == \
+            "conventional-aspect-ratio tokamak, elongated elliptical cross-section"
+    for key in ("iter_1991_q95_estimate_min", "iter_1991_q95_current"):
+        assert B.get_boundary(key).applicability.machine_class == "conventional-aspect-ratio tokamak"
+    found = _registry_strings_in_outputs(NEW_NOTEBOOK)
+    stale = sorted({(cell, key, value) for cell, key, value in found
+                    if not _quotes_the_registry(value, B.get_boundary(key).applicability.machine_class)})
+    assert not stale, stale
+    assert {key for _cell, key, _value in found} >= {"troyon", "menard_2004_qstar_min"}   # the scan read real tables
