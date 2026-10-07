@@ -44,13 +44,19 @@ VAFT는 장치별 진단·운전 데이터를 [IMAS Data Dictionary](https://ima
 
 [오프라인 예제](tutorial/README.md)로 시작해 [샷과 진단 데이터를 탐색](https://vest-tokamak.github.io/vaft/workflows/data-access-imas/)하거나 [평형을 재구성하고 프로파일을 피팅](https://vest-tokamak.github.io/vaft/workflows/equilibrium-kinetic-profiles/)할 수 있습니다. [연구 노트북](notebooks/README.md)과 [워크플로 안내](https://vest-tokamak.github.io/vaft/workflows/start-here/)에 전체 예제가 있습니다.
 
-## VEST 참조 구현
-
-서울대학교의 [VEST 토카막](https://vest-tokamak.github.io/vaft/reference/vest-tokamak-physics/)은 VAFT의 참조 구현입니다. VEST 진단 데이터를 IMAS에 맞춰 옮기고 평형 재구성·모델링·분석에 사용하며, 장치별 매핑과 공통 데이터 구조·분석 도구를 구분합니다.
+## 여러 장치에 적용하는 구조
 
 ![VAFT의 장치 독립 구조](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/machine_agnostic_architecture.svg)
 
-새 장치를 연결하려면 그 장치의 데이터 접근 방법과 진단 매핑이 필요합니다. 그다음 분석 도구는 같은 IMAS 구조를 사용할 수 있습니다. 이는 VEST 밖으로 확장하기 위한 설계이며, 모든 장치와의 연동이 이미 구현되었다는 뜻은 아닙니다.
+이 구조는 장치별 데이터 접근·매핑을 공통 IMAS 데이터 모델과 그 위의 분석 도구에서 분리합니다. 다른 장치를 연결하려면 해당 장치의 데이터 접근 방법과 매핑을 마련해야 하며, 모든 장치 지원이 구현된 것은 아닙니다.
+
+## VEST 참조 구현
+
+서울대학교의 [VEST 토카막](https://vest-tokamak.github.io/vaft/reference/vest-tokamak-physics/)은 이 구조를 실제로 적용한 참조 구현입니다. 그림은 VEST의 한 샷이 실험 데이터 처리를 거쳐 샷별 데이터베이스에 들어가는 흐름을 보여 줍니다.
+
+![VEST 실험에서 분석까지 이어지는 데이터 플랫폼](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/vest_data_platform_overview.svg)
+
+평형 재구성·물리량 추론과 시뮬레이션은 이 데이터베이스의 데이터를 읽고 결과를 다시 기록합니다. VAFT는 아래쪽에서 데이터 접근·분석을 담당하며, 각 단계의 구성 요소는 [VEST 플랫폼 상세 그림](https://vest-tokamak.github.io/vaft/develop/reference/diagrams/#the-vest-data-platform)에서 볼 수 있습니다.
 
 ## 빠른 시작
 

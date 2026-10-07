@@ -44,13 +44,19 @@ Machine descriptions and diagnostic measurements are registered and mapped to IM
 
 Start with [offline sample data](tutorial/README.md), then [explore shots and diagnostics](https://vest-tokamak.github.io/vaft/workflows/data-access-imas/) or [reconstruct equilibria and fit profiles](https://vest-tokamak.github.io/vaft/workflows/equilibrium-kinetic-profiles/). The [research notebooks](notebooks/README.md) and [workflow guide](https://vest-tokamak.github.io/vaft/workflows/start-here/) show complete examples.
 
-## VEST reference implementation
-
-The [VEST tokamak](https://vest-tokamak.github.io/vaft/reference/vest-tokamak-physics/) at Seoul National University is VAFT's reference implementation: its diagnostics are mapped to IMAS and used in reconstruction, modeling, and analysis workflows. VAFT separates VEST-specific mappings from the data structures and tools those workflows share.
+## Architecture across devices
 
 ![VAFT's machine-agnostic architecture](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/machine_agnostic_architecture.svg)
 
-A new device needs its own data access and diagnostic mappings; downstream tools can then work with the same IMAS structures. This is the intended path for extending VAFT beyond VEST, not a claim that every device integration is already implemented.
+The architecture separates device-specific data access and mapping from the common IMAS data model and the analysis tools above it. Connecting another device requires its own access and mappings; support for every device is not yet implemented.
+
+## VEST reference implementation
+
+The [VEST tokamak](https://vest-tokamak.github.io/vaft/reference/vest-tokamak-physics/) at Seoul National University provides the concrete reference implementation. The diagram follows one shot from VEST through experimental data processing into a per-shot database.
+
+![VEST data platform from experiment to analysis](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/vest_data_platform_overview.svg)
+
+Reconstruction and physics inference, as well as simulation, read from and write to that database. VAFT provides access and analysis below it; the [detailed VEST platform diagram](https://vest-tokamak.github.io/vaft/develop/reference/diagrams/#the-vest-data-platform) shows the processing and research components inside each stage.
 
 ## Quick start
 

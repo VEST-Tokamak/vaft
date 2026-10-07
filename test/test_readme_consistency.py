@@ -122,15 +122,16 @@ def test_the_four_perspectives_are_present_and_ordered(path):
 def test_both_readmes_have_the_same_short_landing_structure():
     sections = (
         ("What VAFT connects", "Four enabling perspectives", "How results are produced", "Research with VAFT",
-         "VEST reference implementation", "Quick start", "Learn more"),
+         "Architecture across devices", "VEST reference implementation", "Quick start", "Learn more"),
         ("VAFT가 연결하는 것", "이를 가능하게 하는 네 관점", "결과가 만들어지는 과정", "VAFT로 할 수 있는 연구",
-         "VEST 참조 구현", "빠른 시작", "자세한 문서"),
+         "여러 장치에 적용하는 구조", "VEST 참조 구현", "빠른 시작", "자세한 문서"),
     )
     diagrams = (
         "fusion_research_ecosystem_presentation.svg",
         "vaft_four_pillars.svg",
         "scientific_workflow.svg",
         "machine_agnostic_architecture.svg",
+        "vest_data_platform_overview.svg",
     )
     for path, expected in zip((ENGLISH, KOREAN), sections):
         text = path.read_text(encoding="utf-8")
