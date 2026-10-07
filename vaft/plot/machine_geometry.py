@@ -17,7 +17,8 @@ import numpy as np
 from .backend.access import array, count, get, has
 from .models import Geometry3DLayer, Geometry3DLayers, GeometryLayer, GeometryLayers, as_model_array
 
-__all__ = ["MachineGeometry", "MACHINE_GEOMETRY_FAMILIES", "machine_geometry_registry",
+__all__ = ["MachineGeometry", "MACHINE_GEOMETRY_FAMILIES", "CROSS_SHOT_NOTICE",
+           "cross_shot_notice", "machine_geometry_registry",
            "machine_geometry_view", "project_machine_geometry"]
 
 
@@ -100,6 +101,21 @@ _FAMILY_LABELS = {
     "ec_launchers": "EC provisional CAD",
     "nbi": "NBI model geometry",
 }
+
+
+CROSS_SHOT_NOTICE = "Cross-shot composite — not a physical VEST discharge"
+
+
+def cross_shot_notice(reference: Any) -> str:
+    """Two-line notice every view of the cross-shot fixture carries in its title.
+
+    The first line says the picture is not one discharge; the second says whose
+    machine geometry the other shots' diagnostic coordinates are projected onto.
+    The static renderer, the camera view and the shared machine view all take the
+    wording from here so the three cannot drift apart.
+    """
+    return (f"{CROSS_SHOT_NOTICE}\n"
+            f"Other-shot diagnostic coordinates projected onto geometry reference shot {reference}")
 
 
 def _position(data: Any, path: str, *, dynamic: bool = False) -> tuple[float, float, float | None] | None:
@@ -441,7 +457,7 @@ def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | N
     notice = (manifest or {}).get("notice", "")
     if (manifest or {}).get("kind") == "cross-shot-diagnostic-fixture":
         reference = (manifest or {}).get("geometry_reference", {}).get("source_shot")
-        notice = f"Cross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+        notice = cross_shot_notice(reference)
     elif not notice:
         source_comment = get(data, "dataset_description.ids_properties.comment")
         if isinstance(source_comment, str) and "Cross-shot composite fixture" in source_comment:

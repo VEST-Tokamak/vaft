@@ -227,7 +227,10 @@ def test_four_views_share_family_selection_and_composite_notice():
         model = machine_geometry_view(data, view, families=selected, manifest=manifest,
                                       projection=camera if view == "camera" else None)
         assert "Cross-shot composite" in model.title
-        assert "shot 39915" in model.title
+        # One wording for every view (#1625 marker, #1661 shared title, camera view):
+        # the composite line and the projection-onto-reference line, nothing else.
+        assert "projected onto geometry reference shot 39915" in model.title
+        assert model.title.count("39915") == 1
         assert model.layers
         if view == "3d":
             assert {layer.group.split("/")[0] for layer in model.layers} == set(selected)
