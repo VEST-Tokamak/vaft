@@ -159,3 +159,17 @@ def test_the_flux_axis_stops_where_the_flux_has_fallen_off(gk):
     model = build_model("gyrokinetics_spectrum_energy_flux", normalize_entries(wide))
     assert model.x_limits == pytest.approx((0.0, 1.76))
     assert model.series[0].x[-1] == 40.0          # display range only, nothing dropped
+
+
+def test_the_plotting_guide_names_only_registered_recipes():
+    """Every standardized recipe the gyrokinetic guide names exists (cold review 0.8.0 F4)."""
+    import re
+    from pathlib import Path
+
+    from vaft.plot.backend.recipes import RECIPES
+
+    guide = Path(__file__).resolve().parents[1] / "docs" / "_guide" / "Gyrokinetic_plotting.md"
+    names = set(re.findall(r"`((?:gyrokinetics|turbulent_transport)_(?:spectrum|profile|overview)[a-z_]*)`",
+                           guide.read_text(encoding="utf-8")))
+    assert names, "the guide no longer names any standardized recipe"
+    assert names <= set(RECIPES), sorted(names - set(RECIPES))

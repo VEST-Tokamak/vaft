@@ -91,7 +91,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_magnetic_island.py",
     # Machine geometry: source vertices, unknown phi, camera units and mask.
     # Registry, taxonomy and display policy: the vocabulary the rest of the
-    # package indexes itself by.
+    # package indexes itself by. The beta definitions (#1691): closed forms and
+    # the packaged sample's volume beta, no solver.
+    "test_beta_volume.py",
     "test_diagnostic_registry.py",
     "test_diagnostics_interactive.py",
     "test_display_policy.py",
@@ -221,6 +223,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_mhd_waves.py",
     "test_diagram_mode_geometry.py",
     "test_diagram_nbi.py",
+    "test_diagram_orderings.py",
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
@@ -253,6 +256,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_stability_atlas_controls.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
+    # GPEC adapter records (#1460): how a solver stop is worded and recorded --
+    # time limit, memory limit, never admitted -- through stub executables and
+    # a recording backend. No solver runs; about 20 s.
+    "test_gpec_adapter.py",
+    "test_gpec_pentrc_runner.py",
     # Kinetic state (lane K, #1430/#1454): Thomson against EFIT pressure on
     # synthetic multi-slice equilibria stored out of time order. Pure NumPy.
     "test_kinetic_state.py",
@@ -284,6 +292,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
     "test_process_impurity.py",
+    "test_process_species.py",
     # #1565 Sec. 8: the impurity composition and stored Z_eff plots, on
     # synthetic ADF11 tables (no network). Under 10 s.
     "test_impurity_plots.py",
@@ -296,6 +305,12 @@ CORE_MODULES: tuple[str, ...] = (
     # the ordering-margin evaluation on synthetic states, plus two clean-interpreter
     # import checks that keep both off the default processing path. Under 10 s.
     "test_validation_credibility.py",
+    # Sensitivity contract (lane AP, #1642): finite differences against the
+    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map. ~2 s.
+    "test_sensitivity_contract.py",
+    # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
+    # Braginskii times, Knudsen, magnetization against the NRL formulary.
+    "test_formula_ordering.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

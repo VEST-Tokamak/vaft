@@ -542,3 +542,245 @@ def test_surface_profiles_refuse_a_foreign_grid_or_surface(transport_profile):
         surface_composition_profile(p, radial, 0.5)
     with pytest.raises(ValueError, match="r_over_a"):
         surface_composition_profile(p, resolve_impurity_composition(machine_preset="vest"), 1.2)
+
+
+# --- a bundled (radial-charge) product read back (cold review 0.8.0 delta-absorb-16 F2) --------
+
+
+def _synthetic_tables():
+    import sys
+
+    sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent))
+    from _adf11_synthetic import synthetic_adf11_tables
+
+    return synthetic_adf11_tables()
+
+
+def _real_adf11_tables():
+    """The OPEN-ADAS C/O 96 tables from the local cache; skipped when absent (nothing is downloaded)."""
+    cache = __import__("pathlib").Path.home() / "Library/Caches/vaft/open_adas/adf11"
+    tables = {s: (cache / f"acd96_{s.lower()}.dat", cache / f"scd96_{s.lower()}.dat") for s in ("C", "O")}
+    if not all(p.is_file() for pair in tables.values() for p in pair):
+        pytest.skip("the real ADF11 tables are not in the local OPEN-ADAS cache")
+    return {k: tuple(str(p) for p in v) for k, v in tables.items()}
+
+
+def _tables(which):
+    return _synthetic_tables() if which == "synthetic" else _real_adf11_tables()
+
+
+def _radial_product(sample, tables):
+    """The package's own radial writer product on the 48224 slice: bundled C and O ions."""
+    from vaft.ods_access import path_value
+    from vaft.process.impurity import populate_radial_impurity_profiles, resolve_radial_composition
+
+    base = "core_profiles.profiles_1d.0"
+    rho = np.asarray(sample[f"{base}.grid.rho_tor_norm"], dtype=float)
+    te = np.asarray(sample[f"{base}.electrons.temperature"], dtype=float)
+    ne = path_value(sample, f"{base}.electrons.density_thermal")
+    ne = np.asarray(sample[f"{base}.electrons.density"] if ne is None else ne, dtype=float)
+    radial = resolve_radial_composition(te, ne, rho, {"C": 1, "O": 1}, tables=tables, time=0.3)
+    return populate_radial_impurity_profiles(sample, radial), radial, ne
+
+
+def _stored(out, path):
+    return np.asarray(out[f"core_profiles.profiles_1d.0.{path}"], dtype=float)
+
+
+@pytest.mark.parametrize("which", ["synthetic", "real_adf11"])
+def test_the_resolver_rereads_a_bundled_ion_with_its_radial_charge(sample_48224, which):
+    out, radial, ne = _radial_product(sample_48224, _tables(which))
+    again = resolve_impurity_composition(out, machine_preset="vest")
+    stored = _stored(out, "zeff")
+    with np.errstate(invalid="ignore", divide="ignore"):
+        # Z_eff = n_H/n_e + sum_k n_k <Z^2>_k / n_e from the stored fields themselves ...
+        direct = _stored(out, "ion.0.density") / ne + sum(
+            _stored(out, f"ion.{k}.density") * _stored(out, f"ion.{k}.z_ion_square_1d") / ne for k in (1, 2))
+        # ... and what reading the scalar z_ion as a fixed charge state gives instead
+        flattened = _stored(out, "ion.0.density") / ne + sum(
+            _stored(out, f"ion.{k}.density") * _stored(out, f"ion.{k}.z_ion") ** 2 / ne for k in (1, 2))
+    zeff = np.asarray(again.zeff)
+    finite = np.isfinite(zeff)
+    assert finite.sum() >= stored.size - 1          # the zero-density edge point stays undefined
+    assert np.nanmax(np.abs(flattened - stored)) > 0.1     # the defect this pins was O(1)
+    np.testing.assert_allclose(zeff[finite], direct[finite], atol=1e-6)
+    np.testing.assert_allclose(zeff[finite], stored[finite], atol=1e-6)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        main = _stored(out, "ion.0.density") / ne
+    np.testing.assert_allclose(np.asarray(again.main_ion_fraction)[finite], main[finite], atol=1e-9)
+    both = finite & np.isfinite(radial.S2)
+    np.testing.assert_allclose(np.asarray(again.S2)[both], radial.S2[both], atol=1e-9)
+    np.testing.assert_allclose(np.asarray(again.S1)[both], radial.S1[both], atol=1e-9)
+    assert again.kind == "derived" and "origin=derived" in again.source
+    np.testing.assert_array_equal(again.mean_charge[:, 0], _stored(out, "ion.1.z_ion_1d"))
+    np.testing.assert_array_equal(again.mean_square_charge[:, 1], _stored(out, "ion.2.z_ion_square_1d"))
+    assert again.provenance["charge_fields"] == {"ion.1": "z_ion_1d + z_ion_square_1d",
+                                                 "ion.2": "z_ion_1d + z_ion_square_1d"}
+    assert "bundled" in again.provenance["charge"]
+    assert again.species[0].charge_state == pytest.approx(float(out["core_profiles.profiles_1d.0.ion.1.z_ion"]))
+    __import__("json").dumps(again.as_record())
+
+
+def test_a_fixed_charge_ion_is_still_read_from_its_scalar_z_ion():
+    ods = _ods(ions=_lane_k_like(composition_record_text("derived", "x")))
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert r.mean_charge is None and r.mean_square_charge is None
+    assert r.provenance["charge_fields"] == {"ion.1": "z_ion"}
+    assert "charge" not in r.provenance
+    np.testing.assert_allclose(r.zeff, 2.0)
+    np.testing.assert_allclose(r.S2, 36.0)
+
+
+def test_a_bundled_ion_without_z_ion_square_1d_takes_its_states_then_the_square_of_the_mean():
+    ods = _ods(ions=(("H+", 1.0, 1.0, 1.008, 0.7, None), ("C", 6.0, 5.0, 12.011, 0.05, None)))
+    ion = "core_profiles.profiles_1d.0.ion.1"
+    mean = np.array([6.0, 5.5, 5.0, 4.5, 4.0])
+    ods[f"{ion}.z_ion_1d"] = mean
+    # the charge states behind that mean: half the ions one charge below, half one above
+    density = 0.05 * NE
+    for q, share in ((1, 0.5), (2, 0.5)):
+        ods[f"{ion}.state.{q - 1}.z_min"] = ods[f"{ion}.state.{q - 1}.z_max"] = float(q)
+    # states carry the mean +- 1 split, written per point: q-1 and q+1 around each mean
+    del ods[f"{ion}.state"]
+    for k, q in enumerate((3.0, 7.0)):
+        ods[f"{ion}.state.{k}.z_min"] = ods[f"{ion}.state.{k}.z_max"] = q
+    lower = (7.0 - mean) / 4.0                          # share at charge 3 so that <Z> = mean
+    ods[f"{ion}.state.0.density"] = density * lower
+    ods[f"{ion}.state.1.density"] = density * (1 - lower)
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    mean2 = 9.0 * lower + 49.0 * (1 - lower)
+    assert r.provenance["charge_fields"]["ion.1"] == "z_ion_1d + state[].density for <Z^2>"
+    np.testing.assert_allclose(r.mean_square_charge[:, 0], mean2)
+    np.testing.assert_allclose(r.zeff, (1 - 0.05 * mean) + 0.05 * mean2)
+    np.testing.assert_allclose(r.main_ion_fraction, 1 - 0.05 * mean)
+    del ods[f"{ion}.state"]
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert r.provenance["charge_fields"]["ion.1"].startswith("z_ion_1d + <Z^2> = <Z>^2")
+    np.testing.assert_allclose(r.zeff, (1 - 0.05 * mean) + 0.05 * mean**2)
+
+
+def test_a_bundled_ion_closed_at_a_measured_zeff_uses_its_radial_moments():
+    ods = _ods(ions=(("H+", 1.0, 1.0, 1.008, 0.7, None), ("C", 6.0, 5.0, 12.011, 0.05, None)),
+               zeff=1.8, zeff_record=composition_record_text("measured", "x"))
+    ion = "core_profiles.profiles_1d.0.ion.1"
+    mean = np.array([6.0, 5.5, 5.0, 4.5, 4.0])
+    ods[f"{ion}.z_ion_1d"] = mean
+    ods[f"{ion}.z_ion_square_1d"] = mean**2 + 1.0
+    r = resolve_impurity_composition(ods, machine_preset="vest")
+    assert r.kind == "derived" and "measured" in r.zeff_source
+    np.testing.assert_allclose(r.zeff, 1.8)
+    # closed point by point with S1 = <Z>, S2 = <Z^2>: f = (Z_eff - 1) / (<Z^2> - <Z>)
+    np.testing.assert_allclose(r.impurity_fractions[:, 0], 0.8 / (mean**2 + 1.0 - mean))
+    np.testing.assert_allclose(1.0 * r.main_ion_fraction + r.impurity_fractions[:, 0] * mean, 1.0)
+
+
+# --- the GACODE adapter on the radial writer product (cold review 0.8.0 delta-absorb-16 F1) ----
+
+
+@pytest.mark.parametrize("which", ["synthetic", "real_adf11"])
+def test_gacode_accepts_the_radial_writer_product_by_lumping_the_bundled_ions(sample_48224, which):
+    import copy as _copy
+
+    from vaft.code.gacode.inputs import ProfileConversionError, prepare_gacode_profile
+
+    out, _, _ = _radial_product(sample_48224, _tables(which))
+    profile = prepare_gacode_profile(out, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
+    z_eff = profile.provenance["z_eff"]
+    assert z_eff["origin"] == "derived" and z_eff["kind"] == "derived"
+    assert z_eff["species_value"] == pytest.approx(float(np.mean(profile.z_eff)), rel=1e-3)
+    assert list(profile.name) == ["H+", "C", "O"]
+    bundled = profile.provenance["ni"]["bundled_ions"]
+    assert set(bundled) == {"C", "O"}
+    for k, element in ((1, "C"), (2, "O")):
+        with np.errstate(invalid="ignore", divide="ignore"):
+            lump = _stored(out, f"ion.{k}.z_ion_square_1d") / _stored(out, f"ion.{k}.z_ion_1d")
+        assert np.nanmin(lump) <= profile.z[k] <= np.nanmax(lump)
+        assert bundled[element]["lumped_charge"] == profile.z[k]
+        assert bundled[element]["fields"] == "z_ion_1d, z_ion_square_1d"
+    # the lumped species keep the charge density: the list NEO reads is quasi-neutral
+    np.testing.assert_allclose(np.sum(profile.ni * np.asarray(profile.z)[:, None], axis=0), profile.ne, rtol=1e-9)
+    # a column that genuinely contradicts the ions is still refused
+    other = _copy.deepcopy(out)
+    other["core_profiles.profiles_1d.0.zeff"] = np.full(_stored(out, "zeff").shape, 2.5)
+    with pytest.raises(ProfileConversionError, match="contradicts the species"):
+        prepare_gacode_profile(other, time=0.3, rho_max=0.95, z_eff=None, impurity=None)
+
+
+def test_a_profile_valued_composition_is_paired_with_profile_rho_by_coordinate(transport_profile):
+    """cold review 0.8.0 delta-absorb-16 F4: positional pairing silently accepted a foreign grid."""
+    import dataclasses
+
+    from vaft.process.impurity import surface_composition_profile
+
+    p = transport_profile
+    rho = np.asarray(p.rho, dtype=float)
+    n = rho.size
+    preset = resolve_impurity_composition(machine_preset="vest")
+    charges = np.array([s.charge_state for s in preset.species])
+
+    def profile_valued(shape, grid):
+        frac = np.outer(shape, np.asarray(preset.impurity_fractions))
+        return dataclasses.replace(preset, impurity_fractions=frac, main_ion_fraction=1.0 - frac @ charges, rho=grid)
+
+    shape = np.linspace(1.0, 0.0, n)
+    on_grid = profile_valued(shape, rho)
+    foreign = profile_valued(shape, np.sqrt(rho))         # same length, another coordinate value per point
+    v_grid = surface_composition_profile(p, on_grid, 0.6)
+    v_foreign = surface_composition_profile(p, foreign, 0.6)
+    meant = np.interp(rho, np.sqrt(rho), on_grid.impurity_fractions[:, 0]) * np.asarray(p.ne)
+    np.testing.assert_allclose(np.asarray(v_foreign.ni)[1], meant, rtol=1e-9, atol=0)
+    assert not np.allclose(np.asarray(v_foreign.ni)[1], np.asarray(v_grid.ni)[1])
+    assert v_foreign.provenance["ni"]["composition_grid"] == {
+        "coordinate": "rho_tor_norm", "profile_valued": True, "interpolated": True,
+        "source_points": n, "filled_points": 0}
+    assert v_grid.provenance["ni"]["composition_grid"]["interpolated"] is False
+    # another length with its coordinate interpolates; without a coordinate it is refused, clearly
+    coarse_rho = np.linspace(rho[0], rho[-1], 50)
+    coarse = profile_valued(np.linspace(1.0, 0.0, 50), coarse_rho)
+    v_coarse = surface_composition_profile(p, coarse, 0.6)
+    np.testing.assert_allclose(np.asarray(v_coarse.ni)[1],
+                               np.interp(rho, coarse_rho, coarse.impurity_fractions[:, 0]) * np.asarray(p.ne),
+                               rtol=1e-9, atol=0)
+    with pytest.raises(ValueError, match="rho_tor_norm"):
+        surface_composition_profile(p, dataclasses.replace(coarse, rho=None), 0.6)
+    with pytest.raises(ValueError, match="does not overlap"):
+        surface_composition_profile(p, profile_valued(np.linspace(1.0, 0.0, 50), coarse_rho + 2.0), 0.6)
+
+
+def test_a_preset_s_status_is_kept_not_demoted_to_derived():
+    """cold review 0.8.0 delta-absorb-16 F8: ``measured`` and ``inferred`` presets both became ``derived``."""
+    from vaft.process.impurity import composition_from_model
+
+    model = {"main_ion": "H", "target_zeff": 2.0, "reduction": "preserve_charge_z2_mass",
+             "species": [{"element": "C", "charge_state": 6, "relative_density": 0.5},
+                         {"element": "O", "charge_state": 8, "relative_density": 0.5}]}
+    for given, expected in (("measured", "measured"), ("inferred", "derived"),
+                            ("assumed", "assumed"), ("derived", "derived"), (None, "derived")):
+        c = composition_from_model({**model, "status": given})
+        assert c.status == expected, given
+        assert c.input_record["model_status"] == given
+
+
+def test_the_impurity_zeff_workflow_never_uses_the_locale_encoding():
+    """Repository files are read and written as UTF-8 (cold review 0.8.0 delta-absorb-16 F9)."""
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    text_io = re.compile(r"(?<![\w.])open\(|\.read_text\(|\.write_text\(")
+    offenders = []
+    for path in sorted((root / "workflow/impurity_zeff").glob("*.py")):
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for number, line in enumerate(lines, 1):
+            if not text_io.search(line):
+                continue
+            statement, depth, k = "", 0, number - 1
+            while k < len(lines):                      # the whole call, over continuation lines
+                statement += lines[k]
+                depth += lines[k].count("(") + lines[k].count("{") - lines[k].count(")") - lines[k].count("}")
+                k += 1
+                if depth <= 0:
+                    break
+            if "encoding=" not in statement and '"rb"' not in statement and '"wb"' not in statement:
+                offenders.append(f"{path.name}:{number}: {line.strip()}")
+    assert not offenders, "\n".join(offenders)

@@ -284,6 +284,60 @@ def hugill(*, elongation: float = 1.0, q_limit: Optional[float] = None, labels: 
     return Diagram("hugill", scene, model=chart)
 
 
+def hugill_st(*, elongation: float = 1.8, labels: bool = True) -> Diagram:
+    r"""Spherical-tokamak Hugill diagram: $1/q^{ST}_\mathrm{cyl}$ against $\bar n R/B$ (Sykes et al. 2000, MAST).
+
+    The vertical coordinate is the spherical-tokamak cylindrical safety factor
+    $q^{ST}_\mathrm{cyl} = 2.5\,a^2(1+\kappa^2)B_T/(R I_p)$ of Sykes et al. (MAST,
+    IAEA FEC 2000, Fig. 12), not the conventional $q_\mathrm{cyl}$ of
+    :func:`hugill`. The lines are the registered boundaries of the
+    ``hugill_st`` projection: ``sykes_2000_st_hugill``, the Hugill limit as
+    Sykes et al. define it ($n_H = I_p/\pi a^2\kappa$), and
+    ``greenwald_hugill_st``, the unchanged Greenwald limit on these axes, both
+    lines through the origin whose slopes depend on $\kappa$ (MAST's figure
+    uses 1.8); and ``murakami_hugill``, drawn dashed as a historical
+    conventional-tokamak reference only.
+    """
+    _validate_shape(_HUGILL_ASPECT_RATIO, elongation, None)
+    y_max = 1.4 / _SIZING_Q
+    x_q = float(_b.boundary_value(_b.get_boundary("greenwald_hugill_st"),
+                                  inverse_cylindrical_q_st=1.0 / _SIZING_Q, elongation=elongation))
+    x_max = 1.25 * x_q
+    plan = overlay_plan("hugill_st", x_range=(0.0, x_max), y_range=(0.0, y_max), fixed={"elongation": elongation})
+    curves = {c.key: c for c in plan.curves}
+    chart = Chart(x_range=(0.0, x_max), y_range=(0.0, y_max))
+    chart.curves["greenwald"] = curves["greenwald_hugill_st"].xy
+    chart.curves["hugill"] = curves["sykes_2000_st_hugill"].xy
+    chart.curves["murakami"] = curves["murakami_hugill"].xy
+    styles = {"greenwald": "boundary", "hugill": "boundary", "murakami": "approx"}
+    x_m = float(_b.boundary_value(_b.get_boundary("murakami_hugill")))
+    # each label in its own zone, clear of the three lines: below Hugill between Murakami and the Hugill line,
+    # the Hugill name between the Hugill and Greenwald lines, Greenwald beyond its line, Murakami right of x = 1
+    chart.labels.update({
+        "accessible": (0.26 * x_q, 0.84 / _SIZING_Q),
+        "hugill": (0.95 * x_q, 1.32 / _SIZING_Q),   # past the top end of the Hugill line, left of Greenwald
+        "density": (0.80 * x_q, 0.30 / _SIZING_Q),
+        "murakami": (x_m + 0.20 * x_q, 1.31 / _SIZING_Q),
+    })
+    text = {"accessible": "\\begin{tabular}{c}Below\\\\Hugill\\end{tabular}",
+            "hugill": "Hugill",
+            "density": "Beyond Greenwald",
+            "murakami": "\\begin{tabular}{c}Murakami\\\\(reference)\\end{tabular}"}
+    chart.parameters.update({"elongation": elongation, "boundaries": plan.keys})
+    scene = _render_chart(
+        chart,
+        x_label="$\\bar n_e R/B_T\\ [10^{19}\\,\\mathrm{m^{-2}\\,T^{-1}}]$",
+        y_label="$1/q^{ST}_\\mathrm{cyl}$",
+        curve_styles=styles,
+        region_text=text if labels else {},
+        x_ticks=_nice_ticks(x_max),
+        y_ticks=_nice_ticks(y_max),
+        note=(f"Spherical-tokamak Hugill diagram (Sykes et al. 2000, MAST), $\\kappa = {elongation:g}$"
+              if labels else ""),
+    )
+    return Diagram("hugill_st", scene, model=chart)
+
+
 def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elongation: float = 1.7,
            q_limit: Optional[float] = None, labels: bool = True) -> Diagram:
     r"""Troyon diagram: toroidal beta against the normalised current $I_p/(aB_T)$.
