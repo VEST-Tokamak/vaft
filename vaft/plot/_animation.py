@@ -75,6 +75,50 @@ class Driver:
     values: tuple[float, ...]
 
 
+def _equilibrium_section_context(data: Any, driver: Driver, options: Mapping[str, Any]) -> dict[str, Any]:
+    """Physical frame-to-EFIT pairing recorded beside a section movie."""
+    from vaft.machine_mapping.pf_active import pf_geometry_version_for_shot
+    from vaft.machine_mapping.pf_passive import wall_geometry_version_for_shot
+    from vaft.plot.backend.access import array, get
+    from vaft.plot.equilibrium_section import DEFAULT_SECTION_PHI, valid_equilibrium_indices
+    from vaft.omas.process_wrapper import camera_projection_for
+
+    times = array(data, "equilibrium.time")
+    if times is None or not times.size or not np.isfinite(times).all():
+        raise ValueError("equilibrium_section animation needs finite equilibrium times")
+    valid_indices = valid_equilibrium_indices(data)
+    if not valid_indices:
+        raise ValueError("equilibrium_section animation needs complete equilibrium sections")
+    shot = options.get("shot") or get(data, "dataset_description.data_entry.pulse")
+    if shot is None:
+        raise ValueError("equilibrium_section animation needs the source shot")
+    pulse = get(data, "dataset_description.data_entry.pulse")
+    if pulse is not None and int(pulse) != int(shot):
+        raise ValueError("equilibrium_section requires camera and equilibrium from the same shot")
+    projection = options.get("projection")
+    if projection is None or isinstance(projection, str):
+        projection = camera_projection_for(int(shot), pose_path=options.get("pose_path"),
+                                           intrinsics_path=options.get("intrinsics_path"))
+    if projection.provenance.get("shot") not in (None, int(shot)):
+        raise ValueError("camera projection shot differs from the source shot")
+    frames = []
+    for index, time in zip(driver.indices, driver.values):
+        if not float(times[valid_indices[0]]) <= time <= float(times[valid_indices[-1]]):
+            raise ValueError(f"camera frame {index} is outside the valid equilibrium interval")
+        equilibrium_index = min(valid_indices, key=lambda i: abs(float(times[i]) - time))
+        equilibrium_time = float(times[equilibrium_index])
+        frames.append({"frame_index": index, "camera_time_s": time,
+                       "equilibrium_index": equilibrium_index,
+                       "equilibrium_time_s": equilibrium_time,
+                       "delta_t_s": time - equilibrium_time})
+    return {"source_shot": int(shot), "physical_discharge": True,
+            "section_phi_rad": float(options.get("section_phi", DEFAULT_SECTION_PHI)),
+            "pf_geometry_version": pf_geometry_version_for_shot(int(shot)),
+            "passive_wall_geometry_version": wall_geometry_version_for_shot(int(shot)),
+            "camera_projection": dict(projection.provenance),
+            "frame_equilibrium_pairs": frames}
+
+
 def render_animation(
     spec: Any,
     entries: Sequence[tuple[str, Any]],
@@ -102,6 +146,20 @@ def render_animation(
             f"animation=True draws one source over its own states; got {len(entries)} sources"
         )
     options = dict(options)
+    section_overlay = (
+        spec.name == "camera_visible_image"
+        and "equilibrium_section" in ((options.get("overlay"),) if isinstance(options.get("overlay"), str)
+                                      else (options.get("overlay") or ()))
+    )
+    if section_overlay and not any(options.get(key) is not None for key in ("frame_index", "time_range")):
+        from vaft.plot.backend.access import array
+        from vaft.plot.equilibrium_section import valid_equilibrium_indices
+
+        equilibrium_times = array(entries[0][1], "equilibrium.time")
+        valid = valid_equilibrium_indices(entries[0][1])
+        if equilibrium_times is None or not valid:
+            raise ValueError("equilibrium_section animation requires complete equilibrium sections")
+        options["time_range"] = (float(equilibrium_times[valid[0]]), float(equilibrium_times[valid[-1]]))
     presentation = {key: options.pop(key) for key in PRESENTATION_KEYS if key in options}
     fps, duration, timing, dpi = _presentation(presentation)
 
@@ -119,6 +177,10 @@ def render_animation(
         )
     control = slices[0]
     driver, selection = _select(spec.name, control, entries, options)
+    scientific_context = (
+        _equilibrium_section_context(entries[0][1], driver, options)
+        if section_overlay else None
+    )
     options.pop(control.name, None)
     options.pop("time_range", None)
     validate_options(spec.name, options)
@@ -139,6 +201,7 @@ def render_animation(
         fps=float(fps), timing=timing, dpi=int(dpi), image=image,
         vmin=presentation.get("vmin"), vmax=presentation.get("vmax"),
         frame_label=bool(presentation.get("frame_label", True)), options=fixed, style=style, build=build, draw=draw,
+        scientific_context=scientific_context,
     )
     if show:
         result.show()
@@ -265,6 +328,7 @@ class Animation:
         timing: str, dpi: int, image: bool, vmin: Any, vmax: Any, frame_label: bool,
         options: Mapping[str, Any],
         style: Mapping[str, Any], build: Any, draw: Any,
+        scientific_context: Mapping[str, Any] | None = None,
     ) -> None:
         self.plot = plot
         self.label = label
@@ -284,6 +348,7 @@ class Animation:
         self._layout_cache: tuple[dict[int, Any], tuple[int, int]] | None = None
         self._encoder: dict[str, Any] | None = None
         self._player: Any = None
+        self._scientific_context = dict(scientific_context) if scientific_context else None
 
     def __len__(self) -> int:
         return len(self.driver.indices)
@@ -540,6 +605,8 @@ class Animation:
                 # GIF delay is whole centiseconds): say what the file plays at.
                 data["presentation"]["fps_effective"] = self._encoder["fps_effective"]
                 data["presentation"]["duration_effective"] = len(self) / self._encoder["fps_effective"]
+        if self._scientific_context is not None:
+            data["scientific_context"] = dict(self._scientific_context)
         return data
 
     # -- output ----------------------------------------------------------------
