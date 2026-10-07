@@ -223,13 +223,17 @@ def dcon_edge_scan(row: Mapping[str, Any]) -> Optional[dict[str, Any]]:
         Re dW_edge over the filled scan entries [-, -, normalized];
         ``psilim``, ``qlim``: the truncation DCON used [-];
         ``truncated_at_peak``: whether ``psilim`` equals the peak's psi_N
-        within 1e-9 [-];
+        within 1e-9; ``None`` when ``psilim`` is unknown or when the two ends
+        of ``peak_search_start_bracket`` disagree on it [-];
         ``zero_crossings_psi_n``: psi_N where Re dW_edge changes sign [-];
         ``negative_intervals``: psi_N intervals with Re dW_edge < 0 [-];
         ``n_points`` [-]; ``peak_search_start``: index of the first searched
         entry [-]; ``peak_search_start_ambiguous``: whether a nominal grid
         point lies so close to the estimated ``q(psiedge)`` that the payload
-        cannot pin the start to one entry [-];
+        cannot pin the start to one entry [-]; ``peak_search_start_bracket``:
+        the sorted starts the estimate's tolerance admits (one entry when the
+        start is pinned) [-]; ``psi_n_at_peak_bracket``: the peak's psi_N from
+        each start of the bracket [-];
         ``q_edge_start``: DCON's ``qedgestart`` recovered from the scan [-].
 
     Convention
@@ -252,7 +256,11 @@ def dcon_edge_scan(row: Mapping[str, Any]) -> Optional[dict[str, Any]]:
     One scan per run; DCON keeps only the truncated solution's eigenvectors.
     The payload has no q profile, so ``q(psiedge)`` is extrapolated from the
     first two filled entries; when a nominal grid point falls inside that first
-    ODE step the start is flagged ambiguous rather than guessed silently.
+    ODE step the start is flagged ambiguous rather than guessed silently, the
+    search is run from both ends of the bracket (as
+    :func:`vaft.validation.stability.validate_dcon` does), and
+    ``truncated_at_peak`` is ``None`` rather than a bool when the ends disagree.
+    ``psi_n_at_peak`` and its q and dW are always those of the point estimate.
     ``nperq_edge`` is DCON's default 20, which VAFT's templates never change.
     Raises ``ValueError`` without a positive ``n_tor``.
 
@@ -272,12 +280,24 @@ def dcon_edge_scan(row: Mapping[str, Any]) -> Optional[dict[str, Any]]:
     filled = (psi > 0) & np.isfinite(np.real(dw))
     if not filled.any():
         return None
-    first, ambiguous, q_edge_start = _peak_search_start(psi, q, filled, int(n_tor), row.get("requested_psiedge"))
-    searched = filled & (np.arange(psi.size) >= first)
-    if not searched.any():
+    first, ambiguous, q_edge_start, bracket = _peak_search_start(psi, q, filled, int(n_tor),
+                                                                 row.get("requested_psiedge"))
+    peaks: dict[int, Optional[int]] = {}
+    for start in bracket:
+        searched = filled & (np.arange(psi.size) >= start)
+        peaks[start] = None if not searched.any() else int(np.flatnonzero(searched)[int(np.argmax(np.real(dw[searched])))])
+    peak = peaks[first]
+    if peak is None:
         return None
-    peak = np.flatnonzero(searched)[int(np.argmax(np.real(dw[searched])))]
     psilim, qlim = row.get("psilim"), row.get("qlim")
+    if psilim is None:
+        truncated_at_peak = None
+    else:
+        # The one case the validator refuses to decide (#1774): the ends of the
+        # bracket disagree on whether DCON truncated at the peak, so no bool.
+        at_peak = {p is not None and math.isclose(float(psi[p]), psilim, rel_tol=0, abs_tol=1e-9)
+                   for p in peaks.values()}
+        truncated_at_peak = at_peak.pop() if len(at_peak) == 1 else None
     signs = criterion_intervals(psi[filled], np.real(dw[filled]), unstable_side="negative")
     return {
         "psi_n_at_peak": float(psi[peak]),
@@ -285,18 +305,20 @@ def dcon_edge_scan(row: Mapping[str, Any]) -> Optional[dict[str, Any]]:
         "dW_at_peak": complex(dw[peak]),
         "psilim": psilim,
         "qlim": qlim,
-        "truncated_at_peak": None if psilim is None else math.isclose(float(psi[peak]), psilim, rel_tol=0, abs_tol=1e-9),
+        "truncated_at_peak": truncated_at_peak,
         "zero_crossings_psi_n": signs["zero_crossings"],
         "negative_intervals": signs["unstable_intervals"],
         "n_points": int(filled.sum()),
         "peak_search_start": first,
         "peak_search_start_ambiguous": ambiguous,
+        "peak_search_start_bracket": list(bracket),
+        "psi_n_at_peak_bracket": [None if p is None else float(psi[p]) for p in (peaks[s] for s in bracket)],
         "q_edge_start": q_edge_start,
     }
 
 
-def _peak_search_start(psi, q, filled, n_tor: int, requested_psiedge) -> tuple[int, bool, int]:
-    """DCON's ``pre_edge - 1`` (0-based), whether the payload pins it, and ``qedgestart``.
+def _peak_search_start(psi, q, filled, n_tor: int, requested_psiedge) -> tuple[int, bool, int, list[int]]:
+    """DCON's ``pre_edge - 1`` (0-based), whether the payload pins it, ``qedgestart``, and the bracket of starts.
 
     ``sing.f:226-238``: ``qedgestart = INT(q(psiedge))``, nominal grid
     ``q_edge(i) = qedgestart + (i-1)/(nperq_edge*n)``, and ``pre_edge`` counts the
@@ -312,7 +334,8 @@ def _peak_search_start(psi, q, filled, n_tor: int, requested_psiedge) -> tuple[i
     * ``q(psiedge)``: linear extrapolation of the first two filled entries back
       to the requested psiedge, kept within ``[qedgestart, q_first]``. When a
       nominal point lies within a tenth of the first ODE step's q change of
-      that estimate, the payload cannot pin the start and the flag says so.
+      that estimate, the payload cannot pin the start and the flag says so; the
+      bracket holds the sorted starts that ``q_estimate +- tolerance`` admit.
     """
     step = 1.0 / (DCON_NPERQ_EDGE * n_tor)
     index = np.arange(psi.size)
@@ -333,7 +356,8 @@ def _peak_search_start(psi, q, filled, n_tor: int, requested_psiedge) -> tuple[i
     nominal = q_edge_start + index * step
     start = int(np.count_nonzero(nominal < q_estimate))
     ambiguous = bool(np.any(np.abs(nominal - q_estimate) < tolerance))
-    return start, ambiguous, q_edge_start
+    bracket = sorted({start, *(int(np.count_nonzero(nominal < q_estimate + sign * tolerance)) for sign in (-1, 1))})
+    return start, ambiguous, q_edge_start, bracket
 
 
 def dcon_edge_comparison(full: Mapping[str, Any], truncated: Mapping[str, Any]) -> dict[str, Any]:

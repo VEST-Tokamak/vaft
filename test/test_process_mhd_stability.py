@@ -193,3 +193,72 @@ def test_ballooning_reads_only_evaluated_surfaces(rows):
     ca[:5] = 0.0  # an old payload's unevaluated zeros
     out = dcon_local_stability(dict(row, C_A=ca, C_A_evaluated=mask))["ballooning"]
     assert out["n_evaluated"] == ca.size - 5 and out["zero_crossings"] == []
+
+
+def test_an_ambiguous_start_whose_ends_disagree_gives_no_bool():
+    # q(psiedge) = 2.60005 sits 5e-5 from the nominal point 2.60 with a tolerance of
+    # 9e-5 (a tenth of the first ODE step): the start is ambiguous, and a larger dW on
+    # the entry DCON never searched flips the verdict between the two admissible
+    # starts. The bool was still returned; #1774's validator says indeterminate
+    # (cold review 0.8.0 delta-absorb-18 stability-opspace F3).
+    q = _linear_q(2.60005, 30.0)
+    steps = np.arange(0.95003, 0.994, 0.00003)
+    row, pre_edge, dcon_peak = _dcon_edge_scan_replay(q, 0.95, 4.0, 1, steps, lambda p: complex(1.0 - p))
+    assert pre_edge == 13
+    out = dcon_edge_scan(dict(row, psilim=dcon_peak))
+    assert out["peak_search_start"] == pre_edge and out["peak_search_start_ambiguous"] is True
+    assert out["peak_search_start_bracket"] == [12, 13]
+    assert out["truncated_at_peak"] is None
+    assert out["psi_n_at_peak"] == pytest.approx(dcon_peak)   # the point estimate still follows DCON
+    assert out["psi_n_at_peak_bracket"][1] == pytest.approx(dcon_peak)
+    assert out["psi_n_at_peak_bracket"][0] < dcon_peak
+    # the same ambiguous start with the peak past both ends: the ends agree, so a bool
+    row2, _, dcon_peak2 = _dcon_edge_scan_replay(q, 0.95, 4.0, 1, steps, lambda p: complex(-(p - 0.97) ** 2))
+    out2 = dcon_edge_scan(dict(row2, psilim=dcon_peak2))
+    assert out2["peak_search_start_ambiguous"] is True and out2["peak_search_start_bracket"] == [12, 13]
+    assert out2["truncated_at_peak"] is True
+    assert dcon_edge_scan(dict(row2, psilim=float(row2["edge_scan"]["psi_n"][20])))["truncated_at_peak"] is False
+    # a pinned start keeps a one-entry bracket (the pre-existing clear case)
+    out3 = dcon_edge_scan(dict(_dcon_edge_scan_replay(_linear_q(2.5999, 30.0), 0.95, 4.0, 1, steps,
+                                                      lambda p: complex(1.0 - p))[0], psilim=None))
+    assert out3["peak_search_start_ambiguous"] is False and len(out3["peak_search_start_bracket"]) == 1
+
+
+def test_the_792_profile_at_psiedge_0_92617_is_indeterminate():
+    """The verifier's case: q(0.92617) = 7.79964 on the #792 profile, 4e-4 below the nominal 7.80."""
+    from scipy.interpolate import CubicSpline
+
+    from vaft.code.gpec import read_dcon_output
+
+    out = read_dcon_output(REFERENCE / "peak_dw_truncated", mode=1)
+    spline = CubicSpline(np.asarray(out.psi_n, float), np.asarray(out.q, float))
+    psiedge, step = 0.92617, 1.0 / 20
+    q_edge_start = int(spline(psiedge))
+    size = int(np.ceil((float(out.q[-1]) - q_edge_start) * 20))
+    nominal = q_edge_start + np.arange(size) * step
+    pre_edge = int(np.count_nonzero(nominal < float(spline(psiedge))))
+    psi, q, nxt = np.zeros(size), nominal.copy(), 0
+    for k in range(100000):   # one entry at the first ODE step (3.25e-4) whose q reaches the nominal value
+        p = psiedge + (k + 1) * 3.25e-4
+        if nxt >= size or p > float(out.psi_n[-1]):
+            break
+        if float(spline(p)) >= nominal[nxt]:
+            psi[nxt], q[nxt] = p, float(spline(p))
+            nxt += 1
+    psi, q = psi[:nxt], q[:nxt]
+    dw = -np.linspace(1.0, 2.0, nxt) + 0j
+    dw[pre_edge] = 5.0                       # DCON's peak: the first entry it searches
+    row = {"edge_scan": {"psi_n": psi, "q": q, "dW": dw}, "requested_psiedge": psiedge,
+           "psilim": float(psi[pre_edge]), "qlim": float(q[pre_edge]), "n_tor": 1}
+    # The linear extrapolation lands 4e-5 below the cubic value, 4e-4 below the nominal
+    # 7.80, inside the 1.2e-3 tolerance: a start of 17 would miss DCON's peak entry.
+    disagree = dcon_edge_scan(row)
+    assert disagree["peak_search_start"] == pre_edge == 16 and disagree["peak_search_start_ambiguous"] is True
+    assert disagree["peak_search_start_bracket"] == [16, 17]
+    assert disagree["truncated_at_peak"] is None and disagree["psi_n_at_peak"] == pytest.approx(row["psilim"])
+    assert disagree["psi_n_at_peak_bracket"] == [pytest.approx(row["psilim"]), pytest.approx(float(psi[17]))]
+    # the clear case on the same profile: the peak past both ends of the bracket
+    dw[pre_edge], dw[pre_edge + 4] = -1.0, 5.0
+    clear = dcon_edge_scan(dict(row, psilim=float(psi[pre_edge + 4])))
+    assert clear["peak_search_start_ambiguous"] is True and clear["truncated_at_peak"] is True
+    assert dcon_edge_scan(dict(row, psilim=float(psi[pre_edge])))["truncated_at_peak"] is False
