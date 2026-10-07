@@ -145,7 +145,7 @@ def build_core_profiles_all_times(ods, shotnumber):
 def process_shot(shotnumber):
     """Build core_profiles for a single shot already loaded in the database."""
     try:
-        ods = database.load(shotnumber, source=SOURCE)
+        ods = database.load(shotnumber, source=SOURCE, cache="off")
     except Exception as exc:  # noqa: BLE001
         print(f"[ERROR] Failed to load ODS for shot {shotnumber}: {exc}")
         return None
