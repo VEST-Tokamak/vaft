@@ -316,10 +316,14 @@ def _plots(graph: _Graph) -> None:
 
 
 def _diagnostics(graph: _Graph) -> None:
-    from vaft.machine_mapping.registry import load_diagnostic_registry
+    from vaft.machine_mapping.registry import load_diagnostic_registry, validate_diagnostic_registry
+    from vaft.plot import taxonomy
 
     origin = "vaft.machine_mapping.registry"
     records = load_diagnostic_registry()
+    # A record's `subject` must be a vocabulary subject; the registry loader does not
+    # know the vocabulary (machine_mapping never imports vaft.plot), so check it here.
+    validate_diagnostic_registry(records, subjects=taxonomy.SUBJECTS)
     # Identity is the record's declared taxonomy `subject`, never a spelling match: a
     # record that alone names its subject *is* that diagnostic; several records naming
     # one subject (magnetics.ip, magnetics.internal_probe, ...) are parts of it.

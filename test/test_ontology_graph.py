@@ -152,6 +152,18 @@ def test_an_alias_that_identifies_two_subjects_is_dropped_and_audited():
     assert "only_a" not in {term for term, _ in audited}
 
 
+def test_the_generator_rejects_a_registry_subject_outside_the_vocabulary(monkeypatch):
+    # cold review 0.8.0 delta-absorb-19-docs F3: the vocabulary check moved out of the registry
+    # loader (machine_mapping never imports vaft.plot); the generator must still enforce it.
+    from vaft.machine_mapping import registry as registry_module
+
+    records = registry_module.load_diagnostic_registry()
+    records["pf_active"] = {**records["pf_active"], "subject": "not_a_subject"}
+    monkeypatch.setattr(registry_module, "load_diagnostic_registry", lambda path=None: records)
+    with pytest.raises(registry_module.DiagnosticRegistryError, match="not a vaft.plot.taxonomy subject"):
+        ontology._diagnostics(ontology._Graph())
+
+
 def test_plot_quantities_are_quantities_not_overview_subjects(snapshot):
     visualized = _edges(snapshot, "visualized_by")
     assert ("concept:current", "plot:pf_coil_time_current") not in visualized
