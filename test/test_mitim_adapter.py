@@ -381,6 +381,15 @@ def test_a_surface_mitim_ran_elsewhere_is_reported_missing(ready, profile, tmp_p
     assert not result.ok and result.result["status"] == "partial"
     assert result.result["missing_r_over_a"] == [0.4]
     assert result.result["shifted_r_over_a"] == {0.4: pytest.approx(0.41)}
+    # The run directory says the same as the returned result (cold review 0.8.0
+    # delta-absorb-17 transport F6): record.json, result.json and result.record.
+    assert result.record["result_status"] == "partial"
+    assert result.record["missing_r_over_a"] == [0.4]
+    on_disk = json.loads((tmp_path / "run" / "record.json").read_text(encoding="utf-8"))
+    assert on_disk["result_status"] == "partial" and on_disk["missing_r_over_a"] == [0.4]
+    assert on_disk["shifted_r_over_a"] == {"0.4": pytest.approx(0.41)}
+    written = json.loads((tmp_path / "run" / "result.json").read_text(encoding="utf-8"))
+    assert written["status"] == "partial" and written["missing_r_over_a"] == [0.4]
 
 
 def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile, tmp_path, monkeypatch):
@@ -391,3 +400,6 @@ def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile,
     assert sorted(outputs) == [0.4] and inputs[0.4]["DENS_1"] == 0.8
     assert result.result["status"] == "partial" and result.result["missing_r_over_a"] == [0.7]
     assert result.record["arguments"]["extra_options"] == {"ROTATION_MODEL": 1}
+    assert result.record["result_status"] == "partial"
+    on_disk = json.loads((tmp_path / "run" / "record.json").read_text(encoding="utf-8"))
+    assert on_disk["result_status"] == "partial" and on_disk["missing_r_over_a"] == [0.7]

@@ -5970,6 +5970,24 @@ def _tt_available(quantity: str):
     return available
 
 
+def _tt_slice_times(obj: Any, m: int) -> np.ndarray:
+    base = f"core_transport.model.{m}.profiles_1d"
+    return np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(_count(obj, base))],
+                    dtype=float)
+
+
+def _tt_reference_time(entries: Sequence[tuple[str, Any]]) -> float | None:
+    """The instant a request without ``time`` means: the first stored slice of the
+    first anomalous model, so every other model is matched to it by its own time
+    rather than by slice position."""
+    for _label, obj in entries:
+        for m in _tt_models(obj):
+            times = _tt_slice_times(obj, m)
+            if times.size:
+                return None if np.isnan(times[0]) else float(times[0])
+    return None
+
+
 def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
     base = f"core_transport.model.{m}.profiles_1d"
     count = _count(obj, base)
@@ -5977,7 +5995,7 @@ def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
         return None
     if time is None:
         return 0
-    times = np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(count)], dtype=float)
+    times = _tt_slice_times(obj, m)
     if np.all(np.isnan(times)):
         return 0
     return int(np.nanargmin(np.abs(times - float(time))))
@@ -5986,9 +6004,15 @@ def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
 def _tt_builder(quantity: str, y_label: str, y_unit: str):
     def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
         series = []
+        # Match slices by time, not by index: with no ``time`` the first model's
+        # first slice sets the instant and every model picks its nearest slice.
+        time = options.get("time")
+        if time is None:
+            time = _tt_reference_time(entries)
+        slice_times: dict[str, float | None] = {}
         for label, obj in _labelled(entries):
             for m in _tt_models(obj):
-                t = _tt_slice(obj, m, options.get("time"))
+                t = _tt_slice(obj, m, time)
                 if t is None:
                     continue
                 base = f"core_transport.model.{m}.profiles_1d.{t}"
@@ -5998,6 +6022,8 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
                     continue
                 code = _get(obj, f"core_transport.model.{m}.code.name") or f"model {m}"
                 name = (label if str(code) in label else f"{label} ({code})") if label else str(code)
+                stored = _get(obj, f"{base}.time", None)
+                slice_times[name] = None if stored is None else float(stored)
                 # one colour per model; electrons solid, ions dashed
                 color = palette(sum(1 for item in series if item.label.endswith(' e')))
                 series.append(Series(x=rho, y=electrons, label=f"{name} e", style={"color": color}))
@@ -6013,6 +6039,7 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
             series=tuple(series), coordinate_label=r"$\rho_{tor,N}$",
             y_label=y_label, y_unit=y_unit,
             title=f"{_FLUX_WORD[quantity]} flux",
+            metadata={"time": time, "slice_time": slice_times},
         )
     return builder
 
