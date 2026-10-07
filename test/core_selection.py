@@ -325,6 +325,9 @@ CORE_MODULES: tuple[str, ...] = (
     # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
     # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
     "test_process_mhd_stability.py",
+    # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
+    # profiles with known answers and the packaged 39915 slice. Under 15 s.
+    "test_core_q_context.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

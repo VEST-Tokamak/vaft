@@ -66,6 +66,7 @@ _SUBMODULES = {
     "species": ".species",
     "zeff_projection": ".zeff_projection",
     "mhd_stability": ".mhd_stability",
+    "core_q_context": ".core_q_context",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -131,6 +132,9 @@ _IMPORT_ORDER = (
     # DCON local-criterion and edge-scan post-processing from the ODS payload
     # (#940); nothing it exports collides.
     "mhd_stability",
+    # Equilibrium context for core low-n MHD (#1798): q landmarks, rational
+    # crossings, low-shear regions, boundary topology; nothing it exports collides.
+    "core_q_context",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
