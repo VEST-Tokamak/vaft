@@ -219,12 +219,14 @@ def test_verify_dist_requires_the_runtime_data_outside_vaft_data(tmp_path):
         "vaft/code/nice/vest_reference_param.xml",
         "vaft/code/nice/upstream_compat.h",
         "vaft/diagram/templates/standalone.tex",
+        # cold review 0.8.0 plot-gui-packaging F5: image_path() raises at render time without it
+        "vaft/diagram/images/vest_machine.jpg",
     }
     assert outside <= verify_dist.REQUIRED_FILES
     for name in sorted(outside):
         assert (ROOT / name).is_file(), name
     package_data = _pyproject()["tool"]["setuptools"]["package-data"]["vaft"]
-    assert {"code/nice/*.xml", "code/nice/*.h", "diagram/templates/*.tex"} <= set(package_data)
+    assert {"code/nice/*.xml", "code/nice/*.h", "diagram/templates/*.tex", "diagram/images/*.jpg"} <= set(package_data)
 
     def wheel(without: str) -> Path:
         path = tmp_path / f"vaft-0.0-{abs(hash(without))}-py3-none-any.whl"

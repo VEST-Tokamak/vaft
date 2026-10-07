@@ -7,7 +7,7 @@ import vaft.diagram
 from vaft.diagram import _spectroscopy as sp
 from vaft.diagram._scene import Label
 from vaft.formula.atomic import hydrogenic_energy_level, hydrogenic_transition_wavelength
-from vaft.spectroscopy import matches, parse_emission_term, parse_line_label
+from vaft.data.spectroscopy import matches, parse_emission_term, parse_line_label
 
 
 def test_hydrogenic_lines_are_the_known_vacuum_wavelengths():
