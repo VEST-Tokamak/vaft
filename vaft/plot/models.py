@@ -37,6 +37,7 @@ __all__ = [
     "ReferenceSlope",
     "Series",
     "Spectrogram",
+    "SpectrogramTrack",
     "STATUSES",
     "Table",
     "TableCell",
@@ -758,6 +759,32 @@ class ImageSequence(ViewModel):
 
 
 @dataclass(frozen=True)
+class SpectrogramTrack:
+    """A frequency-versus-time line drawn over a spectrogram (issue #460).
+
+    ``frequency`` is NaN where the line is undefined, so the renderer leaves a
+    gap there instead of joining the valid stretches across it.
+    """
+
+    time: np.ndarray
+    frequency: np.ndarray
+    label: str = ""
+    style: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        time = np.asarray(self.time, dtype=float).reshape(-1)
+        frequency = np.asarray(self.frequency, dtype=float).reshape(-1)
+        if time.shape != frequency.shape:
+            raise ValueError(
+                "SpectrogramTrack.time and frequency must have equal length; "
+                f"got {time.size} and {frequency.size}"
+            )
+        object.__setattr__(self, "time", time)
+        object.__setattr__(self, "frequency", frequency)
+        object.__setattr__(self, "style", dict(self.style or {}))
+
+
+@dataclass(frozen=True)
 class Spectrogram(ViewModel):
     """Time-frequency magnitude map on a ``(frequency, time)`` grid."""
 
@@ -775,8 +802,19 @@ class Spectrogram(ViewModel):
     ridge_time: np.ndarray | None = None
     ridge_frequency: np.ndarray | None = None
     ridge_label: str = ""
+    #: Predicted frequency tracks drawn over the map (issue #460), e.g. the
+    #: ``mode_overlay=`` lines; ``tracks_title`` heads their legend and names
+    #: the model that drew them.
+    tracks: tuple[SpectrogramTrack, ...] = ()
+    tracks_title: str = ""
+    #: How a derived annotation was formed, as plain JSON-serialisable values
+    #: (the ``mode_overlay`` request, model, provenance and tracks).
+    #: ``to_xarray`` writes it to the ``metadata`` attribute.
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "tracks", tuple(self.tracks or ()))
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
         if (self.ridge_time is None) != (self.ridge_frequency is None):
             raise ValueError("Spectrogram.ridge_time and ridge_frequency are given together or not at all")
         if self.ridge_time is not None:
