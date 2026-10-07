@@ -8,6 +8,12 @@ __all__ = ["__version__"]
 # patch notes
 # ────────────────────────────────────────────────────────
 # unreleased
+# - Changed (packaging): the wheel and sdist ship shot 39915 in its OMAS
+#   form only (samples/39915/omas.json.gz, read by both adapters); the IMAS
+#   netCDF twin samples/39915/imas.nc is repository-only, and
+#   vaft.data.sample(39915, representation="imas") raises FileNotFoundError
+#   naming it from an installed wheel. The 26.04 MiB wheel was over the
+#   26 MiB budget test/verify_dist.py enforces.
 # - Changed (#1016): a timeout is a result, not an exception, for CHEASE
 #   (run_chease, refine_equilibrium, scan_chease), GACODE (run_gacode, NEO,
 #   TGLF), NUBEAM, FLARE, TES, NICE and GENRAY. The result has
