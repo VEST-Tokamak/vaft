@@ -1,0 +1,1096 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Scientific architecture · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/plasma-models/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Scientific architecture</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>e63d9fe</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Scientific_architecture">Scientific architecture</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>The top-level map of how VAFT is organized as scientific software, connecting the contracts that the other reference pages define (issue #1803). It defines no new abstraction.</dd>
+    <dt>Prerequisites / inputs</dt><dd>None. Each section links to the page that owns its details.</dd>
+    <dt>Expected result</dt><dd>Where a new API or scientific operation belongs, where side effects and mutable state are expected, which architecture view answers which question, and which concepts exist today versus are planned.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p><strong>VAFT uses a data-centric, layered scientific computing architecture.</strong> Scientific kernels favor
+explicit transformations over hidden mutable state. Side effects are concentrated at the boundaries:
+machine mapping, persistence, external-code execution, orchestration and the user interface.
+Configuration and production orchestration are declarative where that helps. Typed data objects and
+protocols provide the contracts between layers. VAFT favors composition over inheritance, and
+reusable scientific operations over deep object hierarchies.</p>
+
+<p>This page is a map, not a specification. It introduces no runtime abstraction. Every rule below is
+already defined, implemented or tracked elsewhere, and each section links to the page that owns it.
+When this page and an owning page disagree, the owning page wins, and the disagreement is a
+documentation bug.</p>
+
+<h2 id="three-views-of-one-system">Three views of one system</h2>
+
+<p>VAFT has three architecture views. Each answers a different question, and they must not be read
+as one graph.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>View</th>
+      <th>Question it answers</th>
+      <th>Where</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Normative scientific architecture</strong></td>
+      <td>How <em>should</em> scientific responsibilities be organized?</td>
+      <td><a href="/vaft/develop/reference/computational-layers/">Computational layers</a>, <a href="/vaft/develop/reference/credibility-applicability/">Credibility and applicability</a> and the ownership diagram below</td>
+    </tr>
+    <tr>
+      <td><strong>Observed source architecture</strong></td>
+      <td>How does the Python source tree <em>actually</em> import itself today?</td>
+      <td><a href="/vaft/develop/reference/dependency-graph/">Dependency explorer</a>, generated from imports</td>
+    </tr>
+    <tr>
+      <td><strong>Production execution and data lineage</strong></td>
+      <td>How do production rules, artifacts, scientific references and publications flow?</td>
+      <td><a href="/vaft/develop/reference/pipeline-graph/">Pipeline lineage explorer</a>, generated from a Snakemake dry run and the stage-replication catalog</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The dependency explorer is generated from imports. It is not a scientific dependency graph or an
+architectural verdict: an import that crosses a layer shows where code <em>is</em>, and the normative view
+says where it <em>should</em> be. The pipeline lineage explorer keeps execution, scientific-reference, validation-evidence
+and publication relations apart, and shows artifact lineage as a view of its own.
+Where VAFT’s software comes
+from is in <a href="/vaft/develop/reference/software-dependencies/">Software dependencies</a> and
+<a href="/vaft/develop/reference/external-codes/">External scientific codes</a>.</p>
+
+<h2 id="scientific-ownership">Scientific ownership</h2>
+
+<p>The normative high-level model is the scientific-ownership and maturation architecture (#1645),
+drawn by <code class="language-plaintext highlighter-rouge">vaft.diagram.scientific_ownership_architecture()</code>:</p>
+
+<p><img src="/vaft/develop/assets/diagrams/scientific_ownership_architecture.svg" alt="Scientific ownership and maturation" /></p>
+
+<p>In summary:</p>
+
+<ul>
+  <li><strong>Research and Study</strong> give the scientific context. Research groups Studies by membership, and
+neither executes anything.</li>
+  <li><strong>A workflow or notebook</strong> composes computation for one analysis and incubates new logic.</li>
+  <li><strong>Reusable computation</strong> produces results and evidence. It comprises data and the database, Formula,
+Process, Code and learned models.</li>
+  <li><strong>Validation</strong> interprets that evidence. It is not part of the computation.</li>
+  <li><strong>An optional use policy</strong> (accept, review, warn, reject, rerun, fallback) decides what a workflow
+does about a validation outcome. It belongs to the workflow, not to <code class="language-plaintext highlighter-rouge">vaft.validation</code>.</li>
+</ul>
+
+<p><a href="/vaft/develop/reference/computational-layers/">Computational layers</a> is the authoritative
+definition of Formula, Process, Code and the optional Actor, and the zoomed view of the computation band.
+The figure’s full description is on <a href="/vaft/develop/reference/diagrams/">Diagrams</a>.</p>
+
+<h2 id="where-new-functionality-belongs">Where new functionality belongs</h2>
+
+<p>The placement rule follows meaning, not implementation technology or prestige.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>What it is</th>
+      <th>Owner</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>An explicit mathematical relation, or a compact analytic kernel</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula</code></td>
+    </tr>
+    <tr>
+      <td>A reusable VAFT-native scientific computation, including reduced, surrogate and approximate models</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process</code></td>
+    </tr>
+    <tr>
+      <td>An adapter to an independent scientific program or solver</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code</code></td>
+    </tr>
+    <tr>
+      <td>A scientific representation or portable value model</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data</code>, or the domain that owns the representation</td>
+    </tr>
+    <tr>
+      <td>Mapping machine-specific acquisition, configuration or raw data to the standard</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code></td>
+    </tr>
+    <tr>
+      <td>Assessing evidence, credibility or applicability</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation</code></td>
+    </tr>
+    <tr>
+      <td>Retrieval, persistence and publication</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.database</code></td>
+    </tr>
+    <tr>
+      <td>Adapting results for presentation and rendering them</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot</code></td>
+    </tr>
+    <tr>
+      <td>Study-specific composition and orchestration</td>
+      <td>the workflow or notebook that needs it</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Ask the questions in this order:</p>
+
+<ol>
+  <li>Is it an explicit mathematical relation? → <strong>Formula</strong>.</li>
+  <li>Is it a reusable computation implemented inside VAFT? → <strong>Process</strong>.</li>
+  <li>Does it wrap an independent scientific solver? → <strong>Code</strong>.</li>
+  <li>Is it scientific state or a portable representation? → <strong>Data</strong>, or the owning domain’s representation.</li>
+  <li>Does it map machine-specific acquisition or configuration? → <strong>Machine mapping</strong>.</li>
+  <li>Does it assess evidence or scientific applicability? → <strong>Validation</strong>.</li>
+  <li>Does it retrieve, persist or publish data? → <strong>Database</strong>.</li>
+  <li>Does it adapt results for presentation or render them? → <strong>Plot</strong>.</li>
+  <li>Is it orchestration for one study? → keep it in the <strong>workflow or notebook</strong>.</li>
+</ol>
+
+<p>Logic written in a workflow graduates to its semantic owner once it is reused or copied elsewhere,
+needs its own tests, defines a stable operation, or enters routine production (#1642, drawn under #1645). The
+<a href="/vaft/develop/reference/credibility-applicability/#workflow-graduation-audit">workflow graduation audit</a>
+lists the candidates found so far.</p>
+
+<p>Some facts are <strong>not</strong> reasons for an abstraction:</p>
+
+<ul>
+  <li>Several codes belonging to one broad physics domain do not justify an Actor. An Actor needs the
+<em>same</em> scientific operation and a contract that makes comparison meaningful
+(<a href="/vaft/develop/reference/computational-layers/#when-an-actor-is-justified">When an Actor is justified</a>).</li>
+  <li>A function taking an <code class="language-plaintext highlighter-rouge">ODS</code> does not make it belong to OMAS. It belongs to whatever it computes.</li>
+  <li>Logic first written in a workflow is not owned by that workflow permanently.</li>
+</ul>
+
+<h2 id="programming-model">Programming model</h2>
+
+<p>VAFT is neither a purely functional system nor an inheritance-heavy object framework. Its tendency is
+a <strong>transformation-oriented scientific core with imperative boundaries</strong>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concern</th>
+      <th>Style</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Primary execution</td>
+      <td>imperative, procedural scientific Python</td>
+    </tr>
+    <tr>
+      <td>Scientific kernels</td>
+      <td>function-oriented transformations: input state in, result out</td>
+    </tr>
+    <tr>
+      <td>Configuration</td>
+      <td>declarative where practical (YAML machine registries, typed config objects)</td>
+    </tr>
+    <tr>
+      <td>Production workflows</td>
+      <td>declarative DAG orchestration (<a href="/vaft/develop/workflows/automated-pipelines/">Snakemake pipelines</a>)</td>
+    </tr>
+    <tr>
+      <td>Data and contracts</td>
+      <td>typed dataclasses, enums, protocols and immutable value objects</td>
+    </tr>
+    <tr>
+      <td>GUI</td>
+      <td>event-driven mutable state where the interface needs it (<a href="/vaft/develop/workflows/gui/">Browser GUI</a>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Comparatively explicit computational regions</strong> include <code class="language-plaintext highlighter-rouge">vaft.formula</code>, most <code class="language-plaintext highlighter-rouge">vaft.process</code>
+operations, typed equilibrium representations, plot view models and validation value objects.</p>
+
+<p><strong>Side effects are expected</strong> in <code class="language-plaintext highlighter-rouge">vaft.machine_mapping</code> (reading raw machine data), <code class="language-plaintext highlighter-rouge">vaft.database</code>
+(persistence and publication), <code class="language-plaintext highlighter-rouge">vaft.code</code> (writing inputs and launching external programs),
+production orchestration and the GUI. Side effects inside <code class="language-plaintext highlighter-rouge">vaft.process</code> are the exception rather than
+the rule.</p>
+
+<p>Assessment follows the same rule from the other side. A process returns its result, and assessment is
+a separate optional call over that result
+(<a href="/vaft/develop/reference/credibility-applicability/#the-rule-this-page-protects">the rule Credibility and applicability protects</a>).</p>
+
+<h3 id="selective-object-orientation">Selective object orientation</h3>
+
+<p>VAFT has many classes without being primarily object-oriented. Each class has one of a few roles:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Role</th>
+      <th>Examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Value objects</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.equilibrium.EquilibriumData</code>, <code class="language-plaintext highlighter-rouge">vaft.validation.model.ValidationReport</code>, the frozen plot view models in <code class="language-plaintext highlighter-rouge">vaft.plot.models</code></td>
+    </tr>
+    <tr>
+      <td>Configuration objects</td>
+      <td><code class="language-plaintext highlighter-rouge">EFITConfig</code> (<code class="language-plaintext highlighter-rouge">vaft.code.efit</code>), <code class="language-plaintext highlighter-rouge">TGLFConfig</code> (<code class="language-plaintext highlighter-rouge">vaft.code.gacode.tglf</code>)</td>
+    </tr>
+    <tr>
+      <td>Result objects</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.base.CodeResult</code> and solver-specific result types</td>
+    </tr>
+    <tr>
+      <td>Contracts</td>
+      <td><code class="language-plaintext highlighter-rouge">typing.Protocol</code> interfaces such as <code class="language-plaintext highlighter-rouge">ExecutionBackend</code> (<code class="language-plaintext highlighter-rouge">vaft.code.execution</code>) and <code class="language-plaintext highlighter-rouge">PathAccessor</code> (<code class="language-plaintext highlighter-rouge">vaft.ods_access</code>)</td>
+    </tr>
+    <tr>
+      <td>Stateful UI objects</td>
+      <td>GUI components</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Use an object when identity, structured state, validation, configuration or an interface contract
+benefits from it. Do not turn scientific operations into mutable domain-object hierarchies for
+uniformity. Prefer composition over inheritance.</p>
+
+<h3 id="typed-boundaries-and-intermediate-representations">Typed boundaries and intermediate representations</h3>
+
+<p>A growing pattern is an explicit typed representation between an interoperability container and an
+algorithm:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ODS / IDS               → EquilibriumData → equilibrium algorithms
+scientific profile data → GACODEProfile   → TGLF / NEO / CGYRO adapters
+ODS / IDS / database    → plot view model → renderer
+</code></pre></div></div>
+
+<p>This does not ban <code class="language-plaintext highlighter-rouge">ODS</code> or IDS inputs. A complex domain algorithm should not depend on an opaque
+universal container when its scientific inputs can be stated explicitly.
+<a href="/vaft/develop/reference/equilibrium-representations/">Equilibrium representations</a> describes
+the equilibrium case.</p>
+
+<h2 id="scientific-data-semantics">Scientific data semantics</h2>
+
+<p>VAFT is <strong>data-centric</strong> in the sense of a standardized scientific state: state is standardized,
+explicit transformations act on it, and the result or evidence goes on to validation, persistence or
+presentation. It is not Data-Oriented Design in the memory-layout or cache-locality sense, and memory
+layout is not its organizing principle.</p>
+
+<p><strong>VAFT organizes scientific state according to IMAS semantics. Concrete in-memory and
+interoperability representations may evolve independently of that semantic contract.</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Representation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Current implementation</td>
+      <td>Many scientific APIs consume or produce an OMAS <code class="language-plaintext highlighter-rouge">ODS</code> (<a href="/vaft/develop/reference/imas-concepts/">Fusion data structure and IMAS concepts</a>)</td>
+    </tr>
+    <tr>
+      <td>Target architecture (#1127–#1133)</td>
+      <td><code class="language-plaintext highlighter-rouge">DD</code> (a logical Data Entry, possibly holding several semantic IDS instances) and <code class="language-plaintext highlighter-rouge">DDView</code> (one selected scientific state) become the ordinary VAFT data model; <code class="language-plaintext highlighter-rouge">ODS</code>/<code class="language-plaintext highlighter-rouge">ODC</code> and native IMAS interfaces become interoperability projections</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">ODS</code> is therefore today’s representation, not the permanent centre of the architecture.
+The DD core is developed outside <code class="language-plaintext highlighter-rouge">develop</code> (#1127), and the documentation moves from ODS-first to
+DD/DDView-first usage under #1133.</p>
+
+<p>Machine differences are absorbed at the mapping boundary
+(<a href="/vaft/develop/workflows/data-access-imas/">Data access and IMAS</a>). Everything above it sees
+standardized state:</p>
+
+<p><img src="/vaft/develop/assets/diagrams/machine_agnostic_architecture.svg" alt="Machine-agnostic architecture" /></p>
+
+<h2 id="composition-and-orchestration">Composition and orchestration</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Level</th>
+      <th>What composes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Library operation</td>
+      <td>a direct Formula, Process or Code call</td>
+    </tr>
+    <tr>
+      <td>Workflow or notebook</td>
+      <td>scientific operations composed for one analysis</td>
+    </tr>
+    <tr>
+      <td>Production pipeline</td>
+      <td>external DAG orchestration over those operations (<a href="/vaft/develop/workflows/automated-pipelines/">Automated pipelines</a>)</td>
+    </tr>
+    <tr>
+      <td>Actor</td>
+      <td>an <em>optional</em> interoperability contract for equivalent operations, off the normal execution path</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>There is no general VAFT <code class="language-plaintext highlighter-rouge">Workflow</code> object model, and none is implied here.</strong> The repository’s
+<code class="language-plaintext highlighter-rouge">workflow/</code> tree holds concrete scripts, studies and Snakemake pipelines. Production orchestration is
+DAG-based without making <code class="language-plaintext highlighter-rouge">Workflow</code> a public domain abstraction.</p>
+
+<h2 id="implementation-status">Implementation status</h2>
+
+<p>A box in a diagram does not mean a public Python class exists. This table says which concepts do.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Formula, Process, Code adapters</td>
+      <td>implemented</td>
+    </tr>
+    <tr>
+      <td>Data and database</td>
+      <td>implemented</td>
+    </tr>
+    <tr>
+      <td>Validation</td>
+      <td>implemented, still expanding (#1639)</td>
+    </tr>
+    <tr>
+      <td>Declarative production pipelines</td>
+      <td>implemented</td>
+    </tr>
+    <tr>
+      <td>Dependency explorer, pipeline lineage explorer</td>
+      <td>implemented on <code class="language-plaintext highlighter-rouge">develop</code></td>
+    </tr>
+    <tr>
+      <td>Learned-model infrastructure</td>
+      <td>partial, evolving (#669)</td>
+    </tr>
+    <tr>
+      <td>Actor</td>
+      <td>terminology defined; no protocol or registry yet (#1077)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">DD</code> / <code class="language-plaintext highlighter-rouge">DDView</code> / <code class="language-plaintext highlighter-rouge">DDCollection</code></td>
+      <td>target architecture, under development outside <code class="language-plaintext highlighter-rouge">develop</code> (#1127–#1133)</td>
+    </tr>
+    <tr>
+      <td>Study</td>
+      <td>planned (#1165)</td>
+    </tr>
+    <tr>
+      <td>Research</td>
+      <td>planned (#1170)</td>
+    </tr>
+    <tr>
+      <td>Common sensitivity, linearization and uncertainty contracts</td>
+      <td>evolving (#1642)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="non-goals">Non-goals</h2>
+
+<p>These follow existing decisions and add none. VAFT is not meant to become:</p>
+
+<ul>
+  <li>an inheritance-driven ontology of all fusion physics;</li>
+  <li>one mutable Shot object that owns every possible operation;</li>
+  <li>a mandatory Actor layer around every solver;</li>
+  <li>a general workflow engine inside the Python API;</li>
+  <li>a system where validation and acceptance policy are indistinguishable;</li>
+  <li>a system where storage or database layers own scientific interpretation;</li>
+  <li>a system where every scientific routine operates directly on one universal container;</li>
+  <li>a second scientific hierarchy organized around ML implementation technology.</li>
+</ul>
+
+<h2 id="related-reference">Related reference</h2>
+
+<ul>
+  <li><a href="/vaft/develop/reference/computational-layers/">Computational layers</a>: Formula, Process, Code and Actor.</li>
+  <li><a href="/vaft/develop/reference/credibility-applicability/">Credibility and applicability</a>: computation, evidence, validation and applicability.</li>
+  <li><a href="/vaft/develop/reference/plasma-models/">Plasma models, orderings, and scales</a> and
+<a href="/vaft/develop/reference/asymptotic-orderings/">Asymptotic orderings</a>: what physical model a
+computation represents. This page says only where it lives.</li>
+  <li><a href="/vaft/develop/reference/imas-concepts/">Fusion data structure and IMAS concepts</a>: the IMAS data model.</li>
+  <li><a href="/vaft/develop/reference/database-data-sources/">Database and data sources</a>: retrieval and persistence.</li>
+  <li><a href="/vaft/develop/reference/diagrams/">Diagrams</a>: every canonical architecture and concept figure.</li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/develop/reference/api/code/"><code>vaft.code</code></a></li>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/develop/reference/api/database/"><code>vaft.database</code></a></li>
+        
+          
+          <li data-resource-id="validation"><a href="/vaft/develop/reference/api/validation/"><code>vaft.validation</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/develop/reference/api/machine-mapping/"><code>vaft.machine_mapping</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/develop/reference/api/plot/"><code>vaft.plot</code></a></li>
+        
+          
+          <li data-resource-id="diagram"><a href="/vaft/develop/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/plasma-models/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Plasma models, orderings, and scales">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#three-views-of-one-system" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Three views of one system</a></li><li class="page-toc-item page-toc-level-2"><a href="#scientific-ownership" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Scientific ownership</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-new-functionality-belongs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where new functionality belongs</a></li><li class="page-toc-item page-toc-level-2"><a href="#programming-model" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Programming model</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#selective-object-orientation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Selective object orientation</a></li><li class="page-toc-item page-toc-level-3"><a href="#typed-boundaries-and-intermediate-representations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Typed boundaries and intermediate representations</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#scientific-data-semantics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Scientific data semantics</a></li><li class="page-toc-item page-toc-level-2"><a href="#composition-and-orchestration" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Composition and orchestration</a></li><li class="page-toc-item page-toc-level-2"><a href="#implementation-status" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Implementation status</a></li><li class="page-toc-item page-toc-level-2"><a href="#non-goals" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Non-goals</a></li><li class="page-toc-item page-toc-level-2"><a href="#related-reference" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Related reference</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Scientific_architecture.md",
+        "mtime": "2026-10-06 09:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-07 10:36:02 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

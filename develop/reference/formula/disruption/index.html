@@ -151,6 +151,12 @@
                 <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -187,6 +193,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
                     
                         <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
@@ -208,6 +220,12 @@
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
                     </li>
                 
                     
@@ -354,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f35b64b</code>. What is described
+  <code>e63d9fe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -467,9 +485,10 @@ no default is hidden (#1188).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#avalanche_efolds_from_current_drop"><code>avalanche_efolds_from_current_drop</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="avalanche_efolds_from_current_drop" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L505-L561" title="vaft/formula/disruption.py, lines 505–561 at f35b64b">source</a>
+<a class="ref-source" data-source="avalanche_efolds_from_current_drop" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L505-L561" title="vaft/formula/disruption.py, lines 505–561 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>avalanche_efolds_from_current_drop(delta_I_p, L_p, R0, Z_eff, ln_Lambda)</code></pre>
+
     <details class="ref-code" data-source-code="avalanche_efolds_from_current_drop"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 505–561</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">avalanche_efolds_from_current_drop</span><span class="p">(</span><span class="n">delta_I_p</span><span class="p">,</span> <span class="n">L_p</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">Z_eff</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">):</span>
@@ -599,9 +618,10 @@ coupling.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#avalanche_growth_rate"><code>avalanche_growth_rate</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="avalanche_growth_rate" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L444-L502" title="vaft/formula/disruption.py, lines 444–502 at f35b64b">source</a>
+<a class="ref-source" data-source="avalanche_growth_rate" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L444-L502" title="vaft/formula/disruption.py, lines 444–502 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>avalanche_growth_rate(E, E_c, Z_eff, ln_Lambda)</code></pre>
+
     <details class="ref-code" data-source-code="avalanche_growth_rate"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 444–502</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">avalanche_growth_rate</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">E_c</span><span class="p">,</span> <span class="n">Z_eff</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">):</span>
@@ -741,9 +761,10 @@ clipped at zero below $E_c$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#connor_hastie_critical_field"><code>connor_hastie_critical_field</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="connor_hastie_critical_field" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L217-L252" title="vaft/formula/disruption.py, lines 217–252 at f35b64b">source</a>
+<a class="ref-source" data-source="connor_hastie_critical_field" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L217-L252" title="vaft/formula/disruption.py, lines 217–252 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>connor_hastie_critical_field(n_e, ln_Lambda)</code></pre>
+
     <details class="ref-code" data-source-code="connor_hastie_critical_field"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 217–252</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">connor_hastie_critical_field</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">):</span>
@@ -837,9 +858,10 @@ and partial screening raise the effective threshold above it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#current_quench_current"><code>current_quench_current</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="current_quench_current" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L123-L162" title="vaft/formula/disruption.py, lines 123–162 at f35b64b">source</a>
+<a class="ref-source" data-source="current_quench_current" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L123-L162" title="vaft/formula/disruption.py, lines 123–162 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>current_quench_current(t, I_0, tau_CQ)</code></pre>
+
     <details class="ref-code" data-source-code="current_quench_current"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 123–162</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">current_quench_current</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">I_0</span><span class="p">,</span> <span class="n">tau_CQ</span><span class="p">):</span>
@@ -940,9 +962,10 @@ reduction.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dreicer_field"><code>dreicer_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="dreicer_field" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L255-L301" title="vaft/formula/disruption.py, lines 255–301 at f35b64b">source</a>
+<a class="ref-source" data-source="dreicer_field" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L255-L301" title="vaft/formula/disruption.py, lines 255–301 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>dreicer_field(n_e, T_e, ln_Lambda)</code></pre>
+
     <details class="ref-code" data-source-code="dreicer_field"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 255–301</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dreicer_field</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">T_e</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">):</span>
@@ -1061,9 +1084,10 @@ reach $E/E_D \approx 0.01$-$0.02$ at a few eV, where it is not.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dreicer_generation_rate"><code>dreicer_generation_rate</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="dreicer_generation_rate" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L377-L441" title="vaft/formula/disruption.py, lines 377–441 at f35b64b">source</a>
+<a class="ref-source" data-source="dreicer_generation_rate" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L377-L441" title="vaft/formula/disruption.py, lines 377–441 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>dreicer_generation_rate(n_e, T_e, E, Z_eff, ln_Lambda, *, prefactor)</code></pre>
+
     <details class="ref-code" data-source-code="dreicer_generation_rate"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 377–441</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dreicer_generation_rate</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">T_e</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">Z_eff</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">prefactor</span><span class="p">):</span>
@@ -1207,9 +1231,10 @@ unreliable above $E/E_D \approx 0.1$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#inductive_parallel_electric_field"><code>inductive_parallel_electric_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="inductive_parallel_electric_field" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L165-L214" title="vaft/formula/disruption.py, lines 165–214 at f35b64b">source</a>
+<a class="ref-source" data-source="inductive_parallel_electric_field" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L165-L214" title="vaft/formula/disruption.py, lines 165–214 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>inductive_parallel_electric_field(L_p, dI_p_dt, R0)</code></pre>
+
     <details class="ref-code" data-source-code="inductive_parallel_electric_field"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 165–214</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">inductive_parallel_electric_field</span><span class="p">(</span><span class="n">L_p</span><span class="p">,</span> <span class="n">dI_p_dt</span><span class="p">,</span> <span class="n">R0</span><span class="p">):</span>
@@ -1333,9 +1358,10 @@ by orders of magnitude.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#relativistic_collision_time"><code>relativistic_collision_time</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="relativistic_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L343-L374" title="vaft/formula/disruption.py, lines 343–374 at f35b64b">source</a>
+<a class="ref-source" data-source="relativistic_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L343-L374" title="vaft/formula/disruption.py, lines 343–374 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>relativistic_collision_time(n_e, ln_Lambda)</code></pre>
+
     <details class="ref-code" data-source-code="relativistic_collision_time"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 343–374</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">relativistic_collision_time</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">):</span>
@@ -1423,9 +1449,10 @@ the avalanche grows on $\tau_c\ln\Lambda$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#runaway_critical_momentum"><code>runaway_critical_momentum</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="runaway_critical_momentum" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L304-L340" title="vaft/formula/disruption.py, lines 304–340 at f35b64b">source</a>
+<a class="ref-source" data-source="runaway_critical_momentum" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L304-L340" title="vaft/formula/disruption.py, lines 304–340 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>runaway_critical_momentum(E, E_c)</code></pre>
+
     <details class="ref-code" data-source-code="runaway_critical_momentum"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 304–340</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">runaway_critical_momentum</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">E_c</span><span class="p">):</span>
@@ -1519,9 +1546,10 @@ and radiation raise $p_c$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#runaway_current_from_density"><code>runaway_current_from_density</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="runaway_current_from_density" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L564-L599" title="vaft/formula/disruption.py, lines 564–599 at f35b64b">source</a>
+<a class="ref-source" data-source="runaway_current_from_density" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L564-L599" title="vaft/formula/disruption.py, lines 564–599 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>runaway_current_from_density(n_RE, area)</code></pre>
+
     <details class="ref-code" data-source-code="runaway_current_from_density"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 564–599</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">runaway_current_from_density</span><span class="p">(</span><span class="n">n_RE</span><span class="p">,</span> <span class="n">area</span><span class="p">):</span>
@@ -1613,9 +1641,10 @@ area; pitch-angle spread lowers the parallel velocity somewhat.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#thermal_quench_temperature"><code>thermal_quench_temperature</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="thermal_quench_temperature" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/disruption.py#L78-L120" title="vaft/formula/disruption.py, lines 78–120 at f35b64b">source</a>
+<a class="ref-source" data-source="thermal_quench_temperature" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/disruption.py#L78-L120" title="vaft/formula/disruption.py, lines 78–120 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>thermal_quench_temperature(t, T_0, T_final, tau_TQ)</code></pre>
+
     <details class="ref-code" data-source-code="thermal_quench_temperature"><summary>Show source <span class="ref-note">vaft/formula/disruption.py, lines 78–120</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">thermal_quench_temperature</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="n">T_0</span><span class="p">,</span> <span class="n">T_final</span><span class="p">,</span> <span class="n">tau_TQ</span><span class="p">):</span>
@@ -1935,7 +1964,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:05:45 +0000"
+        "time": "2026-10-07 10:36:02 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

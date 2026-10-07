@@ -1,0 +1,1016 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>VAFT scientific ontology explorer · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/external-codes/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/pipeline-graph/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >VAFT scientific ontology explorer</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>e63d9fe</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Ontology">VAFT scientific ontology explorer</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>What VAFT's objects mean scientifically, generated from the plot taxonomy and registry, the Data Dictionary bridge, the diagnostic registry, the validation registry, the COCOS registry and the external-code catalog (python -m vaft._ontology_graph, issue 1702).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>For a concept such as plasma current, which diagnostics measure it, which Data Dictionary paths represent it, which plots draw it, which checks assess it, and which conventions apply.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>This is the third generated graph of VAFT. The
+<a href="/vaft/develop/reference/dependency-graph/">dependency explorer</a> shows which module imports
+which; the <a href="/vaft/develop/reference/pipeline-graph/">pipeline lineage explorer</a> shows what
+produced what. This one shows <strong>what things mean</strong>: plasma current, the diagnostics that measure
+it, the Data Dictionary path that represents it, the plots that draw it and the checks that assess
+it. The three never share edges, and an import or a pipeline dependency is never read as a
+scientific relation.</p>
+
+<p>Nothing here is written by hand. Every node and edge comes from a registry that already owns the
+fact and says which (<em>From</em> in the detail panel):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Contributes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot.taxonomy</code></td>
+      <td>the vocabulary: concepts, their kinds, strict aliases and families</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot.registry</code> and <code class="language-plaintext highlighter-rouge">vaft.plot.backend.dd</code></td>
+      <td>which concept each plot draws, the Data Dictionary paths it reads, with units, coordinates and lifecycle</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.machine_mapping.registry</code></td>
+      <td>each VEST diagnostic, its IDS, what it measures and derives, and its mapping function</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.registry</code></td>
+      <td>named checks, what they check and the function that computes them</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.cocos</code></td>
+      <td>the COCOS convention of each code and data format</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft._ecosystem</code></td>
+      <td>external codes, their adapters and the IDS their results are mapped into</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Identity is strict.</strong> <code class="language-plaintext highlighter-rouge">ip</code> and <code class="language-plaintext highlighter-rouge">I_p</code> are registered aliases of <code class="language-plaintext highlighter-rouge">plasma_current</code> and resolve to
+it; <code class="language-plaintext highlighter-rouge">beta_n</code>, <code class="language-plaintext highlighter-rouge">beta_p</code> and <code class="language-plaintext highlighter-rouge">beta_t</code> are three concepts in one family, not synonyms. A term that
+no registry resolves is never turned into a new concept by guessing: it is listed below as
+unresolved, with where it came from, so a gap in the vocabulary is visible. A concept is linked to
+a Data Dictionary path (<em>represented by</em>) only where that is unambiguous: a plot of that single
+quantity that reads exactly one quantity path.</p>
+
+<p>Start from the compact <strong>Concepts</strong> view, search for a concept or an alias (<code class="language-plaintext highlighter-rouge">ip</code>, <code class="language-plaintext highlighter-rouge">ne</code>, <code class="language-plaintext highlighter-rouge">q95</code>,
+<code class="language-plaintext highlighter-rouge">thomson</code>), and switch views to see its representations, implementations or assessment.</p>
+
+<link rel="stylesheet" href="/vaft/develop/assets/graph/viewer.css" />
+
+<div class="vg-root" data-vaft-graph="ontology" data-src="/vaft/develop/assets/graph/ontology-graph.json" data-baseurl="/vaft/develop" role="region" aria-label="VAFT scientific ontology graph">
+  <div class="vg-toolbar">
+    <input type="search" list="vg-search-ontology" placeholder="Search a concept, alias, diagnostic, IDS, Data Dictionary path or check" aria-label="Search the graph" data-vg-search="" />
+    <datalist id="vg-search-ontology"></datalist>
+    <span class="vg-search-result" data-vg-search-result=""></span>
+    <span class="vg-count" data-vg-count=""></span>
+  </div>
+  <div class="vg-layout">
+    <div class="vg-controls" data-vg-controls=""></div>
+    <div class="vg-stage">
+      <div class="vg-status" data-vg-status="">This interactive graph needs JavaScript.</div>
+      <div class="vg-canvas" data-vg-canvas=""></div>
+    </div>
+    <div class="vg-details" data-vg-details="" aria-live="polite"></div>
+  </div>
+</div>
+<script src="/vaft/develop/assets/lib/cytoscape-3.34.3/cytoscape.min.js"></script>
+
+<script src="/vaft/develop/assets/graph/ontology-graph.js"></script>
+
+<script src="/vaft/develop/assets/graph/viewer.js"></script>
+
+<p class="vg-meta">848 nodes and 3817 typed relations in this snapshot; 196 unresolved terms.</p>
+
+<noscript><p class="vg-noscript">The explorer is interactive and needs JavaScript. The registries
+it reads are documented in the <a href="/vaft/develop/reference/plot/">plot reference</a>,
+the <a href="/vaft/develop/reference/vest-diagnostics/">VEST diagnostics</a> page and the
+<a href="/vaft/develop/reference/api/">API reference</a>.</p></noscript>
+
+<h2 id="relations">Relations</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Relation</th>
+      <th>Meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">member_of</code></td>
+      <td>a concept belongs to a family</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">measures</code></td>
+      <td>a diagnostic measures a quantity directly</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">derives</code></td>
+      <td>a diagnostic’s processing derives a quantity</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">represented_by</code></td>
+      <td>a concept or diagnostic is stored in an IDS or a Data Dictionary path</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">part_of</code></td>
+      <td>a Data Dictionary path belongs to its IDS; a diagnostic system belongs to a larger one</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">mapped_by</code></td>
+      <td>a diagnostic is mapped into IMAS by a VAFT function</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">visualized_by</code></td>
+      <td>a concept is drawn by a canonical plot</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reads</code></td>
+      <td>a plot reads a Data Dictionary path</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">assessed_by</code></td>
+      <td>a concept is assessed by a named validation check</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">provided_by</code></td>
+      <td>a check is computed by a VAFT function</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">uses_convention</code></td>
+      <td>a code or data format uses a COCOS convention</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">implemented_by</code></td>
+      <td>an external code is integrated through a VAFT adapter</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">produces</code></td>
+      <td>an external code’s result is mapped into an IDS</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="unresolved-terms">Unresolved terms</h2>
+
+<p>These terms appear in a registry but resolve to no concept of the vocabulary. They are kept
+here, not merged by similarity, until the vocabulary or the registry is changed on purpose.</p>
+
+<details><summary>196 unresolved terms</summary>
+
+| Term | From | Where |
+| --- | --- | --- |
+| `arc_current` | `vaft.machine_mapping.registry` | measured by helicity_injection |
+| `arc_voltage` | `vaft.machine_mapping.registry` | measured by helicity_injection |
+| `b_field_tor_vacuum_r` | `vaft.machine_mapping.registry` | derived by tf |
+| `beam_current` | `vaft.machine_mapping.registry` | measured by nbi |
+| `beam_voltage` | `vaft.machine_mapping.registry` | measured by nbi |
+| `brightness_proxy` | `vaft.machine_mapping.registry` | derived by soft_x_rays |
+| `channel_intensity` | `vaft.machine_mapping.registry` | measured by bremsstrahlung_visible |
+| `charging_voltage` | `vaft.machine_mapping.registry` | measured by pf_active |
+| `current` | `vaft.machine_mapping.registry` | derived by coils_non_axisymmetric; measured by pf_active; measured by tf |
+| `date` | `vaft.machine_mapping.registry` | measured by dataset_description |
+| `diagnostic_trigger` | `vaft.machine_mapping.registry` | derived by pulse_schedule |
+| `digitizer_voltage` | `vaft.machine_mapping.registry` | measured by soft_x_rays |
+| `duration` | `vaft.machine_mapping.registry` | measured by gas_injection |
+| `ec_window` | `vaft.machine_mapping.registry` | derived by pulse_schedule |
+| `electron_temperature_proxy` | `vaft.machine_mapping.registry` | derived by soft_x_rays |
+| `flow_rate` | `vaft.machine_mapping.registry` | measured by gas_injection; measured by gas_pumping |
+| `forward_power` | `vaft.machine_mapping.registry` | measured by ech |
+| `gas_puffing_timing` | `vaft.machine_mapping.registry` | measured by gas_injection |
+| `gas_valve_window` | `vaft.machine_mapping.registry` | derived by pulse_schedule |
+| `helicity_injection_trigger` | `vaft.machine_mapping.registry` | derived by pulse_schedule |
+| `image` | `vaft.machine_mapping.registry` | measured by camera_visible |
+| `impurity_ion_temperature` | `vaft.machine_mapping.registry` | measured by charge_exchange.ion_doppler |
+| `injection_current` | `vaft.machine_mapping.registry` | measured by helicity_injection |
+| `injection_voltage` | `vaft.machine_mapping.registry` | measured by helicity_injection |
+| `intensity` | `vaft.machine_mapping.registry` | measured by charge_exchange.ces; measured by spectrometer_uv |
+| `label` | `vaft.machine_mapping.registry` | measured by dataset_description |
+| `limit_voltage` | `vaft.machine_mapping.registry` | measured by helicity_injection |
+| `line_den` | `vaft.machine_mapping.registry` | measured by interferometer |
+| `n_e_line` | `vaft.machine_mapping.registry` | derived by interferometer |
+| `n_e_line_average` | `vaft.machine_mapping.registry` | derived by interferometer |
+| `nbi_trigger` | `vaft.machine_mapping.registry` | derived by pulse_schedule |
+| `particle_flux` | `vaft.machine_mapping.registry` | derived by wall |
+| `particle_fraction` | `vaft.machine_mapping.registry` | measured by nbi |
+| `poloidal_magnetic_field` | `vaft.machine_mapping.registry` | derived by magnetics.b_field_pol_probe; derived by magnetics.internal_probe |
+| `poloidal_magnetic_flux` | `vaft.machine_mapping.registry` | derived by magnetics.flux_loop |
+| `power` | `vaft.machine_mapping.registry` | measured by nbi |
+| `power_proxy` | `vaft.machine_mapping.registry` | derived by soft_x_rays |
+| `pressure` | `vaft.machine_mapping.registry` | measured by barometry.gauge |
+| `pumping_speed` | `vaft.machine_mapping.registry` | derived by wall |
+| `radial_position` | `vaft.machine_mapping.registry` | derived by langmuir_probes.embedded |
+| `radiance` | `vaft.machine_mapping.registry` | measured by hard_x_rays |
+| `recycling_particles_coefficient` | `vaft.machine_mapping.registry` | derived by wall |
+| `reflected_power` | `vaft.machine_mapping.registry` | measured by ech |
+| `resolution` | `vaft.machine_mapping.registry` | measured by camera_visible |
+| `response_matrix` | `vaft.machine_mapping.registry` | derived by em_coupling |
+| `rogowski_current` | `vaft.machine_mapping.registry` | measured by magnetics.rogowski_coil |
+| `shot_remark` | `vaft.machine_mapping.registry` | measured by dataset_description |
+| `shot_summary` | `vaft.machine_mapping.registry` | derived by dataset_description |
+| `species` | `vaft.machine_mapping.registry` | measured by gas_injection |
+| `suppression_voltage` | `vaft.machine_mapping.registry` | measured by nbi |
+| `timeframe` | `vaft.machine_mapping.registry` | measured by camera_visible |
+| `toroidal_mode_number` | `vaft.machine_mapping.registry` | derived by magnetics.b_field_pol_probe; derived by magnetics.internal_probe |
+| `toroidal_velocity` | `vaft.machine_mapping.registry` | measured by charge_exchange.ces; measured by charge_exchange.ion_doppler |
+| `trigger_timing` | `vaft.machine_mapping.registry` | measured by dataset_description |
+| `voltage` | `vaft.machine_mapping.registry` | measured by disruption.halo_currents; measured by magnetics.b_field_pol_probe; measured by magnetics.flux_loop; measured by magnetics.internal_probe |
+| `wall_condition` | `vaft.machine_mapping.registry` | measured by dataset_description |
+| `wall_inventory` | `vaft.machine_mapping.registry` | derived by wall |
+| `z_effective` | `vaft.machine_mapping.registry` | derived by bremsstrahlung_visible |
+| `2d` | `vaft.plot.registry` | quantity of equilibrium_field_2d |
+| `analysis` | `vaft.plot.registry` | quantity of equilibrium_overview |
+| `b_field_perturbed` | `vaft.plot.registry` | quantity of mhd_linear_profile_b_field_perturbed; quantity of mhd_linear_spectrum_b_field_perturbed |
+| `b_t` | `vaft.plot.registry` | quantity of tf_coil_time_b_t |
+| `b_t_vacuum_r` | `vaft.plot.registry` | quantity of tf_coil_time_b_t_vacuum_r |
+| `beta` | `vaft.plot.registry` | quantity of equilibrium_time_beta |
+| `bootstrap_current` | `vaft.plot.registry` | quantity of neoclassical_profile_bootstrap_current |
+| `boundary` | `vaft.plot.registry` | quantity of equilibrium_geometry_boundary |
+| `channels` | `vaft.plot.registry` | quantity of interferometer_overview; quantity of soft_x_rays_overview |
+| `charge_state_fraction` | `vaft.plot.registry` | quantity of impurity_profile_charge_state_fraction |
+| `chirikov` | `vaft.plot.registry` | quantity of mhd_linear_profile_chirikov |
+| `coherence` | `vaft.plot.registry` | quantity of diagnostics_spectrum_coherence |
+| `composition` | `vaft.plot.registry` | quantity of impurity_profile_composition |
+| `connection_length` | `vaft.plot.registry` | quantity of field_line_topology_field_connection_length |
+| `constraint_coverage` | `vaft.plot.registry` | quantity of equilibrium_overview_constraint_coverage |
+| `constraint_weights` | `vaft.plot.registry` | quantity of equilibrium_overview_constraint_weights |
+| `constraints` | `vaft.plot.registry` | quantity of equilibrium_overview_constraints |
+| `convergence` | `vaft.plot.registry` | quantity of equilibrium_overview_convergence |
+| `current` | `vaft.plot.registry` | quantity of coil_3d_profile_current; quantity of coil_3d_spectrum_current; quantity of passive_structure_time_current; quantity of pf_coil_time_current; quantity of rogowski_coil_time_current; quantity of tf_coil_time_current |
+| `current_drive` | `vaft.plot.registry` | quantity of nbi_profile_current_drive |
+| `current_turns` | `vaft.plot.registry` | quantity of pf_coil_time_current_turns |
+| `delta_prime` | `vaft.plot.registry` | quantity of ntms_time_delta_prime |
+| `diagnostics` | `vaft.plot.registry` | quantity of magnetics_overview |
+| `displacement` | `vaft.plot.registry` | quantity of mhd_linear_profile_displacement |
+| `efit_overlay` | `vaft.plot.registry` | quantity of camera_visible_image_efit_overlay |
+| `eigenfunction` | `vaft.plot.registry` | quantity of gyrokinetics_profile_eigenfunction; quantity of mhd_linear_overview_eigenfunction |
+| `electron_heating` | `vaft.plot.registry` | quantity of nbi_profile_electron_heating |
+| `elongation` | `vaft.plot.registry` | quantity of equilibrium_time_elongation |
+| `energy` | `vaft.plot.registry` | quantity of summary_time_energy |
+| `energy_flux` | `vaft.plot.registry` | quantity of gyrokinetics_spectrum_energy_flux; quantity of turbulent_transport_profile_energy_flux |
+| `energy_perturbed` | `vaft.plot.registry` | quantity of mhd_linear_time_energy_perturbed |
+| `equilibrium/ids_properties/cocos` | `vaft.plot.registry` | not in the Data Dictionary |
+| `equilibrium/time_slice(:)/global_quantities/b0` | `vaft.plot.registry` | not in the Data Dictionary |
+| `equilibrium/time_slice(:)/global_quantities/energy_mag` | `vaft.plot.registry` | not in the Data Dictionary |
+| `equilibrium/time_slice(:)/global_quantities/energy_total` | `vaft.plot.registry` | not in the Data Dictionary |
+| `equilibrium/time_slice(:)/global_quantities/major_radius` | `vaft.plot.registry` | not in the Data Dictionary |
+| `equilibrium/time_slice(:)/global_quantities/qa` | `vaft.plot.registry` | not in the Data Dictionary |
+| `equilibrium/time_slice(:)/profiles_1d/ffprime` | `vaft.plot.registry` | not in the Data Dictionary |
+| `equilibrium/time_slice(:)/profiles_1d/pprime` | `vaft.plot.registry` | not in the Data Dictionary |
+| `estimated_q95` | `vaft.plot.registry` | quantity of summary_time_estimated_q95 |
+| `f` | `vaft.plot.registry` | quantity of equilibrium_profile_f |
+| `ffprime` | `vaft.plot.registry` | quantity of equilibrium_profile_ffprime |
+| `field` | `vaft.plot.registry` | quantity of b_field_probe_spatial_field; quantity of b_field_probe_time_field; quantity of impa_profile_field; quantity of impa_time_field |
+| `field_line` | `vaft.plot.registry` | quantity of camera_visible_image_field_line |
+| `fit` | `vaft.plot.registry` | quantity of charge_exchange_profile_fit; quantity of thomson_scattering_profile_fit |
+| `fit_quality` | `vaft.plot.registry` | quantity of equilibrium_overview_fit_quality; quantity of equilibrium_table_fit_quality |
+| `fluctuation` | `vaft.plot.registry` | quantity of camera_visible_image_fluctuation |
+| `flux` | `vaft.plot.registry` | quantity of flux_loop_spatial_flux; quantity of flux_loop_time_flux |
+| `frame` | `vaft.plot.registry` | quantity of camera_visible_image_frame |
+| `frames` | `vaft.plot.registry` | quantity of camera_visible_animation_frames |
+| `frequency` | `vaft.plot.registry` | quantity of gyrokinetics_spectrum_frequency |
+| `gradient` | `vaft.plot.registry` | quantity of electron_density_profile_gradient; quantity of electron_temperature_profile_gradient; quantity of ion_temperature_profile_gradient |
+| `growth_rate` | `vaft.plot.registry` | quantity of gyrokinetics_spectrum_growth_rate |
+| `histories` | `vaft.plot.registry` | quantity of equilibrium_overview_histories |
+| `impurity` | `vaft.plot.registry` | quantity of spectrometer_uv_time_impurity |
+| `intensity` | `vaft.plot.registry` | quantity of spectrometer_uv_time_intensity |
+| `ion_heating` | `vaft.plot.registry` | quantity of nbi_profile_ion_heating |
+| `island` | `vaft.plot.registry` | quantity of mhd_linear_geometry_island |
+| `island_width` | `vaft.plot.registry` | quantity of mhd_linear_profile_island_width |
+| `j_tor` | `vaft.plot.registry` | quantity of equilibrium_profile_j_tor |
+| `lines_of_sight` | `vaft.plot.registry` | quantity of soft_x_rays_geometry_lines_of_sight |
+| `magnetics/b_field_pol_probe/time` | `vaft.plot.registry` | not in the Data Dictionary |
+| `magnetics/flux_loop/time` | `vaft.plot.registry` | not in the Data Dictionary |
+| `magnetics/ip(:)/validity` | `vaft.plot.registry` | not in the Data Dictionary |
+| `magnetics/ip(:)/validity_timed` | `vaft.plot.registry` | not in the Data Dictionary |
+| `major_radius` | `vaft.plot.registry` | quantity of equilibrium_time_major_radius |
+| `mhd_power` | `vaft.plot.registry` | quantity of camera_visible_image_mhd_power |
+| `midplane` | `vaft.plot.registry` | quantity of vacuum_field_midplane |
+| `minor_radius` | `vaft.plot.registry` | quantity of equilibrium_time_minor_radius |
+| `n_e_line` | `vaft.plot.registry` | quantity of interferometer_time_n_e_line |
+| `normalized_current` | `vaft.plot.registry` | quantity of summary_time_normalized_current |
+| `particle_flux` | `vaft.plot.registry` | quantity of gyrokinetics_spectrum_particle_flux; quantity of turbulent_transport_profile_particle_flux |
+| `pf_passive/loop(:)/identifier` | `vaft.plot.registry` | not in the Data Dictionary |
+| `phase` | `vaft.plot.registry` | quantity of mirnov_spatial_phase |
+| `plasma_residual` | `vaft.plot.registry` | quantity of magnetics_overview_plasma_residual |
+| `poloidal` | `vaft.plot.registry` | quantity of charge_exchange_geometry_poloidal; quantity of machine_geometry_poloidal; quantity of magnetics_geometry_poloidal; quantity of passive_structure_geometry_poloidal; quantity of pf_coil_geometry_poloidal; quantity of pf_plasma_geometry_poloidal; quantity of thomson_scattering_geometry_poloidal; quantity of wall_geometry_poloidal |
+| `power` | `vaft.plot.registry` | quantity of ec_launchers_time_power; quantity of soft_x_rays_time_power |
+| `power_balance` | `vaft.plot.registry` | quantity of summary_time_power_balance |
+| `pprime` | `vaft.plot.registry` | quantity of equilibrium_profile_pprime |
+| `pressure` | `vaft.plot.registry` | quantity of barometry_time_pressure; quantity of equilibrium_profile_pressure |
+| `pressure_weight_scan` | `vaft.plot.registry` | quantity of equilibrium_overview_pressure_weight_scan |
+| `profile_validity` | `vaft.plot.registry` | quantity of chease_overview_profile_validity |
+| `profiles` | `vaft.plot.registry` | quantity of equilibrium_overview_profiles; quantity of kinetic_overview_profiles |
+| `psi` | `vaft.plot.registry` | quantity of equilibrium_field_psi |
+| `psi_vacuum` | `vaft.plot.registry` | quantity of equilibrium_field_psi_vacuum |
+| `q_star_cylindrical` | `vaft.plot.registry` | quantity of summary_time_q_star_cylindrical |
+| `q_star_kink` | `vaft.plot.registry` | quantity of summary_time_q_star_kink |
+| `qa` | `vaft.plot.registry` | quantity of equilibrium_time_qa |
+| `refinement_summary` | `vaft.plot.registry` | quantity of chease_overview_refinement_summary |
+| `residuals` | `vaft.plot.registry` | quantity of equilibrium_overview_residuals |
+| `resistive_zeff` | `vaft.plot.registry` | quantity of summary_time_resistive_zeff |
+| `resonant_flux` | `vaft.plot.registry` | quantity of mhd_linear_profile_resonant_flux |
+| `romero_balance` | `vaft.plot.registry` | quantity of summary_time_romero_balance |
+| `shape` | `vaft.plot.registry` | quantity of equilibrium_time_shape |
+| `spectrometer_uv/channel(:)/processed_line(:)/intensity/validity` | `vaft.plot.registry` | not in the Data Dictionary |
+| `spectrometer_uv/channel(:)/processed_line(:)/intensity/validity_timed` | `vaft.plot.registry` | not in the Data Dictionary |
+| `spectrum` | `vaft.plot.registry` | quantity of mhd_linear_field_spectrum |
+| `summary` | `vaft.plot.registry` | quantity of equilibrium_table_summary; quantity of equilibrium_text_summary |
+| `topview` | `vaft.plot.registry` | quantity of coil_3d_geometry_topview; quantity of equilibrium_geometry_topview; quantity of machine_geometry_topview |
+| `triangularity` | `vaft.plot.registry` | quantity of equilibrium_time_triangularity |
+| `triangularity_lower` | `vaft.plot.registry` | quantity of equilibrium_time_triangularity_lower |
+| `triangularity_upper` | `vaft.plot.registry` | quantity of equilibrium_time_triangularity_upper |
+| `vacuum` | `vaft.plot.registry` | quantity of magnetics_overview_vacuum |
+| `vacuum_field_line` | `vaft.plot.registry` | quantity of camera_visible_image_vacuum_field_line |
+| `validation` | `vaft.plot.registry` | quantity of equilibrium_table_validation |
+| `velocity_tor` | `vaft.plot.registry` | quantity of charge_exchange_profile_velocity_tor; quantity of charge_exchange_time_velocity_tor |
+| `verification` | `vaft.plot.registry` | quantity of equilibrium_overview_verification |
+| `virial` | `vaft.plot.registry` | quantity of equilibrium_time_virial |
+| `voltage` | `vaft.plot.registry` | quantity of flux_loop_time_voltage; quantity of impa_time_voltage; quantity of mirnov_time_voltage |
+| `voltage_consumption` | `vaft.plot.registry` | quantity of summary_time_voltage_consumption |
+| `volume_averaged` | `vaft.plot.registry` | quantity of core_profiles_time_volume_averaged |
+| `wall_mode` | `vaft.plot.registry` | quantity of passive_structure_geometry_wall_mode |
+| `wall_reduction` | `vaft.plot.registry` | quantity of passive_structure_field_wall_reduction; quantity of passive_structure_overview_wall_reduction |
+| `wall_time` | `vaft.plot.registry` | quantity of passive_structure_overview_wall_time |
+| `zeff` | `vaft.plot.registry` | quantity of core_profiles_profile_zeff |
+| `coils_non_axisymmetric` | `vaft.plot.taxonomy` | alias of machine:coil_3d also names ids:coils_non_axisymmetric |
+| `gyrokinetics_local` | `vaft.plot.taxonomy` | alias of concept:gyrokinetics also names ids:gyrokinetics_local |
+| `nubeam` | `vaft.plot.taxonomy` | alias of machine:nbi also names code:nubeam |
+| `pf_active` | `vaft.plot.taxonomy` | alias of machine:pf_coil also names dd:pf_active, ids:pf_active |
+| `pf_passive` | `vaft.plot.taxonomy` | alias of machine:passive_structure also names dd:pf_passive, ids:pf_passive |
+| `tf` | `vaft.plot.taxonomy` | alias of machine:tf_coil also names dd:tf, ids:tf |
+| `vacuum_field` | `vaft.plot.taxonomy` | alias of concept:vacuum also names plot:vacuum_field |
+| `continuity` | `vaft.validation.registry` | checked by verification.continuity |
+| `convention` | `vaft.validation.registry` | checked by verification.convention |
+| `convergence` | `vaft.validation.registry` | checked by verification.convergence |
+| `diamagnetic_energy` | `vaft.validation.registry` | checked by independent_validation.diamagnetic_energy |
+| `global` | `vaft.validation.registry` | checked by diagnostic_fit.global |
+| `pf_current` | `vaft.validation.registry` | checked by diagnostic_fit.pf_current |
+| `pressure_consistency` | `vaft.validation.registry` | checked by physical_validity.pressure_consistency |
+| `pressure_profile` | `vaft.validation.registry` | checked by physical_validity.pressure_profile |
+| `q_profile` | `vaft.validation.registry` | checked by physical_validity.q_profile |
+| `structure` | `vaft.validation.registry` | checked by verification.structure |
+| `thomson_pressure` | `vaft.validation.registry` | checked by independent_validation.thomson_pressure |
+| `virial_conditioning` | `vaft.validation.registry` | checked by physical_validity.virial_conditioning |
+| `virial_identity` | `vaft.validation.registry` | checked by physical_validity.virial_identity |
+| `virial_measured_mu_i` | `vaft.validation.registry` | checked by independent_validation.virial_measured_mu_i |
+| `virial_pair_consistency` | `vaft.validation.registry` | checked by physical_validity.virial_pair_consistency |
+| `virial_parameter_plausibility` | `vaft.validation.registry` | checked by physical_validity.virial_parameter_plausibility |
+
+</details>
+
+<p>Regenerate the snapshot locally with:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>python <span class="nt">-m</span> vaft._ontology_graph <span class="nt">--output</span> docs/_data/ontology_graph.yml
+</code></pre></div></div>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/external-codes/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: External scientific codes">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" class="navigation navigation-next navigation-unique" aria-label="Next page: VAFT pipeline lineage explorer">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#relations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Relations</a></li><li class="page-toc-item page-toc-level-2"><a href="#unresolved-terms" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Unresolved terms</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VAFT pipeline lineage explorer",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Pipeline_graph.md",
+            "ref": "_guide/Pipeline_graph.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Ontology.md",
+        "mtime": "2026-10-04 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-07 10:36:02 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -29,7 +29,7 @@
         
 
         
-            <link rel="next" href="/vaft/develop/reference/process/species/" />
+            <link rel="next" href="/vaft/develop/reference/process/mode_frequency/" />
         
     </head>
     <body>
@@ -151,6 +151,12 @@
                 <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -187,6 +193,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
                     
                         <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
@@ -208,6 +220,12 @@
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
                     </li>
                 
                     
@@ -354,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f35b64b</code>. What is described
+  <code>e63d9fe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -450,9 +468,10 @@ the fast-ion inputs are in <code class="language-plaintext highlighter-rouge">pr
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assemble_pressure"><code>assemble_pressure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="assemble_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/process/kinetic_closure.py#L121-L194" title="vaft/process/kinetic_closure.py, lines 121–194 at f35b64b">source</a>
+<a class="ref-source" data-source="assemble_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/process/kinetic_closure.py#L121-L194" title="vaft/process/kinetic_closure.py, lines 121–194 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>assemble_pressure(n_e, T_e, ion_densities, ion_temperatures, *, p_fast=None, provenance=None)</code></pre>
+
     <details class="ref-code" data-source-code="assemble_pressure"><summary>Show source <span class="ref-note">vaft/process/kinetic_closure.py, lines 121–194</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assemble_pressure</span><span class="p">(</span>
@@ -596,7 +615,7 @@ and <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fast_ion_slowing_down_estimate"><code>fast_ion_slowing_down_estimate</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="fast_ion_slowing_down_estimate" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/process/kinetic_closure.py#L197-L328" title="vaft/process/kinetic_closure.py, lines 197–328 at f35b64b">source</a>
+<a class="ref-source" data-source="fast_ion_slowing_down_estimate" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/process/kinetic_closure.py#L197-L328" title="vaft/process/kinetic_closure.py, lines 197–328 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>fast_ion_slowing_down_estimate(n_e, T_e, field_ions, source_rate, beam_energy_eV, *, A_b, Z_b=1.0, ln_Lambda=None, time=None, rho=None)</code></pre>
 
@@ -687,7 +706,7 @@ pressure from above where those losses matter.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#infer_kinetic_closure"><code>infer_kinetic_closure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="infer_kinetic_closure" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/process/kinetic_closure.py#L359-L506" title="vaft/process/kinetic_closure.py, lines 359–506 at f35b64b">source</a>
+<a class="ref-source" data-source="infer_kinetic_closure" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/process/kinetic_closure.py#L359-L506" title="vaft/process/kinetic_closure.py, lines 359–506 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>infer_kinetic_closure(ods, *, time=None, tolerance=0.0005, dilution=&#39;species&#39;, composition=None, machine_preset=None, shot=None, ti_te_ratio=None, ti_record=None, fast_ion=None)</code></pre>
 
@@ -873,7 +892,7 @@ window.MathJax = {
                     
 
                     
-                        <a href="/vaft/develop/reference/process/species/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: species">
+                        <a href="/vaft/develop/reference/process/mode_frequency/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: mode_frequency">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -905,11 +924,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Process reference: species",
+            "title": "Process reference: mode_frequency",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Process_reference_species.md",
-            "ref": "_guide/Process_reference_species.md",
+            "path": "_guide/Process_reference_mode_frequency.md",
+            "ref": "_guide/Process_reference_mode_frequency.md",
             "articles": []
         },
         
@@ -1007,7 +1026,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:05:45 +0000"
+        "time": "2026-10-07 10:36:02 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

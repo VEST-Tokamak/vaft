@@ -151,6 +151,12 @@
                 <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -187,6 +193,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
                     
                         <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
@@ -208,6 +220,12 @@
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
                     </li>
                 
                     
@@ -354,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f35b64b</code>. What is described
+  <code>e63d9fe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -435,10 +453,11 @@ the formula module.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_peaking_factor"><code>calculate_peaking_factor</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="calculate_peaking_factor" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L436-L460" title="vaft/formula/utils.py, lines 436–460 at f35b64b">source</a>
+<a class="ref-source" data-source="calculate_peaking_factor" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L444-L476" title="vaft/formula/utils.py, lines 444–476 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_peaking_factor(central, volume_avg)</code></pre>
-    <details class="ref-code" data-source-code="calculate_peaking_factor"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 436–460</span></summary>
+    <p class="ref-note">Reduction: scalar 0d &rarr; scalar 0d &middot; dimensionless normalization &middot; global &middot; profile descriptor (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="calculate_peaking_factor"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 444–476</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_peaking_factor</span><span class="p">(</span><span class="n">central</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                            <span class="n">volume_avg</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -461,6 +480,14 @@ the formula module.</p>
     Numerical notes
     ---------------
     A zero volume average warns and returns ``nan``.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: profile_descriptor
     </span><span class="sh">"""</span>
     <span class="k">return</span> <span class="nf">_guarded_ratio</span><span class="p">(</span>
         <span class="n">central</span><span class="p">,</span> <span class="n">volume_avg</span><span class="p">,</span> <span class="n">what</span><span class="o">=</span><span class="sh">"</span><span class="s">calculate_peaking_factor</span><span class="sh">"</span><span class="p">,</span> <span class="n">because</span><span class="o">=</span><span class="sh">"</span><span class="s">volume_avg</span><span class="sh">"</span>
@@ -502,10 +529,11 @@ the formula module.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_poloidal_flux"><code>calculate_poloidal_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="calculate_poloidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L493-L527" title="vaft/formula/utils.py, lines 493–527 at f35b64b">source</a>
+<a class="ref-source" data-source="calculate_poloidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L509-L543" title="vaft/formula/utils.py, lines 509–543 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_poloidal_flux(R, B_theta, l, psi_axis=0.0)</code></pre>
-    <details class="ref-code" data-source-code="calculate_poloidal_flux"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 493–527</span></summary>
+
+    <details class="ref-code" data-source-code="calculate_poloidal_flux"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 509–543</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_poloidal_flux</span><span class="p">(</span><span class="n">R</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                           <span class="n">B_theta</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -592,10 +620,11 @@ The physics wrapper is <code class="language-plaintext highlighter-rouge">vaft.f
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_toroidal_flux"><code>calculate_toroidal_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="calculate_toroidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L530-L558" title="vaft/formula/utils.py, lines 530–558 at f35b64b">source</a>
+<a class="ref-source" data-source="calculate_toroidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L546-L574" title="vaft/formula/utils.py, lines 546–574 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_toroidal_flux(B_phi, dA)</code></pre>
-    <details class="ref-code" data-source-code="calculate_toroidal_flux"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 530–558</span></summary>
+
+    <details class="ref-code" data-source-code="calculate_toroidal_flux"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 546–574</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_toroidal_flux</span><span class="p">(</span><span class="n">B_phi</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                           <span class="n">dA</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -672,10 +701,11 @@ order in the cell size.  Tracked in #358.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#calculate_volume_weighted_average"><code>calculate_volume_weighted_average</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="calculate_volume_weighted_average" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L463-L490" title="vaft/formula/utils.py, lines 463–490 at f35b64b">source</a>
+<a class="ref-source" data-source="calculate_volume_weighted_average" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L479-L506" title="vaft/formula/utils.py, lines 479–506 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>calculate_volume_weighted_average(x, V)</code></pre>
-    <details class="ref-code" data-source-code="calculate_volume_weighted_average"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 463–490</span></summary>
+
+    <details class="ref-code" data-source-code="calculate_volume_weighted_average"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 479–506</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">calculate_volume_weighted_average</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                                     <span class="n">V</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -742,10 +772,11 @@ order in the cell size.  Tracked in #358.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#eped_tanh_bounds"><code>eped_tanh_bounds</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="eped_tanh_bounds" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L727-L766" title="vaft/formula/utils.py, lines 727–766 at f35b64b">source</a>
+<a class="ref-source" data-source="eped_tanh_bounds" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L743-L782" title="vaft/formula/utils.py, lines 743–782 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>eped_tanh_bounds(x, y)</code></pre>
-    <details class="ref-code" data-source-code="eped_tanh_bounds"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 727–766</span></summary>
+
+    <details class="ref-code" data-source-code="eped_tanh_bounds"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 743–782</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">eped_tanh_bounds</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">Parameter box the ``eped_tanh`` fit uses for this data.
@@ -838,7 +869,7 @@ grid spacing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_profile"><code>fit_profile</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="fit_profile" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L793-L1148" title="vaft/formula/utils.py, lines 793–1148 at f35b64b">source</a>
+<a class="ref-source" data-source="fit_profile" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L809-L1164" title="vaft/formula/utils.py, lines 809–1164 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>fit_profile(x, y, y_std, x_eval, order=3, uncertainty_option=1, fitting_function=&#39;polynomial&#39;, gp_kernel=None, gp_anchor=None, n_restarts_optimizer=5, *, random_state=0)</code></pre>
 
@@ -943,10 +974,11 @@ fit_profile(x, y, y_std, x_eval, order=3, fitting_function=’core_poly_edge_exp
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gp_fit"><code>gp_fit</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="gp_fit" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L326-L370" title="vaft/formula/utils.py, lines 326–370 at f35b64b">source</a>
+<a class="ref-source" data-source="gp_fit" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L334-L378" title="vaft/formula/utils.py, lines 334–378 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>gp_fit(x, y, y_std, x_eval, *, n_restarts_optimizer=5, random_state=0)</code></pre>
-    <details class="ref-code" data-source-code="gp_fit"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 326–370</span></summary>
+
+    <details class="ref-code" data-source-code="gp_fit"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 334–378</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gp_fit</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">y_std</span><span class="p">,</span> <span class="n">x_eval</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">n_restarts_optimizer</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">random_state</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">):</span>
     <span class="sh">"""</span><span class="s">Fit a squared-exponential Gaussian process and evaluate it on a grid.
@@ -1048,9 +1080,10 @@ m^-3 and in keV alike.  The marginal likelihood is optimised with
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gradient"><code>gradient</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="gradient" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L42-L69" title="vaft/formula/utils.py, lines 42–69 at f35b64b">source</a>
+<a class="ref-source" data-source="gradient" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L42-L69" title="vaft/formula/utils.py, lines 42–69 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>gradient(x, y)</code></pre>
+
     <details class="ref-code" data-source-code="gradient"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 42–69</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gradient</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
@@ -1124,10 +1157,11 @@ derivative).  Needs at least two samples; only the first axis of a 2-D
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#make_fit_function"><code>make_fit_function</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="make_fit_function" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L565-L634" title="vaft/formula/utils.py, lines 565–634 at f35b64b">source</a>
+<a class="ref-source" data-source="make_fit_function" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L581-L650" title="vaft/formula/utils.py, lines 581–650 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>make_fit_function(mode)</code></pre>
-    <details class="ref-code" data-source-code="make_fit_function"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 565–634</span></summary>
+
+    <details class="ref-code" data-source-code="make_fit_function"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 581–650</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">make_fit_function</span><span class="p">(</span><span class="n">mode</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Build a 1-D parametric model $f(x; c_0, c_1, \dots)$ for profile fitting.
@@ -1249,10 +1283,11 @@ positive and decay monotonically when the polynomial is decreasing.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalize_profile"><code>normalize_profile</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="normalize_profile" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L401-L433" title="vaft/formula/utils.py, lines 401–433 at f35b64b">source</a>
+<a class="ref-source" data-source="normalize_profile" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L409-L441" title="vaft/formula/utils.py, lines 409–441 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>normalize_profile(x, x_axis, x_boundary)</code></pre>
-    <details class="ref-code" data-source-code="normalize_profile"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 401–433</span></summary>
+
+    <details class="ref-code" data-source-code="normalize_profile"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 409–441</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalize_profile</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
                      <span class="n">x_axis</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -1328,10 +1363,11 @@ propagating <code class="language-plaintext highlighter-rouge">inf</code>.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#normalized_gradient_scale_length"><code>normalized_gradient_scale_length</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="normalized_gradient_scale_length" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L72-L128" title="vaft/formula/utils.py, lines 72–128 at f35b64b">source</a>
+<a class="ref-source" data-source="normalized_gradient_scale_length" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L72-L136" title="vaft/formula/utils.py, lines 72–136 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>normalized_gradient_scale_length(x, y, a)</code></pre>
-    <details class="ref-code" data-source-code="normalized_gradient_scale_length"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 72–128</span></summary>
+    <p class="ref-note">Reduction: profile 1d &rarr; profile 1d &middot; differential &middot; flux surface local &middot; closure input (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="normalized_gradient_scale_length"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 72–136</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">normalized_gradient_scale_length</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">a</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Normalised inverse gradient scale length $a/L_y$ of a sampled profile.
@@ -1371,6 +1407,14 @@ propagating <code class="language-plaintext highlighter-rouge">inf</code>.</p>
     the interior, first-order one-sided at the two ends.  Differentiation
     amplifies noise, and dividing by ``y`` amplifies it again where the
     profile is small -- the edge -- so smooth or fit the profile first.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: differential
+    locality: flux_surface_local
+    role: closure_input
 
     References
     ----------
@@ -1456,10 +1500,11 @@ profile is small – the edge – so smooth or fit the profile first.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#trapz_integral"><code>trapz_integral</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="trapz_integral" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/utils.py#L131-L156" title="vaft/formula/utils.py, lines 131–156 at f35b64b">source</a>
+<a class="ref-source" data-source="trapz_integral" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/utils.py#L139-L164" title="vaft/formula/utils.py, lines 139–164 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>trapz_integral(x, y)</code></pre>
-    <details class="ref-code" data-source-code="trapz_integral"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 131–156</span></summary>
+
+    <details class="ref-code" data-source-code="trapz_integral"><summary>Show source <span class="ref-note">vaft/formula/utils.py, lines 139–164</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">trapz_integral</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Definite integral $\int y\,dx$ by the trapezoidal rule.
@@ -1745,7 +1790,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:05:45 +0000"
+        "time": "2026-10-07 10:36:02 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

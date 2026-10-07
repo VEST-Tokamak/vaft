@@ -151,6 +151,12 @@
                 <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -187,6 +193,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
                     
                         <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
@@ -208,6 +220,12 @@
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
                     </li>
                 
                     
@@ -354,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f35b64b</code>. What is described
+  <code>e63d9fe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -458,9 +476,10 @@ local amplitude on the surface, not the machine’s maximum.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gwb_stochastic_threshold"><code>gwb_stochastic_threshold</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="gwb_stochastic_threshold" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ripple.py#L312-L388" title="vaft/formula/ripple.py, lines 312–388 at f35b64b">source</a>
+<a class="ref-source" data-source="gwb_stochastic_threshold" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ripple.py#L312-L388" title="vaft/formula/ripple.py, lines 312–388 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>gwb_stochastic_threshold(epsilon, q, dq_dr, rho, n_tf)</code></pre>
+
     <details class="ref-code" data-source-code="gwb_stochastic_threshold"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 312–388</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gwb_stochastic_threshold</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">dq_dr</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">n_tf</span><span class="p">):</span>
@@ -630,9 +649,10 @@ within a factor of order one; use it to flag regimes, not to predict losses.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#gwb_stochasticity_parameter"><code>gwb_stochasticity_parameter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="gwb_stochasticity_parameter" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ripple.py#L391-L443" title="vaft/formula/ripple.py, lines 391–443 at f35b64b">source</a>
+<a class="ref-source" data-source="gwb_stochasticity_parameter" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ripple.py#L391-L443" title="vaft/formula/ripple.py, lines 391–443 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>gwb_stochasticity_parameter(delta, epsilon, q, dq_dr, rho, n_tf)</code></pre>
+
     <details class="ref-code" data-source-code="gwb_stochasticity_parameter"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 391–443</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">gwb_stochasticity_parameter</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">dq_dr</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">n_tf</span><span class="p">):</span>
@@ -761,9 +781,10 @@ that gyroradius lose their orbits to ripple stochasticity.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ripple_amplitude"><code>ripple_amplitude</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ripple_amplitude" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ripple.py#L146-L192" title="vaft/formula/ripple.py, lines 146–192 at f35b64b">source</a>
+<a class="ref-source" data-source="ripple_amplitude" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ripple.py#L146-L192" title="vaft/formula/ripple.py, lines 146–192 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>ripple_amplitude(B_max, B_min)</code></pre>
+
     <details class="ref-code" data-source-code="ripple_amplitude"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 146–192</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ripple_amplitude</span><span class="p">(</span><span class="n">B_max</span><span class="p">,</span> <span class="n">B_min</span><span class="p">):</span>
@@ -895,9 +916,10 @@ $R$ towards the coil legs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ripple_trapping_pitch"><code>ripple_trapping_pitch</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ripple_trapping_pitch" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ripple.py#L264-L309" title="vaft/formula/ripple.py, lines 264–309 at f35b64b">source</a>
+<a class="ref-source" data-source="ripple_trapping_pitch" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ripple.py#L264-L309" title="vaft/formula/ripple.py, lines 264–309 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>ripple_trapping_pitch(delta)</code></pre>
+
     <details class="ref-code" data-source-code="ripple_trapping_pitch"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 264–309</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ripple_trapping_pitch</span><span class="p">(</span><span class="n">delta</span><span class="p">):</span>
@@ -1020,9 +1042,10 @@ vertically out of the plasma unless collisions or the well’s end detrap them.<
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ripple_well_parameter"><code>ripple_well_parameter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ripple_well_parameter" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ripple.py#L195-L261" title="vaft/formula/ripple.py, lines 195–261 at f35b64b">source</a>
+<a class="ref-source" data-source="ripple_well_parameter" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ripple.py#L195-L261" title="vaft/formula/ripple.py, lines 195–261 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>ripple_well_parameter(epsilon, theta, q, delta, n_tf)</code></pre>
+
     <details class="ref-code" data-source-code="ripple_well_parameter"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 195–261</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ripple_well_parameter</span><span class="p">(</span><span class="n">epsilon</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">n_tf</span><span class="p">):</span>
@@ -1175,9 +1198,10 @@ $\alpha^* &lt; 1 - \epsilon\cos\theta$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#toroidal_ripple_field"><code>toroidal_ripple_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="toroidal_ripple_field" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ripple.py#L76-L143" title="vaft/formula/ripple.py, lines 76–143 at f35b64b">source</a>
+<a class="ref-source" data-source="toroidal_ripple_field" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ripple.py#L76-L143" title="vaft/formula/ripple.py, lines 76–143 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>toroidal_ripple_field(B0, epsilon, theta, delta, n_tf, phi, phase=0.0)</code></pre>
+
     <details class="ref-code" data-source-code="toroidal_ripple_field"><summary>Show source <span class="ref-note">vaft/formula/ripple.py, lines 76–143</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">toroidal_ripple_field</span><span class="p">(</span><span class="n">B0</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">n_tf</span><span class="p">,</span> <span class="n">phi</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
@@ -1557,7 +1581,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:05:45 +0000"
+        "time": "2026-10-07 10:36:02 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

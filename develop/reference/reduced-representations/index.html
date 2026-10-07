@@ -1,0 +1,1028 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Reduced representations · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20260921-4">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/species/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/asymptotic-orderings/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Reduced representations</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>e63d9fe</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Reduced_representations">Reduced representations</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>A controlled taxonomy of how VAFT formulas reduce plasma information - spatial representation, reduction kind, locality and physical role - declared per formula in a Reduction docstring section, generated into tables and drawn by vaft.diagram.</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Which formulas turn fields into profiles, profiles into scalars and dimensional into dimensionless quantities, grouped four ways, with the current/q, pressure/energy, kinetic-profile and similarity families as graphs.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>VAFT holds many reduced descriptions of one plasma state: $q(\rho) \to q_{95}$, $B_p \to l_i$,
+$\langle p\rangle \to \beta$, and $T, B, a \to \rho_*$. Each output may be a scalar, but they are different
+operations. The first extracts a feature, the second is a quadratic integral, and the third and fourth
+are normalisations. The third also needs a volume average first. This page classifies them on four independent axes:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Axis</th>
+      <th>Values</th>
+      <th>Question</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>spatial representation</td>
+      <td><code class="language-plaintext highlighter-rouge">field_3d</code>, <code class="language-plaintext highlighter-rouge">field_2d</code>, <code class="language-plaintext highlighter-rouge">profile_1d</code>, <code class="language-plaintext highlighter-rouge">scalar_0d</code>, <code class="language-plaintext highlighter-rouge">flux_surface_quantity</code>, <code class="language-plaintext highlighter-rouge">boundary_quantity</code>, <code class="language-plaintext highlighter-rouge">time_series</code></td>
+      <td>what space the input and the output live in</td>
+    </tr>
+    <tr>
+      <td>reduction kind</td>
+      <td><code class="language-plaintext highlighter-rouge">integral</code>, <code class="language-plaintext highlighter-rouge">moment</code>, <code class="language-plaintext highlighter-rouge">quadratic_integral</code>, <code class="language-plaintext highlighter-rouge">weighted_average</code>, <code class="language-plaintext highlighter-rouge">projection</code>, <code class="language-plaintext highlighter-rouge">feature_extraction</code>, <code class="language-plaintext highlighter-rouge">extremum</code>, <code class="language-plaintext highlighter-rouge">differential</code>, <code class="language-plaintext highlighter-rouge">normalization</code>, <code class="language-plaintext highlighter-rouge">dimensionless_normalization</code>, <code class="language-plaintext highlighter-rouge">similarity_transform</code>, <code class="language-plaintext highlighter-rouge">closure</code>, <code class="language-plaintext highlighter-rouge">empirical_scaling</code></td>
+      <td>which mathematical operation it is</td>
+    </tr>
+    <tr>
+      <td>locality</td>
+      <td><code class="language-plaintext highlighter-rouge">point_local</code>, <code class="language-plaintext highlighter-rouge">flux_surface_local</code>, <code class="language-plaintext highlighter-rouge">edge</code>, <code class="language-plaintext highlighter-rouge">global</code></td>
+      <td>where the result is defined</td>
+    </tr>
+    <tr>
+      <td>physical role</td>
+      <td><code class="language-plaintext highlighter-rouge">state_coordinate</code>, <code class="language-plaintext highlighter-rouge">profile_descriptor</code>, <code class="language-plaintext highlighter-rouge">global_descriptor</code>, <code class="language-plaintext highlighter-rouge">regime_coordinate</code>, <code class="language-plaintext highlighter-rouge">similarity_coordinate</code>, <code class="language-plaintext highlighter-rouge">stability_coordinate</code>, <code class="language-plaintext highlighter-rouge">closure_input</code>, <code class="language-plaintext highlighter-rouge">closure_output</code></td>
+      <td>why the reduced quantity is useful</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Dimensionless is not 0-D.</strong> A local $\nu^*(\rho)$ is a <code class="language-plaintext highlighter-rouge">dimensionless_normalization</code> with a
+<code class="language-plaintext highlighter-rouge">profile_1d</code> output, and a global $\beta$ is one with a <code class="language-plaintext highlighter-rouge">scalar_0d</code> output. Likewise, $l_i$ is a quadratic
+integral of $B_p$, not a moment of $j_\phi$.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/reduced_representation_hierarchy.svg" alt="reduced representations" /></p>
+
+<h2 id="declaring-it">Declaring it</h2>
+
+<p>The formula’s docstring is the single source of truth. A formula declares its place in the taxonomy with
+a <code class="language-plaintext highlighter-rouge">Reduction</code> section:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Reduction
+---------
+input: field_2d
+output: scalar_0d
+kind: quadratic_integral
+locality: global
+role: global_descriptor
+</code></pre></div></div>
+
+<p>The vocabulary lives in <code class="language-plaintext highlighter-rouge">vaft/formula/_taxonomy.py</code>. The catalog validates every value against it:</p>
+<ul>
+  <li>a missing, repeated or unknown key is an error;</li>
+  <li>so is a value outside the vocabulary;</li>
+  <li>so is a <code class="language-plaintext highlighter-rouge">dimensionless_normalization</code>, <code class="language-plaintext highlighter-rouge">similarity_transform</code> or <code class="language-plaintext highlighter-rouge">similarity_coordinate</code> whose return
+unit is not <code class="language-plaintext highlighter-rouge">-</code>.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.formula.describe(name).reduction</code> exposes it. <code class="language-plaintext highlighter-rouge">list_formulas(reduction_kind=..., locality=...,
+role=..., output_representation=...)</code> filters on it. The generated catalog snapshot carries it as
+<code class="language-plaintext highlighter-rouge">reduction</code>, which is where the tables below come from. Generic numerical helpers carry no <code class="language-plaintext highlighter-rouge">Reduction</code>
+section, because the taxonomy says nothing useful about them.</p>
+
+<h2 id="families">Families</h2>
+
+<p>Each graph is the relation metadata in <code class="language-plaintext highlighter-rouge">vaft.formula._taxonomy.REDUCTION_FAMILIES</code>, laid out by
+<code class="language-plaintext highlighter-rouge">vaft.diagram.reduction_graph</code>. When an edge names a formula, its reduction kind is read from that formula’s
+catalog entry, so the figure cannot disagree with the docstrings. A dashed edge is a step VAFT performs
+elsewhere, such as a flux-surface average or a profile feature, and states its own kind.</p>
+
+<h3 id="current-and-q">Current and $q$</h3>
+
+<p>Both $B_p$ and $j_\phi$ derive from the poloidal flux. $B_p = |\nabla\psi|/R$, and Ampère’s law in
+Grad–Shafranov form is $\Delta^*\psi = -\mu_0Rj_\phi$. $B_\theta(r)$ is the same poloidal field,
+flux-surface averaged into the cylindrical profile that $q$ is computed from.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/reduction_graph_current_q.svg" alt="current and q" /></p>
+
+<h3 id="pressure-and-energy">Pressure and energy</h3>
+
+<p><img src="/vaft/develop/assets/diagrams/reduction_graph_pressure_energy.svg" alt="pressure and energy" /></p>
+
+<h3 id="kinetic-profiles">Kinetic profiles</h3>
+
+<p><img src="/vaft/develop/assets/diagrams/reduction_graph_kinetic_profiles.svg" alt="kinetic profiles" /></p>
+
+<h3 id="dimensionless-similarity">Dimensionless similarity</h3>
+
+<p>The $\nu_<em>$ and $\rho_</em>$ here are the Verdoolaege engineering forms. The other definitions VAFT carries
+are tracked in #353 and are not declared equivalent.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/reduction_graph_dimensionless_similarity.svg" alt="dimensionless similarity" /></p>
+
+<h2 id="generated-tables">Generated tables</h2>
+
+<h3 id="by-spatial-mapping">By spatial mapping</h3>
+
+<h4 class="no_toc">field 2d + scalar 0d &rarr; scalar 0d</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a></td><td>field 2d + scalar 0d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_li_from_volume"><code>virial_li_from_volume</code></a></td><td>field 2d + scalar 0d &rarr; scalar 0d</td><td>quadratic integral</td><td>global</td><td>global descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">field 2d &rarr; scalar 0d</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_magnetic_energy"><code>virial_magnetic_energy</code></a></td><td>field 2d &rarr; scalar 0d</td><td>quadratic integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_thermal_energy"><code>virial_thermal_energy</code></a></td><td>field 2d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">profile 1d &rarr; profile 1d</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>stability coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></td><td>profile 1d &rarr; profile 1d</td><td>normalization</td><td>flux surface local</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></td><td>profile 1d &rarr; profile 1d</td><td>normalization</td><td>flux surface local</td><td>state coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/neoclassical/#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a></td><td>profile 1d &rarr; profile 1d</td><td>dimensionless normalization</td><td>flux surface local</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/neoclassical/#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a></td><td>profile 1d &rarr; profile 1d</td><td>dimensionless normalization</td><td>flux surface local</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/utils/#normalized_gradient_scale_length"><code>normalized_gradient_scale_length</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>closure input</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#shear_from_r_q"><code>shear_from_r_q</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>stability coordinate</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">profile 1d &rarr; scalar 0d</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#kadomtsev_mixing_radius"><code>kadomtsev_mixing_radius</code></a></td><td>profile 1d &rarr; scalar 0d</td><td>feature extraction</td><td>global</td><td>profile descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">scalar 0d &rarr; scalar 0d</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_normal_from_beta_tor"><code>beta_normal_from_beta_tor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>normalization</td><td>global</td><td>stability coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_poloidal_from_pressure_integral"><code>beta_poloidal_from_pressure_integral</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_toroidal_from_p_B0"><code>beta_toroidal_from_p_B0</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/utils/#calculate_peaking_factor"><code>calculate_peaking_factor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#confinement_time_from_engineering_parameters"><code>confinement_time_from_engineering_parameters</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>empirical scaling</td><td>global</td><td>closure output</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#dimensionless_scaling_coeffs_from_engineering_scaling_coeffs"><code>dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>similarity transform</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#estimated_q95"><code>estimated_q95</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>closure</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#greenwald_fraction"><code>greenwald_fraction</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#kinetic_energy_from_beta_p_B_pa_V_p"><code>kinetic_energy_from_beta_p_B_pa_V_p</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#li_3_from_Bp2_volume_integral"><code>li_3_from_Bp2_volume_integral</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#nu_star_from_n_T_B_R_epsilon_kappa_I"><code>nu_star_from_n_T_B_R_epsilon_kappa_I</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#omega_i_tau_E_from_B_tau_E_M"><code>omega_i_tau_E_from_B_tau_E_M</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#peaking_factor"><code>peaking_factor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#rho_star_from_M_T_B_R_epsilon"><code>rho_star_from_M_T_B_R_epsilon</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#stored_energy_from_p_V"><code>stored_energy_from_p_V</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+</tbody>
+</table>
+
+<h3 id="by-reduction-kind">By reduction kind</h3>
+
+<h4 class="no_toc">closure</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#estimated_q95"><code>estimated_q95</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>closure</td><td>global</td><td>global descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">differential</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>stability coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/utils/#normalized_gradient_scale_length"><code>normalized_gradient_scale_length</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>closure input</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#shear_from_r_q"><code>shear_from_r_q</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>stability coordinate</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">dimensionless normalization</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_poloidal_from_pressure_integral"><code>beta_poloidal_from_pressure_integral</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_toroidal_from_p_B0"><code>beta_toroidal_from_p_B0</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/utils/#calculate_peaking_factor"><code>calculate_peaking_factor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/neoclassical/#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a></td><td>profile 1d &rarr; profile 1d</td><td>dimensionless normalization</td><td>flux surface local</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#greenwald_fraction"><code>greenwald_fraction</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/neoclassical/#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a></td><td>profile 1d &rarr; profile 1d</td><td>dimensionless normalization</td><td>flux surface local</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#li_3_from_Bp2_volume_integral"><code>li_3_from_Bp2_volume_integral</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#nu_star_from_n_T_B_R_epsilon_kappa_I"><code>nu_star_from_n_T_B_R_epsilon_kappa_I</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#omega_i_tau_E_from_B_tau_E_M"><code>omega_i_tau_E_from_B_tau_E_M</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#peaking_factor"><code>peaking_factor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#rho_star_from_M_T_B_R_epsilon"><code>rho_star_from_M_T_B_R_epsilon</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">empirical scaling</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#confinement_time_from_engineering_parameters"><code>confinement_time_from_engineering_parameters</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>empirical scaling</td><td>global</td><td>closure output</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">feature extraction</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#kadomtsev_mixing_radius"><code>kadomtsev_mixing_radius</code></a></td><td>profile 1d &rarr; scalar 0d</td><td>feature extraction</td><td>global</td><td>profile descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">integral</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#stored_energy_from_p_V"><code>stored_energy_from_p_V</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a></td><td>field 2d + scalar 0d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_thermal_energy"><code>virial_thermal_energy</code></a></td><td>field 2d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">normalization</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_normal_from_beta_tor"><code>beta_normal_from_beta_tor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>normalization</td><td>global</td><td>stability coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></td><td>profile 1d &rarr; profile 1d</td><td>normalization</td><td>flux surface local</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></td><td>profile 1d &rarr; profile 1d</td><td>normalization</td><td>flux surface local</td><td>state coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#kinetic_energy_from_beta_p_B_pa_V_p"><code>kinetic_energy_from_beta_p_B_pa_V_p</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>normalization</td><td>global</td><td>global descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">quadratic integral</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_li_from_volume"><code>virial_li_from_volume</code></a></td><td>field 2d + scalar 0d &rarr; scalar 0d</td><td>quadratic integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_magnetic_energy"><code>virial_magnetic_energy</code></a></td><td>field 2d &rarr; scalar 0d</td><td>quadratic integral</td><td>global</td><td>global descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">similarity transform</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#dimensionless_scaling_coeffs_from_engineering_scaling_coeffs"><code>dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>similarity transform</td><td>global</td><td>similarity coordinate</td></tr>
+</tbody>
+</table>
+
+<h3 id="by-locality">By locality</h3>
+
+<h4 class="no_toc">flux surface local</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>stability coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></td><td>profile 1d &rarr; profile 1d</td><td>normalization</td><td>flux surface local</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></td><td>profile 1d &rarr; profile 1d</td><td>normalization</td><td>flux surface local</td><td>state coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/neoclassical/#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a></td><td>profile 1d &rarr; profile 1d</td><td>dimensionless normalization</td><td>flux surface local</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/neoclassical/#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a></td><td>profile 1d &rarr; profile 1d</td><td>dimensionless normalization</td><td>flux surface local</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/utils/#normalized_gradient_scale_length"><code>normalized_gradient_scale_length</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>closure input</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#shear_from_r_q"><code>shear_from_r_q</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>stability coordinate</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">global</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_normal_from_beta_tor"><code>beta_normal_from_beta_tor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>normalization</td><td>global</td><td>stability coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_poloidal_from_pressure_integral"><code>beta_poloidal_from_pressure_integral</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_toroidal_from_p_B0"><code>beta_toroidal_from_p_B0</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/utils/#calculate_peaking_factor"><code>calculate_peaking_factor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#confinement_time_from_engineering_parameters"><code>confinement_time_from_engineering_parameters</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>empirical scaling</td><td>global</td><td>closure output</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#dimensionless_scaling_coeffs_from_engineering_scaling_coeffs"><code>dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>similarity transform</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#estimated_q95"><code>estimated_q95</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>closure</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#greenwald_fraction"><code>greenwald_fraction</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#kadomtsev_mixing_radius"><code>kadomtsev_mixing_radius</code></a></td><td>profile 1d &rarr; scalar 0d</td><td>feature extraction</td><td>global</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#kinetic_energy_from_beta_p_B_pa_V_p"><code>kinetic_energy_from_beta_p_B_pa_V_p</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#li_3_from_Bp2_volume_integral"><code>li_3_from_Bp2_volume_integral</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#nu_star_from_n_T_B_R_epsilon_kappa_I"><code>nu_star_from_n_T_B_R_epsilon_kappa_I</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#omega_i_tau_E_from_B_tau_E_M"><code>omega_i_tau_E_from_B_tau_E_M</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#peaking_factor"><code>peaking_factor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#rho_star_from_M_T_B_R_epsilon"><code>rho_star_from_M_T_B_R_epsilon</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#stored_energy_from_p_V"><code>stored_energy_from_p_V</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a></td><td>field 2d + scalar 0d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_li_from_volume"><code>virial_li_from_volume</code></a></td><td>field 2d + scalar 0d &rarr; scalar 0d</td><td>quadratic integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_magnetic_energy"><code>virial_magnetic_energy</code></a></td><td>field 2d &rarr; scalar 0d</td><td>quadratic integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_thermal_energy"><code>virial_thermal_energy</code></a></td><td>field 2d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+</tbody>
+</table>
+
+<h3 id="by-physical-role">By physical role</h3>
+
+<h4 class="no_toc">closure input</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/utils/#normalized_gradient_scale_length"><code>normalized_gradient_scale_length</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>closure input</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">closure output</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#confinement_time_from_engineering_parameters"><code>confinement_time_from_engineering_parameters</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>empirical scaling</td><td>global</td><td>closure output</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">global descriptor</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_poloidal_from_pressure_integral"><code>beta_poloidal_from_pressure_integral</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_toroidal_from_p_B0"><code>beta_toroidal_from_p_B0</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#estimated_q95"><code>estimated_q95</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>closure</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#kinetic_energy_from_beta_p_B_pa_V_p"><code>kinetic_energy_from_beta_p_B_pa_V_p</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#li_3_from_Bp2_volume_integral"><code>li_3_from_Bp2_volume_integral</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#stored_energy_from_p_V"><code>stored_energy_from_p_V</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a></td><td>field 2d + scalar 0d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_li_from_volume"><code>virial_li_from_volume</code></a></td><td>field 2d + scalar 0d &rarr; scalar 0d</td><td>quadratic integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_magnetic_energy"><code>virial_magnetic_energy</code></a></td><td>field 2d &rarr; scalar 0d</td><td>quadratic integral</td><td>global</td><td>global descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/virial/#virial_thermal_energy"><code>virial_thermal_energy</code></a></td><td>field 2d &rarr; scalar 0d</td><td>integral</td><td>global</td><td>global descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">profile descriptor</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/utils/#calculate_peaking_factor"><code>calculate_peaking_factor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></td><td>profile 1d &rarr; profile 1d</td><td>normalization</td><td>flux surface local</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#kadomtsev_mixing_radius"><code>kadomtsev_mixing_radius</code></a></td><td>profile 1d &rarr; scalar 0d</td><td>feature extraction</td><td>global</td><td>profile descriptor</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#peaking_factor"><code>peaking_factor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>profile descriptor</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">regime coordinate</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/neoclassical/#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a></td><td>profile 1d &rarr; profile 1d</td><td>dimensionless normalization</td><td>flux surface local</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#greenwald_fraction"><code>greenwald_fraction</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>regime coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/neoclassical/#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a></td><td>profile 1d &rarr; profile 1d</td><td>dimensionless normalization</td><td>flux surface local</td><td>regime coordinate</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">similarity coordinate</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#dimensionless_scaling_coeffs_from_engineering_scaling_coeffs"><code>dimensionless_scaling_coeffs_from_engineering_scaling_coeffs</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>similarity transform</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#nu_star_from_n_T_B_R_epsilon_kappa_I"><code>nu_star_from_n_T_B_R_epsilon_kappa_I</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#omega_i_tau_E_from_B_tau_E_M"><code>omega_i_tau_E_from_B_tau_E_M</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#rho_star_from_M_T_B_R_epsilon"><code>rho_star_from_M_T_B_R_epsilon</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#rhostar_from_Te_a_Bt"><code>rhostar_from_Te_a_Bt</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>dimensionless normalization</td><td>global</td><td>similarity coordinate</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">stability coordinate</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/stability/#ballooning_alpha_from_p_B_R"><code>ballooning_alpha_from_p_B_R</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>stability coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#beta_normal_from_beta_tor"><code>beta_normal_from_beta_tor</code></a></td><td>scalar 0d &rarr; scalar 0d</td><td>normalization</td><td>global</td><td>stability coordinate</td></tr>
+<tr><td><a href="/vaft/develop/reference/formula/equilibrium/#shear_from_r_q"><code>shear_from_r_q</code></a></td><td>profile 1d &rarr; profile 1d</td><td>differential</td><td>flux surface local</td><td>stability coordinate</td></tr>
+</tbody>
+</table>
+<h4 class="no_toc">state coordinate</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+<tr><td><a href="/vaft/develop/reference/formula/geometry/#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></td><td>profile 1d &rarr; profile 1d</td><td>normalization</td><td>flux surface local</td><td>state coordinate</td></tr>
+</tbody>
+</table>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="diagram"><a href="/vaft/develop/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/species/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: species">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" class="navigation navigation-next navigation-unique" aria-label="Next page: Asymptotic orderings">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#declaring-it" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Declaring it</a></li><li class="page-toc-item page-toc-level-2"><a href="#families" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Families</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#current-and-q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current and $q$</a></li><li class="page-toc-item page-toc-level-3"><a href="#pressure-and-energy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pressure and energy</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetic-profiles" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic profiles</a></li><li class="page-toc-item page-toc-level-3"><a href="#dimensionless-similarity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Dimensionless similarity</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#generated-tables" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Generated tables</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#by-spatial-mapping" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">By spatial mapping</a></li><li class="page-toc-item page-toc-level-3"><a href="#by-reduction-kind" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">By reduction kind</a></li><li class="page-toc-item page-toc-level-3"><a href="#by-locality" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">By locality</a></li><li class="page-toc-item page-toc-level-3"><a href="#by-physical-role" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">By physical role</a></li></ul></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Asymptotic orderings",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Asymptotic_orderings.md",
+            "ref": "_guide/Asymptotic_orderings.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Reduced_representations.md",
+        "mtime": "2026-10-05 14:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-07 10:36:02 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

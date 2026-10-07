@@ -151,6 +151,12 @@
                 <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -187,6 +193,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
                     
                         <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
@@ -208,6 +220,12 @@
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
                     </li>
                 
                     
@@ -354,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f35b64b</code>. What is described
+  <code>e63d9fe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -480,10 +498,11 @@ shear makes $L_s = -q_0R_0/\hat s$ negative in that frame.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_current_diffusion_rate"><code>cylindrical_current_diffusion_rate</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cylindrical_current_diffusion_rate" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L692-L766" title="vaft/formula/geometry.py, lines 692–766 at f35b64b">source</a>
+<a class="ref-source" data-source="cylindrical_current_diffusion_rate" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L708-L782" title="vaft/formula/geometry.py, lines 708–782 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_current_diffusion_rate(r, I, eta, j_ni=None)</code></pre>
-    <details class="ref-code" data-source-code="cylindrical_current_diffusion_rate"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 692–766</span></summary>
+
+    <details class="ref-code" data-source-code="cylindrical_current_diffusion_rate"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 708–782</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_current_diffusion_rate</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">j_ni</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Rate of change of the enclosed current under resistive diffusion of the poloidal field.
@@ -638,10 +657,11 @@ are prescribed, with no transport, bootstrap or toroidal geometry.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_enclosed_current"><code>cylindrical_enclosed_current</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cylindrical_enclosed_current" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L535-L577" title="vaft/formula/geometry.py, lines 535–577 at f35b64b">source</a>
+<a class="ref-source" data-source="cylindrical_enclosed_current" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L551-L593" title="vaft/formula/geometry.py, lines 551–593 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_enclosed_current(r, j_z)</code></pre>
-    <details class="ref-code" data-source-code="cylindrical_enclosed_current"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 535–577</span></summary>
+
+    <details class="ref-code" data-source-code="cylindrical_enclosed_current"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 551–593</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_enclosed_current</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">j_z</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Axial current inside each radius of a straight current column.
@@ -748,10 +768,11 @@ and that redistribution is what changes $q(r)$ and $l_i$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_internal_inductance"><code>cylindrical_internal_inductance</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cylindrical_internal_inductance" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L637-L689" title="vaft/formula/geometry.py, lines 637–689 at f35b64b">source</a>
+<a class="ref-source" data-source="cylindrical_internal_inductance" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L653-L705" title="vaft/formula/geometry.py, lines 653–705 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_internal_inductance(r, B_theta)</code></pre>
-    <details class="ref-code" data-source-code="cylindrical_internal_inductance"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 637–689</span></summary>
+
+    <details class="ref-code" data-source-code="cylindrical_internal_inductance"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 653–705</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_internal_inductance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">B_theta</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Normalized internal inductance of a current column of radius $a$.
@@ -874,10 +895,11 @@ shape – different profiles can share one $l_i$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_parallel_wavenumber"><code>cylindrical_parallel_wavenumber</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cylindrical_parallel_wavenumber" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L356-L411" title="vaft/formula/geometry.py, lines 356–411 at f35b64b">source</a>
+<a class="ref-source" data-source="cylindrical_parallel_wavenumber" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L364-L419" title="vaft/formula/geometry.py, lines 364–419 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_parallel_wavenumber(m_pol, n_tor, q, R0)</code></pre>
-    <details class="ref-code" data-source-code="cylindrical_parallel_wavenumber"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 356–411</span></summary>
+
+    <details class="ref-code" data-source-code="cylindrical_parallel_wavenumber"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 364–419</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_parallel_wavenumber</span><span class="p">(</span><span class="n">m_pol</span><span class="p">,</span> <span class="n">n_tor</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">R0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Parallel wavenumber of an $m/n$ harmonic on a cylindrical surface of safety factor $q$.
@@ -1008,10 +1030,11 @@ the place $k_\parallel = 0$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cylindrical_poloidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L414-L458" title="vaft/formula/geometry.py, lines 414–458 at f35b64b">source</a>
+<a class="ref-source" data-source="cylindrical_poloidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L422-L474" title="vaft/formula/geometry.py, lines 422–474 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_poloidal_field(r, I_enclosed)</code></pre>
-    <details class="ref-code" data-source-code="cylindrical_poloidal_field"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 414–458</span></summary>
+    <p class="ref-note">Reduction: profile 1d &rarr; profile 1d &middot; normalization &middot; flux surface local &middot; profile descriptor (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="cylindrical_poloidal_field"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 422–474</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_poloidal_field</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">I_enclosed</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Poloidal field of a straight current column by Ampère</span><span class="sh">'</span><span class="s">s law.
@@ -1045,6 +1068,14 @@ the place $k_\parallel = 0$.</p>
     Only the current inside $r$ sets the field at $r$: a centrally peaked
     current makes $B_\theta$ rise fast and then fall as $1/r$, which is what
     shapes $q(r)$.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: profile_descriptor
 
     References
     ----------
@@ -1120,10 +1151,11 @@ shapes $q(r)$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_poloidal_flux"><code>cylindrical_poloidal_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cylindrical_poloidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L580-L634" title="vaft/formula/geometry.py, lines 580–634 at f35b64b">source</a>
+<a class="ref-source" data-source="cylindrical_poloidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L596-L650" title="vaft/formula/geometry.py, lines 596–650 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_poloidal_flux(r, B_theta, R0)</code></pre>
-    <details class="ref-code" data-source-code="cylindrical_poloidal_flux"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 580–634</span></summary>
+
+    <details class="ref-code" data-source-code="cylindrical_poloidal_flux"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 596–650</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_poloidal_flux</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">B_theta</span><span class="p">,</span> <span class="n">R0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Poloidal flux per radian of a straightened torus, zero on the axis.
@@ -1251,10 +1283,11 @@ $2\pi R_0$, the $1/R$ variation of a real torus neglected.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="cylindrical_safety_factor_from_r_B" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L299-L353" title="vaft/formula/geometry.py, lines 299–353 at f35b64b">source</a>
+<a class="ref-source" data-source="cylindrical_safety_factor_from_r_B" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L299-L361" title="vaft/formula/geometry.py, lines 299–361 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>cylindrical_safety_factor_from_r_B(r, B_theta, B_z, R0)</code></pre>
-    <details class="ref-code" data-source-code="cylindrical_safety_factor_from_r_B"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 299–353</span></summary>
+    <p class="ref-note">Reduction: profile 1d &rarr; profile 1d &middot; normalization &middot; flux surface local &middot; state coordinate (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="cylindrical_safety_factor_from_r_B"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 299–361</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_safety_factor_from_r_B</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">B_theta</span><span class="p">,</span> <span class="n">B_z</span><span class="p">,</span> <span class="n">R0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Safety factor of a straight cylinder standing in for a torus.
@@ -1298,6 +1331,14 @@ $2\pi R_0$, the $1/R$ variation of a real torus neglected.</p>
     -----------
     A periodic cylinder; a screw pinch has the same $q$ with $R_0$ set by
     the imposed period.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: state_coordinate
 
     References
     ----------
@@ -1385,10 +1426,11 @@ the imposed period.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#harris_sheet_current_density"><code>harris_sheet_current_density</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="harris_sheet_current_density" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L903-L951" title="vaft/formula/geometry.py, lines 903–951 at f35b64b">source</a>
+<a class="ref-source" data-source="harris_sheet_current_density" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L919-L967" title="vaft/formula/geometry.py, lines 919–967 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>harris_sheet_current_density(x, B0, a)</code></pre>
-    <details class="ref-code" data-source-code="harris_sheet_current_density"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 903–951</span></summary>
+
+    <details class="ref-code" data-source-code="harris_sheet_current_density"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 919–967</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">harris_sheet_current_density</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Current density of a Harris current sheet, from Ampere</span><span class="sh">'</span><span class="s">s law.
@@ -1511,10 +1553,11 @@ field changes sign.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#harris_sheet_field"><code>harris_sheet_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="harris_sheet_field" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L849-L900" title="vaft/formula/geometry.py, lines 849–900 at f35b64b">source</a>
+<a class="ref-source" data-source="harris_sheet_field" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L865-L916" title="vaft/formula/geometry.py, lines 865–916 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>harris_sheet_field(x, B0, a)</code></pre>
-    <details class="ref-code" data-source-code="harris_sheet_field"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 849–900</span></summary>
+
+    <details class="ref-code" data-source-code="harris_sheet_field"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 865–916</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">harris_sheet_field</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Reconnecting field of a Harris current sheet.
@@ -1643,10 +1686,11 @@ equilibrium.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#local_slab_from_cylinder"><code>local_slab_from_cylinder</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="local_slab_from_cylinder" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L769-L841" title="vaft/formula/geometry.py, lines 769–841 at f35b64b">source</a>
+<a class="ref-source" data-source="local_slab_from_cylinder" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L785-L857" title="vaft/formula/geometry.py, lines 785–857 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>local_slab_from_cylinder(m_pol, n_tor, r_0, R0, q_0, s_hat)</code></pre>
-    <details class="ref-code" data-source-code="local_slab_from_cylinder"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 769–841</span></summary>
+
+    <details class="ref-code" data-source-code="local_slab_from_cylinder"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 785–857</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">local_slab_from_cylinder</span><span class="p">(</span><span class="n">m_pol</span><span class="p">,</span> <span class="n">n_tor</span><span class="p">,</span> <span class="n">r_0</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">q_0</span><span class="p">,</span> <span class="n">s_hat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">The field-aligned sheared slab of a cylinder at $r_0$: $(k_y, L_s, k_z)$ of an $m/n$ harmonic.
@@ -1809,10 +1853,11 @@ a local expansion, without the cylinder in between.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#peaked_current_safety_factor"><code>peaked_current_safety_factor</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="peaked_current_safety_factor" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L461-L519" title="vaft/formula/geometry.py, lines 461–519 at f35b64b">source</a>
+<a class="ref-source" data-source="peaked_current_safety_factor" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L477-L535" title="vaft/formula/geometry.py, lines 477–535 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>peaked_current_safety_factor(x, q_a, nu)</code></pre>
-    <details class="ref-code" data-source-code="peaked_current_safety_factor"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 461–519</span></summary>
+
+    <details class="ref-code" data-source-code="peaked_current_safety_factor"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 477–535</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">peaked_current_safety_factor</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">q_a</span><span class="p">,</span> <span class="n">nu</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Cylindrical $q$ profile of the peaked current $j \propto (1 - x^2)^\nu$.
@@ -1943,9 +1988,10 @@ reconstructed equilibrium.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#shear_length_from_q_R0_s"><code>shear_length_from_q_R0_s</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="shear_length_from_q_R0_s" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L247-L296" title="vaft/formula/geometry.py, lines 247–296 at f35b64b">source</a>
+<a class="ref-source" data-source="shear_length_from_q_R0_s" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L247-L296" title="vaft/formula/geometry.py, lines 247–296 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>shear_length_from_q_R0_s(q, R0, s_hat)</code></pre>
+
     <details class="ref-code" data-source-code="shear_length_from_q_R0_s"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 247–296</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">shear_length_from_q_R0_s</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">s_hat</span><span class="p">):</span>
@@ -2083,9 +2129,10 @@ coefficient while discarding the rest of the geometry.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sheared_slab_field"><code>sheared_slab_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sheared_slab_field" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L138-L189" title="vaft/formula/geometry.py, lines 138–189 at f35b64b">source</a>
+<a class="ref-source" data-source="sheared_slab_field" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L138-L189" title="vaft/formula/geometry.py, lines 138–189 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>sheared_slab_field(x, B0, L_s)</code></pre>
+
     <details class="ref-code" data-source-code="sheared_slab_field"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 138–189</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sheared_slab_field</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">L_s</span><span class="p">):</span>
@@ -2210,9 +2257,10 @@ equilibrium gradient in the field strength.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sheared_slab_parallel_wavenumber"><code>sheared_slab_parallel_wavenumber</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sheared_slab_parallel_wavenumber" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L192-L244" title="vaft/formula/geometry.py, lines 192–244 at f35b64b">source</a>
+<a class="ref-source" data-source="sheared_slab_parallel_wavenumber" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L192-L244" title="vaft/formula/geometry.py, lines 192–244 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>sheared_slab_parallel_wavenumber(x, k_y, L_s, k_z=0.0)</code></pre>
+
     <details class="ref-code" data-source-code="sheared_slab_parallel_wavenumber"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 192–244</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sheared_slab_parallel_wavenumber</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">k_y</span><span class="p">,</span> <span class="n">L_s</span><span class="p">,</span> <span class="n">k_z</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
@@ -2351,9 +2399,10 @@ drift waves and ballooning-type modes around rational surfaces.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#slab_parallel_wavenumber"><code>slab_parallel_wavenumber</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="slab_parallel_wavenumber" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L90-L135" title="vaft/formula/geometry.py, lines 90–135 at f35b64b">source</a>
+<a class="ref-source" data-source="slab_parallel_wavenumber" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L90-L135" title="vaft/formula/geometry.py, lines 90–135 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>slab_parallel_wavenumber(k, B)</code></pre>
+
     <details class="ref-code" data-source-code="slab_parallel_wavenumber"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 90–135</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">slab_parallel_wavenumber</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
@@ -2473,10 +2522,11 @@ field-aligned – are the ones that escape parallel damping.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#x_point_flux"><code>x_point_flux</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="x_point_flux" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/geometry.py#L954-L1011" title="vaft/formula/geometry.py, lines 954–1011 at f35b64b">source</a>
+<a class="ref-source" data-source="x_point_flux" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/geometry.py#L970-L1027" title="vaft/formula/geometry.py, lines 970–1027 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>x_point_flux(x, y, B_prime)</code></pre>
-    <details class="ref-code" data-source-code="x_point_flux"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 954–1011</span></summary>
+
+    <details class="ref-code" data-source-code="x_point_flux"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 970–1027</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">x_point_flux</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">B_prime</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Flux function of a current-free magnetic X-point.
@@ -2828,7 +2878,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:05:45 +0000"
+        "time": "2026-10-07 10:36:02 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

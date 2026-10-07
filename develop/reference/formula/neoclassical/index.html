@@ -151,6 +151,12 @@
                 <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -187,6 +193,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
                     
                         <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
@@ -208,6 +220,12 @@
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
                     </li>
                 
                     
@@ -354,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f35b64b</code>. What is described
+  <code>e63d9fe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -497,10 +515,11 @@ divide by $2\pi$ first; see
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#banana_width"><code>banana_width</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="banana_width" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L1450-L1505" title="vaft/formula/neoclassical.py, lines 1450–1505 at f35b64b">source</a>
+<a class="ref-source" data-source="banana_width" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L1466-L1521" title="vaft/formula/neoclassical.py, lines 1466–1521 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>banana_width(rho, q, epsilon)</code></pre>
-    <details class="ref-code" data-source-code="banana_width"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1450–1505</span></summary>
+
+    <details class="ref-code" data-source-code="banana_width"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1466–1521</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">banana_width</span><span class="p">(</span><span class="n">rho</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Radial width of a thermal banana orbit, the conventional estimate.
@@ -634,10 +653,11 @@ the minor radius (not a potato orbit near the axis).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#collisions_per_transit"><code>collisions_per_transit</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="collisions_per_transit" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L1508-L1564" title="vaft/formula/neoclassical.py, lines 1508–1564 at f35b64b">source</a>
+<a class="ref-source" data-source="collisions_per_transit" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L1524-L1580" title="vaft/formula/neoclassical.py, lines 1524–1580 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>collisions_per_transit(nu, v, q, R0)</code></pre>
-    <details class="ref-code" data-source-code="collisions_per_transit"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1508–1564</span></summary>
+
+    <details class="ref-code" data-source-code="collisions_per_transit"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1524–1580</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">collisions_per_transit</span><span class="p">(</span><span class="n">nu</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">v</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">R0</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Collision frequency in units of the transit frequency, $\hat\nu = qR_0\nu/v$.
@@ -771,9 +791,10 @@ poloidal variation of $B$ at all.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#coulomb_logarithm_electron_sauter"><code>coulomb_logarithm_electron_sauter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="coulomb_logarithm_electron_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L239-L286" title="vaft/formula/neoclassical.py, lines 239–286 at f35b64b">source</a>
+<a class="ref-source" data-source="coulomb_logarithm_electron_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L239-L286" title="vaft/formula/neoclassical.py, lines 239–286 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>coulomb_logarithm_electron_sauter(n_e, T_e)</code></pre>
+
     <details class="ref-code" data-source-code="coulomb_logarithm_electron_sauter"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 239–286</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">coulomb_logarithm_electron_sauter</span><span class="p">(</span><span class="n">n_e</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">T_e</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
@@ -893,9 +914,10 @@ $T_e \gtrsim 10$ eV floor as the NRL form.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#coulomb_logarithm_ion_sauter"><code>coulomb_logarithm_ion_sauter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="coulomb_logarithm_ion_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L289-L330" title="vaft/formula/neoclassical.py, lines 289–330 at f35b64b">source</a>
+<a class="ref-source" data-source="coulomb_logarithm_ion_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L289-L330" title="vaft/formula/neoclassical.py, lines 289–330 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>coulomb_logarithm_ion_sauter(n_i, T_i, Z)</code></pre>
+
     <details class="ref-code" data-source-code="coulomb_logarithm_ion_sauter"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 289–330</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">coulomb_logarithm_ion_sauter</span><span class="p">(</span><span class="n">n_i</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">T_i</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">Z</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
@@ -1002,10 +1024,11 @@ this substantially more than it changes $\ln\Lambda_e$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#deeply_trapped_bounce_frequency"><code>deeply_trapped_bounce_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="deeply_trapped_bounce_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L1335-L1395" title="vaft/formula/neoclassical.py, lines 1335–1395 at f35b64b">source</a>
+<a class="ref-source" data-source="deeply_trapped_bounce_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L1351-L1411" title="vaft/formula/neoclassical.py, lines 1351–1411 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>deeply_trapped_bounce_frequency(v_perp, q, R0, epsilon)</code></pre>
-    <details class="ref-code" data-source-code="deeply_trapped_bounce_frequency"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1335–1395</span></summary>
+
+    <details class="ref-code" data-source-code="deeply_trapped_bounce_frequency"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1351–1411</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">deeply_trapped_bounce_frequency</span><span class="p">(</span><span class="n">v_perp</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">R0</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Bounce frequency of a deeply trapped particle, the small-amplitude limit of the banana orbit.
@@ -1148,9 +1171,10 @@ neglected in the parallel motion.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#electron_collisionality_sauter"><code>electron_collisionality_sauter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="electron_collisionality_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L333-L434" title="vaft/formula/neoclassical.py, lines 333–434 at f35b64b">source</a>
+<a class="ref-source" data-source="electron_collisionality_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L333-L442" title="vaft/formula/neoclassical.py, lines 333–442 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>electron_collisionality_sauter(n_e, T_e, q, R, epsilon, Z_eff, ln_Lambda_e=None)</code></pre>
+    <p class="ref-note">Reduction: profile 1d &rarr; profile 1d &middot; dimensionless normalization &middot; flux surface local &middot; regime coordinate (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
 
     <p>Normalised electron collisionality $\nu_e^*$ in the Sauter convention.</p>
 
@@ -1240,9 +1264,10 @@ choice; it is not dimensionally reusable with temperatures in keV.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ion_collisionality_sauter"><code>ion_collisionality_sauter</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="ion_collisionality_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L437-L523" title="vaft/formula/neoclassical.py, lines 437–523 at f35b64b">source</a>
+<a class="ref-source" data-source="ion_collisionality_sauter" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L445-L539" title="vaft/formula/neoclassical.py, lines 445–539 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>ion_collisionality_sauter(n_i, T_i, q, R, epsilon, Z, ln_Lambda_ii=None)</code></pre>
+    <p class="ref-note">Reduction: profile 1d &rarr; profile 1d &middot; dimensionless normalization &middot; flux surface local &middot; regime coordinate (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
 
     <p>Normalised ion collisionality $\nu_i^*$ in the Sauter convention.</p>
 
@@ -1319,10 +1344,11 @@ collisionality-convention problem.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#neoclassical_regime_boundaries"><code>neoclassical_regime_boundaries</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="neoclassical_regime_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L1567-L1615" title="vaft/formula/neoclassical.py, lines 1567–1615 at f35b64b">source</a>
+<a class="ref-source" data-source="neoclassical_regime_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L1583-L1631" title="vaft/formula/neoclassical.py, lines 1583–1631 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>neoclassical_regime_boundaries(epsilon)</code></pre>
-    <details class="ref-code" data-source-code="neoclassical_regime_boundaries"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1567–1615</span></summary>
+
+    <details class="ref-code" data-source-code="neoclassical_regime_boundaries"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1583–1631</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">neoclassical_regime_boundaries</span><span class="p">(</span><span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Banana--plateau and plateau--Pfirsch--Schl\"uter orderings in $\hat\nu$.
@@ -1444,7 +1470,7 @@ at spherical-tokamak $\epsilon$ the plateau nearly disappears.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#redl_bootstrap_coefficients"><code>redl_bootstrap_coefficients</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="redl_bootstrap_coefficients" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L891-L1026" title="vaft/formula/neoclassical.py, lines 891–1026 at f35b64b">source</a>
+<a class="ref-source" data-source="redl_bootstrap_coefficients" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L907-L1042" title="vaft/formula/neoclassical.py, lines 907–1042 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>redl_bootstrap_coefficients(f_trap, nu_e_star, nu_i_star, Z_eff)</code></pre>
 
@@ -1527,7 +1553,7 @@ either.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#redl_bootstrap_current"><code>redl_bootstrap_current</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="redl_bootstrap_current" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L1186-L1270" title="vaft/formula/neoclassical.py, lines 1186–1270 at f35b64b">source</a>
+<a class="ref-source" data-source="redl_bootstrap_current" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L1202-L1286" title="vaft/formula/neoclassical.py, lines 1202–1286 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>redl_bootstrap_current(f_trap, nu_e_star, nu_i_star, Z_eff, I_psi, p_e, p_i, dp_dpsi, dln_Te_dpsi, dln_Ti_dpsi)</code></pre>
 
@@ -1616,10 +1642,11 @@ solve through <code class="language-plaintext highlighter-rouge">vaft.code.gacod
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#redl_neoclassical_conductivity"><code>redl_neoclassical_conductivity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="redl_neoclassical_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L677-L753" title="vaft/formula/neoclassical.py, lines 677–753 at f35b64b">source</a>
+<a class="ref-source" data-source="redl_neoclassical_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L693-L769" title="vaft/formula/neoclassical.py, lines 693–769 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>redl_neoclassical_conductivity(sigma_spitzer, f_trap, nu_e_star, Z_eff)</code></pre>
-    <details class="ref-code" data-source-code="redl_neoclassical_conductivity"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 677–753</span></summary>
+
+    <details class="ref-code" data-source-code="redl_neoclassical_conductivity"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 693–769</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">redl_neoclassical_conductivity</span><span class="p">(</span>
     <span class="n">sigma_spitzer</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">f_trap</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">nu_e_star</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">Z_eff</span><span class="p">:</span> <span class="n">Numeric</span>
@@ -1771,7 +1798,7 @@ $Z_{\mathrm{eff}} \ge 1$ is required because $\sqrt{Z-1}$ appears.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sauter_bootstrap_coefficients"><code>sauter_bootstrap_coefficients</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sauter_bootstrap_coefficients" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L756-L888" title="vaft/formula/neoclassical.py, lines 756–888 at f35b64b">source</a>
+<a class="ref-source" data-source="sauter_bootstrap_coefficients" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L772-L904" title="vaft/formula/neoclassical.py, lines 772–904 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>sauter_bootstrap_coefficients(f_trap, nu_e_star, nu_i_star, Z_eff)</code></pre>
 
@@ -1864,7 +1891,7 @@ the difference between the two is the honest uncertainty band.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sauter_bootstrap_current"><code>sauter_bootstrap_current</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sauter_bootstrap_current" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L1070-L1183" title="vaft/formula/neoclassical.py, lines 1070–1183 at f35b64b">source</a>
+<a class="ref-source" data-source="sauter_bootstrap_current" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L1086-L1199" title="vaft/formula/neoclassical.py, lines 1086–1199 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>sauter_bootstrap_current(f_trap, nu_e_star, nu_i_star, Z_eff, I_psi, p_e, p_i, dp_dpsi, dln_Te_dpsi, dln_Ti_dpsi)</code></pre>
 
@@ -1982,7 +2009,7 @@ redl_bootstrap_current : the 2021 refit, preferred at tight aspect ratio.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sauter_neoclassical_conductivity"><code>sauter_neoclassical_conductivity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sauter_neoclassical_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L591-L674" title="vaft/formula/neoclassical.py, lines 591–674 at f35b64b">source</a>
+<a class="ref-source" data-source="sauter_neoclassical_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L607-L690" title="vaft/formula/neoclassical.py, lines 607–690 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>sauter_neoclassical_conductivity(sigma_spitzer, f_trap, nu_e_star, Z_eff)</code></pre>
 
@@ -2072,10 +2099,11 @@ $f_t \gtrsim 0.6$, this fit is outside the range it was built on;
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sauter_spitzer_conductivity"><code>sauter_spitzer_conductivity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sauter_spitzer_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L526-L588" title="vaft/formula/neoclassical.py, lines 526–588 at f35b64b">source</a>
+<a class="ref-source" data-source="sauter_spitzer_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L542-L604" title="vaft/formula/neoclassical.py, lines 542–604 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>sauter_spitzer_conductivity(T_e, Z_eff, ln_Lambda_e)</code></pre>
-    <details class="ref-code" data-source-code="sauter_spitzer_conductivity"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 526–588</span></summary>
+
+    <details class="ref-code" data-source-code="sauter_spitzer_conductivity"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 542–604</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sauter_spitzer_conductivity</span><span class="p">(</span>
     <span class="n">T_e</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">Z_eff</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">ln_Lambda_e</span><span class="p">:</span> <span class="n">Numeric</span>
@@ -2216,10 +2244,11 @@ for $1 \le Z_{\mathrm{eff}} \lesssim 5$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#transit_frequency"><code>transit_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="transit_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L1280-L1332" title="vaft/formula/neoclassical.py, lines 1280–1332 at f35b64b">source</a>
+<a class="ref-source" data-source="transit_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L1296-L1348" title="vaft/formula/neoclassical.py, lines 1296–1348 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>transit_frequency(v, q, R0)</code></pre>
-    <details class="ref-code" data-source-code="transit_frequency"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1280–1332</span></summary>
+
+    <details class="ref-code" data-source-code="transit_frequency"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1296–1348</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">transit_frequency</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">q</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">R0</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Poloidal transit frequency of a passing particle on a large-aspect-ratio circular surface.
@@ -2345,10 +2374,11 @@ the path.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#trapped_particle_effective_collision_frequency"><code>trapped_particle_effective_collision_frequency</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="trapped_particle_effective_collision_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L1398-L1447" title="vaft/formula/neoclassical.py, lines 1398–1447 at f35b64b">source</a>
+<a class="ref-source" data-source="trapped_particle_effective_collision_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L1414-L1463" title="vaft/formula/neoclassical.py, lines 1414–1463 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>trapped_particle_effective_collision_frequency(nu_deflection, epsilon)</code></pre>
-    <details class="ref-code" data-source-code="trapped_particle_effective_collision_frequency"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1398–1447</span></summary>
+
+    <details class="ref-code" data-source-code="trapped_particle_effective_collision_frequency"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 1414–1463</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">trapped_particle_effective_collision_frequency</span><span class="p">(</span><span class="n">nu_deflection</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Rate at which pitch-angle scattering detraps a trapped particle.
@@ -2470,9 +2500,10 @@ estimates.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#trapped_particle_fraction"><code>trapped_particle_fraction</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="trapped_particle_fraction" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/neoclassical.py#L172-L236" title="vaft/formula/neoclassical.py, lines 172–236 at f35b64b">source</a>
+<a class="ref-source" data-source="trapped_particle_fraction" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/neoclassical.py#L172-L236" title="vaft/formula/neoclassical.py, lines 172–236 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>trapped_particle_fraction(epsilon)</code></pre>
+
     <details class="ref-code" data-source-code="trapped_particle_fraction"><summary>Show source <span class="ref-note">vaft/formula/neoclassical.py, lines 172–236</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">trapped_particle_fraction</span><span class="p">(</span><span class="n">epsilon</span><span class="p">:</span> <span class="n">Numeric</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Numeric</span><span class="p">:</span>
@@ -2838,7 +2869,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:05:45 +0000"
+        "time": "2026-10-07 10:36:02 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

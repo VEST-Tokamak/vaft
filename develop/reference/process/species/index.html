@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/process/kinetic_closure/" />
+            <link rel="prev" href="/vaft/develop/reference/process/mode_frequency/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/asymptotic-orderings/" />
+            <link rel="next" href="/vaft/develop/reference/reduced-representations/" />
         
     </head>
     <body>
@@ -151,6 +151,12 @@
                 <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -187,6 +193,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
                     
                         <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
@@ -208,6 +220,12 @@
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
                     </li>
                 
                     
@@ -354,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f35b64b</code>. What is described
+  <code>e63d9fe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -460,9 +478,10 @@ are never merged into one Maxwellian by a projection.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#composition_moments"><code>composition_moments</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="composition_moments" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/process/species.py#L683-L733" title="vaft/process/species.py, lines 683–733 at f35b64b">source</a>
+<a class="ref-source" data-source="composition_moments" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/process/species.py#L683-L733" title="vaft/process/species.py, lines 683–733 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>composition_moments(state)</code></pre>
+
     <details class="ref-code" data-source-code="composition_moments"><summary>Show source <span class="ref-note">vaft/process/species.py, lines 683–733</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_moments</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">CanonicalSpeciesState</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
@@ -566,7 +585,7 @@ uses <code class="language-plaintext highlighter-rouge">&lt;Z^2&gt;</code> for a
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#project_species_state"><code>project_species_state</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="project_species_state" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/process/species.py#L822-L909" title="vaft/process/species.py, lines 822–909 at f35b64b">source</a>
+<a class="ref-source" data-source="project_species_state" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/process/species.py#L822-L909" title="vaft/process/species.py, lines 822–909 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>project_species_state(state, target_physics, method=None)</code></pre>
 
@@ -646,7 +665,7 @@ phase-space detail of fast populations lives in <code class="language-plaintext 
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#species_state_from_composition"><code>species_state_from_composition</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="species_state_from_composition" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/process/species.py#L549-L677" title="vaft/process/species.py, lines 549–677 at f35b64b">source</a>
+<a class="ref-source" data-source="species_state_from_composition" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/process/species.py#L549-L677" title="vaft/process/species.py, lines 549–677 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>species_state_from_composition(composition, n_e, *, rho=None, time=None, main_isotope=None)</code></pre>
 
@@ -716,7 +735,7 @@ non-integer label without moments is a bundle at that scalar charge.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#species_state_from_core_profiles"><code>species_state_from_core_profiles</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="species_state_from_core_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/process/species.py#L343-L534" title="vaft/process/species.py, lines 343–534 at f35b64b">source</a>
+<a class="ref-source" data-source="species_state_from_core_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/process/species.py#L343-L534" title="vaft/process/species.py, lines 343–534 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>species_state_from_core_profiles(ods, *, time=None, tolerance=0.0005)</code></pre>
 
@@ -887,13 +906,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/process/kinetic_closure/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: kinetic_closure">
+                        <a href="/vaft/develop/reference/process/mode_frequency/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: mode_frequency">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/asymptotic-orderings/" class="navigation navigation-next navigation-unique" aria-label="Next page: Asymptotic orderings">
+                        <a href="/vaft/develop/reference/reduced-representations/" class="navigation navigation-next navigation-unique" aria-label="Next page: Reduced representations">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -925,11 +944,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Asymptotic orderings",
+            "title": "Reduced representations",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Asymptotic_orderings.md",
-            "ref": "_guide/Asymptotic_orderings.md",
+            "path": "_guide/Reduced_representations.md",
+            "ref": "_guide/Reduced_representations.md",
             "articles": []
         },
         
@@ -1027,7 +1046,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:05:45 +0000"
+        "time": "2026-10-07 10:36:02 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

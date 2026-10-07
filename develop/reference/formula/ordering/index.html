@@ -151,6 +151,12 @@
                 <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -187,6 +193,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
                     
                         <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
@@ -208,6 +220,12 @@
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
                     </li>
                 
                     
@@ -354,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f35b64b</code>. What is described
+  <code>e63d9fe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -377,7 +395,7 @@
 <aside class="guide-overview" aria-labelledby="guide-overview-title">
   <h2 id="guide-overview-title">At a glance</h2>
   <dl>
-    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.ordering, the asymptotic ordering parameters of</dd>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.ordering, the asymptotic ordering parameters of #1627, read from the standardized docstrings (issue 248).</dd>
     <dt>Prerequisites / inputs</dt><dd>None.</dd>
     <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
     <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
@@ -466,9 +484,10 @@ formulary gives them, with the Coulomb logarithm an explicit argument.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#alfven_time"><code>alfven_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="alfven_time" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L84-L122" title="vaft/formula/ordering.py, lines 84–122 at f35b64b">source</a>
+<a class="ref-source" data-source="alfven_time" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L84-L122" title="vaft/formula/ordering.py, lines 84–122 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>alfven_time(L, v_A)</code></pre>
+
     <details class="ref-code" data-source-code="alfven_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 84–122</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">alfven_time</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">v_A</span><span class="p">):</span>
@@ -573,9 +592,10 @@ sequence of states only if the plasma evolves much more slowly than this.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#braginskii_electron_collision_time"><code>braginskii_electron_collision_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="braginskii_electron_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L392-L444" title="vaft/formula/ordering.py, lines 392–444 at f35b64b">source</a>
+<a class="ref-source" data-source="braginskii_electron_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L392-L444" title="vaft/formula/ordering.py, lines 392–444 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>braginskii_electron_collision_time(n_e, T_e, ln_Lambda, Z=1.0)</code></pre>
+
     <details class="ref-code" data-source-code="braginskii_electron_collision_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 392–444</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">braginskii_electron_collision_time</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">T_e</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
@@ -707,9 +727,10 @@ electron magnetization.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#braginskii_ion_collision_time"><code>braginskii_ion_collision_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="braginskii_ion_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L447-L499" title="vaft/formula/ordering.py, lines 447–499 at f35b64b">source</a>
+<a class="ref-source" data-source="braginskii_ion_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L447-L499" title="vaft/formula/ordering.py, lines 447–499 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>braginskii_ion_collision_time(n_i, T_i, ln_Lambda, mass_number=1.0, Z=1.0)</code></pre>
+
     <details class="ref-code" data-source-code="braginskii_ion_collision_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 447–499</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">braginskii_ion_collision_time</span><span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="n">T_i</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">,</span> <span class="n">mass_number</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
@@ -839,9 +860,10 @@ mean free path, with the ion gyrofrequency the ion magnetization.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#evolution_time"><code>evolution_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="evolution_time" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L630-L671" title="vaft/formula/ordering.py, lines 630–671 at f35b64b">source</a>
+<a class="ref-source" data-source="evolution_time" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L630-L671" title="vaft/formula/ordering.py, lines 630–671 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>evolution_time(X, dX_dt)</code></pre>
+
     <details class="ref-code" data-source-code="evolution_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 630–671</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evolution_time</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">dX_dt</span><span class="p">):</span>
@@ -948,9 +970,10 @@ from whether a reconstruction converged.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#inertial_length"><code>inertial_length</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="inertial_length" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L259-L305" title="vaft/formula/ordering.py, lines 259–305 at f35b64b">source</a>
+<a class="ref-source" data-source="inertial_length" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L259-L305" title="vaft/formula/ordering.py, lines 259–305 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>inertial_length(n, m, q=1.602176634e-19)</code></pre>
+
     <details class="ref-code" data-source-code="inertial_length"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 259–305</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">inertial_length</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">QE</span><span class="p">):</span>
@@ -1065,9 +1088,10 @@ single-fluid MHD needs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#knudsen_number"><code>knudsen_number</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="knudsen_number" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L541-L581" title="vaft/formula/ordering.py, lines 541–581 at f35b64b">source</a>
+<a class="ref-source" data-source="knudsen_number" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L541-L581" title="vaft/formula/ordering.py, lines 541–581 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>knudsen_number(mean_free_path, L)</code></pre>
+
     <details class="ref-code" data-source-code="knudsen_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 541–581</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">knudsen_number</span><span class="p">(</span><span class="n">mean_free_path</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
@@ -1174,9 +1198,10 @@ grows, transport becomes non-local and kinetic.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#lundquist_number"><code>lundquist_number</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="lundquist_number" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L168-L211" title="vaft/formula/ordering.py, lines 168–211 at f35b64b">source</a>
+<a class="ref-source" data-source="lundquist_number" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L168-L211" title="vaft/formula/ordering.py, lines 168–211 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>lundquist_number(L, v_A, eta)</code></pre>
+
     <details class="ref-code" data-source-code="lundquist_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 168–211</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">lundquist_number</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">v_A</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
@@ -1289,9 +1314,10 @@ thin resonant layers, where resistivity matters however large $S$ is.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#magnetic_reynolds_number"><code>magnetic_reynolds_number</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="magnetic_reynolds_number" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L214-L256" title="vaft/formula/ordering.py, lines 214–256 at f35b64b">source</a>
+<a class="ref-source" data-source="magnetic_reynolds_number" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L214-L256" title="vaft/formula/ordering.py, lines 214–256 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>magnetic_reynolds_number(V, L, eta)</code></pre>
+
     <details class="ref-code" data-source-code="magnetic_reynolds_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 214–256</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetic_reynolds_number</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
@@ -1399,9 +1425,10 @@ Lundquist number. Do not substitute an arbitrary speed to fill a table.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#magnetization"><code>magnetization</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="magnetization" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L584-L627" title="vaft/formula/ordering.py, lines 584–627 at f35b64b">source</a>
+<a class="ref-source" data-source="magnetization" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L584-L627" title="vaft/formula/ordering.py, lines 584–627 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>magnetization(gyrofrequency, collision_time)</code></pre>
+
     <details class="ref-code" data-source-code="magnetization"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 584–627</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetization</span><span class="p">(</span><span class="n">gyrofrequency</span><span class="p">,</span> <span class="n">collision_time</span><span class="p">):</span>
@@ -1511,9 +1538,10 @@ collisionless along the field at once.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#mean_free_path"><code>mean_free_path</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="mean_free_path" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L502-L538" title="vaft/formula/ordering.py, lines 502–538 at f35b64b">source</a>
+<a class="ref-source" data-source="mean_free_path" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L502-L538" title="vaft/formula/ordering.py, lines 502–538 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>mean_free_path(v_t, tau)</code></pre>
+
     <details class="ref-code" data-source-code="mean_free_path"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 502–538</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mean_free_path</span><span class="p">(</span><span class="n">v_t</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
@@ -1614,9 +1642,10 @@ it decides whether a local fluid closure holds.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resistive_diffusion_time"><code>resistive_diffusion_time</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="resistive_diffusion_time" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L125-L165" title="vaft/formula/ordering.py, lines 125–165 at f35b64b">source</a>
+<a class="ref-source" data-source="resistive_diffusion_time" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L125-L165" title="vaft/formula/ordering.py, lines 125–165 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>resistive_diffusion_time(L, eta)</code></pre>
+
     <details class="ref-code" data-source-code="resistive_diffusion_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 125–165</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">resistive_diffusion_time</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
@@ -1724,9 +1753,10 @@ current profile younger than this has not relaxed resistively.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#sound_gyroradius"><code>sound_gyroradius</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="sound_gyroradius" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L308-L351" title="vaft/formula/ordering.py, lines 308–351 at f35b64b">source</a>
+<a class="ref-source" data-source="sound_gyroradius" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L308-L351" title="vaft/formula/ordering.py, lines 308–351 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>sound_gyroradius(T_e, m_i, B, Z=1.0)</code></pre>
+
     <details class="ref-code" data-source-code="sound_gyroradius"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 308–351</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sound_gyroradius</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">m_i</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
@@ -1840,9 +1870,10 @@ the FLR ordering parameter of fluid and gyrofluid models.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#thermal_speed"><code>thermal_speed</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="thermal_speed" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/ordering.py#L354-L389" title="vaft/formula/ordering.py, lines 354–389 at f35b64b">source</a>
+<a class="ref-source" data-source="thermal_speed" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/ordering.py#L354-L389" title="vaft/formula/ordering.py, lines 354–389 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>thermal_speed(T, m)</code></pre>
+
     <details class="ref-code" data-source-code="thermal_speed"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 354–389</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">thermal_speed</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
@@ -2157,7 +2188,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:05:45 +0000"
+        "time": "2026-10-07 10:36:02 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

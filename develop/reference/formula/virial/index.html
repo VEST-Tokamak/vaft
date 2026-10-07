@@ -151,6 +151,12 @@
                 <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -187,6 +193,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
                     
                         <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
@@ -208,6 +220,12 @@
                     <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
                     
                         <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
                     </li>
                 
                     
@@ -354,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>f35b64b</code>. What is described
+  <code>e63d9fe</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -508,10 +526,11 @@ finite number, at the threshold <code class="language-plaintext highlighter-roug
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L379-L417" title="vaft/formula/virial.py, lines 379–417 at f35b64b">source</a>
+<a class="ref-source" data-source="approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L411-L449" title="vaft/formula/virial.py, lines 411–449 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi(B_pa, B_tv, R0, delta_phi, V_p)</code></pre>
-    <details class="ref-code" data-source-code="approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 379–417</span></summary>
+
+    <details class="ref-code" data-source-code="approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 411–449</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">approximated_diamagnetism_from_B_pa_B_tv_R0_delta_phi</span><span class="p">(</span><span class="n">B_pa</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                                          <span class="n">B_tv</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -607,10 +626,11 @@ the name used by the VFIT-era analysis.  Same sign caveat on <code class="langua
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_D0_boundary_from_bp_li_eK"><code>virial_D0_boundary_from_bp_li_eK</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_D0_boundary_from_bp_li_eK" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1601-L1645" title="vaft/formula/virial.py, lines 1601–1645 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_D0_boundary_from_bp_li_eK" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1633-L1677" title="vaft/formula/virial.py, lines 1633–1677 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_D0_boundary_from_bp_li_eK(beta_p, li_int, eK, b_minor, R_plasma)</code></pre>
-    <details class="ref-code" data-source-code="virial_D0_boundary_from_bp_li_eK"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1601–1645</span></summary>
+
+    <details class="ref-code" data-source-code="virial_D0_boundary_from_bp_li_eK"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1633–1677</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_D0_boundary_from_bp_li_eK</span><span class="p">(</span><span class="n">beta_p</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                     <span class="n">li_int</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -716,10 +736,11 @@ outboard, so $D_0 &lt; 0$ for positive $\beta_p + l_i/2$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_S1_approx"><code>virial_S1_approx</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_S1_approx" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1437-L1465" title="vaft/formula/virial.py, lines 1437–1465 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_S1_approx" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1469-L1497" title="vaft/formula/virial.py, lines 1469–1497 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_S1_approx()</code></pre>
-    <details class="ref-code" data-source-code="virial_S1_approx"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1437–1465</span></summary>
+
+    <details class="ref-code" data-source-code="virial_S1_approx"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1469–1497</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_S1_approx</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Leading-order value of the first Shafranov integral, $S_1 = 2$.
@@ -801,10 +822,11 @@ triangularity; a placeholder when the surface integral itself is unavailable.</p
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_S2_approx_from_D0_a_R0"><code>virial_S2_approx_from_D0_a_R0</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_S2_approx_from_D0_a_R0" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1466-L1505" title="vaft/formula/virial.py, lines 1466–1505 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_S2_approx_from_D0_a_R0" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1498-L1537" title="vaft/formula/virial.py, lines 1498–1537 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_S2_approx_from_D0_a_R0(eK, D0, a_minor, R0)</code></pre>
-    <details class="ref-code" data-source-code="virial_S2_approx_from_D0_a_R0"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1466–1505</span></summary>
+
+    <details class="ref-code" data-source-code="virial_S2_approx_from_D0_a_R0"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1498–1537</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_S2_approx_from_D0_a_R0</span><span class="p">(</span><span class="n">eK</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                   <span class="n">D0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -903,10 +925,11 @@ $e_K$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_S3_approx_from_eK_d"><code>virial_S3_approx_from_eK_d</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_S3_approx_from_eK_d" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1506-L1537" title="vaft/formula/virial.py, lines 1506–1537 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_S3_approx_from_eK_d" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1538-L1569" title="vaft/formula/virial.py, lines 1538–1569 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_S3_approx_from_eK_d(eK, d_param)</code></pre>
-    <details class="ref-code" data-source-code="virial_S3_approx_from_eK_d"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1506–1537</span></summary>
+
+    <details class="ref-code" data-source-code="virial_S3_approx_from_eK_d"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1538–1569</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_S3_approx_from_eK_d</span><span class="p">(</span><span class="n">eK</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                               <span class="n">d_param</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -991,10 +1014,11 @@ $e_K$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_alpha_approx_from_kappa"><code>virial_alpha_approx_from_kappa</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_alpha_approx_from_kappa" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1288-L1355" title="vaft/formula/virial.py, lines 1288–1355 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_alpha_approx_from_kappa" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1320-L1387" title="vaft/formula/virial.py, lines 1320–1387 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_alpha_approx_from_kappa(kappa)</code></pre>
-    <details class="ref-code" data-source-code="virial_alpha_approx_from_kappa"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1288–1355</span></summary>
+
+    <details class="ref-code" data-source-code="virial_alpha_approx_from_kappa"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1320–1387</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_alpha_approx_from_kappa</span><span class="p">(</span><span class="n">kappa</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Virial closure coefficient from the boundary elongation (Bongard $\hat\alpha_1$).
@@ -1148,7 +1172,7 @@ See <code class="language-plaintext highlighter-rouge">virial_li_from_S_alpha_mu
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_alpha_from_R_Bz_Bp_dl"><code>virial_alpha_from_R_Bz_Bp_dl</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_alpha_from_R_Bz_Bp_dl" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1356-L1436" title="vaft/formula/virial.py, lines 1356–1436 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_alpha_from_R_Bz_Bp_dl" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1388-L1468" title="vaft/formula/virial.py, lines 1388–1468 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_alpha_from_R_Bz_Bp_dl(R, B_Z, B_p, dl, weight=None)</code></pre>
 
@@ -1236,10 +1260,11 @@ raising when the denominator is zero or non-finite, matching
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_beta_p_from_S_alpha_mu"><code>virial_beta_p_from_S_alpha_mu</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_beta_p_from_S_alpha_mu" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L429-L476" title="vaft/formula/virial.py, lines 429–476 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_beta_p_from_S_alpha_mu" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L461-L508" title="vaft/formula/virial.py, lines 461–508 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_beta_p_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)</code></pre>
-    <details class="ref-code" data-source-code="virial_beta_p_from_S_alpha_mu"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 429–476</span></summary>
+
+    <details class="ref-code" data-source-code="virial_beta_p_from_S_alpha_mu"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 461–508</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_beta_p_from_S_alpha_mu</span><span class="p">(</span><span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                   <span class="n">S2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -1352,10 +1377,11 @@ not.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_beta_p_from_S_li"><code>virial_beta_p_from_S_li</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_beta_p_from_S_li" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L625-L660" title="vaft/formula/virial.py, lines 625–660 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_beta_p_from_S_li" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L657-L692" title="vaft/formula/virial.py, lines 657–692 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_beta_p_from_S_li(S1, S2, li)</code></pre>
-    <details class="ref-code" data-source-code="virial_beta_p_from_S_li"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 625–660</span></summary>
+
+    <details class="ref-code" data-source-code="virial_beta_p_from_S_li"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 657–692</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_beta_p_from_S_li</span><span class="p">(</span>
     <span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -1442,10 +1468,11 @@ independently.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_beta_p_from_volume"><code>virial_beta_p_from_volume</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_beta_p_from_volume" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L251-L297" title="vaft/formula/virial.py, lines 251–297 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_beta_p_from_volume" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L267-L321" title="vaft/formula/virial.py, lines 267–321 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_beta_p_from_volume(p, dV, B_pa, Omega, mu0=None)</code></pre>
-    <details class="ref-code" data-source-code="virial_beta_p_from_volume"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 251–297</span></summary>
+    <p class="ref-note">Reduction: field 2d + scalar 0d &rarr; scalar 0d &middot; integral &middot; global &middot; global descriptor (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="virial_beta_p_from_volume"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 267–321</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_beta_p_from_volume</span><span class="p">(</span><span class="n">p</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                               <span class="n">dV</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -1484,6 +1511,14 @@ independently.</p>
     Numerical notes
     ---------------
     Plain weighted sum over the supplied cells.
+
+    Reduction
+    ---------
+    input: field_2d, scalar_0d
+    output: scalar_0d
+    kind: integral
+    locality: global
+    role: global_descriptor
 
     References
     ----------
@@ -1556,10 +1591,11 @@ differ by shape-dependent factors.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_beta_p_lao_from_S_mu_rt"><code>virial_beta_p_lao_from_S_mu_rt</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_beta_p_lao_from_S_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L527-L573" title="vaft/formula/virial.py, lines 527–573 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_beta_p_lao_from_S_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L559-L605" title="vaft/formula/virial.py, lines 559–605 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_beta_p_lao_from_S_mu_rt(S1, S2, mui, RT_over_R0)</code></pre>
-    <details class="ref-code" data-source-code="virial_beta_p_lao_from_S_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 527–573</span></summary>
+
+    <details class="ref-code" data-source-code="virial_beta_p_lao_from_S_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 559–605</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_beta_p_lao_from_S_mu_rt</span><span class="p">(</span>
     <span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -1670,10 +1706,11 @@ reach tens of percent, which is why the Bongard closure exists.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_beta_p_li_from_S_alpha_mu_rt"><code>virial_beta_p_li_from_S_alpha_mu_rt</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_beta_p_li_from_S_alpha_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L707-L756" title="vaft/formula/virial.py, lines 707–756 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_beta_p_li_from_S_alpha_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L739-L788" title="vaft/formula/virial.py, lines 739–788 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_beta_p_li_from_S_alpha_mu_rt(S1, S2, S3, alpha, mui, RT_over_R0, eps=1e-12)</code></pre>
-    <details class="ref-code" data-source-code="virial_beta_p_li_from_S_alpha_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 707–756</span></summary>
+
+    <details class="ref-code" data-source-code="virial_beta_p_li_from_S_alpha_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 739–788</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_beta_p_li_from_S_alpha_mu_rt</span><span class="p">(</span>
     <span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -1789,10 +1826,11 @@ on the same inputs.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_beta_pd_from_S_mu_rt"><code>virial_beta_pd_from_S_mu_rt</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_beta_pd_from_S_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L661-L706" title="vaft/formula/virial.py, lines 661–706 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_beta_pd_from_S_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L693-L738" title="vaft/formula/virial.py, lines 693–738 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_beta_pd_from_S_mu_rt(S1, S2, mui, RT_over_R0)</code></pre>
-    <details class="ref-code" data-source-code="virial_beta_pd_from_S_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 661–706</span></summary>
+
+    <details class="ref-code" data-source-code="virial_beta_pd_from_S_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 693–738</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_beta_pd_from_S_mu_rt</span><span class="p">(</span>
     <span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -1901,10 +1939,11 @@ as $\hat\mu_i$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_bongard_from_S_alpha_mu"><code>virial_bongard_from_S_alpha_mu</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_bongard_from_S_alpha_mu" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L803-L845" title="vaft/formula/virial.py, lines 803–845 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_bongard_from_S_alpha_mu" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L835-L877" title="vaft/formula/virial.py, lines 835–877 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_bongard_from_S_alpha_mu(S1, S2, S3, alpha, mui, eps=1e-09)</code></pre>
-    <details class="ref-code" data-source-code="virial_bongard_from_S_alpha_mu"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 803–845</span></summary>
+
+    <details class="ref-code" data-source-code="virial_bongard_from_S_alpha_mu"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 835–877</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_bongard_from_S_alpha_mu</span><span class="p">(</span>
     <span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -2001,10 +2040,11 @@ are identical by construction, not by approximation.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_bp_li_lihat_from_S123"><code>virial_bp_li_lihat_from_S123</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-deprecated">Deprecated</span></span>
-<a class="ref-source" data-source="virial_bp_li_lihat_from_S123" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1538-L1600" title="vaft/formula/virial.py, lines 1538–1600 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_bp_li_lihat_from_S123" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1570-L1632" title="vaft/formula/virial.py, lines 1570–1632 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_bp_li_lihat_from_S123(S1, S2, S3, a_param, RT_over_R0)</code></pre>
-    <details class="ref-code" data-source-code="virial_bp_li_lihat_from_S123"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1538–1600</span></summary>
+
+    <details class="ref-code" data-source-code="virial_bp_li_lihat_from_S123"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1570–1632</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_bp_li_lihat_from_S123</span><span class="p">(</span><span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                  <span class="n">S2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -2139,10 +2179,11 @@ raised <code class="language-plaintext highlighter-rouge">LinAlgError</code> ins
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_closure_denominators"><code>virial_closure_denominators</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_closure_denominators" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1181-L1219" title="vaft/formula/virial.py, lines 1181–1219 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_closure_denominators" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1213-L1251" title="vaft/formula/virial.py, lines 1213–1251 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_closure_denominators(alpha)</code></pre>
-    <details class="ref-code" data-source-code="virial_closure_denominators"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1181–1219</span></summary>
+
+    <details class="ref-code" data-source-code="virial_closure_denominators"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1213–1251</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_closure_denominators</span><span class="p">(</span><span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">The denominator each virial closure divides by, for conditioning checks.
@@ -2232,7 +2273,7 @@ one pair that cannot become singular.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_full_123_from_S_alpha_rt"><code>virial_full_123_from_S_alpha_rt</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_full_123_from_S_alpha_rt" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1100-L1180" title="vaft/formula/virial.py, lines 1100–1180 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_full_123_from_S_alpha_rt" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1132-L1212" title="vaft/formula/virial.py, lines 1132–1212 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_full_123_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0, eps=1e-09)</code></pre>
 
@@ -2313,10 +2354,11 @@ raising or returning a large finite value.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_identity_residuals"><code>virial_identity_residuals</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_identity_residuals" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L846-L911" title="vaft/formula/virial.py, lines 846–911 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_identity_residuals" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L878-L943" title="vaft/formula/virial.py, lines 878–943 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_identity_residuals(beta_p, li, mu_i, S1, S2, S3, alpha, RT_over_R0)</code></pre>
-    <details class="ref-code" data-source-code="virial_identity_residuals"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 846–911</span></summary>
+
+    <details class="ref-code" data-source-code="virial_identity_residuals"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 878–943</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_identity_residuals</span><span class="p">(</span>
     <span class="n">beta_p</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -2459,10 +2501,11 @@ equilibrium violates, which a single $\beta_p$ estimator cannot.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_kinetic_energy"><code>virial_kinetic_energy</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_kinetic_energy" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L90-L124" title="vaft/formula/virial.py, lines 90–124 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_kinetic_energy" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L98-L132" title="vaft/formula/virial.py, lines 98–132 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_kinetic_energy(n, v, m, V)</code></pre>
-    <details class="ref-code" data-source-code="virial_kinetic_energy"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 90–124</span></summary>
+
+    <details class="ref-code" data-source-code="virial_kinetic_energy"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 98–132</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_kinetic_energy</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                          <span class="n">v</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -2548,10 +2591,11 @@ not a thermal speed.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_lao_from_S_alpha_mu_rt"><code>virial_lao_from_S_alpha_mu_rt</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_lao_from_S_alpha_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L757-L802" title="vaft/formula/virial.py, lines 757–802 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_lao_from_S_alpha_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L789-L834" title="vaft/formula/virial.py, lines 789–834 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_lao_from_S_alpha_mu_rt(S1, S2, S3, alpha, mui, RT_over_R0, eps=1e-12)</code></pre>
-    <details class="ref-code" data-source-code="virial_lao_from_S_alpha_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 757–802</span></summary>
+
+    <details class="ref-code" data-source-code="virial_lao_from_S_alpha_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 789–834</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_lao_from_S_alpha_mu_rt</span><span class="p">(</span>
     <span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -2660,10 +2704,11 @@ not a thermal speed.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_li_from_S_alpha_mu"><code>virial_li_from_S_alpha_mu</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_li_from_S_alpha_mu" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L477-L526" title="vaft/formula/virial.py, lines 477–526 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_li_from_S_alpha_mu" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L509-L558" title="vaft/formula/virial.py, lines 509–558 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_li_from_S_alpha_mu(S1, S2, S3, alpha, mui_hat)</code></pre>
-    <details class="ref-code" data-source-code="virial_li_from_S_alpha_mu"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 477–526</span></summary>
+
+    <details class="ref-code" data-source-code="virial_li_from_S_alpha_mu"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 509–558</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_li_from_S_alpha_mu</span><span class="p">(</span><span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                              <span class="n">S2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -2779,10 +2824,11 @@ in the number to show it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_li_from_S_alpha_rt"><code>virial_li_from_S_alpha_rt</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_li_from_S_alpha_rt" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L574-L624" title="vaft/formula/virial.py, lines 574–624 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_li_from_S_alpha_rt" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L606-L656" title="vaft/formula/virial.py, lines 606–656 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_li_from_S_alpha_rt(S1, S2, S3, alpha, RT_over_R0, eps=1e-12)</code></pre>
-    <details class="ref-code" data-source-code="virial_li_from_S_alpha_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 574–624</span></summary>
+
+    <details class="ref-code" data-source-code="virial_li_from_S_alpha_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 606–656</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_li_from_S_alpha_rt</span><span class="p">(</span>
     <span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -2903,10 +2949,11 @@ in the number to show it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_li_from_volume"><code>virial_li_from_volume</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_li_from_volume" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L298-L332" title="vaft/formula/virial.py, lines 298–332 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_li_from_volume" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L322-L364" title="vaft/formula/virial.py, lines 322–364 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_li_from_volume(B_p, dV, B_pa, Omega)</code></pre>
-    <details class="ref-code" data-source-code="virial_li_from_volume"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 298–332</span></summary>
+    <p class="ref-note">Reduction: field 2d + scalar 0d &rarr; scalar 0d &middot; quadratic integral &middot; global &middot; global descriptor (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="virial_li_from_volume"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 322–364</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_li_from_volume</span><span class="p">(</span><span class="n">B_p</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                          <span class="n">dV</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -2936,6 +2983,14 @@ in the number to show it.</p>
     ----------
     Lao/EFIT normalisation by $B_{pa}$; not the IMAS $l_{i,3}$ (normalised by
     $(\mu_0 I_p)^2 R_0/2$) nor the cylindrical $l_i$.
+
+    Reduction
+    ---------
+    input: field_2d, scalar_0d
+    output: scalar_0d
+    kind: quadratic_integral
+    locality: global
+    role: global_descriptor
 
     References
     ----------
@@ -2995,10 +3050,11 @@ $(\mu_0 I_p)^2 R_0/2$) nor the cylindrical $l_i$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_magnetic_energy"><code>virial_magnetic_energy</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_magnetic_energy" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L57-L89" title="vaft/formula/virial.py, lines 57–89 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_magnetic_energy" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L57-L97" title="vaft/formula/virial.py, lines 57–97 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_magnetic_energy(B, V)</code></pre>
-    <details class="ref-code" data-source-code="virial_magnetic_energy"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 57–89</span></summary>
+    <p class="ref-note">Reduction: field 2d &rarr; scalar 0d &middot; quadratic integral &middot; global &middot; global descriptor (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="virial_magnetic_energy"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 57–97</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_magnetic_energy</span><span class="p">(</span><span class="n">B</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                           <span class="n">V</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
@@ -3026,6 +3082,14 @@ $(\mu_0 I_p)^2 R_0/2$) nor the cylindrical $l_i$.</p>
     Numerical notes
     ---------------
     A Riemann sum, first order in the cell size.
+
+    Reduction
+    ---------
+    input: field_2d
+    output: scalar_0d
+    kind: quadratic_integral
+    locality: global
+    role: global_descriptor
 
     References
     ----------
@@ -3082,10 +3146,11 @@ volume, not the total.  Pass <code class="language-plaintext highlighter-rouge">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_muihat_from_Bt_R0_dphi"><code>virial_muihat_from_Bt_R0_dphi</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_muihat_from_Bt_R0_dphi" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L333-L378" title="vaft/formula/virial.py, lines 333–378 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_muihat_from_Bt_R0_dphi" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L365-L410" title="vaft/formula/virial.py, lines 365–410 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_muihat_from_Bt_R0_dphi(B_t, R0, dphi, B_pa, Omega)</code></pre>
-    <details class="ref-code" data-source-code="virial_muihat_from_Bt_R0_dphi"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 333–378</span></summary>
+
+    <details class="ref-code" data-source-code="virial_muihat_from_Bt_R0_dphi"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 365–410</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_muihat_from_Bt_R0_dphi</span><span class="p">(</span><span class="n">B_t</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                                  <span class="n">R0</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -3196,10 +3261,11 @@ constant over the cross-section.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_normalized_residual"><code>virial_normalized_residual</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_normalized_residual" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1220-L1258" title="vaft/formula/virial.py, lines 1220–1258 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_normalized_residual" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1252-L1290" title="vaft/formula/virial.py, lines 1252–1290 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_normalized_residual(residual, lhs, rhs)</code></pre>
-    <details class="ref-code" data-source-code="virial_normalized_residual"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1220–1258</span></summary>
+
+    <details class="ref-code" data-source-code="virial_normalized_residual"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1252–1290</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_normalized_residual</span><span class="p">(</span><span class="n">residual</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">lhs</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">rhs</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Scale a virial identity residual so shots can be compared.
@@ -3288,10 +3354,11 @@ until a representative equilibrium population qualifies them.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_pair_12_from_S_mu_rt"><code>virial_pair_12_from_S_mu_rt</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_pair_12_from_S_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L912-L973" title="vaft/formula/virial.py, lines 912–973 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_pair_12_from_S_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L944-L1005" title="vaft/formula/virial.py, lines 944–1005 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_pair_12_from_S_mu_rt(S1, S2, mu_i, RT_over_R0)</code></pre>
-    <details class="ref-code" data-source-code="virial_pair_12_from_S_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 912–973</span></summary>
+
+    <details class="ref-code" data-source-code="virial_pair_12_from_S_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 944–1005</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_pair_12_from_S_mu_rt</span><span class="p">(</span>
     <span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -3430,10 +3497,11 @@ against <code class="language-plaintext highlighter-rouge">virial_pair_13_from_S
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_pair_13_from_S_alpha_mu"><code>virial_pair_13_from_S_alpha_mu</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_pair_13_from_S_alpha_mu" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L974-L1039" title="vaft/formula/virial.py, lines 974–1039 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_pair_13_from_S_alpha_mu" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1006-L1071" title="vaft/formula/virial.py, lines 1006–1071 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_pair_13_from_S_alpha_mu(S1, S2, S3, alpha, mu_i, eps=1e-09)</code></pre>
-    <details class="ref-code" data-source-code="virial_pair_13_from_S_alpha_mu"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 974–1039</span></summary>
+
+    <details class="ref-code" data-source-code="virial_pair_13_from_S_alpha_mu"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1006–1071</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_pair_13_from_S_alpha_mu</span><span class="p">(</span>
     <span class="n">S1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -3576,10 +3644,11 @@ value, so a near-singular closure is not mistaken for a physical failure.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_pair_23_from_S_alpha_mu_rt"><code>virial_pair_23_from_S_alpha_mu_rt</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_pair_23_from_S_alpha_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1040-L1099" title="vaft/formula/virial.py, lines 1040–1099 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_pair_23_from_S_alpha_mu_rt" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1072-L1131" title="vaft/formula/virial.py, lines 1072–1131 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_pair_23_from_S_alpha_mu_rt(S2, S3, alpha, mu_i, RT_over_R0, eps=1e-09)</code></pre>
-    <details class="ref-code" data-source-code="virial_pair_23_from_S_alpha_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1040–1099</span></summary>
+
+    <details class="ref-code" data-source-code="virial_pair_23_from_S_alpha_mu_rt"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1072–1131</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_pair_23_from_S_alpha_mu_rt</span><span class="p">(</span>
     <span class="n">S2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -3707,10 +3776,11 @@ value.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_residual_rms"><code>virial_residual_rms</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_residual_rms" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L1259-L1287" title="vaft/formula/virial.py, lines 1259–1287 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_residual_rms" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L1291-L1319" title="vaft/formula/virial.py, lines 1291–1319 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_residual_rms(e1, e2, e3)</code></pre>
-    <details class="ref-code" data-source-code="virial_residual_rms"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1259–1287</span></summary>
+
+    <details class="ref-code" data-source-code="virial_residual_rms"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 1291–1319</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_residual_rms</span><span class="p">(</span><span class="n">e1</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">e2</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">e3</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Aggregate the three normalised virial residuals into one number.
@@ -3782,10 +3852,11 @@ residuals, never instead of them.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_stability_criterion"><code>virial_stability_criterion</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-deprecated">Deprecated</span></span>
-<a class="ref-source" data-source="virial_stability_criterion" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L202-L250" title="vaft/formula/virial.py, lines 202–250 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_stability_criterion" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L218-L266" title="vaft/formula/virial.py, lines 218–266 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_stability_criterion(W_mag, W_kin, W_th)</code></pre>
-    <details class="ref-code" data-source-code="virial_stability_criterion"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 202–250</span></summary>
+
+    <details class="ref-code" data-source-code="virial_stability_criterion"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 218–266</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_stability_criterion</span><span class="p">(</span><span class="n">W_mag</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                              <span class="n">W_kin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -3891,10 +3962,11 @@ emits a <code class="language-plaintext highlighter-rouge">DeprecationWarning</c
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_theorem"><code>virial_theorem</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="virial_theorem" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L161-L201" title="vaft/formula/virial.py, lines 161–201 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_theorem" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L177-L217" title="vaft/formula/virial.py, lines 177–217 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_theorem(W_mag, W_kin, W_th)</code></pre>
-    <details class="ref-code" data-source-code="virial_theorem"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 161–201</span></summary>
+
+    <details class="ref-code" data-source-code="virial_theorem"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 177–217</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_theorem</span><span class="p">(</span><span class="n">W_mag</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
                   <span class="n">W_kin</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -3991,10 +4063,11 @@ that balance.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#virial_thermal_energy"><code>virial_thermal_energy</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="virial_thermal_energy" href="https://github.com/VEST-Tokamak/vaft/blob/f35b64bbc19ce35eba48d5e009d514b71117d7e4/vaft/formula/virial.py#L125-L160" title="vaft/formula/virial.py, lines 125–160 at f35b64b">source</a>
+<a class="ref-source" data-source="virial_thermal_energy" href="https://github.com/VEST-Tokamak/vaft/blob/e63d9fea8d00072a18a4d614a7bcdcbff23b91f7/vaft/formula/virial.py#L133-L176" title="vaft/formula/virial.py, lines 133–176 at e63d9fe">source</a>
 </header>
     <pre class="ref-signature"><code>virial_thermal_energy(n, T, V)</code></pre>
-    <details class="ref-code" data-source-code="virial_thermal_energy"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 125–160</span></summary>
+    <p class="ref-note">Reduction: field 2d &rarr; scalar 0d &middot; integral &middot; global &middot; global descriptor (<a href="/vaft/develop/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="virial_thermal_energy"><summary>Show source <span class="ref-note">vaft/formula/virial.py, lines 133–176</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">virial_thermal_energy</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
                          <span class="n">T</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -4025,6 +4098,14 @@ that balance.</p>
     Assumptions
     -----------
     Equal-volume samples (``V`` is the cell volume); three degrees of freedom.
+
+    Reduction
+    ---------
+    input: field_2d
+    output: scalar_0d
+    kind: integral
+    locality: global
+    role: global_descriptor
 
     References
     ----------
@@ -4302,7 +4383,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-07 10:05:45 +0000"
+        "time": "2026-10-07 10:36:02 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
