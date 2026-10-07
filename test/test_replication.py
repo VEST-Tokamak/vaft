@@ -266,6 +266,68 @@ def test_a_transient_failure_is_retried(staged, monkeypatch):
     assert record.validated
 
 
+def _tree(root: Path) -> list[tuple[str, int]]:
+    if not root.exists():
+        return []
+    return sorted(
+        (str(path.relative_to(root)), path.stat().st_size)
+        for path in root.rglob("*")
+        if path.is_file()
+    )
+
+
+def test_a_validated_replication_leaves_the_hsds_cache_untouched(
+    staged, monkeypatch, tmp_path
+):
+    """The round trip reads the server, not a cache it fills (#1758).
+
+    With the default ``cache="auto"`` every validated replica was copied into
+    ``~/.cache/vaft/hsds``; on vestserver that copy reached 539 GiB. The fake
+    read builds the real ``HSDSDomainCache`` for whatever ``cache`` it is
+    handed, so an ``"auto"`` read would create the cache tree under ``$HOME``.
+    """
+    from vaft.database import staging
+
+    home = tmp_path / "home"
+    cache_root = home / ".cache" / "vaft" / "hsds"
+    cache_root.mkdir(parents=True)
+    (cache_root / "existing.h5").write_bytes(b"entry from an earlier read")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(
+        staging.HSDSDomainCache, "_endpoint", staticmethod(lambda: "test-endpoint")
+    )
+    before = _tree(cache_root)
+
+    monkeypatch.setattr(replication, "_fetch_remote_master", lambda *a, **k: None)
+    monkeypatch.setattr(replication, "merge_remote_master", lambda *a, **k: ())
+    monkeypatch.setattr(
+        "vaft.database.utils.require_source_exists", lambda source: None
+    )
+    stored = {}
+
+    def fake_save(ods, shot, *, source=None, occurrence=None, **kwargs):
+        stored["ods"] = ods
+        return f"hdf5://{source}/{shot}/"
+
+    reads = []
+
+    def fake_load(shot, source=None, *, paths=None, occurrence=None, cache="auto", **kwargs):
+        reads.append(cache)
+        cache_store = staging.HSDSDomainCache(source, shot, cache)
+        if cache_store.enabled:
+            (cache_store.root / "magnetics.h5").write_bytes(b"replica copy")
+        return stored["ods"]
+
+    monkeypatch.setattr("vaft.database.save", fake_save)
+    monkeypatch.setattr("vaft.database.load", fake_load)
+
+    record = replicate_stage("diagnostics", 39915, filedb=staged)
+
+    assert record.validated
+    assert reads == ["off"]
+    assert _tree(cache_root) == before
+
+
 # --------------------------------------------------------------------------- #
 # the master merge: one stage must not hide another
 # --------------------------------------------------------------------------- #

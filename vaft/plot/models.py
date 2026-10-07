@@ -1100,8 +1100,12 @@ class Panels(ViewModel):
 #: The classification a table cell or a summary item may carry.  A status is
 #: what the builder concluded -- never a colour; a renderer that draws colour
 #: maps it through the intent vocabulary, and the plain-text forms print it.
-#: ``""`` is "no classification".
-STATUSES = ("", "pass", "warn", "fail", "info")
+#: ``""`` is "no classification".  ``indeterminate`` and ``not_available``
+#: are the two undecided verdicts of :class:`vaft.validation.ValidationStatus`
+#: (evidence produced but not deciding; evidence never produced), so a
+#: validation verdict is carried as itself rather than folded into a pass or
+#: an ``info`` (roadmap #1242 C2).
+STATUSES = ("", "pass", "warn", "fail", "info", "indeterminate", "not_available")
 
 #: What a :class:`TableColumn` holds: ``text`` (a label or a word, shown as
 #: stored), ``value`` (a number with a unit, formatted by the renderer through

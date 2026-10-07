@@ -31,6 +31,7 @@ __all__ = [
     "TextView",
     "equilibrium_table_fit_quality",
     "equilibrium_table_summary",
+    "equilibrium_table_validation",
     "equilibrium_text_summary",
     "format_quantity",
     "render_table",
@@ -42,7 +43,10 @@ __all__ = [
 DEFAULT_FORMAT = ".4g"
 
 #: How a status reads in the text forms.
-STATUS_LABELS = {"": "", "pass": "PASS", "warn": "WARN", "fail": "FAIL", "info": "INFO"}
+STATUS_LABELS = {
+    "": "", "pass": "PASS", "warn": "WARN", "fail": "FAIL", "info": "INFO",
+    "indeterminate": "INDETERMINATE", "not_available": "NOT_AVAILABLE",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -526,7 +530,42 @@ _SLICE_OPTIONAL = (
     optional_paths=_SLICE_OPTIONAL,
 )
 def equilibrium_table_summary(model: Table, *, show: bool = False) -> RenderedTable:
-    """The selected equilibrium slice's global quantities, tabulated."""
+    """The selected equilibrium slice's global quantities, tabulated.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the table as well as returning it.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    The global quantities of one reconstructed slice -- the slice
+    :func:`equilibrium_overview` draws -- as a Quantity / Value / Unit table
+    for reports and for comparing slices or shots number by number.  A quantity
+    the slice does not store but that can be derived from it is shown with a
+    note saying so; one that is neither is shown as not stored.
+
+    Options
+    -------
+    ``time=`` and ``time_slice=`` choose the slice exactly as for
+    :func:`equilibrium_overview`; ``units=`` sets the flux display unit.
+
+    Limitations
+    -----------
+    The numbers are reconstruction outputs without their uncertainties, and a
+    derived value is computed from the stored slice, not refitted.
+
+    See Also
+    --------
+    equilibrium_table_fit_quality : how well the same slice fits its constraints.
+    """
     return render_table(model, show=show)
 
 
@@ -550,7 +589,78 @@ def equilibrium_table_summary(model: Table, *, show: bool = False) -> RenderedTa
     ),
 )
 def equilibrium_table_fit_quality(model: Table, *, show: bool = False) -> RenderedTable:
-    """EFIT goodness of fit at one slice, by constraint family."""
+    """EFIT goodness of fit at one slice, by constraint family.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the table as well as returning it.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    For one EFIT slice and each constraint family -- the magnetic sensor arrays
+    and the scalar plasma-current and diamagnetic-flux constraints -- the table
+    states whether it was fitted, how many channels were enabled, disabled or
+    missing, its chi-square and share of the total, and the normalized
+    residuals z = (measured - reconstructed) * weight / k: their RMS, mean bias
+    and largest magnitude with the channel that has it.  The caption gives the
+    reduced chi-square over EFIT's own count of degrees of freedom.  It answers
+    which family dominates the fit, whether a family is systematically offset
+    (flagged when the bias exceeds two standard errors), and which channel to
+    inspect.
+
+    Options
+    -------
+    ``time_slice=`` selects the stored slice.
+
+    Limitations
+    -----------
+    Chi-square and z are measured in units of the uncertainties EFIT was given,
+    so they judge the fit against those uncertainties, not against the truth: a
+    small chi-square can mean generous uncertainties, and a family given small
+    uncertainties dominates the total whatever its information content.  A good
+    fit to external magnetics does not validate the internal profiles, which
+    those constraints determine only weakly.
+
+    See Also
+    --------
+    equilibrium_overview_fit_quality : the same metrics across slices, plotted.
+    equilibrium_table_summary : the global quantities of the slice.
+    """
+    return render_table(model, show=show)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="table",
+    quantity="validation",
+    model=Table,
+    description=(
+        "Every registered validation check's verdict at one equilibrium slice -- "
+        "verification, diagnostic fit, physical validity, independent validation: "
+        "the number each status was decided on, the registry criterion, the status "
+        "(NOT_AVAILABLE and INDETERMINATE kept as such) and its reason; the "
+        "aggregate status and the count per status in the caption."
+    ),
+    ids=("equilibrium", "magnetics", "core_profiles", "thomson_scattering"),
+    required_paths=_SLICE_REQUIRED,
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.profiles_1d.pressure",
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.chi_squared",
+        "magnetics.diamagnetic_flux.{j}.data",
+    ),
+)
+def equilibrium_table_validation(model: Table, *, show: bool = False) -> RenderedTable:
+    """The validation verdicts of one equilibrium slice, one row per registered check."""
     return render_table(model, show=show)
 
 
