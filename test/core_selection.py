@@ -180,7 +180,8 @@ CORE_MODULES: tuple[str, ...] = (
     # author ever opening docs/, which is exactly what develop should catch.
     # The committed diagram SVGs are checked against their TikZ source too,
     # and the generated import graph against Grimp, which stays optional (#1646),
-    # and the dependency/external-code registry against pyproject and install/ (#1648).
+    # the dependency/external-code registry against pyproject and install/ (#1648),
+    # and the generated ontology's identity contract (#1702).
     "test_dependency_graph.py",
     "test_diagram_render.py",
     "test_docs_api.py",
@@ -190,6 +191,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_docs_sources.py",
     "test_docs_thumbnails.py",
     "test_ecosystem_catalog.py",
+    "test_ontology_graph.py",
     "test_readme_consistency.py",
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
@@ -238,6 +240,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
+    "test_diagram_reduced_representations.py",
     "test_diagram_reduced_stability.py",
     "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
@@ -331,6 +334,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
     "test_formula_ordering.py",
+    # Reduced-representation taxonomy (#1626): the Reduction vocabulary, its
+    # parser, the catalog's exposure and filters, and the family metadata.
+    "test_formula_taxonomy.py",
     # Ballooning normalisations (#1637): the volume shear and alpha reduce exactly
     # to s-hat and the CHT alpha for circular large-aspect-ratio surfaces.
     "test_formula_ballooning_normalisation.py",

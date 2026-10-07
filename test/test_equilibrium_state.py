@@ -197,3 +197,142 @@ def test_operation_space_notebook_draws_the_pr08_population_with_declared_conven
     assert "fetch_pr08_population()" in code and "pr08_mhd_state_table(" in code
     assert 'attrs.get("conventions"' in code                  # one population only where both tables agree
     assert "projection_coverage(P)" in code
+
+
+def _stretched(x: np.ndarray, s: float) -> np.ndarray:
+    """The same extent and point count as ``x``, tanh-clustered towards both ends."""
+    u = np.linspace(-1.0, 1.0, x.size)
+    w = np.tanh(s * u) / np.tanh(s)
+    return x[0] + (w + 1.0) / 2.0 * (x[-1] - x[0])
+
+
+@pytest.mark.parametrize("stretch", [0.5, 1.0, 1.5])
+def test_bp2_volume_integral_does_not_assume_a_uniform_grid(vest_ods, stretch):
+    # The cell volume used the first spacing everywhere, so a DD-legal non-equispaced
+    # profiles_2d grid gave x0.675 / x0.235 / x0.052 of the integral and
+    # internal_inductance_li3 = 0.13 instead of 0.55 when the DD routine is withheld
+    # (cold review 0.8.0 delta-absorb-18 stability-opspace F4).
+    from scipy.interpolate import RectBivariateSpline
+
+    from vaft.omas.equilibrium_state import _bp2_volume_integral
+
+    k = 0
+    grid = f"equilibrium.time_slice.{k}.profiles_2d.0"
+    r = np.asarray(vest_ods[f"{grid}.grid.dim1"], dtype=float)
+    z = np.asarray(vest_ods[f"{grid}.grid.dim2"], dtype=float)
+    psi = np.asarray(vest_ods[f"{grid}.psi"], dtype=float)
+    assert np.ptp(np.diff(r)) < 1e-9 and np.ptp(np.diff(z)) < 1e-9   # the packaged sample is uniform
+    reference = _bp2_volume_integral(vest_ods, k)
+    atlas = _atlas_base()
+    assert atlas._bp2_volume_integral(vest_ods, k) == pytest.approx(reference, rel=1e-6)
+
+    work = copy.deepcopy(vest_ods)
+    rn, zn = _stretched(r, stretch), _stretched(z, stretch)
+    work[f"{grid}.grid.dim1"] = rn
+    work[f"{grid}.grid.dim2"] = zn
+    work[f"{grid}.psi"] = RectBivariateSpline(r, z, psi, kx=3, ky=3)(rn, zn)
+    assert (rn[1] - rn[0]) < 0.9 * (r[1] - r[0])   # the first cell really is narrower
+    for integral in (_bp2_volume_integral, atlas._bp2_volume_integral):
+        assert integral(work, k) == pytest.approx(reference, rel=0.02), integral.__module__
+
+
+def test_uniform_grid_integral_is_unchanged_by_the_per_cell_widths(vest_ods):
+    # On the uniform packaged grid np.gradient of the coordinates is the constant spacing,
+    # so the table numbers do not move (same finding, the "unchanged" half).
+    from vaft.omas.equilibrium_state import _bp2_volume_integral
+
+    k = 0
+    grid = f"equilibrium.time_slice.{k}.profiles_2d.0"
+    r = np.asarray(vest_ods[f"{grid}.grid.dim1"], dtype=float)
+    z = np.asarray(vest_ods[f"{grid}.grid.dim2"], dtype=float)
+    psi = np.asarray(vest_ods[f"{grid}.psi"], dtype=float)
+    from matplotlib.path import Path as _Path
+
+    from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+
+    ts = f"equilibrium.time_slice.{k}"
+    dpsi_dr, dpsi_dz = np.gradient(psi * ods_psi_to_wb_per_radian_factor(vest_ods), r, z, edge_order=2)
+    rr, zz = np.meshgrid(r, z, indexing="ij")
+    outline = np.c_[np.asarray(vest_ods[f"{ts}.boundary.outline.r"]), np.asarray(vest_ods[f"{ts}.boundary.outline.z"])]
+    inside = _Path(outline).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
+    uniform = float(np.sum((dpsi_dr**2 + dpsi_dz**2) / rr**2 * 2.0 * np.pi * rr * (r[1] - r[0]) * (z[1] - z[0]) * inside))
+    assert _bp2_volume_integral(vest_ods, k) == pytest.approx(uniform, rel=1e-6)
+
+
+def test_table_declares_the_b0_at_r_ref_convention_of_its_normalized_current(vest_ods):
+    # The field-normalized columns use b0 at the DD reference radius, the PR08 table B at
+    # the geometric radius; both tables now say so in attrs["conventions"]
+    # (cold review 0.8.0 delta-absorb-18 stability-opspace F2).
+    from vaft.omas.equilibrium_state import EQUILIBRIUM_STATE_CONVENTIONS
+
+    table = equilibrium_state_table([(vest_ods, {"machine": "VEST", "time_indices": [0, 3]})])
+    assert table.attrs["conventions"] == EQUILIBRIUM_STATE_CONVENTIONS
+    for column in ("normalized_current", "normalized_beta"):
+        assert "b0" in table.attrs["conventions"][column]["b_field_definition"]
+        assert "reference" in table.attrs["conventions"][column]["radius_reference"]
+    assert "geometric" in table.attrs["conventions"]["toroidal_field"]["radius_reference"]
+    row = table.iloc[0]
+    assert row["normalized_current"] == pytest.approx(row["plasma_current"] / (row["minor_radius"] * row["b0"]))
+
+
+def _registry_strings_in_outputs(path: Path) -> list:
+    """(cell index, boundary key, 'calibrated on (registry)' value) from every committed output table."""
+    import re
+
+    from vaft.formula import boundaries as B
+
+    keys = set(B.list_boundaries())
+    header = "calibrated on (registry)"
+    notebook = json.loads(path.read_text(encoding="utf-8"))
+    found = []
+    for index, cell in enumerate(notebook["cells"]):
+        if cell["cell_type"] != "code":
+            continue
+        texts = []
+        for output in cell.get("outputs", []):
+            texts.append("".join(output.get("text", [])))
+            texts.append("".join(output.get("data", {}).get("text/plain", [])))
+        for text in texts:
+            span = None
+            for line in text.splitlines():
+                if not line.strip():
+                    continue
+                if line[0].isspace():
+                    # a header line (the index column is blank); a wrapped frame starts a new block
+                    # with a new header. pandas right-aligns every column: the value ends where the
+                    # header ends and starts after the previous header ends.
+                    if header in line:
+                        start = line.index(header)
+                        before = list(re.finditer(r"\S+(?: \S+)*", line[:start]))
+                        span = (before[-1].end() if before else 0, start + len(header))
+                    else:
+                        span = None
+                    continue
+                token = line.split(None, 1)[0]
+                if span and token in keys:
+                    found.append((index, token, line[span[0]:span[1]].strip()))
+    return found
+
+
+def _quotes_the_registry(value: str, declared: str) -> bool:
+    declared = declared or "not stated"
+    return declared.startswith(value[:-3]) if value.endswith("...") else value == declared
+
+
+def test_notebook_outputs_quote_the_registry_as_shipped():
+    # #1778 declared the Freidberg kink limits and the ITER-1991 q95 guideline for
+    # conventional aspect ratio, which puts VEST (A = 1.43) OUTSIDE on their ST panels;
+    # the committed outputs of cells 27, 31, 35, 37 still showed the pre-#1778 strings and
+    # UNASSESSED (cold review 0.8.0 delta-absorb-18 stability-opspace F1).
+    from vaft.formula import boundaries as B
+
+    for key in ("freidberg_2008_kink_qstar", "freidberg_2008_kink_current"):
+        assert B.get_boundary(key).applicability.machine_class == \
+            "conventional-aspect-ratio tokamak, elongated elliptical cross-section"
+    for key in ("iter_1991_q95_estimate_min", "iter_1991_q95_current"):
+        assert B.get_boundary(key).applicability.machine_class == "conventional-aspect-ratio tokamak"
+    found = _registry_strings_in_outputs(NEW_NOTEBOOK)
+    stale = sorted({(cell, key, value) for cell, key, value in found
+                    if not _quotes_the_registry(value, B.get_boundary(key).applicability.machine_class)})
+    assert not stale, stale
+    assert {key for _cell, key, _value in found} >= {"troyon", "menard_2004_qstar_min"}   # the scan read real tables

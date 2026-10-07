@@ -129,7 +129,9 @@ def _bp2_volume_integral(ods, k: int) -> float:
     rr, zz = np.meshgrid(r, z, indexing="ij")
     outline = np.c_[np.asarray(ods[f"{ts}.boundary.outline.r"]), np.asarray(ods[f"{ts}.boundary.outline.z"])]
     inside = _Path(outline).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
-    dv = 2.0 * np.pi * rr * (r[1] - r[0]) * (z[1] - z[0])
+    # Per-cell widths: the DD allows a non-equispaced grid, and a stretched grid with
+    # the first spacing applied everywhere gave a fraction of the integral.
+    dv = 2.0 * np.pi * rr * np.gradient(r)[:, None] * np.gradient(z)[None, :]
     return float(np.sum((dpsi_dr**2 + dpsi_dz**2) / rr**2 * dv * inside))
 
 

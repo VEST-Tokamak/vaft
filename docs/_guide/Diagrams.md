@@ -346,6 +346,24 @@ vaft.diagram.timescale_hierarchy()
 | --- | --- |
 | `timescale_hierarchy` | Gyroperiods, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
 
+## Reduced representations
+
+How formulas compress plasma information, from fields to profiles to scalars and from dimensional to
+dimensionless quantities, is classified on
+[Reduced representations]({{ '/reference/reduced-representations/' | relative_url }}) (#1626). The figures
+are built from the formulas' `Reduction` docstring sections and the relation metadata in
+`vaft.formula._taxonomy`.
+
+```python
+vaft.diagram.reduced_representation_hierarchy()
+vaft.diagram.reduction_graph(family="current_q")   # "pressure_energy", "kinetic_profiles", "dimensionless_similarity"
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `reduced_representation_hierarchy` | Spatial reduction (field, profile, scalar) down, dimensionless normalisation across, so a dimensionless quantity can still be a profile. Each cell counts the catalogued formulas that land there |
+| `reduction_graph` | One family as a layered graph of quantities. A solid edge is a formula, and its catalogued reduction kind is shown as *via*. A dashed edge is a step VAFT performs elsewhere |
+
 ## Tokamak geometry and flux coordinates
 
 The parent geometry that the cylindrical and slab reductions start from. Surfaces are
@@ -1504,7 +1522,9 @@ notebook composes computation and matures reusable logic out of itself. Data and
 Process, Code and learned models, produce results and evidence. Validation interprets that evidence, and an
 optional use policy decides what a workflow does about it. The Actor contract is an optional overlay, off
 every edge. The graduation rule promotes matured logic by meaning. [Computational
-layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed view of the computation band.
+layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed view of the computation band, and
+[Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}) uses this figure as VAFT's
+normative architecture.
 
 Related issues: #1090 (the concept family), #1550 (the VEST workflow), #497 (placement of canonical visuals),
 #248, #252, #1505, #1626-#1629 (provenance, contracts and applicability), #1077, #1165, #1170, #1639,
