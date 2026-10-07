@@ -222,6 +222,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_mhd_waves.py",
     "test_diagram_mode_geometry.py",
     "test_diagram_nbi.py",
+    "test_diagram_orderings.py",
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
@@ -307,6 +308,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Sensitivity contract (lane AP, #1642): finite differences against the
     # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map. ~2 s.
     "test_sensitivity_contract.py",
+    # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
+    # Braginskii times, Knudsen, magnetization against the NRL formulary.
+    "test_formula_ordering.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

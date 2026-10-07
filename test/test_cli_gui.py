@@ -71,7 +71,7 @@ def test_the_first_workspace_is_checked_against_the_registry(monkeypatch, capsys
     assert gui_cli.main(["--workspace", "database", "--no-show"]) == 0
     assert calls[-1]["workspace"] == "database"
     assert gui_cli.main(["--workspace", "nope", "--no-show"]) == 2
-    assert "plots, database" in capsys.readouterr().err and len(calls) == 1
+    assert "plots, diagnostics, database" in capsys.readouterr().err and len(calls) == 1
 
 
 def test_sources_are_mutually_exclusive():
