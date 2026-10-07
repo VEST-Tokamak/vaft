@@ -62,6 +62,9 @@ sections:
       - id: geometric-approximations
         title: Geometric approximations
         url: /reference/geometric-approximations/
+      - id: asymptotic-orderings
+        title: Asymptotic orderings
+        url: /reference/asymptotic-orderings/
       - id: reduced-stability-diagnostics
         title: Reduced stability diagnostics
         url: /reference/reduced-stability-diagnostics/
