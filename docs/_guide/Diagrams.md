@@ -1014,7 +1014,7 @@ unless it is computed by a `vaft.formula.pwi` relation from inputs the caller su
 - `recycling_coefficient`;
 - `sputtering_threshold_bohdansky`, a named empirical fit that needs the surface binding energy.
 
-Projectile and target species go through `vaft.spectroscopy` and are drawn apart: projectile blue,
+Projectile and target species go through `vaft.data.atomic` and are drawn apart: projectile blue,
 target dark. Each diagram's model names the IMAS paths of the quantities it shows, under
 `wall.global_quantities.neutral[:]`: the recycling particle and energy coefficients, the fluxes from the
 plasma and from the wall, the wall inventory, and the per-incident-species sputtering coefficients.
@@ -1046,7 +1046,7 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 
 ## Spectroscopy and ionization
 
-Concept diagrams in the vocabulary of `vaft.spectroscopy`. `parse_emission_term` and `parse_line_label` are
+Concept diagrams in the vocabulary of `vaft.data.atomic` and `vaft.data.spectroscopy`. `parse_emission_term` and `parse_line_label` are
 the same parsers `emission=` uses in `vaft.plot`, so a term that selects a trace selects the same diagram.
 Metadata is progressive, and nothing is fabricated:
 - level 0 is the semantic identity (stage, charge, element);

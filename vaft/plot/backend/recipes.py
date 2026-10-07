@@ -65,9 +65,9 @@ from vaft.plot.models import (
 from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
 from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, UNCLASSIFIED, VALID
 from vaft.plot.registry import get_spec
-from vaft.spectroscopy import (
+from vaft.data.atomic import format_species
+from vaft.data.spectroscopy import (
     describe_available,
-    format_species,
     matches,
     parse_emission_term,
     parse_line_label,
