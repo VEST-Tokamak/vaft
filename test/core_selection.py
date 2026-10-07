@@ -210,6 +210,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_blob.py",
     "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
+    "test_diagram_current_diffusion.py",
     "test_diagram_cylindrical_modes.py",
     "test_diagram_disruption.py",
     "test_diagram_divertor_footprint.py",
