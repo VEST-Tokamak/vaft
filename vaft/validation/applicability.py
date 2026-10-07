@@ -170,7 +170,8 @@ class ApproximationContract:
     ``applies_to`` optionally restricts the contract to states whose named
     fields hold one of the listed values (e.g. ``{"phase": ("flat",)}``); a
     state outside it is ``NOT_APPLICABLE``, not ``OUTSIDE``, and a state that
-    does not carry the field at all is ``UNASSESSED``.
+    does not carry the field at all, or carries it as something other than
+    one scalar (a list, an array), is ``UNASSESSED``.
     """
 
     name: str
@@ -291,12 +292,32 @@ def _lookup(state: Any, key: str) -> Any:
     return getattr(state, key, None)
 
 
+def _is_scalar(value: Any) -> bool:
+    """One categorical value: a string, or anything without a length (a 0-d array counts)."""
+    if isinstance(value, (str, bytes)):
+        return True
+    try:
+        len(value)
+    except TypeError:
+        return True
+    return False
+
+
 def _applies(contract: ApproximationContract, state: Any) -> tuple[str, str]:
-    """``("", "")`` in scope, else the status the scope test decides and why."""
+    """``("", "")`` in scope, else the status the scope test decides and why.
+
+    A scope field is one categorical scalar.  A list or array in it (even of
+    one element) cannot be placed in or out of scope, so it is ``UNASSESSED``
+    with a reason -- never a silent ``NOT_APPLICABLE`` for a list, nor an
+    exception out of a population evaluation for an array.
+    """
     for key, allowed in contract.applies_to.items():
         value = _lookup(state, key)
         if _missing(value):
             return "UNASSESSED", f"{key} not provided, so the contract's scope {allowed} cannot be decided"
+        if not _is_scalar(value):
+            return "UNASSESSED", (f"{key}={value!r} is not one scalar value, so the contract's scope "
+                                  f"{allowed} cannot be decided")
         if value not in allowed:
             return "NOT_APPLICABLE", f"{key}={value!r} is outside the contract's scope {allowed}"
     return "", ""

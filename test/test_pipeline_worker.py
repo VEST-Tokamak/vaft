@@ -1187,6 +1187,48 @@ def test_a_full_disk_pauses_new_batches_and_resumes_when_space_returns(setup, tm
     assert [e["kind"] for e in worker.state.events()].count("disk_resumed") == 1
 
 
+def test_free_space_hovering_at_the_limit_pauses_once(setup, tmp_path, caplog):
+    """Without an explicit resume_free_gb the guard still has a margin.
+
+    Free space oscillating +-0.1 GB around min_free_gb (a cache prune loop
+    fighting new products) must not produce a pause/resume pair per cycle
+    (cold review 0.8.0 delta-absorb-17 F1).
+    """
+    source = FakeSource()
+    source.add(100)
+    config, make_worker, _ = setup
+    mapping = {
+        "state_db": "state/worker.sqlite", "log_dir": "logs", "workflow_dir": str(WORKFLOW),
+        "pipeline_config": str(config.pipeline_config), "first_shot": 100, "poll_interval": 60,
+        "quiet_seconds": 600, "cores": 2, "snakemake_cmd": "snakemake",
+    }
+    guarded = worker_config_from_mapping({**mapping, "min_free_gb": 200}, base_dir=tmp_path)
+    assert guarded.resume_free_gb == pytest.approx(210.0)
+    explicit = worker_config_from_mapping(
+        {**mapping, "min_free_gb": 200, "resume_free_gb": 200}, base_dir=tmp_path
+    )
+    assert explicit.resume_free_gb == 200.0  # an explicit value is kept as given
+    assert worker_config_from_mapping(mapping, base_dir=tmp_path).resume_free_gb is None
+
+    worker, runner = make_worker(source=source)
+    worker.config = guarded
+    free = {"gb": 199.9}
+    worker.disk_free = lambda path: int(free["gb"] * 1e9)
+    with caplog.at_level("WARNING", logger="vaft.database.worker.service"):
+        for cycle in range(10):
+            free["gb"] = 199.9 if cycle % 2 == 0 else 200.1
+            assert worker.run_cycle().disk_paused is not None
+    kinds = [e["kind"] for e in worker.state.events()]
+    assert kinds.count("disk_paused") == 1 and kinds.count("disk_resumed") == 0
+    assert sum("new-shot processing" in r.message for r in caplog.records) == 1
+    assert runner.plans == []
+
+    free["gb"] = 210.5
+    resumed = worker.run_cycle()
+    assert resumed.disk_paused is None and resumed.run_shots == [100]
+    assert [e["kind"] for e in worker.state.events()].count("disk_resumed") == 1
+
+
 def test_the_disk_guard_watches_the_filedb_logs_and_state(setup, tmp_path):
     config, make_worker, _ = setup
     worker, _ = make_worker(source=FakeSource())

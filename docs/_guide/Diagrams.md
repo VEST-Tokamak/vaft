@@ -91,7 +91,7 @@ rotation.metadata["driver"]      # name "time", unit "s", and every frame's time
   - A phase array combined with `time` is refused, because it is ambiguous.
   - So is a single phase with `animation=True`, which is a static diagram.
 - **Units and direction.** `rotation_frequency` is a frequency $f$ in Hz. The synthetic island of
-  #886 (`vaft.process.magnetic_island.IslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
+  #886 (`vaft.process.magnetic_island.MagneticIslandSpec`) takes the angular frequency $\omega = 2\pi f$ in
   rad/s. A positive $f$ moves the O-points towards $+\theta^*$ on a section. At fixed $\theta^*$, it
   moves them towards $-\phi$, which is clockwise seen from above.
 - **Physics, not pictures.** Every state is the static diagram at that phase, with the same O/X
@@ -158,6 +158,7 @@ The limit diagrams above ask whether a state crosses a boundary. A similarity sp
 
 The $\rho_*$ and $\nu_*$ axes follow the ITPA confinement-database convention, Verdoolaege et al., *Nucl. Fusion* 61 (2021) 076006, Eqs. (1a) and (1c), which Hillesheim et al. use. $n$ and $T$ are volume averages with $T_e = T_i$. The functions that evaluate them are `rho_star_from_M_T_B_R_epsilon`, `nu_star_from_n_T_B_R_epsilon_kappa_I` and `omega_i_tau_E_from_B_tau_E_M` in `vaft.formula.equilibrium`. VAFT has other $\nu_*$ and $\rho_*$ definitions (issue 353): Sauter's local $\nu_*$, pedestal $\nu^*_e$, edge and separatrix collisionalities. Each is a different quantity, so it cannot be drawn on these axes. A missing input leaves the state *unassessed*: it is counted per group, in a warning and in the legend, and is never estimated. Each projection carries its meaning as metadata:
 
+<!-- docs-snippet: skip fragment (placeholder name table, a dimensionless-similarity table, is never built on the page) -->
 ```python
 from vaft.diagram import _op_space
 from vaft.plot.dimensionless_space import dimensionless_similarity
@@ -722,7 +723,7 @@ vaft.diagram.rational_surface_topology(profile="reversed_shear", m=2, n=1)
 | Diagram | Concept |
 | --- | --- |
 | `current_profile_shapes` | $j(r) \to I(r) \to B_\theta(r) \to l_i$ at fixed $I_p$. Peaked, broad and hollow are shapes of the *current density*. $l_i$ is one number for the whole profile: a more centrally enclosed current tends to a larger $l_i$, but different profiles can share one $l_i$ |
-| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Not every hollow current reverses the shear |
+| `q_profile_topologies` | Peaked current gives a monotonic $q$, broad current a wide weak-shear core ($s \approx 0$), hollow current a reversed-shear $q$ with $s < 0$ inside $q_{\min}$. Every $q$ has $s \to 0$ on axis, so each column carries a narrow $s \approx 0$ band there; the width of the flat core is the discriminator. Not every hollow current reverses the shear |
 | `q_profile_landmarks` | $q_0$ on axis; $q_{\min}$, equal to $q_0$ only when $q$ is monotonic; $q_{95} = q(\psi_N = 0.95)$, which is not at $r/a = 0.95$; $q_a$, the boundary value of a cylinder or limited plasma. In a diverted equilibrium $q \to \infty$ at the separatrix, so $q_{95}$ is quoted. In the cylinder $q_a = q_\mathrm{cyl}$; in a shaped torus $q_{95}$ and the edge $q$ differ from $q_\mathrm{cyl}$ and $q^*$ |
 | `rational_surface_topology` | A monotonic $q$ crosses one $m/n$ once. A reversed-shear $q$ can cross it twice, $q(r_1) = q(r_2) = m/n$ with $r_1 < r_{\min} < r_2$: a *double-resonant configuration*. A double tearing mode is the instability in which tearing layers on the two surfaces couple, and only a stability calculation can say whether it grows |
 
@@ -733,6 +734,32 @@ family $j \propto (1 - x^2)^\nu$ and `cylindrical_rational_surfaces` the monoton
 *operating spaces*: one scalar $l_i$ against one scalar edge $q$, from the literature. They are not
 plots of a current profile. The data-side counterparts are `vaft.plot.equilibrium_profile_j_tor` and
 `equilibrium_profile_q` (#1505).
+
+## Current diffusion and current drive
+
+How the current-density and safety-factor profiles above form in time (#1605). Both diagrams evolve one
+reduced model: the enclosed current $I(\rho, t)$ of a straight cylinder under
+`cylindrical_current_diffusion_rate` (Faraday, Ampère and Ohm's law with a non-inductive source
+$j_\mathrm{ni}$), integrated implicitly. The resistivity is a fixed Spitzer
+$\eta(\rho)$ (`spitzer_resistivity_from_T_e_Z_eff_ln_Lambda`) on a hot-core, cold-edge $T_e(\rho)$, and
+time is in units of the core `resistive_diffusion_time` $\tau_R = \mu_0 a^2/\eta(0)$. The profiles are
+representative, not universal: there is no transport, bootstrap current or toroidal geometry.
+
+```python
+vaft.diagram.current_diffusion()
+vaft.diagram.current_drive_profiles(deposition="off_axis")   # or "on_axis"
+```
+
+![current diffusion]({{ '/assets/diagrams/current_diffusion.svg' | relative_url }})
+
+| | |
+| --- | --- |
+| ![current drive, off axis]({{ '/assets/diagrams/current_drive_profiles_off_axis.svg' | relative_url }}) | ![current drive, on axis]({{ '/assets/diagrams/current_drive_profiles_on_axis.svg' | relative_url }}) |
+
+| Diagram | Concept |
+| --- | --- |
+| `current_diffusion` | A fast ohmic ramp, $t_\mathrm{ramp} = 0.01\,\tau_R \ll \tau_R$ (the ordering of a fast ramp such as VEST's; the ratio is illustrative), leaves the current in an off-axis shell, depleted at the cold edge: hollow $j_\phi$, $q_{\min}$ off axis and $s < 0$ inside it. The current then penetrates and relaxes towards $j_\phi \propto 1/\eta$ with one $E_\phi$ across the radius. The relaxed profile is peaked only because the core is hotter; with a uniform $\eta$ (dashed) the same diffusion relaxes to a flat current |
+| `current_drive_profiles` | Ohmic, ECCD and NBCD rows: actuator, the source $j_\mathrm{drive}(\rho)$ it drives, the total $j_\phi(\rho, t)$ before, shortly after and long after switch-on, and $q(\rho, t)$. The driven source persists where it is deposited while the ohmic current around it readjusts resistively; the source itself does not diffuse. ECCD is narrow and modifies the local shear; NBCD is broad. NBI's pressure, rotation, fast-ion and bootstrap effects and counter-drive are not drawn |
 
 ## Field configurations, reconnection and MHD waves
 
@@ -1167,6 +1194,8 @@ the electron-cyclotron range. Warm-plasma effects, damping, ray tracing and full
 scope.
 
 ```python
+import math
+
 vaft.diagram.o_mode_cutoff()                                  # n_O^2 = P, cutoff at omega_pe
 vaft.diagram.x_mode_dispersion(omega_pe_over_omega_ce=1.2)    # L, R cutoffs; upper-hybrid resonance
 vaft.diagram.cma_diagram()                                    # P, R, L, S = 0 and Y = 1 in (X, Y)
@@ -2024,7 +2053,7 @@ References:
 
 Follow-up TODOs (implementation or IMAS mapping):
 
-- Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is in progress in Lane L / Lane Z (#1565, #1566, PR #1659) and is not on develop.
+- Atomic-model-constrained Z_eff(rho) (transient charge states projected through the resistive closure) is on develop as resolve_radial_composition(normalization='resistive_closure') (#1565, #1566, PR #1659); this diagram still draws the scalar resistive closure only.
 - Rotation, E_r and the ExB shear are not inferred: downstream codes receive gamma_E = 0 as an explicit assumption (#553).
 - Provenance is recorded per quantity where it exists (core_profiles origin=...; method=... records for composition, the T_i result's origin/method fields); there is no single runtime provenance object, by design (#1601 is documentation-first).
 

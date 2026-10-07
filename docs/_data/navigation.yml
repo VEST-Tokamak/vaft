@@ -23,6 +23,9 @@ sections:
       - id: mhd-stability
         title: MHD stability
         url: /workflows/mhd-stability/
+      - id: fluctuation-coherence
+        title: Cross-diagnostic fluctuation coherence
+        url: /workflows/fluctuation-coherence/
       - id: operations-statistical-analysis
         title: Operations and statistical analysis
         url: /workflows/operations-statistical-analysis/
@@ -53,6 +56,12 @@ sections:
       - id: pipeline-graph
         title: Pipeline lineage explorer
         url: /reference/pipeline-graph/
+      - id: software-dependencies
+        title: Software dependencies
+        url: /reference/software-dependencies/
+      - id: external-codes
+        title: External scientific codes
+        url: /reference/external-codes/
       - id: mcp
         title: MCP server for agents
         url: /reference/mcp/

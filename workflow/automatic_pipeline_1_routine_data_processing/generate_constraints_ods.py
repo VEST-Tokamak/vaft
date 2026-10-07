@@ -26,7 +26,7 @@ from vaft.database.composition import EddyNoOutputError, compose_stage_products
 from vaft.machine_mapping.utils import PlasmaTimingPolicy, resolve_plasma_timing_policy
 from vaft.omas.plasma_timing import plasma_timing
 from vaft.omas.vest_upstream import machine_era_for_shot
-from vaft.validation.imas import is_condemned_channel, resolve_signal_time
+from vaft.validation.imas import is_condemned_channel, resolve_signal_time, resolve_signal_waveform
 from vaft.validation.validity import VALIDITY_SUSPECT
 
 
@@ -290,7 +290,17 @@ def _drop_vacuum_times(
     return np.asarray(keep, dtype=float), dropped
 
 
-def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
+def _box_averaged(clock: np.ndarray, data: np.ndarray, half_width: float) -> np.ndarray:
+    """`box_average` at every sample: the current each constraint instant would see there."""
+    lo = np.searchsorted(clock, clock - half_width, side="left")
+    hi = np.searchsorted(clock, clock + half_width, side="right")
+    total = np.concatenate(([0.0], np.cumsum(data)))
+    return (total[hi] - total[lo]) / np.maximum(hi - lo, 1)
+
+
+def _efit_not_applicable(
+    ods, error: NoPlasmaCurrentError, *, average_window: float = 0.0005
+) -> str | None:
     """Why EFIT does not apply to this shot, or ``None`` when the cut is a fault (#205).
 
     The plasma current decides: a shot whose current stays below ``CUTIP``
@@ -302,6 +312,16 @@ def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
     reach ``CUTIP`` somewhere in the window but no selected instant does, the
     constraint window missed the discharge, and that stays an error.
 
+    "Reaches ``CUTIP``" is judged on the current a constraint would see: box
+    averaged over ``average_window`` like :func:`_drop_vacuum_times` does,
+    and in the discharge direction -- the sign of the pulse the plasma timing
+    accepted (``|Ip|`` when it accepted none).  Raw samples are not the
+    measure: on the class shots 48886-48937 (#1731) single-sample ringing
+    reads 41 kA where every millisecond averages below 9 kA, and a PF pickup
+    swing of -12 to -22 kA ahead of a +5 kA pulse is current in the wrong
+    direction, not a discharge the window missed -- when H-alpha is dark.
+    Under a lit window an opposite-sign current at ``CUTIP`` stays a fault.
+
     A current that is low because the sensor is dead is not a vacuum shot
     either: the diagnostics stage condemns such a plasma-current Rogowski in
     ``magnetics.rogowski_coil.0.current.validity`` (its whole-record verdict,
@@ -311,22 +331,26 @@ def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
     The class from :func:`vaft.omas.shot_class.shot_class` -- what the
     new-shot worker records -- is quoted in the reason but its label does not
     decide: on vestserver 48927 (peak 3.3 kA, H-alpha dark) its pulse detector
-    reads the pickup as a ``Plasma`` pulse.  The light does veto: when H-alpha
-    saw a window, a current that never reached ``CUTIP`` may be a dead Ip
-    channel under a real discharge, and that must stay a visible failure.
+    reads the pickup as a ``Plasma`` pulse.  The light does veto, when the
+    current shows no pulse: H-alpha saw a window that a current never
+    reaching ``CUTIP`` does not show, which may be a dead Ip channel under a
+    real discharge, and that must stay a visible failure.  When the timing
+    found a current pulse under the light, the channel is alive and the
+    discharge is simply too small (48913/48924: 2.4-2.8 kA, lit).
     """
-    try:
-        current = np.asarray(ods["magnetics.ip.0.data"], dtype=float).reshape(-1)
-    except Exception:
+    waveform = resolve_signal_waveform(ods, "magnetics.ip.0")  # node time, else magnetics.time
+    if waveform is None:
         return None
+    clock, current = waveform
     if is_condemned_channel(ods, "magnetics.rogowski_coil.0.current", min_validity=VALIDITY_SUSPECT):
         return None
-    current = current[np.isfinite(current)]
-    if current.size == 0:
+    finite = np.isfinite(current) & np.isfinite(clock)
+    if not finite.any():
         return None
-    peak = float(np.max(np.abs(current)))
-    if peak >= error.threshold:
-        return None
+    current, clock = current[finite], clock[finite]
+    averaged = _box_averaged(clock, current, float(average_window))
+
+    verdict = None
     try:
         from vaft.omas.shot_class import shot_class
 
@@ -334,13 +358,33 @@ def _efit_not_applicable(ods, error: NoPlasmaCurrentError) -> str | None:
     except Exception as exc:  # the class is a note here, never the reason to fail
         label = f"shot_class unavailable ({type(exc).__name__}: {exc})"
     else:
-        if verdict.optical_window:
-            return None
         label = f"shot_class {verdict.label} ({verdict.reason}" + (
             f"; flags {', '.join(verdict.flags)})" if verdict.flags else ")"
         )
+    pulse = verdict.timing.ip if verdict is not None else None
+    pulse_found = pulse is not None and pulse.found
+    direction = None
+    if pulse_found and pulse.start is not None and pulse.end is not None:
+        inside = (clock >= pulse.start) & (clock <= pulse.end)
+        if inside.any():
+            strongest = averaged[inside][np.argmax(np.abs(averaged[inside]))]
+            direction = float(np.sign(strongest)) or None
+    peak = float(np.max(direction * averaged)) if direction else float(np.max(np.abs(averaged)))
+    if peak >= error.threshold:
+        return None
+    # The timing's pulse detector accepts only positive pulses, so the
+    # direction above can be a small pickup pulse ahead of a large current of
+    # the other sign.  That current is dismissed as pickup only in the dark
+    # (48932-48937); under a lit window it may be the discharge, so fail.
+    if direction and verdict is not None and verdict.optical_window:
+        if float(np.max(-direction * averaged)) >= error.threshold:
+            return None
+    if verdict is not None and verdict.optical_window and not pulse_found:
+        return None
+    measure = "in the discharge direction" if direction else "either sign"
     return (
-        f"peak |Ip| {peak / 1e3:.1f} kA over the diagnostics window, below CUTIP {error.threshold:g} A "
+        f"peak |Ip| {max(peak, 0.0) / 1e3:.1f} kA over the diagnostics window "
+        f"({measure}, box-averaged over \u00b1{average_window * 1e3:g} ms), below CUTIP {error.threshold:g} A "
         f"(all {error.count} constraint instants below it); {label}"
     )
 
@@ -452,7 +496,7 @@ def main() -> int:
     try:
         times, vacuum = _drop_vacuum_times(ods, times, average_window=args.average_window)
     except NoPlasmaCurrentError as error:
-        reason = _efit_not_applicable(ods, error)
+        reason = _efit_not_applicable(ods, error, average_window=args.average_window)
         if reason is None:
             raise
         # A result, not a failure: the k-file and EFIT steps pass it on as

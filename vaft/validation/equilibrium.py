@@ -563,13 +563,18 @@ def validate_magnetic_fit(equilibrium: Any, *, time_slice: int) -> dict[str, dic
     for name in ("ip", "diamagnetic_flux"):
         scalar = metrics["scalars"].get(name)
         if not scalar:
-            results[name] = _unavailable(f"no reconstructed {name} constraint on this slice")
+            results[name] = _unavailable(f"no reconstructed {name} constraint on this slice", fit_role="absent")
             continue
         measured, reconstructed = _float(scalar.get("measured")), _float(scalar.get("reconstructed"))
         z = _float(scalar.get("z"))
+        # The fit decision is the constraint's weight (kfile.py writes 0.0 when the
+        # flux is not fitted; sigma_from_weight = 1/weight is finite only then).  It
+        # is recorded apart from the grade, which also flips with the uncertainty model.
+        sigma_from_weight = _float(scalar.get("sigma_from_weight"))
         results[name] = _graded_or_unavailable(
             f"diagnostic_fit.{name}",
             z,
+            fit_role="fitted" if math.isfinite(sigma_from_weight) and sigma_from_weight > 0 else "prescribed",
             measured=measured,
             reconstructed=reconstructed,
             residual=measured - reconstructed,

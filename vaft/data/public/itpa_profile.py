@@ -256,7 +256,9 @@ def _typed(value: str):
         number = float(value)
     except ValueError:
         return value
-    if np.isclose(number, _REAL_MISSING, rtol=0.0, atol=1e-12) or number == _INT_MISSING:
+    # the release also writes the marker with its sign flipped (+9.999E-09: JET and TFTR BEPDIA,
+    # TFTR DELTA), which would otherwise pass as a value of 1e-8 (#1736)
+    if np.isclose(abs(number), -_REAL_MISSING, rtol=0.0, atol=1e-12) or number == _INT_MISSING:
         return np.nan
     return number
 
@@ -298,7 +300,17 @@ def read_pr08_0d(path: str | os.PathLike[str]) -> pd.DataFrame:
 
     split = next((i for i, line in enumerate(lines) if is_value_line(line)), len(lines))
     names = [token for line in lines[:split] for token in fields(line) if token]
-    values = [token for line in lines[split:] for token in fields(line)]
+    # A file of several records repeats the names block before each one (T-10, TEXTOR,
+    # JT-60U, Tore Supra); read as values it became a row of names (#1736).
+    header = [line.strip() for line in lines[:split]]
+    body, i = [], split
+    while i < len(lines):
+        if header and [line.strip() for line in lines[i:i + len(header)]] == header:
+            i += len(header)
+            continue
+        body.append(lines[i])
+        i += 1
+    values = [token for line in body for token in fields(line)]
     if not names or len(values) % len(names):
         raise ValueError(f"{path}: {len(names)} names but {len(values)} values")
     records = [
