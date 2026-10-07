@@ -12,7 +12,7 @@
 ``spectroscopy_spectrum``
     a set of declared lines on a wavelength axis.
 
-The vocabulary is :mod:`vaft.spectroscopy` (``parse_emission_term``,
+The vocabulary is :mod:`vaft.data.atomic` / :mod:`vaft.data.spectroscopy` (``parse_emission_term``,
 ``parse_line_label``, ``Species``, ``LineIdentity``) -- the same parser
 ``emission=`` uses in :mod:`vaft.plot`, so a term that selects a trace
 selects the same diagram. Metadata enrichment is progressive: level 0 is the
@@ -32,16 +32,10 @@ from typing import List, Optional, Sequence
 import numpy as np
 
 from vaft.formula.atomic import hydrogenic_energy_level, hydrogenic_transition_wavelength
-from vaft.spectroscopy import (
-    ATOMIC_NUMBERS,
-    SERIES_NAMES,
-    LineIdentity,
-    Species,
-    charge_state_of,
-    format_species,
-    parse_emission_term,
-    parse_line_label,
-)
+from vaft.data.atomic import ATOMIC_NUMBERS, charge_state_of, format_species
+from vaft.data.atomic import AtomicSpecies as Species
+from vaft.data.spectroscopy import SERIES_NAMES, parse_emission_term, parse_line_label
+from vaft.data.spectroscopy import SpectralLineIdentity as LineIdentity
 
 from ._concept import box, connector
 from ._equations import formula_equation
@@ -78,12 +72,12 @@ def identity(term) -> LineIdentity:
     # the emission-term parser first (it keeps the isotope: "H-alpha" is protium), the IMAS label parser second
     found = parse_emission_term(term) or parse_line_label(term)
     if found is None:
-        raise ValueError(f"{term!r} names no species or line vaft.spectroscopy recognises")
+        raise ValueError(f"{term!r} names no species or line vaft.data.spectroscopy recognises")
     return found
 
 
 def _stage_text(element: str, stage: int) -> str:
-    name = format_species(Species(element, None, stage))  # vaft.spectroscopy's own notation
+    name = format_species(Species(element, None, stage))  # vaft.data.atomic's own notation
     q = charge_state_of(stage)
     return f"{name}\\\\ $\\mathrm{{{element}}}^{{{q}+}}$" if q else f"{name}\\\\ neutral"
 
@@ -91,7 +85,7 @@ def _stage_text(element: str, stage: int) -> str:
 def spectroscopy_ionization_stages(term="C III", *, labels: bool = True) -> Diagram:
     r"""All ionization stages of an element, the one a term names highlighted.
 
-    ``term`` is anything :mod:`vaft.spectroscopy` parses -- ``"C III"``,
+    ``term`` is anything :mod:`vaft.data.spectroscopy` parses -- ``"C III"``,
     ``"C2+"``, ``"carbon"``, ``"CIII_1909"``. Stage $s$ is charge $s - 1$
     (C III is C$^{2+}$); hydrogen isotopes are hydrogen with a mass number,
     not elements of their own. Arrows: ionization to the right, recombination
@@ -137,7 +131,7 @@ def spectroscopy_ionization_stages(term="C III", *, labels: bool = True) -> Diag
         items += [
             Label((1.3 + 1.45 * (len(stages) - 1), 1.1), f"{name}: ionization stages (upper arrows: ionization, "
                   "lower: recombination)", "label", anchor="south", role="title"),
-            _note(f"Stage $s$ = charge $s - 1$; highlighted: {term!s} as parsed by vaft.spectroscopy. Semantic "
+            _note(f"Stage $s$ = charge $s - 1$; highlighted: {term!s} as parsed by vaft.data.spectroscopy. Semantic "
                   "only: no atomic data used", 1.3 + 1.45 * (len(stages) - 1), -1.1),
         ]
     return Diagram("spectroscopy_ionization_stages", Scene(tuple(items)),
