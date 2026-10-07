@@ -115,14 +115,53 @@ def test_diagnostic_identity_is_the_registrys_declared_subject(snapshot):
     assert plain and all(f"diagnostic:{rid}" in nodes for rid in plain)
 
 
-def test_an_alias_that_names_another_node_is_dropped_and_audited(snapshot):
+def test_an_alias_that_shares_a_bare_name_with_another_namespace_is_kept(snapshot):
+    # cold review 0.8.0 delta-absorb-19-docs F2: ids are namespaced, so `tf` being both an alias
+    # of machine:tf_coil and the name of ids:tf is no ambiguity -- the alias resolves to one subject.
+    # (This replaces the test that pinned dropping these aliases as "also naming another node".)
     nodes = _nodes(snapshot)
-    assert "nubeam" not in nodes["machine:nbi"]["facets"].get("aliases", [])
-    assert any(row["term"] == "nubeam" and "code:nubeam" in row["contexts"][0] for row in snapshot["unresolved"])
-    names = {node["id"].split(":", 1)[1] for node in snapshot["nodes"]}
-    for node in snapshot["nodes"]:
-        for alias in node["facets"].get("aliases", []):
-            assert alias not in names
+    expected = {
+        "coils_non_axisymmetric": "machine:coil_3d", "gyrokinetics_local": "concept:gyrokinetics",
+        "nubeam": "machine:nbi", "pf_active": "machine:pf_coil", "pf_passive": "machine:passive_structure",
+        "tf": "machine:tf_coil", "vacuum_field": "concept:vacuum",
+    }
+    unresolved = {row["term"] for row in snapshot["unresolved"]}
+    for alias, node_id in expected.items():
+        assert ontology.resolve_term(alias) == node_id
+        assert alias in nodes[node_id]["facets"]["aliases"], alias
+        assert alias not in unresolved, alias
+    assert not [row for row in snapshot["unresolved"] if row["origin"] == "vaft.plot.taxonomy"]
+
+
+def test_an_alias_that_identifies_two_subjects_is_dropped_and_audited():
+    graph = ontology._Graph()
+    origin = "test"
+    graph.node("machine:a", "machine", "a", origin, aliases=["shared", "ip", "only_a"])
+    graph.node("machine:b", "machine", "b", origin, aliases=["shared"])
+    graph.node("ids:only_a", "ids", "only_a", origin)
+    ontology._ambiguous_aliases(graph)
+    # claimed by two nodes: dropped from both ...
+    assert graph.nodes["machine:a"]["facets"]["aliases"] == ["only_a"]
+    assert graph.nodes["machine:b"]["facets"]["aliases"] == []
+    # ... resolving to a different concept than the node listing it: dropped ...
+    audited = {(row["term"], context) for row in graph.unresolved.values() for context in row["contexts"]}
+    assert ("shared", "alias of machine:a also identifies machine:b") in audited
+    assert ("shared", "alias of machine:b also identifies machine:a") in audited
+    assert ("ip", "alias of machine:a also identifies concept:plasma_current") in audited
+    # ... and a bare-name collision with another namespace is not an ambiguity
+    assert "only_a" not in {term for term, _ in audited}
+
+
+def test_the_generator_rejects_a_registry_subject_outside_the_vocabulary(monkeypatch):
+    # cold review 0.8.0 delta-absorb-19-docs F3: the vocabulary check moved out of the registry
+    # loader (machine_mapping never imports vaft.plot); the generator must still enforce it.
+    from vaft.machine_mapping import registry as registry_module
+
+    records = registry_module.load_diagnostic_registry()
+    records["pf_active"] = {**records["pf_active"], "subject": "not_a_subject"}
+    monkeypatch.setattr(registry_module, "load_diagnostic_registry", lambda path=None: records)
+    with pytest.raises(registry_module.DiagnosticRegistryError, match="not a vaft.plot.taxonomy subject"):
+        ontology._diagnostics(ontology._Graph())
 
 
 def test_plot_quantities_are_quantities_not_overview_subjects(snapshot):

@@ -38,7 +38,10 @@ fact and says which (*From* in the detail panel):
 **Identity is strict.** `ip` and `I_p` are registered aliases of `plasma_current` and resolve to
 it; `beta_n`, `beta_p` and `beta_t` are three concepts in one family, not synonyms. A term that
 no registry resolves is never turned into a new concept by guessing: it is listed below as
-unresolved, with where it came from, so a gap in the vocabulary is visible. A concept is linked to
+unresolved, with where it came from, so a gap in the vocabulary is visible. Ids are namespaced, so
+an alias may share its bare spelling with a node of another kind (`tf` is an alias of the toroidal
+field coil and the name of the `tf` IDS) and still resolve to exactly one subject; only an alias
+that identifies two different subjects is dropped and listed as unresolved. A concept is linked to
 a Data Dictionary path (*represented by*) only where that is unambiguous: a plot of that single
 quantity that reads exactly one quantity path.
 
@@ -63,8 +66,9 @@ the <a href="{{ site.baseurl }}/reference/vest-diagnostics/">VEST diagnostics</a
 
 ## Unresolved terms
 
-{% if o.unresolved.size > 0 %}These terms appear in a registry but resolve to no concept of the vocabulary. They are kept
-here, not merged by similarity, until the vocabulary or the registry is changed on purpose.
+{% if o.unresolved.size > 0 %}These terms appear in a registry but resolve to no single concept of the vocabulary: nothing
+defines them, or an alias identifies two different subjects. They are kept here, not merged by
+similarity, until the vocabulary or the registry is changed on purpose.
 
 <details><summary>{{ o.unresolved | size }} unresolved terms</summary>
 
