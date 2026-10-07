@@ -11000,9 +11000,16 @@ def mode_overlay_reads(name: str) -> tuple[str, ...]:
     """The DD inputs ``mode_overlay=`` of plot ``name`` reads beyond the spectrogram's own.
 
     The equilibrium that places ``|q| = m/n`` (q, psi and its range, the
-    toroidal coordinate, the outboard radius a velocity is divided by) and the
-    core-profile rotation, by preference ``rotation_frequency_tor`` then
-    ``velocity.toroidal`` (``velocity_tor`` in older files), on either flux grid.
+    toroidal coordinate, the outboard radius a velocity is divided by -- or,
+    on a slice that stores no ``r_outboard``, the 2-D flux map, boundary
+    outline and magnetic axis it is derived from) and the core-profile
+    rotation, by preference ``rotation_frequency_tor`` then
+    ``velocity.toroidal`` (``velocity_tor`` in older files), on either flux
+    grid, with the profile's ``grid.psi`` that tells a genuine ``rho_tor_norm``
+    from the ``sqrt(psi_N)`` proxy.
+
+    ``test/test_plot_recipe_reads.py`` records what the overlay actually reads
+    and fails on a read missing here.
     """
     if name not in MODE_OVERLAY_PLOTS:
         return ()
@@ -11013,8 +11020,11 @@ def mode_overlay_reads(name: str) -> tuple[str, ...]:
         f"{eq}.profiles_1d.q", f"{eq}.profiles_1d.psi", f"{eq}.profiles_1d.rho_tor_norm",
         f"{eq}.profiles_1d.r_outboard",
         f"{eq}.global_quantities.psi_axis", f"{eq}.global_quantities.psi_boundary",
+        f"{eq}.profiles_2d.{{j}}.grid.dim1", f"{eq}.profiles_2d.{{j}}.grid.dim2",
+        f"{eq}.profiles_2d.{{j}}.psi", f"{eq}.boundary.outline.r",
+        f"{eq}.global_quantities.magnetic_axis.r", f"{eq}.global_quantities.magnetic_axis.z",
         f"{cp}.time", "core_profiles.time",
-        f"{cp}.grid.rho_tor_norm", f"{cp}.grid.rho_pol_norm",
+        f"{cp}.grid.rho_tor_norm", f"{cp}.grid.rho_pol_norm", f"{cp}.grid.psi",
         f"{cp}.ion.{{j}}.rotation_frequency_tor", f"{cp}.ion.{{j}}.velocity.toroidal",
         f"{cp}.ion.{{j}}.velocity_tor",
     )
