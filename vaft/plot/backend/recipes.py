@@ -13215,6 +13215,8 @@ RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
 #: read off the number: a stable DCON mode and a weakly driven GPEC mode are
 #: both small and positive.
 _DRIVE_ENERGY_SOLVERS = frozenset({"gpec"})
+#: PEST3 matching codes: their mhd_linear blocks hold no eigenfunction or energy.
+_MATCHING_SOLVERS = frozenset({"rdcon", "stride"})
 
 
 def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
@@ -13226,7 +13228,9 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
     document.  A block with no ``time_slice`` attribute (DCON fragments before
     version 2, #940) is keyed on ``None`` and matches any slice; since version 2
     DCON blocks carry ``time_slice`` too, so for a cell both DCON and GPEC wrote
-    the later block in document order names the solver.
+    the later block in document order names the solver.  RDCON and STRIDE blocks
+    (version 2, #939) carry ``time_slice`` as well but write neither the
+    eigenfunction nor ``energy_perturbed``, so they never name a cell.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
     found: dict[tuple[int | None, int], str] = {}
@@ -13237,11 +13241,14 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
                 n_tor = int(named["n_tor"])
             except (KeyError, ValueError):
                 continue
+            name = str(named.get("name", "")).lower()
+            if name in _MATCHING_SOLVERS:
+                continue
             slice_index = (
                 int(named["time_slice"]) if named.get("time_slice", "").strip().isdigit()
                 else None
             )
-            found[(slice_index, n_tor)] = str(named.get("name", "")).lower()
+            found[(slice_index, n_tor)] = name
         return found
 
     def _children(node: Any, tag: str) -> list[Any]:
@@ -13257,10 +13264,13 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
             n_tor = int(_scalar(solver["@n_tor"]))
         except (TypeError, ValueError):
             continue
+        name = str(_scalar(solver.get("@name", ""))).lower()
+        if name in _MATCHING_SOLVERS:
+            continue
         slice_index = (
             int(_scalar(solver["@time_slice"])) if "@time_slice" in solver else None
         )
-        found[(slice_index, n_tor)] = str(_scalar(solver.get("@name", ""))).lower()
+        found[(slice_index, n_tor)] = name
     return found
 
 

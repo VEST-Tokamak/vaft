@@ -70,13 +70,21 @@ NTMS_FRAGMENT_VERSION = 2
 #: treatment with DCON's edge scan, and the D_I/D_R/C_A profiles.
 DCON_FRAGMENT_VERSION = 2
 
+#: Version of the RDCON/STRIDE ``<solver>`` fragment in ``mhd_linear.code.parameters``.
+#: 2 added ``time_slice``/``position``, the solver's radial local-stability
+#: profiles (``psi_n, q, di, dr, h, ca1``) and the full complex Delta-prime
+#: matrix (#939), so the ODS alone carries what RDCON analysis reads.
+RESISTIVE_FRAGMENT_VERSION = 2
+
 __all__ = [
     "DCON_FRAGMENT_VERSION",
     "MAX_RADIAL_POINTS",
     "NTMS_FRAGMENT_VERSION",
+    "RESISTIVE_FRAGMENT_VERSION",
     "claim_ids",
     "ensure_toroidal_mode_grid",
     "extract_dcon_stability",
+    "extract_rdcon_stability",
     "initialize_output_flags",
     "mhd_linear",
     "ntms_solver_surfaces",
@@ -168,6 +176,11 @@ def ntms_solver_surfaces(ods: ODS) -> list[dict[str, Any]]:
     range, or that is otherwise malformed, is skipped with a warning. The ODS
     is not modified.
     """
+    return [row for _, rows in _ntms_solver_fragments(ods) for row in rows]
+
+
+def _ntms_solver_fragments(ods: ODS) -> list[tuple[tuple[int, str, int], list[dict[str, Any]]]]:
+    """The version-2 ntms fragments in document order, each as ``((slice, solver, n), rows)``."""
     import xml.etree.ElementTree as ET
 
     if not path_exists(ods, "ntms.code.parameters"):
@@ -178,7 +191,7 @@ def ntms_solver_surfaces(ods: ODS) -> list[dict[str, Any]]:
     except ET.ParseError as exc:
         warnings.warn(f"ntms.code.parameters is not XML ({exc}); no solver attribution", RuntimeWarning, stacklevel=2)
         return []
-    rows: list[dict[str, Any]] = []
+    fragments: list[tuple[tuple[int, str, int], list[dict[str, Any]]]] = []
     for solver in root.iter("solver"):
         if int(solver.get("version", "1")) < 2:
             continue
@@ -200,9 +213,10 @@ def ntms_solver_surfaces(ods: ODS) -> list[dict[str, Any]]:
                 stacklevel=2,
             )
             continue
-        for entry in entries:
-            rows.append({"solver": solver.get("name"), "n_tor": n_tor, "time_slice": time_slice, **entry})
-    return rows
+        name = solver.get("name")
+        rows = [{"solver": name, "n_tor": n_tor, "time_slice": time_slice, **entry} for entry in entries]
+        fragments.append(((time_slice, name, n_tor), rows))
+    return fragments
 
 
 def ensure_toroidal_mode_grid(ods: ODS, time_slice: int, n_tor_grid: Sequence[int]) -> None:
@@ -720,10 +734,12 @@ def _write_resistive_entry(
     mode_entry["ballooning_type"]["name"] = "Tearing"
 
     fragment = (
-        f'<solver name="{escape(result.solver)}" n_tor="{result.n_tor}">'
+        f'<solver name="{escape(result.solver)}" n_tor="{result.n_tor}" version="{RESISTIVE_FRAGMENT_VERSION}"'
+        f' time_slice="{time_slice}" position="{position}">'
         f"<mlow>{result.mlow}</mlow><mhigh>{result.mhigh}</mhigh>"
         f"<mpert>{result.mpert}</mpert><mband>{result.mband}</mband>"
         f"<msing>{result.msing}</msing>"
+        f"{_resistive_native_xml(result)}"
         "</solver>"
     )
     _append_code_parameters(ods, "mhd_linear", fragment, code_name="GPEC-suite")
@@ -781,6 +797,138 @@ def _write_resistive_entry(
     )
     _append_code_parameters(ods, "ntms", ntms_fragment, code_name="GPEC-suite")
     _set_output_flag(ods, "ntms", time_slice, 0)
+
+
+def _resistive_native_xml(result: Pest3MatchingOutput) -> str:
+    """RDCON/STRIDE values with no IMAS slot (#939), as XML elements.
+
+    The radial profiles are the solver's own grid at full resolution (mpsi + 1
+    points, about 25 kB per (time slice, n) at mpsi 256). Of the PEST3
+    matrices only Delta-prime is carried, row-major and complex: it is the one
+    the analysis reads (its diagonal is ``ntms.deltaw[0]``, its off-diagonal
+    terms couple surfaces). A', B', Gamma' and the Galerkin Delta are the
+    intermediate matching matrices it is built from and stay in the native
+    :class:`~vaft.code.gpec.Pest3MatchingOutput`, which remains the authority
+    for an exact round trip.
+    """
+    # Read defensively: a result that carries no profiles or matrix (a caller's
+    # minimal stand-in, an older container) writes the fragment without them.
+    parts = []
+    psi_n = getattr(result, "psi_n", None)
+    if psi_n is not None:
+        attrs = [f'psi_n="{_xml_numbers(psi_n)}"']
+        for name in ("q", "di", "dr", "h", "ca1"):
+            values = getattr(result, name, None)
+            if values is not None and np.asarray(values).shape == np.asarray(psi_n).shape:
+                attrs.append(f'{name}="{_xml_numbers(values)}"')
+        parts.append("<local_profiles " + " ".join(attrs) + "/>")
+    delta_prime = getattr(result, "Delta_prime", None)
+    matrix = None if delta_prime is None else np.asarray(delta_prime)
+    if matrix is not None and matrix.ndim == 2 and matrix.shape[0] == matrix.shape[1]:
+        parts.append(
+            f'<delta_prime_matrix size="{matrix.shape[0]}" real="{_xml_numbers(matrix.real.ravel())}"'
+            f' imag="{_xml_numbers(matrix.imag.ravel())}"/>'
+        )
+    return "".join(parts)
+
+
+def extract_rdcon_stability(ods: ODS) -> list[dict[str, Any]]:
+    """RDCON/STRIDE stability results from the ODS, one dict per (time slice, solver, n_tor).
+
+    Reads the version-2 resistive fragments :func:`mhd_linear` writes into
+    ``mhd_linear.code.parameters`` and joins them with the rational surfaces of
+    :func:`ntms_solver_surfaces` and their classical Delta-prime from
+    ``ntms.time_slice[t].mode[i].deltaw[0].value``, returning:
+
+    * ``solver`` (``"rdcon"``/``"stride"``), ``n_tor``, ``time_slice``,
+      ``position``, ``msing``;
+    * ``psi_n``, ``q``, ``D_I``, ``D_R``, ``H``, ``C_A``: the solver's radial
+      local-stability profiles (``H`` is RDCON-only; ``None`` where absent);
+    * ``delta_prime_matrix``: the full complex ``(msing, msing)`` matrix;
+    * ``surfaces``: one dict per rational surface, ``m``, ``psi_n``, ``q``,
+      ``delta_prime`` (complex: the real part from ``ntms``, the imaginary part
+      from the fragment), and ``di``/``dr``/``h``/``ca1`` at the surface.
+
+    Values only, no verdicts: ``D_I > 0`` (Mercier) and ``D_R > 0`` (GGJ
+    resistive interchange) are criteria for a consumer, and Delta-prime with
+    ``D_R`` is not a tearing verdict without an inner-layer solution. Every
+    row has the same keys. Re-mapping one (time slice, solver, n) keeps the
+    last fragment. Version-1 fragments carry none of this and yield nothing;
+    malformed ones are skipped with a warning. The ODS is not modified.
+    """
+    import xml.etree.ElementTree as ET
+
+    if not path_exists(ods, "mhd_linear.code.parameters"):
+        return []
+    text = ods["mhd_linear.code.parameters"]
+    try:
+        root = ET.fromstring(text.decode() if isinstance(text, bytes) else str(text))
+    except ET.ParseError as exc:
+        warnings.warn(f"mhd_linear.code.parameters is not XML ({exc}); no resistive payload", RuntimeWarning, stacklevel=2)
+        return []
+    latest: dict[tuple[int, str, int], dict[str, Any]] = {}
+    for solver in root.iter("solver"):
+        name = solver.get("name")
+        if name not in ("rdcon", "stride"):
+            continue
+        try:
+            if int(solver.get("version", "1")) < 2:
+                continue
+            row = _parse_resistive_fragment(solver)
+        except (TypeError, ValueError) as exc:
+            warnings.warn(f"skipping malformed {name} fragment: {exc}", RuntimeWarning, stacklevel=2)
+            continue
+        key = (row["time_slice"], row["solver"], row["n_tor"])
+        latest.pop(key, None)  # re-mapping: the last fragment wins
+        latest[key] = row
+    if not latest:
+        return []
+    # Re-mapping appends a fresh set of ntms.mode[] entries and a fresh fragment;
+    # the last fragment per key is the one that pairs with the last mhd_linear
+    # fragment, so the earlier run's surfaces are dropped, not appended.
+    surfaces: dict[tuple[int, str, int], list[dict[str, Any]]] = {}
+    for key, rows in _ntms_solver_fragments(ods):
+        surfaces[key] = rows
+    for key, row in latest.items():
+        rows = []
+        for surface in surfaces.get(key, []):
+            path = f"ntms.time_slice.{surface['time_slice']}.mode.{surface['mode']}.deltaw.0.value"
+            real = float(ods[path]) if path_exists(ods, path) else None
+            imag = surface.get("delta_prime_imag")
+            rows.append({
+                "m": surface["m"],
+                "psi_n": surface.get("psi_n"),
+                "q": surface.get("q"),
+                "delta_prime": None if real is None else complex(real, 0.0 if imag is None else imag),
+                **{name: surface.get(name) for name in ("di", "dr", "h", "ca1")},
+            })
+        row["surfaces"] = rows
+    return list(latest.values())
+
+
+def _parse_resistive_fragment(solver: Any) -> dict[str, Any]:
+    msing_text = solver.findtext("msing")
+    row: dict[str, Any] = {
+        "solver": solver.get("name"),
+        "n_tor": int(solver.get("n_tor")),
+        "time_slice": int(solver.get("time_slice")),
+        "position": int(solver.get("position")),
+        "msing": None if msing_text is None else int(msing_text),
+    }
+    profiles = solver.find("local_profiles")
+    row["psi_n"] = None if profiles is None else _numbers(profiles.get("psi_n"))
+    for native, public in (("q", "q"), ("di", "D_I"), ("dr", "D_R"), ("h", "H"), ("ca1", "C_A")):
+        row[public] = None if profiles is None else _numbers(profiles.get(native))
+    matrix = solver.find("delta_prime_matrix")
+    if matrix is None:
+        row["delta_prime_matrix"] = None
+    else:
+        size = int(matrix.get("size"))
+        values = _complex_numbers(matrix.get("real"), matrix.get("imag"))
+        if values is None or values.size != size * size:
+            raise ValueError(f"delta_prime_matrix holds {0 if values is None else values.size} values, not {size}x{size}")
+        row["delta_prime_matrix"] = values.reshape(size, size)
+    return row
 
 
 def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[int, dict[str, Any]]:
