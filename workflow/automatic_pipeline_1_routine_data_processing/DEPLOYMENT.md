@@ -973,7 +973,8 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    settling and the late-field re-check go on, so shots keep queueing. Entering the pause logs a
    warning and records a `disk_paused` event, and `vaft pipeline-worker status` prints
    `PAUSED for disk space`. The worker resumes by itself once every guarded filesystem has
-   `resume_free_gb` free (default `min_free_gb`) and records `disk_resumed`. A filesystem whose
+   `resume_free_gb` free (default `min_free_gb * 1.05`, a margin so free space hovering at the
+   limit does not pause and resume every poll) and records `disk_resumed`. A filesystem whose
    free space cannot be read counts as short. The figure `status` prints is the one measured when
    the pause began. The guard is checked between batches only; a batch that has started runs to
    its end.

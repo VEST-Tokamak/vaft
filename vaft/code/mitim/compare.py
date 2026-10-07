@@ -51,7 +51,7 @@ def _value(text: str) -> Any:
 def read_input_tglf(path: str | Path) -> dict[str, Any]:
     """``KEY=VALUE`` lines of an ``input.tglf``; comments (``#``) and blanks skipped."""
     parameters: dict[str, Any] = {}
-    for line in Path(path).read_text().splitlines():
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
         line = line.split("#", 1)[0].strip()
         if "=" not in line:
             continue

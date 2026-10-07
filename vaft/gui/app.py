@@ -996,7 +996,8 @@ def serve(
     readers are not this server's user, so the app opens samples and database
     shots only -- no server paths, no file browser, no uploads -- the password
     is always asked and must be given (a service's restart would otherwise
-    change it unseen), and the proxy's ``X-Forwarded-*`` headers are trusted.
+    change it unseen) unless ``auth="none"`` leaves authentication to a proxy
+    that does it by itself, and the proxy's ``X-Forwarded-*`` headers are trusted.
     ``prefix`` serves the app under a URL path, e.g. ``/gui`` when the proxy
     passes ``https://host/gui/`` through.  The proxy's public host name goes
     in ``websocket_origin``.

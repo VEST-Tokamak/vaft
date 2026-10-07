@@ -65,9 +65,9 @@ from vaft.plot.models import (
 from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
 from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, UNCLASSIFIED, VALID
 from vaft.plot.registry import get_spec
-from vaft.spectroscopy import (
+from vaft.data.atomic import format_species
+from vaft.data.spectroscopy import (
     describe_available,
-    format_species,
     matches,
     parse_emission_term,
     parse_line_label,
@@ -860,11 +860,9 @@ MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOST
 DEFAULT_MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
 
 
-def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
-                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
-    """Use one source registry for selected families in composed machine plots."""
-    from vaft.plot.machine_geometry import machine_geometry_view
-
+def _shared_machine_source(ods: Any, options: Mapping[str, Any], families: tuple[str, ...]
+                           ) -> tuple[Any, tuple[str, ...], Mapping[str, Any] | None]:
+    """Resolve the geometry source, family selection and manifest of a composed view."""
     chosen = options.get("geometry_families")
     if chosen is not None:
         families = (chosen,) if isinstance(chosen, str) else tuple(chosen)
@@ -872,10 +870,31 @@ def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
     manifest = options.get("geometry_manifest")
     if geometry_data is not ods and manifest is None:
         raise ValueError("separate geometry_data requires geometry_manifest provenance")
+    return geometry_data, families, manifest
+
+
+def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
+                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
+    """Use one source registry for selected families in composed machine plots."""
+    from vaft.plot.machine_geometry import machine_geometry_view
+
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
     return machine_geometry_view(
         geometry_data, view, families=families, manifest=manifest,
         axis_length=float(options.get("axis_length", 0.25)),
     )
+
+
+def _stored_undrawable_families(ods: Any, options: Mapping[str, Any],
+                                families: tuple[str, ...]) -> list[str]:
+    """Selected families whose records are stored but drew nothing in the view."""
+    from vaft.plot.machine_geometry import machine_geometry_registry
+
+    if not families:
+        return []
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
+    return sorted({record.family for record in
+                   machine_geometry_registry(geometry_data, families=families, manifest=manifest)})
 
 
 def _machine_view_title(base: str, shared: GeometryLayers | Geometry3DLayers) -> str:
@@ -3409,6 +3428,12 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     shared = _shared_machine_view(ods, "rz", options, selected)
     layers.extend(shared.layers)
     if not layers:
+        stored = _stored_undrawable_families(ods, options, selected)
+        if stored:
+            raise ValueError(
+                f"machine geometry {', '.join(stored)} is stored but none of its "
+                "records can be drawn in the R-Z view (a position without a height)"
+            )
         raise ValueError(
             "none of the poloidal machine geometry IDS (wall, pf_active, "
             "pf_passive, magnetics, thomson_scattering, charge_exchange, "
@@ -5945,6 +5970,24 @@ def _tt_available(quantity: str):
     return available
 
 
+def _tt_slice_times(obj: Any, m: int) -> np.ndarray:
+    base = f"core_transport.model.{m}.profiles_1d"
+    return np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(_count(obj, base))],
+                    dtype=float)
+
+
+def _tt_reference_time(entries: Sequence[tuple[str, Any]]) -> float | None:
+    """The instant a request without ``time`` means: the first stored slice of the
+    first anomalous model, so every other model is matched to it by its own time
+    rather than by slice position."""
+    for _label, obj in entries:
+        for m in _tt_models(obj):
+            times = _tt_slice_times(obj, m)
+            if times.size:
+                return None if np.isnan(times[0]) else float(times[0])
+    return None
+
+
 def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
     base = f"core_transport.model.{m}.profiles_1d"
     count = _count(obj, base)
@@ -5952,7 +5995,7 @@ def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
         return None
     if time is None:
         return 0
-    times = np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(count)], dtype=float)
+    times = _tt_slice_times(obj, m)
     if np.all(np.isnan(times)):
         return 0
     return int(np.nanargmin(np.abs(times - float(time))))
@@ -5961,9 +6004,15 @@ def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
 def _tt_builder(quantity: str, y_label: str, y_unit: str):
     def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
         series = []
+        # Match slices by time, not by index: with no ``time`` the first model's
+        # first slice sets the instant and every model picks its nearest slice.
+        time = options.get("time")
+        if time is None:
+            time = _tt_reference_time(entries)
+        slice_times: dict[str, float | None] = {}
         for label, obj in _labelled(entries):
             for m in _tt_models(obj):
-                t = _tt_slice(obj, m, options.get("time"))
+                t = _tt_slice(obj, m, time)
                 if t is None:
                     continue
                 base = f"core_transport.model.{m}.profiles_1d.{t}"
@@ -5973,6 +6022,8 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
                     continue
                 code = _get(obj, f"core_transport.model.{m}.code.name") or f"model {m}"
                 name = (label if str(code) in label else f"{label} ({code})") if label else str(code)
+                stored = _get(obj, f"{base}.time", None)
+                slice_times[name] = None if stored is None else float(stored)
                 # one colour per model; electrons solid, ions dashed
                 color = palette(sum(1 for item in series if item.label.endswith(' e')))
                 series.append(Series(x=rho, y=electrons, label=f"{name} e", style={"color": color}))
@@ -5988,6 +6039,7 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
             series=tuple(series), coordinate_label=r"$\rho_{tor,N}$",
             y_label=y_label, y_unit=y_unit,
             title=f"{_FLUX_WORD[quantity]} flux",
+            metadata={"time": time, "slice_time": slice_times},
         )
     return builder
 

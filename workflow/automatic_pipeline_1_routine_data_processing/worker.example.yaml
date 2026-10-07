@@ -64,8 +64,9 @@ env:
 # Disk guard: no new batch starts while a guarded filesystem has less than
 # min_free_gb GB free; the worker keeps detecting and queueing shots, records a
 # disk_paused event (shown by `vaft pipeline-worker status`) and resumes at
-# resume_free_gb (default: min_free_gb). disk_paths defaults to the pipeline's
-# base_dir, log_dir and the state database's directory. null = no guard.
+# resume_free_gb (default: min_free_gb * 1.05, so free space hovering at the
+# limit does not flip the pause every poll). disk_paths defaults to the
+# pipeline's base_dir, log_dir and the state database's directory. null = no guard.
 min_free_gb: 200
 # resume_free_gb: 220
 # disk_paths: [/srv/vest.filedb]
