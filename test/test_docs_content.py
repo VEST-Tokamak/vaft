@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import hashlib
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -370,6 +372,26 @@ def test_visual_baselines_still_point_at_canonical_pages():
     stale = sorted(url[len("/vaft"):] for url in referenced
                    if url[len("/vaft"):] not in canonical)
     assert not stale, f"visual specs assert on URLs that are no longer canonical: {stale}"
+
+
+@pytest.mark.parametrize(
+    "spec",
+    sorted((DOCS / "tests/visual").glob("*.spec.js")),
+    ids=lambda spec: spec.name,
+)
+def test_visual_specs_parse(spec):
+    """Every Playwright spec must at least parse.
+
+    Nothing in CI runs the visual suite, so a spec that does not parse (the
+    #1804 merge dropped a closing ``});`` in ``graphs.spec.js``) only surfaces
+    when someone runs ``npm run test:visual`` by hand, and then it takes every
+    test in that file down with it.  ``node --check`` is the cheapest gate.
+    """
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not on PATH")
+    result = subprocess.run([node, "--check", str(spec)], capture_output=True, text=True)
+    assert result.returncode == 0, f"{spec.relative_to(ROOT)} does not parse:\n{result.stderr}"
 
 
 @pytest.mark.parametrize(
