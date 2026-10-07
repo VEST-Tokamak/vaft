@@ -367,6 +367,7 @@ def infer_kinetic_closure(
     shot: Optional[int] = None,
     ti_te_ratio: Optional[float] = None,
     ti_record: Optional[str] = None,
+    use_stored_inferred_ti: bool = False,
     fast_ion: Optional[FastIonEstimate] = None,
 ) -> KineticClosure:
     """Densities, temperatures and separated pressures of one core_profiles slice, dilution-aware.
@@ -390,9 +391,16 @@ def infer_kinetic_closure(
     shot : int, optional
         Shot whose preset era applies [-].
     ti_te_ratio : float, optional
-        T_i = ratio T_e for every ion when the slice stores no T_i [-].
+        T_i = ratio T_e for every ion when the slice stores no measured T_i:
+        none at all, or one whose ``temperature_fit.parameters`` record says
+        it was assumed (``ti_te_ratio=...; status=assumed``) or inferred
+        (``origin=inferred``) [-].
     ti_record : str, optional
         Provenance text for that ratio (e.g. the VEST policy record) [-].
+    use_stored_inferred_ti : bool, optional
+        Take a stored T_i whose record says ``origin=inferred`` (a lane K
+        pressure partition) as the ion temperature, recorded as inferred;
+        off by default, as in :func:`vaft.process.transport_state.build_transport_state` [-].
     fast_ion : FastIonEstimate, optional
         A fast-ion estimate on the same grid, added as ``p_fast`` [any].
 
@@ -406,8 +414,11 @@ def infer_kinetic_closure(
     ------
     ValueError
         An unknown dilution mode, no slice at the time, no n_e or T_e, no
-        stored T_i and no ratio, several hydrogenic ions, a composition that
-        cannot be resolved, or a fast-ion estimate from another grid or time.
+        measured T_i and no ratio (an inferred one needs the opt-in or a
+        ratio), an ion-temperature record in no known grammar, several
+        hydrogenic ions, a composition that cannot be resolved, a composition
+        resolved on another grid than n_e, or a fast-ion estimate from another
+        grid or time.
 
     Processing steps
     ----------------
@@ -415,8 +426,13 @@ def infer_kinetic_closure(
     2. ``species``: resolve the composition (stored ions, explicit, preset;
        #1565 precedence) and form n_s = n_e (n_s/n_e) with the diluted main
        ion; ``none``: one hydrogenic ion with n_i = n_e.
-    3. Ion temperatures: the stored main-ion T_i for every ion, else the
-       ratio times T_e (recorded as assumed).
+    3. Ion temperatures for every ion: the stored main-ion T_i when its
+       ``temperature_fit.parameters`` record classifies as measured
+       (:func:`vaft.machine_mapping.core_profiles.classify_ti_record`); a
+       stored T_i the product itself assumed or inferred is not a measurement
+       and is outranked by the caller's ratio (recorded as assumed) -- an
+       inferred one is used only on ``use_stored_inferred_ti`` (recorded as
+       inferred); ``provenance["ti"]`` carries ``status`` and ``lineage``.
     4. Assemble p_e, p_i, p_thermal; add ``fast_ion`` as p_fast.
 
     Input semantics
@@ -440,15 +456,20 @@ def infer_kinetic_closure(
     Limitations
     -----------
     Impurities share the main-ion temperature, read from the one hydrogenic
-    ``ion[]`` entry (by ``element.0.z_n``, not position).  The fast-ion
+    ``ion[]`` entry (by ``element.0.z_n``, not position).  A measured record
+    is taken at its word: whether the measurement itself is sound (CX
+    coverage, fit span) is the profile stage's finding, not re-examined here.
+    The fast-ion
     pressure is the caller's estimate; it must share the slice's grid (and
     its time and rho when the estimate records them).  No deposition model
     is run here.
 
     Provenance
     ----------
-    .. [issue] #1606 Sec. 1-2 and 5; #1565 (composition).
+    .. [issue] #1606 Sec. 1-2 and 5; #1565 (composition); #1526 (the T_i record
+       grammar, cold review 0.8.0 delta-absorb-19 physics F1).
     """
+    from vaft.machine_mapping.core_profiles import classify_ti_record, ti_record_fields
     from vaft.process.impurity import _get, _slice_index, _slice_time, resolve_impurity_composition
 
     if dilution not in DILUTION_MODES:
@@ -467,14 +488,48 @@ def infer_kinetic_closure(
     main_ion = _main_ion_path(ods, base)
     stored_ti = None if main_ion is None else _get(ods, f"{main_ion}.temperature")
     provenance: dict[str, Any] = {"slice": base, "dilution": dilution}
-    if stored_ti is not None:
+    # The stored T_i is a measurement only when its record says so (shared grammar:
+    # classify_ti_record).  A product's own Ti = ratio * Te (#1414) or a lane K
+    # inference (#1426) stored in the same leaf is not one, and must not outrank
+    # the caller's ratio as if it were (cold review 0.8.0 delta-absorb-19 F1).
+    record = None if main_ion is None else _get(ods, f"{main_ion}.temperature_fit.parameters")
+    kind = "measured" if stored_ti is None else classify_ti_record(record)
+    if stored_ti is not None and kind == "unknown":
+        raise ValueError(f"{main_ion}.temperature_fit.parameters is an ion-temperature record in no "
+                         f"known grammar: {record!r}")
+    if stored_ti is not None and kind == "measured":
         ti = np.broadcast_to(np.asarray(stored_ti, dtype=float), ne.shape)
-        provenance["ti"] = {"source": f"{main_ion}.temperature",
-                            "record": _get(ods, f"{main_ion}.temperature_fit.parameters")}
+        provenance["ti"] = {"source": f"{main_ion}.temperature", "status": "measured",
+                            "lineage": "measured", "record": record}
+    elif stored_ti is not None and kind == "inferred" and use_stored_inferred_ti:
+        ti = np.broadcast_to(np.asarray(stored_ti, dtype=float), ne.shape)
+        provenance["ti"] = {"source": f"{main_ion}.temperature", "status": "inferred",
+                            "lineage": "pressure_partition_inferred",
+                            "method": ti_record_fields(record).get("method"), "record": record}
     elif ti_te_ratio is not None:
-        ti = float(ti_te_ratio) * te
-        provenance["ti"] = {"source": "ti_te_ratio", "ratio": float(ti_te_ratio), "status": "assumed",
+        ratio = float(ti_te_ratio)
+        ti = ratio * te
+        provenance["ti"] = {"source": "ti_te_ratio", "ratio": ratio, "status": "assumed",
+                            "lineage": "ti_eq_te_assumed" if ratio == 1.0 else f"ti_te_{ratio:g}_assumed",
                             "record": ti_record}
+        if stored_ti is not None:
+            provenance["ti"]["outranked_record"] = {"source": f"{main_ion}.temperature",
+                                                    "status": kind, "record": record}
+    elif stored_ti is not None and kind == "assumed":
+        # The product already applied a ratio to its T_e and says which: that
+        # ratio, not a measurement, is what the stored array is.
+        fields = ti_record_fields(record)
+        try:
+            ratio = float(fields["ti_te_ratio"])
+        except (KeyError, ValueError):
+            ratio = None
+        ti = np.broadcast_to(np.asarray(stored_ti, dtype=float), ne.shape)
+        provenance["ti"] = {"source": f"{main_ion}.temperature", "ratio": ratio, "status": "assumed",
+                            "lineage": "ti_eq_te_assumed" if ratio == 1.0 else "ti_te_ratio_assumed",
+                            "record": record}
+    elif stored_ti is not None:
+        raise ValueError(f"{main_ion}.temperature was inferred, not measured ({record!r}); pass "
+                         "ti_te_ratio or use_stored_inferred_ti=True")
     else:
         raise ValueError(f"{base} stores no ion temperature; pass ti_te_ratio (and its record)")
 
