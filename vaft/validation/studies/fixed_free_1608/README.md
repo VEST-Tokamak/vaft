@@ -341,7 +341,10 @@ python -m vaft.validation.studies.fixed_free_1608.matrix \
 ```
 
 The measured 20-case result is in [`measured_matrix.json`](measured_matrix.json):
-18 family/topology/route combinations and two pure-pressure routes. It was
+18 family/topology/route combinations and two pure-pressure routes, each a
+condensed per-case record (`fit`, `initial`, `refined`, `verified` blocks)
+on which `matrix.acceptance_failures` re-evaluates the same gates as on a
+run's `summary.json`. It was
 produced on the isolated vestserver OFT v26.9 runtime with a 65×65 target,
 `dx_plasma=.04 m`, 12 independent one-turn rectangular PF coils, ±200 kA
 per-coil bounds, initial and refinement regularization `1e-5`, 64 boundary
@@ -364,6 +367,11 @@ not VEST hardware ratings.
 | Guazzotto pure pressure limited | accepted / accepted | failed / failed | 0.31 / 0.31 | limited |
 
 Every refined and subsequent frozen-current solve in this matrix converged.
+The validated result is fit + refinement: the unrefined fixed-current closure
+of the fitted currents converges for 4 of the 20 cases (Solov'ev limited and
+lower single null, both routes), and shape refinement moved individual coil
+currents by up to 109 kA (current-pedestal lower single null, native route)
+inside the ±200 kA bounds.
 The native FE saddle check requires flux agreement within 0.01% of the active
 boundary, one-to-one matching to the target active X-points within 10 mm, and
 the expected count and upper/lower placement. A mismatch is marked ambiguous

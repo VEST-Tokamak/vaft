@@ -860,11 +860,9 @@ MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOST
 DEFAULT_MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
 
 
-def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
-                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
-    """Use one source registry for selected families in composed machine plots."""
-    from vaft.plot.machine_geometry import machine_geometry_view
-
+def _shared_machine_source(ods: Any, options: Mapping[str, Any], families: tuple[str, ...]
+                           ) -> tuple[Any, tuple[str, ...], Mapping[str, Any] | None]:
+    """Resolve the geometry source, family selection and manifest of a composed view."""
     chosen = options.get("geometry_families")
     if chosen is not None:
         families = (chosen,) if isinstance(chosen, str) else tuple(chosen)
@@ -872,10 +870,31 @@ def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
     manifest = options.get("geometry_manifest")
     if geometry_data is not ods and manifest is None:
         raise ValueError("separate geometry_data requires geometry_manifest provenance")
+    return geometry_data, families, manifest
+
+
+def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
+                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
+    """Use one source registry for selected families in composed machine plots."""
+    from vaft.plot.machine_geometry import machine_geometry_view
+
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
     return machine_geometry_view(
         geometry_data, view, families=families, manifest=manifest,
         axis_length=float(options.get("axis_length", 0.25)),
     )
+
+
+def _stored_undrawable_families(ods: Any, options: Mapping[str, Any],
+                                families: tuple[str, ...]) -> list[str]:
+    """Selected families whose records are stored but drew nothing in the view."""
+    from vaft.plot.machine_geometry import machine_geometry_registry
+
+    if not families:
+        return []
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
+    return sorted({record.family for record in
+                   machine_geometry_registry(geometry_data, families=families, manifest=manifest)})
 
 
 def _machine_view_title(base: str, shared: GeometryLayers | Geometry3DLayers) -> str:
@@ -3409,6 +3428,12 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     shared = _shared_machine_view(ods, "rz", options, selected)
     layers.extend(shared.layers)
     if not layers:
+        stored = _stored_undrawable_families(ods, options, selected)
+        if stored:
+            raise ValueError(
+                f"machine geometry {', '.join(stored)} is stored but none of its "
+                "records can be drawn in the R-Z view (a position without a height)"
+            )
         raise ValueError(
             "none of the poloidal machine geometry IDS (wall, pf_active, "
             "pf_passive, magnetics, thomson_scattering, charge_exchange, "
