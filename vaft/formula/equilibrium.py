@@ -690,6 +690,14 @@ def shear_from_r_q(r: np.ndarray,
     ``q`` and multiplication by ``r``: the axis value is exactly 0 when ``r``
     starts at 0 and undefined where $q$ crosses zero.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: differential
+    locality: flux_surface_local
+    role: stability_coordinate
+
     References
     ----------
     .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40 (1978)
@@ -1994,6 +2002,14 @@ def beta_toroidal_from_p_B0(p_average: float,
     float
         Toroidal beta [-].
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
@@ -2030,6 +2046,14 @@ def beta_poloidal_from_pressure_integral(pressure_integral: float,
     The EFIT/OMFIT circumference form is a different definition; see
     :func:`beta_poloidal_from_circumference`.
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_pol``.
@@ -2063,6 +2087,14 @@ def beta_normal_from_beta_tor(beta_tor: float,
     float
         Normalized beta [% m T/MA].
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: normalization
+    locality: global
+    role: stability_coordinate
+
     References
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
@@ -2182,6 +2214,14 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     float
         Internal inductance, ``li_3`` definition [-].
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
@@ -2580,6 +2620,14 @@ def stored_energy_from_p_V(p: Union[float, np.ndarray],
     -----------
     ``p`` is the volume average (or the profile is flat) when ``V`` is the total
     volume.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: integral
+    locality: global
+    role: global_descriptor
     """
     return p * V
 
@@ -3116,6 +3164,14 @@ def peaking_factor(central: float,
     ---------------
     A zero volume average warns and returns ``nan``.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: profile_descriptor
+
     See Also
     --------
     vaft.formula.utils.calculate_peaking_factor
@@ -3405,6 +3461,14 @@ def estimated_q95(a: Union[float, np.ndarray],
     limited spherical tokamak. The machine default is read from the machine
     description by :func:`vaft.omas.edge_q.edge_q_estimate`, not here.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: closure
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227.
@@ -3552,6 +3616,14 @@ def kinetic_energy_from_beta_p_B_pa_V_p(beta_p: float,
     $B_{pa}$ is the poloidal field averaged over the boundary contour of length
     $L_p$, the EFIT/Lao normalisation of $\beta_p$; the $3/2$ converts $pV$ to
     the ideal-gas thermal energy.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: normalization
+    locality: global
+    role: global_descriptor
 
     References
     ----------
@@ -4699,6 +4771,14 @@ def rho_star_from_M_T_B_R_epsilon(
     :func:`normalized_larmor_radius_from_M_T_a_Bt` in database units.  Tracked
     with the other $\rho_*$ definitions in #353.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
+
     References
     ----------
     .. [1] G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006, Sec. 2.
@@ -4881,6 +4961,14 @@ def nu_star_from_n_T_B_R_epsilon_kappa_I(
     times larger, so values are comparable only within one convention.  Tracked
     with the other $\nu_*$ definitions in #353.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
+
     References
     ----------
     .. [1] G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006, Sec. 2.
@@ -4949,6 +5037,14 @@ def omega_i_tau_E_from_B_tau_E_M(
     Exact SI angular cyclotron frequency with the proton mass and elementary
     charge from :mod:`vaft.formula.constants`; not a fitted prefactor.  The
     dependent variable of dimensionless confinement scalings.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
 
     References
     ----------
@@ -5220,6 +5316,14 @@ def confinement_time_from_engineering_parameters(
     Extrapolation to VEST (small size, low field) lies outside every database
     range except in part the ST fit; the Kurskiev regression's absorbed-power
     dependence is mapped onto ``P_loss`` as supplied.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: empirical_scaling
+    locality: global
+    role: closure_output
 
     References
     ----------
@@ -5692,6 +5796,14 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     unchanged, so the transformation is a no-op for those two axes.  Before
     #351 the indices came from a different, wrong closed form (IPB98(y,2)
     gave $\mu_\rho = 21.2$).
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: similarity_transform
+    locality: global
+    role: similarity_coordinate
 
     References
     ----------

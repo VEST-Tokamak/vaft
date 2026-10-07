@@ -240,6 +240,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
     "test_diagram_pwi.py",
+    "test_diagram_reduced_representations.py",
     "test_diagram_reduced_stability.py",
     "test_diagram_research_concepts.py",
     "test_diagram_ripple.py",
@@ -333,6 +334,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
     "test_formula_ordering.py",
+    # Reduced-representation taxonomy (#1626): the Reduction vocabulary, its
+    # parser, the catalog's exposure and filters, and the family metadata.
+    "test_formula_taxonomy.py",
     # Ballooning normalisations (#1637): the volume shear and alpha reduce exactly
     # to s-hat and the CHT alpha for circular large-aspect-ratio surfaces.
     "test_formula_ballooning_normalisation.py",

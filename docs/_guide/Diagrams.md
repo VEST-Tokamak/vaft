@@ -346,6 +346,24 @@ vaft.diagram.timescale_hierarchy()
 | --- | --- |
 | `timescale_hierarchy` | Gyroperiods, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
 
+## Reduced representations
+
+How formulas compress plasma information, from fields to profiles to scalars and from dimensional to
+dimensionless quantities, is classified on
+[Reduced representations]({{ '/reference/reduced-representations/' | relative_url }}) (#1626). The figures
+are built from the formulas' `Reduction` docstring sections and the relation metadata in
+`vaft.formula._taxonomy`.
+
+```python
+vaft.diagram.reduced_representation_hierarchy()
+vaft.diagram.reduction_graph(family="current_q")   # "pressure_energy", "kinetic_profiles", "dimensionless_similarity"
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `reduced_representation_hierarchy` | Spatial reduction (field, profile, scalar) down, dimensionless normalisation across, so a dimensionless quantity can still be a profile. Each cell counts the catalogued formulas that land there |
+| `reduction_graph` | One family as a layered graph of quantities. A solid edge is a formula, and its catalogued reduction kind is shown as *via*. A dashed edge is a step VAFT performs elsewhere |
+
 ## Tokamak geometry and flux coordinates
 
 The parent geometry that the cylindrical and slab reductions start from. Surfaces are
