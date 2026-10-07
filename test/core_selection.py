@@ -115,6 +115,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_profile_coordinates.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
+    # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
+    # analytic fixtures only, a few seconds.
+    "test_mode_frequency_overlay.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
@@ -207,6 +210,7 @@ CORE_MODULES: tuple[str, ...] = (
     # Diagram physics: every drawn O-point, drift and field is the formula's.
     # The s-alpha charts are not here: their boundary solves cost ~2.5 min.
     "test_diagram_ballooning.py",
+    "test_diagram_ballooning_formulations.py",
     "test_diagram_blob.py",
     "test_diagram_cold_plasma_waves.py",
     "test_diagram_collision.py",
@@ -288,12 +292,15 @@ CORE_MODULES: tuple[str, ...] = (
     # only), the plasma-current Rogowski verdict, the TF excursion repair and
     # the shot-class pickup refusal (#1733) on synthetic records, and the EFIT
     # not-applicable verdict for sub-CUTIP class shots (#1731), whose last test
-    # runs the k-file/EFIT/EFIT-ODS scripts as subprocesses (~10 s).
+    # runs the k-file/EFIT/EFIT-ODS scripts as subprocesses (~10 s), and the
+    # explicit-drive magnetic decomposition (#1795) on the packaged 39915
+    # product (two eddy solves per case, ~20 s).
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_efit_not_applicable.py",
     "test_flux_loop_known_faults.py",
+    "test_magnetic_decomposition.py",
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
@@ -324,6 +331,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
     "test_formula_ordering.py",
+    # Ballooning normalisations (#1637): the volume shear and alpha reduce exactly
+    # to s-hat and the CHT alpha for circular large-aspect-ratio surfaces.
+    "test_formula_ballooning_normalisation.py",
     # DCON local-criterion and edge-scan post-processing (lane N, #940) on the
     # real #792 DCON fixtures mapped through mhd_linear. Under 10 s.
     "test_process_mhd_stability.py",

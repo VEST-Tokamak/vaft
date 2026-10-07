@@ -704,6 +704,145 @@ def shear_from_r_q(r: np.ndarray,
 magnetic_shear = shear_from_r_q  # noqa: E305
 
 
+def shear_from_volume(V, dV_dpsi, q, dq_dpsi):
+    r"""Magnetic shear against the volume radius $r_V = \sqrt{V/2\pi^2R_0}$.
+
+    $$\hat s_V = \frac{2V}{q}\,\frac{dq/d\psi}{dV/d\psi} = \frac{d\ln q}{d\ln r_V}$$
+
+    Parameters
+    ----------
+    V : float or np.ndarray
+        Volume enclosed by the surface, positive [m^3].
+    dV_dpsi : float or np.ndarray
+        $dV/d\psi$ on the same surfaces, non-zero [m^3/Wb].
+    q : float or np.ndarray
+        Safety factor, non-zero [-].
+    dq_dpsi : float or np.ndarray
+        $dq/d\psi$ against the same flux label as ``dV_dpsi`` [1/Wb].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\hat s_V$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``V`` is not positive, ``dV_dpsi`` or ``q`` is zero, or an input is
+        not finite.
+
+    Convention
+    ----------
+    The flux label cancels: Wb, Wb/rad or normalised $\psi_N$ give the same
+    number as long as both derivatives use it, and so does its sign. This is
+    the shear GPEC.jl's local ballooning reports as ``s_ref``. The radius is
+    the *volume* radius, $V = 2\pi^2R_0r_V^2$, not a geometric minor radius.
+
+    Physical interpretation
+    -----------------------
+    The $\hat s = (r/q)\,dq/dr$ of the $s$-$\alpha$ model, defined on any
+    equilibrium without choosing a minor radius: for circular surfaces of a
+    large-aspect-ratio torus $r_V = r$ and the two agree exactly.
+
+    Assumptions
+    -----------
+    Nested surfaces; the reference major radius $R_0$ only names $r_V$ and
+    cancels from $\hat s_V$.
+
+    References
+    ----------
+    .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
+           R. E. Waltz, Phys. Plasmas 5 (1998) 973.
+    """
+    V = np.asarray(V, dtype=float)
+    dV_dpsi = np.asarray(dV_dpsi, dtype=float)
+    q = np.asarray(q, dtype=float)
+    dq_dpsi = np.asarray(dq_dpsi, dtype=float)
+    for name, value in (("V", V), ("dV_dpsi", dV_dpsi), ("q", q), ("dq_dpsi", dq_dpsi)):
+        if not np.all(np.isfinite(value)):
+            raise ValueError(f"{name} must be finite")
+    if np.any(V <= 0.0):
+        raise ValueError("V must be positive")
+    if np.any(dV_dpsi == 0.0) or np.any(q == 0.0):
+        raise ValueError("dV_dpsi and q must be non-zero")
+    result = 2.0 * V * dq_dpsi / (q * dV_dpsi)
+    return float(result) if result.ndim == 0 else result
+
+
+def ballooning_alpha_from_volume(V, dV_dpsi, dp_dpsi, R0):
+    r"""Normalised pressure gradient $\alpha$ of local ballooning theory on a general equilibrium.
+
+    $$\alpha = -\frac{2\mu_0}{(2\pi)^2}\,\frac{dV}{d\psi}\,\frac{dp}{d\psi}\,
+      \sqrt{\frac{V}{2\pi^2R_0}}$$
+
+    Parameters
+    ----------
+    V : float or np.ndarray
+        Volume enclosed by the surface, positive [m^3].
+    dV_dpsi : float or np.ndarray
+        $dV/d\psi$ with $\psi$ the poloidal flux **per radian** [m^3 rad/Wb].
+    dp_dpsi : float or np.ndarray
+        $dp/d\psi$ against the same per-radian flux [Pa rad/Wb].
+    R0 : float
+        Reference major radius naming the volume radius, positive; the
+        magnetic axis, as GPEC.jl's local ballooning uses [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\alpha$, positive where the pressure falls outward [-].
+
+    Raises
+    ------
+    ValueError
+        ``V`` or ``R0`` is not positive, or an input is not finite.
+
+    Convention
+    ----------
+    Unlike $\hat s_V$, this depends on the flux label: $\psi$ must be the
+    poloidal flux per radian, $|\nabla\psi| = RB_p$. With the full flux in Wb
+    each derivative carries a $2\pi$ and $\alpha$ comes out $(2\pi)^2$ too
+    small. The sign of $\psi$ cancels (both derivatives flip). In the
+    large-aspect-ratio circular limit, $d\psi/dr = rB_0/q$ and
+    $V = 2\pi^2R_0r^2$, it is exactly the Connor-Hastie-Taylor
+    $\alpha = -2\mu_0R_0q^2p'(r)/B_0^2$ with $r$ the **minor** radius
+    (``ballooning_alpha_from_p_B_R`` differentiates against the major radius
+    instead). $\alpha \propto \sqrt{R_0}$ through $r_V$: Miller et al. use each
+    surface's geometric centre instead of the axis, which at a spherical
+    tokamak's aspect ratio moves $\alpha$ by several per cent, so state which
+    $R_0$ when comparing.
+
+    Physical interpretation
+    -----------------------
+    The pressure-gradient drive of high-$n$ ballooning, measured against the
+    field-line bending it must overcome, without choosing a minor radius or a
+    field strength: both enter through $dV/d\psi$.
+
+    Assumptions
+    -----------
+    Nested surfaces; local (high-$n$) ballooning ordering. It is a
+    normalisation, not a stability criterion: the boundary it is compared
+    with depends on the shaping the reduced $s$-$\alpha$ model drops.
+
+    References
+    ----------
+    .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
+           R. E. Waltz, Phys. Plasmas 5 (1998) 973.
+    .. [2] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40
+           (1978) 396.
+    """
+    V = np.asarray(V, dtype=float)
+    dV_dpsi = np.asarray(dV_dpsi, dtype=float)
+    dp_dpsi = np.asarray(dp_dpsi, dtype=float)
+    for name, value in (("V", V), ("dV_dpsi", dV_dpsi), ("dp_dpsi", dp_dpsi), ("R0", np.asarray(R0, dtype=float))):
+        if not np.all(np.isfinite(value)):
+            raise ValueError(f"{name} must be finite")
+    if np.any(V <= 0.0) or not float(R0) > 0.0:
+        raise ValueError("V and R0 must be positive")
+    result = -2.0 * MU0 / (2.0 * np.pi) ** 2 * dV_dpsi * dp_dpsi * np.sqrt(V / (2.0 * np.pi ** 2 * float(R0)))
+    return float(result) if result.ndim == 0 else result
+
+
 # ------------------------------------------------------------------
 # Flux coordinates
 # ------------------------------------------------------------------
