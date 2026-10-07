@@ -113,6 +113,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
         "dimensional": 7,  # dimension matrix, exact null space, Pi groups, basis change, similarity constraints (#1621)
         "sensitivity": 5,  # finite-difference Jacobian, J Sigma J^T, Monte Carlo, SVD spectrum, linearity ratio (#1642)
+        "ordering": 13,  # asymptotic ordering parameters (#1627)
         "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure (#1606)
         "kinetic": 2,  # electron collision time and electron-ion energy exchange, multi-species (#1606)
     }

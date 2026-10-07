@@ -51,6 +51,7 @@ _IMPORT_ORDER = (
     "impurity",
     "dimensional",
     "sensitivity",
+    "ordering",
     "fast_ion",
     "kinetic",
 )
