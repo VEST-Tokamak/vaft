@@ -6,7 +6,7 @@ category: guide
 layout: post
 permalink: /reference/plasma-models/
 guide:
-  architecture: What physical model each VAFT backend mode represents, from an audit of upstream sources and primary literature (issue #1725, under #1723).
+  architecture: "What physical model each VAFT backend mode represents, from an audit of upstream sources and primary literature (issue #1725, under #1723)."
   prerequisites: The Computational layers page, for where a computation lives in VAFT; this page says what physics it represents.
   expected: Which equations a mode solves, which ordering it assumes, what "kinetic" means in each VAFT name, and which classifications are still open.
 ---
