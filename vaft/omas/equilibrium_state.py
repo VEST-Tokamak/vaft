@@ -94,17 +94,28 @@ EQUILIBRIUM_STATE_UNITS = {
 #: ``normalized_beta`` take ``b0`` at the reference radius (the DD convention of
 #: ``beta_normal``); the PR08 table (:mod:`vaft.data.public.pr08_mhd_state`) takes
 #: the vacuum field at the geometric radius, so the two differ by R_ref/R_geo
-#: (1.0-1.65 on the VEST sample) and are not one population on a Troyon plane.
+#: (1.0-1.65 on the VEST sample) and are not one population on a Troyon plane.  ``radius_symbol``
+#: (``R_ref`` / ``R_geo``) is the comparable key: the field, where one enters, is the vacuum toroidal
+#: field at that radius.  ``internal_inductance_li3`` is normalised by R_ref here and by R_geo in PR08.
 EQUILIBRIUM_STATE_CONVENTIONS = {
     "normalized_current": {"b_field_definition": "vacuum_toroidal_field.b0 (vacuum toroidal field at the reference "
                                                  "radius, IMAS DD)",
                            "radius_reference": "reference_major_radius (equilibrium.vacuum_toroidal_field.r0, "
-                                               "R_ref)"},
+                                               "R_ref)",
+                           "radius_symbol": "R_ref"},
     "normalized_beta": {"b_field_definition": "vacuum_toroidal_field.b0 (vacuum toroidal field at the reference "
                                               "radius, IMAS DD)",
-                        "radius_reference": "reference_major_radius (equilibrium.vacuum_toroidal_field.r0, R_ref)"},
+                        "radius_reference": "reference_major_radius (equilibrium.vacuum_toroidal_field.r0, R_ref)",
+                        "radius_symbol": "R_ref"},
     "toroidal_field": {"b_field_definition": "vacuum toroidal field at the geometric radius, b0 R_ref / R_geo",
-                       "radius_reference": "major_radius (geometric, R_geo)"},
+                       "radius_reference": "major_radius (geometric, R_geo)", "radius_symbol": "R_geo"},
+    "internal_inductance_li3": {"b_field_definition": "none (B_p only)",
+                                "radius_reference": "reference_major_radius (R_ref): the DD li_3 normalisation",
+                                "radius_symbol": "R_ref"},
+    **{column: {"b_field_definition": "vacuum toroidal field at the geometric radius, b0 R_ref / R_geo",
+                "radius_reference": "major_radius (geometric, R_geo)", "radius_symbol": "R_geo"}
+       for column in ("inverse_cylindrical_q", "kink_safety_factor_elliptic", "kink_safety_factor_cylindrical",
+                      "edge_safety_factor_95_estimate_iter", "edge_safety_factor_95_estimate_start")},
 }
 
 #: Provenance columns, first in every table.

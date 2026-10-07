@@ -43,6 +43,40 @@ def rogowski_drive(sample):
     return decompose_magnetic_response(ods, T0, plasma_sources=SOURCES, plasma_currents=drive)
 
 
+def _railed_probe(ods):
+    """A probe valid before 0.30975 s and railed (validity -2, 10 T) from then on."""
+    ods = copy.deepcopy(ods)
+    index = len(ods["magnetics.b_field_pol_probe"])
+    base = f"magnetics.b_field_pol_probe.{index}"
+    t = np.round(np.arange(0.300, 0.3201, 0.0001), 6)
+    healthy = 0.05 * np.sin(2 * np.pi * 50 * t)
+    rail = t >= 0.30975
+    ods[f"{base}.name"] = "probe-railed"
+    ods[f"{base}.position.r"] = 0.9
+    ods[f"{base}.position.z"] = 0.0
+    ods[f"{base}.field.data"] = np.where(rail, 10.0, healthy)
+    ods[f"{base}.field.time"] = t
+    ods[f"{base}.field.validity_timed"] = np.where(rail, -2, 0)
+    ods[f"{base}.field.validity"] = 0
+    return ods, index, t, healthy
+
+
+def test_a_channel_invalid_at_the_instant_is_refused_although_valid_elsewhere_in_the_window(sample):
+    """Selection accepts a channel with any valid sample in the +-0.5 ms window; the
+    point read must not then interpolate from invalid samples (the rail, 10 T,
+    instead of the healthy 0 T) -- cold review 0.8.0 delta-absorb-19 F2."""
+    ods, drive = sample
+    ods, index, t, healthy = _railed_probe(ods)
+    channel = [("b_field_pol_probe", index)]
+    with pytest.raises(ValueError, match="probe-railed is invalid at 0.31 s"):
+        decompose_magnetic_response(ods, 0.31, plasma_sources=SOURCES, plasma_currents=drive, channels=channel)
+    # both samples bracketing 0.3096 s are valid: read, from the valid samples only
+    d = decompose_magnetic_response(ods, 0.3096, plasma_sources=SOURCES, plasma_currents=drive, channels=channel)
+    assert d.channels[0]["name"] == "probe-railed"
+    assert d.measured[0] == pytest.approx(float(np.interp(0.3096, t, healthy)), abs=1e-12)
+    assert abs(d.measured[0]) < 0.1
+
+
 def test_the_parts_add_up(rogowski_drive):
     """Bookkeeping only (wall_plasma is wall - wall_pf by construction); the scaling
     test below is what shows the split is a superposition."""

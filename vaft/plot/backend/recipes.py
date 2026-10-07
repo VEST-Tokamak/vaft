@@ -11000,9 +11000,16 @@ def mode_overlay_reads(name: str) -> tuple[str, ...]:
     """The DD inputs ``mode_overlay=`` of plot ``name`` reads beyond the spectrogram's own.
 
     The equilibrium that places ``|q| = m/n`` (q, psi and its range, the
-    toroidal coordinate, the outboard radius a velocity is divided by) and the
-    core-profile rotation, by preference ``rotation_frequency_tor`` then
-    ``velocity.toroidal`` (``velocity_tor`` in older files), on either flux grid.
+    toroidal coordinate, the outboard radius a velocity is divided by -- or,
+    on a slice that stores no ``r_outboard``, the 2-D flux map, boundary
+    outline and magnetic axis it is derived from) and the core-profile
+    rotation, by preference ``rotation_frequency_tor`` then
+    ``velocity.toroidal`` (``velocity_tor`` in older files), on either flux
+    grid, with the profile's ``grid.psi`` that tells a genuine ``rho_tor_norm``
+    from the ``sqrt(psi_N)`` proxy.
+
+    ``test/test_plot_recipe_reads.py`` records what the overlay actually reads
+    and fails on a read missing here.
     """
     if name not in MODE_OVERLAY_PLOTS:
         return ()
@@ -11013,8 +11020,11 @@ def mode_overlay_reads(name: str) -> tuple[str, ...]:
         f"{eq}.profiles_1d.q", f"{eq}.profiles_1d.psi", f"{eq}.profiles_1d.rho_tor_norm",
         f"{eq}.profiles_1d.r_outboard",
         f"{eq}.global_quantities.psi_axis", f"{eq}.global_quantities.psi_boundary",
+        f"{eq}.profiles_2d.{{j}}.grid.dim1", f"{eq}.profiles_2d.{{j}}.grid.dim2",
+        f"{eq}.profiles_2d.{{j}}.psi", f"{eq}.boundary.outline.r",
+        f"{eq}.global_quantities.magnetic_axis.r", f"{eq}.global_quantities.magnetic_axis.z",
         f"{cp}.time", "core_profiles.time",
-        f"{cp}.grid.rho_tor_norm", f"{cp}.grid.rho_pol_norm",
+        f"{cp}.grid.rho_tor_norm", f"{cp}.grid.rho_pol_norm", f"{cp}.grid.psi",
         f"{cp}.ion.{{j}}.rotation_frequency_tor", f"{cp}.ion.{{j}}.velocity.toroidal",
         f"{cp}.ion.{{j}}.velocity_tor",
     )
@@ -11070,7 +11080,12 @@ def _with_mode_overlay(
         pair = (track.m, track.n)
         inside = (track.time >= start) & (track.time <= stop)
         frequency = np.where(inside & track.valid, np.abs(track.predicted_frequency), np.nan)
-        label = f"{track.m}/{track.n} (q = {track.q:g}): {track.n} × f_φ"
+        # The line is |n f_phi|, so the multiplier is |n|: a hypothesis with a
+        # negative n (the sign of n is a frame choice -- a fit in the VEST
+        # clock frame carries the opposite sign to IMAS phi) is drawn at the
+        # same magnitude as its mirror and must not read "-1 × f_φ" over a
+        # positive line.  The signed n stays in the mode name and the metadata.
+        label = f"{track.m}/{track.n} (q = {track.q:g}): {abs(track.n)} × f_φ"
         if branches[pair] > 1:
             label += f", root {track.branch + 1}"
         drawn = bool(np.any(np.isfinite(frequency)))
