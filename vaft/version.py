@@ -246,6 +246,11 @@ __all__ = ["__version__"]
 #   notebook cell 12 is stale; three pipeline-3 sheet tests wait for
 #   regenerated xlsx; the multi-machine op-space notebook outputs were
 #   cleared pending a networked re-run (#1813); the Takizuka L-H gamma is
-#   not reachable through
-#   boundary_value; #926, #927, #825 and #1338 remain open
+#   not reachable through boundary_value; the delta-19b review findings
+#   are carried to #1838: vaft.process.core_q_context binds the submodule,
+#   not the function (#1810), the camera equilibrium-section overlay
+#   projects probes through the provisional pose frame (#746) and draws no
+#   sensor markers on the lazy database path (#1830), README reference
+#   links point at the develop docs track (#1777); #926, #927, #825 and
+#   #1338 remain open
 
