@@ -208,6 +208,21 @@ _UNION = ["equilibrium", "magnetics", "pf_active"]
 _UNION_FILES = [f"{name}.h5" for name in _UNION]
 
 
+def test_the_strip_reads_the_server_without_filling_the_hsds_cache(monkeypatch):
+    """A load-modify-save maintenance read must not fill ~/.cache/vaft/hsds (#1758)."""
+    caches: list = []
+
+    def fake_load(shot, *, cache="auto", **kwargs):
+        caches.append(cache)
+        return _published()
+
+    monkeypatch.setattr("vaft.database.load", fake_load)
+
+    strip_impa_from_source(39915, apply=False)
+
+    assert caches == ["off"]
+
+
 def test_the_master_is_merged_before_it_lands_so_a_failed_net_costs_nothing(
     tmp_path, monkeypatch
 ):

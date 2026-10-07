@@ -303,6 +303,26 @@ def test_copying_a_refinement_verifies_the_destination_before_reporting_success(
     assert written == [(39915, "main/chease")]
 
 
+def test_the_copy_and_its_read_back_bypass_the_hsds_cache(monkeypatch):
+    """One-shot internal reads must not fill ~/.cache/vaft/hsds (#1758)."""
+    from omas import ODS
+
+    caches: list = []
+
+    def fake_load(shot, *, source=None, paths=None, cache="auto", **kwargs):
+        caches.append(cache)
+        ods = ODS(consistency_check=False)
+        ods["equilibrium.ids_properties.comment"] = "refinement"
+        return ods
+
+    monkeypatch.setattr("vaft.database.load", fake_load)
+    monkeypatch.setattr("vaft.database.save", lambda *a, **k: None)
+
+    retirement.copy_refinement(39915, apply=True)
+
+    assert caches == ["off", "off"]
+
+
 def test_a_copy_that_does_not_arrive_raises_rather_than_reporting_success(monkeypatch):
     from omas import ODS
 
