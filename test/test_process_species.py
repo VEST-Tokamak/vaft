@@ -226,6 +226,71 @@ def test_a_radial_composition_gives_one_component_per_charge_state(tmp_path):
 # --- cold-review findings ------------------------------------------------------------------
 
 
+def test_a_resolved_bundled_ion_builds_its_component_on_the_radial_charge_moments():
+    # cold review 0.8.0 delta-absorb-17 species F2: an ODS-resolved composition labels a bundled
+    # ion with one scalar <Z> (#1769) and carries <Z>(rho), <Z^2>(rho) beside it
+    z1 = np.linspace(3.0, 6.0, 6)
+    z2 = z1**2 + 0.5 * z1 * (6.0 - z1)          # <Z>^2 <= <Z^2> <= Z_n <Z>, a real spread
+    ods = _ods([_ion("H", 1.0, 1.008, 1.0, 0.9),
+                {"label": "C", "element.0.z_n": 6.0, "element.0.a": 12.011, "density_thermal": 0.01 * NE,
+                 "z_ion_1d": z1, "z_ion_square_1d": z2}])
+    resolved = resolve_impurity_composition(ods=ods, use_measured_zeff=False)
+    assert resolved.mean_charge is not None and abs(resolved.species[0].charge_state - round(resolved.species[0].charge_state)) > 1e-3
+    state = species_state_from_composition(resolved, NE)
+    carbon = state.components[1]
+    assert carbon.bundled and carbon.component_id == "C-12/Zbundle/thermal"
+    np.testing.assert_allclose(carbon.charge, z1)
+    np.testing.assert_allclose(carbon.mean_square_charge, z2)
+    np.testing.assert_allclose(composition_moments(state)["zeff"], resolved.zeff, rtol=1e-12)
+
+
+def test_a_fixed_charge_ion_beside_a_bundled_one_keeps_its_integer_charge():
+    ods = _ods([_ion("H", 1.0, 1.008, 1.0, 0.9),
+                {"label": "C", "element.0.z_n": 6.0, "element.0.a": 12.011, "density_thermal": 0.01 * NE,
+                 "z_ion_1d": np.linspace(3.0, 6.0, 6)},
+                _ion("O", 8.0, 15.999, 8.0, 0.002)])
+    state = species_state_from_composition(resolve_impurity_composition(ods=ods, use_measured_zeff=False), NE)
+    assert [c.component_id for c in state.components] == ["H-1/Z1/thermal", "C-12/Zbundle/thermal", "O-16/Z8/thermal"]
+    assert not state.components[2].bundled and state.components[2].charge == 8.0
+
+
+def test_a_non_integer_label_without_moments_is_a_bundle_at_that_charge():
+    composition = composition_from_fractions(["C"], [1], [4.5], target_zeff=1.5)
+    state = species_state_from_composition(resolve_impurity_composition(composition=composition), NE, rho=RHO)
+    carbon = state.components[1]
+    assert carbon.bundled and carbon.charge == 4.5 and carbon.mean_square_charge is None
+
+
+def test_the_packaged_product_resolved_on_real_adf11_tables_round_trips(tmp_path):
+    # the verifier's real-ADF11 probe: the OPEN-ADAS tables are read from the local cache only
+    from pathlib import Path
+
+    from omas import load_omas_json
+
+    import vaft
+    from vaft.ods_access import path_value
+    from vaft.process.impurity import populate_radial_impurity_profiles
+
+    cache = Path.home() / "Library/Caches/vaft/open_adas/adf11"
+    tables = {s: (cache / f"acd96_{s.lower()}.dat", cache / f"scd96_{s.lower()}.dat") for s in ("C", "O")}
+    if not all(p.is_file() for pair in tables.values() for p in pair):
+        pytest.skip("no cached OPEN-ADAS C/O tables (never downloaded by a test)")
+    sample = Path(vaft.__file__).resolve().parent / "data/kineticEfit/ods_48224_300ms.json"
+    ods = load_omas_json(str(sample), consistency_check=False)
+    base = "core_profiles.profiles_1d.0"
+    rho, te = np.asarray(ods[f"{base}.grid.rho_tor_norm"]), np.asarray(ods[f"{base}.electrons.temperature"])
+    ne = path_value(ods, f"{base}.electrons.density_thermal")
+    ne = np.asarray(ods[f"{base}.electrons.density"] if ne is None else ne, dtype=float)
+    radial = resolve_radial_composition(te, ne, rho, {"C": 1, "O": 1},
+                                        tables={k: tuple(map(str, v)) for k, v in tables.items()}, time=0.3)
+    out = populate_radial_impurity_profiles(ods, radial)
+    resolved = resolve_impurity_composition(out, machine_preset="vest")
+    assert resolved.kind == "derived" and resolved.mean_charge is not None
+    state = species_state_from_composition(resolved, ne)
+    assert [c.component_id for c in state.components[1:]] == ["C-12/Zbundle/thermal", "O-16/Zbundle/thermal"]
+    np.testing.assert_allclose(composition_moments(state)["zeff"], resolved.zeff, rtol=1e-9)
+
+
 def _component(element, a, z, density, **kw):
     return SpeciesComponent(Species(element, a), z, kw.pop("population", "thermal"), density,
                             kw.pop("mass", float(a)), **kw)
