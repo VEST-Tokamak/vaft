@@ -1,0 +1,2903 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: geometry · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/process/field_line_topology/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/geometric-approximations/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: geometry</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_geometry">Formula reference: geometry</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.geometry, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.geometry</code>:
+<strong>16</strong> public functions. Each entry is what
+<code>vaft.formula.describe("geometry.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Also the canonical slab field configurations: a Harris current sheet and an
+X-point, in the same slab frame.</p>
+
+<p>The reductions plasma theory uses between a real torus and an analytic model,
+kept apart along two independent axes: the <em>geometry</em> (slab, cylindrical,
+toroidal) and the <em>ordering</em> (local versus global; large aspect ratio
+$\epsilon = a/R_0 \ll 1$). A slab can carry $q$, $\hat s$, $R_0$ or a
+$1/R_0$ curvature inherited from a torus and still be a slab; large aspect
+ratio is an ordering, not a geometry. The guide page <em>Geometric
+approximations</em> sets out what each representation retains and neglects.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>x, y, z</td><td>slab coordinates -- radial, binormal, parallel</td><td class="ref-unit">m</td></tr>
+  <tr><td>r</td><td>minor radius of the cylinder</td><td class="ref-unit">m</td></tr>
+  <tr><td>theta</td><td>poloidal angle</td><td class="ref-unit">rad</td></tr>
+  <tr><td>R0</td><td>major radius the torus is straightened at</td><td class="ref-unit">m</td></tr>
+  <tr><td>q</td><td>safety factor</td><td class="ref-unit">-</td></tr>
+  <tr><td>s_hat</td><td>magnetic shear r q&#39;/q</td><td class="ref-unit">-</td></tr>
+  <tr><td>L_s</td><td>shear length of a sheared slab, signed</td><td class="ref-unit">m</td></tr>
+  <tr><td>m, n</td><td>poloidal and toroidal mode numbers</td><td class="ref-unit">-</td></tr>
+  <tr><td>k_y, k_z</td><td>slab wavenumbers</td><td class="ref-unit">1/m</td></tr>
+  <tr><td>k_par</td><td>parallel wavenumber k.B/B</td><td class="ref-unit">1/m</td></tr>
+  <tr><td>a</td><td>current-sheet half-thickness</td><td class="ref-unit">m</td></tr>
+  </tbody>
+</table></div>
+
+<p>Perturbations are $e^{i(m\theta - n\phi)}$ as in
+<code class="language-plaintext highlighter-rouge">vaft.formula.stability.helical_phase</code>: both mode numbers positive, the
+helicity in the minus sign; $q$ is a magnitude and $\hat s$ keeps the sign of
+$d|q|/dr$, so reversed shear flips the sign of $L_s$. A sheared slab
+is $\mathbf B = B_0(\hat{\mathbf z} + (x/L_s)\hat{\mathbf y})$ with $z$
+along the field at $x = 0$. The local slab of a cylinder at $r_0$ is that
+field-aligned frame: $z$ along $\mathbf B(r_0)$, $y$ the binormal in the
+surface, $x = r - r_0$. There the harmonic has $k_y = m/r_0$ and
+$k_z = (m - nq_0)/(q_0R_0)$, zero on a rational surface; along the
+straightened torus ($z = R_0\phi$) it would be $-n/R_0$ instead. Positive
+shear makes $L_s = -q_0R_0/\hat s$ negative in that frame.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 16 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="cylindrical_current_diffusion_rate"><td><a href="#cylindrical_current_diffusion_rate"><code>cylindrical_current_diffusion_rate</code></a></td><td>Rate of change of the enclosed current under resistive diffusion of the poloidal field.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_enclosed_current"><td><a href="#cylindrical_enclosed_current"><code>cylindrical_enclosed_current</code></a></td><td>Axial current inside each radius of a straight current column.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_internal_inductance"><td><a href="#cylindrical_internal_inductance"><code>cylindrical_internal_inductance</code></a></td><td>Normalized internal inductance of a current column of radius $a$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_parallel_wavenumber"><td><a href="#cylindrical_parallel_wavenumber"><code>cylindrical_parallel_wavenumber</code></a></td><td>Parallel wavenumber of an $m/n$ harmonic on a cylindrical surface of safety factor $q$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_poloidal_field"><td><a href="#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></td><td>Poloidal field of a straight current column by Ampère’s law.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_poloidal_flux"><td><a href="#cylindrical_poloidal_flux"><code>cylindrical_poloidal_flux</code></a></td><td>Poloidal flux per radian of a straightened torus, zero on the axis.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_safety_factor_from_r_B"><td><a href="#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></td><td>Safety factor of a straight cylinder standing in for a torus.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="harris_sheet_current_density"><td><a href="#harris_sheet_current_density"><code>harris_sheet_current_density</code></a></td><td>Current density of a Harris current sheet, from Ampere’s law.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="harris_sheet_field"><td><a href="#harris_sheet_field"><code>harris_sheet_field</code></a></td><td>Reconnecting field of a Harris current sheet.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="local_slab_from_cylinder"><td><a href="#local_slab_from_cylinder"><code>local_slab_from_cylinder</code></a></td><td>The field-aligned sheared slab of a cylinder at $r_0$: $(k_y, L_s, k_z)$ of an $m/n$ harmonic.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="peaked_current_safety_factor"><td><a href="#peaked_current_safety_factor"><code>peaked_current_safety_factor</code></a></td><td>Cylindrical $q$ profile of the peaked current $j \propto (1 - x^2)^\nu$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="shear_length_from_q_R0_s"><td><a href="#shear_length_from_q_R0_s"><code>shear_length_from_q_R0_s</code></a></td><td>Magnitude of the shear length a torus or cylinder gives its local slab.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sheared_slab_field"><td><a href="#sheared_slab_field"><code>sheared_slab_field</code></a></td><td>Magnetic field of the sheared slab at radial position $x$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sheared_slab_parallel_wavenumber"><td><a href="#sheared_slab_parallel_wavenumber"><code>sheared_slab_parallel_wavenumber</code></a></td><td>Parallel wavenumber across a sheared slab, to first order in $x/L_s$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="slab_parallel_wavenumber"><td><a href="#slab_parallel_wavenumber"><code>slab_parallel_wavenumber</code></a></td><td>Component of a wavevector along the magnetic field.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="x_point_flux"><td><a href="#x_point_flux"><code>x_point_flux</code></a></td><td>Flux function of a current-free magnetic X-point.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="cylindrical_current_diffusion_rate" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cylindrical_current_diffusion_rate"><code>cylindrical_current_diffusion_rate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="cylindrical_current_diffusion_rate" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L708-L785" title="vaft/formula/geometry.py, lines 708–785 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>cylindrical_current_diffusion_rate(r, I, eta, j_ni=None)</code></pre>
+
+    <details class="ref-code" data-source-code="cylindrical_current_diffusion_rate"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 708–785</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_current_diffusion_rate</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">I</span><span class="p">,</span> <span class="n">eta</span><span class="p">,</span> <span class="n">j_ni</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Rate of change of the enclosed current under resistive diffusion of the poloidal field.
+
+    $$\frac{\partial I}{\partial t} = \frac{r}{\mu_0}\frac{\partial}{\partial r}\left[\frac{\eta}{r}\left(\frac{\partial I}{\partial r} - 2\pi r\,j_\mathrm{ni}\right)\right]$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid, starting at the axis and increasing [m].
+    I : np.ndarray
+        Enclosed axial current $I(r)$ on ``r``, zero on the axis [A].
+    eta : np.ndarray
+        Parallel resistivity on ``r``, positive [Ohm m].
+    j_ni : np.ndarray, optional
+        Non-inductive (driven) current density on ``r``; none by default [A/m^2].
+
+    Returns
+    -------
+    np.ndarray
+        $\partial I/\partial t$ on ``r``; zero on the axis, where $I = 0$
+        always, and NaN at the boundary $r = a$, whose current the external
+        circuit sets [A/s].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0 with at least three points,
+        an array differs in shape from ``r``, ``I`` does not vanish on the
+        axis, or ``eta`` is not positive.
+
+    Convention
+    ----------
+    Faraday $\partial B_\theta/\partial t = \partial E_z/\partial r$, Ampère
+    $\mu_0 I = 2\pi r B_\theta$ and Ohm</span><span class="sh">'</span><span class="s">s law
+    $E_z = \eta\,(j_z - j_\mathrm{ni})$, with $j_z = (\partial I/\partial r)/2\pi r$
+    the total current density. Conservative finite differences: the
+    bracket is evaluated on the cell faces (midpoints of ``r``), with $\eta$
+    and $j_\mathrm{ni}$ averaged there; second order on a uniform grid, first
+    order on a non-uniform one.
+
+    Physical interpretation
+    -----------------------
+    The current density relaxes towards $j_z = j_\mathrm{ni} + E_z/\eta$
+    with one $E_z$ across the radius. A driven source therefore persists
+    while the ohmic part around it readjusts; and with no source the
+    relaxed current is $\propto 1/\eta$ -- flat for uniform resistivity,
+    peaked only because a hotter core conducts better.
+
+    Assumptions
+    -----------
+    Straight cylinder at large aspect ratio; resistivity and driven current
+    are prescribed, with no transport, bootstrap or toroidal geometry.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011)
+           (resistive diffusion of the current).
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_radial_grid</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">r</span><span class="p">.</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">3</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">r must hold at least three radii</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">I</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">eta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">j_ni</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">if</span> <span class="n">j_ni</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">j_ni</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">((</span><span class="sh">"</span><span class="s">I</span><span class="sh">"</span><span class="p">,</span> <span class="n">I</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">eta</span><span class="sh">"</span><span class="p">,</span> <span class="n">eta</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">j_ni</span><span class="sh">"</span><span class="p">,</span> <span class="n">j_ni</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">value</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">r</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s"> must have the shape of r, </span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="s">, not </span><span class="si">{</span><span class="n">value</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">I</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">I must vanish on the axis (no current is enclosed at r = 0), not I[0] = </span><span class="si">{</span><span class="n">I</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">:</span><span class="n">g</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">eta</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">eta must be positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">face</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">r</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">flux</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">eta</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">eta</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">face</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span>
+        <span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">I</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="o">-</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">face</span> <span class="o">*</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">j_ni</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">j_ni</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]))</span>
+    <span class="n">rate</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty_like</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="n">rate</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="n">MU0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">flux</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">face</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">-</span> <span class="n">face</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
+    <span class="n">rate</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">rate</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span>
+    <span class="k">return</span> <span class="n">rate</span></code></pre></figure>
+
+</details>
+
+    <p>Rate of change of the enclosed current under resistive diffusion of the poloidal field.</p>
+
+\[\frac{\partial I}{\partial t} = \frac{r}{\mu_0}\frac{\partial}{\partial r}\left[\frac{\eta}{r}\left(\frac{\partial I}{\partial r} - 2\pi r\,j_\mathrm{ni}\right)\right]\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Minor-radius grid, starting at the axis and increasing.</p>
+</td></tr>
+  <tr><td><code>I</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">A</td><td><p>Enclosed axial current $I(r)$ on <code class="language-plaintext highlighter-rouge">r</code>, zero on the axis.</p>
+</td></tr>
+  <tr><td><code>eta</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">Ohm m</td><td><p>Parallel resistivity on <code class="language-plaintext highlighter-rouge">r</code>, positive.</p>
+</td></tr>
+  <tr><td><code>j_ni</code></td><td class="ref-type">np.ndarray, optional</td><td class="ref-unit">A/m^2</td><td><p>Non-inductive (driven) current density on <code class="language-plaintext highlighter-rouge">r</code>; none by default.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">A/s</td><td><p>$\partial I/\partial t$ on <code class="language-plaintext highlighter-rouge">r</code>; zero on the axis, where $I = 0$ always, and NaN at the boundary $r = a$, whose current the external circuit sets.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Faraday $\partial B_\theta/\partial t = \partial E_z/\partial r$, Ampère
+$\mu_0 I = 2\pi r B_\theta$ and Ohm’s law
+$E_z = \eta\,(j_z - j_\mathrm{ni})$, with $j_z = (\partial I/\partial r)/2\pi r$
+the total current density. Conservative finite differences: the
+bracket is evaluated on the cell faces (midpoints of <code class="language-plaintext highlighter-rouge">r</code>), with $\eta$
+and $j_\mathrm{ni}$ averaged there; second order on a uniform grid, first
+order on a non-uniform one.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">r</code> is not an increasing grid from 0 with at least three points, an array differs in shape from <code class="language-plaintext highlighter-rouge">r</code>, <code class="language-plaintext highlighter-rouge">I</code> does not vanish on the axis, or <code class="language-plaintext highlighter-rouge">eta</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The current density relaxes towards $j_z = j_\mathrm{ni} + E_z/\eta$
+with one $E_z$ across the radius. A driven source therefore persists
+while the ohmic part around it readjusts; and with no source the
+relaxed current is $\propto 1/\eta$ – flat for uniform resistivity,
+peaked only because a hotter core conducts better.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Straight cylinder at large aspect ratio; resistivity and driven current
+are prescribed, with no transport, bootstrap or toroidal geometry.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011) (resistive diffusion of the current).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="cylindrical_enclosed_current" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cylindrical_enclosed_current"><code>cylindrical_enclosed_current</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="cylindrical_enclosed_current" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L551-L593" title="vaft/formula/geometry.py, lines 551–593 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>cylindrical_enclosed_current(r, j_z)</code></pre>
+
+    <details class="ref-code" data-source-code="cylindrical_enclosed_current"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 551–593</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_enclosed_current</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">j_z</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Axial current inside each radius of a straight current column.
+
+    $$I(r) = 2\pi\int_0^r j_z(r</span><span class="sh">'</span><span class="s">)\,r</span><span class="sh">'</span><span class="s">\,dr</span><span class="sh">'</span><span class="s">$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid, starting at the axis and increasing [m].
+    j_z : np.ndarray
+        Axial current density on ``r`` [A/m^2].
+
+    Returns
+    -------
+    np.ndarray
+        $I(r)$ on ``r``; ``I[-1]`` is the total current $I_p$ [A].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0, or ``j_z`` differs in shape.
+
+    Convention
+    ----------
+    Positive along $+z$, the stand-in for the toroidal direction. Trapezoidal
+    in $r$, so the error is second order in the grid spacing.
+
+    Physical interpretation
+    -----------------------
+    Two current profiles with the same $I_p$ differ only in where the current
+    is enclosed; ``cylindrical_poloidal_field`` turns $I(r)$ into $B_\theta(r)$,
+    and that redistribution is what changes $q(r)$ and $l_i$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_radial_grid</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="n">j_z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">j_z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">j_z</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">r</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">j_z must have the shape of r, </span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="s">, not </span><span class="si">{</span><span class="n">j_z</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="nf">_cumulative_trapezoid</span><span class="p">(</span><span class="n">j_z</span> <span class="o">*</span> <span class="n">r</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Axial current inside each radius of a straight current column.</p>
+
+\[I(r) = 2\pi\int_0^r j_z(r')\,r'\,dr'\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Minor-radius grid, starting at the axis and increasing.</p>
+</td></tr>
+  <tr><td><code>j_z</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">A/m^2</td><td><p>Axial current density on <code class="language-plaintext highlighter-rouge">r</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">A</td><td><p>$I(r)$ on <code class="language-plaintext highlighter-rouge">r</code>; <code class="language-plaintext highlighter-rouge">I[-1]</code> is the total current $I_p$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Positive along $+z$, the stand-in for the toroidal direction. Trapezoidal
+in $r$, so the error is second order in the grid spacing.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">r</code> is not an increasing grid from 0, or <code class="language-plaintext highlighter-rouge">j_z</code> differs in shape.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Two current profiles with the same $I_p$ differ only in where the current
+is enclosed; <code class="language-plaintext highlighter-rouge">cylindrical_poloidal_field</code> turns $I(r)$ into $B_\theta(r)$,
+and that redistribution is what changes $q(r)$ and $l_i$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="cylindrical_internal_inductance" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cylindrical_internal_inductance"><code>cylindrical_internal_inductance</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="cylindrical_internal_inductance" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L653-L705" title="vaft/formula/geometry.py, lines 653–705 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>cylindrical_internal_inductance(r, B_theta)</code></pre>
+
+    <details class="ref-code" data-source-code="cylindrical_internal_inductance"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 653–705</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_internal_inductance</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">B_theta</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Normalized internal inductance of a current column of radius $a$.
+
+    $$l_i = \frac{2}{a^2 B_\theta^2(a)}\int_0^a B_\theta^2\,r\,dr$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid from the axis to the boundary $a = $ ``r[-1]`` [m].
+    B_theta : np.ndarray
+        Poloidal field on ``r`` [T].
+
+    Returns
+    -------
+    float
+        $l_i = \langle B_\theta^2\rangle/B_\theta^2(a)$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0, ``B_theta`` differs in shape
+        or vanishes at the boundary.
+
+    Convention
+    ----------
+    The cylindrical $l_i$: the area-averaged $B_\theta^2$ over its boundary
+    value. A uniform current gives exactly $1/2$. On the straight cylinder
+    it equals the IMAS $l_{i,3}$ of ``li_3_from_Bp2_volume_integral`` (with
+    $B_\theta(a) = \mu_0I_p/2\pi a$ and $dV = 2\pi R_0\,2\pi r\,dr$) and the
+    Lao/EFIT ``virial_li_from_volume``; in a shaped torus the three differ.
+
+    Physical interpretation
+    -----------------------
+    Internal poloidal magnetic energy per $I_p^2$: at fixed $I_p$ a current
+    enclosed closer to the axis raises $B_\theta$ inside the column and so
+    $l_i$. It is a property of the whole $I(r)$, not a label of the profile
+    shape -- different profiles can share one $l_i$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.7.
+    .. [2] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Ch. 6.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_radial_grid</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="n">B_theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_theta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">B_theta</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">r</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">B_theta must have the shape of r, </span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="s">, not </span><span class="si">{</span><span class="n">B_theta</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">B_theta</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">B_theta must not vanish at the boundary</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="n">r</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="nf">_cumulative_trapezoid</span><span class="p">(</span><span class="n">B_theta</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">r</span><span class="p">,</span> <span class="n">r</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">a</span> <span class="o">*</span> <span class="n">B_theta</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Normalized internal inductance of a current column of radius $a$.</p>
+
+\[l_i = \frac{2}{a^2 B_\theta^2(a)}\int_0^a B_\theta^2\,r\,dr\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Minor-radius grid from the axis to the boundary $a = $ <code class="language-plaintext highlighter-rouge">r[-1]</code>.</p>
+</td></tr>
+  <tr><td><code>B_theta</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>Poloidal field on <code class="language-plaintext highlighter-rouge">r</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>$l_i = \langle B_\theta^2\rangle/B_\theta^2(a)$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The cylindrical $l_i$: the area-averaged $B_\theta^2$ over its boundary
+value. A uniform current gives exactly $1/2$. On the straight cylinder
+it equals the IMAS $l_{i,3}$ of <code class="language-plaintext highlighter-rouge">li_3_from_Bp2_volume_integral</code> (with
+$B_\theta(a) = \mu_0I_p/2\pi a$ and $dV = 2\pi R_0\,2\pi r\,dr$) and the
+Lao/EFIT <code class="language-plaintext highlighter-rouge">virial_li_from_volume</code>; in a shaped torus the three differ.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">r</code> is not an increasing grid from 0, <code class="language-plaintext highlighter-rouge">B_theta</code> differs in shape or vanishes at the boundary.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Internal poloidal magnetic energy per $I_p^2$: at fixed $I_p$ a current
+enclosed closer to the axis raises $B_\theta$ inside the column and so
+$l_i$. It is a property of the whole $I(r)$, not a label of the profile
+shape – different profiles can share one $l_i$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.7.
+</li>
+  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), Ch. 6.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="cylindrical_parallel_wavenumber" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cylindrical_parallel_wavenumber"><code>cylindrical_parallel_wavenumber</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="cylindrical_parallel_wavenumber" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L364-L419" title="vaft/formula/geometry.py, lines 364–419 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>cylindrical_parallel_wavenumber(m_pol, n_tor, q, R0)</code></pre>
+
+    <details class="ref-code" data-source-code="cylindrical_parallel_wavenumber"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 364–419</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_parallel_wavenumber</span><span class="p">(</span><span class="n">m_pol</span><span class="p">,</span> <span class="n">n_tor</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">R0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Parallel wavenumber of an $m/n$ harmonic on a cylindrical surface of safety factor $q$.
+
+    $$k_\parallel = \frac{m - nq}{qR_0}$$
+
+    Parameters
+    ----------
+    m_pol : int
+        Poloidal mode number [-].
+    n_tor : int
+        Toroidal mode number [-].
+    q : float or np.ndarray
+        Safety factor of the surface [-].
+    R0 : float
+        Major radius the cylinder is straightened at [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $k_\parallel$; zero exactly where $q = m/n$ [1/m].
+
+    Raises
+    ------
+    ValueError
+        A mode number is not positive, or ``q`` is zero.
+
+    Convention
+    ----------
+    The harmonic is $e^{i(m\theta - n\phi)}$ (``helical_phase``) with
+    $z = R_0\phi$, and $B \simeq B_z$ ($B_\theta \ll B_z$). $q$ is the
+    positive magnitude, as the mode numbers are: a negative $q$ from a COCOS
+    sign never reaches $m/n$. With $q$ rising outward, $k_\parallel$ falls
+    through zero at the rational surface.
+
+    Physical interpretation
+    -----------------------
+    The resonance condition in wave-number form: the perturbation is
+    constant along field lines where $q(r_s) = m/n$, and a rational surface is
+    the place $k_\parallel = 0$.
+
+    Assumptions
+    -----------
+    Cylinder, large aspect ratio: $B_\theta/B_z = r/(qR_0) \ll 1$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 6.4.
+    </span><span class="sh">"""</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nf">_mode</span><span class="p">(</span><span class="n">m_pol</span><span class="p">,</span> <span class="sh">"</span><span class="s">m_pol</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_mode</span><span class="p">(</span><span class="n">n_tor</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_tor</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">q</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">q must be non-zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">(</span><span class="n">m</span> <span class="o">-</span> <span class="n">n</span> <span class="o">*</span> <span class="n">q</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">q</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">R0</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">result</span></code></pre></figure>
+
+</details>
+
+    <p>Parallel wavenumber of an $m/n$ harmonic on a cylindrical surface of safety factor $q$.</p>
+
+\[k_\parallel = \frac{m - nq}{qR_0}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>m_pol</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Poloidal mode number.</p>
+</td></tr>
+  <tr><td><code>n_tor</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Toroidal mode number.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Safety factor of the surface.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius the cylinder is straightened at.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/m</td><td><p>$k_\parallel$; zero exactly where $q = m/n$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The harmonic is $e^{i(m\theta - n\phi)}$ (<code class="language-plaintext highlighter-rouge">helical_phase</code>) with
+$z = R_0\phi$, and $B \simeq B_z$ ($B_\theta \ll B_z$). $q$ is the
+positive magnitude, as the mode numbers are: a negative $q$ from a COCOS
+sign never reaches $m/n$. With $q$ rising outward, $k_\parallel$ falls
+through zero at the rational surface.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A mode number is not positive, or <code class="language-plaintext highlighter-rouge">q</code> is zero.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The resonance condition in wave-number form: the perturbation is
+constant along field lines where $q(r_s) = m/n$, and a rational surface is
+the place $k_\parallel = 0$.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Cylinder, large aspect ratio: $B_\theta/B_z = r/(qR_0) \ll 1$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="cylindrical_poloidal_field" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cylindrical_poloidal_field"><code>cylindrical_poloidal_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="cylindrical_poloidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L422-L474" title="vaft/formula/geometry.py, lines 422–474 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>cylindrical_poloidal_field(r, I_enclosed)</code></pre>
+    <p class="ref-note">Reduction: profile 1d &rarr; profile 1d &middot; normalization &middot; flux surface local &middot; profile descriptor (<a href="/vaft/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="cylindrical_poloidal_field"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 422–474</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_poloidal_field</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">I_enclosed</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Poloidal field of a straight current column by Ampère</span><span class="sh">'</span><span class="s">s law.
+
+    $$B_\theta(r) = \frac{\mu_0 I(r)}{2\pi r}$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor radius, positive [m].
+    I_enclosed : float or np.ndarray
+        Axial current inside radius $r$ [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        $B_\theta$ [T].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not positive.
+
+    Convention
+    ----------
+    $B_\theta$ has the sign of the enclosed current along $+z$, right-handed
+    about it. Exact for a cylindrically symmetric current distribution.
+
+    Physical interpretation
+    -----------------------
+    Only the current inside $r$ sets the field at $r$: a centrally peaked
+    current makes $B_\theta$ rise fast and then fall as $1/r$, which is what
+    shapes $q(r)$.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: profile_descriptor
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">r</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">r must be positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="kn">from</span> <span class="n">.constants</span> <span class="kn">import</span> <span class="n">MU0</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="n">MU0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_enclosed</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">r</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">result</span></code></pre></figure>
+
+</details>
+
+    <p>Poloidal field of a straight current column by Ampère’s law.</p>
+
+\[B_\theta(r) = \frac{\mu_0 I(r)}{2\pi r}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius, positive.</p>
+</td></tr>
+  <tr><td><code>I_enclosed</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A</td><td><p>Axial current inside radius $r$.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>$B_\theta$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$B_\theta$ has the sign of the enclosed current along $+z$, right-handed
+about it. Exact for a cylindrically symmetric current distribution.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">r</code> is not positive.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Only the current inside $r$ sets the field at $r$: a centrally peaked
+current makes $B_\theta$ rise fast and then fall as $1/r$, which is what
+shapes $q(r)$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="cylindrical_poloidal_flux" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cylindrical_poloidal_flux"><code>cylindrical_poloidal_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="cylindrical_poloidal_flux" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L596-L650" title="vaft/formula/geometry.py, lines 596–650 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>cylindrical_poloidal_flux(r, B_theta, R0)</code></pre>
+
+    <details class="ref-code" data-source-code="cylindrical_poloidal_flux"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 596–650</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_poloidal_flux</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">B_theta</span><span class="p">,</span> <span class="n">R0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Poloidal flux per radian of a straightened torus, zero on the axis.
+
+    $$\psi(r) = R_0\int_0^r B_\theta(r</span><span class="sh">'</span><span class="s">)\,dr</span><span class="sh">'</span><span class="s">$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid, starting at the axis and increasing [m].
+    B_theta : np.ndarray
+        Poloidal field on ``r`` [T].
+    R0 : float
+        Major radius the torus is straightened at [m].
+
+    Returns
+    -------
+    np.ndarray
+        $\psi(r)$ on ``r`` [Wb/rad].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0, ``B_theta`` differs in shape
+        or ``R0`` is not positive and finite.
+
+    Convention
+    ----------
+    Per radian, as COCOS 1--8 (a g-file) store it, and zero on the axis;
+    multiply by $2\pi$ for the full flux in Wb of IMAS / COCOS 11. $\psi_N =
+    \psi/\psi(a)$ is the same either way. It increases outward for a
+    positive $B_\theta$. Trapezoidal in $r$.
+
+    Physical interpretation
+    -----------------------
+    $\psi_N$ is not $r/a$: where the current is enclosed sets how fast the
+    flux accumulates, so $q_{95} = q(\psi_N = 0.95)$ sits at a radius that
+    depends on the current profile.
+
+    Assumptions
+    -----------
+    Large aspect ratio: the poloidal flux through a ribbon of length
+    $2\pi R_0$, the $1/R$ variation of a real torus neglected.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="nf">_radial_grid</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+    <span class="n">B_theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_theta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">B_theta</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">r</span><span class="p">.</span><span class="n">shape</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">B_theta must have the shape of r, </span><span class="si">{</span><span class="n">r</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="s">, not </span><span class="si">{</span><span class="n">B_theta</span><span class="p">.</span><span class="n">shape</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">R0</span><span class="p">))</span> <span class="ow">and</span> <span class="nf">float</span><span class="p">(</span><span class="n">R0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">R0 must be positive and finite, not </span><span class="si">{</span><span class="n">R0</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">R0</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_cumulative_trapezoid</span><span class="p">(</span><span class="n">B_theta</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Poloidal flux per radian of a straightened torus, zero on the axis.</p>
+
+\[\psi(r) = R_0\int_0^r B_\theta(r')\,dr'\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">m</td><td><p>Minor-radius grid, starting at the axis and increasing.</p>
+</td></tr>
+  <tr><td><code>B_theta</code></td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>Poloidal field on <code class="language-plaintext highlighter-rouge">r</code>.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius the torus is straightened at.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">Wb/rad</td><td><p>$\psi(r)$ on <code class="language-plaintext highlighter-rouge">r</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Per radian, as COCOS 1–8 (a g-file) store it, and zero on the axis;
+multiply by $2\pi$ for the full flux in Wb of IMAS / COCOS 11. $\psi_N =
+\psi/\psi(a)$ is the same either way. It increases outward for a
+positive $B_\theta$. Trapezoidal in $r$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">r</code> is not an increasing grid from 0, <code class="language-plaintext highlighter-rouge">B_theta</code> differs in shape or <code class="language-plaintext highlighter-rouge">R0</code> is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\psi_N$ is not $r/a$: where the current is enclosed sets how fast the
+flux accumulates, so $q_{95} = q(\psi_N = 0.95)$ sits at a radius that
+depends on the current profile.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Large aspect ratio: the poloidal flux through a ribbon of length
+$2\pi R_0$, the $1/R$ variation of a real torus neglected.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="cylindrical_safety_factor_from_r_B" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cylindrical_safety_factor_from_r_B"><code>cylindrical_safety_factor_from_r_B</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="cylindrical_safety_factor_from_r_B" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L299-L361" title="vaft/formula/geometry.py, lines 299–361 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>cylindrical_safety_factor_from_r_B(r, B_theta, B_z, R0)</code></pre>
+    <p class="ref-note">Reduction: profile 1d &rarr; profile 1d &middot; normalization &middot; flux surface local &middot; state coordinate (<a href="/vaft/reference/reduced-representations/">taxonomy</a>)</p>
+    <details class="ref-code" data-source-code="cylindrical_safety_factor_from_r_B"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 299–361</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_safety_factor_from_r_B</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">B_theta</span><span class="p">,</span> <span class="n">B_z</span><span class="p">,</span> <span class="n">R0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Safety factor of a straight cylinder standing in for a torus.
+
+    $$q(r) = \frac{r B_z}{R_0 B_\theta}$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Minor radius [m].
+    B_theta : float or np.ndarray
+        Poloidal (azimuthal) field at $r$ [T].
+    B_z : float or np.ndarray
+        Axial field, the stand-in for $B_\phi$ [T].
+    R0 : float
+        Major radius the torus is straightened at; the cylinder has length $2\pi R_0$ [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $q(r)$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``B_theta`` is zero somewhere.
+
+    Convention
+    ----------
+    $z = R_0\phi$ and $B_z \leftrightarrow B_\phi$: the field-line pitch
+    $d\phi/d\theta$ of the torus becomes $dz/(R_0 d\theta)$. Signs follow
+    the fields; take magnitudes for the usual positive $q$.
+
+    Physical interpretation
+    -----------------------
+    Toroidal transits per poloidal transit. It is the leading $O(1)$ limit of
+    the toroidal $q$ under $\epsilon = a/R_0 \ll 1$: no $1/R$ variation, no
+    shaping, no Shafranov shift.
+
+    Assumptions
+    -----------
+    A periodic cylinder; a screw pinch has the same $q$ with $R_0$ set by
+    the imposed period.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: state_coordinate
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    .. [2] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Ch. 11 (screw pinch).
+    </span><span class="sh">"""</span>
+    <span class="n">B_theta</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_theta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">B_theta</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">B_theta must be non-zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">R0</span><span class="p">)</span> <span class="o">*</span> <span class="n">B_theta</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">result</span></code></pre></figure>
+
+</details>
+
+    <p>Safety factor of a straight cylinder standing in for a torus.</p>
+
+\[q(r) = \frac{r B_z}{R_0 B_\theta}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>B_theta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Poloidal (azimuthal) field at $r$.</p>
+</td></tr>
+  <tr><td><code>B_z</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Axial field, the stand-in for $B_\phi$.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius the torus is straightened at; the cylinder has length $2\pi R_0$.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$q(r)$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$z = R_0\phi$ and $B_z \leftrightarrow B_\phi$: the field-line pitch
+$d\phi/d\theta$ of the torus becomes $dz/(R_0 d\theta)$. Signs follow
+the fields; take magnitudes for the usual positive $q$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">B_theta</code> is zero somewhere.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Toroidal transits per poloidal transit. It is the leading $O(1)$ limit of
+the toroidal $q$ under $\epsilon = a/R_0 \ll 1$: no $1/R$ variation, no
+shaping, no Shafranov shift.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>A periodic cylinder; a screw pinch has the same $q$ with $R_0$ set by
+the imposed period.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.3.
+</li>
+  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), Ch. 11 (screw pinch).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="harris_sheet_current_density" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#harris_sheet_current_density"><code>harris_sheet_current_density</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="harris_sheet_current_density" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L922-L970" title="vaft/formula/geometry.py, lines 922–970 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>harris_sheet_current_density(x, B0, a)</code></pre>
+
+    <details class="ref-code" data-source-code="harris_sheet_current_density"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 922–970</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">harris_sheet_current_density</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Current density of a Harris current sheet, from Ampere</span><span class="sh">'</span><span class="s">s law.
+
+    $$J_z(x) = \frac{1}{\mu_0}\frac{dB_y}{dx} = \frac{B_0}{\mu_0 a}\,\mathrm{sech}^2\frac{x}{a}$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Distance from the sheet centre, along its normal [m].
+    B0 : float
+        Asymptotic reconnecting field, signed [T].
+    a : float
+        Sheet half-thickness, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $J_z$ [A/m^2].
+
+    Raises
+    ------
+    ValueError
+        ``a`` is not positive and finite.
+
+    Convention
+    ----------
+    Right-handed $(x, y, z)$ with $\mu_0\mathbf J = \nabla\times\mathbf B$,
+    so $\mu_0J_z = \partial_xB_y$: $B_0 &gt; 0$ ($B_y$ along $+y$ above the
+    sheet) gives current along $+z$. The sheet carries $2B_0/\mu_0$ per unit
+    length in $y$.
+
+    Physical interpretation
+    -----------------------
+    The field reversal of ``harris_sheet_field`` and a localized current are
+    the same object: the current is confined to $|x| \lesssim a$, where the
+    field changes sign.
+
+    Assumptions
+    -----------
+    As ``harris_sheet_field``; displacement current neglected.
+
+    References
+    ----------
+    .. [1] E. G. Harris, Nuovo Cimento 23, 115 (1962).
+    .. [2] D. Biskamp, *Magnetic Reconnection in Plasmas*, Cambridge
+           University Press (2000), Sec. 3.1.
+    </span><span class="sh">"""</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">B0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">MU0</span> <span class="o">*</span> <span class="n">a</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">cosh</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">a</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span></code></pre></figure>
+
+</details>
+
+    <p>Current density of a Harris current sheet, from Ampere’s law.</p>
+
+\[J_z(x) = \frac{1}{\mu_0}\frac{dB_y}{dx} = \frac{B_0}{\mu_0 a}\,\mathrm{sech}^2\frac{x}{a}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>x</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Distance from the sheet centre, along its normal.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Asymptotic reconnecting field, signed.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Sheet half-thickness, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A/m^2</td><td><p>$J_z$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Right-handed $(x, y, z)$ with $\mu_0\mathbf J = \nabla\times\mathbf B$,
+so $\mu_0J_z = \partial_xB_y$: $B_0 &gt; 0$ ($B_y$ along $+y$ above the
+sheet) gives current along $+z$. The sheet carries $2B_0/\mu_0$ per unit
+length in $y$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">a</code> is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The field reversal of <code class="language-plaintext highlighter-rouge">harris_sheet_field</code> and a localized current are
+the same object: the current is confined to $|x| \lesssim a$, where the
+field changes sign.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>As <code class="language-plaintext highlighter-rouge">harris_sheet_field</code>; displacement current neglected.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>E. G. Harris, Nuovo Cimento 23, 115 (1962).
+</li>
+  <li>D. Biskamp, <em>Magnetic Reconnection in Plasmas</em>, Cambridge University Press (2000), Sec. 3.1.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="harris_sheet_field" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#harris_sheet_field"><code>harris_sheet_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="harris_sheet_field" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L868-L919" title="vaft/formula/geometry.py, lines 868–919 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>harris_sheet_field(x, B0, a)</code></pre>
+
+    <details class="ref-code" data-source-code="harris_sheet_field"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 868–919</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">harris_sheet_field</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">a</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Reconnecting field of a Harris current sheet.
+
+    $$B_y(x) = B_0\tanh\frac{x}{a}$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Distance from the sheet centre, along its normal [m].
+    B0 : float
+        Asymptotic reconnecting field, signed [T].
+    a : float
+        Sheet half-thickness, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $B_y$ [T].
+
+    Raises
+    ------
+    ValueError
+        ``a`` is not positive and finite.
+
+    Convention
+    ----------
+    Slab frame of ``sheared_slab_field``: $x$ the sheet normal, $y$ the
+    reconnecting direction, $z$ the current (and guide-field) direction;
+    $B_y(-x) = -B_y(x)$. A guide field $B_g\hat{\mathbf z}$ adds without
+    changing $J_z$ (``harris_sheet_current_density``).
+
+    Physical interpretation
+    -----------------------
+    The field reverses across a layer of thickness $\sim 2a$; for
+    $|x| \ll a$ it is the sheared slab with $B_y</span><span class="sh">'</span><span class="s"> = B_0/a$ and no guide field.
+    In the original Harris equilibrium the magnetic pressure is balanced by a
+    plasma pressure $\propto \mathrm{sech}^2(x/a)$.
+
+    Assumptions
+    -----------
+    One-dimensional, $\partial_y = \partial_z = 0$; the profile, not the
+    kinetic (drifting-Maxwellian) closure that makes it an exact Vlasov
+    equilibrium.
+
+    References
+    ----------
+    .. [1] E. G. Harris, Nuovo Cimento 23, 115 (1962).
+    .. [2] D. Biskamp, *Magnetic Reconnection in Plasmas*, Cambridge
+           University Press (2000), Sec. 3.1.
+    </span><span class="sh">"""</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">B0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">tanh</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">a</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Reconnecting field of a Harris current sheet.</p>
+
+\[B_y(x) = B_0\tanh\frac{x}{a}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>x</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Distance from the sheet centre, along its normal.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Asymptotic reconnecting field, signed.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Sheet half-thickness, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>$B_y$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Slab frame of <code class="language-plaintext highlighter-rouge">sheared_slab_field</code>: $x$ the sheet normal, $y$ the
+reconnecting direction, $z$ the current (and guide-field) direction;
+$B_y(-x) = -B_y(x)$. A guide field $B_g\hat{\mathbf z}$ adds without
+changing $J_z$ (<code class="language-plaintext highlighter-rouge">harris_sheet_current_density</code>).</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">a</code> is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The field reverses across a layer of thickness $\sim 2a$; for
+$|x| \ll a$ it is the sheared slab with $B_y’ = B_0/a$ and no guide field.
+In the original Harris equilibrium the magnetic pressure is balanced by a
+plasma pressure $\propto \mathrm{sech}^2(x/a)$.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>One-dimensional, $\partial_y = \partial_z = 0$; the profile, not the
+kinetic (drifting-Maxwellian) closure that makes it an exact Vlasov
+equilibrium.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>E. G. Harris, Nuovo Cimento 23, 115 (1962).
+</li>
+  <li>D. Biskamp, <em>Magnetic Reconnection in Plasmas</em>, Cambridge University Press (2000), Sec. 3.1.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="local_slab_from_cylinder" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#local_slab_from_cylinder"><code>local_slab_from_cylinder</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="local_slab_from_cylinder" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L788-L860" title="vaft/formula/geometry.py, lines 788–860 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>local_slab_from_cylinder(m_pol, n_tor, r_0, R0, q_0, s_hat)</code></pre>
+
+    <details class="ref-code" data-source-code="local_slab_from_cylinder"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 788–860</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">local_slab_from_cylinder</span><span class="p">(</span><span class="n">m_pol</span><span class="p">,</span> <span class="n">n_tor</span><span class="p">,</span> <span class="n">r_0</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">q_0</span><span class="p">,</span> <span class="n">s_hat</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The field-aligned sheared slab of a cylinder at $r_0$: $(k_y, L_s, k_z)$ of an $m/n$ harmonic.
+
+    $$k_y = \frac{m}{r_0},\qquad L_s = -\frac{q_0 R_0}{\hat s},\qquad k_z = \frac{m - nq_0}{q_0R_0}$$
+
+    Parameters
+    ----------
+    m_pol : int
+        Poloidal mode number [-].
+    n_tor : int
+        Toroidal mode number [-].
+    r_0 : float
+        Radius of the reference surface [m].
+    R0 : float
+        Major radius [m].
+    q_0 : float
+        Safety factor at $r_0$, a positive magnitude [-].
+    s_hat : float
+        Magnetic shear at $r_0$ [-].
+
+    Returns
+    -------
+    k_y : float
+        Binormal wavenumber $m/r_0$ [1/m].
+    L_s : float
+        Signed shear length of the local slab [m].
+    k_z : float
+        Wavenumber along the field at $r_0$; zero when $q_0 = m/n$ [1/m].
+
+    Raises
+    ------
+    ValueError
+        A mode number is not positive, ``r_0``, ``R0`` or ``q_0`` is not
+        positive, or ``s_hat`` is zero.
+
+    Convention
+    ----------
+    $x = r - r_0$; $z$ along $\mathbf B(r_0)$ and $y$ the binormal in the
+    surface, the frame of ``sheared_slab_field``, so
+    ``sheared_slab_parallel_wavenumber(x, *local_slab_from_cylinder(...))``
+    is the cylinder</span><span class="sh">'</span><span class="s">s $k_\parallel$ to first order in $x$. The harmonic is
+    $e^{i(m\theta - n\phi)}$; its wavenumber along the straightened torus
+    ($z = R_0\phi$) would be $-n/R_0$, which is not this $k_z$. With
+    $\hat s &gt; 0$ the field line, followed in $z$, drifts to $-y$ faster on the
+    outer surfaces, which makes $L_s$ negative in this frame.
+
+    Physical interpretation
+    -----------------------
+    The bridge from global mode numbers to local wavenumbers: on a rational
+    surface $q_0 = m/n$ gives $k_z = 0$, and the shear becomes
+    $k_\parallel</span><span class="sh">'</span><span class="s"> = k_y/L_s = -k_y\hat s/(q_0R_0)$.
+
+    Assumptions
+    -----------
+    Locality $|x| \ll r_0$ with $q \simeq q_0 + q_0</span><span class="sh">'</span><span class="s">x$; large aspect ratio
+    ($B_\theta \ll B_z$). The same slab follows from a toroidal equilibrium by
+    a local expansion, without the cylinder in between.
+
+    References
+    ----------
+    .. [1] H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6
+           (1963) 459.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 6.8.
+    </span><span class="sh">"""</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nf">_mode</span><span class="p">(</span><span class="n">m_pol</span><span class="p">,</span> <span class="sh">"</span><span class="s">m_pol</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_mode</span><span class="p">(</span><span class="n">n_tor</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_tor</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">r_0</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">q_0</span><span class="p">,</span> <span class="n">s_hat</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">r_0</span><span class="p">),</span> <span class="nf">float</span><span class="p">(</span><span class="n">R0</span><span class="p">),</span> <span class="nf">float</span><span class="p">(</span><span class="n">q_0</span><span class="p">),</span> <span class="nf">float</span><span class="p">(</span><span class="n">s_hat</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="n">r_0</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">R0</span> <span class="o">&gt;</span> <span class="mf">0.0</span> <span class="ow">and</span> <span class="n">q_0</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">r_0, R0 and q_0 must be positive, not </span><span class="si">{</span><span class="n">r_0</span><span class="si">!r}</span><span class="s">, </span><span class="si">{</span><span class="n">R0</span><span class="si">!r}</span><span class="s"> and </span><span class="si">{</span><span class="n">q_0</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">s_hat</span> <span class="o">==</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">s_hat</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">s_hat must be finite and non-zero, not </span><span class="si">{</span><span class="n">s_hat</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">m</span> <span class="o">/</span> <span class="n">r_0</span><span class="p">,</span> <span class="o">-</span><span class="n">q_0</span> <span class="o">*</span> <span class="n">R0</span> <span class="o">/</span> <span class="n">s_hat</span><span class="p">,</span> <span class="p">(</span><span class="n">m</span> <span class="o">-</span> <span class="n">n</span> <span class="o">*</span> <span class="n">q_0</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">q_0</span> <span class="o">*</span> <span class="n">R0</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The field-aligned sheared slab of a cylinder at $r_0$: $(k_y, L_s, k_z)$ of an $m/n$ harmonic.</p>
+
+\[k_y = \frac{m}{r_0},\qquad L_s = -\frac{q_0 R_0}{\hat s},\qquad k_z = \frac{m - nq_0}{q_0R_0}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>m_pol</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Poloidal mode number.</p>
+</td></tr>
+  <tr><td><code>n_tor</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Toroidal mode number.</p>
+</td></tr>
+  <tr><td><code>r_0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Radius of the reference surface.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius.</p>
+</td></tr>
+  <tr><td><code>q_0</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Safety factor at $r_0$, a positive magnitude.</p>
+</td></tr>
+  <tr><td><code>s_hat</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Magnetic shear at $r_0$.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>k_y</code></td><td class="ref-type">float</td><td class="ref-unit">1/m</td><td><p>Binormal wavenumber $m/r_0$.</p>
+</td></tr>
+  <tr><td><code>L_s</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Signed shear length of the local slab.</p>
+</td></tr>
+  <tr><td><code>k_z</code></td><td class="ref-type">float</td><td class="ref-unit">1/m</td><td><p>Wavenumber along the field at $r_0$; zero when $q_0 = m/n$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$x = r - r_0$; $z$ along $\mathbf B(r_0)$ and $y$ the binormal in the
+surface, the frame of <code class="language-plaintext highlighter-rouge">sheared_slab_field</code>, so
+<code class="language-plaintext highlighter-rouge">sheared_slab_parallel_wavenumber(x, *local_slab_from_cylinder(...))</code>
+is the cylinder’s $k_\parallel$ to first order in $x$. The harmonic is
+$e^{i(m\theta - n\phi)}$; its wavenumber along the straightened torus
+($z = R_0\phi$) would be $-n/R_0$, which is not this $k_z$. With
+$\hat s &gt; 0$ the field line, followed in $z$, drifts to $-y$ faster on the
+outer surfaces, which makes $L_s$ negative in this frame.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A mode number is not positive, <code class="language-plaintext highlighter-rouge">r_0</code>, <code class="language-plaintext highlighter-rouge">R0</code> or <code class="language-plaintext highlighter-rouge">q_0</code> is not positive, or <code class="language-plaintext highlighter-rouge">s_hat</code> is zero.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The bridge from global mode numbers to local wavenumbers: on a rational
+surface $q_0 = m/n$ gives $k_z = 0$, and the shear becomes
+$k_\parallel’ = k_y/L_s = -k_y\hat s/(q_0R_0)$.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Locality $|x| \ll r_0$ with $q \simeq q_0 + q_0’x$; large aspect ratio
+($B_\theta \ll B_z$). The same slab follows from a toroidal equilibrium by
+a local expansion, without the cylinder in between.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6 (1963) 459.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 6.8.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="peaked_current_safety_factor" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#peaked_current_safety_factor"><code>peaked_current_safety_factor</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="peaked_current_safety_factor" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L477-L535" title="vaft/formula/geometry.py, lines 477–535 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>peaked_current_safety_factor(x, q_a, nu)</code></pre>
+
+    <details class="ref-code" data-source-code="peaked_current_safety_factor"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 477–535</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">peaked_current_safety_factor</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">q_a</span><span class="p">,</span> <span class="n">nu</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Cylindrical $q$ profile of the peaked current $j \propto (1 - x^2)^\nu$.
+
+    $$q(x) = \frac{q_a\,x^2}{1 - (1 - x^2)^{\nu + 1}},\qquad q(0) = \frac{q_a}{\nu + 1}$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Normalised minor radius $r/a$, in $[0, 1]$ [-].
+    q_a : float
+        Edge safety factor $q(a)$ [-].
+    nu : float
+        Current peaking exponent, non-negative; $\nu = 0$ is a flat current [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $q(x)$, rising from $q_a/(\nu + 1)$ on axis to $q_a$ at the edge [-].
+
+    Raises
+    ------
+    ValueError
+        ``x`` lies outside $[0, 1]$, ``q_a`` is not positive or ``nu`` is negative.
+
+    Convention
+    ----------
+    The enclosed current is $I(x) = I_a[1 - (1 - x^2)^{\nu+1}]$; with
+    ``cylindrical_poloidal_field`` and ``cylindrical_safety_factor_from_r_B``
+    this is $q = rB_z/(R_0B_\theta)$. The axis value is the limit $x \to 0$.
+
+    Physical interpretation
+    -----------------------
+    The more peaked the current (larger $\nu$), the lower $q$ on axis and the
+    stronger the shear outside: $q_a/q_0 = \nu + 1$ is fixed by the peaking
+    alone.
+
+    Assumptions
+    -----------
+    Cylinder, large aspect ratio, the standard model profile; not a
+    reconstructed equilibrium.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3 and 6.8 (the profile used for tearing and kink examples).
+    </span><span class="sh">"""</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">q_a</span><span class="p">,</span> <span class="n">nu</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">q_a</span><span class="p">),</span> <span class="nf">float</span><span class="p">(</span><span class="n">nu</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">x</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">x</span> <span class="o">&gt;</span> <span class="mf">1.0</span> <span class="o">+</span> <span class="mf">1e-12</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">x must lie in [0, 1]</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">minimum</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">q_a</span> <span class="o">&lt;=</span> <span class="mf">0.0</span> <span class="ow">or</span> <span class="n">nu</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">q_a must be positive and nu non-negative, not </span><span class="si">{</span><span class="n">q_a</span><span class="si">!r}</span><span class="s"> and </span><span class="si">{</span><span class="n">nu</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x2</span> <span class="o">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">x</span>
+    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>  <span class="c1"># x = 1: log1p(-1) = -inf, expm1(-inf) = -1, denom = 1
+</span>        <span class="n">denom</span> <span class="o">=</span> <span class="o">-</span><span class="n">np</span><span class="p">.</span><span class="nf">expm1</span><span class="p">((</span><span class="n">nu</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">log1p</span><span class="p">(</span><span class="o">-</span><span class="n">x2</span><span class="p">))</span>  <span class="c1"># 1 - (1 - x^2)^(nu+1), exact at small x
+</span>    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">invalid</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">,</span> <span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">x2</span> <span class="o">&gt;</span> <span class="mf">1e-12</span><span class="p">,</span> <span class="n">q_a</span> <span class="o">*</span> <span class="n">x2</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">denom</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">denom</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">),</span> <span class="n">q_a</span> <span class="o">/</span> <span class="p">(</span><span class="n">nu</span> <span class="o">+</span> <span class="mf">1.0</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">result</span></code></pre></figure>
+
+</details>
+
+    <p>Cylindrical $q$ profile of the peaked current $j \propto (1 - x^2)^\nu$.</p>
+
+\[q(x) = \frac{q_a\,x^2}{1 - (1 - x^2)^{\nu + 1}},\qquad q(0) = \frac{q_a}{\nu + 1}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>x</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Normalised minor radius $r/a$, in $[0, 1]$.</p>
+</td></tr>
+  <tr><td><code>q_a</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Edge safety factor $q(a)$.</p>
+</td></tr>
+  <tr><td><code>nu</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Current peaking exponent, non-negative; $\nu = 0$ is a flat current.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$q(x)$, rising from $q_a/(\nu + 1)$ on axis to $q_a$ at the edge.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The enclosed current is $I(x) = I_a[1 - (1 - x^2)^{\nu+1}]$; with
+<code class="language-plaintext highlighter-rouge">cylindrical_poloidal_field</code> and <code class="language-plaintext highlighter-rouge">cylindrical_safety_factor_from_r_B</code>
+this is $q = rB_z/(R_0B_\theta)$. The axis value is the limit $x \to 0$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">x</code> lies outside $[0, 1]$, <code class="language-plaintext highlighter-rouge">q_a</code> is not positive or <code class="language-plaintext highlighter-rouge">nu</code> is negative.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The more peaked the current (larger $\nu$), the lower $q$ on axis and the
+stronger the shear outside: $q_a/q_0 = \nu + 1$ is fixed by the peaking
+alone.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Cylinder, large aspect ratio, the standard model profile; not a
+reconstructed equilibrium.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 3.3 and 6.8 (the profile used for tearing and kink examples).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="shear_length_from_q_R0_s" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#shear_length_from_q_R0_s"><code>shear_length_from_q_R0_s</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="shear_length_from_q_R0_s" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L247-L296" title="vaft/formula/geometry.py, lines 247–296 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>shear_length_from_q_R0_s(q, R0, s_hat)</code></pre>
+
+    <details class="ref-code" data-source-code="shear_length_from_q_R0_s"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 247–296</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">shear_length_from_q_R0_s</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">s_hat</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Magnitude of the shear length a torus or cylinder gives its local slab.
+
+    $$L_s = \frac{q R_0}{|\hat s|}$$
+
+    Parameters
+    ----------
+    q : float or np.ndarray
+        Safety factor at the reference surface [-].
+    R0 : float
+        Major radius [m].
+    s_hat : float or np.ndarray
+        Magnetic shear $\hat s = (r/q)\,dq/dr$, for example ``shear_from_r_q`` [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $|L_s|$, the distance across the surfaces at which the field tilts by
+        $B_y/B_z = 1$ in the local slab [m].
+
+    Raises
+    ------
+    ValueError
+        ``s_hat`` is zero.
+
+    Convention
+    ----------
+    Unsigned: magnitudes of $q$ and $\hat s$, whatever sign a COCOS gives
+    them. The sign a slab needs depends on how its $y$ is oriented, see
+    ``local_slab_from_cylinder`` for VAFT</span><span class="sh">'</span><span class="s">s.
+
+    Physical interpretation
+    -----------------------
+    Short $L_s$ means strong shear: a mode stays field-aligned over a thinner
+    layer. Local turbulence and drift-wave models keep this tokamak
+    coefficient while discarding the rest of the geometry.
+
+    Assumptions
+    -----------
+    Large aspect ratio and a locality $|x| \ll r$ around the surface.
+
+    References
+    ----------
+    .. [1] W. Horton, Rev. Mod. Phys. 71 (1999) 735, Sec. II.
+    </span><span class="sh">"""</span>
+    <span class="n">s_hat</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">s_hat</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">s_hat</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">s_hat must be non-zero: a shearless surface has no finite shear length</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">R0</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">s_hat</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">result</span></code></pre></figure>
+
+</details>
+
+    <p>Magnitude of the shear length a torus or cylinder gives its local slab.</p>
+
+\[L_s = \frac{q R_0}{|\hat s|}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Safety factor at the reference surface.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius.</p>
+</td></tr>
+  <tr><td><code>s_hat</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Magnetic shear $\hat s = (r/q)\,dq/dr$, for example <code class="language-plaintext highlighter-rouge">shear_from_r_q</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><table>
+  <tbody>
+    <tr>
+      <td>$</td>
+      <td>L_s</td>
+      <td>$, the distance across the surfaces at which the field tilts by $B_y/B_z = 1$ in the local slab.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Unsigned: magnitudes of $q$ and $\hat s$, whatever sign a COCOS gives
+them. The sign a slab needs depends on how its $y$ is oriented, see
+<code class="language-plaintext highlighter-rouge">local_slab_from_cylinder</code> for VAFT’s.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">s_hat</code> is zero.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Short $L_s$ means strong shear: a mode stays field-aligned over a thinner
+layer. Local turbulence and drift-wave models keep this tokamak
+coefficient while discarding the rest of the geometry.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <table>
+        <tbody>
+          <tr>
+            <td>Large aspect ratio and a locality $</td>
+            <td>x</td>
+            <td>\ll r$ around the surface.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735, Sec. II.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="sheared_slab_field" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#sheared_slab_field"><code>sheared_slab_field</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="sheared_slab_field" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L138-L189" title="vaft/formula/geometry.py, lines 138–189 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>sheared_slab_field(x, B0, L_s)</code></pre>
+
+    <details class="ref-code" data-source-code="sheared_slab_field"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 138–189</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sheared_slab_field</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">L_s</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Magnetic field of the sheared slab at radial position $x$.
+
+    $$\mathbf B = B_0\left(\hat{\mathbf z} + \frac{x}{L_s}\,\hat{\mathbf y}\right)$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Distance from the reference surface [m].
+    B0 : float
+        Field along $z$, the field direction at $x = 0$ [T].
+    L_s : float
+        Signed shear length [m].
+
+    Returns
+    -------
+    np.ndarray
+        $(B_x, B_y, B_z)$, last axis of length 3 [T].
+
+    Raises
+    ------
+    ValueError
+        ``L_s`` is zero or not finite.
+
+    Convention
+    ----------
+    $x$ radial, $y$ binormal, $z$ along the field at $x = 0$. The sign of
+    ``L_s`` is the sign of the field-line tilt $dB_y/dx$; the slab reached from
+    a positive-shear cylinder by ``local_slab_from_cylinder`` has $L_s &lt; 0$.
+
+    Physical interpretation
+    -----------------------
+    The field direction rotates with $x$ while its magnitude stays $B_0$ to
+    first order: magnetic shear without curvature. It is the local model of
+    the region around a rational surface.
+
+    Assumptions
+    -----------
+    $|x| \ll |L_s|$, so $|\mathbf B| \simeq B_0$; no curvature, no
+    equilibrium gradient in the field strength.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 8.3.
+    </span><span class="sh">"""</span>
+    <span class="n">L_s</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">L_s</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">L_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">L_s</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">L_s must be finite and non-zero, not </span><span class="si">{</span><span class="n">L_s</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">B0</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">B0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">stack</span><span class="p">([</span><span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="n">B0</span> <span class="o">*</span> <span class="n">x</span> <span class="o">/</span> <span class="n">L_s</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">full_like</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">B0</span><span class="p">)],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Magnetic field of the sheared slab at radial position $x$.</p>
+
+\[\mathbf B = B_0\left(\hat{\mathbf z} + \frac{x}{L_s}\,\hat{\mathbf y}\right)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>x</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Distance from the reference surface.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Field along $z$, the field direction at $x = 0$.</p>
+</td></tr>
+  <tr><td><code>L_s</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Signed shear length.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">T</td><td><p>$(B_x, B_y, B_z)$, last axis of length 3.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$x$ radial, $y$ binormal, $z$ along the field at $x = 0$. The sign of
+<code class="language-plaintext highlighter-rouge">L_s</code> is the sign of the field-line tilt $dB_y/dx$; the slab reached from
+a positive-shear cylinder by <code class="language-plaintext highlighter-rouge">local_slab_from_cylinder</code> has $L_s &lt; 0$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">L_s</code> is zero or not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The field direction rotates with $x$ while its magnitude stays $B_0$ to
+first order: magnetic shear without curvature. It is the local model of
+the region around a rational surface.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>$|x| \ll |L_s|$, so $|\mathbf B| \simeq B_0$; no curvature, no
+equilibrium gradient in the field strength.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 8.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="sheared_slab_parallel_wavenumber" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#sheared_slab_parallel_wavenumber"><code>sheared_slab_parallel_wavenumber</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="sheared_slab_parallel_wavenumber" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L192-L244" title="vaft/formula/geometry.py, lines 192–244 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>sheared_slab_parallel_wavenumber(x, k_y, L_s, k_z=0.0)</code></pre>
+
+    <details class="ref-code" data-source-code="sheared_slab_parallel_wavenumber"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 192–244</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sheared_slab_parallel_wavenumber</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">k_y</span><span class="p">,</span> <span class="n">L_s</span><span class="p">,</span> <span class="n">k_z</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Parallel wavenumber across a sheared slab, to first order in $x/L_s$.
+
+    $$k_\parallel(x) = k_z + k_y\,\frac{x}{L_s}$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Distance from the reference surface [m].
+    k_y : float
+        Binormal wavenumber [1/m].
+    L_s : float
+        Signed shear length, as in ``sheared_slab_field`` [m].
+    k_z : float
+        Wavenumber along the field at $x = 0$; zero when $x = 0$ is the
+        resonant surface [1/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $k_\parallel$ [1/m].
+
+    Raises
+    ------
+    ValueError
+        ``L_s`` is zero or not finite.
+
+    Convention
+    ----------
+    The field of ``sheared_slab_field``; ``slab_parallel_wavenumber`` of that
+    field to first order. With $k_z = 0$ the resonance $k_\parallel = 0$ is at
+    $x = 0$ and $k_\parallel</span><span class="sh">'</span><span class="s"> = k_y/L_s$.
+
+    Physical interpretation
+    -----------------------
+    A perturbation is field-aligned only on one surface; away from it,
+    $|k_\parallel|$ grows linearly, which is what localises tearing layers,
+    drift waves and ballooning-type modes around rational surfaces.
+
+    Assumptions
+    -----------
+    $|x| \ll |L_s|$, dropping the $O(x^2/L_s^2)$ change of $|\mathbf B|$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 8.3.
+    </span><span class="sh">"""</span>
+    <span class="n">L_s</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">L_s</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">L_s</span><span class="p">)</span> <span class="ow">or</span> <span class="n">L_s</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">L_s must be finite and non-zero, not </span><span class="si">{</span><span class="n">L_s</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">k_z</span><span class="p">)</span> <span class="o">+</span> <span class="nf">float</span><span class="p">(</span><span class="n">k_y</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">L_s</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">result</span></code></pre></figure>
+
+</details>
+
+    <p>Parallel wavenumber across a sheared slab, to first order in $x/L_s$.</p>
+
+\[k_\parallel(x) = k_z + k_y\,\frac{x}{L_s}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>x</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Distance from the reference surface.</p>
+</td></tr>
+  <tr><td><code>k_y</code></td><td class="ref-type">float</td><td class="ref-unit">1/m</td><td><p>Binormal wavenumber.</p>
+</td></tr>
+  <tr><td><code>L_s</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Signed shear length, as in <code class="language-plaintext highlighter-rouge">sheared_slab_field</code>.</p>
+</td></tr>
+  <tr><td><code>k_z</code></td><td class="ref-type">float</td><td class="ref-unit">1/m</td><td><p>Wavenumber along the field at $x = 0$; zero when $x = 0$ is the resonant surface.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/m</td><td><p>$k_\parallel$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The field of <code class="language-plaintext highlighter-rouge">sheared_slab_field</code>; <code class="language-plaintext highlighter-rouge">slab_parallel_wavenumber</code> of that
+field to first order. With $k_z = 0$ the resonance $k_\parallel = 0$ is at
+$x = 0$ and $k_\parallel’ = k_y/L_s$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">L_s</code> is zero or not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A perturbation is field-aligned only on one surface; away from it,
+$|k_\parallel|$ grows linearly, which is what localises tearing layers,
+drift waves and ballooning-type modes around rational surfaces.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <table>
+        <tbody>
+          <tr>
+            <td>$</td>
+            <td>x</td>
+            <td>\ll</td>
+            <td>L_s</td>
+            <td>$, dropping the $O(x^2/L_s^2)$ change of $</td>
+            <td>\mathbf B</td>
+            <td>$.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 8.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="slab_parallel_wavenumber" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#slab_parallel_wavenumber"><code>slab_parallel_wavenumber</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="slab_parallel_wavenumber" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L90-L135" title="vaft/formula/geometry.py, lines 90–135 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>slab_parallel_wavenumber(k, B)</code></pre>
+
+    <details class="ref-code" data-source-code="slab_parallel_wavenumber"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 90–135</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">slab_parallel_wavenumber</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Component of a wavevector along the magnetic field.
+
+    $$k_\parallel = \frac{\mathbf k\cdot\mathbf B}{|\mathbf B|}$$
+
+    Parameters
+    ----------
+    k : array_like
+        Wavevector $(k_x, k_y, k_z)$, last axis of length 3 [1/m].
+    B : array_like
+        Magnetic field at the same point, last axis of length 3 [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        Parallel wavenumber, signed along $\mathbf B$ [1/m].
+
+    Raises
+    ------
+    ValueError
+        A vector is not 3-dimensional or $|\mathbf B| = 0$.
+
+    Convention
+    ----------
+    Signed: positive when $\mathbf k$ has a component along $\mathbf B$. In a
+    straight slab $\mathbf B = B_0\hat{\mathbf z}$ it is $k_z$; neither
+    curvature nor shear enters unless the field carries them.
+
+    Physical interpretation
+    -----------------------
+    How fast a perturbation varies along field lines. Electrons stream along
+    $\mathbf B$, so modes with $k_\parallel \to 0$ -- flute-like,
+    field-aligned -- are the ones that escape parallel damping.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled Fusion*,
+           3rd ed., Springer (2016), Ch. 4.
+    </span><span class="sh">"""</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nf">_vector</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="sh">"</span><span class="s">k</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">B</span> <span class="o">=</span> <span class="nf">_vector</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">linalg</span><span class="p">.</span><span class="nf">norm</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">b</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">|B| must be non-zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">k</span> <span class="o">*</span> <span class="n">B</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">b</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">result</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">result</span></code></pre></figure>
+
+</details>
+
+    <p>Component of a wavevector along the magnetic field.</p>
+
+\[k_\parallel = \frac{\mathbf k\cdot\mathbf B}{|\mathbf B|}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>k</code></td><td class="ref-type">array_like</td><td class="ref-unit">1/m</td><td><p>Wavevector $(k_x, k_y, k_z)$, last axis of length 3.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">array_like</td><td class="ref-unit">T</td><td><p>Magnetic field at the same point, last axis of length 3.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/m</td><td><p>Parallel wavenumber, signed along $\mathbf B$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Signed: positive when $\mathbf k$ has a component along $\mathbf B$. In a
+straight slab $\mathbf B = B_0\hat{\mathbf z}$ it is $k_z$; neither
+curvature nor shear enters unless the field carries them.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <table>
+  <tbody>
+    <tr>
+      <td>A vector is not 3-dimensional or $</td>
+      <td>\mathbf B</td>
+      <td>= 0$.</td>
+    </tr>
+  </tbody>
+</table>
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>How fast a perturbation varies along field lines. Electrons stream along
+$\mathbf B$, so modes with $k_\parallel \to 0$ – flute-like,
+field-aligned – are the ones that escape parallel damping.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>F. F. Chen, <em>Introduction to Plasma Physics and Controlled Fusion</em>, 3rd ed., Springer (2016), Ch. 4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="x_point_flux" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#x_point_flux"><code>x_point_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="x_point_flux" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/geometry.py#L973-L1030" title="vaft/formula/geometry.py, lines 973–1030 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>x_point_flux(x, y, B_prime)</code></pre>
+
+    <details class="ref-code" data-source-code="x_point_flux"><summary>Show source <span class="ref-note">vaft/formula/geometry.py, lines 973–1030</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">x_point_flux</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">B_prime</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Flux function of a current-free magnetic X-point.
+
+    $$\psi(x, y) = \frac{B</span><span class="sh">'</span><span class="s">}{2}\left(x^2 - y^2\right),\qquad
+      \mathbf B_\perp = \hat{\mathbf z}\times\nabla\psi = B</span><span class="sh">'</span><span class="s">\,(y, x)$$
+
+    Parameters
+    ----------
+    x : float or np.ndarray
+        Coordinate along the inflow (sheet normal) direction [m].
+    y : float or np.ndarray
+        Coordinate along the outflow direction [m].
+    B_prime : float
+        Field gradient $B</span><span class="sh">'</span><span class="s">$, non-zero [T/m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\psi$; in-plane field lines lie on its contours [T m].
+
+    Raises
+    ------
+    ValueError
+        ``B_prime`` is zero or not finite.
+
+    Convention
+    ----------
+    The same $\mathbf B_\perp = \hat{\mathbf z}\times\nabla\psi$ as
+    ``slab_perturbed_flux``: along the inflow axis $B_y = B</span><span class="sh">'</span><span class="s">x$ reverses
+    across $x = 0$ as in a current sheet, along the outflow axis
+    $B_x = B</span><span class="sh">'</span><span class="s">y$. The separatrices are $y = \pm x$, the contour
+    $\psi = 0$ through the X-point.
+
+    Physical interpretation
+    -----------------------
+    The lowest-order field about a null: four branches meeting at the
+    X-point, $\nabla^2\psi = 0$ so no current. A current along $z$ at the null
+    changes the separatrix angle away from $90^\circ$ (collapse towards a
+    sheet). Near each X-point of a tearing island the flux of
+    ``slab_perturbed_flux`` has this saddle form.
+
+    Assumptions
+    -----------
+    Two-dimensional, $\partial_z = 0$; expansion to second order about the
+    null, valid for $|x|, |y|$ small against the scale of the surrounding
+    field.
+
+    References
+    ----------
+    .. [1] E. R. Priest and T. G. Forbes, *Magnetic Reconnection*, Cambridge
+           University Press (2000), Sec. 2.1.
+    </span><span class="sh">"""</span>
+    <span class="n">B_prime</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">B_prime</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">B_prime</span><span class="p">)</span> <span class="ow">or</span> <span class="n">B_prime</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">B_prime must be finite and non-zero, not </span><span class="si">{</span><span class="n">B_prime</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">y</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">B_prime</span> <span class="o">*</span> <span class="p">(</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span> <span class="o">-</span> <span class="n">y</span> <span class="o">*</span> <span class="n">y</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Flux function of a current-free magnetic X-point.</p>
+
+\[\psi(x, y) = \frac{B'}{2}\left(x^2 - y^2\right),\qquad
+  \mathbf B_\perp = \hat{\mathbf z}\times\nabla\psi = B'\,(y, x)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>x</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Coordinate along the inflow (sheet normal) direction.</p>
+</td></tr>
+  <tr><td><code>y</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Coordinate along the outflow direction.</p>
+</td></tr>
+  <tr><td><code>B_prime</code></td><td class="ref-type">float</td><td class="ref-unit">T/m</td><td><p>Field gradient $B’$, non-zero.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T m</td><td><p>$\psi$; in-plane field lines lie on its contours.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The same $\mathbf B_\perp = \hat{\mathbf z}\times\nabla\psi$ as
+<code class="language-plaintext highlighter-rouge">slab_perturbed_flux</code>: along the inflow axis $B_y = B’x$ reverses
+across $x = 0$ as in a current sheet, along the outflow axis
+$B_x = B’y$. The separatrices are $y = \pm x$, the contour
+$\psi = 0$ through the X-point.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">B_prime</code> is zero or not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The lowest-order field about a null: four branches meeting at the
+X-point, $\nabla^2\psi = 0$ so no current. A current along $z$ at the null
+changes the separatrix angle away from $90^\circ$ (collapse towards a
+sheet). Near each X-point of a tearing island the flux of
+<code class="language-plaintext highlighter-rouge">slab_perturbed_flux</code> has this saddle form.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Two-dimensional, $\partial_z = 0$; expansion to second order about the
+null, valid for $|x|, |y|$ small against the scale of the surrounding
+field.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>E. R. Priest and T. G. Forbes, <em>Magnetic Reconnection</em>, Cambridge University Press (2000), Sec. 2.1.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/field_line_topology/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: field_line_topology">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/geometric-approximations/" class="navigation navigation-next navigation-unique" aria-label="Next page: Geometric approximations">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Geometric approximations",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Geometric_approximations.md",
+            "ref": "_guide/Geometric_approximations.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_geometry.md",
+        "mtime": "2026-09-26 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -1,0 +1,1063 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Credibility and applicability · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/software-dependencies/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/formula/sensitivity/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Credibility and applicability</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Credibility_and_applicability">Credibility and applicability</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>The six credibility axes (E/T/I/A/N/V) evidence is placed on, the ordering-based applicability evaluation, and who owns what between formula, process, validation and workflow.</dd>
+    <dt>Prerequisites / inputs</dt><dd>The Computational layers page, for the Formula, Process and Code vocabulary.</dd>
+    <dt>Expected result</dt><dd>Which axis a check belongs to, how an ordering becomes a margin and a status, and why neither ever runs on the default processing path.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>A VAFT result is trusted for six different reasons, and they fail independently. A reconstruction
+can fit every probe and still be unidentified. A solve can converge and still violate an ordering
+its model assumed. A datum can be valid and still be extrapolated. This page fixes the vocabulary for
+those questions (issue #1639) and the evaluation of one of them, approximation applicability
+(#1628, with the ordering quantities from #1627).</p>
+
+<h2 id="the-rule-this-page-protects">The rule this page protects</h2>
+
+<p><strong>Scientific assessment surrounds the fast path; it never burdens it.</strong> A process computes its
+result and returns it. Assessment is a separate, optional call over that result, and so is
+uncertainty propagation. Nothing on this page is imported by <code class="language-plaintext highlighter-rouge">vaft.process</code>, and
+<code class="language-plaintext highlighter-rouge">test/test_validation_credibility.py</code> checks that in a clean interpreter.</p>
+
+<h2 id="the-six-axes">The six axes</h2>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.validation.credibility.AXES</code>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>axis</th>
+      <th>question</th>
+      <th>typical evidence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">source_evidence</code> (E)</td>
+      <td>Does the source datum itself provide credible evidence?</td>
+      <td>channel validity, calibration, drift, saturation</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">transformation</code> (T)</td>
+      <td>How faithfully was it turned into what is consumed?</td>
+      <td>time mismatch, mapping distance, fraction extrapolated</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">inference</code> (I)</td>
+      <td>Does the evidence determine the requested state?</td>
+      <td>fit residuals, Jacobian conditioning, singular values</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">applicability</code> (A)</td>
+      <td>Do the model’s assumptions hold for this state?</td>
+      <td>ordering margins (below)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">numerical</code> (N)</td>
+      <td>Was the calculation performed reliably?</td>
+      <td>convergence, Grad–Shafranov residual, identity closure</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">independent_validation</code> (V)</td>
+      <td>Does evidence <em>not</em> used in the inference support it?</td>
+      <td>withheld diagnostic, unused identity, alternative solver</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The axes are a classification, not a result schema. A domain module still returns its own plain
+dict. <code class="language-plaintext highlighter-rouge">Evidence(axis, key, status, metrics, reasons, cost, role)</code> exists only so that evidence from
+different domains can be laid side by side. <code class="language-plaintext highlighter-rouge">compose()</code> returns <strong>one status per axis</strong> and never
+one overall score. For example, <em>fit = pass, independent validation = not available</em> is a
+different statement from <em>independent validation = fail</em>.</p>
+
+<p><strong>Rules carried over from #253 and #337:</strong></p>
+<ul>
+  <li>A metric is not a verdict, and a verdict is not a policy. Whether a result may be <em>used</em> is
+decided by the workflow.</li>
+  <li>Missing evidence is not failure.</li>
+  <li>A precondition (“can this algorithm run?”) is not credibility (“is the result trustworthy?”).</li>
+</ul>
+
+<p><strong>Fitted data is not independent validation.</strong> Every piece of evidence can carry a role from
+<code class="language-plaintext highlighter-rouge">EVIDENCE_ROLES</code>, such as <code class="language-plaintext highlighter-rouge">used_for_inference</code> or <code class="language-plaintext highlighter-rouge">independent_validation</code>.</p>
+<ul>
+  <li>VAFT’s EFIT fits the diamagnetic flux by default (<code class="language-plaintext highlighter-rouge">EFITConfig.use_diamagnetic_flux</code>; #891,
+#1440). So when the reconstruction fitted the flux – the report’s
+<code class="language-plaintext highlighter-rouge">diagnostic_fit.diamagnetic_flux</code> records <code class="language-plaintext highlighter-rouge">fit_role: fitted</code>, i.e. the constraint’s weight was
+non-zero, whatever grade the entry received – every check in <code class="language-plaintext highlighter-rouge">DIAMAGNETIC_CHECKS</code> moves off the
+V axis automatically.</li>
+  <li>Name any other fitted check in <code class="language-plaintext highlighter-rouge">used_for_inference=</code>. An unknown key or a bare string is refused
+rather than ignored.</li>
+</ul>
+
+<h3 id="cost-classes">Cost classes</h3>
+
+<p><code class="language-plaintext highlighter-rouge">COST_CLASSES = ("cheap", "moderate", "expensive")</code>:</p>
+<ul>
+  <li><strong>cheap:</strong> read from results that already exist, such as a convergence flag or an ordering
+parameter.</li>
+  <li><strong>moderate:</strong> local computation, but no solver rerun.</li>
+  <li><strong>expensive:</strong> solver ensembles, Monte Carlo, continuation. Always opt-in.</li>
+</ul>
+
+<h2 id="pilots">Pilots</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>pilot</th>
+      <th>where</th>
+      <th>what it shows</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A: equilibrium reconstruction</td>
+      <td><code class="language-plaintext highlighter-rouge">evidence_from_equilibrium_report</code></td>
+      <td>the <code class="language-plaintext highlighter-rouge">validate_equilibrium</code> report on the axes; fit quality and plausibility (I), solution consistency (N) and independent validation (V) stay apart</td>
+    </tr>
+    <tr>
+      <td>A: the #891/#1331 study criteria</td>
+      <td><code class="language-plaintext highlighter-rouge">evidence_from_efit_criteria</code></td>
+      <td>criteria v2 (#1521); Thomson stays on V and never enters fit quality</td>
+    </tr>
+    <tr>
+      <td>B: virial closures</td>
+      <td>the virial checks inside pilot A</td>
+      <td>identity residual (N), leave-one-identity-out (V), closure conditioning (I)</td>
+    </tr>
+    <tr>
+      <td>C: current moments (#943)</td>
+      <td><code class="language-plaintext highlighter-rouge">successive_discrepancy</code></td>
+      <td>relative change of an observable along the moment order</td>
+    </tr>
+    <tr>
+      <td>D: asymptotic validity</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.applicability</code></td>
+      <td>ordering margins and contracts, below</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>How the mappings are chosen.</strong></p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">CATEGORY_AXES</code> maps each existing validation category to its default axis.</li>
+  <li><code class="language-plaintext highlighter-rouge">CHECK_AXES</code> records the registry checks placed elsewhere, each with its reason in a source
+comment. For example, plausibility of the inferred state is <code class="language-plaintext highlighter-rouge">inference</code>, not <code class="language-plaintext highlighter-rouge">numerical</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">CRITERIA_AXES</code> is the complete mapping for the study criteria. There, <code class="language-plaintext highlighter-rouge">virial</code> compares two β_p
+of the same g-file, so it is <code class="language-plaintext highlighter-rouge">numerical</code>, and only Thomson is on V.</li>
+</ul>
+
+<h2 id="applicability-margins-first-labels-second">Applicability: margins first, labels second</h2>
+
+<p>A reduced model is derived under orderings. For example, ideal single-fluid MHD needs all of the
+following:</p>
+<ul>
+  <li>$S \gg 1$;</li>
+  <li>$d_i/L \ll 1$;</li>
+  <li>$\rho_i/L \ll 1$;</li>
+  <li>$\tau_{\rm evol}/\tau_A \gg 1$.</li>
+</ul>
+
+<p>These test different things, so an <code class="language-plaintext highlighter-rouge">ApproximationContract</code> keeps them as separate
+<code class="language-plaintext highlighter-rouge">OrderingAssumption</code>s. Each assumption names its quantity, its characteristic <code class="language-plaintext highlighter-rouge">scale</code> and its
+<code class="language-plaintext highlighter-rouge">scope</code>, so $d_i/a$ can never silently stand in for $d_i/\delta_{\rm layer}$.</p>
+
+<p>The primary output is the continuous <strong>ordering margin</strong> against the assumption’s threshold
+$x_0$:</p>
+
+\[m = \log_{10}(x_0/x) \quad (x \ll x_0), \qquad m = \log_{10}(x/x_0) \quad (x \gg x_0).\]
+
+<ul>
+  <li>$m &gt; 0$: on the permitted side, with $m$ decades to spare. <code class="language-plaintext highlighter-rouge">SUPPORTED</code> means only this:
+$x = 0.99$ against $x_0 = 1$ is supported with $m = 0.004$, so read the margin, not the label.</li>
+  <li>$m \le 0$: violated.</li>
+  <li>The default $x_0 = 1$ is where the expansion parameter reaches order unity. This is the only
+cutoff applied without a source. Any other threshold must name its source in <code class="language-plaintext highlighter-rouge">threshold_source</code>,
+or the assumption refuses to construct (#1639 §12).</li>
+</ul>
+
+<p><strong>Statuses.</strong> They come second, from the same vocabulary as the operational-space renderer (#1664):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>status</th>
+      <th>meaning</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">SUPPORTED</code></td>
+      <td>every assumption evaluated and satisfied</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">OUTSIDE</code></td>
+      <td>at least one evaluated assumption violated, whatever else is missing</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">UNASSESSED</code></td>
+      <td>nothing violated, but some quantity is missing, non-finite or non-positive, or the state lacks a field the contract’s scope is defined on</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">NOT_APPLICABLE</code></td>
+      <td>the state is outside the contract’s <code class="language-plaintext highlighter-rouge">applies_to</code> scope</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>There is no <code class="language-plaintext highlighter-rouge">MARGINAL</code>: a margin band would be a cutoff nobody derived, and the margin itself is
+there for anyone who wants to see how close a state is.</p>
+
+<p><strong>Functions:</strong></p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">evaluate_contract(contract, state)</code> returns every assumption’s value, margin and status, plus
+the limiting assumption.</li>
+  <li><code class="language-plaintext highlighter-rouge">evaluate_population(contract, table)</code> keeps every row and every individual check.</li>
+  <li><code class="language-plaintext highlighter-rouge">as_evidence(result)</code> places a result on the A axis.</li>
+</ul>
+
+<p>The strongest applicability evidence pairs the ordering with the convergence it predicts (#1639
+§12): <code class="language-plaintext highlighter-rouge">successive_discrepancy([Q_reduced, ..., Q_full])</code>.</p>
+
+<h2 id="ownership">Ownership</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>concern</th>
+      <th>owner</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ordering quantities ($S$, $d_i/L$, $Kn$, $\Omega_c/\nu$, …)</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula</code> / <code class="language-plaintext highlighter-rouge">vaft.process</code> (#1627)</td>
+    </tr>
+    <tr>
+      <td>which orderings a model assumes (the contracts)</td>
+      <td>declared beside the model (#1627 for ordering families, #1628 for formulas, codes, workflows)</td>
+    </tr>
+    <tr>
+      <td>margin, status and composition semantics</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.applicability</code> (this page)</td>
+    </tr>
+    <tr>
+      <td>the credibility axes and <code class="language-plaintext highlighter-rouge">Evidence</code></td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.credibility</code> (this page)</td>
+    </tr>
+    <tr>
+      <td>drawing statuses on a diagram</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.plot.operational_space</code> (#1664)</td>
+    </tr>
+    <tr>
+      <td>acceptance policy (what a study accepts)</td>
+      <td>the workflow or notebook</td>
+    </tr>
+    <tr>
+      <td>sensitivity, Jacobians, uncertainty propagation</td>
+      <td>#1642, opt-in</td>
+    </tr>
+    <tr>
+      <td>the VEST population study</td>
+      <td><code class="language-plaintext highlighter-rouge">notebooks/vest_ordering_and_model_applicability.ipynb</code> (#1629)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="sensitivity-linearization-and-uncertainty-1642">Sensitivity, linearization and uncertainty (#1642)</h2>
+
+<p>The domain that owns an operation owns its derivatives. EFIT’s native response matrix stays in
+<code class="language-plaintext highlighter-rouge">vaft.code.efit.linearization</code>, and a process’s Jacobian stays beside the process. Two shared
+pieces sit around them:</p>
+<ul>
+  <li>the algebra, in <code class="language-plaintext highlighter-rouge">vaft.formula.sensitivity</code>;</li>
+  <li>what the numbers mean, in <code class="language-plaintext highlighter-rouge">vaft.validation.sensitivity</code>.</li>
+</ul>
+
+<p>There is no <code class="language-plaintext highlighter-rouge">sensitivity</code> package, and nothing in this section runs unless it is called.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>function</th>
+      <th>layer</th>
+      <th>cost</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">finite_difference_jacobian(f, x)</code></td>
+      <td>formula</td>
+      <td>2n + 1 model calls (central), n + 1 (forward)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">linear_covariance_propagation(J, Σ)</code></td>
+      <td>formula</td>
+      <td>$J\Sigma J^{\mathsf T}$, correlations kept</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">monte_carlo_propagation(f, μ, Σ, samples, seed)</code></td>
+      <td>formula</td>
+      <td>one model call per sample: opt-in only; failed draws are counted as <code class="language-plaintext highlighter-rouge">rejected</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">singular_value_spectrum(J, column_scale)</code></td>
+      <td>formula</td>
+      <td>SVD of $JD$, never of $J^{\mathsf T}J$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">linearity_ratio(f, x, δ, J)</code></td>
+      <td>formula</td>
+      <td>share of a finite response the Jacobian misses</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Jacobian(provenance, kind, perturbation, inputs, outputs, matrix \| jvp)</code></td>
+      <td>validation</td>
+      <td>explicit or matrix-free</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">compare_jacobians(reference, candidate, tolerance=)</code></td>
+      <td>validation</td>
+      <td>one derivative verified by another</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">compare_linear_to_monte_carlo(J Σ Jᵀ, sampled, tolerance=)</code></td>
+      <td>validation</td>
+      <td>local-to-global escalation test</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">scan_evidence(report)</code></td>
+      <td>validation</td>
+      <td>a targeted scan (#1663) as model-form evidence</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Distinctions kept apart:</strong></p>
+<ul>
+  <li><strong>Provenance:</strong> <code class="language-plaintext highlighter-rouge">native</code>, <code class="language-plaintext highlighter-rouge">finite_difference</code>, <code class="language-plaintext highlighter-rouge">autodiff</code> or <code class="language-plaintext highlighter-rouge">analytic</code>. Comparing a Jacobian
+with one of the <em>same</em> provenance is refused: that is repetition, not validation.</li>
+  <li><strong>Kind:</strong> an <code class="language-plaintext highlighter-rouge">observation</code> Jacobian (identifiability), a <code class="language-plaintext highlighter-rouge">governing_operator</code> one (uniqueness,
+branches) and a <code class="language-plaintext highlighter-rouge">forward</code> one (local sensitivity) answer different questions.</li>
+  <li><strong>Perturbation:</strong> <code class="language-plaintext highlighter-rouge">physical</code> versus <code class="language-plaintext highlighter-rouge">numerical</code>. Physical sensitivity is never mixed with
+convergence. <code class="language-plaintext highlighter-rouge">compare_jacobians</code> refuses a pair that differs in kind or perturbation unless
+<code class="language-plaintext highlighter-rouge">allow_mixed=True</code>.</li>
+</ul>
+
+<p><strong>Tolerances.</strong> A comparison returns metrics. It carries a status only when the caller passes a
+<code class="language-plaintext highlighter-rouge">tolerance=(warn, fail)</code>; no tolerance is invented here.</p>
+<ul>
+  <li>An infinite discrepancy fails. Examples: a zero Jacobian against a real spread, or a non-zero row
+against a zero one.</li>
+  <li>A comparison over Monte Carlo draws that rejected any sample is never better than <code class="language-plaintext highlighter-rouge">warn</code>: the
+sampled covariance is then conditioned on the model succeeding.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">test/test_sensitivity_contract.py</code> demonstrates the #1642 acceptance points at unit-test cost:</p>
+
+<ol>
+  <li><strong>A derivative checked by another method.</strong> The exact Green’s-function field (an analytic
+derivative already in VAFT, $B = \nabla\times\psi$) matches the finite-difference derivative of
+its flux to below $10^{-6}$.</li>
+  <li><strong>Local propagation against sampling.</strong> <code class="language-plaintext highlighter-rouge">vaft.process.confinement.dimensionless_confinement_indices</code>
+already propagates the exponent covariance through a central-difference Jacobian.
+    <ul>
+      <li>Its covariance equals the generic kernels’.</li>
+      <li>At $\alpha_P = -0.6$ it passes the test’s tolerance (0.1 in $\ln\sigma$) against 4000-draw
+Monte Carlo.</li>
+      <li>It is not exact. The linear standard deviation is 5–8 % low across seeds, against a sampling
+error of 1 %: the curvature of $1/(1+\alpha_P)$ shows even here.</li>
+    </ul>
+  </li>
+  <li><strong>Where the linearization fails.</strong> At $\alpha_P = -0.93$, $1+\alpha_P = 0.07$ puts the pole
+1.4 standard errors away, inside the input distribution.
+    <ul>
+      <li>$1/(1+\alpha_P)$ of a Gaussian $\alpha_P$ has infinite variance. The sampled spread does
+not converge with the sample count, and only its size, not its sign, depends on the seed.</li>
+      <li>The linear propagation fails against it every time, as that function’s docstring warns.</li>
+      <li>The cheap <code class="language-plaintext highlighter-rouge">linearity_ratio</code> flags the problem before any sampling is paid for.</li>
+      <li>The reported <code class="language-plaintext highlighter-rouge">sampling_standard_error</code> assumes finite variance, so it means nothing in this
+regime.</li>
+    </ul>
+  </li>
+</ol>
+
+<h3 id="workflow-graduation-audit">Workflow graduation audit</h3>
+
+<p>#1642 §21 asks which workflow-held logic is reusable. These are the candidates found so far. None
+is moved by this change; each move belongs to the owning lane.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>workflow logic</th>
+      <th>what is reusable</th>
+      <th>owning API</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">workflow/efit_identifiability/identifiability_study.py</code> (#664)</td>
+      <td>column scaling, null space, singular classes, direction linearity</td>
+      <td>already partly in <code class="language-plaintext highlighter-rouge">vaft.code.efit.analyze_efit_identifiability</code>; the generic SVD is <code class="language-plaintext highlighter-rouge">singular_value_spectrum</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">workflow/efit_uncertainty_calibration/weight_scan.py</code> stage 6 and <code class="language-plaintext highlighter-rouge">sensitivity_report.py</code> (#1663)</td>
+      <td>targeted scan over σ and basis; model-form spread</td>
+      <td>stays a study; read through <code class="language-plaintext highlighter-rouge">scan_evidence</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">workflow/confinement_scaling/closures.py</code></td>
+      <td>bootstrap over shots</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.confinement.bootstrap_confinement_scaling</code> (already graduated)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.confinement.dimensionless_confinement_indices</code></td>
+      <td>inline central-difference $J\Sigma J^{\mathsf T}$</td>
+      <td>could call the formula kernels; left untouched (Lane D)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Two notes on this table:</p>
+<ul>
+  <li>“Already graduated” means only that the library function exists. <code class="language-plaintext highlighter-rouge">closures.py</code> keeps its own
+bootstrap loop.</li>
+  <li><code class="language-plaintext highlighter-rouge">sensitivity_report.py</code> and the stage-6 grid exist only on the #1663 branch for now.</li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="validation"><a href="/vaft/reference/api/validation/"><code>vaft.validation</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/software-dependencies/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Software dependencies">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/formula/sensitivity/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: sensitivity">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-rule-this-page-protects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The rule this page protects</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-six-axes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The six axes</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#cost-classes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cost classes</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pilots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pilots</a></li><li class="page-toc-item page-toc-level-2"><a href="#applicability-margins-first-labels-second" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Applicability: margins first, labels second</a></li><li class="page-toc-item page-toc-level-2"><a href="#ownership" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ownership</a></li><li class="page-toc-item page-toc-level-2"><a href="#sensitivity-linearization-and-uncertainty-1642" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sensitivity, linearization and uncertainty (#1642)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#workflow-graduation-audit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Workflow graduation audit</a></li></ul></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: sensitivity",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_sensitivity.md",
+            "ref": "_guide/Formula_reference_sensitivity.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Credibility_and_applicability.md",
+        "mtime": "2026-10-05 09:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

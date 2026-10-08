@@ -1,0 +1,2141 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: boundaries · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/diagram/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/equilibrium-representations/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: boundaries</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_boundaries">Formula reference: boundaries</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.boundaries, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.boundaries</code>:
+<strong>14</strong> public functions. Each entry is what
+<code>vaft.formula.describe("boundaries.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A published limit is more than its formula. It predicts one specific
+quantity (line-averaged density, not “the density”). It has a permitted side.
+It was fitted on some machines under some assumptions. It may or may not carry
+a quoted uncertainty. And it comes from one paper and equation. A
+<code class="language-plaintext highlighter-rouge">Boundary</code> keeps all of that next to the evaluation rule. Then
+<code class="language-plaintext highlighter-rouge">evaluate_boundary</code> can report how far a state sits from the boundary,
+on which side, and whether the inputs lie inside the fitted domain.
+<code class="language-plaintext highlighter-rouge">boundary_curve</code> returns the boundary as arrays on a chosen 2-D
+projection, and a plot draws only that; no plotting code lives here (#1067).</p>
+
+<p>Existing formula functions stay where they are. An entry <em>references</em> one
+through <code class="language-plaintext highlighter-rouge">function</code> instead of restating its coefficients, so the Greenwald
+entry evaluates <code class="language-plaintext highlighter-rouge">stability.greenwald_density</code> itself.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>b</td><td>boundary value of the target quantity, in the target&#39;s unit</td><td class="ref-unit">varies</td></tr>
+  <tr><td>x</td><td>operating value of the same quantity, same unit</td><td class="ref-unit">varies</td></tr>
+  <tr><td>ratio</td><td>x / b</td><td class="ref-unit">-</td></tr>
+  <tr><td>margin</td><td>signed normalised distance, positive on the permitted side</td><td class="ref-unit">-</td></tr>
+  </tbody>
+</table></div>
+
+<p>Every input and target is a <code class="language-plaintext highlighter-rouge">BoundaryQuantity</code> with an explicit unit
+string, and callers pass values in exactly that unit. Nothing is converted
+behind the caller’s back. For <code class="language-plaintext highlighter-rouge">allowed_side = "below"</code> (permitted
+$x &lt; b$) the margin is $(b - x)/b$. For <code class="language-plaintext highlighter-rouge">"above"</code> (permitted $x &gt; b$) it is
+$(x - b)/b$. A positive margin is always the permitted side, and a zero
+margin lies on the boundary.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 14 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="boundary_curve"><td><a href="#boundary_curve"><code>boundary_curve</code></a></td><td>A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="boundary_value"><td><a href="#boundary_value"><code>boundary_value</code></a></td><td>Value of a boundary’s target quantity at the given inputs.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="cylindrical_kink_coordinates"><td><a href="#cylindrical_kink_coordinates"><code>cylindrical_kink_coordinates</code></a></td><td>Menard’s cylindrical safety factor, $q^* = \pi a^2 B_{T0}(1+\kappa^2)/(\mu_0 R_0 I_P)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="evaluate_boundary"><td><a href="#evaluate_boundary"><code>evaluate_boundary</code></a></td><td>Distance and side of an operating value relative to a boundary.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="evaluate_window"><td><a href="#evaluate_window"><code>evaluate_window</code></a></td><td>Position of an operating value relative to an access window.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="get_boundary"><td><a href="#get_boundary"><code>get_boundary</code></a></td><td>A registered boundary or window by key.
+</td></tr>
+  <tr data-ref-row="hugill_coordinates"><td><a href="#hugill_coordinates"><code>hugill_coordinates</code></a></td><td>Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="hugill_coordinates_st"><td><a href="#hugill_coordinates_st"><code>hugill_coordinates_st</code></a></td><td>Spherical-tokamak Hugill coordinates $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl}^{ST})$ of Sykes et al. (2000).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="iter_q95_coordinates"><td><a href="#iter_q95_coordinates"><code>iter_q95_coordinates</code></a></td><td>The ITER design-guideline $q_{95}$ estimate from global shape, $q_{95} \approx q_* f(\epsilon)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="kink_coordinates"><td><a href="#kink_coordinates"><code>kink_coordinates</code></a></td><td>Freidberg’s kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="list_boundaries"><td><a href="#list_boundaries"><code>list_boundaries</code></a></td><td>Keys of the registered boundaries, optionally restricted to one family.
+</td></tr>
+  <tr data-ref-row="same_quantity"><td><a href="#same_quantity"><code>same_quantity</code></a></td><td>Whether two quantities are the same physical quantity in the same unit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="start_q95_coordinates"><td><a href="#start_q95_coordinates"><code>start_q95_coordinates</code></a></td><td>The START low-aspect-ratio $q_{95}$ estimate of Akers et al. (2000) from global shape.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="threshold_curve"><td><a href="#threshold_curve"><code>threshold_curve</code></a></td><td>A threshold boundary drawn as a straight line across a 2-D projection.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="boundary_curve" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#boundary_curve"><code>boundary_curve</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="boundary_curve" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L558-L613" title="vaft/formula/boundaries.py, lines 558–613 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>boundary_curve(boundary, sweep, values, swap_axes=False, **fixed)</code></pre>
+
+    <details class="ref-code" data-source-code="boundary_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 558–613</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">boundary_curve</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="n">sweep</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">swap_axes</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">fixed</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundaryCurve</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.
+
+    $$y_k = b\left(x_\mathrm{sweep} = v_k,\ \text{other inputs fixed}\right)$$
+
+    Parameters
+    ----------
+    boundary : Boundary
+        The boundary to sample [-].
+    sweep : str
+        Name of the input placed on the x axis [-].
+    values : array_like
+        Values of the swept input, in its declared unit [varies].
+    swap_axes : bool
+        Put the boundary</span><span class="sh">'</span><span class="s">s target on x and the swept input on y, as in a
+        Hugill diagram, whose x axis is the density-like quantity [-].
+
+    Returns
+    -------
+    BoundaryCurve
+        ``x`` is the swept input and ``y`` the boundary value. The curve
+        carries both quantities (identity and unit), the permitted side along
+        y, and the fixed inputs [-].
+
+    Raises
+    ------
+    KeyError
+        ``sweep`` is not an input of the boundary.
+    TypeError
+        A fixed input is missing, unknown, an array, or duplicates the swept
+        one; or ``values`` is not 1-D.
+
+    Convention
+    ----------
+    The permitted side is the boundary</span><span class="sh">'</span><span class="s">s own ``allowed_side``, read along the
+    y axis: ``</span><span class="sh">"</span><span class="s">below</span><span class="sh">"</span><span class="s">`` means operating points under the curve are permitted.
+    With ``swap_axes`` the target is read along x, so ``</span><span class="sh">"</span><span class="s">below</span><span class="sh">"</span><span class="s">`` becomes
+    ``</span><span class="sh">"</span><span class="s">left</span><span class="sh">"</span><span class="s">`` and ``</span><span class="sh">"</span><span class="s">above</span><span class="sh">"</span><span class="s">`` becomes ``</span><span class="sh">"</span><span class="s">right</span><span class="sh">"</span><span class="s">``.
+    </span><span class="sh">"""</span>
+    <span class="n">x_quantity</span> <span class="o">=</span> <span class="n">boundary</span><span class="p">.</span><span class="nf">input</span><span class="p">(</span><span class="n">sweep</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">sweep</span> <span class="ow">in</span> <span class="n">fixed</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">sweep</span><span class="si">!r}</span><span class="s"> is swept; do not also fix it</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">non_scalar</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">fixed</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">non_scalar</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">fixed inputs must be scalars; </span><span class="si">{</span><span class="n">non_scalar</span><span class="si">}</span><span class="s"> are arrays</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">x</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">TypeError</span><span class="p">(</span><span class="sh">"</span><span class="s">values must be a 1-D sequence</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_to</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">boundary_value</span><span class="p">(</span><span class="n">boundary</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="n">sweep</span><span class="p">:</span> <span class="n">x</span><span class="p">},</span> <span class="o">**</span><span class="n">fixed</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">x</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">fixed</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">fixed</span><span class="p">.</span><span class="nf">items</span><span class="p">()}</span>
+    <span class="k">if</span> <span class="n">swap_axes</span><span class="p">:</span>
+        <span class="n">side</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">below</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">left</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">above</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">right</span><span class="sh">"</span><span class="p">}[</span><span class="n">boundary</span><span class="p">.</span><span class="n">allowed_side</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nc">BoundaryCurve</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">x_quantity</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">,</span> <span class="n">y_quantity</span><span class="o">=</span><span class="n">x_quantity</span><span class="p">,</span>
+                             <span class="n">allowed_side</span><span class="o">=</span><span class="n">side</span><span class="p">,</span> <span class="n">fixed</span><span class="o">=</span><span class="n">fixed</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">BoundaryCurve</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="n">x_quantity</span><span class="o">=</span><span class="n">x_quantity</span><span class="p">,</span> <span class="n">y_quantity</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">,</span>
+                         <span class="n">allowed_side</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">allowed_side</span><span class="p">,</span> <span class="n">fixed</span><span class="o">=</span><span class="n">fixed</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>A boundary sampled along one input, as $(x, y) = (x_\mathrm{sweep}, b)$ arrays.</p>
+
+\[y_k = b\left(x_\mathrm{sweep} = v_k,\ \text{other inputs fixed}\right)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>boundary</code></td><td class="ref-type">Boundary</td><td class="ref-unit">-</td><td><p>The boundary to sample.</p>
+</td></tr>
+  <tr><td><code>sweep</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Name of the input placed on the x axis.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td class="ref-type">array_like</td><td class="ref-unit">varies</td><td><p>Values of the swept input, in its declared unit.</p>
+</td></tr>
+  <tr><td><code>swap_axes</code></td><td class="ref-type">bool</td><td class="ref-unit">-</td><td><p>Put the boundary’s target on x and the swept input on y, as in a Hugill diagram, whose x axis is the density-like quantity.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">BoundaryCurve</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">x</code> is the swept input and <code class="language-plaintext highlighter-rouge">y</code> the boundary value. The curve carries both quantities (identity and unit), the permitted side along y, and the fixed inputs.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The permitted side is the boundary’s own <code class="language-plaintext highlighter-rouge">allowed_side</code>, read along the
+y axis: <code class="language-plaintext highlighter-rouge">"below"</code> means operating points under the curve are permitted.
+With <code class="language-plaintext highlighter-rouge">swap_axes</code> the target is read along x, so <code class="language-plaintext highlighter-rouge">"below"</code> becomes
+<code class="language-plaintext highlighter-rouge">"left"</code> and <code class="language-plaintext highlighter-rouge">"above"</code> becomes <code class="language-plaintext highlighter-rouge">"right"</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>KeyError</code> <code class="language-plaintext highlighter-rouge">sweep</code> is not an input of the boundary.
+</li>
+  <li><code>TypeError</code> A fixed input is missing, unknown, an array, or duplicates the swept one; or <code class="language-plaintext highlighter-rouge">values</code> is not 1-D.
+</li>
+</ul>
+</div>
+
+  </section>
+
+  <section class="ref-entry" id="boundary_value" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#boundary_value"><code>boundary_value</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="boundary_value" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L376-L414" title="vaft/formula/boundaries.py, lines 376–414 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>boundary_value(boundary, **inputs)</code></pre>
+
+    <details class="ref-code" data-source-code="boundary_value"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 376–414</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">boundary_value</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Value of a boundary</span><span class="sh">'</span><span class="s">s target quantity at the given inputs.
+
+    $$b = C\prod_i x_i^{\alpha_i}\quad\text{(power law)},\qquad b = C\quad\text{(threshold)},\qquad b = f(x_1,\ldots)\quad\text{(function)}$$
+
+    Parameters
+    ----------
+    boundary : Boundary
+        The boundary to evaluate [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Boundary value, in the unit of ``boundary.target`` [varies].
+
+    Raises
+    ------
+    TypeError
+        An input is missing or not one of the boundary</span><span class="sh">'</span><span class="s">s inputs.
+
+    Convention
+    ----------
+    Each keyword input is a value in the unit its ``BoundaryQuantity``
+    declares. No unit conversion happens here; a caller holding amperes for a
+    boundary declared in MA converts first.
+
+    Notes
+    -----
+    Array inputs broadcast with NumPy rules.
+    </span><span class="sh">"""</span>
+    <span class="nf">_check_inputs</span><span class="p">(</span><span class="n">boundary</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">boundary</span><span class="p">.</span><span class="n">form</span> <span class="o">==</span> <span class="sh">"</span><span class="s">threshold</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="n">boundary</span><span class="p">.</span><span class="n">coefficient</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">boundary</span><span class="p">.</span><span class="n">form</span> <span class="o">==</span> <span class="sh">"</span><span class="s">function</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">boundary</span><span class="p">.</span><span class="nf">function</span><span class="p">(</span><span class="o">**</span><span class="n">inputs</span><span class="p">))</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">boundary</span><span class="p">.</span><span class="n">coefficient</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">exponent</span> <span class="ow">in</span> <span class="n">boundary</span><span class="p">.</span><span class="n">exponents</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">value</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">inputs</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">**</span> <span class="n">exponent</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Value of a boundary’s target quantity at the given inputs.</p>
+
+\[b = C\prod_i x_i^{\alpha_i}\quad\text{(power law)},\qquad b = C\quad\text{(threshold)},\qquad b = f(x_1,\ldots)\quad\text{(function)}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>boundary</code></td><td class="ref-type">Boundary</td><td class="ref-unit">-</td><td><p>The boundary to evaluate.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">varies</td><td><p>Boundary value, in the unit of <code class="language-plaintext highlighter-rouge">boundary.target</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Each keyword input is a value in the unit its <code class="language-plaintext highlighter-rouge">BoundaryQuantity</code>
+declares. No unit conversion happens here; a caller holding amperes for a
+boundary declared in MA converts first.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>TypeError</code> An input is missing or not one of the boundary’s inputs.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Notes</summary>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Array inputs broadcast with NumPy rules.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="cylindrical_kink_coordinates" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#cylindrical_kink_coordinates"><code>cylindrical_kink_coordinates</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="cylindrical_kink_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L1825-L1872" title="vaft/formula/boundaries.py, lines 1825–1872 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>cylindrical_kink_coordinates(a, R0, B0, kappa, I_p)</code></pre>
+
+    <details class="ref-code" data-source-code="cylindrical_kink_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 1825–1872</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">cylindrical_kink_coordinates</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">I_p</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Menard</span><span class="sh">'</span><span class="s">s cylindrical safety factor, $q^* = \pi a^2 B_{T0}(1+\kappa^2)/(\mu_0 R_0 I_P)$.
+
+    $$q^* = \epsilon\,(1+\kappa^2)\,\frac{\pi a B_{T0}}{\mu_0 I_P}
+          = \frac{\pi a^2 B_{T0}\,(1+\kappa^2)}{\mu_0 R_0 I_P}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Cylindrical safety factor $q^*$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation.
+
+    Convention
+    ----------
+    A global, shape-weighted proxy of the edge safety factor, not $q_a$ or $q_{95}$:
+    Menard et al. use it because $q(1)$ and $q(0.95)$ at the current limit vary by a
+    factor two with aspect ratio and shape while $q^*$ does not. It is the
+    $(1+\kappa^2)/2$ form of Freidberg Eq. (13.171), and differs from Freidberg</span><span class="sh">'</span><span class="s">s
+    Eq. (13.160) (``kink_coordinates``) by the factor $(1+\kappa^2)/(2\kappa)$.
+
+    References
+    ----------
+    .. [1] J. E. Menard et al., Phys. Plasmas 11 (2004) 639; preprint PPPL-3908, p. 9.
+    .. [2] D. A. D</span><span class="sh">'</span><span class="s">Ippolito, J. P. Freidberg, J. P. Goedbloed and J. Rem, Phys. Fluids 21 (1978) 1600.
+    </span><span class="sh">"""</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="nf">_positive_geometry</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="o">=</span><span class="n">R0</span><span class="p">,</span> <span class="n">B0</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)),</span> <span class="n">kappa</span><span class="o">=</span><span class="n">kappa</span><span class="p">)</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span> <span class="o">*</span> <span class="mf">1e6</span>
+    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">B0</span><span class="sh">"</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">kappa</span><span class="sh">"</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">MU0</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">]</span> <span class="o">*</span> <span class="n">current</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">q</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Menard’s cylindrical safety factor, $q^* = \pi a^2 B_{T0}(1+\kappa^2)/(\mu_0 R_0 I_P)$.</p>
+
+\[q^* = \epsilon\,(1+\kappa^2)\,\frac{\pi a B_{T0}}{\mu_0 I_P}
+      = \frac{\pi a^2 B_{T0}\,(1+\kappa^2)}{\mu_0 R_0 I_P}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R0</code>; its sign is dropped.</p>
+</td></tr>
+  <tr><td><code>kappa</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Elongation.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">MA</td><td><p>Plasma current; its sign is dropped.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Cylindrical safety factor $q^*$, NaN where an input is NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>A global, shape-weighted proxy of the edge safety factor, not $q_a$ or $q_{95}$:
+Menard et al. use it because $q(1)$ and $q(0.95)$ at the current limit vary by a
+factor two with aspect ratio and shape while $q^*$ does not. It is the
+$(1+\kappa^2)/2$ form of Freidberg Eq. (13.171), and differs from Freidberg’s
+Eq. (13.160) (<code class="language-plaintext highlighter-rouge">kink_coordinates</code>) by the factor $(1+\kappa^2)/(2\kappa)$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A finite non-positive (or infinite) minor radius, major radius, field magnitude or elongation.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. E. Menard et al., Phys. Plasmas 11 (2004) 639; preprint PPPL-3908, p. 9.
+</li>
+  <li>D. A. D’Ippolito, J. P. Freidberg, J. P. Goedbloed and J. Rem, Phys. Fluids 21 (1978) 1600.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="evaluate_boundary" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#evaluate_boundary"><code>evaluate_boundary</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="evaluate_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L428-L511" title="vaft/formula/boundaries.py, lines 428–511 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>evaluate_boundary(boundary, operating_value, **inputs)</code></pre>
+
+    <p>Distance and side of an operating value relative to a boundary.</p>
+
+\[\mathrm{margin} = \frac{b - x}{b}\ \ (\text{permitted below}),\qquad \mathrm{margin} = \frac{x - b}{b}\ \ (\text{permitted above})\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>boundary</code></td><td class="ref-type">Boundary</td><td class="ref-unit">-</td><td><p>The boundary to compare against.</p>
+</td></tr>
+  <tr><td><code>operating_value</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">varies</td><td><p>Operating value $x$ of the boundary’s target quantity, in the target’s unit.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">BoundaryEvaluation</td><td class="ref-unit">-</td><td><p>Boundary value $b$, ratio $x/b$, difference $x - b$, signed margin (positive on the permitted side), permitted flag, the inputs that lie outside the source’s stated ranges, and warnings.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The margin is normalised by the boundary value. A positive margin is
+always the permitted side, whichever way the boundary points, so margins
+of different boundaries share one sign convention. <code class="language-plaintext highlighter-rouge">allowed</code> is strict:
+a state exactly on the boundary is not counted as permitted. A boundary
+value that is zero, negative or not finite gives NaN margin and ratio, is
+never permitted, and adds a warning. An operating value that is not
+finite (a NaN gap in a trace) is likewise reported as not permitted, with
+NaN margin and ratio and a warning: <code class="language-plaintext highlighter-rouge">allowed</code> is False there, not
+unknown, so count violations from <code class="language-plaintext highlighter-rouge">margin</code> when a trace has gaps. Pass
+magnitudes where a sign convention could make the boundary negative.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>TypeError</code> An input is missing or not one of the boundary’s inputs.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Notes</summary>
+
+      <h4 class="ref-label no_toc">Notes</h4>
+
+      <p>Crossing a <code class="language-plaintext highlighter-rouge">soft</code> boundary is not a prediction of failure. For example,
+$f_G &gt; 1$ is routinely reached. The evaluation reports the geometry, and
+interpreting it is left to the caller.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="evaluate_window" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#evaluate_window"><code>evaluate_window</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="evaluate_window" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L514-L555" title="vaft/formula/boundaries.py, lines 514–555 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>evaluate_window(window, operating_value, **inputs)</code></pre>
+
+    <details class="ref-code" data-source-code="evaluate_window"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 514–555</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evaluate_window</span><span class="p">(</span><span class="n">window</span><span class="p">:</span> <span class="n">BoundaryWindow</span><span class="p">,</span> <span class="n">operating_value</span><span class="p">,</span> <span class="o">**</span><span class="n">inputs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">WindowEvaluation</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Position of an operating value relative to an access window.
+
+    $$b_\mathrm{lower} &lt; x &lt; b_\mathrm{upper}$$
+
+    Parameters
+    ----------
+    window : BoundaryWindow
+        The access window [-].
+    operating_value : float or np.ndarray
+        Operating value of the window</span><span class="sh">'</span><span class="s">s target quantity, in its unit [varies].
+
+    Returns
+    -------
+    WindowEvaluation
+        One evaluation per edge and ``inside``, true where both are
+        permitted [-].
+
+    Raises
+    ------
+    TypeError
+        An input is missing or unused by both edges.
+
+    Convention
+    ----------
+    ``inputs`` holds the union of both edges</span><span class="sh">'</span><span class="s"> inputs. Each edge receives only
+    the inputs it declares.
+    </span><span class="sh">"""</span>
+    <span class="n">known</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="n">window</span><span class="p">.</span><span class="n">lower</span><span class="p">.</span><span class="n">input_names</span><span class="p">)</span> <span class="o">|</span> <span class="nf">set</span><span class="p">(</span><span class="n">window</span><span class="p">.</span><span class="n">upper</span><span class="p">.</span><span class="n">input_names</span><span class="p">)</span>
+    <span class="n">extra</span> <span class="o">=</span> <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">inputs</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">known</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">extra</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">window </span><span class="si">{</span><span class="n">window</span><span class="p">.</span><span class="n">key</span><span class="si">!r}</span><span class="s"> does not use inputs </span><span class="si">{</span><span class="n">extra</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">lower</span> <span class="o">=</span> <span class="nf">evaluate_boundary</span><span class="p">(</span>
+        <span class="n">window</span><span class="p">.</span><span class="n">lower</span><span class="p">,</span> <span class="n">operating_value</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">inputs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">window</span><span class="p">.</span><span class="n">lower</span><span class="p">.</span><span class="n">input_names</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">upper</span> <span class="o">=</span> <span class="nf">evaluate_boundary</span><span class="p">(</span>
+        <span class="n">window</span><span class="p">.</span><span class="n">upper</span><span class="p">,</span> <span class="n">operating_value</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">inputs</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">window</span><span class="p">.</span><span class="n">upper</span><span class="p">.</span><span class="n">input_names</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">inputs</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">inside</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">logical_and</span><span class="p">(</span><span class="n">lower</span><span class="p">.</span><span class="n">allowed</span><span class="p">,</span> <span class="n">upper</span><span class="p">.</span><span class="n">allowed</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">WindowEvaluation</span><span class="p">(</span>
+        <span class="n">key</span><span class="o">=</span><span class="n">window</span><span class="p">.</span><span class="n">key</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="n">lower</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="n">upper</span><span class="p">,</span> <span class="n">inside</span><span class="o">=</span><span class="nf">bool</span><span class="p">(</span><span class="n">inside</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">inside</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">inside</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Position of an operating value relative to an access window.</p>
+
+\[b_\mathrm{lower} &lt; x &lt; b_\mathrm{upper}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>window</code></td><td class="ref-type">BoundaryWindow</td><td class="ref-unit">-</td><td><p>The access window.</p>
+</td></tr>
+  <tr><td><code>operating_value</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">varies</td><td><p>Operating value of the window’s target quantity, in its unit.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">WindowEvaluation</td><td class="ref-unit">-</td><td><p>One evaluation per edge and <code class="language-plaintext highlighter-rouge">inside</code>, true where both are permitted.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">inputs</code> holds the union of both edges’ inputs. Each edge receives only
+the inputs it declares.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>TypeError</code> An input is missing or unused by both edges.
+</li>
+</ul>
+</div>
+
+  </section>
+
+  <section class="ref-entry" id="get_boundary" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#get_boundary"><code>get_boundary</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="get_boundary" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L771-L792" title="vaft/formula/boundaries.py, lines 771–792 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>get_boundary(key)</code></pre>
+
+    <details class="ref-code" data-source-code="get_boundary"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 771–792</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">get_boundary</span><span class="p">(</span><span class="n">key</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">A registered boundary or window by key.
+
+    Parameters
+    ----------
+    key : str
+        Registry key, for example ``</span><span class="sh">"</span><span class="s">greenwald</span><span class="sh">"</span><span class="s">`` [-].
+
+    Returns
+    -------
+    Boundary or BoundaryWindow
+        The registered entry [-].
+
+    Raises
+    ------
+    KeyError
+        No entry has that key; the message lists the keys that exist.
+    </span><span class="sh">"""</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_REGISTRY</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    <span class="k">except</span> <span class="nb">KeyError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">no boundary </span><span class="si">{</span><span class="n">key</span><span class="si">!r}</span><span class="s">; registered: </span><span class="si">{</span><span class="nf">sorted</span><span class="p">(</span><span class="n">_REGISTRY</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span> <span class="k">from</span> <span class="bp">None</span></code></pre></figure>
+
+</details>
+
+    <p>A registered boundary or window by key.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>key</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Registry key, for example <code class="language-plaintext highlighter-rouge">"greenwald"</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">Boundary or BoundaryWindow</td><td class="ref-unit">-</td><td><p>The registered entry.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>KeyError</code> No entry has that key; the message lists the keys that exist.
+</li>
+</ul>
+</div>
+
+  </section>
+
+  <section class="ref-entry" id="hugill_coordinates" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#hugill_coordinates"><code>hugill_coordinates</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="hugill_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L695-L754" title="vaft/formula/boundaries.py, lines 695–754 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>hugill_coordinates(n_e, R_geo, B_t, a, kappa_a, I_p)</code></pre>
+
+    <details class="ref-code" data-source-code="hugill_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 695–754</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hugill_coordinates</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">R_geo</span><span class="p">,</span> <span class="n">B_t</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">kappa_a</span><span class="p">,</span> <span class="n">I_p</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.
+
+    $$x = \frac{\bar n_e R_{geo}}{B_T},\qquad y = \frac{1}{q_{cyl}} = \frac{R_{geo}\,|I_p|}{5\,a^2\kappa_a B_T}\quad(I_p\ \mathrm{in\ MA})$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Line-averaged electron density [1e19 m^-3].
+    R_geo : float or np.ndarray
+        Geometric major radius [m].
+    B_t : float or np.ndarray
+        Vacuum toroidal field at ``R_geo``, magnitude [T].
+    a : float or np.ndarray
+        Minor radius [m].
+    kappa_a : float or np.ndarray
+        Area elongation $S/(\pi a^2)$ [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    tuple of (float or np.ndarray)
+        Murakami parameter $\bar n_e R/B_T$ [1e19 m^-2 T^-1] and $1/q_{cyl}$ [-].
+
+    Raises
+    ------
+    ValueError
+        A negative density, or a non-positive field, radius, minor radius or
+        elongation.
+
+    Convention
+    ----------
+    $q_{cyl}$ is ``equilibrium.q_cyl_from_B_R_epsilon_kappa_I`` with
+    $\varepsilon = a/R_{geo}$. The ``</span><span class="sh">"</span><span class="s">greenwald_hugill</span><span class="sh">"</span><span class="s">`` boundary uses the
+    same convention, so a state at $\bar n_e = n_G$ lies exactly on it. This
+    is the cylindrical $q$, not $q_{95}$. At VEST aspect ratio the two differ
+    substantially, and plotting $1/q_{95}$ against this boundary is only
+    approximate.
+
+    Numerical notes
+    ---------------
+    $1/q_{cyl}$ is formed directly rather than as ``1/q_cyl_from_...``, so a
+    zero current maps to the origin $y = 0$ instead of raising. A whole time
+    trace, including start-up and termination, can therefore be projected
+    without cropping.
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">B_abs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_t</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="n">R</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">R_geo</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">a_arr</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">kappa</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">kappa_a</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">n</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_e must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">((</span><span class="sh">"</span><span class="s">B_t</span><span class="sh">"</span><span class="p">,</span> <span class="n">B_abs</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">R_geo</span><span class="sh">"</span><span class="p">,</span> <span class="n">R</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">,</span> <span class="n">a_arr</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">kappa_a</span><span class="sh">"</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="p">(</span><span class="n">value</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s"> must be positive and finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">n</span> <span class="o">*</span> <span class="n">R</span> <span class="o">/</span> <span class="n">B_abs</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span> <span class="o">*</span> <span class="n">R</span> <span class="o">/</span> <span class="p">(</span><span class="mf">5.0</span> <span class="o">*</span> <span class="n">a_arr</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">kappa</span> <span class="o">*</span> <span class="n">B_abs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">y</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Hugill-diagram coordinates of an operating state: $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl})$.</p>
+
+\[x = \frac{\bar n_e R_{geo}}{B_T},\qquad y = \frac{1}{q_{cyl}} = \frac{R_{geo}\,|I_p|}{5\,a^2\kappa_a B_T}\quad(I_p\ \mathrm{in\ MA})\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1e19 m^-3</td><td><p>Line-averaged electron density.</p>
+</td></tr>
+  <tr><td><code>R_geo</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Geometric major radius.</p>
+</td></tr>
+  <tr><td><code>B_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R_geo</code>, magnitude.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>kappa_a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Area elongation $S/(\pi a^2)$.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">MA</td><td><p>Plasma current; its sign is dropped.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of (float or np.ndarray)</td><td class="ref-unit">-</td><td><p>Murakami parameter $\bar n_e R/B_T$ [1e19 m^-2 T^-1] and $1/q_{cyl}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$q_{cyl}$ is <code class="language-plaintext highlighter-rouge">equilibrium.q_cyl_from_B_R_epsilon_kappa_I</code> with
+$\varepsilon = a/R_{geo}$. The <code class="language-plaintext highlighter-rouge">"greenwald_hugill"</code> boundary uses the
+same convention, so a state at $\bar n_e = n_G$ lies exactly on it. This
+is the cylindrical $q$, not $q_{95}$. At VEST aspect ratio the two differ
+substantially, and plotting $1/q_{95}$ against this boundary is only
+approximate.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative density, or a non-positive field, radius, minor radius or elongation.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Numerical notes</summary>
+
+      <h4 class="ref-label no_toc">Numerical notes</h4>
+
+      <p>$1/q_{cyl}$ is formed directly rather than as <code class="language-plaintext highlighter-rouge">1/q_cyl_from_...</code>, so a
+zero current maps to the origin $y = 0$ instead of raising. A whole time
+trace, including start-up and termination, can therefore be projected
+without cropping.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="hugill_coordinates_st" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#hugill_coordinates_st"><code>hugill_coordinates_st</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="hugill_coordinates_st" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L2260-L2310" title="vaft/formula/boundaries.py, lines 2260–2310 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>hugill_coordinates_st(n_e, R_geo, B_t, a, kappa, I_p)</code></pre>
+
+    <details class="ref-code" data-source-code="hugill_coordinates_st"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 2260–2310</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hugill_coordinates_st</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">R_geo</span><span class="p">,</span> <span class="n">B_t</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">I_p</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Spherical-tokamak Hugill coordinates $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl}^{ST})$ of Sykes et al. (2000).
+
+    $$x = \frac{\bar n_e R}{B_T},\qquad
+      y = \frac{1}{q^{ST}_{cyl}} = \frac{R\,|I_p|}{2.5\,a^2(1+\kappa^2)B_T}\quad(I_p\ \mathrm{in\ MA})$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Line-averaged electron density [1e19 m^-3].
+    R_geo : float or np.ndarray
+        Major radius [m].
+    B_t : float or np.ndarray
+        Vacuum toroidal field at ``R_geo``; its sign is dropped [T].
+    a : float or np.ndarray
+        Minor radius [m].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    tuple of (float or np.ndarray)
+        Murakami parameter $\bar n_e R/B_T$ [1e19 m^-2 T^-1] and $1/q^{ST}_{cyl}$ [-].
+
+    Raises
+    ------
+    ValueError
+        A negative density, or a finite non-positive (or infinite) radius, minor
+        radius, field magnitude or elongation.
+
+    Convention
+    ----------
+    $q^{ST}_{cyl}$ is Menard</span><span class="sh">'</span><span class="s">s cylindrical $q^*$ (``cylindrical_kink_coordinates``),
+    as Sykes et al. plot it for MAST; it differs from the conventional Hugill
+    $q_{cyl}$ (``hugill_coordinates``) by $(1+\kappa^2)/(2\kappa_a)$, and the two are
+    separate quantities. NaN inputs propagate.
+
+    References
+    ----------
+    .. [1] A. Sykes et al., First results from MAST, IAEA FEC 2000, Sec. 6, Fig. 12;
+           Nucl. Fusion 41 (2001) 1423.
+    </span><span class="sh">"""</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="nf">_positive_geometry</span><span class="p">(</span><span class="n">R_geo</span><span class="o">=</span><span class="n">R_geo</span><span class="p">,</span> <span class="n">B_t</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B_t</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)),</span> <span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">,</span> <span class="n">kappa</span><span class="o">=</span><span class="n">kappa</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">n</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_e must be non-negative where it is given</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">n</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">R_geo</span><span class="sh">"</span><span class="p">]</span> <span class="o">/</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">B_t</span><span class="sh">"</span><span class="p">]</span>
+    <span class="n">y</span> <span class="o">=</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">R_geo</span><span class="sh">"</span><span class="p">]</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.5</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">kappa</span><span class="sh">"</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">B_t</span><span class="sh">"</span><span class="p">])</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">x</span><span class="p">),</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">y</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Spherical-tokamak Hugill coordinates $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl}^{ST})$ of Sykes et al. (2000).</p>
+
+\[x = \frac{\bar n_e R}{B_T},\qquad
+  y = \frac{1}{q^{ST}_{cyl}} = \frac{R\,|I_p|}{2.5\,a^2(1+\kappa^2)B_T}\quad(I_p\ \mathrm{in\ MA})\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1e19 m^-3</td><td><p>Line-averaged electron density.</p>
+</td></tr>
+  <tr><td><code>R_geo</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius.</p>
+</td></tr>
+  <tr><td><code>B_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R_geo</code>; its sign is dropped.</p>
+</td></tr>
+  <tr><td><code>a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>kappa</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Elongation.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">MA</td><td><p>Plasma current; its sign is dropped.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of (float or np.ndarray)</td><td class="ref-unit">-</td><td><p>Murakami parameter $\bar n_e R/B_T$ [1e19 m^-2 T^-1] and $1/q^{ST}_{cyl}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$q^{ST}<em>{cyl}$ is Menard’s cylindrical $q^*$ (<code class="language-plaintext highlighter-rouge">cylindrical_kink_coordinates</code>),
+as Sykes et al. plot it for MAST; it differs from the conventional Hugill
+$q</em>{cyl}$ (<code class="language-plaintext highlighter-rouge">hugill_coordinates</code>) by $(1+\kappa^2)/(2\kappa_a)$, and the two are
+separate quantities. NaN inputs propagate.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative density, or a finite non-positive (or infinite) radius, minor radius, field magnitude or elongation.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>A. Sykes et al., First results from MAST, IAEA FEC 2000, Sec. 6, Fig. 12; Nucl. Fusion 41 (2001) 1423.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="iter_q95_coordinates" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#iter_q95_coordinates"><code>iter_q95_coordinates</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="iter_q95_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L1905-L1964" title="vaft/formula/boundaries.py, lines 1905–1964 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>iter_q95_coordinates(a, R0, B0, kappa, delta, I_p)</code></pre>
+
+    <details class="ref-code" data-source-code="iter_q95_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 1905–1964</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">iter_q95_coordinates</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">I_p</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The ITER design-guideline $q_{95}$ estimate from global shape, $q_{95} \approx q_* f(\epsilon)$.
+
+    $$q_{95} \approx \frac{5a^2B}{R\,I_p[\mathrm{MA}]}\,
+      \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\,\frac{1.17-0.65\epsilon}{(1-\epsilon^2)^2},
+      \qquad \epsilon = a/R$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation of the 95 % flux surface, kappa_95 [-].
+    delta : float or np.ndarray
+        Triangularity of the 95 % flux surface, delta_95; may be zero or negative [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Estimated $q_{95}$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation, or $a \ge R_0$.
+
+    Convention
+    ----------
+    The formula is calibrated on the 95 % flux-surface shape ($\kappa_{95}$,
+    $\delta_{95}$); fed the last-closed-surface $\kappa$ and $\delta$, which are larger,
+    it over-estimates $q_{95}$ (for the ITER design point by about 27 %).
+    A fit for conventional aspect ratio used for ITER design; at a spherical
+    tokamak</span><span class="sh">'</span><span class="s">s $A \approx 1.3$ it is an extrapolation and over-estimates $q_{95}$
+    (Akers et al. 2000 give a START-based correction, not registered here). It is an
+    estimate from global parameters, not an equilibrium $q_{95}$.
+
+    References
+    ----------
+    .. [1] D. E. Post et al., *ITER Physics*, ITER Documentation Series No. 21, IAEA (1991),
+           Table 1-2.
+    .. [2] N. A. Uckan and ITER Physics Group, *ITER Physics Design Guidelines: 1989*,
+           IAEA/ITER/DS-10, IAEA (1990), p. 10.
+    </span><span class="sh">"""</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="nf">_positive_geometry</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="o">=</span><span class="n">R0</span><span class="p">,</span> <span class="n">B0</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)),</span> <span class="n">kappa</span><span class="o">=</span><span class="n">kappa</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">]</span> <span class="o">/</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">]</span> <span class="o">/</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">a must be smaller than R0</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isinf</span><span class="p">(</span><span class="n">d</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">delta must be finite where it is given</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="nf">_iter_q95_per_ma</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">],</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">],</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">B0</span><span class="sh">"</span><span class="p">],</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">kappa</span><span class="sh">"</span><span class="p">],</span> <span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="n">current</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">q</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The ITER design-guideline $q_{95}$ estimate from global shape, $q_{95} \approx q_* f(\epsilon)$.</p>
+
+\[q_{95} \approx \frac{5a^2B}{R\,I_p[\mathrm{MA}]}\,
+  \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\,\frac{1.17-0.65\epsilon}{(1-\epsilon^2)^2},
+  \qquad \epsilon = a/R\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R0</code>; its sign is dropped.</p>
+</td></tr>
+  <tr><td><code>kappa</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Elongation of the 95 % flux surface, kappa_95.</p>
+</td></tr>
+  <tr><td><code>delta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Triangularity of the 95 % flux surface, delta_95; may be zero or negative.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">MA</td><td><p>Plasma current; its sign is dropped.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Estimated $q_{95}$, NaN where an input is NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The formula is calibrated on the 95 % flux-surface shape ($\kappa_{95}$,
+$\delta_{95}$); fed the last-closed-surface $\kappa$ and $\delta$, which are larger,
+it over-estimates $q_{95}$ (for the ITER design point by about 27 %).
+A fit for conventional aspect ratio used for ITER design; at a spherical
+tokamak’s $A \approx 1.3$ it is an extrapolation and over-estimates $q_{95}$
+(Akers et al. 2000 give a START-based correction, not registered here). It is an
+estimate from global parameters, not an equilibrium $q_{95}$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A finite non-positive (or infinite) minor radius, major radius, field magnitude or elongation, or $a \ge R_0$.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. E. Post et al., <em>ITER Physics</em>, ITER Documentation Series No. 21, IAEA (1991), Table 1-2.
+</li>
+  <li>N. A. Uckan and ITER Physics Group, <em>ITER Physics Design Guidelines: 1989</em>, IAEA/ITER/DS-10, IAEA (1990), p. 10.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="kink_coordinates" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#kink_coordinates"><code>kink_coordinates</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="kink_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L1676-L1725" title="vaft/formula/boundaries.py, lines 1676–1725 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>kink_coordinates(a, R0, B0, kappa, I_p)</code></pre>
+
+    <details class="ref-code" data-source-code="kink_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 1676–1725</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">kink_coordinates</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">I_p</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Freidberg</span><span class="sh">'</span><span class="s">s kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.
+
+    $$q_* = \frac{2\pi a^2 \kappa B_0}{\mu_0 R_0 I_p} = \frac{5\,a^2\kappa B_0}{R_0\,I_p[\mathrm{MA}]}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    float or np.ndarray
+        Kink safety factor $q_*$ of Eq. (13.160), NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation.
+
+    Convention
+    ----------
+    Eq. (13.160) is the $G(\kappa) \approx 1$ form of Eq. (13.158), the definition with
+    which the kink limit ``</span><span class="sh">"</span><span class="s">freidberg_2008_kink_qstar</span><span class="sh">"</span><span class="s">`` (Eq. 13.162) is stated. It is
+    not ``vaft.formula.equilibrium.kink_safety_factor`` (#1524). A zero current maps to
+    an infinite $q_*$.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Plasma Physics and Fusion Energy*, Cambridge University
+           Press (2008), Eqs. (13.158)-(13.160), p. 405.
+    </span><span class="sh">"""</span>
+    <span class="n">a_arr</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">B_abs</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)),</span> <span class="n">kappa</span><span class="p">))</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="p">((</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">,</span> <span class="n">a_arr</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">,</span> <span class="n">R</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">B0</span><span class="sh">"</span><span class="p">,</span> <span class="n">B_abs</span><span class="p">),</span> <span class="p">(</span><span class="sh">"</span><span class="s">kappa</span><span class="sh">"</span><span class="p">,</span> <span class="n">k</span><span class="p">)):</span>
+        <span class="c1"># NaN propagates (a population table has gaps); a finite non-positive value or an infinity is an error
+</span>        <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isinf</span><span class="p">(</span><span class="n">value</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">&amp;</span> <span class="o">~</span><span class="p">(</span><span class="n">value</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s"> must be positive and finite where it is given</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span> <span class="o">*</span> <span class="mf">1e6</span>
+    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">a_arr</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">k</span> <span class="o">*</span> <span class="n">B_abs</span> <span class="o">/</span> <span class="p">(</span><span class="n">MU0</span> <span class="o">*</span> <span class="n">R</span> <span class="o">*</span> <span class="n">current</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">q</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Freidberg’s kink safety factor of an elongated tokamak, $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I)$.</p>
+
+\[q_* = \frac{2\pi a^2 \kappa B_0}{\mu_0 R_0 I_p} = \frac{5\,a^2\kappa B_0}{R_0\,I_p[\mathrm{MA}]}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R0</code>; its sign is dropped.</p>
+</td></tr>
+  <tr><td><code>kappa</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Elongation.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">MA</td><td><p>Plasma current; its sign is dropped.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Kink safety factor $q_*$ of Eq. (13.160), NaN where an input is NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Eq. (13.160) is the $G(\kappa) \approx 1$ form of Eq. (13.158), the definition with
+which the kink limit <code class="language-plaintext highlighter-rouge">"freidberg_2008_kink_qstar"</code> (Eq. 13.162) is stated. It is
+not <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.kink_safety_factor</code> (#1524). A zero current maps to
+an infinite $q_*$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A finite non-positive (or infinite) minor radius, major radius, field magnitude or elongation.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. P. Freidberg, <em>Plasma Physics and Fusion Energy</em>, Cambridge University Press (2008), Eqs. (13.158)-(13.160), p. 405.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="list_boundaries" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#list_boundaries"><code>list_boundaries</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="list_boundaries" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L795-L811" title="vaft/formula/boundaries.py, lines 795–811 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>list_boundaries(family=None)</code></pre>
+
+    <details class="ref-code" data-source-code="list_boundaries"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 795–811</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">list_boundaries</span><span class="p">(</span><span class="n">family</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Keys of the registered boundaries, optionally restricted to one family.
+
+    Parameters
+    ----------
+    family : str, optional
+        Family name, for example ``</span><span class="sh">"</span><span class="s">density_limit</span><span class="sh">"</span><span class="s">`` [-].
+
+    Returns
+    -------
+    tuple of str
+        Sorted registry keys [-].
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">tuple</span><span class="p">(</span><span class="nf">sorted</span><span class="p">(</span>
+        <span class="n">key</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">_REGISTRY</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">family</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="nf">getattr</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="sh">"</span><span class="s">family</span><span class="sh">"</span><span class="p">,</span> <span class="nf">getattr</span><span class="p">(</span><span class="nf">getattr</span><span class="p">(</span><span class="n">entry</span><span class="p">,</span> <span class="sh">"</span><span class="s">lower</span><span class="sh">"</span><span class="p">,</span> <span class="bp">None</span><span class="p">),</span> <span class="sh">"</span><span class="s">family</span><span class="sh">"</span><span class="p">,</span> <span class="bp">None</span><span class="p">))</span> <span class="o">==</span> <span class="n">family</span>
+    <span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Keys of the registered boundaries, optionally restricted to one family.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>family</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Family name, for example <code class="language-plaintext highlighter-rouge">"density_limit"</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple of str</td><td class="ref-unit">-</td><td><p>Sorted registry keys.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+  </section>
+
+  <section class="ref-entry" id="same_quantity" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#same_quantity"><code>same_quantity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="same_quantity" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L616-L637" title="vaft/formula/boundaries.py, lines 616–637 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>same_quantity(a, b)</code></pre>
+
+    <details class="ref-code" data-source-code="same_quantity"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 616–637</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">same_quantity</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="n">BoundaryQuantity</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="n">BoundaryQuantity</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Whether two quantities are the same physical quantity in the same unit.
+
+    Parameters
+    ----------
+    a, b : BoundaryQuantity
+        The quantities to compare [-].
+
+    Returns
+    -------
+    bool
+        ``True`` when both ``name`` (the identity) and ``unit`` match. The
+        symbol and the free-text definition are not compared [-].
+
+    Convention
+    ----------
+    Identity is the ``name``: ``edge_safety_factor`` ($q_\psi$),
+    ``edge_safety_factor_95`` ($q_{95}$) and ``inverse_cylindrical_q`` are
+    different quantities even where their values are close. A boundary may be
+    drawn on an axis only when this returns ``True`` for that axis (#1425).
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="n">a</span><span class="p">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">b</span><span class="p">.</span><span class="n">name</span> <span class="ow">and</span> <span class="n">a</span><span class="p">.</span><span class="n">unit</span> <span class="o">==</span> <span class="n">b</span><span class="p">.</span><span class="n">unit</span></code></pre></figure>
+
+</details>
+
+    <p>Whether two quantities are the same physical quantity in the same unit.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>a, b</code></td><td class="ref-type">BoundaryQuantity</td><td class="ref-unit">-</td><td><p>The quantities to compare.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">bool</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">True</code> when both <code class="language-plaintext highlighter-rouge">name</code> (the identity) and <code class="language-plaintext highlighter-rouge">unit</code> match. The symbol and the free-text definition are not compared.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Identity is the <code class="language-plaintext highlighter-rouge">name</code>: <code class="language-plaintext highlighter-rouge">edge_safety_factor</code> ($q_\psi$),
+<code class="language-plaintext highlighter-rouge">edge_safety_factor_95</code> ($q_{95}$) and <code class="language-plaintext highlighter-rouge">inverse_cylindrical_q</code> are
+different quantities even where their values are close. A boundary may be
+drawn on an axis only when this returns <code class="language-plaintext highlighter-rouge">True</code> for that axis (#1425).</p>
+
+    </div>
+
+  </section>
+
+  <section class="ref-entry" id="start_q95_coordinates" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#start_q95_coordinates"><code>start_q95_coordinates</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="start_q95_coordinates" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L2112-L2169" title="vaft/formula/boundaries.py, lines 2112–2169 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>start_q95_coordinates(a, R0, B0, kappa, delta, I_p, configuration=&#39;limiter&#39;)</code></pre>
+
+    <details class="ref-code" data-source-code="start_q95_coordinates"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 2112–2169</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">start_q95_coordinates</span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="p">,</span> <span class="n">B0</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">I_p</span><span class="p">,</span> <span class="n">configuration</span><span class="o">=</span><span class="sh">"</span><span class="s">limiter</span><span class="sh">"</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The START low-aspect-ratio $q_{95}$ estimate of Akers et al. (2000) from global shape.
+
+    $$q_{95} \approx \frac{5a^2B}{R\,I_p[\mathrm{MA}]}\,
+      \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\;1.17\,C\sqrt{\frac{A}{A-1}},
+      \qquad A = R/a$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation of the 95 % flux surface, kappa_95 [-].
+    delta : float or np.ndarray
+        Triangularity of the 95 % flux surface, delta_95 [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+    configuration : {</span><span class="sh">"</span><span class="s">limiter</span><span class="sh">"</span><span class="s">, </span><span class="sh">"</span><span class="s">double_null</span><span class="sh">"</span><span class="s">}
+        Sets C = 1.0 (natural limiter plasma) or 0.77 (double null) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Estimated $q_{95}$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        A finite non-positive (or infinite) minor radius, major radius, field
+        magnitude or elongation, an infinite triangularity, $a \ge R_0$, or an
+        unknown configuration.
+
+    Convention
+    ----------
+    A fit to START equilibria (spherical tokamak), more conservative in aspect ratio
+    than the ITER guideline formula (``iter_q95_coordinates``), whose shaping factor and
+    normalisation it shares. Like it, it is written for the 95 % surface shape.
+
+    References
+    ----------
+    .. [1] R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">configuration</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">AKERS_2000_C</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">configuration must be one of </span><span class="si">{</span><span class="nf">sorted</span><span class="p">(</span><span class="n">AKERS_2000_C</span><span class="p">)</span><span class="si">}</span><span class="s">, not </span><span class="si">{</span><span class="n">configuration</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">g</span> <span class="o">=</span> <span class="nf">_positive_geometry</span><span class="p">(</span><span class="n">a</span><span class="o">=</span><span class="n">a</span><span class="p">,</span> <span class="n">R0</span><span class="o">=</span><span class="n">R0</span><span class="p">,</span> <span class="n">B0</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">B0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)),</span> <span class="n">kappa</span><span class="o">=</span><span class="n">kappa</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">]</span> <span class="o">/</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">])</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">]</span> <span class="o">/</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">a must be smaller than R0</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isinf</span><span class="p">(</span><span class="n">d</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">delta must be finite where it is given</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">I_p</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">q</span> <span class="o">=</span> <span class="nf">_start_q95_per_ma</span><span class="p">(</span><span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">a</span><span class="sh">"</span><span class="p">],</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">R0</span><span class="sh">"</span><span class="p">],</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">B0</span><span class="sh">"</span><span class="p">],</span> <span class="n">g</span><span class="p">[</span><span class="sh">"</span><span class="s">kappa</span><span class="sh">"</span><span class="p">],</span> <span class="n">d</span><span class="p">,</span> <span class="n">AKERS_2000_C</span><span class="p">[</span><span class="n">configuration</span><span class="p">])</span> <span class="o">/</span> <span class="n">current</span>
+    <span class="k">return</span> <span class="nf">_scalar_or_array</span><span class="p">(</span><span class="n">q</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The START low-aspect-ratio $q_{95}$ estimate of Akers et al. (2000) from global shape.</p>
+
+\[q_{95} \approx \frac{5a^2B}{R\,I_p[\mathrm{MA}]}\,
+  \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\;1.17\,C\sqrt{\frac{A}{A-1}},
+  \qquad A = R/a\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>a</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Minor radius.</p>
+</td></tr>
+  <tr><td><code>R0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius.</p>
+</td></tr>
+  <tr><td><code>B0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Vacuum toroidal field at <code class="language-plaintext highlighter-rouge">R0</code>; its sign is dropped.</p>
+</td></tr>
+  <tr><td><code>kappa</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Elongation of the 95 % flux surface, kappa_95.</p>
+</td></tr>
+  <tr><td><code>delta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Triangularity of the 95 % flux surface, delta_95.</p>
+</td></tr>
+  <tr><td><code>I_p</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">MA</td><td><p>Plasma current; its sign is dropped.</p>
+</td></tr>
+  <tr><td><code>configuration</code></td><td class="ref-type">{&quot;limiter&quot;, &quot;double_null&quot;}</td><td class="ref-unit">-</td><td><p>Sets C = 1.0 (natural limiter plasma) or 0.77 (double null).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Estimated $q_{95}$, NaN where an input is NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>A fit to START equilibria (spherical tokamak), more conservative in aspect ratio
+than the ITER guideline formula (<code class="language-plaintext highlighter-rouge">iter_q95_coordinates</code>), whose shaping factor and
+normalisation it shares. Like it, it is written for the 95 % surface shape.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A finite non-positive (or infinite) minor radius, major radius, field magnitude or elongation, an infinite triangularity, $a \ge R_0$, or an unknown configuration.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="threshold_curve" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#threshold_curve"><code>threshold_curve</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="threshold_curve" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/boundaries.py#L640-L692" title="vaft/formula/boundaries.py, lines 640–692 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>threshold_curve(boundary, axis, values, target_axis=&#39;y&#39;)</code></pre>
+
+    <details class="ref-code" data-source-code="threshold_curve"><summary>Show source <span class="ref-note">vaft/formula/boundaries.py, lines 640–692</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">threshold_curve</span><span class="p">(</span><span class="n">boundary</span><span class="p">:</span> <span class="n">Boundary</span><span class="p">,</span> <span class="n">axis</span><span class="p">:</span> <span class="n">BoundaryQuantity</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">target_axis</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">y</span><span class="sh">"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BoundaryCurve</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">A threshold boundary drawn as a straight line across a 2-D projection.
+
+    $$\text{target} = C \quad\text{for every value of the other axis}$$
+
+    Parameters
+    ----------
+    boundary : Boundary
+        A ``</span><span class="sh">"</span><span class="s">threshold</span><span class="sh">"</span><span class="s">`` boundary, for example ``</span><span class="sh">"</span><span class="s">murakami_hugill</span><span class="sh">"</span><span class="s">`` [-].
+    axis : BoundaryQuantity
+        The quantity on the other axis, which the threshold does not depend on [-].
+    values : array_like
+        Sample points along that axis, in its declared unit [varies].
+    target_axis : str
+        ``</span><span class="sh">"</span><span class="s">y</span><span class="sh">"</span><span class="s">`` draws a horizontal line (target on y); ``</span><span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="s">`` a vertical one [-].
+
+    Returns
+    -------
+    BoundaryCurve
+        The line, carrying both quantities and the permitted side: ``</span><span class="sh">"</span><span class="s">below</span><span class="sh">"</span><span class="s">``
+        / ``</span><span class="sh">"</span><span class="s">above</span><span class="sh">"</span><span class="s">`` for a horizontal line, ``</span><span class="sh">"</span><span class="s">left</span><span class="sh">"</span><span class="s">`` / ``</span><span class="sh">"</span><span class="s">right</span><span class="sh">"</span><span class="s">`` for a
+        vertical one [-].
+
+    Raises
+    ------
+    TypeError
+        ``boundary`` is not a threshold, or ``values`` is not 1-D.
+    ValueError
+        ``target_axis`` is neither ``</span><span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="s">`` nor ``</span><span class="sh">"</span><span class="s">y</span><span class="sh">"</span><span class="s">``, or ``axis`` is the
+        boundary</span><span class="sh">'</span><span class="s">s own target.
+
+    Convention
+    ----------
+    :func:`boundary_curve` sweeps one of a boundary</span><span class="sh">'</span><span class="s">s inputs, and a threshold
+    has none, so this is its counterpart. The value is the registered
+    coefficient; nothing is restated.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">boundary</span><span class="p">.</span><span class="n">form</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">threshold</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">boundary </span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="si">!r}</span><span class="s"> is a </span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="n">form</span><span class="si">!r}</span><span class="s">, not a threshold; use boundary_curve</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">target_axis</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">y</span><span class="sh">"</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">target_axis must be </span><span class="sh">'</span><span class="s">x</span><span class="sh">'</span><span class="s"> or </span><span class="sh">'</span><span class="s">y</span><span class="sh">'</span><span class="s">, not </span><span class="si">{</span><span class="n">target_axis</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">same_quantity</span><span class="p">(</span><span class="n">axis</span><span class="p">,</span> <span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">the other axis cannot be the threshold</span><span class="sh">'</span><span class="s">s own target </span><span class="si">{</span><span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">.</span><span class="n">name</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">v</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">TypeError</span><span class="p">(</span><span class="sh">"</span><span class="s">values must be a 1-D sequence</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">level</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">shape</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="nf">boundary_value</span><span class="p">(</span><span class="n">boundary</span><span class="p">)))</span>
+    <span class="k">if</span> <span class="n">target_axis</span> <span class="o">==</span> <span class="sh">"</span><span class="s">x</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">side</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">below</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">left</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">above</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">right</span><span class="sh">"</span><span class="p">}[</span><span class="n">boundary</span><span class="p">.</span><span class="n">allowed_side</span><span class="p">]</span>
+        <span class="k">return</span> <span class="nc">BoundaryCurve</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">x_quantity</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">,</span> <span class="n">y_quantity</span><span class="o">=</span><span class="n">axis</span><span class="p">,</span>
+                             <span class="n">allowed_side</span><span class="o">=</span><span class="n">side</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">BoundaryCurve</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">key</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="n">v</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">level</span><span class="p">,</span> <span class="n">x_quantity</span><span class="o">=</span><span class="n">axis</span><span class="p">,</span> <span class="n">y_quantity</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">target</span><span class="p">,</span>
+                         <span class="n">allowed_side</span><span class="o">=</span><span class="n">boundary</span><span class="p">.</span><span class="n">allowed_side</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>A threshold boundary drawn as a straight line across a 2-D projection.</p>
+
+\[\text{target} = C \quad\text{for every value of the other axis}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>boundary</code></td><td class="ref-type">Boundary</td><td class="ref-unit">-</td><td><p>A <code class="language-plaintext highlighter-rouge">"threshold"</code> boundary, for example <code class="language-plaintext highlighter-rouge">"murakami_hugill"</code>.</p>
+</td></tr>
+  <tr><td><code>axis</code></td><td class="ref-type">BoundaryQuantity</td><td class="ref-unit">-</td><td><p>The quantity on the other axis, which the threshold does not depend on.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td class="ref-type">array_like</td><td class="ref-unit">varies</td><td><p>Sample points along that axis, in its declared unit.</p>
+</td></tr>
+  <tr><td><code>target_axis</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"y"</code> draws a horizontal line (target on y); <code class="language-plaintext highlighter-rouge">"x"</code> a vertical one.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">BoundaryCurve</td><td class="ref-unit">-</td><td><p>The line, carrying both quantities and the permitted side: <code class="language-plaintext highlighter-rouge">"below"</code> / <code class="language-plaintext highlighter-rouge">"above"</code> for a horizontal line, <code class="language-plaintext highlighter-rouge">"left"</code> / <code class="language-plaintext highlighter-rouge">"right"</code> for a vertical one.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">boundary_curve</code> sweeps one of a boundary’s inputs, and a threshold
+has none, so this is its counterpart. The value is the registered
+coefficient; nothing is restated.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>TypeError</code> <code class="language-plaintext highlighter-rouge">boundary</code> is not a threshold, or <code class="language-plaintext highlighter-rouge">values</code> is not 1-D.
+</li>
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">target_axis</code> is neither <code class="language-plaintext highlighter-rouge">"x"</code> nor <code class="language-plaintext highlighter-rouge">"y"</code>, or <code class="language-plaintext highlighter-rouge">axis</code> is the boundary’s own target.
+</li>
+</ul>
+</div>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/diagram/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Diagram gallery">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" class="navigation navigation-next navigation-unique" aria-label="Next page: Equilibrium representations">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Equilibrium representations",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Equilibrium_representations.md",
+            "ref": "_guide/Equilibrium_representations.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_boundaries.md",
+        "mtime": "2026-09-27 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

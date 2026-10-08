@@ -1,0 +1,1828 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: impurity · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/process/core_q_context/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/process/mhd_stability/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: impurity</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_impurity">Process reference: impurity</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.impurity, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.impurity</code>:
+<strong>11</strong> public functions. Each entry is what
+<code>vaft.process.describe("impurity.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>One resolved impurity composition for every consumer of Z_eff (issue #1565,
+Stage B): a species list – element, charge state, mass and relative
+density, kept apart – with the target effective charge it is closed at, the
+absolute fractions <code class="language-plaintext highlighter-rouge">n_s / n_e</code> that closure gives, the reduced
+pseudo-impurity and the main-ion dilution, and a <code class="language-plaintext highlighter-rouge">kind</code> saying how the
+composition is known.  The algebra is <code class="language-plaintext highlighter-rouge">vaft.formula.impurity</code>; this
+module decides <em>which</em> composition applies and records why.</p>
+
+<p>The chain::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>core_profiles ion[] labelled measured        -&gt; kind "measured"
+explicit composition argument                -&gt; kind "explicit"
+derived composition (an atomic-data model)   -&gt; kind "derived"
+core_profiles ion[] labelled assumed/unlabelled -&gt; kind "assumed"
+machine preset (``"vest"``: vest.yaml impurity_model) -&gt; kind "assumed"
+-&gt; target Z_eff: core_profiles.zeff labelled measured, else the composition's own
+-&gt; n_s/n_e, n_main/n_e, S1, S2, Z_I,eff, f_dil   [ResolvedImpurityComposition]
+</code></pre></div></div>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>w_s</td><td>relative impurity particle density, sum_s w_s = 1</td><td class="ref-unit">-</td></tr>
+  <tr><td>Z_s</td><td>charge state of impurity species s</td><td class="ref-unit">-</td></tr>
+  <tr><td>S_1, S_2</td><td>sum_s w_s Z_s and sum_s w_s Z_s^2</td><td class="ref-unit">-</td></tr>
+  <tr><td>Z_I,eff</td><td>charge of the reduced pseudo-impurity, S_2 / S_1</td><td class="ref-unit">-</td></tr>
+  <tr><td>f_dil</td><td>main-ion dilution 1 - n_main / n_e</td><td class="ref-unit">-</td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>Kinds are not interchangeable.</strong>  <code class="language-plaintext highlighter-rouge">measured</code> is a composition a
+diagnostic determined; <code class="language-plaintext highlighter-rouge">explicit</code> is what the caller passed; <code class="language-plaintext highlighter-rouge">derived</code>
+is computed from other data by a stated model; <code class="language-plaintext highlighter-rouge">assumed</code> is a preset or a
+stored composition that says it was assumed (or says nothing).  A resistive
+Z_eff inferred from the transformer balance (#1214) is none of these: it is
+accepted only as <code class="language-plaintext highlighter-rouge">resistive_zeff=</code> and carried beside the composition
+under its own provenance, never used as a target and never turned into a
+composition (#1566).</p>
+
+<p><strong>Provenance records</strong> on <code class="language-plaintext highlighter-rouge">core_profiles</code> use one grammar, written by
+<code class="language-plaintext highlighter-rouge">composition_record_text</code> and read by <code class="language-plaintext highlighter-rouge">composition_record_origin</code>:
+<code class="language-plaintext highlighter-rouge">origin=&lt;measured|assumed|derived|inferred&gt;; method=&lt;m&gt;[; key=value...]</code>.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 11 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="charge_state_moments"><td><a href="#charge_state_moments"><code>charge_state_moments</code></a></td><td>Charge-state distribution of one element and its first two charge moments.
+</td></tr>
+  <tr data-ref-row="composition_from_fractions"><td><a href="#composition_from_fractions"><code>composition_from_fractions</code></a></td><td>An impurity composition from parallel lists of elements, relative fractions and charge states.
+</td></tr>
+  <tr data-ref-row="composition_from_model"><td><a href="#composition_from_model"><code>composition_from_model</code></a></td><td>An impurity composition from a parsed machine <code class="language-plaintext highlighter-rouge">impurity_model</code> record.
+</td></tr>
+  <tr data-ref-row="composition_record_origin"><td><a href="#composition_record_origin"><code>composition_record_origin</code></a></td><td>The <code class="language-plaintext highlighter-rouge">origin</code> a composition record states, or <code class="language-plaintext highlighter-rouge">None</code> when it states none.
+</td></tr>
+  <tr data-ref-row="composition_record_text"><td><a href="#composition_record_text"><code>composition_record_text</code></a></td><td>The record a writer stores beside a composition or Z_eff it put into <code class="language-plaintext highlighter-rouge">core_profiles</code>.
+</td></tr>
+  <tr data-ref-row="populate_impurity_profiles"><td><a href="#populate_impurity_profiles"><code>populate_impurity_profiles</code></a></td><td>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries the resolved ion composition.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="populate_radial_impurity_profiles"><td><a href="#populate_radial_impurity_profiles"><code>populate_radial_impurity_profiles</code></a></td><td>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries a charge-state-resolved composition.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="populate_zeff_profile"><td><a href="#populate_zeff_profile"><code>populate_zeff_profile</code></a></td><td>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries the resolved Z_eff(rho).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="resolve_impurity_composition"><td><a href="#resolve_impurity_composition"><code>resolve_impurity_composition</code></a></td><td>Resolve the impurity composition that applies, close it at its Z_eff and reduce it.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="resolve_radial_composition"><td><a href="#resolve_radial_composition"><code>resolve_radial_composition</code></a></td><td>Radial Z_eff and reduced impurity from an elemental composition and atomic-data charge states.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="surface_composition_profile"><td><a href="#surface_composition_profile"><code>surface_composition_profile</code></a></td><td>A copy of a GACODE profile whose ions are the main ion plus an explicit impurity composition.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="charge_state_moments" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#charge_state_moments"><code>charge_state_moments</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="charge_state_moments" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L1503-L1594" title="vaft/process/impurity.py, lines 1503–1594 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>charge_state_moments(element, te_eV, ne_m3, *, ionization=&#39;coronal&#39;, age_s=None, tables=None, cache_dir=None)</code></pre>
+
+    <p>Charge-state distribution of one element and its first two charge moments.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>element</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Element symbol.</p>
+</td></tr>
+  <tr><td><code>te_eV</code></td><td class="ref-type">array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>ne_m3</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>ionization</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"coronal"</code> (steady ionisation balance) or <code class="language-plaintext highlighter-rouge">"transient"</code> (a parcel <code class="language-plaintext highlighter-rouge">age_s</code> after entering as neutrals).</p>
+</td></tr>
+  <tr><td><code>age_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Ionisation age for <code class="language-plaintext highlighter-rouge">"transient"</code>.</p>
+</td></tr>
+  <tr><td><code>tables</code></td><td class="ref-type">mapping, optional</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">{element: (acd, scd)}</code> ADF11 tables or paths overriding the OPEN-ADAS defaults.</p>
+</td></tr>
+  <tr><td><code>cache_dir</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>ADF11 cache directory.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">fractions</code> (charge on the last axis, neutral first), <code class="language-plaintext highlighter-rouge">mean_charge</code> and <code class="language-plaintext highlighter-rouge">mean_square_charge</code> [-], <code class="language-plaintext highlighter-rouge">coronal_mean_charge</code> [-], <code class="language-plaintext highlighter-rouge">relaxation_time_s</code> [s] and the <code class="language-plaintext highlighter-rouge">tables</code> used.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An unknown ionization model, <code class="language-plaintext highlighter-rouge">"transient"</code> without an age, or non-positive profiles.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>No transport and no charge exchange: the transient model is an age, not
+an impurity-transport solution (Aurora, #897).</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), ADF11.
+</li>
+  <li>#1565 Sec. 8.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="composition_from_fractions" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#composition_from_fractions"><code>composition_from_fractions</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="composition_from_fractions" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L302-L369" title="vaft/process/impurity.py, lines 302–369 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>composition_from_fractions(elements, fractions, charge_states, *, target_zeff, masses=None, main_ion=&#39;H&#39;, status=&#39;explicit&#39;, source=&#39;caller&#39;)</code></pre>
+
+    <details class="ref-code" data-source-code="composition_from_fractions"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 302–369</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_from_fractions</span><span class="p">(</span>
+    <span class="n">elements</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+    <span class="n">fractions</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">charge_states</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">target_zeff</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">masses</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">main_ion</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">H</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">status</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">explicit</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">caller</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ImpurityComposition</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">An impurity composition from parallel lists of elements, relative fractions and charge states.
+
+    The form issue #1565 Sec. 2 names (``species=[</span><span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="s">, </span><span class="sh">"</span><span class="s">O</span><span class="sh">"</span><span class="s">, </span><span class="sh">"</span><span class="s">N</span><span class="sh">"</span><span class="s">]``,
+    ``fractions=[0.3, 0.4, 0.3]``) with the one addition it requires: the
+    charge state of each species is stated, never read off the atomic number.
+
+    Parameters
+    ----------
+    elements : sequence of str
+        Element symbols [-].
+    fractions : sequence of float
+        Relative particle densities, non-negative; normalised internally, the
+        given values kept in ``input_record`` [-].
+    charge_states : sequence of float
+        Ionic charge of each species, in ``(0, Z_n]`` [-].
+    target_zeff : float or None
+        Plasma effective charge to close the composition at [-].
+    masses : sequence of float, optional
+        Species masses; default the standard atomic weights [u].
+    main_ion : str, optional
+        Main-ion element, default ``</span><span class="sh">"</span><span class="s">H</span><span class="sh">"</span><span class="s">`` [-].
+    status : str, optional
+        One of :data:`COMPOSITION_KINDS`, default ``</span><span class="sh">"</span><span class="s">explicit</span><span class="sh">"</span><span class="s">`` [-].
+    source : str, optional
+        Where the composition came from, for provenance [-].
+
+    Returns
+    -------
+    ImpurityComposition
+        The validated composition [any].
+
+    Raises
+    ------
+    ValueError
+        Lists of unequal length, an unknown element, a charge state outside
+        ``(0, Z_n]``, negative fractions or a bad status.
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">elements</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">fractions</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span> <span class="ow">or</span> <span class="nf">len</span><span class="p">(</span><span class="n">charge_states</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span> <span class="ow">or</span> <span class="p">(</span><span class="n">masses</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="nf">len</span><span class="p">(</span><span class="n">masses</span><span class="p">)</span> <span class="o">!=</span> <span class="n">n</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">elements, fractions, charge_states (and masses) must have equal lengths</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">species</span> <span class="o">=</span> <span class="nf">tuple</span><span class="p">(</span>
+        <span class="nc">ImpuritySpecies</span><span class="p">(</span>
+            <span class="n">element</span><span class="o">=</span><span class="nf">str</span><span class="p">(</span><span class="n">elements</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span>
+            <span class="n">charge_state</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">charge_states</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span>
+            <span class="n">relative_density</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">fractions</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span>
+            <span class="n">mass</span><span class="o">=</span><span class="bp">None</span> <span class="k">if</span> <span class="n">masses</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="nf">float</span><span class="p">(</span><span class="n">masses</span><span class="p">[</span><span class="n">k</span><span class="p">]),</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">record</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">elements</span><span class="sh">"</span><span class="p">:</span> <span class="nf">list</span><span class="p">(</span><span class="n">elements</span><span class="p">),</span> <span class="sh">"</span><span class="s">fractions</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="nf">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">fractions</span><span class="p">],</span>
+              <span class="sh">"</span><span class="s">charge_states</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="nf">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">charge_states</span><span class="p">]}</span>
+    <span class="k">return</span> <span class="nc">ImpurityComposition</span><span class="p">(</span><span class="n">species</span><span class="o">=</span><span class="n">species</span><span class="p">,</span> <span class="n">target_zeff</span><span class="o">=</span><span class="n">target_zeff</span><span class="p">,</span> <span class="n">main_ion</span><span class="o">=</span><span class="n">main_ion</span><span class="p">,</span>
+                               <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">source</span><span class="p">,</span> <span class="n">input_record</span><span class="o">=</span><span class="n">record</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>An impurity composition from parallel lists of elements, relative fractions and charge states.</p>
+
+    <p>The form issue #1565 Sec. 2 names (<code class="language-plaintext highlighter-rouge">species=["C", "O", "N"]</code>,
+<code class="language-plaintext highlighter-rouge">fractions=[0.3, 0.4, 0.3]</code>) with the one addition it requires: the
+charge state of each species is stated, never read off the atomic number.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>elements</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Element symbols.</p>
+</td></tr>
+  <tr><td><code>fractions</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Relative particle densities, non-negative; normalised internally, the given values kept in <code class="language-plaintext highlighter-rouge">input_record</code>.</p>
+</td></tr>
+  <tr><td><code>charge_states</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>Ionic charge of each species, in <code class="language-plaintext highlighter-rouge">(0, Z_n]</code>.</p>
+</td></tr>
+  <tr><td><code>target_zeff</code></td><td class="ref-type">float or None</td><td class="ref-unit">-</td><td><p>Plasma effective charge to close the composition at.</p>
+</td></tr>
+  <tr><td><code>masses</code></td><td class="ref-type">sequence of float, optional</td><td class="ref-unit">u</td><td><p>Species masses; default the standard atomic weights.</p>
+</td></tr>
+  <tr><td><code>main_ion</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Main-ion element, default <code class="language-plaintext highlighter-rouge">"H"</code>.</p>
+</td></tr>
+  <tr><td><code>status</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>One of <code class="language-plaintext highlighter-rouge">COMPOSITION_KINDS</code>, default <code class="language-plaintext highlighter-rouge">"explicit"</code>.</p>
+</td></tr>
+  <tr><td><code>source</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Where the composition came from, for provenance.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ImpurityComposition</td><td class="ref-unit">any</td><td><p>The validated composition.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Lists of unequal length, an unknown element, a charge state outside <code class="language-plaintext highlighter-rouge">(0, Z_n]</code>, negative fractions or a bad status.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="composition_from_model" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#composition_from_model"><code>composition_from_model</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="composition_from_model" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L372-L422" title="vaft/process/impurity.py, lines 372–422 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>composition_from_model(model, *, source=None)</code></pre>
+
+    <details class="ref-code" data-source-code="composition_from_model"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 372–422</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_from_model</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ImpurityComposition</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">An impurity composition from a parsed machine ``impurity_model`` record.
+
+    Parameters
+    ----------
+    model : mapping
+        A record as :func:`vaft.machine_mapping.core_profiles.vest_impurity_model`
+        returns it: ``status``, ``species`` (element, charge_state, mass,
+        relative_density), ``target_zeff``, ``reduction``, ``main_ion`` and
+        ``provenance`` [any].
+    source : str, optional
+        Provenance label; default the record</span><span class="sh">'</span><span class="s">s own ``provenance.source`` [-].
+
+    Returns
+    -------
+    ImpurityComposition
+        The composition, with ``status`` ``</span><span class="sh">"</span><span class="s">assumed</span><span class="sh">"</span><span class="s">``, ``</span><span class="sh">"</span><span class="s">measured</span><span class="sh">"</span><span class="s">`` or
+        ``</span><span class="sh">"</span><span class="s">derived</span><span class="sh">"</span><span class="s">`` as the preset</span><span class="sh">'</span><span class="s">s own ``status`` (``inferred`` and any
+        other value map to ``derived``) [any].
+
+    Raises
+    ------
+    ValueError
+        A malformed record (as :class:`ImpuritySpecies` validates it).
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="n">species</span> <span class="o">=</span> <span class="nf">tuple</span><span class="p">(</span>
+        <span class="nc">ImpuritySpecies</span><span class="p">(</span>
+            <span class="n">element</span><span class="o">=</span><span class="nf">str</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="sh">"</span><span class="s">element</span><span class="sh">"</span><span class="p">]),</span>
+            <span class="n">charge_state</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="sh">"</span><span class="s">charge_state</span><span class="sh">"</span><span class="p">]),</span>
+            <span class="n">relative_density</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="sh">"</span><span class="s">relative_density</span><span class="sh">"</span><span class="p">]),</span>
+            <span class="n">mass</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">item</span><span class="p">[</span><span class="sh">"</span><span class="s">mass</span><span class="sh">"</span><span class="p">])</span> <span class="k">if</span> <span class="n">item</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">mass</span><span class="sh">"</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="bp">None</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">model</span><span class="p">[</span><span class="sh">"</span><span class="s">species</span><span class="sh">"</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">provenance</span> <span class="o">=</span> <span class="nf">dict</span><span class="p">(</span><span class="n">model</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">provenance</span><span class="sh">"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="c1"># measured stays measured, inferred is a derived kind (COMPOSITION_KINDS has no
+</span>    <span class="c1"># "inferred"), assumed stays assumed; anything else is derived
+</span>    <span class="n">status</span> <span class="o">=</span> <span class="p">{</span><span class="sh">"</span><span class="s">assumed</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">assumed</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">measured</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">measured</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">inferred</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">derived</span><span class="sh">"</span><span class="p">}.</span><span class="nf">get</span><span class="p">(</span><span class="n">model</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">),</span> <span class="sh">"</span><span class="s">derived</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">ImpurityComposition</span><span class="p">(</span>
+        <span class="n">species</span><span class="o">=</span><span class="n">species</span><span class="p">,</span>
+        <span class="n">target_zeff</span><span class="o">=</span><span class="n">model</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">target_zeff</span><span class="sh">"</span><span class="p">),</span>
+        <span class="n">main_ion</span><span class="o">=</span><span class="nf">str</span><span class="p">(</span><span class="n">model</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">main_ion</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">H</span><span class="sh">"</span><span class="p">)),</span>
+        <span class="n">reduction</span><span class="o">=</span><span class="nf">str</span><span class="p">(</span><span class="n">model</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">reduction</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">preserve_charge_z2_mass</span><span class="sh">"</span><span class="p">)),</span>
+        <span class="n">status</span><span class="o">=</span><span class="n">status</span><span class="p">,</span>
+        <span class="n">source</span><span class="o">=</span><span class="n">source</span> <span class="ow">or</span> <span class="nf">str</span><span class="p">(</span><span class="n">provenance</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">source</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">machine preset</span><span class="sh">"</span><span class="p">)),</span>
+        <span class="n">input_record</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">model_status</span><span class="sh">"</span><span class="p">:</span> <span class="n">model</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">),</span> <span class="o">**</span><span class="n">provenance</span><span class="p">},</span>
+    <span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>An impurity composition from a parsed machine <code class="language-plaintext highlighter-rouge">impurity_model</code> record.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>model</code></td><td class="ref-type">mapping</td><td class="ref-unit">any</td><td><p>A record as <code class="language-plaintext highlighter-rouge">vaft.machine_mapping.core_profiles.vest_impurity_model</code> returns it: <code class="language-plaintext highlighter-rouge">status</code>, <code class="language-plaintext highlighter-rouge">species</code> (element, charge_state, mass, relative_density), <code class="language-plaintext highlighter-rouge">target_zeff</code>, <code class="language-plaintext highlighter-rouge">reduction</code>, <code class="language-plaintext highlighter-rouge">main_ion</code> and <code class="language-plaintext highlighter-rouge">provenance</code>.</p>
+</td></tr>
+  <tr><td><code>source</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Provenance label; default the record’s own <code class="language-plaintext highlighter-rouge">provenance.source</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ImpurityComposition</td><td class="ref-unit">any</td><td><p>The composition, with <code class="language-plaintext highlighter-rouge">status</code> <code class="language-plaintext highlighter-rouge">"assumed"</code>, <code class="language-plaintext highlighter-rouge">"measured"</code> or <code class="language-plaintext highlighter-rouge">"derived"</code> as the preset’s own <code class="language-plaintext highlighter-rouge">status</code> (<code class="language-plaintext highlighter-rouge">inferred</code> and any other value map to <code class="language-plaintext highlighter-rouge">derived</code>).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A malformed record (as <code class="language-plaintext highlighter-rouge">ImpuritySpecies</code> validates it).
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="composition_record_origin" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#composition_record_origin"><code>composition_record_origin</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="composition_record_origin" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L464-L490" title="vaft/process/impurity.py, lines 464–490 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>composition_record_origin(record)</code></pre>
+
+    <details class="ref-code" data-source-code="composition_record_origin"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 464–490</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_record_origin</span><span class="p">(</span><span class="n">record</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">The ``origin`` a composition record states, or ``None`` when it states none.
+
+    Parameters
+    ----------
+    record : str or None
+        A ``*_fit.parameters`` record [-].
+
+    Returns
+    -------
+    str or None
+        One of :data:`COMPOSITION_ORIGINS`, ``</span><span class="sh">"</span><span class="s">unknown</span><span class="sh">"</span><span class="s">`` for an ``origin``
+        outside them, or ``None`` for an absent record or one without an
+        ``origin`` field (an unlabelled value) [-].
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">record</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">None</span>
+    <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="nf">str</span><span class="p">(</span><span class="n">record</span><span class="p">).</span><span class="nf">replace</span><span class="p">(</span><span class="sh">"</span><span class="se">\n</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">;</span><span class="sh">"</span><span class="p">).</span><span class="nf">split</span><span class="p">(</span><span class="sh">"</span><span class="s">;</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">match</span> <span class="o">=</span> <span class="n">_RECORD_FIELD</span><span class="p">.</span><span class="nf">fullmatch</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">match</span> <span class="ow">and</span> <span class="n">match</span><span class="p">.</span><span class="nf">group</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="nf">lower</span><span class="p">()</span> <span class="o">==</span> <span class="sh">"</span><span class="s">origin</span><span class="sh">"</span><span class="p">:</span>
+            <span class="n">origin</span> <span class="o">=</span> <span class="n">match</span><span class="p">.</span><span class="nf">group</span><span class="p">(</span><span class="mi">2</span><span class="p">).</span><span class="nf">strip</span><span class="p">().</span><span class="nf">lower</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">origin</span> <span class="k">if</span> <span class="n">origin</span> <span class="ow">in</span> <span class="n">COMPOSITION_ORIGINS</span> <span class="k">else</span> <span class="sh">"</span><span class="s">unknown</span><span class="sh">"</span>
+    <span class="k">return</span> <span class="bp">None</span></code></pre></figure>
+
+</details>
+
+    <p>The <code class="language-plaintext highlighter-rouge">origin</code> a composition record states, or <code class="language-plaintext highlighter-rouge">None</code> when it states none.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>record</code></td><td class="ref-type">str or None</td><td class="ref-unit">-</td><td><p>A <code class="language-plaintext highlighter-rouge">*_fit.parameters</code> record.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">str or None</td><td class="ref-unit">-</td><td><p>One of <code class="language-plaintext highlighter-rouge">COMPOSITION_ORIGINS</code>, <code class="language-plaintext highlighter-rouge">"unknown"</code> for an <code class="language-plaintext highlighter-rouge">origin</code> outside them, or <code class="language-plaintext highlighter-rouge">None</code> for an absent record or one without an <code class="language-plaintext highlighter-rouge">origin</code> field (an unlabelled value).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="composition_record_text" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#composition_record_text"><code>composition_record_text</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="composition_record_text" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L428-L461" title="vaft/process/impurity.py, lines 428–461 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>composition_record_text(origin, method, **fields)</code></pre>
+
+    <details class="ref-code" data-source-code="composition_record_text"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 428–461</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">composition_record_text</span><span class="p">(</span><span class="n">origin</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">fields</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">The record a writer stores beside a composition or Z_eff it put into ``core_profiles``.
+
+    Parameters
+    ----------
+    origin : str
+        One of :data:`COMPOSITION_ORIGINS` [-].
+    method : str
+        How the value was obtained, e.g. ``impurity_model_preset``; further
+        keyword arguments are appended as ``key=value`` fields, in order [-].
+
+    Returns
+    -------
+    str
+        ``origin=&lt;origin&gt;; method=&lt;method&gt;[; key=value...]`` [-].
+
+    Raises
+    ------
+    ValueError
+        An unknown origin, or a ``;`` or ``=`` inside a value.
+
+    Applicability
+    -------------
+    Machine-independent.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">origin</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">COMPOSITION_ORIGINS</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">origin must be one of </span><span class="si">{</span><span class="n">COMPOSITION_ORIGINS</span><span class="si">}</span><span class="s">, got </span><span class="si">{</span><span class="n">origin</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">origin=</span><span class="si">{</span><span class="n">origin</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="s">method=</span><span class="si">{</span><span class="n">method</span><span class="si">}</span><span class="sh">"</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+        <span class="n">text</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">value</span><span class="si">:</span><span class="n">g</span><span class="si">}</span><span class="sh">"</span> <span class="k">if</span> <span class="nf">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">float</span><span class="p">)</span> <span class="k">else</span> <span class="nf">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">if</span> <span class="sh">"</span><span class="s">;</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">text</span> <span class="ow">or</span> <span class="sh">"</span><span class="s">=</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">text</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">field </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s"> carries a separator: </span><span class="si">{</span><span class="n">text</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">parts</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s">=</span><span class="si">{</span><span class="n">text</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sh">"</span><span class="s">; </span><span class="sh">"</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The record a writer stores beside a composition or Z_eff it put into <code class="language-plaintext highlighter-rouge">core_profiles</code>.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>origin</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>One of <code class="language-plaintext highlighter-rouge">COMPOSITION_ORIGINS</code>.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>How the value was obtained, e.g. <code class="language-plaintext highlighter-rouge">impurity_model_preset</code>; further keyword arguments are appended as <code class="language-plaintext highlighter-rouge">key=value</code> fields, in order.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">origin=&lt;origin&gt;; method=&lt;method&gt;[; key=value...]</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An unknown origin, or a <code class="language-plaintext highlighter-rouge">;</code> or <code class="language-plaintext highlighter-rouge">=</code> inside a value.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="populate_impurity_profiles" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#populate_impurity_profiles"><code>populate_impurity_profiles</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="populate_impurity_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L1275-L1411" title="vaft/process/impurity.py, lines 1275–1411 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>populate_impurity_profiles(ods, resolved, *, time=None, tolerance=0.0005, method=None, write_zeff=True)</code></pre>
+
+    <p>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries the resolved ion composition.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>Source; never modified.</p>
+</td></tr>
+  <tr><td><code>resolved</code></td><td class="ref-type">ResolvedImpurityComposition</td><td class="ref-unit">any</td><td><p>From <code class="language-plaintext highlighter-rouge">resolve_impurity_composition</code>; not of kind <code class="language-plaintext highlighter-rouge">measured</code>.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Slice time; default the resolved composition’s own.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Largest <code class="language-plaintext highlighter-rouge">|t_slice - time|</code> accepted.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">method=</code> field of the records; default <code class="language-plaintext highlighter-rouge">&lt;kind&gt;_composition</code>.</p>
+</td></tr>
+  <tr><td><code>write_zeff</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Also write <code class="language-plaintext highlighter-rouge">zeff</code> through <code class="language-plaintext highlighter-rouge">populate_zeff_profile</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>A deep copy whose slice <code class="language-plaintext highlighter-rouge">ion[]</code> is the hydrogenic main ion (density diluted to <code class="language-plaintext highlighter-rouge">n_e (1 - sum Z_s n_s/n_e) / Z_m</code>) followed by one entry per impurity species (<code class="language-plaintext highlighter-rouge">label</code>, <code class="language-plaintext highlighter-rouge">z_ion</code>, <code class="language-plaintext highlighter-rouge">element.0.z_n/a</code>, <code class="language-plaintext highlighter-rouge">density</code>, <code class="language-plaintext highlighter-rouge">density_thermal</code>, <code class="language-plaintext highlighter-rouge">density_fit.parameters</code>).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">origin=assumed</code> for an explicit or preset composition, <code class="language-plaintext highlighter-rouge">derived</code> for
+one computed from other data (atomic data, a measured Z_eff), in the
+grammar <code class="language-plaintext highlighter-rouge">composition_record_origin</code> reads.  Impurities share the
+main ion’s temperature: an assumption, recorded in the density record as
+<code class="language-plaintext highlighter-rouge">temperature=main_ion</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A measured composition (resolved or stored in the target slice), a <code class="language-plaintext highlighter-rouge">time</code> that is not the resolved composition’s, no slice at the time, no electron density, a stored main ion that is not hydrogenic, or two stored hydrogenic ions.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Match the slice by time and read <code class="language-plaintext highlighter-rouge">n_e</code> and its rho grid.</li>
+        <li>Keep the existing hydrogenic main ion entry whole (temperature,
+velocity and their records) or create <code class="language-plaintext highlighter-rouge">H+</code>; drop every stored
+impurity entry.</li>
+        <li>Write the main ion’s diluted density and each impurity’s
+<code class="language-plaintext highlighter-rouge">n_e * n_s/n_e</code> (a profile composition is interpolated in rho).</li>
+        <li>Give each impurity the main ion’s temperature, its
+<code class="language-plaintext highlighter-rouge">temperature_fit.parameters</code> record unchanged (so a Ti reader
+classifies every ion alike) and its toroidal rotation; label each
+density <code class="language-plaintext highlighter-rouge">origin=...</code>.  A point where the composition is undefined
+is filled from its neighbours in rho and counted (<code class="language-plaintext highlighter-rouge">filled_points</code>).</li>
+        <li>Write <code class="language-plaintext highlighter-rouge">zeff</code> (<code class="language-plaintext highlighter-rouge">populate_zeff_profile</code>), or, with
+<code class="language-plaintext highlighter-rouge">write_zeff=False</code>, drop a non-measured <code class="language-plaintext highlighter-rouge">zeff</code> that the new species
+list would contradict.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p>A <code class="language-plaintext highlighter-rouge">core_profiles</code> slice with an electron density, and a composition
+resolved independently of it (preset, explicit, derived).</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>The same slice with an explicit species list: assumed or derived, never
+measured, as each record says.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A non-hydrogenic main ion is refused.  Only this slice is written.  The
+impurities’ copied temperature record reads as whatever the main ion’s
+says (measured, assumed or inferred): equal temperatures are an
+assumption noted only in the density record.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1565 Sec. 5 (core_profiles ion[] and zeff from the resolved composition), Lane K #1454 (origin records on core_profiles).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="populate_radial_impurity_profiles" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#populate_radial_impurity_profiles"><code>populate_radial_impurity_profiles</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="populate_radial_impurity_profiles" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L1837-L1984" title="vaft/process/impurity.py, lines 1837–1984 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>populate_radial_impurity_profiles(ods, radial, *, time=None, tolerance=0.0005, method=None)</code></pre>
+
+    <p>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries a charge-state-resolved composition.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>Source; never modified.</p>
+</td></tr>
+  <tr><td><code>radial</code></td><td class="ref-type">RadialImpurityComposition</td><td class="ref-unit">any</td><td><p>From <code class="language-plaintext highlighter-rouge">resolve_radial_composition</code>.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Slice time; default the composition’s own.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Largest <code class="language-plaintext highlighter-rouge">|t_slice - time|</code> accepted.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">method=</code> field; default <code class="language-plaintext highlighter-rouge">openadas_&lt;ionization&gt;</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>A deep copy whose slice <code class="language-plaintext highlighter-rouge">ion[]</code> is the diluted hydrogenic main ion and one bundled entry per element: <code class="language-plaintext highlighter-rouge">z_ion</code> (the mean charge weighted by the element’s density at the grid points, no volume element), <code class="language-plaintext highlighter-rouge">z_ion_1d</code> = <Z>(rho), ``z_ion_square_1d`` = &lt;Z^2&gt;(rho), the elemental ``density`` -- all charge states *including the neutral atoms*, the density <Z> and &lt;Z^2&gt; are averaged over -- and ``state[q]`` (``z_min = z_max = q``, charge-state density) for every ionised state, so ``sum(state.density) = density (1 - f_0)``; plus ``zeff``.</Z></Z></p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>IMAS bundled ions: <code class="language-plaintext highlighter-rouge">z_ion</code> is one number, the radial charge lives in
+<code class="language-plaintext highlighter-rouge">z_ion_1d</code> / <code class="language-plaintext highlighter-rouge">z_ion_square_1d</code>.  A reader of <code class="language-plaintext highlighter-rouge">z_ion</code> alone loses
+the radial variation and the charge variance – GACODE does, so the
+transport path lumps per surface instead (Lane L PR 5).</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">populate_impurity_profiles</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Match the slice by time and read <code class="language-plaintext highlighter-rouge">n_e</code>; refuse a measured target.</li>
+        <li>Keep the hydrogenic main ion (diluted), drop stored impurity entries.</li>
+        <li>Write each element bundled, with its charge-state densities, from the
+composition interpolated onto the slice rho grid.</li>
+        <li>Write <code class="language-plaintext highlighter-rouge">zeff</code> (<code class="language-plaintext highlighter-rouge">origin=derived</code>, or <code class="language-plaintext highlighter-rouge">inferred</code> for a resistive
+closure).</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p>A <code class="language-plaintext highlighter-rouge">core_profiles</code> slice with an electron density.</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>The same slice with bundled impurity ions whose charge varies with rho.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Neutral atoms are not written (<code class="language-plaintext highlighter-rouge">core_profiles.neutral</code> is out of scope).</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1565 Sec. 5 and 8.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="populate_zeff_profile" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#populate_zeff_profile"><code>populate_zeff_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="populate_zeff_profile" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L1209-L1272" title="vaft/process/impurity.py, lines 1209–1272 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>populate_zeff_profile(ods, resolved, *, time=None, tolerance=0.0005, method=None)</code></pre>
+
+    <details class="ref-code" data-source-code="populate_zeff_profile"><summary>Show source <span class="ref-note">vaft/process/impurity.py, lines 1209–1272</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">populate_zeff_profile</span><span class="p">(</span>
+    <span class="n">ods</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">resolved</span><span class="p">:</span> <span class="n">ResolvedImpurityComposition</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">time</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">tolerance</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5e-4</span><span class="p">,</span>
+    <span class="n">method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">A copy of ``ods`` whose ``core_profiles`` slice carries the resolved Z_eff(rho).
+
+    Parameters
+    ----------
+    ods : ODS
+        Source; never modified [any].
+    resolved : ResolvedImpurityComposition
+        From :func:`resolve_impurity_composition`; not of kind ``measured`` [any].
+    time : float, optional
+        Slice time; default the resolved composition</span><span class="sh">'</span><span class="s">s own [s].
+    tolerance : float, optional
+        Largest ``|t_slice - time|`` accepted [s].
+    method : str, optional
+        ``method=`` field of the record; default ``&lt;kind&gt;_composition`` [-].
+
+    Returns
+    -------
+    ODS
+        A deep copy with ``profiles_1d.zeff`` and ``profiles_1d.zeff_fit.parameters``
+        (``origin=assumed|derived; method=...``) written [any].
+
+    Raises
+    ------
+    ValueError
+        A measured composition (already in ``core_profiles``), no slice at the
+        time, or no electron density.
+
+    Convention
+    ----------
+    The record</span><span class="sh">'</span><span class="s">s ``origin`` is ``assumed`` for an explicit or preset
+    composition (Z_eff is then the assumed target) and ``derived`` for one
+    computed from other data; :func:`resolve_impurity_composition` never reads
+    either back as a measured target.  A measured ``zeff`` is never
+    overwritten: a composition closed at it is left with the slice</span><span class="sh">'</span><span class="s">s own
+    measured profile and record.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #1565 Sec. 5 (core_profiles.zeff from the resolved composition).
+    </span><span class="sh">"""</span>
+    <span class="n">work</span> <span class="o">=</span> <span class="n">copy</span><span class="p">.</span><span class="nf">deepcopy</span><span class="p">(</span><span class="n">ods</span><span class="p">)</span>
+    <span class="n">index</span><span class="p">,</span> <span class="n">ne</span><span class="p">,</span> <span class="n">rho</span> <span class="o">=</span> <span class="nf">_write_slice</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="n">resolved</span><span class="p">,</span> <span class="n">time</span><span class="p">,</span> <span class="n">tolerance</span><span class="p">)</span>
+    <span class="n">base</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">core_profiles.profiles_1d.</span><span class="si">{</span><span class="n">index</span><span class="si">}</span><span class="sh">"</span>
+    <span class="k">if</span> <span class="sh">"</span><span class="s">measured</span><span class="sh">"</span> <span class="ow">in</span> <span class="n">resolved</span><span class="p">.</span><span class="n">zeff_source</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">work</span>  <span class="c1"># the slice already carries the measured profile it was closed at
+</span>    <span class="k">if</span> <span class="nf">composition_record_origin</span><span class="p">(</span><span class="nf">_get</span><span class="p">(</span><span class="n">work</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s">.zeff_fit.parameters</span><span class="sh">"</span><span class="p">))</span> <span class="o">==</span> <span class="sh">"</span><span class="s">measured</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s">.zeff is labelled measured; it is never overwritten</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">zeff</span><span class="p">,</span> <span class="n">filled</span> <span class="o">=</span> <span class="nf">_fill_undefined</span><span class="p">(</span><span class="nf">_on_grid</span><span class="p">(</span><span class="n">resolved</span><span class="p">.</span><span class="n">zeff</span><span class="p">,</span> <span class="n">resolved</span><span class="p">,</span> <span class="n">rho</span><span class="p">,</span> <span class="n">ne</span><span class="p">.</span><span class="n">size</span><span class="p">),</span> <span class="n">rho</span><span class="p">)</span>
+    <span class="n">work</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s">.zeff</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">zeff</span>
+    <span class="n">record</span> <span class="o">=</span> <span class="nf">_record</span><span class="p">(</span><span class="n">resolved</span><span class="p">,</span> <span class="sh">"</span><span class="s">zeff</span><span class="sh">"</span><span class="p">,</span> <span class="n">method</span><span class="p">)</span>
+    <span class="n">work</span><span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s">.zeff_fit.parameters</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">record</span> <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">; filled_points=</span><span class="si">{</span><span class="n">filled</span><span class="si">}</span><span class="sh">"</span> <span class="k">if</span> <span class="n">filled</span> <span class="k">else</span> <span class="sh">""</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">work</span></code></pre></figure>
+
+</details>
+
+    <p>A copy of <code class="language-plaintext highlighter-rouge">ods</code> whose <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries the resolved Z_eff(rho).</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>Source; never modified.</p>
+</td></tr>
+  <tr><td><code>resolved</code></td><td class="ref-type">ResolvedImpurityComposition</td><td class="ref-unit">any</td><td><p>From <code class="language-plaintext highlighter-rouge">resolve_impurity_composition</code>; not of kind <code class="language-plaintext highlighter-rouge">measured</code>.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Slice time; default the resolved composition’s own.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Largest <code class="language-plaintext highlighter-rouge">|t_slice - time|</code> accepted.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">method=</code> field of the record; default <code class="language-plaintext highlighter-rouge">&lt;kind&gt;_composition</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>A deep copy with <code class="language-plaintext highlighter-rouge">profiles_1d.zeff</code> and <code class="language-plaintext highlighter-rouge">profiles_1d.zeff_fit.parameters</code> (<code class="language-plaintext highlighter-rouge">origin=assumed|derived; method=...</code>) written.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The record’s <code class="language-plaintext highlighter-rouge">origin</code> is <code class="language-plaintext highlighter-rouge">assumed</code> for an explicit or preset
+composition (Z_eff is then the assumed target) and <code class="language-plaintext highlighter-rouge">derived</code> for one
+computed from other data; <code class="language-plaintext highlighter-rouge">resolve_impurity_composition</code> never reads
+either back as a measured target.  A measured <code class="language-plaintext highlighter-rouge">zeff</code> is never
+overwritten: a composition closed at it is left with the slice’s own
+measured profile and record.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A measured composition (already in <code class="language-plaintext highlighter-rouge">core_profiles</code>), no slice at the time, or no electron density.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1565 Sec. 5 (core_profiles.zeff from the resolved composition).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="resolve_impurity_composition" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#resolve_impurity_composition"><code>resolve_impurity_composition</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="resolve_impurity_composition" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L871-L1069" title="vaft/process/impurity.py, lines 871–1069 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>resolve_impurity_composition(ods=None, *, time=None, tolerance=0.0005, composition=None, derived=None, machine_preset=None, shot=None, use_measured_zeff=True, resistive_zeff=None, info_file=None)</code></pre>
+
+    <p>Resolve the impurity composition that applies, close it at its Z_eff and reduce it.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS, optional</td><td class="ref-unit">any</td><td><p>Source of a stored <code class="language-plaintext highlighter-rouge">core_profiles</code> composition and Z_eff; read without creating any path.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time of the <code class="language-plaintext highlighter-rouge">core_profiles</code> slice to read; required when it holds more than one slice.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Largest <code class="language-plaintext highlighter-rouge">|t_slice - time|</code> accepted.</p>
+</td></tr>
+  <tr><td><code>composition</code></td><td class="ref-type">ImpurityComposition, optional</td><td class="ref-unit">any</td><td><p>An explicit composition from the caller.</p>
+</td></tr>
+  <tr><td><code>derived</code></td><td class="ref-type">ImpurityComposition, optional</td><td class="ref-unit">any</td><td><p>A composition derived by a stated model (atomic data, a resistive closure).</p>
+</td></tr>
+  <tr><td><code>machine_preset</code></td><td class="ref-type">str or mapping, optional</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">"vest"</code> (the <code class="language-plaintext highlighter-rouge">vest.yaml</code> <code class="language-plaintext highlighter-rouge">impurity_model</code> for <code class="language-plaintext highlighter-rouge">shot</code>), or a parsed <code class="language-plaintext highlighter-rouge">impurity_model</code> record; used only when nothing above applies.</p>
+</td></tr>
+  <tr><td><code>shot</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Shot whose machine preset era applies.</p>
+</td></tr>
+  <tr><td><code>use_measured_zeff</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Close a non-measured composition at a <code class="language-plaintext highlighter-rouge">core_profiles.zeff</code> labelled measured instead of the composition’s own target.</p>
+</td></tr>
+  <tr><td><code>resistive_zeff</code></td><td class="ref-type">float or mapping, optional</td><td class="ref-unit">-</td><td><p>A resistively inferred Z_eff (a Lane Z row) to carry beside the result under its own provenance; never used as a target.</p>
+</td></tr>
+  <tr><td><code>info_file</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Alternative <code class="language-plaintext highlighter-rouge">vest.yaml</code> for the <code class="language-plaintext highlighter-rouge">"vest"</code> preset.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ResolvedImpurityComposition</td><td class="ref-unit">any</td><td><p>Species, <code class="language-plaintext highlighter-rouge">n_s/n_e</code>, <code class="language-plaintext highlighter-rouge">n_main/n_e</code>, Z_eff and where it came from, the moments <code class="language-plaintext highlighter-rouge">S1</code>/<code class="language-plaintext highlighter-rouge">S2</code>/<code class="language-plaintext highlighter-rouge">A_bar</code>, the reduced pseudo-impurity, the dilution, the kind and the candidates considered.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The precedence measured &gt; explicit &gt; derived &gt; assumed is #1565 Sec. 4.
+A stored composition that does not say how it is known ranks with the
+assumed ones, below an explicit argument: the Lane K products carry an
+H+/C6+ list assumed at Z_eff = 2 with no density label, and reading
+that as a measurement would let an assumption outrank the caller.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> No source applies, a composition without a target Z_eff and no measured one, a target the composition cannot reach, or a <code class="language-plaintext highlighter-rouge">core_profiles</code> slice that cannot be matched in time.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Match the <code class="language-plaintext highlighter-rouge">core_profiles</code> slice by time (never by index); read its
+impurity ions (<code class="language-plaintext highlighter-rouge">element.0.z_n &gt; 1</code>) and their <code class="language-plaintext highlighter-rouge">density_fit</code>
+origin, and its <code class="language-plaintext highlighter-rouge">zeff</code> if labelled <code class="language-plaintext highlighter-rouge">origin=measured</code>.  A bundled
+ion is read with its radial charge (<code class="language-plaintext highlighter-rouge">z_ion_1d</code>, <code class="language-plaintext highlighter-rouge">z_ion_square_1d</code>,
+else <code class="language-plaintext highlighter-rouge">state[]</code>); <code class="language-plaintext highlighter-rouge">z_ion</code> alone is read as a fixed charge state.
+<code class="language-plaintext highlighter-rouge">provenance["charge_fields"]</code> records which fields each ion gave.</li>
+        <li>Choose the composition: stored ions labelled measured; else the
+explicit argument; else the derived argument, or stored ions labelled
+derived/inferred; else stored ions labelled assumed or unlabelled;
+else the machine preset.</li>
+        <li>A stored composition labelled measured is used as stored.  Any other
+is closed by quasi-neutrality at the measured Z_eff profile when there
+is one and <code class="language-plaintext highlighter-rouge">use_measured_zeff</code> (a stored one keeps its relative
+weights per rho), else at its own target (a stored one: as stored).
+A measured-Z_eff point outside <code class="language-plaintext highlighter-rouge">[Z_m, S2/S1]</code> or not finite is left
+undefined and counted in <code class="language-plaintext highlighter-rouge">provenance["undefined_points"]</code>.</li>
+        <li>Reduce to the pseudo-impurity and form the dilution.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  The <code class="language-plaintext highlighter-rouge">"vest"</code> preset reads <code class="language-plaintext highlighter-rouge">vest.yaml</code>
+<code class="language-plaintext highlighter-rouge">diagnostics.core_profiles.impurity_model</code> when, and only when, it is asked for.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>An argument composition has fixed charge states per species; a radially
+varying charge-state distribution enters as a <code class="language-plaintext highlighter-rouge">derived</code> composition
+(#1565 Sec. 8) or is read back from the bundled ions
+<code class="language-plaintext highlighter-rouge">populate_radial_impurity_profiles</code> wrote (<code class="language-plaintext highlighter-rouge">mean_charge</code> /
+<code class="language-plaintext highlighter-rouge">mean_square_charge</code> of the result).  A stored
+composition is read only with a hydrogenic main ion; a slice whose ions
+are not hydrogen isotopes plus impurities is skipped with its reason.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1565 Sec. 3-4 (presets, precedence) and its main-ion dilution comment; #1566 (resistive Z_eff kept apart).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="resolve_radial_composition" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#resolve_radial_composition"><code>resolve_radial_composition</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="resolve_radial_composition" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L1607-L1834" title="vaft/process/impurity.py, lines 1607–1834 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>resolve_radial_composition(te_eV, ne_m3, rho, elemental_weights, *, normalization=&#39;ne_weighted_mean&#39;, target_zeff=2.0, ionization=&#39;coronal&#39;, plasma_age_s=None, volume_weights=None, resistive_target=None, projection=None, coronal_tolerance=0.1, tables=None, cache_dir=None, time=None)</code></pre>
+
+    <p>Radial Z_eff and reduced impurity from an elemental composition and atomic-data charge states.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>te_eV</code></td><td class="ref-type">array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature on <code class="language-plaintext highlighter-rouge">rho</code>.</p>
+</td></tr>
+  <tr><td><code>ne_m3</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density on <code class="language-plaintext highlighter-rouge">rho</code>.</p>
+</td></tr>
+  <tr><td><code>rho</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Radial coordinate, increasing.</p>
+</td></tr>
+  <tr><td><code>elemental_weights</code></td><td class="ref-type">mapping</td><td class="ref-unit">-</td><td><p>Relative elemental (all charge states) densities by element, e.g. <code class="language-plaintext highlighter-rouge">{"C": 1, "O": 1}</code>; normalised internally.</p>
+</td></tr>
+  <tr><td><code>normalization</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>One of <code class="language-plaintext highlighter-rouge">NORMALIZATIONS</code>: <code class="language-plaintext highlighter-rouge">ne_weighted_mean</code> (the n_e-weighted volume mean of Z_eff equals <code class="language-plaintext highlighter-rouge">target_zeff</code>), <code class="language-plaintext highlighter-rouge">axis</code> (Z_eff at the innermost point), <code class="language-plaintext highlighter-rouge">fixed</code> (the fully stripped closure at <code class="language-plaintext highlighter-rouge">target_zeff</code>, i.e. 1/86 each for the VEST preset, then let Z_eff fall where the charge states do) or <code class="language-plaintext highlighter-rouge">resistive_closure</code> (<code class="language-plaintext highlighter-rouge">projection(Z_eff) == resistive_target</code>).</p>
+</td></tr>
+  <tr><td><code>target_zeff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Target of the <code class="language-plaintext highlighter-rouge">ne_weighted_mean</code>, <code class="language-plaintext highlighter-rouge">axis</code> and <code class="language-plaintext highlighter-rouge">fixed</code> rules.</p>
+</td></tr>
+  <tr><td><code>ionization</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"coronal"</code> or <code class="language-plaintext highlighter-rouge">"transient"</code> (needs <code class="language-plaintext highlighter-rouge">plasma_age_s</code>).</p>
+</td></tr>
+  <tr><td><code>plasma_age_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time since breakdown; also the age of the coronal-validity check.</p>
+</td></tr>
+  <tr><td><code>volume_weights</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">m^3</td><td><p><code class="language-plaintext highlighter-rouge">dV</code> per rho point for the volume mean; default <code class="language-plaintext highlighter-rouge">rho drho</code>, a cylindrical stand-in in rho units.</p>
+</td></tr>
+  <tr><td><code>resistive_target</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Resistive Z_eff the <code class="language-plaintext highlighter-rouge">resistive_closure</code> rule matches.</p>
+</td></tr>
+  <tr><td><code>projection</code></td><td class="ref-type">callable, optional</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">Z_eff(rho) -&gt; scalar</code> resistive projection (#1566) for <code class="language-plaintext highlighter-rouge">resistive_closure</code>; it receives the full <code class="language-plaintext highlighter-rouge">rho</code> grid with NaN at undefined points and must ignore them.</p>
+</td></tr>
+  <tr><td><code>coronal_tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Largest <code class="language-plaintext highlighter-rouge">|&lt;Z&gt;_transient(age) - &lt;Z&gt;_coronal|</code> still called coronal.</p>
+</td></tr>
+  <tr><td><code>tables</code></td><td class="ref-type">mapping, optional</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">{element: (acd, scd)}</code> overriding the OPEN-ADAS defaults.</p>
+</td></tr>
+  <tr><td><code>cache_dir</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>ADF11 cache directory.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Slice time, carried for the writer.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">RadialImpurityComposition</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">zeff(rho)</code>, <code class="language-plaintext highlighter-rouge">&lt;Z&gt;</code>, <code class="language-plaintext highlighter-rouge">&lt;Z^2&gt;</code>, <code class="language-plaintext highlighter-rouge">S1</code>, <code class="language-plaintext highlighter-rouge">S2</code>, <code class="language-plaintext highlighter-rouge">Z_I,eff</code>, dilution, elemental and charge-state fractions, the coronal check and the normalization record.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The elemental ratio and a flat <code class="language-plaintext highlighter-rouge">n_s/n_e</code> shape are fixed; only their
+common amplitude is normalised, so the radial structure of Z_eff is the
+charge states’ alone.  <code class="language-plaintext highlighter-rouge">ne_weighted_mean</code> is the default the VEST atlas
+uses (#1569); <code class="language-plaintext highlighter-rouge">fixed</code> shows how far Z_eff falls from the stripped value.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An unknown rule or model, a target the composition cannot reach (a negative main-ion density), <code class="language-plaintext highlighter-rouge">resistive_closure</code> without its projection and target, or no valid profile point.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Assumptions · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>ADF11 charge-state fractions of each element at each point (coronal,
+or transient at <code class="language-plaintext highlighter-rouge">plasma_age_s</code>); <code class="language-plaintext highlighter-rouge">&lt;Z&gt;_s</code>, <code class="language-plaintext highlighter-rouge">&lt;Z^2&gt;_s</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">S1 = sum w_s &lt;Z&gt;_s</code>, <code class="language-plaintext highlighter-rouge">S2 = sum w_s &lt;Z^2&gt;_s</code>.</li>
+        <li>With <code class="language-plaintext highlighter-rouge">n_s/n_e = c w_s</code>, <code class="language-plaintext highlighter-rouge">Z_eff = Z_m + c (S2 - Z_m S1)</code> is linear in
+the one scale <code class="language-plaintext highlighter-rouge">c</code>; the normalization rule fixes <code class="language-plaintext highlighter-rouge">c</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">n_main/n_e = (1 - c S1)/Z_m</code>, <code class="language-plaintext highlighter-rouge">Z_I,eff = S2/S1</code>, dilution.</li>
+        <li>Coronal check: transient <code class="language-plaintext highlighter-rouge">&lt;Z&gt;</code> at <code class="language-plaintext highlighter-rouge">plasma_age_s</code> against coronal.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>No impurity transport: flat <code class="language-plaintext highlighter-rouge">n_s/n_e</code>; equal ages everywhere.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>VEST discharges last tens of ms while carbon relaxes on ~10-80 ms at
+20-200 eV and 1e19 m^-3: the coronal model overstates the charge;
+<code class="language-plaintext highlighter-rouge">coronal_valid</code> says where.  Charge exchange with neutrals is ignored.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>H. P. Summers, <em>The ADAS User Manual</em>, version 2.6 (2004), ADF11.
+</li>
+  <li>#1565 Sec. 8, Lane L log #1569 (normalization decision).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="surface_composition_profile" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#surface_composition_profile"><code>surface_composition_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="surface_composition_profile" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/impurity.py#L2035-L2191" title="vaft/process/impurity.py, lines 2035–2191 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>surface_composition_profile(profile, composition, r_over_a)</code></pre>
+
+    <p>A copy of a GACODE profile whose ions are the main ion plus an explicit impurity composition.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>profile</code></td><td class="ref-type">GACODEProfile</td><td class="ref-unit">any</td><td><p>The resolved transport profile (its main ion, temperatures, rotation and geometry are kept).</p>
+</td></tr>
+  <tr><td><code>composition</code></td><td class="ref-type">RadialImpurityComposition or ResolvedImpurityComposition</td><td class="ref-unit">any</td><td><p>A radial composition must be resolved on <code class="language-plaintext highlighter-rouge">profile.rho</code>; a resolved one may be scalar, or a profile on its own <code class="language-plaintext highlighter-rouge">rho</code> (<code class="language-plaintext highlighter-rouge">rho_tor_norm</code>), which is interpolated onto <code class="language-plaintext highlighter-rouge">profile.rho</code>.</p>
+</td></tr>
+  <tr><td><code>r_over_a</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>The surface, <code class="language-plaintext highlighter-rouge">rmin / rmin[-1]</code>, whose charge states the lumped impurities take.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">GACODEProfile</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">z</code>, <code class="language-plaintext highlighter-rouge">name</code>, <code class="language-plaintext highlighter-rouge">type</code>, <code class="language-plaintext highlighter-rouge">mass</code>, <code class="language-plaintext highlighter-rouge">ni</code>, <code class="language-plaintext highlighter-rouge">ti</code>, <code class="language-plaintext highlighter-rouge">vtor</code>/<code class="language-plaintext highlighter-rouge">vpol</code> and <code class="language-plaintext highlighter-rouge">z_eff</code> replaced; <code class="language-plaintext highlighter-rouge">provenance</code> records the composition and the surface.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>GACODE carries one charge per species for the whole profile, so a
+charge that varies with rho is lumped per surface (one profile per TGLF
+or CGYRO surface); with fixed charge states the profile is the same at
+every surface.  Z_eff at the surface equals the composition’s.  A
+profile-valued composition is paired with <code class="language-plaintext highlighter-rouge">profile.rho</code> by coordinate
+(both are <code class="language-plaintext highlighter-rouge">rho_tor_norm</code>): a radial composition must be resolved on
+<code class="language-plaintext highlighter-rouge">profile.rho</code>; a resolved one is interpolated from its own <code class="language-plaintext highlighter-rouge">rho</code>,
+which it must carry (<code class="language-plaintext highlighter-rouge">provenance["ni"]["composition_grid"]</code> says so).</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A profile without a hydrogenic main ion or <code class="language-plaintext highlighter-rouge">rmin</code>, a radial composition on another grid, or a surface outside the profile.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Main ion: the profile’s first <code class="language-plaintext highlighter-rouge">z = 1</code> species, its density replaced
+by <code class="language-plaintext highlighter-rouge">n_e n_main/n_e</code> of the composition.</li>
+        <li>At the surface, each element’s lumped charge <code class="language-plaintext highlighter-rouge">Z_s = &lt;Z^2&gt;_s/&lt;Z&gt;_s</code>.</li>
+        <li>Its density <code class="language-plaintext highlighter-rouge">n_s'(rho) = n_e (n_s/n_e) &lt;Z&gt;_s(rho) / Z_s</code>: the
+element’s charge density is kept at every rho (so the gradients stay
+quasi-neutral) and its <code class="language-plaintext highlighter-rouge">Z^2</code> moment exactly at the surface.</li>
+        <li>Temperatures and rotation of the impurities are the main ion’s.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p>A converted GACODE profile (GACODE units: 1e19 m^-3, keV).</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>The same profile with a species list valid at one surface only.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The charge-state variance enters only through <code class="language-plaintext highlighter-rouge">&lt;Z^2&gt;</code>; the charge’s
+own radial gradient away from the surface is not represented.  Equal
+ion temperatures are assumed.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1565 Sec. 6, Lane L log #1569 (lumped species per surface).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/core_q_context/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: core_q_context">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/process/mhd_stability/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: mhd_stability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: mhd_stability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_mhd_stability.md",
+            "ref": "_guide/Process_reference_mhd_stability.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_impurity.md",
+        "mtime": "2026-10-02 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -1,0 +1,1192 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Geometric approximations · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/formula/geometry/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/formula/disruption/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Geometric approximations</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Geometric_approximations">Geometric approximations</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>The slab, cylindrical and toroidal reductions plasma theory uses, with geometry and ordering kept on separate axes; formulas in vaft.formula.geometry.</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>For each approximation its coordinates, field, ordering, canonical formulas, what it keeps and drops, and how it connects to the next one.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>Analytic tokamak theory seldom works in the real torus. It works in a slab, a cylinder or an expanded
+torus, and it carries a few coefficients over from the real equilibrium. This page sets out those
+reductions using the literature’s names. The formulas are in
+<a href="/vaft/reference/formula/geometry/"><code class="language-plaintext highlighter-rouge">vaft.formula.geometry</code></a>.</p>
+
+<p>The toroidal parent geometry itself (flux surfaces, the Shafranov shift, shaping, $q$ as a winding
+number, and $\theta$ versus $\theta^*$) is drawn in the tokamak-geometry section of
+<a href="/vaft/reference/diagrams/">Scientific diagrams</a>. How VAFT keeps coordinates,
+projections, representations, derived quantities and solver conventions of one real equilibrium
+apart is on <a href="/vaft/reference/equilibrium-representations/">Equilibrium representations</a>.</p>
+
+<h2 id="two-axes-not-one-hierarchy">Two axes, not one hierarchy</h2>
+
+<p><em>Geometry</em> says what space the model lives in: slab, cylindrical or toroidal. <em>Ordering</em> says which
+scales are assumed small: local ($|x| \ll r$), large aspect ratio ($\epsilon = a/R_0 \ll 1$) or neither
+(global). The two are independent. A slab may carry $q$, $\hat s$, $R_0$ or a $1/R_0$ curvature
+inherited from a torus and still be a slab. Large aspect ratio is an ordering, not a geometry: some
+large-aspect-ratio theories stay toroidal.</p>
+
+<p><img src="/vaft/assets/diagrams/geometry_ordering_map.svg" alt="geometry and ordering" /></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Representation</th>
+      <th>Geometry</th>
+      <th>Typical ordering</th>
+      <th>Retained</th>
+      <th>Neglected or parameterized</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>straight slab</td>
+      <td>slab</td>
+      <td>local</td>
+      <td>local gradients, wave propagation</td>
+      <td>curvature, magnetic shear</td>
+    </tr>
+    <tr>
+      <td>sheared slab</td>
+      <td>slab</td>
+      <td>local</td>
+      <td>local gradients, magnetic shear, resonance</td>
+      <td>global geometry; curvature unless added</td>
+    </tr>
+    <tr>
+      <td>curved slab</td>
+      <td>slab</td>
+      <td>local</td>
+      <td>shear plus a prescribed curvature, e.g. $1/R_0$</td>
+      <td>global toroidal geometry</td>
+    </tr>
+    <tr>
+      <td>cylindrical tokamak</td>
+      <td>cylindrical</td>
+      <td>large aspect ratio, leading order</td>
+      <td>radial structure, current profile, $q(r)$, rational surfaces</td>
+      <td>toroidicity, shaping</td>
+    </tr>
+    <tr>
+      <td>large-aspect-ratio torus</td>
+      <td>toroidal</td>
+      <td>$\epsilon \ll 1$</td>
+      <td>selected $O(\epsilon)$ toroidal corrections</td>
+      <td>higher orders in $\epsilon$</td>
+    </tr>
+    <tr>
+      <td>general axisymmetric torus</td>
+      <td>toroidal</td>
+      <td>global</td>
+      <td>shaping, curvature, toroidal coupling</td>
+      <td>nothing geometric</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="conventions-used-throughout">Conventions used throughout</h2>
+
+<ul>
+  <li>Perturbations are $e^{i(m\theta - n\phi)}$, as in <code class="language-plaintext highlighter-rouge">vaft.formula.helical_phase</code>. Both mode numbers
+are positive and the helicity is in the minus sign.</li>
+  <li>$q$ is a magnitude, whatever sign a COCOS gives it. $\hat s$ keeps the sign of $d|q|/dr$:
+reversed shear ($\hat s &lt; 0$) flips the sign of $L_s$.</li>
+  <li>A torus is straightened at $R_0$ with $z = R_0\phi$ and $B_z \leftrightarrow B_\phi$. Along that $z$,
+the harmonic has wavenumber $-n/R_0$.</li>
+  <li>A sheared slab is $\mathbf B = B_0(\hat{\mathbf z} + (x/L_s)\hat{\mathbf y})$, with $z$ <strong>along the field
+at $x = 0$</strong> and $y$ the binormal in the surface. This field-aligned $z$ is not the straightened-torus
+$z = R_0\phi$.</li>
+  <li>The local slab of a surface $r_0$ is that frame, with $x = r - r_0$. There the harmonic has:
+    <ul>
+      <li>$k_y = m/r_0$;</li>
+      <li>$k_z = (m - nq_0)/(q_0R_0)$, which is zero on a rational surface;</li>
+      <li>$L_s$, which is <strong>signed</strong>: positive shear gives $L_s = -q_0R_0/\hat s &lt; 0$.</li>
+    </ul>
+
+    <p><code class="language-plaintext highlighter-rouge">local_slab_from_cylinder</code> returns $(k_y, L_s, k_z)$ in the order <code class="language-plaintext highlighter-rouge">sheared_slab_parallel_wavenumber</code>
+takes them. <code class="language-plaintext highlighter-rouge">shear_length_from_q_R0_s</code> returns the magnitude $qR_0/|\hat s|$.</p>
+  </li>
+</ul>
+
+<h2 id="straight-slab">Straight slab</h2>
+
+<ul>
+  <li><strong>Coordinates:</strong> $(x, y, z)$: radial, binormal, along $\mathbf B$.</li>
+  <li><strong>Field:</strong> $\mathbf B = B_0\hat{\mathbf z}$, uniform.</li>
+  <li><strong>Ordering:</strong> local. Gradients are taken over a region small against every equilibrium scale.</li>
+  <li><strong>Formula:</strong> $\tilde f \propto e^{i(k_xx + k_yy + k_zz)}$, and $k_\parallel = \mathbf k\cdot\mathbf B/B = k_z$
+(<code class="language-plaintext highlighter-rouge">slab_parallel_wavenumber</code>).</li>
+  <li><strong>Keeps:</strong> wave propagation and local density or temperature gradients.</li>
+  <li><strong>Drops:</strong> magnetic curvature and magnetic shear, unless they are added separately.</li>
+  <li><strong>Used for:</strong> drift waves, and local dispersion relations before shear or curvature enter.</li>
+</ul>
+
+<h2 id="sheared-slab">Sheared slab</h2>
+
+<ul>
+  <li><strong>Field:</strong> $\mathbf B = B_0(\hat{\mathbf z} + (x/L_s)\hat{\mathbf y})$ (<code class="language-plaintext highlighter-rouge">sheared_slab_field</code>), or equivalently
+$B_y(x) \simeq B_y’x$ near a resonant surface.</li>
+  <li><strong>Shear:</strong> $\hat s = (r/q)\,dq/dr$ (<code class="language-plaintext highlighter-rouge">vaft.formula.shear_from_r_q</code>). Under the local, large-aspect-ratio
+ordering, $|L_s| = qR_0/|\hat s|$ (<code class="language-plaintext highlighter-rouge">shear_length_from_q_R0_s</code>).</li>
+  <li><strong>Formula:</strong> $k_\parallel(x) \simeq k_z + k_y x/L_s$ (<code class="language-plaintext highlighter-rouge">sheared_slab_parallel_wavenumber</code>). The
+perturbation is field-aligned on one surface and $|k_\parallel|$ grows linearly away from it.</li>
+  <li><strong>Keeps:</strong> the resonance and its localisation.</li>
+  <li><strong>Drops:</strong> global geometry, and curvature unless it is added.</li>
+  <li><strong>Used for:</strong> the inner layer of tearing modes (FKR, Rutherford), drift waves with shear, and the
+local limits of gyrokinetics.</li>
+  <li><strong>Related configurations in the same frame:</strong> the reversing field of a Harris current sheet,
+$B_y = B_0\tanh(x/a)$ (<code class="language-plaintext highlighter-rouge">harris_sheet_field</code>, <code class="language-plaintext highlighter-rouge">harris_sheet_current_density</code>), whose centre is a
+sheared slab with $B_y’ = B_0/a$ and no guide field, and the current-free X-point
+$\psi = B’(x^2 - y^2)/2$ (<code class="language-plaintext highlighter-rouge">x_point_flux</code>). These configurations, not geometries, are drawn in the
+field-configuration section of the diagrams guide.</li>
+</ul>
+
+<h2 id="curved-slab">Curved slab</h2>
+
+<p>Curved slab is a <em>family</em> of local models, not one model. VAFT fixes no closure here: the curvature
+coefficient is whatever a particular model inherits from its parent torus.</p>
+
+<ul>
+  <li><strong>Coordinates and field:</strong> those of the straight or sheared slab.</li>
+  <li><strong>Curvature:</strong> toroidal curvature is added as a parameter, either an effective curvature
+$\boldsymbol\kappa = \mathbf b\cdot\nabla\mathbf b$ (typically $|\kappa| \simeq 1/R_0$ pointing to the major
+axis), or an effective gravity $g \sim v_{th}^2/R_0$.</li>
+  <li><strong>Ordering:</strong> local. The curvature is a constant coefficient over the region.</li>
+  <li><strong>Keeps:</strong> the interchange drive (the pressure gradient against the curvature) and the $\nabla B$ and
+curvature drifts.</li>
+  <li><strong>Drops:</strong> the poloidal variation of curvature (good and bad curvature sides), the geometry of the
+real flux surfaces, and toroidal mode coupling.</li>
+  <li><strong>Next more realistic model:</strong> a local toroidal (flux-tube) model, where $\kappa$ varies along the
+field line.</li>
+  <li><strong>Used for:</strong> interchange and Rayleigh–Taylor analogues, resistive-g modes, and reduced edge and SOL
+turbulence.</li>
+</ul>
+
+<h2 id="cylinder-screw-pinch-cylindrical-tokamak">Cylinder, screw pinch, cylindrical tokamak</h2>
+
+<ul>
+  <li><strong>Coordinates:</strong> $(r, \theta, z)$.</li>
+  <li><strong>Field:</strong> $\mathbf B = B_\theta(r)\hat{\boldsymbol\theta} + B_z(r)\hat{\mathbf z}$.</li>
+  <li><strong>Safety factor:</strong> $q(r) = rB_z/(R_0B_\theta)$ (<code class="language-plaintext highlighter-rouge">cylindrical_safety_factor_from_r_B</code>).</li>
+  <li><strong>Resonance:</strong> $k_\parallel = (m - nq)/(qR_0)$ (<code class="language-plaintext highlighter-rouge">cylindrical_parallel_wavenumber</code>), so
+$k_\parallel = 0 \Leftrightarrow q(r_s) = m/n$.</li>
+  <li><strong>The three are related but not synonyms:</strong>
+    <ul>
+      <li>A <em>straight cylinder</em> is only the coordinate system.</li>
+      <li>A <em>screw pinch</em> is a cylindrical equilibrium with both $B_\theta(r)$ and $B_z(r)$, so its field lines
+are helices. Pure $\theta$- and $z$-pinches are its limits.</li>
+      <li>A <em>cylindrical (straight) tokamak</em> is a screw pinch that is periodic in $z$ with length $2\pi R_0$
+and has $B_z \gg B_\theta$, both taken from a torus.</li>
+    </ul>
+  </li>
+  <li><strong>Keeps:</strong> radial structure, the current profile, $q(r)$ and rational surfaces.</li>
+  <li><strong>Drops:</strong> $1/R$ variation of $B_\phi$, toroidal curvature, inboard/outboard asymmetry, the Shafranov
+shift, toroidal coupling of harmonics, and shaping. The helical field lines are still curved, which is
+what drives Suydam interchange.</li>
+  <li><strong>Used for:</strong> Newcomb’s equation, the internal kink, the outer tearing problem and $\Delta’$.</li>
+</ul>
+
+<h2 id="large-aspect-ratio-ordering">Large-aspect-ratio ordering</h2>
+
+<p>For a circular torus $R = R_0 + r\cos\theta$, so</p>
+
+\[\frac{1}{R} = \frac{1}{R_0}\left[1 - \frac{r}{R_0}\cos\theta + O(\epsilon^2)\right],\qquad
+B_\phi = B_0\frac{R_0}{R} = B_0\left[1 - \frac{r}{R_0}\cos\theta + O(\epsilon^2)\right].\]
+
+<p>The second expression is <code class="language-plaintext highlighter-rouge">vaft.formula.vacuum_toroidal_field</code>.</p>
+
+<p><strong>Worked $O(\epsilon)$ example: toroidal coupling.</strong> Any factor of $1/R$ multiplying a harmonic
+$e^{im\theta}$ creates sidebands:</p>
+
+\[\frac{e^{im\theta}}{R} = \frac{1}{R_0}\left[e^{im\theta} - \frac{\epsilon}{2}\left(e^{i(m+1)\theta}
++ e^{i(m-1)\theta}\right)\right] + O(\epsilon^2),\qquad \epsilon = r/R_0 .\]
+
+<p>So in a torus an $m/n$ perturbation drags along $(m \pm 1)/n$ components of relative size
+$\epsilon/2$. In a cylinder it cannot.</p>
+
+<p>The expansion is used in two different ways:</p>
+
+<ol>
+  <li><strong>Large-aspect-ratio toroidal model.</strong> It keeps selected $O(\epsilon)$ terms:
+    <ul>
+      <li>curvature;</li>
+      <li>inboard/outboard asymmetry;</li>
+      <li>coupling of $m$ to $m \pm 1$.</li>
+    </ul>
+
+    <p>It is still toroidal. It keeps the $O(\epsilon)$ curvature and $1/R$ terms and drops $O(\epsilon^2)$.
+The Shafranov shift enters at $O(\epsilon(\beta_p + l_i/2))$ relative to $a$. Shaping is outside the
+circular expansion used here, although shaped large-aspect-ratio models exist (for example Miller
+local equilibria). Typical uses are the $s$–$\alpha$ ballooning model, toroidal Alfvén gaps and
+neoclassical trapping.</p>
+  </li>
+  <li><strong>Cylindrical tokamak limit.</strong> It keeps only $O(1)$: $R \simeq R_0$, and the toroidal direction is
+straightened as $z = R_0\phi$. The cylindrical tokamak is the <strong>leading-order limit</strong> of the
+large-aspect-ratio expansion. It is not the same thing as large aspect ratio.</li>
+</ol>
+
+<h2 id="local-sheared-slab-reduction">Local sheared-slab reduction</h2>
+
+<p>Near a surface $r_0$, with $x = r - r_0$ and $|x| \ll r_0$, expand $q \simeq q_0 + q_0’x$ and take the
+field-aligned frame: $z$ along $\mathbf B(r_0)$, $y$ the binormal. The harmonic $e^{i(m\theta - n\phi)}$
+has there</p>
+
+\[k_y = \frac{m}{r_0},\qquad L_s = -\frac{q_0R_0}{\hat s},\qquad k_z = \frac{m - nq_0}{q_0R_0}\]
+
+<p>(<code class="language-plaintext highlighter-rouge">local_slab_from_cylinder</code>). Along the straightened torus the same harmonic has $-n/R_0$; along the
+field it has $k_z$. On a rational surface $q_0 = m/n$, so the resonance $q(r_s) = m/n$ becomes
+$k_\parallel(0) = k_z = 0$ and the shear becomes $k_\parallel’ = k_y/L_s = -k_y\hat s/(q_0R_0)$. The test
+suite checks that this slab reproduces the cylinder’s $k_\parallel$ to first order in $x$.</p>
+
+<p><img src="/vaft/assets/diagrams/mode_number_mapping.svg" alt="mode-number mapping" /></p>
+
+<p>A local slab does <strong>not</strong> need a cylinder as an intermediate step. It can be expanded from a toroidal
+equilibrium directly. What defines it is locality relative to the equilibrium scale, not large
+aspect ratio. Turbulence and interchange models often keep toroidal coefficients in a slab, such as
+$|L_s| \simeq qR_0/|\hat s|$ and, in curved slabs, $\kappa \simeq 1/R_0$.</p>
+
+<h2 id="the-same-field-line-in-each-geometry">The same field line in each geometry</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Toroidal</th>
+      <th>Cylindrical</th>
+      <th>Sheared slab</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><img src="/vaft/assets/diagrams/field_line_geometry_toroidal.svg" alt="torus" /></td>
+      <td><img src="/vaft/assets/diagrams/field_line_geometry_cylindrical.svg" alt="cylinder" /></td>
+      <td><img src="/vaft/assets/diagrams/field_line_geometry_slab.svg" alt="slab" /></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="mhd-mode-representations-across-geometries">MHD mode representations across geometries</h2>
+
+<p>The same instability is described differently in each geometry, and MHD vocabulary mixes several
+classification systems in one name. “$m = 1$”, “kink”, “internal”, “ideal”, “tearing parity”, “low-$n$”
+and “resonant” are answers to different questions. Schematically,</p>
+
+\[\text{mode} = \text{spectral label} + \text{drive} + \text{localisation} + \text{resonance} + \text{parity} + \text{physical model},\]
+
+<p>and two modes with the same name can differ in any of these. This section maps mode families across the
+slab, cylindrical and toroidal reductions above. It does not claim that every mode has a unique
+descendant in the next geometry.</p>
+
+<p><img src="/vaft/assets/diagrams/mhd_mode_geometry_map.svg" alt="MHD mode families across geometries" /></p>
+
+<p><code class="language-plaintext highlighter-rouge">mhd_mode_geometry_map</code> keeps four kinds of relation apart, and draws each with its own arrow:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Relation</th>
+      <th>Meaning</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>exact relabelling</td>
+      <td>the same harmonic’s labels in another geometry’s coordinates; the geometric reduction behind it is still a limit (<code class="language-plaintext highlighter-rouge">geometry_ordering_map</code>)</td>
+      <td>$n \mapsto k_z = -n/R_0$ along $z = R_0\phi$; $m \mapsto k_y = m/r_0$ at a surface $r_0$</td>
+    </tr>
+    <tr>
+      <td>limit or coordinate continuation</td>
+      <td>one description is a limit of the other; the arrowhead points at the more general model</td>
+      <td>Suydam’s criterion is the cylindrical limit of Mercier’s</td>
+    </tr>
+    <tr>
+      <td>physical analogue</td>
+      <td>the same mechanism in a different eigenproblem</td>
+      <td>magnetic Rayleigh–Taylor and interchange</td>
+    </tr>
+    <tr>
+      <td>branch</td>
+      <td>extra physics or localisation on top of a family</td>
+      <td>a resistive wall turns the external kink into an RWM</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fourier-representation-and-resonance">Fourier representation and resonance</h3>
+
+<p>With the conventions above, a perturbation is</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Geometry</th>
+      <th>Representation</th>
+      <th>Spectral labels</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>slab</td>
+      <td>$\tilde f \propto e^{i(k_xx + k_yy + k_zz)}$</td>
+      <td>$k_y$, $k_\parallel = \mathbf k\cdot\mathbf B/B$ (<code class="language-plaintext highlighter-rouge">slab_parallel_wavenumber</code>)</td>
+    </tr>
+    <tr>
+      <td>cylinder</td>
+      <td>$\tilde f \propto e^{i(m\theta + k_zz)}$</td>
+      <td>$m$, $k_z$</td>
+    </tr>
+    <tr>
+      <td>torus</td>
+      <td>$\tilde f \propto e^{i(m\theta - n\phi)}$</td>
+      <td>$(m, n)$, phase $m\theta - n\phi$ (<code class="language-plaintext highlighter-rouge">helical_phase</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Straightening the torus at $R_0$ gives $z = R_0\phi$ and $k_z = -n/R_0$. The field-aligned local slab of
+a surface (<code class="language-plaintext highlighter-rouge">local_slab_from_cylinder</code>) has $k_y = m/r_0$, and along the field the harmonic has
+$k_\parallel = (m - nq)/(qR_0)$ (<code class="language-plaintext highlighter-rouge">cylindrical_parallel_wavenumber</code>). Hence</p>
+
+\[k_\parallel(r_s) = 0 \iff q(r_s) = \frac{m}{n},\]
+
+<p>which is <code class="language-plaintext highlighter-rouge">mode_number_mapping</code>. These relations exist once, in <code class="language-plaintext highlighter-rouge">vaft.formula.geometry</code> and
+<code class="language-plaintext highlighter-rouge">vaft.formula.stability.helical_phase</code>; the map quotes them and implements nothing new.</p>
+
+<h3 id="mode-numbers-are-morphology-not-instability">Mode numbers are morphology, not instability</h3>
+
+<p>In a cylinder, $m = 0$ is a sausage, $m = 1$ a kink (a rigid helical shift) and $m \ge 2$ higher helical
+distortions (<code class="language-plaintext highlighter-rouge">cylindrical_mode_morphology</code>). These are <strong>Fourier morphologies</strong>. They are not a
+taxonomy of instabilities. “$m = 1$ means kink instability” says too much. It is more accurate to say that
+$m = 1$ has kink-like cylindrical morphology, and that whether an unstable kink branch exists depends on
+the equilibrium and on the eigenproblem posed. The $m = 0$ sausage instability of a Z-pinch is driven by
+the pressure gradient against the curvature of $B_\theta$, so the map files it under the pressure-driven
+family. A strong $B_z$ stabilises it, and it has no tokamak descendant on the map.</p>
+
+<h3 id="pressure--and-curvature-driven-family">Pressure- and curvature-driven family</h3>
+
+\[\text{Rayleigh–Taylor analogue} \to \text{flute / interchange} \to \text{interchange / Mercier, ballooning, infernal}\]
+
+<ul>
+  <li><strong>Curved slab.</strong> A pressure gradient against a prescribed field-line curvature acts like a heavy fluid
+above a light one, with the curvature playing gravity: a magnetic Rayleigh–Taylor <em>analogue</em>.</li>
+  <li><strong>Cylinder.</strong> Flute or interchange perturbations have $k_\parallel \simeq 0$ and so bend field lines as
+little as possible. Suydam’s criterion is their local stability limit. Interchange names a mechanism, not
+a mode number.</li>
+  <li><strong>Torus.</strong> Three branches are kept apart:
+    <ul>
+      <li><em>interchange / Mercier</em>: the localised pressure–curvature limit; Mercier’s criterion is the toroidal
+continuation of Suydam’s;</li>
+      <li><em>ballooning</em>: high $n$, modified by field-line bending and magnetic shear and localised on the
+bad-curvature side (<code class="language-plaintext highlighter-rouge">ballooning_curvature_drive</code>, <code class="language-plaintext highlighter-rouge">ballooning_harmonic_envelope</code>,
+<code class="language-plaintext highlighter-rouge">ballooning_eigenfunction</code>, <code class="language-plaintext highlighter-rouge">s_alpha_ballooning</code>);</li>
+      <li><em>infernal</em>: low $n$, pressure-driven, where magnetic shear is weak.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3 id="current-driven-family">Current-driven family</h3>
+
+<p>The internal/external distinction already exists in the cylinder (<code class="language-plaintext highlighter-rouge">internal_external_kink</code>;
+Kruskal–Shafranov is a cylindrical external-kink criterion). The torus continues both:</p>
+
+<ul>
+  <li><strong>Internal kink</strong>: a global ideal mode confined inside an internal rational surface, the $m = 1$ mode
+inside $q = 1$. In a torus its leading cylindrical $\delta W$ vanishes and the toroidal (Bussac)
+terms decide stability. Finite resistivity at $q = 1$ gives the resistive kink.</li>
+  <li><strong>External kink</strong>: a global ideal mode that displaces the plasma boundary (<code class="language-plaintext highlighter-rouge">internal_external_kink</code>,
+<code class="language-plaintext highlighter-rouge">plasma_vacuum_wall</code>, <code class="language-plaintext highlighter-rouge">kink_mode</code>).</li>
+  <li><strong>Peeling</strong>: an edge-current-driven, edge-localised, <em>external-kink-like</em> branch. It is not simply the
+same mode as the external kink.</li>
+  <li><strong>Resistive-wall mode (RWM)</strong>: the external-kink branch modified by a finite-conductivity wall. It grows on
+the wall time instead of the Alfvén time.</li>
+  <li><strong>Peeling–ballooning</strong>: the coupled edge branch of peeling and ballooning, the picture behind the
+<code class="language-plaintext highlighter-rouge">peeling_ballooning</code> operational diagram.</li>
+</ul>
+
+<p>Global current-driven modes have no local-slab counterpart. They need the radial current profile that a
+local slab discards.</p>
+
+<h3 id="resonant-and-reconnecting-family">Resonant and reconnecting family</h3>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>global toroidal / cylindrical harmonic
+  -&gt; q = m/n                          (mode_number_mapping)
+  -&gt; cylindrical ideal outer problem  (cylindrical_tearing_outer, Delta')
+  -&gt; local sheared-slab layer         (slab_parity, rational_surface)
+  -&gt; tearing or twisting channel      (resonant_layer_matching, tearing_layer_matching)
+</code></pre></div></div>
+
+<p>The <strong>tearing mode</strong> is the resistive resonant instability. In a torus, toroidicity and shaping couple
+several $m$ at fixed $n$ (<code class="language-plaintext highlighter-rouge">poloidal_harmonic_coupling</code>), so the outer problem becomes a matrix over all
+rational surfaces of that $n$. The <strong>NTM</strong> is a nonlinear, neoclassical extension of island evolution,
+driven by the loss of bootstrap current inside the island (<code class="language-plaintext highlighter-rouge">magnetic_island</code>). It is not the next linear
+eigenmode in an ideal–resistive hierarchy, which is why it hangs off the map as a branch.</p>
+
+<h3 id="parity-is-orthogonal-to-mode-number">Parity is orthogonal to mode number</h3>
+
+<p>$m$ and $n$ are not parity labels. At a resonant surface the local layer response has its own
+classification, <strong>tearing</strong> or <strong>twisting</strong> parity (<code class="language-plaintext highlighter-rouge">slab_parity</code>, <code class="language-plaintext highlighter-rouge">slab_parity_comparison</code>). A given
+$m/n$ harmonic can take part in either channel, depending on the response or eigenproblem. Toroidal
+coupling of several $m$ at fixed $n$ does not change this. Parity stays a separate concept. With finite
+pressure and curvature, the Glasser–Greene–Johnson inner layer that RDCON solves classifies its solutions
+as tearing and <em>interchange</em> parity rather than twisting.</p>
+
+<h3 id="axisymmetric-free-boundary-modes">Axisymmetric free-boundary modes</h3>
+
+<p>The vertical instability, and the VDE it leads to, is $n = 0$, axisymmetric, and set by elongation and the
+free boundary (<code class="language-plaintext highlighter-rouge">hot_vde_sequence</code>, <code class="language-plaintext highlighter-rouge">cold_vde_bifurcation</code>, <code class="language-plaintext highlighter-rouge">vde_timescales</code>). It does not belong to the
+kink family. A rigid transverse shift of a cylinder is useful intuition and nothing more. There is no
+exact $m = 1 \leftrightarrow$ VDE equivalence.</p>
+
+<h3 id="orthogonal-mode-descriptors">Orthogonal mode descriptors</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Descriptor</th>
+      <th>Examples</th>
+      <th>What it tells us</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>geometry</td>
+      <td>slab, cylinder, torus</td>
+      <td>the space the model lives in</td>
+    </tr>
+    <tr>
+      <td>spectral label</td>
+      <td>$k_y, k_\parallel$; $m, k_z$; $(m, n)$</td>
+      <td>Fourier structure</td>
+    </tr>
+    <tr>
+      <td>drive</td>
+      <td>pressure and curvature, current, bootstrap current</td>
+      <td>the free-energy source</td>
+    </tr>
+    <tr>
+      <td>localisation</td>
+      <td>core, internal, global, edge</td>
+      <td>radial structure</td>
+    </tr>
+    <tr>
+      <td>resonance</td>
+      <td>resonant, non-resonant</td>
+      <td>relation to $k_\parallel = 0$</td>
+    </tr>
+    <tr>
+      <td>parity</td>
+      <td>tearing, twisting</td>
+      <td>local layer symmetry</td>
+    </tr>
+    <tr>
+      <td>model</td>
+      <td>ideal, resistive, neoclassical, wall-coupled</td>
+      <td>the physics retained</td>
+    </tr>
+    <tr>
+      <td>ordering</td>
+      <td>$n = 0$, low $n$, intermediate $n$, high $n$</td>
+      <td>spectral and asymptotic regime</td>
+    </tr>
+  </tbody>
+</table>
+
+\[\text{mode name} \ne \text{mode number} \ne \text{geometry} \ne \text{physical drive}\]
+
+<h3 id="where-vafts-stability-tools-sit">Where VAFT’s stability tools sit</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>Tool</th>
+      <th>Place on the map</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>analytic criteria (<code class="language-plaintext highlighter-rouge">vaft.formula.stability</code>)</td>
+      <td>Mercier- and interchange-like limits, ballooning limits, operational boundaries</td>
+    </tr>
+    <tr>
+      <td>DCON</td>
+      <td>finite-$n$ ideal MHD: global ideal mode structure and the energy principle</td>
+    </tr>
+    <tr>
+      <td>RDCON / STRIDE</td>
+      <td>resonant outer regions matched to inner layers: tearing and twisting channels</td>
+    </tr>
+    <tr>
+      <td>GPEC</td>
+      <td>the forced, perturbed 3-D response: resonant and non-resonant harmonics</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These tools do not share a common “instability severity” scale. Interchange, ballooning, kink and peeling
+should not be ranked by comparing unrelated criteria with each other. Naming the dominant dynamical mode
+needs a common eigenvalue or growth-rate problem. How VAFT runs these codes is on
+<a href="/vaft/workflows/mhd-stability/">MHD stability</a>.</p>
+
+<p>Gyrokinetic micro-instabilities (ITG, TEM, ETG, MTM, KBM) are outside this MHD map. They can use the same
+coordinate framework later.</p>
+
+<h2 id="where-these-lead">Where these lead</h2>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cylinder / screw pinch  -&gt; Newcomb equation, internal kink, outer tearing (Delta')
+cylinder -&gt; sheared slab -&gt; resistive inner layer: FKR, Rutherford, modified Rutherford
+straight / sheared / curved slab -&gt; drift waves, interchange, reduced edge turbulence, local gyrokinetics
+</code></pre></div></div>
+
+<p>The tearing diagrams (<code class="language-plaintext highlighter-rouge">rational_surface</code>, <code class="language-plaintext highlighter-rouge">delta_prime</code>, <code class="language-plaintext highlighter-rouge">tearing_layer_matching</code>) start from the
+cylinder and sheared slab described here. The current-sheet, X-point, reconnection and MHD-wave
+diagrams (<code class="language-plaintext highlighter-rouge">current_sheet</code>, <code class="language-plaintext highlighter-rouge">x_point</code>, <code class="language-plaintext highlighter-rouge">magnetic_reconnection</code>, <code class="language-plaintext highlighter-rouge">shear_alfven_wave</code>, <code class="language-plaintext highlighter-rouge">mhd_wave_family</code>)
+use the slab frame of this page. See <a href="/vaft/reference/diagrams/">Scientific diagrams</a>.</p>
+
+<h2 id="references">References</h2>
+
+<ol>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Ch. 3, 6 and 8.</li>
+  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), Ch. 9 and 11.</li>
+  <li>H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6 (1963) 459.</li>
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.</li>
+  <li>C. Mercier, Nucl. Fusion 1 (1960) 47; B. R. Suydam, Proc. 2nd UN Conf. Peaceful Uses of Atomic Energy 31 (1958) 157.</li>
+  <li>J. Manickam, N. Pomphrey and A. M. M. Todd, Nucl. Fusion 27 (1987) 1461 (infernal modes).</li>
+  <li>J. W. Connor, R. J. Hastie, H. R. Wilson and R. L. Miller, Phys. Plasmas 5 (1998) 2687 (peeling–ballooning).</li>
+  <li>R. J. La Haye, Phys. Plasmas 13 (2006) 055501 (neoclassical tearing modes).</li>
+</ol>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="diagram"><a href="/vaft/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/formula/geometry/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: geometry">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/formula/disruption/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: disruption">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-axes-not-one-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two axes, not one hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#conventions-used-throughout" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Conventions used throughout</a></li><li class="page-toc-item page-toc-level-2"><a href="#straight-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Straight slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#sheared-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sheared slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#curved-slab" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Curved slab</a></li><li class="page-toc-item page-toc-level-2"><a href="#cylinder-screw-pinch-cylindrical-tokamak" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cylinder, screw pinch, cylindrical tokamak</a></li><li class="page-toc-item page-toc-level-2"><a href="#large-aspect-ratio-ordering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Large-aspect-ratio ordering</a></li><li class="page-toc-item page-toc-level-2"><a href="#local-sheared-slab-reduction" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local sheared-slab reduction</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-same-field-line-in-each-geometry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The same field line in each geometry</a></li><li class="page-toc-item page-toc-level-2"><a href="#mhd-mode-representations-across-geometries" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MHD mode representations across geometries</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#fourier-representation-and-resonance" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fourier representation and resonance</a></li><li class="page-toc-item page-toc-level-3"><a href="#mode-numbers-are-morphology-not-instability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Mode numbers are morphology, not instability</a></li><li class="page-toc-item page-toc-level-3"><a href="#pressure--and-curvature-driven-family" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pressure- and curvature-driven family</a></li><li class="page-toc-item page-toc-level-3"><a href="#current-driven-family" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Current-driven family</a></li><li class="page-toc-item page-toc-level-3"><a href="#resonant-and-reconnecting-family" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Resonant and reconnecting family</a></li><li class="page-toc-item page-toc-level-3"><a href="#parity-is-orthogonal-to-mode-number" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Parity is orthogonal to mode number</a></li><li class="page-toc-item page-toc-level-3"><a href="#axisymmetric-free-boundary-modes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Axisymmetric free-boundary modes</a></li><li class="page-toc-item page-toc-level-3"><a href="#orthogonal-mode-descriptors" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Orthogonal mode descriptors</a></li><li class="page-toc-item page-toc-level-3"><a href="#where-vafts-stability-tools-sit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where VAFT’s stability tools sit</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#where-these-lead" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where these lead</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: disruption",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_disruption.md",
+            "ref": "_guide/Formula_reference_disruption.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Geometric_approximations.md",
+        "mtime": "2026-09-26 11:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -1,0 +1,937 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Gyrokinetic plotting · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/process/zeff_projection/" />
+        
+
+        
+            <link rel="next" href="/vaft/workflows/fluctuation-coherence/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Gyrokinetic plotting</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Gyrokinetic_plotting">Gyrokinetic plotting</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Two plot families (local gyrokinetic, radial turbulent transport), two layers (native solver units, standardized IMAS units), and the audit that decides which solver quantity reaches a portable plot. MITIM's TGLF plotting is used as a feature benchmark only.</dd>
+    <dt>Prerequisites / inputs</dt><dd>A TGLF or CGYRO run (native views), or a gyrokinetics_local / core_transport ODS (standardized views).</dd>
+    <dt>Expected result</dt><dd>For every quantity a turbulence analysis inspects, where it comes from, how it is normalized, whether it has an IMAS home, and which VAFT plot draws it.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>After a local gyrokinetic or reduced turbulent-transport calculation, a plasma physicist
+inspects the same few things: linear growth rates and frequencies, where in $k_y$ the flux
+is carried and by which field, the fluctuation amplitudes and cross phases, the mode
+structure, and the local plasma state that produced all of it. Then they look at the
+fluxes as radial profiles and compare models. This page maps those quantities onto VAFT
+(issue #1591). MITIM’s <code class="language-plaintext highlighter-rouge">TGLF.plot</code> answers the same questions and is used here as a
+<em>benchmark</em> of what is worth showing. MITIM is not imported, and its layout is not copied.</p>
+
+<h2 id="two-families-two-layers">Two families, two layers</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>local gyrokinetic</th>
+      <th>radial turbulent transport</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>scientific object</td>
+      <td>one flux tube: (shot, time, surface, solver)</td>
+      <td>fluxes vs $\rho_{tor,N}$ for one time slice</td>
+    </tr>
+    <tr>
+      <td>IMAS home</td>
+      <td><code class="language-plaintext highlighter-rouge">gyrokinetics_local</code> (one simulation per IDS)</td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport.model[:]</code> (anomalous, index 6)</td>
+    </tr>
+    <tr>
+      <td>typical views</td>
+      <td>$\gamma(k_y)$, $\omega(k_y)$, flux spectra, field contributors, eigenfunctions, local state</td>
+      <td>$Q_e(\rho)$, $Q_i(\rho)$, $\Gamma_s(\rho)$, model-to-model comparison</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The two families are kept separate on purpose. A <code class="language-plaintext highlighter-rouge">gyrokinetics_local</code> IDS describes <em>one</em>
+local calculation, not a radial collection of them.</p>
+
+<p>Each family has two layers:</p>
+
+<ul>
+  <li><strong>Native</strong> (<code class="language-plaintext highlighter-rouge">vaft.plot.gyrokinetics</code>). These are solver diagnostics in GACODE units: $k_y\rho_s$, $\gamma$ and $\omega$ in $c_s/a$, $\omega$ with the ion diamagnetic direction negative. That is TGLF’s own sign. CGYRO’s native sign depends on the field orientation, so it is converted using the ion direction CGYRO reports for each run (<code class="language-plaintext highlighter-rouge">CgyroOutputs.frequency_ion_negative</code>). On the #1482 surfaces the two codes agree on the branch at 78 of 82 converged points. Matched TGLF–CGYRO validation uses this layer, because both codes share the normalization.</li>
+  <li><strong>Standardized</strong>. These are registered plots that read the IMAS IDS in its GKDB normalization: <code class="language-plaintext highlighter-rouge">binormal_wavevector_norm</code>, <code class="language-plaintext highlighter-rouge">growth_rate_norm</code>, lengths in units of $R_0$, $v_{th,ref}=\sqrt{2T_e/m_D}$.</li>
+</ul>
+
+<p>A native quantity is never fed to a standardized plot, nor the reverse. Conversions live in the mapping layer (<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.gyrokinetics.conversion_factors</code>), not in renderers.</p>
+
+<h2 id="linear-quasilinear-and-nonlinear-coverage">Linear, quasilinear and nonlinear coverage</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>output</th>
+      <th>TGLF (quasilinear)</th>
+      <th>CGYRO linear</th>
+      <th>CGYRO nonlinear</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\gamma, \omega$ vs $k_y$</td>
+      <td>all <code class="language-plaintext highlighter-rouge">NMODES</code> per $k_y$</td>
+      <td>one converged eigenvalue per run</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>flux spectrum by field</td>
+      <td>saturated <code class="language-plaintext highlighter-rouge">sum_flux_spectrum</code></td>
+      <td>quasilinear weights only</td>
+      <td>time-averaged <code class="language-plaintext highlighter-rouge">ky_flux</code></td>
+    </tr>
+    <tr>
+      <td>fluctuation amplitudes, cross phase</td>
+      <td>model spectra</td>
+      <td>—</td>
+      <td>from <code class="language-plaintext highlighter-rouge">kxky_*</code> (not yet parsed)</td>
+    </tr>
+    <tr>
+      <td>eigenfunction</td>
+      <td><code class="language-plaintext highlighter-rouge">wavefunction</code> (single-$k_y$ run, not parsed)</td>
+      <td>ballooning $\phi$, $A_\parallel$</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>validity</td>
+      <td>preset family (SAT rule couples the linear model)</td>
+      <td>converged / max-time / decayed</td>
+      <td>saturation window, locality QA</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>TGLF’s presets couple the linear model to the saturation rule.</strong> SAT0 runs with <code class="language-plaintext highlighter-rouge">XNU_MODEL=2</code>. SAT2/3 switch to <code class="language-plaintext highlighter-rouge">XNU_MODEL=3</code> and <code class="language-plaintext highlighter-rouge">WDIA_TRAPPED=1</code> (<code class="language-plaintext highlighter-rouge">tglf_startup.f90</code>). So “TGLF linear” always names its preset family.</p>
+
+<p><code class="language-plaintext highlighter-rouge">UNITS=CGYRO</code> (forced for SAT2/3) only moves where TGLF places the $k_y$ grid (<code class="language-plaintext highlighter-rouge">ky_factor = grad_r0</code>). Reported $k_y$ and $\gamma$ keep the same normalization, and spectra from the two families overlay correctly.</p>
+
+<h2 id="coverage-matrix-mitim-benchmark--vaft">Coverage matrix: MITIM benchmark → VAFT</h2>
+
+<p>Native source: the parsed field of <code class="language-plaintext highlighter-rouge">TglfOutputs</code> / <code class="language-plaintext highlighter-rouge">CgyroOutputs</code>. IMAS class follows the mapping audit (<code class="language-plaintext highlighter-rouge">MAPPING_AUDIT</code>): exact, unit, coordinate, derived, convention, unsupported.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>MITIM tab</th>
+      <th>quantity</th>
+      <th>native source</th>
+      <th>IMAS home</th>
+      <th>class</th>
+      <th>VAFT plot</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Summary</td>
+      <td>$\gamma(k_y)$, $\omega(k_y)$</td>
+      <td><code class="language-plaintext highlighter-rouge">growth_rate</code>, <code class="language-plaintext highlighter-rouge">frequency</code> (TGLF, all modes); CGYRO final eigenvalue</td>
+      <td><code class="language-plaintext highlighter-rouge">linear.wavevector[:].eigenmode[:].growth_rate_norm</code> / <code class="language-plaintext highlighter-rouge">frequency_norm</code></td>
+      <td>unit / convention (CGYRO mapped)</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_linear_spectrum</code>; standardized <code class="language-plaintext highlighter-rouge">gyrokinetics_spectrum_growth_rate</code> / <code class="language-plaintext highlighter-rouge">_frequency</code></td>
+    </tr>
+    <tr>
+      <td>Summary</td>
+      <td>$\gamma/k$ view</td>
+      <td>derived from the spectrum</td>
+      <td>—</td>
+      <td>reduced diagnostic</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_mixing_length_proxy</code> (explicit $\gamma/k_y^2$ at $k_x=0$ or $\gamma/k_y$)</td>
+    </tr>
+    <tr>
+      <td>Summary</td>
+      <td>$\delta T_e$, $\delta n_e$ amplitudes</td>
+      <td><code class="language-plaintext highlighter-rouge">temperature_spectrum</code>, <code class="language-plaintext highlighter-rouge">density_spectrum</code></td>
+      <td>none audited</td>
+      <td>unsupported</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_fluctuation_spectra</code></td>
+    </tr>
+    <tr>
+      <td>Summary</td>
+      <td>$n_e$–$T_e$ cross phase</td>
+      <td><code class="language-plaintext highlighter-rouge">nete_crossphase_spectrum</code></td>
+      <td>none audited</td>
+      <td>unsupported</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_fluctuation_spectra</code></td>
+    </tr>
+    <tr>
+      <td>Summary</td>
+      <td>$Q_e, Q_i, \Gamma_e$ spectra</td>
+      <td><code class="language-plaintext highlighter-rouge">sum_flux_spectrum</code> (TGLF); <code class="language-plaintext highlighter-rouge">flux</code> (CGYRO NL)</td>
+      <td><code class="language-plaintext highlighter-rouge">non_linear.fluxes_1d</code> per field (totals only)</td>
+      <td>unit (CGYRO mapped)</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_flux_ky_spectrum</code>, <code class="language-plaintext highlighter-rouge">plot_flux_contributors</code>; standardized <code class="language-plaintext highlighter-rouge">gyrokinetics_spectrum_energy_flux</code> / <code class="language-plaintext highlighter-rouge">_particle_flux</code> (per $k_y$ from <code class="language-plaintext highlighter-rouge">fluxes_2d_k_x_sum</code>)</td>
+    </tr>
+    <tr>
+      <td>Summary / Exp. Fluxes</td>
+      <td>$Q_e(r), Q_i(r), \Gamma_e(r)$</td>
+      <td><code class="language-plaintext highlighter-rouge">gbflux</code> × gyro-Bohm unit</td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport.model[:].profiles_1d</code></td>
+      <td>unit (TGLF, CGYRO mapped)</td>
+      <td>standardized <code class="language-plaintext highlighter-rouge">turbulent_transport_profile_energy_flux</code> / <code class="language-plaintext highlighter-rouge">_particle_flux</code></td>
+    </tr>
+    <tr>
+      <td>Contributors</td>
+      <td>flux by field ($\phi$, $A_\parallel$, $B_\parallel$)</td>
+      <td><code class="language-plaintext highlighter-rouge">sum_flux_spectrum[:, field]</code></td>
+      <td><code class="language-plaintext highlighter-rouge">non_linear.fluxes_1d.*_&lt;field&gt;</code></td>
+      <td>unit</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_flux_contributors</code> (only fields the solver wrote; no ES/EM by difference)</td>
+    </tr>
+    <tr>
+      <td>Spectra</td>
+      <td>intensities per species and mode</td>
+      <td><code class="language-plaintext highlighter-rouge">intensity_spectrum</code></td>
+      <td>none audited</td>
+      <td>unsupported</td>
+      <td>parsed; not drawn yet</td>
+    </tr>
+    <tr>
+      <td>Fields: $\phi$ / $A_\parallel$ / $B_\parallel$</td>
+      <td>field intensity spectra</td>
+      <td><code class="language-plaintext highlighter-rouge">field_spectrum</code></td>
+      <td>none audited</td>
+      <td>unsupported</td>
+      <td>parsed; not drawn yet</td>
+    </tr>
+    <tr>
+      <td>Fields</td>
+      <td>QL weights per mode</td>
+      <td><code class="language-plaintext highlighter-rouge">ql_flux_spectrum</code></td>
+      <td><code class="language-plaintext highlighter-rouge">linear_weights</code></td>
+      <td>unsupported (amplitude normalization)</td>
+      <td>parsed; never labelled as a flux</td>
+    </tr>
+    <tr>
+      <td>Model Details</td>
+      <td>Gaussian width, spectral shift, $\langle p_0\rangle$</td>
+      <td><code class="language-plaintext highlighter-rouge">width_spectrum</code>, <code class="language-plaintext highlighter-rouge">spectral_shift_spectrum</code>, <code class="language-plaintext highlighter-rouge">ave_p0_spectrum</code></td>
+      <td>—</td>
+      <td>solver-native</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_model_details</code></td>
+    </tr>
+    <tr>
+      <td>SAT Parameters</td>
+      <td>SAT scalars, geometry factors</td>
+      <td><code class="language-plaintext highlighter-rouge">saturation_parameters</code></td>
+      <td><code class="language-plaintext highlighter-rouge">code.parameters</code></td>
+      <td>provenance</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_saturation_parameters</code></td>
+    </tr>
+    <tr>
+      <td>WF @ ky</td>
+      <td>eigenfunction</td>
+      <td>CGYRO <code class="language-plaintext highlighter-rouge">ballooning</code>; TGLF <code class="language-plaintext highlighter-rouge">wavefunction</code> (not parsed)</td>
+      <td><code class="language-plaintext highlighter-rouge">eigenmode[:].fields.*_perturbed_norm</code></td>
+      <td>convention ($\phi$ mapped, $A_\parallel$ native)</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_eigenfunction</code>; standardized <code class="language-plaintext highlighter-rouge">gyrokinetics_profile_eigenfunction</code></td>
+    </tr>
+    <tr>
+      <td>Input Plasma</td>
+      <td>species gradients, $q$, $s$, $\kappa$, $\beta$, $\nu$</td>
+      <td><code class="language-plaintext highlighter-rouge">TGLFInput</code>, <code class="language-plaintext highlighter-rouge">CGYROInput</code></td>
+      <td><code class="language-plaintext highlighter-rouge">species[:]</code>, <code class="language-plaintext highlighter-rouge">flux_surface</code>, <code class="language-plaintext highlighter-rouge">species_all</code></td>
+      <td>exact / unit</td>
+      <td>native <code class="language-plaintext highlighter-rouge">plot_local_state</code> (with provenance kinds)</td>
+    </tr>
+    <tr>
+      <td>Input Controls</td>
+      <td>solver settings</td>
+      <td><code class="language-plaintext highlighter-rouge">input.tglf.gen</code>, <code class="language-plaintext highlighter-rouge">input.cgyro.gen</code></td>
+      <td><code class="language-plaintext highlighter-rouge">code.parameters</code></td>
+      <td>provenance</td>
+      <td>not plotted</td>
+    </tr>
+    <tr>
+      <td>Simple / Fluctuations / Normalization</td>
+      <td>SI fluxes, synthetic diagnostics</td>
+      <td>need <code class="language-plaintext highlighter-rouge">input.gacode</code> normalization</td>
+      <td>—</td>
+      <td>—</td>
+      <td>out of first scope</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="comparing-solvers">Comparing solvers</h2>
+
+<p>An overlay does not prove that two runs are matched. A comparison is meaningful only when both runs share:</p>
+<ul>
+  <li>the plasma state and surface;</li>
+  <li>species, geometry and field model;</li>
+  <li>normalization and frequency sign convention.</li>
+</ul>
+
+<p>In VAFT, CGYRO’s input is a renaming of the TGLF local input, so a TGLF–CGYRO native comparison satisfies this by construction. The standardized views check the same conditions against each IDS’s own metadata, and they mark a mismatch on the figure instead of overlaying silently.</p>
+
+<h2 id="example-one-vest-state">Example: one VEST state</h2>
+
+<p>These figures are built from existing Lane Y products by <code class="language-plaintext highlighter-rouge">workflow/gyrokinetic/build_plot_example.py</code>. The state is shot 39915 at 0.317 s (magnetics lineage), and the field model is EM ($A_\parallel$). The registered plots read only the IMAS IDS, never solver files.</p>
+
+<!-- docs-snippet: skip fragment (illustrative: single_ky_odss, tglf and sat_rules are the Lane Y products that build_plot_example.py loads, not built on this page) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft.omas</span>
+<span class="kn">from</span> <span class="n">vaft.machine_mapping.gyrokinetics</span> <span class="kn">import</span> <span class="n">merge_linear_scan</span>
+
+<span class="n">cgyro</span> <span class="o">=</span> <span class="nf">merge_linear_scan</span><span class="p">(</span><span class="n">single_ky_odss</span><span class="p">)</span>          <span class="c1"># one CGYRO run per k_y -&gt; one IDS
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_gyrokinetics_overview</span><span class="p">(</span><span class="n">cgyro</span><span class="p">)</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_gyrokinetics_spectrum_growth_rate</span><span class="p">({</span><span class="sh">"</span><span class="s">CGYRO</span><span class="sh">"</span><span class="p">:</span> <span class="n">cgyro</span><span class="p">,</span> <span class="sh">"</span><span class="s">TGLF SAT2</span><span class="sh">"</span><span class="p">:</span> <span class="n">tglf</span><span class="p">})</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">omas</span><span class="p">.</span><span class="nf">plot_turbulent_transport_overview</span><span class="p">({</span><span class="sa">f</span><span class="sh">"</span><span class="s">TGLF SAT</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="sh">"</span><span class="p">:</span> <span class="n">ct</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">ct</span> <span class="ow">in</span> <span class="n">sat_rules</span><span class="p">.</span><span class="nf">items</span><span class="p">()})</span>
+</code></pre></div></div>
+
+<p><img src="/vaft/assets/images/gyrokinetics/gk_overview_cgyro_39915_r0.70.png" alt="CGYRO overview, 39915 r/a 0.7" /></p>
+
+<p><strong>CGYRO overview (r/a 0.7).</strong> The 12 linear runs on this surface are merged into one <code class="language-plaintext highlighter-rouge">gyrokinetics_local</code> (<code class="language-plaintext highlighter-rouge">merge_linear_scan</code>). Merging refuses runs whose species, surface or model differ. Initial-value eigenmodes that stopped at the time limit carry no <code class="language-plaintext highlighter-rouge">growth_rate_tolerance</code>, so they are left out. Pass <code class="language-plaintext highlighter-rouge">include_unconverged=True</code> to draw them. The eigenfunction panel shows the most unstable converged mode.</p>
+
+<p><img src="/vaft/assets/images/gyrokinetics/gk_overview_tglf_39915_r0.70.png" alt="TGLF SAT2 overview, 39915 r/a 0.7" /></p>
+
+<p><strong>TGLF SAT2 overview, same surface.</strong> It is mapped by <code class="language-plaintext highlighter-rouge">gyrokinetics_local_from_tglf</code>. TGLF writes every eigenmode (here two) and the quasilinear flux per $k_y$, so the overview gains a flux panel. The $k_y$ axis of that panel stops where every species’ flux has fallen below 1% of its peak. Nothing is dropped from the data.</p>
+
+<p><img src="/vaft/assets/images/gyrokinetics/gk_growth_cgyro_tglf_39915_r0.70.png" alt="CGYRO and TGLF growth rates" /></p>
+
+<p><strong>Matched comparison.</strong> Both IDS describe the same surface, species, field model, normalization and sign convention, so the overlay carries no “unmatched” note. The TGLF SAT2-preset growth rate lies above CGYRO’s converged points, as in the #1484 validation.</p>
+
+<p><img src="/vaft/assets/images/gyrokinetics/turbulent_transport_overview_39915.png" alt="Turbulent transport, TGLF SAT0-3" /></p>
+
+<p><strong>Radial family.</strong> <code class="language-plaintext highlighter-rouge">core_transport</code> with one anomalous model per SAT rule over r/a 0.6-0.8. Each model gets one color, with electrons solid and ions dashed.</p>
+
+<h2 id="what-stays-outside-plotting">What stays outside plotting</h2>
+
+<p>Descriptors such as $\gamma_{max}$, the $k_y$ of the flux peak, $f_e$ and $f_{EM}$ are computed in the analysis layer (<code class="language-plaintext highlighter-rouge">workflow/transport_atlas</code>, <code class="language-plaintext highlighter-rouge">vaft.process</code>) and only drawn here. The plot layer infers no turbulence-mode labels (ITG, TEM, ETG, KBM, MTM).</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/reference/api/plot/"><code>vaft.plot</code></a></li>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/reference/api/code/"><code>vaft.code</code></a></li>
+        
+          
+          <li data-resource-id="mapping"><a href="/vaft/reference/api/machine-mapping/"><code>vaft.machine_mapping</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/zeff_projection/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: zeff_projection">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" class="navigation navigation-next navigation-unique" aria-label="Next page: Cross-diagnostic fluctuation coherence">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-families-two-layers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two families, two layers</a></li><li class="page-toc-item page-toc-level-2"><a href="#linear-quasilinear-and-nonlinear-coverage" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Linear, quasilinear and nonlinear coverage</a></li><li class="page-toc-item page-toc-level-2"><a href="#coverage-matrix-mitim-benchmark--vaft" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coverage matrix: MITIM benchmark → VAFT</a></li><li class="page-toc-item page-toc-level-2"><a href="#comparing-solvers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Comparing solvers</a></li><li class="page-toc-item page-toc-level-2"><a href="#example-one-vest-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Example: one VEST state</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-stays-outside-plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What stays outside plotting</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Cross-diagnostic fluctuation coherence",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Fluctuation_coherence.md",
+            "ref": "_guide/Fluctuation_coherence.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Gyrokinetic_plotting.md",
+        "mtime": "2026-10-03 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

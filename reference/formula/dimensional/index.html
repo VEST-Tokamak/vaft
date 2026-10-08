@@ -1,0 +1,1477 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: dimensional · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/ballooning-formulations/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/formula/fast_ion/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: dimensional</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_dimensional">Formula reference: dimensional</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.dimensional, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.dimensional</code>:
+<strong>7</strong> public functions. Each entry is what
+<code>vaft.formula.describe("dimensional.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A power-law monomial $\Pi = \prod_j x_j^{a_j}$ of physical variables $x_j$ is
+dimensionless exactly when $D\mathbf a = 0$, where the columns of the
+dimension matrix $D$ hold the exponents of each variable’s base dimensions.
+The admissible Buckingham-Pi groups therefore span $\ker D$ (issue #1621,
+Stage II).  Everything here is exact: dimensions and exponents are
+<code class="language-plaintext highlighter-rouge">fractions.Fraction</code>, the null space comes from Gauss-Jordan
+elimination over the rationals, and no floating-point tolerance decides a
+rank.</p>
+
+<p>A null-space basis is not unique.  <code class="language-plaintext highlighter-rouge">express_in_basis</code> shows that the
+conventional plasma groups ($\Omega_i\tau_E$, $\rho_<em>$, $\beta$, $\nu_</em>$, …)
+are one basis among many by writing them in another.</p>
+
+<p>A <em>similarity</em> assumption is stronger than dimensional invariance: it keeps
+only some of the groups (Connor and Taylor drop the Debye-length group, the
+quasi-neutral limit of the governing equations).  Over the variables that
+vary, the exponent vector of a law that depends on the kept groups only must
+lie in their span; <code class="language-plaintext highlighter-rouge">similarity_constraint_vectors</code> returns the
+orthogonal complement, the linear constraints that span imposes.  For the
+collisional, finite-$\beta$ set it is the Connor-Kadomtsev constraint.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>D</td><td>dimension matrix, base dimensions x variables</td><td class="ref-unit">-</td></tr>
+  <tr><td>a</td><td>exponent vector of a monomial over the variables</td><td class="ref-unit">-</td></tr>
+  <tr><td>L,M,T,I</td><td>SI base dimensions length, mass, time, current</td><td class="ref-unit">-</td></tr>
+  <tr><td>n</td><td>particle density</td><td class="ref-unit">m^-3</td></tr>
+  <tr><td>T_e</td><td>temperature in energy units</td><td class="ref-unit">J</td></tr>
+  <tr><td>B</td><td>magnetic field</td><td class="ref-unit">T</td></tr>
+  <tr><td>R</td><td>major radius (any length scale at fixed shape)</td><td class="ref-unit">m</td></tr>
+  <tr><td>tau</td><td>time</td><td class="ref-unit">s</td></tr>
+  <tr><td>e</td><td>elementary charge</td><td class="ref-unit">C</td></tr>
+  <tr><td>m_i</td><td>ion mass</td><td class="ref-unit">kg</td></tr>
+  <tr><td>mu0</td><td>vacuum permeability</td><td class="ref-unit">H/m</td></tr>
+  <tr><td>eps0</td><td>vacuum permittivity</td><td class="ref-unit">F/m</td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>Temperature is an energy.</strong>  Plasma temperatures enter as $k_B T$ in
+joules, so the base dimensions are the four mechanical-electrical ones
+$(L, M, T, I)$ and no temperature dimension appears.</p>
+
+<p><strong>Engineering exponents use the confinement order.</strong>  An engineering scaling
+$\tau_E \propto I_p^{\alpha_I} B^{\alpha_B} P^{\alpha_P} n^{\alpha_n}
+R^{\alpha_R}$ is mapped onto the state variables $(n, T, B, R)$ at fixed
+shape ($\epsilon$, $\kappa$), safety factor and ion mass, with
+$I_p \propto B R$ and $P = W/\tau_E$, $W \propto n T R^3$.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="dimension_matrix"><td><a href="#dimension_matrix"><code>dimension_matrix</code></a></td><td>Dimension matrix $D$ of a list of variables, exactly.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="dimensionless_groups"><td><a href="#dimensionless_groups"><code>dimensionless_groups</code></a></td><td>A basis of the Buckingham-Pi groups of a set of variables: $\ker D$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="express_in_basis"><td><a href="#express_in_basis"><code>express_in_basis</code></a></td><td>Exact coefficients $\mathbf c$ with $\mathbf t = \sum_k c_k \mathbf b_k$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="monomial_dimension"><td><a href="#monomial_dimension"><code>monomial_dimension</code></a></td><td>Base dimensions of the monomial $\prod_j x_j^{a_j}$: $D\mathbf a$.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="rational_null_space"><td><a href="#rational_null_space"><code>rational_null_space</code></a></td><td>Exact basis of the null space ${\mathbf a : M\mathbf a = 0}$ of a rational matrix.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="similarity_constraint_vectors"><td><a href="#similarity_constraint_vectors"><code>similarity_constraint_vectors</code></a></td><td>Linear constraints a law depending only on <code class="language-plaintext highlighter-rouge">kept_groups</code> imposes on its exponents.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="state_exponents_from_engineering_exponents"><td><a href="#state_exponents_from_engineering_exponents"><code>state_exponents_from_engineering_exponents</code></a></td><td>Exponents of $\tau_E$ over $(n, T, B, R)$ implied by an engineering scaling, exactly.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="dimension_matrix" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#dimension_matrix"><code>dimension_matrix</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="dimension_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/dimensional.py#L154-L198" title="vaft/formula/dimensional.py, lines 154–198 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>dimension_matrix(variables, dimensions=mappingproxy({&#39;n&#39;: (-3, 0, 0, 0), &#39;T&#39;: (2, 1, -2, 0), &#39;W&#39;: (2, 1, -2, 0), &#39;B&#39;: (0, 1, -2, -1), &#39;R&#39;: (1, 0, 0, 0), &#39;a&#39;: (1, 0, 0, 0), &#39;I_p&#39;: (0, 0, 0, 1), &#39;P&#39;: (2, 1, -3, 0), &#39;tau&#39;: (0, 0, 1, 0), &#39;e&#39;: (0, 0, 1, 1), &#39;m_i&#39;: (0, 1, 0, 0), &#39;mu0&#39;: (1, 1, -2, -2), &#39;eps0&#39;: (-3, -1, 4, 2)}))</code></pre>
+
+    <details class="ref-code" data-source-code="dimension_matrix"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 154–198</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dimension_matrix</span><span class="p">(</span><span class="n">variables</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">dimensions</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">]</span> <span class="o">=</span> <span class="n">PHYSICAL_DIMENSIONS</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Dimension matrix $D$ of a list of variables, exactly.
+
+    $$D_{kj} = \text{exponent of base dimension } k \text{ in variable } j$$
+
+    Parameters
+    ----------
+    variables : sequence of str
+        Variable names, keys of ``dimensions`` [-].
+    dimensions : Mapping, optional
+        Base-dimension exponents $(L, M, T, I)$ per name; default
+        :data:`PHYSICAL_DIMENSIONS` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Object array of :class:`fractions.Fraction`, one row per base
+        dimension of :data:`BASE_DIMENSIONS` and one column per variable [-].
+
+    Raises
+    ------
+    KeyError
+        A variable with no declared dimensions.
+    ValueError
+        No variable, or a dimension vector of the wrong length.
+
+    Convention
+    ----------
+    Rows are $(L, M, T, I)$; temperature is an energy, so there is no
+    temperature row.
+
+    References
+    ----------
+    .. [1] E. Buckingham, Phys. Rev. 4 (1914) 345.
+    </span><span class="sh">"""</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">names</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">at least one variable is needed</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">cols</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+        <span class="n">dim</span> <span class="o">=</span> <span class="nf">tuple</span><span class="p">(</span><span class="n">dimensions</span><span class="p">[</span><span class="n">name</span><span class="p">])</span>
+        <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span> <span class="o">!=</span> <span class="nf">len</span><span class="p">(</span><span class="n">BASE_DIMENSIONS</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s">: </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span><span class="si">}</span><span class="s"> base-dimension exponents, expected </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">BASE_DIMENSIONS</span><span class="p">)</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">cols</span><span class="p">.</span><span class="nf">append</span><span class="p">([</span><span class="nf">_frac</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">dim</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([[</span><span class="n">col</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">cols</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">BASE_DIMENSIONS</span><span class="p">))],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Dimension matrix $D$ of a list of variables, exactly.</p>
+
+\[D_{kj} = \text{exponent of base dimension } k \text{ in variable } j\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>variables</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Variable names, keys of <code class="language-plaintext highlighter-rouge">dimensions</code>.</p>
+</td></tr>
+  <tr><td><code>dimensions</code></td><td class="ref-type">Mapping, optional</td><td class="ref-unit">-</td><td><p>Base-dimension exponents $(L, M, T, I)$ per name; default <code class="language-plaintext highlighter-rouge">PHYSICAL_DIMENSIONS</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Object array of <code class="language-plaintext highlighter-rouge">fractions.Fraction</code>, one row per base dimension of <code class="language-plaintext highlighter-rouge">BASE_DIMENSIONS</code> and one column per variable.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Rows are $(L, M, T, I)$; temperature is an energy, so there is no
+temperature row.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>KeyError</code> A variable with no declared dimensions.
+</li>
+  <li><code>ValueError</code> No variable, or a dimension vector of the wrong length.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>E. Buckingham, Phys. Rev. 4 (1914) 345.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="dimensionless_groups" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#dimensionless_groups"><code>dimensionless_groups</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="dimensionless_groups" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/dimensional.py#L248-L280" title="vaft/formula/dimensional.py, lines 248–280 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>dimensionless_groups(variables, dimensions=mappingproxy({&#39;n&#39;: (-3, 0, 0, 0), &#39;T&#39;: (2, 1, -2, 0), &#39;W&#39;: (2, 1, -2, 0), &#39;B&#39;: (0, 1, -2, -1), &#39;R&#39;: (1, 0, 0, 0), &#39;a&#39;: (1, 0, 0, 0), &#39;I_p&#39;: (0, 0, 0, 1), &#39;P&#39;: (2, 1, -3, 0), &#39;tau&#39;: (0, 0, 1, 0), &#39;e&#39;: (0, 0, 1, 1), &#39;m_i&#39;: (0, 1, 0, 0), &#39;mu0&#39;: (1, 1, -2, -2), &#39;eps0&#39;: (-3, -1, 4, 2)}))</code></pre>
+
+    <details class="ref-code" data-source-code="dimensionless_groups"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 248–280</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dimensionless_groups</span><span class="p">(</span><span class="n">variables</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">dimensions</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">]</span> <span class="o">=</span> <span class="n">PHYSICAL_DIMENSIONS</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">A basis of the Buckingham-Pi groups of a set of variables: $\ker D$.
+
+    $$\Pi = \prod_j x_j^{a_j}\ \text{dimensionless} \iff D\mathbf a = 0$$
+
+    Parameters
+    ----------
+    variables : sequence of str
+        Variable names, keys of ``dimensions`` [-].
+    dimensions : Mapping, optional
+        Base-dimension exponents per name; default :data:`PHYSICAL_DIMENSIONS` [-].
+
+    Returns
+    -------
+    list of numpy.ndarray
+        Integer exponent vectors over ``variables``, one per group; there are
+        ``len(variables) - rank(D)`` of them [-].
+
+    Raises
+    ------
+    KeyError
+        A variable with no declared dimensions.
+
+    Convention
+    ----------
+    The basis is not unique; :func:`express_in_basis` changes it to a
+    conventional one.
+
+    References
+    ----------
+    .. [1] E. Buckingham, Phys. Rev. 4 (1914) 345.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">rational_null_space</span><span class="p">(</span><span class="nf">dimension_matrix</span><span class="p">(</span><span class="n">variables</span><span class="p">,</span> <span class="n">dimensions</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>A basis of the Buckingham-Pi groups of a set of variables: $\ker D$.</p>
+
+\[\Pi = \prod_j x_j^{a_j}\ \text{dimensionless} \iff D\mathbf a = 0\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>variables</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Variable names, keys of <code class="language-plaintext highlighter-rouge">dimensions</code>.</p>
+</td></tr>
+  <tr><td><code>dimensions</code></td><td class="ref-type">Mapping, optional</td><td class="ref-unit">-</td><td><p>Base-dimension exponents per name; default <code class="language-plaintext highlighter-rouge">PHYSICAL_DIMENSIONS</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">list of numpy.ndarray</td><td class="ref-unit">-</td><td><p>Integer exponent vectors over <code class="language-plaintext highlighter-rouge">variables</code>, one per group; there are <code class="language-plaintext highlighter-rouge">len(variables) - rank(D)</code> of them.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The basis is not unique; <code class="language-plaintext highlighter-rouge">express_in_basis</code> changes it to a
+conventional one.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>KeyError</code> A variable with no declared dimensions.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>E. Buckingham, Phys. Rev. 4 (1914) 345.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="express_in_basis" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#express_in_basis"><code>express_in_basis</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="express_in_basis" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/dimensional.py#L326-L372" title="vaft/formula/dimensional.py, lines 326–372 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>express_in_basis(target, basis)</code></pre>
+
+    <details class="ref-code" data-source-code="express_in_basis"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 326–372</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">express_in_basis</span><span class="p">(</span><span class="n">target</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">basis</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Exact coefficients $\mathbf c$ with $\mathbf t = \sum_k c_k \mathbf b_k$.
+
+    $$\mathbf t = \sum_k c_k\,\mathbf b_k$$
+
+    Parameters
+    ----------
+    target : sequence
+        Exponent vector to express, e.g. a conventional group [-].
+    basis : sequence of sequences
+        Basis vectors of the same length, e.g. from :func:`dimensionless_groups` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Object array of :class:`fractions.Fraction`, one coefficient per basis
+        vector [-].
+
+    Raises
+    ------
+    ValueError
+        Lengths that disagree, linearly dependent basis vectors, or a target
+        outside their span.
+
+    Convention
+    ----------
+    In multiplicative form $\Pi_t = \prod_k \Pi_k^{c_k}$: the coefficients
+    are the powers of the basis groups that build the target group.
+
+    References
+    ----------
+    .. [1] G. Strang, *Linear Algebra and Its Applications*, 4th ed.,
+           Thomson (2006), Sec. 2.3.
+    </span><span class="sh">"""</span>
+    <span class="n">b</span> <span class="o">=</span> <span class="nf">_matrix</span><span class="p">([</span><span class="nf">list</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">basis</span><span class="p">])</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="p">[</span><span class="nf">_frac</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">target</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">!=</span> <span class="nf">len</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">target of length </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">)</span><span class="si">}</span><span class="s"> for basis vectors of length </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">b</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="si">}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">b</span><span class="p">)</span>
+    <span class="c1"># Solve B^T c = t as an augmented system over the rationals.
+</span>    <span class="n">aug</span> <span class="o">=</span> <span class="p">[[</span><span class="n">b</span><span class="p">[</span><span class="n">j</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">k</span><span class="p">)]</span> <span class="o">+</span> <span class="p">[</span><span class="n">t</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">t</span><span class="p">))]</span>
+    <span class="n">reduced</span><span class="p">,</span> <span class="n">pivots</span> <span class="o">=</span> <span class="nf">_rref</span><span class="p">(</span><span class="n">aug</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">pivots</span><span class="p">)</span> <span class="ow">and</span> <span class="n">pivots</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="n">k</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">target is not in the span of the basis</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pivots</span> <span class="k">if</span> <span class="n">p</span> <span class="o">&lt;</span> <span class="n">k</span><span class="p">]</span> <span class="o">!=</span> <span class="nf">list</span><span class="p">(</span><span class="nf">range</span><span class="p">(</span><span class="n">k</span><span class="p">)):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">basis vectors are linearly dependent</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="n">reduced</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">k</span><span class="p">)],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Exact coefficients $\mathbf c$ with $\mathbf t = \sum_k c_k \mathbf b_k$.</p>
+
+\[\mathbf t = \sum_k c_k\,\mathbf b_k\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>target</code></td><td class="ref-type">sequence</td><td class="ref-unit">-</td><td><p>Exponent vector to express, e.g. a conventional group.</p>
+</td></tr>
+  <tr><td><code>basis</code></td><td class="ref-type">sequence of sequences</td><td class="ref-unit">-</td><td><p>Basis vectors of the same length, e.g. from <code class="language-plaintext highlighter-rouge">dimensionless_groups</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Object array of <code class="language-plaintext highlighter-rouge">fractions.Fraction</code>, one coefficient per basis vector.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>In multiplicative form $\Pi_t = \prod_k \Pi_k^{c_k}$: the coefficients
+are the powers of the basis groups that build the target group.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Lengths that disagree, linearly dependent basis vectors, or a target outside their span.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>G. Strang, <em>Linear Algebra and Its Applications</em>, 4th ed., Thomson (2006), Sec. 2.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="monomial_dimension" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#monomial_dimension"><code>monomial_dimension</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="monomial_dimension" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/dimensional.py#L283-L323" title="vaft/formula/dimensional.py, lines 283–323 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>monomial_dimension(exponents, variables, dimensions=mappingproxy({&#39;n&#39;: (-3, 0, 0, 0), &#39;T&#39;: (2, 1, -2, 0), &#39;W&#39;: (2, 1, -2, 0), &#39;B&#39;: (0, 1, -2, -1), &#39;R&#39;: (1, 0, 0, 0), &#39;a&#39;: (1, 0, 0, 0), &#39;I_p&#39;: (0, 0, 0, 1), &#39;P&#39;: (2, 1, -3, 0), &#39;tau&#39;: (0, 0, 1, 0), &#39;e&#39;: (0, 0, 1, 1), &#39;m_i&#39;: (0, 1, 0, 0), &#39;mu0&#39;: (1, 1, -2, -2), &#39;eps0&#39;: (-3, -1, 4, 2)}))</code></pre>
+
+    <details class="ref-code" data-source-code="monomial_dimension"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 283–323</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">monomial_dimension</span><span class="p">(</span><span class="n">exponents</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">variables</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                       <span class="n">dimensions</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">]</span> <span class="o">=</span> <span class="n">PHYSICAL_DIMENSIONS</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Base dimensions of the monomial $\prod_j x_j^{a_j}$: $D\mathbf a$.
+
+    $$\dim\Big(\prod_j x_j^{a_j}\Big) = D\mathbf a$$
+
+    Parameters
+    ----------
+    exponents : sequence
+        Exponent $a_j$ per variable [-].
+    variables : sequence of str
+        Variable names, keys of ``dimensions`` [-].
+    dimensions : Mapping, optional
+        Base-dimension exponents per name; default :data:`PHYSICAL_DIMENSIONS` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        Object array of :class:`fractions.Fraction`, one entry per base
+        dimension; all zero for a dimensionless monomial [-].
+
+    Raises
+    ------
+    ValueError
+        ``exponents`` and ``variables`` of different lengths.
+
+    Convention
+    ----------
+    Base dimensions in the order of :data:`BASE_DIMENSIONS`.
+
+    References
+    ----------
+    .. [1] E. Buckingham, Phys. Rev. 4 (1914) 345.
+    </span><span class="sh">"""</span>
+    <span class="n">a</span> <span class="o">=</span> <span class="p">[</span><span class="nf">_frac</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">exponents</span><span class="p">]</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">variables</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span> <span class="o">!=</span> <span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">a</span><span class="p">)</span><span class="si">}</span><span class="s"> exponents for </span><span class="si">{</span><span class="nf">len</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="s"> variables</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="nf">dimension_matrix</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">dimensions</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="nf">sum</span><span class="p">((</span><span class="n">d</span><span class="p">[</span><span class="n">k</span><span class="p">][</span><span class="n">j</span><span class="p">]</span> <span class="o">*</span> <span class="n">a</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">a</span><span class="p">))),</span> <span class="nc">Fraction</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">d</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])],</span>
+                    <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Base dimensions of the monomial $\prod_j x_j^{a_j}$: $D\mathbf a$.</p>
+
+\[\dim\Big(\prod_j x_j^{a_j}\Big) = D\mathbf a\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>exponents</code></td><td class="ref-type">sequence</td><td class="ref-unit">-</td><td><p>Exponent $a_j$ per variable.</p>
+</td></tr>
+  <tr><td><code>variables</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Variable names, keys of <code class="language-plaintext highlighter-rouge">dimensions</code>.</p>
+</td></tr>
+  <tr><td><code>dimensions</code></td><td class="ref-type">Mapping, optional</td><td class="ref-unit">-</td><td><p>Base-dimension exponents per name; default <code class="language-plaintext highlighter-rouge">PHYSICAL_DIMENSIONS</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Object array of <code class="language-plaintext highlighter-rouge">fractions.Fraction</code>, one entry per base dimension; all zero for a dimensionless monomial.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Base dimensions in the order of <code class="language-plaintext highlighter-rouge">BASE_DIMENSIONS</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">exponents</code> and <code class="language-plaintext highlighter-rouge">variables</code> of different lengths.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>E. Buckingham, Phys. Rev. 4 (1914) 345.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="rational_null_space" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#rational_null_space"><code>rational_null_space</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="rational_null_space" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/dimensional.py#L201-L245" title="vaft/formula/dimensional.py, lines 201–245 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>rational_null_space(matrix)</code></pre>
+
+    <details class="ref-code" data-source-code="rational_null_space"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 201–245</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">rational_null_space</span><span class="p">(</span><span class="n">matrix</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Exact basis of the null space $\{\mathbf a : M\mathbf a = 0\}$ of a rational matrix.
+
+    $$M\mathbf a = 0$$
+
+    Parameters
+    ----------
+    matrix : array-like
+        Rows of integers, fractions or floats; a float is read as the decimal
+        it prints as [-].
+
+    Returns
+    -------
+    list of numpy.ndarray
+        One object array of integer-valued :class:`fractions.Fraction` per
+        basis vector, coprime and with a positive first non-zero entry; empty
+        when $M$ has full column rank [-].
+
+    Raises
+    ------
+    ValueError
+        An empty or ragged matrix, or a non-finite entry.
+
+    Convention
+    ----------
+    The basis is the one Gauss-Jordan elimination gives (one vector per free
+    column, that column set to one); any invertible combination of it spans
+    the same space.
+
+    References
+    ----------
+    .. [1] G. Strang, *Linear Algebra and Its Applications*, 4th ed.,
+           Thomson (2006), Sec. 2.2.
+    </span><span class="sh">"""</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nf">_matrix</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">matrix</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">).</span><span class="nf">tolist</span><span class="p">())</span>
+    <span class="n">ncol</span> <span class="o">=</span> <span class="nf">len</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">reduced</span><span class="p">,</span> <span class="n">pivots</span> <span class="o">=</span> <span class="nf">_rref</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">basis</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">free</span> <span class="ow">in</span> <span class="p">(</span><span class="n">c</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">ncol</span><span class="p">)</span> <span class="k">if</span> <span class="n">c</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">pivots</span><span class="p">):</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="p">[</span><span class="nc">Fraction</span><span class="p">(</span><span class="mi">0</span><span class="p">)]</span> <span class="o">*</span> <span class="n">ncol</span>
+        <span class="n">v</span><span class="p">[</span><span class="n">free</span><span class="p">]</span> <span class="o">=</span> <span class="nc">Fraction</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">row</span><span class="p">,</span> <span class="n">pc</span> <span class="ow">in</span> <span class="nf">zip</span><span class="p">(</span><span class="n">reduced</span><span class="p">,</span> <span class="n">pivots</span><span class="p">):</span>
+            <span class="n">v</span><span class="p">[</span><span class="n">pc</span><span class="p">]</span> <span class="o">=</span> <span class="o">-</span><span class="n">row</span><span class="p">[</span><span class="n">free</span><span class="p">]</span>
+        <span class="n">basis</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nf">_integer_scaled</span><span class="p">(</span><span class="n">v</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">basis</span></code></pre></figure>
+
+</details>
+
+    <p>Exact basis of the null space ${\mathbf a : M\mathbf a = 0}$ of a rational matrix.</p>
+
+\[M\mathbf a = 0\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>matrix</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Rows of integers, fractions or floats; a float is read as the decimal it prints as.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">list of numpy.ndarray</td><td class="ref-unit">-</td><td><p>One object array of integer-valued <code class="language-plaintext highlighter-rouge">fractions.Fraction</code> per basis vector, coprime and with a positive first non-zero entry; empty when $M$ has full column rank.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The basis is the one Gauss-Jordan elimination gives (one vector per free
+column, that column set to one); any invertible combination of it spans
+the same space.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An empty or ragged matrix, or a non-finite entry.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>G. Strang, <em>Linear Algebra and Its Applications</em>, 4th ed., Thomson (2006), Sec. 2.2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="similarity_constraint_vectors" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#similarity_constraint_vectors"><code>similarity_constraint_vectors</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="similarity_constraint_vectors" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/dimensional.py#L375-L409" title="vaft/formula/dimensional.py, lines 375–409 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>similarity_constraint_vectors(kept_groups)</code></pre>
+
+    <details class="ref-code" data-source-code="similarity_constraint_vectors"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 375–409</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">similarity_constraint_vectors</span><span class="p">(</span><span class="n">kept_groups</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Sequence</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">]:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Linear constraints a law depending only on ``kept_groups`` imposes on its exponents.
+
+    $$\mathbf e \in \mathrm{span}\{\mathbf g_k\} \iff \mathbf c\cdot\mathbf e = 0\ \ \forall\,\mathbf c \perp \mathbf g_k$$
+
+    Parameters
+    ----------
+    kept_groups : sequence of sequences
+        Exponent vectors, over the varied variables, of the dimensionless
+        groups the similarity assumption keeps [-].
+
+    Returns
+    -------
+    list of numpy.ndarray
+        Integer constraint vectors $\mathbf c$, a basis of the orthogonal
+        complement of the groups</span><span class="sh">'</span><span class="s"> span; empty when the groups span the whole
+        space (no constraint) [-].
+
+    Raises
+    ------
+    ValueError
+        An empty or ragged group list.
+
+    Convention
+    ----------
+    $\mathbf e$ is the exponent vector of the dimensionless response (e.g.
+    $\Omega_i\tau_E$) over the *varied* variables only; the constants and the
+    variables held fixed (shape, $q$, ion mass) are not coordinates.
+
+    References
+    ----------
+    .. [1] J. W. Connor and J. B. Taylor, Nucl. Fusion 17 (1977) 1047.
+    .. [2] B. B. Kadomtsev, Sov. J. Plasma Phys. 1 (1975) 295.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">rational_null_space</span><span class="p">([</span><span class="nf">list</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">kept_groups</span><span class="p">])</span></code></pre></figure>
+
+</details>
+
+    <p>Linear constraints a law depending only on <code class="language-plaintext highlighter-rouge">kept_groups</code> imposes on its exponents.</p>
+
+\[\mathbf e \in \mathrm{span}\{\mathbf g_k\} \iff \mathbf c\cdot\mathbf e = 0\ \ \forall\,\mathbf c \perp \mathbf g_k\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>kept_groups</code></td><td class="ref-type">sequence of sequences</td><td class="ref-unit">-</td><td><p>Exponent vectors, over the varied variables, of the dimensionless groups the similarity assumption keeps.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">list of numpy.ndarray</td><td class="ref-unit">-</td><td><p>Integer constraint vectors $\mathbf c$, a basis of the orthogonal complement of the groups’ span; empty when the groups span the whole space (no constraint).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$\mathbf e$ is the exponent vector of the dimensionless response (e.g.
+$\Omega_i\tau_E$) over the <em>varied</em> variables only; the constants and the
+variables held fixed (shape, $q$, ion mass) are not coordinates.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An empty or ragged group list.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. W. Connor and J. B. Taylor, Nucl. Fusion 17 (1977) 1047.
+</li>
+  <li>B. B. Kadomtsev, Sov. J. Plasma Phys. 1 (1975) 295.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="state_exponents_from_engineering_exponents" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#state_exponents_from_engineering_exponents"><code>state_exponents_from_engineering_exponents</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="state_exponents_from_engineering_exponents" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/dimensional.py#L412-L467" title="vaft/formula/dimensional.py, lines 412–467 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>state_exponents_from_engineering_exponents(a_I, a_B, a_P, a_n=0, a_R=0)</code></pre>
+
+    <details class="ref-code" data-source-code="state_exponents_from_engineering_exponents"><summary>Show source <span class="ref-note">vaft/formula/dimensional.py, lines 412–467</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">state_exponents_from_engineering_exponents</span><span class="p">(</span><span class="n">a_I</span><span class="p">,</span> <span class="n">a_B</span><span class="p">,</span> <span class="n">a_P</span><span class="p">,</span> <span class="n">a_n</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">a_R</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Exponents of $\tau_E$ over $(n, T, B, R)$ implied by an engineering scaling, exactly.
+
+    $$\tau_E^{1+\alpha_P} \propto n^{\alpha_n+\alpha_P}\,T^{\alpha_P}\,
+      B^{\alpha_I+\alpha_B}\,R^{\alpha_I+3\alpha_P+\alpha_R}$$
+
+    Parameters
+    ----------
+    a_I : float or Fraction
+        Plasma-current exponent $\alpha_I$ [-].
+    a_B : float or Fraction
+        Toroidal-field exponent $\alpha_B$ [-].
+    a_P : float or Fraction
+        Loss-power exponent $\alpha_P$ [-].
+    a_n : float or Fraction, optional
+        Density exponent $\alpha_n$, default 0 [-].
+    a_R : float or Fraction, optional
+        Size exponent $\alpha_R$, default 0 [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        The exponents of $n$, $T$, $B$ and $R$ in $\tau_E$: exact
+        :class:`fractions.Fraction` when every input is an int, Fraction or
+        rational string, float otherwise [-].
+
+    Raises
+    ------
+    ValueError
+        $\alpha_P = -1$, where $\tau_E$ cancels and the map is singular.
+
+    Convention
+    ----------
+    At fixed $\epsilon$, $\kappa$, $q$ and ion mass: $I_p \propto B R$
+    (cylindrical $q$) and $P = W/\tau_E$ with $W \propto n T R^3$.  Every
+    exponent carries the factor $1/(1+\alpha_P)$, the conditioning of the
+    whole engineering-to-dimensionless map.
+
+    References
+    ----------
+    .. [1] J. W. Connor and J. B. Taylor, Nucl. Fusion 17 (1977) 1047.
+    .. [2] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 6.
+    </span><span class="sh">"""</span>
+    <span class="n">values</span> <span class="o">=</span> <span class="p">(</span><span class="n">a_I</span><span class="p">,</span> <span class="n">a_B</span><span class="p">,</span> <span class="n">a_P</span><span class="p">,</span> <span class="n">a_n</span><span class="p">,</span> <span class="n">a_R</span><span class="p">)</span>
+    <span class="n">exact</span> <span class="o">=</span> <span class="nf">all</span><span class="p">(</span><span class="nf">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">integer</span><span class="p">,</span> <span class="n">Fraction</span><span class="p">,</span> <span class="nb">str</span><span class="p">))</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">exact</span><span class="p">:</span>
+        <span class="n">i</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="p">(</span><span class="nf">_frac</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">i</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">values</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">all</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">([</span><span class="n">i</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">r</span><span class="p">])):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">non-finite exponent</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">p</span>
+    <span class="k">if</span> <span class="n">d</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">alpha_P = -1: tau_E cancels from P = W/tau_E and the map is singular</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="p">[(</span><span class="n">n</span> <span class="o">+</span> <span class="n">p</span><span class="p">)</span> <span class="o">/</span> <span class="n">d</span><span class="p">,</span> <span class="n">p</span> <span class="o">/</span> <span class="n">d</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span> <span class="o">/</span> <span class="n">d</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">p</span> <span class="o">+</span> <span class="n">r</span><span class="p">)</span> <span class="o">/</span> <span class="n">d</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span> <span class="k">if</span> <span class="n">exact</span> <span class="k">else</span> <span class="nb">float</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Exponents of $\tau_E$ over $(n, T, B, R)$ implied by an engineering scaling, exactly.</p>
+
+\[\tau_E^{1+\alpha_P} \propto n^{\alpha_n+\alpha_P}\,T^{\alpha_P}\,
+  B^{\alpha_I+\alpha_B}\,R^{\alpha_I+3\alpha_P+\alpha_R}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>a_I</code></td><td class="ref-type">float or Fraction</td><td class="ref-unit">-</td><td><p>Plasma-current exponent $\alpha_I$.</p>
+</td></tr>
+  <tr><td><code>a_B</code></td><td class="ref-type">float or Fraction</td><td class="ref-unit">-</td><td><p>Toroidal-field exponent $\alpha_B$.</p>
+</td></tr>
+  <tr><td><code>a_P</code></td><td class="ref-type">float or Fraction</td><td class="ref-unit">-</td><td><p>Loss-power exponent $\alpha_P$.</p>
+</td></tr>
+  <tr><td><code>a_n</code></td><td class="ref-type">float or Fraction, optional</td><td class="ref-unit">-</td><td><p>Density exponent $\alpha_n$, default 0.</p>
+</td></tr>
+  <tr><td><code>a_R</code></td><td class="ref-type">float or Fraction, optional</td><td class="ref-unit">-</td><td><p>Size exponent $\alpha_R$, default 0.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>The exponents of $n$, $T$, $B$ and $R$ in $\tau_E$: exact <code class="language-plaintext highlighter-rouge">fractions.Fraction</code> when every input is an int, Fraction or rational string, float otherwise.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>At fixed $\epsilon$, $\kappa$, $q$ and ion mass: $I_p \propto B R$
+(cylindrical $q$) and $P = W/\tau_E$ with $W \propto n T R^3$.  Every
+exponent carries the factor $1/(1+\alpha_P)$, the conditioning of the
+whole engineering-to-dimensionless map.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> $\alpha_P = -1$, where $\tau_E$ cancels and the map is singular.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>References</summary>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. W. Connor and J. B. Taylor, Nucl. Fusion 17 (1977) 1047.
+</li>
+  <li>ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 6.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/ballooning-formulations/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Ballooning formulations">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/formula/fast_ion/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: fast_ion">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: fast_ion",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_fast_ion.md",
+            "ref": "_guide/Formula_reference_fast_ion.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_dimensional.md",
+        "mtime": "2026-10-05 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

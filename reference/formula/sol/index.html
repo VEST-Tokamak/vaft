@@ -1,0 +1,3136 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: sol · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/process/nbi/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/api/core/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: sol</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_sol">Formula reference: sol</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.sol, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.sol</code>:
+<strong>19</strong> public functions. Each entry is what
+<code>vaft.formula.describe("sol.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The small, independently testable relations of the open-field-line edge
+(issue #951, first slice): the ion sound speed with its closure explicit,
+the sheath-limited particle flux and ion saturation current, the sheath heat
+transmission, Spitzer–Harm parallel electron conduction and its integrated
+two-point form, and the Eich target heat-flux profile with its integral width.
+SOL blobs and filaments (#1211) follow D’Ippolito, Myra and Zweben (2011):
+a Gaussian of radius delta, cold ions, x radial, y binormal. Reduced models built on them (the two-point model with loss factors,
+equilibrium-derived connection length and flux expansion, named lambda_q
+scalings) are later slices of #951; SOLPS-ITER and UEDGE are not replaced.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>T_e, T_i</td><td>electron and ion temperature</td><td class="ref-unit">eV</td></tr>
+  <tr><td>n</td><td>density at the location named (target t, upstream u) [m^-3]</td><td class="ref-unit"></td></tr>
+  <tr><td>m_i</td><td>ion mass</td><td class="ref-unit">kg</td></tr>
+  <tr><td>Z</td><td>ion charge number</td><td class="ref-unit">-</td></tr>
+  <tr><td>c_s</td><td>ion sound speed</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>gamma</td><td>sheath heat-transmission coefficient</td><td class="ref-unit">-</td></tr>
+  <tr><td>q_par</td><td>parallel heat-flux density</td><td class="ref-unit">W/m^2</td></tr>
+  <tr><td>L_par</td><td>parallel connection length between named endpoints [m]</td><td class="ref-unit"></td></tr>
+  <tr><td>kappa_0</td><td>Spitzer--Harm coefficient, kappa = kappa_0 T_e^{5/2} [W/(m eV^{7/2})]</td><td class="ref-unit"></td></tr>
+  <tr><td>lambda_q</td><td>heat-flux decay length at the outer midplane (Eich fit); lambda_q f_x at the target [m]</td><td class="ref-unit"></td></tr>
+  <tr><td>S</td><td>Gaussian spreading width at the target, not mapped [m]</td><td class="ref-unit"></td></tr>
+  <tr><td>lambda_int</td><td>integral power width, mapped to the outer midplane [m]</td><td class="ref-unit"></td></tr>
+  </tbody>
+</table></div>
+
+<p>Temperatures in electronvolts; “upstream” is the outer-midplane SOL unless a
+function says otherwise, and is not the separatrix. The parallel coordinate
+$s$ runs from upstream to the target. Every coefficient that is a model
+choice – $\gamma$, $\gamma_i$, $\kappa_0$ – is an input or a documented,
+overridable keyword, never a hidden constant.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 19 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="blob_collisionality"><td><a href="#blob_collisionality"><code>blob_collisionality</code></a></td><td>The collisionality that decides whether a filament stays connected to the sheaths.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="blob_crossover_size"><td><a href="#blob_crossover_size"><code>blob_crossover_size</code></a></td><td>Normalized size at which the inertial and sheath-connected limits give the same velocity.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="blob_density_perturbation"><td><a href="#blob_density_perturbation"><code>blob_density_perturbation</code></a></td><td>The prescribed filament state: a Gaussian density perturbation on a background.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="blob_reference_size"><td><a href="#blob_reference_size"><code>blob_reference_size</code></a></td><td>The blob size at which sheath and polarization closure balance.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="blob_reference_velocity"><td><a href="#blob_reference_velocity"><code>blob_reference_velocity</code></a></td><td>The blob velocity scale at the reference size.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="blob_regime_velocities"><td><a href="#blob_regime_velocities"><code>blob_regime_velocities</code></a></td><td>The normalized velocity of each regime of the two-region (midplane plus X-point) model.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="eich_integral_width"><td><a href="#eich_integral_width"><code>eich_integral_width</code></a></td><td>Integral power width of the Eich profile, mapped to the outer midplane.
+ <span class="ref-flag ref-flag-empirical">Empirical</span> <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="eich_target_heat_flux_profile"><td><a href="#eich_target_heat_flux_profile"><code>eich_target_heat_flux_profile</code></a></td><td>Target heat-flux profile: an exponential SOL decay convolved with Gaussian spreading.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="inertial_blob_velocity"><td><a href="#inertial_blob_velocity"><code>inertial_blob_velocity</code></a></td><td>Radial velocity of a blob whose polarization current closes across the field (inertia).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="interpolated_blob_velocity"><td><a href="#interpolated_blob_velocity"><code>interpolated_blob_velocity</code></a></td><td>Normalized blob velocity bridging the inertial and sheath-connected limits.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ion_saturation_current_density"><td><a href="#ion_saturation_current_density"><code>ion_saturation_current_density</code></a></td><td>Ion saturation current density collected by a negatively biased surface.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ion_sound_speed"><td><a href="#ion_sound_speed"><code>ion_sound_speed</code></a></td><td>Ion sound speed with the charge and the ion closure explicit.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="radiative_condensation_growth_rate"><td><a href="#radiative_condensation_growth_rate"><code>radiative_condensation_growth_rate</code></a></td><td>Growth rate of the thermal-condensation (MARFE) instability at constant pressure.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="radiative_thermal_instability_growth_rate"><td><a href="#radiative_thermal_instability_growth_rate"><code>radiative_thermal_instability_growth_rate</code></a></td><td>Growth rate of the radiative thermal instability of a flute perturbation at constant density.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sheath_connected_blob_velocity"><td><a href="#sheath_connected_blob_velocity"><code>sheath_connected_blob_velocity</code></a></td><td>Radial velocity of a blob whose polarization current closes through the sheaths.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sheath_heat_flux"><td><a href="#sheath_heat_flux"><code>sheath_heat_flux</code></a></td><td>Parallel heat-flux density into the target sheath.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sheath_particle_flux"><td><a href="#sheath_particle_flux"><code>sheath_particle_flux</code></a></td><td>Particle flux density into the target sheath.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="spitzer_harm_parallel_heat_flux"><td><a href="#spitzer_harm_parallel_heat_flux"><code>spitzer_harm_parallel_heat_flux</code></a></td><td>Classical parallel electron heat conduction.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="two_point_upstream_temperature"><td><a href="#two_point_upstream_temperature"><code>two_point_upstream_temperature</code></a></td><td>Upstream temperature from conduction at constant parallel heat flux.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="blob_collisionality" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#blob_collisionality"><code>blob_collisionality</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="blob_collisionality" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L631-L678" title="vaft/formula/sol.py, lines 631–678 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>blob_collisionality(nu_ei, L_par, Omega_e, rho_s)</code></pre>
+
+    <details class="ref-code" data-source-code="blob_collisionality"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 631–678</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">blob_collisionality</span><span class="p">(</span><span class="n">nu_ei</span><span class="p">,</span> <span class="n">L_par</span><span class="p">,</span> <span class="n">Omega_e</span><span class="p">,</span> <span class="n">rho_s</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The collisionality that decides whether a filament stays connected to the sheaths.
+
+    $$\Lambda = \frac{\nu_{ei}L_\parallel}{\Omega_e\rho_s}$$
+
+    Parameters
+    ----------
+    nu_ei : float or np.ndarray
+        Electron--ion collision frequency, non-negative [1/s].
+    L_par : float or np.ndarray
+        Parallel connection length (in the X-point region for the
+        two-region model), positive [m].
+    Omega_e : float or np.ndarray
+        Electron gyrofrequency, magnitude, positive [rad/s].
+    rho_s : float or np.ndarray
+        Ion sound gyroradius, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Lambda$ [-].
+
+    Raises
+    ------
+    ValueError
+        A negative collision frequency or a non-positive length or frequency.
+
+    Convention
+    ----------
+    Myra et al. (2006) Eq. (1); equivalently $(m_e/m_i)^{1/2}L_\parallel/
+    \lambda_{ei}$ (D</span><span class="sh">'</span><span class="s">Ippolito, Myra and Zweben 2011, p. 060501-23). A SOL
+    collisionality in its own right, not a core $\nu_*$.
+
+    Physical interpretation
+    -----------------------
+    Above one, parallel resistivity cuts the filament off from the sheath
+    and the blob moves faster (resistive regimes); below, it stays
+    sheath-connected.
+
+    References
+    ----------
+    .. [1] J. R. Myra et al., Phys. Plasmas 13 (2006) 092509, Eq. (1).
+    </span><span class="sh">"""</span>
+    <span class="n">nu</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">nu_ei</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">nu</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">nu</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">nu_ei must be non-negative and finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">L_par</span><span class="p">,</span> <span class="n">Omega_e</span><span class="p">,</span> <span class="n">rho_s</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L_par</span><span class="p">,</span> <span class="sh">"</span><span class="s">L_par</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Omega_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">Omega_e</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">rho_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">rho_s</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">nu</span> <span class="o">*</span> <span class="n">L_par</span> <span class="o">/</span> <span class="p">(</span><span class="n">Omega_e</span> <span class="o">*</span> <span class="n">rho_s</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>The collisionality that decides whether a filament stays connected to the sheaths.</p>
+
+\[\Lambda = \frac{\nu_{ei}L_\parallel}{\Omega_e\rho_s}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>nu_ei</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/s</td><td><p>Electron–ion collision frequency, non-negative.</p>
+</td></tr>
+  <tr><td><code>L_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Parallel connection length (in the X-point region for the two-region model), positive.</p>
+</td></tr>
+  <tr><td><code>Omega_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Electron gyrofrequency, magnitude, positive.</p>
+</td></tr>
+  <tr><td><code>rho_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Ion sound gyroradius, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\Lambda$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Myra et al. (2006) Eq. (1); equivalently $(m_e/m_i)^{1/2}L_\parallel/
+\lambda_{ei}$ (D’Ippolito, Myra and Zweben 2011, p. 060501-23). A SOL
+collisionality in its own right, not a core $\nu_*$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative collision frequency or a non-positive length or frequency.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Above one, parallel resistivity cuts the filament off from the sheath
+and the blob moves faster (resistive regimes); below, it stays
+sheath-connected.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. R. Myra et al., Phys. Plasmas 13 (2006) 092509, Eq. (1).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="blob_crossover_size" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#blob_crossover_size"><code>blob_crossover_size</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="blob_crossover_size" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L946-L983" title="vaft/formula/sol.py, lines 946–983 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>blob_crossover_size(*, relative_amplitude=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="blob_crossover_size"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 946–983</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">blob_crossover_size</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">relative_amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Normalized size at which the inertial and sheath-connected limits give the same velocity.
+
+    $$\hat\delta_c = \left(\frac{\delta n}{n}\right)^{1/5}$$
+
+    Parameters
+    ----------
+    relative_amplitude : float or np.ndarray
+        $\delta n/n$, in (0, 1] [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\hat\delta_c = \delta_c/\delta_*$ [-].
+
+    Raises
+    ------
+    ValueError
+        An amplitude outside (0, 1].
+
+    Convention
+    ----------
+    Where $(\delta n/n)^{1/2}\hat\delta^{1/2} = (\delta n/n)/\hat\delta^2$, the
+    two limits of D</span><span class="sh">'</span><span class="s">Ippolito, Myra and Zweben (2011) p. 060501-25; one at
+    $\delta n/n = 1$. The interpolation of ``interpolated_blob_velocity``
+    peaks at $0.574\,\hat\delta_c$, not at the crossing.
+
+    Physical interpretation
+    -----------------------
+    Smaller blobs are inertia-limited, larger ones sheath-limited; a weak
+    blob changes regime at a smaller size.
+
+    References
+    ----------
+    .. [1] D. A. D</span><span class="sh">'</span><span class="s">Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18
+           (2011) 060501, p. 060501-25.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_amplitude</span><span class="p">(</span><span class="n">relative_amplitude</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.2</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Normalized size at which the inertial and sheath-connected limits give the same velocity.</p>
+
+\[\hat\delta_c = \left(\frac{\delta n}{n}\right)^{1/5}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>relative_amplitude</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\delta n/n$, in (0, 1].</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\hat\delta_c = \delta_c/\delta_*$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Where $(\delta n/n)^{1/2}\hat\delta^{1/2} = (\delta n/n)/\hat\delta^2$, the
+two limits of D’Ippolito, Myra and Zweben (2011) p. 060501-25; one at
+$\delta n/n = 1$. The interpolation of <code class="language-plaintext highlighter-rouge">interpolated_blob_velocity</code>
+peaks at $0.574\,\hat\delta_c$, not at the crossing.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An amplitude outside (0, 1].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Smaller blobs are inertia-limited, larger ones sheath-limited; a weak
+blob changes regime at a smaller size.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. A. D’Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18 (2011) 060501, p. 060501-25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="blob_density_perturbation" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#blob_density_perturbation"><code>blob_density_perturbation</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="blob_density_perturbation" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L890-L943" title="vaft/formula/sol.py, lines 890–943 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>blob_density_perturbation(r, n_background, delta_n, delta)</code></pre>
+
+    <details class="ref-code" data-source-code="blob_density_perturbation"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 890–943</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">blob_density_perturbation</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">n_background</span><span class="p">,</span> <span class="n">delta_n</span><span class="p">,</span> <span class="n">delta</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The prescribed filament state: a Gaussian density perturbation on a background.
+
+    $$n(r) = n_0 + \Delta n\,\exp\!\left(-\frac{r^2}{2\delta^2}\right)$$
+
+    Parameters
+    ----------
+    r : float or np.ndarray
+        Distance from the filament axis in the perpendicular plane, non-negative [m].
+    n_background : float or np.ndarray
+        Background density $n_0$, positive [m^-3].
+    delta_n : float or np.ndarray
+        Amplitude: positive for a blob, negative for a hole, above $-n_0$ [m^-3].
+    delta : float or np.ndarray
+        Radius, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $n(r)$ [m^-3].
+
+    Raises
+    ------
+    ValueError
+        A negative radius, a non-positive background or radius, or a hole
+        deeper than the background.
+
+    Convention
+    ----------
+    The size convention every blob relation of this module uses: the radius
+    at which the perturbation has fallen to $e^{-1/2}$ (D</span><span class="sh">'</span><span class="s">Ippolito, Myra and
+    Zweben 2011, Eq. 3). Krasheninnikov</span><span class="sh">'</span><span class="s">s $e^{-y^2/\delta^2}$ width is
+    $\sqrt2$ times this; a HWHM is $1.18$ times it. The relative amplitude of
+    the velocity relations is $\Delta n/(n_0 + \Delta n)$ at the peak.
+
+    Physical interpretation
+    -----------------------
+    A blob ($\Delta n &gt; 0$) polarizes into a dipole that drives it outward on
+    the low-field side; a hole ($\Delta n &lt; 0$) polarizes the other way and
+    moves inward.
+
+    References
+    ----------
+    .. [1] D. A. D</span><span class="sh">'</span><span class="s">Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18
+           (2011) 060501, Eq. (3) and p. 060501-6.
+    </span><span class="sh">"""</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">r</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">r</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">r must be non-negative and finite</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">n0</span><span class="p">,</span> <span class="n">delta</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n_background</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_background</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="sh">"</span><span class="s">delta</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">dn</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">delta_n</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">dn</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">n0</span> <span class="o">+</span> <span class="n">dn</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">delta_n must be finite, and a hole cannot be deeper than the background</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">n0</span> <span class="o">+</span> <span class="n">dn</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">r</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">delta</span><span class="o">**</span><span class="mi">2</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>The prescribed filament state: a Gaussian density perturbation on a background.</p>
+
+\[n(r) = n_0 + \Delta n\,\exp\!\left(-\frac{r^2}{2\delta^2}\right)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>r</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Distance from the filament axis in the perpendicular plane, non-negative.</p>
+</td></tr>
+  <tr><td><code>n_background</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Background density $n_0$, positive.</p>
+</td></tr>
+  <tr><td><code>delta_n</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Amplitude: positive for a blob, negative for a hole, above $-n_0$.</p>
+</td></tr>
+  <tr><td><code>delta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Radius, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>$n(r)$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The size convention every blob relation of this module uses: the radius
+at which the perturbation has fallen to $e^{-1/2}$ (D’Ippolito, Myra and
+Zweben 2011, Eq. 3). Krasheninnikov’s $e^{-y^2/\delta^2}$ width is
+$\sqrt2$ times this; a HWHM is $1.18$ times it. The relative amplitude of
+the velocity relations is $\Delta n/(n_0 + \Delta n)$ at the peak.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative radius, a non-positive background or radius, or a hole deeper than the background.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A blob ($\Delta n &gt; 0$) polarizes into a dipole that drives it outward on
+the low-field side; a hole ($\Delta n &lt; 0$) polarizes the other way and
+moves inward.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. A. D’Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18 (2011) 060501, Eq. (3) and p. 060501-6.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="blob_reference_size" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#blob_reference_size"><code>blob_reference_size</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="blob_reference_size" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L543-L585" title="vaft/formula/sol.py, lines 543–585 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>blob_reference_size(rho_s, L_par, R)</code></pre>
+
+    <details class="ref-code" data-source-code="blob_reference_size"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 543–585</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">blob_reference_size</span><span class="p">(</span><span class="n">rho_s</span><span class="p">,</span> <span class="n">L_par</span><span class="p">,</span> <span class="n">R</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The blob size at which sheath and polarization closure balance.
+
+    $$\delta_* = \frac{\rho_s^{4/5}L_\parallel^{2/5}}{R^{1/5}}$$
+
+    Parameters
+    ----------
+    rho_s : float or np.ndarray
+        Ion sound gyroradius $c_s/\Omega_i$ with the cold-ion $c_s$, positive [m].
+    L_par : float or np.ndarray
+        Parallel connection length, positive [m].
+    R : float or np.ndarray
+        Major radius, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\delta_*$ [m].
+
+    Raises
+    ------
+    ValueError
+        A non-positive input.
+
+    Convention
+    ----------
+    D</span><span class="sh">'</span><span class="s">Ippolito, Myra and Zweben (2011) Eq. (8), identical to Myra et al.
+    (2006) Eq. (2)</span><span class="sh">'</span><span class="s">s $a_*$. Theiler et al.</span><span class="sh">'</span><span class="s">s $a^*$ is $4^{1/5}$ times this.
+
+    Physical interpretation
+    -----------------------
+    Smaller blobs are limited by ion polarization (inertial), larger ones by
+    the sheaths; blobs near $\delta_*$ are the most coherent (Kelvin--Helmholtz
+    below, Rayleigh--Taylor break-up above), so it is also the characteristic
+    observed size.
+
+    References
+    ----------
+    .. [1] D. A. D</span><span class="sh">'</span><span class="s">Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18
+           (2011) 060501, Eq. (8).
+    </span><span class="sh">"""</span>
+    <span class="n">rho_s</span><span class="p">,</span> <span class="n">L_par</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">rho_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">rho_s</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L_par</span><span class="p">,</span> <span class="sh">"</span><span class="s">L_par</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="sh">"</span><span class="s">R</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">rho_s</span><span class="o">**</span><span class="mf">0.8</span> <span class="o">*</span> <span class="n">L_par</span><span class="o">**</span><span class="mf">0.4</span> <span class="o">/</span> <span class="n">R</span><span class="o">**</span><span class="mf">0.2</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The blob size at which sheath and polarization closure balance.</p>
+
+\[\delta_* = \frac{\rho_s^{4/5}L_\parallel^{2/5}}{R^{1/5}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>rho_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Ion sound gyroradius $c_s/\Omega_i$ with the cold-ion $c_s$, positive.</p>
+</td></tr>
+  <tr><td><code>L_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Parallel connection length, positive.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>$\delta_*$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>D’Ippolito, Myra and Zweben (2011) Eq. (8), identical to Myra et al.
+(2006) Eq. (2)’s $a_<em>$. Theiler et al.’s $a^</em>$ is $4^{1/5}$ times this.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Smaller blobs are limited by ion polarization (inertial), larger ones by
+the sheaths; blobs near $\delta_*$ are the most coherent (Kelvin–Helmholtz
+below, Rayleigh–Taylor break-up above), so it is also the characteristic
+observed size.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. A. D’Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18 (2011) 060501, Eq. (8).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="blob_reference_velocity" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#blob_reference_velocity"><code>blob_reference_velocity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="blob_reference_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L588-L628" title="vaft/formula/sol.py, lines 588–628 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>blob_reference_velocity(c_s, delta_star, R)</code></pre>
+
+    <details class="ref-code" data-source-code="blob_reference_velocity"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 588–628</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">blob_reference_velocity</span><span class="p">(</span><span class="n">c_s</span><span class="p">,</span> <span class="n">delta_star</span><span class="p">,</span> <span class="n">R</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The blob velocity scale at the reference size.
+
+    $$v_* = c_s\left(\frac{\delta_*}{R}\right)^{1/2}$$
+
+    Parameters
+    ----------
+    c_s : float or np.ndarray
+        Cold-ion sound speed $(T_e/m_i)^{1/2}$, positive [m/s].
+    delta_star : float or np.ndarray
+        Reference size (``blob_reference_size``), positive [m].
+    R : float or np.ndarray
+        Major radius, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $v_*$ [m/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive input.
+
+    Convention
+    ----------
+    D</span><span class="sh">'</span><span class="s">Ippolito, Myra and Zweben (2011) Eq. (8); Myra et al. (2006) Eq. (3).
+    The sheath and inertial limits meet at $\hat\delta = 1$, $\hat v = 1$.
+
+    Physical interpretation
+    -----------------------
+    A few per cent of $c_s$ in tokamak SOLs (about 2 km/s for NSTX and
+    C-Mod parameters, Myra et al. 2006), the scale of measured blob speeds.
+
+    References
+    ----------
+    .. [1] D. A. D</span><span class="sh">'</span><span class="s">Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18
+           (2011) 060501, Eq. (8).
+    </span><span class="sh">"""</span>
+    <span class="n">c_s</span><span class="p">,</span> <span class="n">delta_star</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">c_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">c_s</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">delta_star</span><span class="p">,</span> <span class="sh">"</span><span class="s">delta_star</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="sh">"</span><span class="s">R</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">c_s</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">delta_star</span> <span class="o">/</span> <span class="n">R</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>The blob velocity scale at the reference size.</p>
+
+\[v_* = c_s\left(\frac{\delta_*}{R}\right)^{1/2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Cold-ion sound speed $(T_e/m_i)^{1/2}$, positive.</p>
+</td></tr>
+  <tr><td><code>delta_star</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Reference size (<code class="language-plaintext highlighter-rouge">blob_reference_size</code>), positive.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Major radius, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>$v_*$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>D’Ippolito, Myra and Zweben (2011) Eq. (8); Myra et al. (2006) Eq. (3).
+The sheath and inertial limits meet at $\hat\delta = 1$, $\hat v = 1$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A few per cent of $c_s$ in tokamak SOLs (about 2 km/s for NSTX and
+C-Mod parameters, Myra et al. 2006), the scale of measured blob speeds.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. A. D’Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18 (2011) 060501, Eq. (8).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="blob_regime_velocities" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#blob_regime_velocities"><code>blob_regime_velocities</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="blob_regime_velocities" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L836-L887" title="vaft/formula/sol.py, lines 836–887 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>blob_regime_velocities(delta_hat, Lambda, epsilon_x)</code></pre>
+
+    <details class="ref-code" data-source-code="blob_regime_velocities"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 836–887</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">blob_regime_velocities</span><span class="p">(</span><span class="n">delta_hat</span><span class="p">,</span> <span class="n">Lambda</span><span class="p">,</span> <span class="n">epsilon_x</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The normalized velocity of each regime of the two-region (midplane plus X-point) model.
+
+    $$\hat v_\mathrm{RB} = \hat\delta^{1/2},\quad \hat v_\mathrm{RX} = \frac{\Lambda}{\hat\delta^2},\quad
+      \hat v_{C_s} = \frac{1}{\hat\delta^2},\quad \hat v_{C_i} = \varepsilon_x\hat\delta^{1/2}$$
+
+    Parameters
+    ----------
+    delta_hat : float or np.ndarray
+        $\delta/\delta_*$, positive [-].
+    Lambda : float or np.ndarray
+        Collisionality (``blob_collisionality``), positive [-].
+    epsilon_x : float or np.ndarray
+        X-point fanning parameter, in (0, 1) [-].
+
+    Returns
+    -------
+    BlobRegimeVelocities
+        $\hat v$ of the resistive-ballooning, resistive X-point,
+        sheath-connected and connected ideal-interchange regimes [-].
+
+    Raises
+    ------
+    ValueError
+        A non-positive size or collisionality, or $\varepsilon_x$ outside (0, 1).
+
+    Convention
+    ----------
+    D</span><span class="sh">'</span><span class="s">Ippolito, Myra and Zweben (2011) Fig. 23, after Myra, Russell and
+    D</span><span class="sh">'</span><span class="s">Ippolito (2006), with $\delta n/n = 1$. The regime boundaries are where
+    neighbouring scalings meet: $\Lambda = \Theta$ (RB|RX),
+    $\Lambda = \varepsilon_x\Theta$ (RX|$C_i$), $\Lambda = 1$ (RX|$C_s$) and
+    $\Theta = 1/\varepsilon_x$ ($C_i$|$C_s$), with $\Theta = \hat\delta^{5/2}$.
+
+    Physical interpretation
+    -----------------------
+    Collisionality disconnects the filament from the sheath (faster, RX then
+    RB); X-point fanning makes cross-field closure easy near the target
+    ($C_i$). In the RX regime transport rises with collisionality.
+
+    References
+    ----------
+    .. [1] D. A. D</span><span class="sh">'</span><span class="s">Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18
+           (2011) 060501, Fig. 23 and pp. 060501-23 to -27.
+    </span><span class="sh">"""</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">delta_hat</span><span class="p">,</span> <span class="sh">"</span><span class="s">delta_hat</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">lam</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Lambda</span><span class="p">,</span> <span class="sh">"</span><span class="s">Lambda</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">epsilon_x</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="o">~</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">eps</span><span class="p">))</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">eps</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">eps</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">epsilon_x must lie in (0, 1)</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">d</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="n">eps</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">lam</span><span class="p">,</span> <span class="n">eps</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">BlobRegimeVelocities</span><span class="p">(</span><span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">d</span><span class="p">)),</span> <span class="nf">_out</span><span class="p">(</span><span class="n">lam</span> <span class="o">/</span> <span class="n">d</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="n">d</span><span class="o">**</span><span class="mi">2</span><span class="p">),</span> <span class="nf">_out</span><span class="p">(</span><span class="n">eps</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">d</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>The normalized velocity of each regime of the two-region (midplane plus X-point) model.</p>
+
+\[\hat v_\mathrm{RB} = \hat\delta^{1/2},\quad \hat v_\mathrm{RX} = \frac{\Lambda}{\hat\delta^2},\quad
+  \hat v_{C_s} = \frac{1}{\hat\delta^2},\quad \hat v_{C_i} = \varepsilon_x\hat\delta^{1/2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>delta_hat</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\delta/\delta_*$, positive.</p>
+</td></tr>
+  <tr><td><code>Lambda</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Collisionality (<code class="language-plaintext highlighter-rouge">blob_collisionality</code>), positive.</p>
+</td></tr>
+  <tr><td><code>epsilon_x</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>X-point fanning parameter, in (0, 1).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">BlobRegimeVelocities</td><td class="ref-unit">-</td><td><p>$\hat v$ of the resistive-ballooning, resistive X-point, sheath-connected and connected ideal-interchange regimes.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>D’Ippolito, Myra and Zweben (2011) Fig. 23, after Myra, Russell and
+D’Ippolito (2006), with $\delta n/n = 1$. The regime boundaries are where
+neighbouring scalings meet: $\Lambda = \Theta$ (RB|RX),
+$\Lambda = \varepsilon_x\Theta$ (RX|$C_i$), $\Lambda = 1$ (RX|$C_s$) and
+$\Theta = 1/\varepsilon_x$ ($C_i$|$C_s$), with $\Theta = \hat\delta^{5/2}$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive size or collisionality, or $\varepsilon_x$ outside (0, 1).
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Collisionality disconnects the filament from the sheath (faster, RX then
+RB); X-point fanning makes cross-field closure easy near the target
+($C_i$). In the RX regime transport rises with collisionality.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. A. D’Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18 (2011) 060501, Fig. 23 and pp. 060501-23 to -27.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="eich_integral_width" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#eich_integral_width"><code>eich_integral_width</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-empirical">Empirical fit</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="eich_integral_width" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L473-L524" title="vaft/formula/sol.py, lines 473–524 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>eich_integral_width(lambda_q, S, *, flux_expansion=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="eich_integral_width"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 473–524</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">eich_integral_width</span><span class="p">(</span><span class="n">lambda_q</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">flux_expansion</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Integral power width of the Eich profile, mapped to the outer midplane.
+
+    $$\lambda_\mathrm{int} \simeq \lambda_q + 1.64\,S/f_x$$
+
+    Parameters
+    ----------
+    lambda_q : float or np.ndarray
+        Heat-flux decay length at the outer midplane, positive [m].
+    S : float or np.ndarray
+        Gaussian spreading width at the target, positive [m].
+    flux_expansion : float
+        Total expansion from the outer midplane to the target, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\lambda_\mathrm{int}$ at the outer midplane [m].
+
+    Raises
+    ------
+    ValueError
+        A non-positive input.
+
+    Convention
+    ----------
+    Integral width $\int(q - q_\mathrm{bg})\,ds / (q_\mathrm{peak} f_x)$ with
+    $s$ along the target, i.e. mapped to the midplane; 1.64 is
+    Makowski</span><span class="sh">'</span><span class="s">s fit to the exact integral of the Eich profile, accurate to a
+    few per cent over the fitted range, so this is an approximation, not a
+    definition.
+
+    Physical interpretation
+    -----------------------
+    The width over which the target actually receives the power: the
+    engineering quantity for peak loading, $q_\mathrm{peak} \approx
+    P/(2\pi R\,\lambda_\mathrm{int} f_x)$.
+
+    Validity
+    --------
+    Empirical fit. Makowski et al. (2012), over the $S/\lambda_q$ range of
+    the multi-machine database.
+
+    References
+    ----------
+    .. [1] M. A. Makowski et al., Phys. Plasmas 19 (2012) 056122.
+    .. [2] T. Eich et al., Nucl. Fusion 53 (2013) 093031.
+    </span><span class="sh">"""</span>
+    <span class="n">lam</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">lambda_q</span><span class="p">,</span> <span class="sh">"</span><span class="s">lambda_q</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="sh">"</span><span class="s">S</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">fx</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">flux_expansion</span><span class="p">,</span> <span class="sh">"</span><span class="s">flux_expansion</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">lam</span> <span class="o">+</span> <span class="mf">1.64</span> <span class="o">*</span> <span class="n">S</span> <span class="o">/</span> <span class="n">fx</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Integral power width of the Eich profile, mapped to the outer midplane.</p>
+
+\[\lambda_\mathrm{int} \simeq \lambda_q + 1.64\,S/f_x\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>lambda_q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Heat-flux decay length at the outer midplane, positive.</p>
+</td></tr>
+  <tr><td><code>S</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Gaussian spreading width at the target, positive.</p>
+</td></tr>
+  <tr><td><code>flux_expansion</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Total expansion from the outer midplane to the target, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>$\lambda_\mathrm{int}$ at the outer midplane.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Integral width $\int(q - q_\mathrm{bg})\,ds / (q_\mathrm{peak} f_x)$ with
+$s$ along the target, i.e. mapped to the midplane; 1.64 is
+Makowski’s fit to the exact integral of the Eich profile, accurate to a
+few per cent over the fitted range, so this is an approximation, not a
+definition.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Validity · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The width over which the target actually receives the power: the
+engineering quantity for peak loading, $q_\mathrm{peak} \approx
+P/(2\pi R\,\lambda_\mathrm{int} f_x)$.</p>
+
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Empirical fit. Makowski et al. (2012), over the $S/\lambda_q$ range of
+the multi-machine database.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>M. A. Makowski et al., Phys. Plasmas 19 (2012) 056122.
+</li>
+  <li>T. Eich et al., Nucl. Fusion 53 (2013) 093031.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="eich_target_heat_flux_profile" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#eich_target_heat_flux_profile"><code>eich_target_heat_flux_profile</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="eich_target_heat_flux_profile" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L405-L470" title="vaft/formula/sol.py, lines 405–470 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>eich_target_heat_flux_profile(s, q0, lambda_q, S, *, s0=0.0, q_bg=0.0, flux_expansion=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="eich_target_heat_flux_profile"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 405–470</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">eich_target_heat_flux_profile</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">q0</span><span class="p">,</span> <span class="n">lambda_q</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">s0</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">q_bg</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">flux_expansion</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Target heat-flux profile: an exponential SOL decay convolved with Gaussian spreading.
+
+    $$q(\bar s) = \frac{q_0}{2}\exp\!\left[\left(\frac{S}{2\lambda_q f_x}\right)^2
+      - \frac{\bar s}{\lambda_q f_x}\right]\mathrm{erfc}\!\left(\frac{S}{2\lambda_q f_x}
+      - \frac{\bar s}{S}\right) + q_\mathrm{bg},\qquad \bar s = s - s_0$$
+
+    Parameters
+    ----------
+    s : float or np.ndarray
+        Coordinate along the target, increasing into the SOL [m].
+    q0 : float or np.ndarray
+        Peak of the unspread exponential at the strike point [W/m^2].
+    lambda_q : float or np.ndarray
+        Heat-flux decay length at the outer midplane, positive [m].
+    S : float or np.ndarray
+        Gaussian spreading width at the target, positive [m].
+    s0 : float
+        Strike-point position [m].
+    q_bg : float
+        Background heat flux [W/m^2].
+    flux_expansion : float
+        Total expansion from the outer midplane to the target along ``s``,
+        positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Heat-flux density at the target [W/m^2].
+
+    Raises
+    ------
+    ValueError
+        A non-positive ``lambda_q``, ``S`` or ``flux_expansion``.
+
+    Convention
+    ----------
+    $\lambda_q$ is the *midplane* value and $f_x$ maps it to the target;
+    $S$ is measured at the target. The profile is the exponential
+    $q_0 e^{-\bar s/\lambda_q f_x}$ for $\bar s &gt; 0$ convolved with a
+    Gaussian of width $S$: private-flux spreading, not a second exponential.
+
+    Physical interpretation
+    -----------------------
+    What IR thermography and target probes fit: $\lambda_q$ is set upstream,
+    $S$ by diffusion in the divertor leg, and the peak heat flux falls as
+    $S$ grows at fixed $\lambda_q$.
+
+    References
+    ----------
+    .. [1] T. Eich et al., Phys. Rev. Lett. 107 (2011) 215001.
+    .. [2] T. Eich et al., Nucl. Fusion 53 (2013) 093031.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">scipy.special</span> <span class="kn">import</span> <span class="n">erfc</span><span class="p">,</span> <span class="n">erfcx</span>
+
+    <span class="n">lam</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">lambda_q</span><span class="p">,</span> <span class="sh">"</span><span class="s">lambda_q</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">flux_expansion</span><span class="p">,</span> <span class="sh">"</span><span class="s">flux_expansion</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">S</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="sh">"</span><span class="s">S</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">-</span> <span class="n">s0</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">S</span> <span class="o">/</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">lam</span><span class="p">)</span> <span class="o">-</span> <span class="n">x</span> <span class="o">/</span> <span class="n">S</span>
+    <span class="c1"># exp(a) erfc(u) with a = (S/2lam)^2 - x/lam = u^2 - (x/S)^2: for u &gt;= 0 as exp(-(x/S)^2) erfcx(u), which
+</span>    <span class="c1"># cannot overflow in the private flux region; for u &lt; 0 directly, where a &lt; 0 and erfc(u) &lt;= 2
+</span>    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">over</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">,</span> <span class="n">invalid</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">,</span> <span class="n">under</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">shape</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">u</span> <span class="o">&gt;=</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="o">-</span><span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">S</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="nf">erfcx</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">maximum</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)),</span>
+                         <span class="n">np</span><span class="p">.</span><span class="nf">exp</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">minimum</span><span class="p">(</span><span class="n">u</span><span class="o">**</span><span class="mi">2</span> <span class="o">-</span> <span class="p">(</span><span class="n">x</span> <span class="o">/</span> <span class="n">S</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))</span> <span class="o">*</span> <span class="nf">erfc</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">minimum</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)))</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">q0</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="n">shape</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">q</span> <span class="o">+</span> <span class="n">q_bg</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Target heat-flux profile: an exponential SOL decay convolved with Gaussian spreading.</p>
+
+\[q(\bar s) = \frac{q_0}{2}\exp\!\left[\left(\frac{S}{2\lambda_q f_x}\right)^2
+  - \frac{\bar s}{\lambda_q f_x}\right]\mathrm{erfc}\!\left(\frac{S}{2\lambda_q f_x}
+  - \frac{\bar s}{S}\right) + q_\mathrm{bg},\qquad \bar s = s - s_0\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Coordinate along the target, increasing into the SOL.</p>
+</td></tr>
+  <tr><td><code>q0</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>Peak of the unspread exponential at the strike point.</p>
+</td></tr>
+  <tr><td><code>lambda_q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Heat-flux decay length at the outer midplane, positive.</p>
+</td></tr>
+  <tr><td><code>S</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Gaussian spreading width at the target, positive.</p>
+</td></tr>
+  <tr><td><code>s0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Strike-point position.</p>
+</td></tr>
+  <tr><td><code>q_bg</code></td><td class="ref-type">float</td><td class="ref-unit">W/m^2</td><td><p>Background heat flux.</p>
+</td></tr>
+  <tr><td><code>flux_expansion</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Total expansion from the outer midplane to the target along <code class="language-plaintext highlighter-rouge">s</code>, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>Heat-flux density at the target.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$\lambda_q$ is the <em>midplane</em> value and $f_x$ maps it to the target;
+$S$ is measured at the target. The profile is the exponential
+$q_0 e^{-\bar s/\lambda_q f_x}$ for $\bar s &gt; 0$ convolved with a
+Gaussian of width $S$: private-flux spreading, not a second exponential.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive <code class="language-plaintext highlighter-rouge">lambda_q</code>, <code class="language-plaintext highlighter-rouge">S</code> or <code class="language-plaintext highlighter-rouge">flux_expansion</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>What IR thermography and target probes fit: $\lambda_q$ is set upstream,
+$S$ by diffusion in the divertor leg, and the peak heat flux falls as
+$S$ grows at fixed $\lambda_q$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. Eich et al., Phys. Rev. Lett. 107 (2011) 215001.
+</li>
+  <li>T. Eich et al., Nucl. Fusion 53 (2013) 093031.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="inertial_blob_velocity" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#inertial_blob_velocity"><code>inertial_blob_velocity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="inertial_blob_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L738-L786" title="vaft/formula/sol.py, lines 738–786 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>inertial_blob_velocity(c_s, delta, R, *, relative_amplitude=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="inertial_blob_velocity"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 738–786</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">inertial_blob_velocity</span><span class="p">(</span><span class="n">c_s</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">relative_amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Radial velocity of a blob whose polarization current closes across the field (inertia).
+
+    $$v_x = c_s\left(\frac{\delta n}{n}\right)^{1/2}\left(\frac{\delta}{R}\right)^{1/2}$$
+
+    Parameters
+    ----------
+    c_s : float or np.ndarray
+        Ion sound speed, positive [m/s].
+    delta : float or np.ndarray
+        Blob radius, positive [m].
+    R : float or np.ndarray
+        Radius of curvature, positive [m].
+    relative_amplitude : float or np.ndarray
+        Blob amplitude over the total density, $\delta n/n$, in (0, 1] [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $v_x$, outward [m/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive input or an amplitude outside (0, 1].
+
+    Convention
+    ----------
+    D</span><span class="sh">'</span><span class="s">Ippolito, Myra and Zweben (2011) p. 060501-25: $\hat v = (\delta n/n)^{1/2}
+    \hat\delta^{1/2}$, here in dimensional form ($\hat v v_*$). Myra et al.
+    (2006) Eq. (11) is linear in their $f_b$, $c_sf_b(a_b/R)^{1/2}$; their
+    Eq. (A2) is the square-root form with background. Theiler et al.</span><span class="sh">'</span><span class="s">s
+    $\sqrt{2a/R}\,c_s$ has their HWHM size. Cold ions: $c_s = (T_e/m_i)^{1/2}$,
+    i.e. ``ion_sound_speed(T_e, 0, m_i)``.
+
+    Physical interpretation
+    -----------------------
+    The resistive-ballooning (fully disconnected) limit: curvature drive
+    against ion inertia at the midplane, the fastest a blob can go;
+    $v \propto \delta^{1/2}$, large blobs fast.
+
+    References
+    ----------
+    .. [1] D. A. D</span><span class="sh">'</span><span class="s">Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18
+           (2011) 060501, p. 060501-25.
+    .. [2] J. R. Myra et al., Phys. Plasmas 13 (2006) 092509, Eqs. (11), (A2).
+    </span><span class="sh">"""</span>
+    <span class="n">c_s</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">c_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">c_s</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="sh">"</span><span class="s">delta</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="sh">"</span><span class="s">R</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">c_s</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="nf">_amplitude</span><span class="p">(</span><span class="n">relative_amplitude</span><span class="p">)</span> <span class="o">*</span> <span class="n">delta</span> <span class="o">/</span> <span class="n">R</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Radial velocity of a blob whose polarization current closes across the field (inertia).</p>
+
+\[v_x = c_s\left(\frac{\delta n}{n}\right)^{1/2}\left(\frac{\delta}{R}\right)^{1/2}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Ion sound speed, positive.</p>
+</td></tr>
+  <tr><td><code>delta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Blob radius, positive.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Radius of curvature, positive.</p>
+</td></tr>
+  <tr><td><code>relative_amplitude</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Blob amplitude over the total density, $\delta n/n$, in (0, 1].</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>$v_x$, outward.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>D’Ippolito, Myra and Zweben (2011) p. 060501-25: $\hat v = (\delta n/n)^{1/2}
+\hat\delta^{1/2}$, here in dimensional form ($\hat v v_*$). Myra et al.
+(2006) Eq. (11) is linear in their $f_b$, $c_sf_b(a_b/R)^{1/2}$; their
+Eq. (A2) is the square-root form with background. Theiler et al.’s
+$\sqrt{2a/R}\,c_s$ has their HWHM size. Cold ions: $c_s = (T_e/m_i)^{1/2}$,
+i.e. <code class="language-plaintext highlighter-rouge">ion_sound_speed(T_e, 0, m_i)</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive input or an amplitude outside (0, 1].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The resistive-ballooning (fully disconnected) limit: curvature drive
+against ion inertia at the midplane, the fastest a blob can go;
+$v \propto \delta^{1/2}$, large blobs fast.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. A. D’Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18 (2011) 060501, p. 060501-25.
+</li>
+  <li>J. R. Myra et al., Phys. Plasmas 13 (2006) 092509, Eqs. (11), (A2).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="interpolated_blob_velocity" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#interpolated_blob_velocity"><code>interpolated_blob_velocity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="interpolated_blob_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L789-L833" title="vaft/formula/sol.py, lines 789–833 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>interpolated_blob_velocity(delta_hat, *, relative_amplitude=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="interpolated_blob_velocity"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 789–833</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">interpolated_blob_velocity</span><span class="p">(</span><span class="n">delta_hat</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">relative_amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Normalized blob velocity bridging the inertial and sheath-connected limits.
+
+    $$\hat v = \frac{(\delta n/n)\,\hat\delta^{1/2}}{(\delta n/n)^{1/2} + \hat\delta^{5/2}}$$
+
+    Parameters
+    ----------
+    delta_hat : float or np.ndarray
+        Blob size over the reference size, $\delta/\delta_*$, positive [-].
+    relative_amplitude : float or np.ndarray
+        $\delta n/n$, in (0, 1] [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\hat v = v_x/v_*$ [-].
+
+    Raises
+    ------
+    ValueError
+        A non-positive size or an amplitude outside (0, 1].
+
+    Convention
+    ----------
+    D</span><span class="sh">'</span><span class="s">Ippolito, Myra and Zweben (2011) Eq. (9), from $1/\hat v = 1/\hat v_1
+    + 1/\hat v_2$ of the two limits: $(\delta n/n)^{1/2}\hat\delta^{1/2}$
+    for small blobs and $(\delta n/n)/\hat\delta^2$ for large ones. An
+    interpolation valid in the limits only.
+
+    Physical interpretation
+    -----------------------
+    The measured blob speeds of nine tokamaks lie between the two limits
+    (their Fig. 27). The limits cross at $\hat\delta = (\delta n/n)^{1/5}$
+    (``blob_crossover_size``); the interpolation itself peaks lower, at
+    $0.574\,(\delta n/n)^{1/5}$. Coherence, not speed, is what the review
+    ties to $\hat\delta \sim 1$.
+
+    References
+    ----------
+    .. [1] D. A. D</span><span class="sh">'</span><span class="s">Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18
+           (2011) 060501, Eq. (9).
+    </span><span class="sh">"""</span>
+    <span class="n">d</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">delta_hat</span><span class="p">,</span> <span class="sh">"</span><span class="s">delta_hat</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="nf">_amplitude</span><span class="p">(</span><span class="n">relative_amplitude</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">f</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">d</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="o">+</span> <span class="n">d</span><span class="o">**</span><span class="mf">2.5</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Normalized blob velocity bridging the inertial and sheath-connected limits.</p>
+
+\[\hat v = \frac{(\delta n/n)\,\hat\delta^{1/2}}{(\delta n/n)^{1/2} + \hat\delta^{5/2}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>delta_hat</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Blob size over the reference size, $\delta/\delta_*$, positive.</p>
+</td></tr>
+  <tr><td><code>relative_amplitude</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\delta n/n$, in (0, 1].</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\hat v = v_x/v_*$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>D’Ippolito, Myra and Zweben (2011) Eq. (9), from $1/\hat v = 1/\hat v_1</p>
+      <ul>
+        <li>1/\hat v_2$ of the two limits: $(\delta n/n)^{1/2}\hat\delta^{1/2}$
+for small blobs and $(\delta n/n)/\hat\delta^2$ for large ones. An
+interpolation valid in the limits only.</li>
+      </ul>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive size or an amplitude outside (0, 1].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The measured blob speeds of nine tokamaks lie between the two limits
+(their Fig. 27). The limits cross at $\hat\delta = (\delta n/n)^{1/5}$
+(<code class="language-plaintext highlighter-rouge">blob_crossover_size</code>); the interpolation itself peaks lower, at
+$0.574\,(\delta n/n)^{1/5}$. Coherence, not speed, is what the review
+ties to $\hat\delta \sim 1$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. A. D’Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18 (2011) 060501, Eq. (9).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ion_saturation_current_density" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ion_saturation_current_density"><code>ion_saturation_current_density</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="ion_saturation_current_density" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L197-L240" title="vaft/formula/sol.py, lines 197–240 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>ion_saturation_current_density(n_i, c_s, *, Z=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="ion_saturation_current_density"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 197–240</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ion_saturation_current_density</span><span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="n">c_s</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Ion saturation current density collected by a negatively biased surface.
+
+    $$j_\mathrm{sat} = Z e\,n_i\,c_s$$
+
+    Parameters
+    ----------
+    n_i : float or np.ndarray
+        Ion density at the sheath edge, non-negative [m^-3].
+    c_s : float or np.ndarray
+        Ion sound speed at the sheath edge [m/s].
+    Z : float
+        Ion charge number, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $j_\mathrm{sat}$ [A/m^2].
+
+    Raises
+    ------
+    ValueError
+        A negative density, a non-positive sound speed or charge.
+
+    Convention
+    ----------
+    Sheath-edge density with Mach one. From the unperturbed density
+    $n_\infty$ the presheath drop is $\tfrac12$ in Stangeby</span><span class="sh">'</span><span class="s">s isothermal
+    fluid model and $e^{-1/2} \approx 0.61$ in the Boltzmann form.
+    ``vaft.process.langmuir`` uses $e^{-1/2}$ with $T_i = 0$: pass
+    ``n_inf * np.exp(-0.5)`` and ``ion_sound_speed(T_e, 0, m_i)`` to match it.
+
+    Physical interpretation
+    -----------------------
+    What a Langmuir probe or divertor tile measures directly; with $T_e$
+    from the I--V characteristic it gives the density.
+
+    References
+    ----------
+    .. [1] P. C. Stangeby, *The Plasma Boundary of Magnetic Fusion Devices*,
+           IOP (2000), Sec. 2.6.
+    </span><span class="sh">"""</span>
+    <span class="nf">_positive</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">Z</span> <span class="o">*</span> <span class="n">QE</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">sheath_particle_flux</span><span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="n">c_s</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Ion saturation current density collected by a negatively biased surface.</p>
+
+\[j_\mathrm{sat} = Z e\,n_i\,c_s\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Ion density at the sheath edge, non-negative.</p>
+</td></tr>
+  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Ion sound speed at the sheath edge.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ion charge number, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">A/m^2</td><td><p>$j_\mathrm{sat}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Sheath-edge density with Mach one. From the unperturbed density
+$n_\infty$ the presheath drop is $\tfrac12$ in Stangeby’s isothermal
+fluid model and $e^{-1/2} \approx 0.61$ in the Boltzmann form.
+<code class="language-plaintext highlighter-rouge">vaft.process.langmuir</code> uses $e^{-1/2}$ with $T_i = 0$: pass
+<code class="language-plaintext highlighter-rouge">n_inf * np.exp(-0.5)</code> and <code class="language-plaintext highlighter-rouge">ion_sound_speed(T_e, 0, m_i)</code> to match it.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative density, a non-positive sound speed or charge.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>What a Langmuir probe or divertor tile measures directly; with $T_e$
+from the I–V characteristic it gives the density.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.6.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ion_sound_speed" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ion_sound_speed"><code>ion_sound_speed</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="ion_sound_speed" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L95-L147" title="vaft/formula/sol.py, lines 95–147 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>ion_sound_speed(T_e, T_i, m_i, *, Z=1.0, gamma_i=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="ion_sound_speed"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 95–147</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ion_sound_speed</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">T_i</span><span class="p">,</span> <span class="n">m_i</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">gamma_i</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Ion sound speed with the charge and the ion closure explicit.
+
+    $$c_s = \sqrt{\frac{e\,(Z T_e + \gamma_i T_i)}{m_i}}$$
+
+    Parameters
+    ----------
+    T_e : float or np.ndarray
+        Electron temperature, non-negative [eV].
+    T_i : float or np.ndarray
+        Ion temperature, non-negative [eV].
+    m_i : float or np.ndarray
+        Ion mass, positive [kg].
+    Z : float
+        Ion charge number, positive [-].
+    gamma_i : float
+        Ion adiabatic index: 1 isothermal, 3 one-dimensional adiabatic, 5/3
+        three-dimensional [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $c_s$ [m/s].
+
+    Raises
+    ------
+    ValueError
+        A negative temperature, a non-positive mass, charge or index.
+
+    Convention
+    ----------
+    Electrons isothermal. Stangeby</span><span class="sh">'</span><span class="s">s working choice is $\gamma_i = 1$
+    (isothermal ions); $\gamma_i = 3$ is the one-dimensional adiabatic,
+    collisionless case. The choice moves $c_s$ by up to $\sqrt2$ at
+    $T_i = T_e$, so it is a keyword, not a constant. ``vaft.formula.stability.c_s_from_Te_Ti_mi`` is the case
+    $Z = \gamma_i = 1$ with temperatures in keV.
+
+    Physical interpretation
+    -----------------------
+    The speed at which plasma flows into the sheath (Bohm): it sets the
+    target particle flux and, with the sheath, the heat flux.
+
+    References
+    ----------
+    .. [1] P. C. Stangeby, *The Plasma Boundary of Magnetic Fusion Devices*,
+           IOP (2000), Sec. 2.2.
+    </span><span class="sh">"""</span>
+    <span class="n">T_e</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">T_i</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">T_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_i</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">m_i</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">m_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">m_i</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">_positive</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">_positive</span><span class="p">(</span><span class="n">gamma_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">gamma_i</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">QE</span> <span class="o">*</span> <span class="p">(</span><span class="n">Z</span> <span class="o">*</span> <span class="n">T_e</span> <span class="o">+</span> <span class="n">gamma_i</span> <span class="o">*</span> <span class="n">T_i</span><span class="p">)</span> <span class="o">/</span> <span class="n">m_i</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Ion sound speed with the charge and the ion closure explicit.</p>
+
+\[c_s = \sqrt{\frac{e\,(Z T_e + \gamma_i T_i)}{m_i}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, non-negative.</p>
+</td></tr>
+  <tr><td><code>T_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Ion temperature, non-negative.</p>
+</td></tr>
+  <tr><td><code>m_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Ion mass, positive.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ion charge number, positive.</p>
+</td></tr>
+  <tr><td><code>gamma_i</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Ion adiabatic index: 1 isothermal, 3 one-dimensional adiabatic, 5/3 three-dimensional.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>$c_s$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Electrons isothermal. Stangeby’s working choice is $\gamma_i = 1$
+(isothermal ions); $\gamma_i = 3$ is the one-dimensional adiabatic,
+collisionless case. The choice moves $c_s$ by up to $\sqrt2$ at
+$T_i = T_e$, so it is a keyword, not a constant. <code class="language-plaintext highlighter-rouge">vaft.formula.stability.c_s_from_Te_Ti_mi</code> is the case
+$Z = \gamma_i = 1$ with temperatures in keV.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative temperature, a non-positive mass, charge or index.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The speed at which plasma flows into the sheath (Bohm): it sets the
+target particle flux and, with the sheath, the heat flux.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="radiative_condensation_growth_rate" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#radiative_condensation_growth_rate"><code>radiative_condensation_growth_rate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="radiative_condensation_growth_rate" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L986-L1057" title="vaft/formula/sol.py, lines 986–1057 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>radiative_condensation_growth_rate(n, T, L, dL_dT, k_parallel, kappa_parallel)</code></pre>
+
+    <details class="ref-code" data-source-code="radiative_condensation_growth_rate"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 986–1057</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">radiative_condensation_growth_rate</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">dL_dT</span><span class="p">,</span> <span class="n">k_parallel</span><span class="p">,</span> <span class="n">kappa_parallel</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Growth rate of the thermal-condensation (MARFE) instability at constant pressure.
+
+    $$\gamma = \frac{2}{5\,n e}\left(\frac{2L}{T} - \frac{\partial L}{\partial T}
+      - k_\parallel^2\kappa_\parallel\right)$$
+
+    Parameters
+    ----------
+    n : float or np.ndarray
+        Plasma density of Drake</span><span class="sh">'</span><span class="s">s one-fluid model, positive [m^-3].
+    T : float or np.ndarray
+        Temperature, positive [eV].
+    L : float or np.ndarray
+        Radiated power density, $L \propto n^2$, non-negative [W/m^3].
+    dL_dT : float or np.ndarray
+        $\partial L/\partial T$ at fixed density [W/(m^3 eV)].
+    k_parallel : float or np.ndarray
+        Parallel wavenumber of the perturbation, $m/(qR)$ for a poloidal
+        harmonic $m \ge 1$, positive [1/m].
+    kappa_parallel : float or np.ndarray
+        Parallel conductivity, $\kappa_0 T^{5/2}$ in ``spitzer_harm_parallel_heat_flux``</span><span class="sh">'</span><span class="s">s
+        units, non-negative [W/(m eV)].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\gamma$; positive is unstable [1/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive density, temperature or $k_\parallel$, a negative $L$ or
+        $\kappa_\parallel$.
+
+    Convention
+    ----------
+    Drake</span><span class="sh">'</span><span class="s">s Eq. (2): the perturbation is slow against sound, $\gamma \ll
+    k_\parallel c_s$, so pressure stays constant and $\tilde n/n = -\tilde T/T$
+    (his Eq. 17); with $L \propto n^2$ the density rise feeds the $2L/T$
+    term. Temperatures in eV and $\kappa_\parallel$ per eV, as in this module,
+    so the $e$ converts the heat capacity $\tfrac52 n$ to joules. Instability
+    needs $2L/T - \partial L/\partial T &gt; k_\parallel^2\kappa_\parallel$, which
+    equals $-dL/dT$ at constant pressure: it does **not** need
+    $\partial L/\partial T &lt; 0$. It needs $k_\parallel &gt; 0$: at
+    $k_\parallel = 0$ no sound wave equalises pressure, the density stays
+    fixed and ``radiative_thermal_instability_growth_rate`` applies instead.
+    Perpendicular conduction is neglected here; Lipschultz finds its
+    $K_\perp/\Delta^2$ small on Alcator C, while Drake</span><span class="sh">'</span><span class="s">s threshold involves
+    $\kappa_\perp$ (his Eqs. 7, 10, 18). The heat capacity is Drake</span><span class="sh">'</span><span class="s">s one-fluid
+    $\tfrac32 nT$; with electrons and ions both heated at $T_i = T_e$
+    (Lipschultz</span><span class="sh">'</span><span class="s">s $3\,\partial(nT)/\partial t$) $\gamma$ halves and the
+    criterion is unchanged.
+
+    Physical interpretation
+    -----------------------
+    A cooled spot on a flux surface radiates more, is compressed by the
+    surrounding pressure, radiates more still and condenses: the MARFE.
+    Parallel conduction refills it and stabilises short parallel wavelengths;
+    the $m = 1$ harmonic with the longest connection length goes first.
+
+    References
+    ----------
+    .. [1] J. F. Drake, Phys. Fluids 30 (1987) 2429, Eqs. (2), (16)-(18).
+    .. [2] B. Lipschultz, J. Nucl. Mater. 145-147 (1987) 15, Eq. (11).
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="sh">"</span><span class="s">n</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="sh">"</span><span class="s">T</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="sh">"</span><span class="s">L</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">k_parallel</span><span class="p">,</span> <span class="sh">"</span><span class="s">k_parallel</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">kappa</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">kappa_parallel</span><span class="p">,</span> <span class="sh">"</span><span class="s">kappa_parallel</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">drive</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">L</span> <span class="o">/</span> <span class="n">T</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">dL_dT</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">5.0</span> <span class="o">*</span> <span class="n">n</span> <span class="o">*</span> <span class="n">QE</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">drive</span> <span class="o">-</span> <span class="n">k</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">kappa</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Growth rate of the thermal-condensation (MARFE) instability at constant pressure.</p>
+
+\[\gamma = \frac{2}{5\,n e}\left(\frac{2L}{T} - \frac{\partial L}{\partial T}
+  - k_\parallel^2\kappa_\parallel\right)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Plasma density of Drake’s one-fluid model, positive.</p>
+</td></tr>
+  <tr><td><code>T</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Temperature, positive.</p>
+</td></tr>
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^3</td><td><p>Radiated power density, $L \propto n^2$, non-negative.</p>
+</td></tr>
+  <tr><td><code>dL_dT</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/(m^3 eV)</td><td><p>$\partial L/\partial T$ at fixed density.</p>
+</td></tr>
+  <tr><td><code>k_parallel</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/m</td><td><p>Parallel wavenumber of the perturbation, $m/(qR)$ for a poloidal harmonic $m \ge 1$, positive.</p>
+</td></tr>
+  <tr><td><code>kappa_parallel</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/(m eV)</td><td><p>Parallel conductivity, $\kappa_0 T^{5/2}$ in <code class="language-plaintext highlighter-rouge">spitzer_harm_parallel_heat_flux</code>’s units, non-negative.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/s</td><td><p>$\gamma$; positive is unstable.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Drake’s Eq. (2): the perturbation is slow against sound, $\gamma \ll
+k_\parallel c_s$, so pressure stays constant and $\tilde n/n = -\tilde T/T$
+(his Eq. 17); with $L \propto n^2$ the density rise feeds the $2L/T$
+term. Temperatures in eV and $\kappa_\parallel$ per eV, as in this module,
+so the $e$ converts the heat capacity $\tfrac52 n$ to joules. Instability
+needs $2L/T - \partial L/\partial T &gt; k_\parallel^2\kappa_\parallel$, which
+equals $-dL/dT$ at constant pressure: it does <strong>not</strong> need
+$\partial L/\partial T &lt; 0$. It needs $k_\parallel &gt; 0$: at
+$k_\parallel = 0$ no sound wave equalises pressure, the density stays
+fixed and <code class="language-plaintext highlighter-rouge">radiative_thermal_instability_growth_rate</code> applies instead.
+Perpendicular conduction is neglected here; Lipschultz finds its
+$K_\perp/\Delta^2$ small on Alcator C, while Drake’s threshold involves
+$\kappa_\perp$ (his Eqs. 7, 10, 18). The heat capacity is Drake’s one-fluid
+$\tfrac32 nT$; with electrons and ions both heated at $T_i = T_e$
+(Lipschultz’s $3\,\partial(nT)/\partial t$) $\gamma$ halves and the
+criterion is unchanged.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive density, temperature or $k_\parallel$, a negative $L$ or $\kappa_\parallel$.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A cooled spot on a flux surface radiates more, is compressed by the
+surrounding pressure, radiates more still and condenses: the MARFE.
+Parallel conduction refills it and stabilises short parallel wavelengths;
+the $m = 1$ harmonic with the longest connection length goes first.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. F. Drake, Phys. Fluids 30 (1987) 2429, Eqs. (2), (16)-(18).
+</li>
+  <li>B. Lipschultz, J. Nucl. Mater. 145-147 (1987) 15, Eq. (11).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="radiative_thermal_instability_growth_rate" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#radiative_thermal_instability_growth_rate"><code>radiative_thermal_instability_growth_rate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="radiative_thermal_instability_growth_rate" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L1060-L1102" title="vaft/formula/sol.py, lines 1060–1102 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>radiative_thermal_instability_growth_rate(n, dL_dT)</code></pre>
+
+    <details class="ref-code" data-source-code="radiative_thermal_instability_growth_rate"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 1060–1102</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">radiative_thermal_instability_growth_rate</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">dL_dT</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Growth rate of the radiative thermal instability of a flute perturbation at constant density.
+
+    $$\gamma = -\frac{2}{3\,n e}\frac{\partial L}{\partial T}$$
+
+    Parameters
+    ----------
+    n : float or np.ndarray
+        Plasma density of Drake</span><span class="sh">'</span><span class="s">s one-fluid model, positive [m^-3].
+    dL_dT : float or np.ndarray
+        $\partial L/\partial T$ at fixed density [W/(m^3 eV)].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\gamma$; positive is unstable [1/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive density.
+
+    Convention
+    ----------
+    Drake</span><span class="sh">'</span><span class="s">s Eq. (1): $k_\parallel = 0$, so no sound wave equalises pressure
+    and the density does not change; only a falling radiation curve,
+    $\partial L/\partial T &lt; 0$, is unstable. Compare
+    ``radiative_condensation_growth_rate``, where the constant-pressure
+    density rise adds the $2L/T$ drive.
+
+    Physical interpretation
+    -----------------------
+    The poloidally symmetric counterpart of the MARFE (Drake</span><span class="sh">'</span><span class="s">s Eq. 1): a
+    whole flux surface cooling where the radiation curve falls with
+    temperature. How it relates to detachment and to density limits is
+    #1068</span><span class="sh">'</span><span class="s">s, not this function</span><span class="sh">'</span><span class="s">s.
+
+    References
+    ----------
+    .. [1] J. F. Drake, Phys. Fluids 30 (1987) 2429, Eq. (1).
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="sh">"</span><span class="s">n</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="o">-</span><span class="mf">2.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">3.0</span> <span class="o">*</span> <span class="n">n</span> <span class="o">*</span> <span class="n">QE</span><span class="p">)</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">dL_dT</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Growth rate of the radiative thermal instability of a flute perturbation at constant density.</p>
+
+\[\gamma = -\frac{2}{3\,n e}\frac{\partial L}{\partial T}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Plasma density of Drake’s one-fluid model, positive.</p>
+</td></tr>
+  <tr><td><code>dL_dT</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/(m^3 eV)</td><td><p>$\partial L/\partial T$ at fixed density.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">1/s</td><td><p>$\gamma$; positive is unstable.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Drake’s Eq. (1): $k_\parallel = 0$, so no sound wave equalises pressure
+and the density does not change; only a falling radiation curve,
+$\partial L/\partial T &lt; 0$, is unstable. Compare
+<code class="language-plaintext highlighter-rouge">radiative_condensation_growth_rate</code>, where the constant-pressure
+density rise adds the $2L/T$ drive.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive density.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The poloidally symmetric counterpart of the MARFE (Drake’s Eq. 1): a
+whole flux surface cooling where the radiation curve falls with
+temperature. How it relates to detachment and to density limits is
+#1068’s, not this function’s.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. F. Drake, Phys. Fluids 30 (1987) 2429, Eq. (1).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="sheath_connected_blob_velocity" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#sheath_connected_blob_velocity"><code>sheath_connected_blob_velocity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="sheath_connected_blob_velocity" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L681-L735" title="vaft/formula/sol.py, lines 681–735 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>sheath_connected_blob_velocity(c_s, rho_s, delta, L_par, R, *, relative_amplitude=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="sheath_connected_blob_velocity"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 681–735</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sheath_connected_blob_velocity</span><span class="p">(</span><span class="n">c_s</span><span class="p">,</span> <span class="n">rho_s</span><span class="p">,</span> <span class="n">delta</span><span class="p">,</span> <span class="n">L_par</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">relative_amplitude</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Radial velocity of a blob whose polarization current closes through the sheaths.
+
+    $$v_x = c_s\,\frac{\delta n}{n}\,\frac{L_\parallel}{R}\left(\frac{\rho_s}{\delta}\right)^2$$
+
+    Parameters
+    ----------
+    c_s : float or np.ndarray
+        Ion sound speed, positive [m/s].
+    rho_s : float or np.ndarray
+        Ion sound gyroradius, positive [m].
+    delta : float or np.ndarray
+        Blob radius, Gaussian $e^{-r^2/2\delta^2}$, positive [m].
+    L_par : float or np.ndarray
+        Sheath-to-sheath parallel connection length, positive [m].
+    R : float or np.ndarray
+        Radius of curvature, positive [m].
+    relative_amplitude : float or np.ndarray
+        Blob amplitude over the total density, $\delta n/n$, in (0, 1] [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $v_x$, outward [m/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive input or an amplitude outside (0, 1].
+
+    Convention
+    ----------
+    D</span><span class="sh">'</span><span class="s">Ippolito, Myra and Zweben (2011) Eq. (3) for an isolated blob in vacuum
+    ($\delta n/n = 1$), and the linear $\delta n/n$ of their normalized form
+    $\hat v = (\delta n/n)/\hat\delta^2$ (p. 060501-25) with a background;
+    cold ions, $c_s = (T_e/m_i)^{1/2}$. Linearized sheath closure $J_\parallel = ne^2c_s\Phi/T_e$,
+    an exact nonlinear solution that convects without distortion.
+    Krasheninnikov</span><span class="sh">'</span><span class="s">s (2001) Eq. (6) has the same scaling with his
+    $e^{-y^2/\delta^2}$ width and $n_b/n_t$; Theiler et al. have a factor 2
+    with a HWHM size.
+
+    Physical interpretation
+    -----------------------
+    The sheath is the least resistive path, so the dipole potential and the
+    $E\times B$ speed are smallest: $v \propto \delta^{-2}$, large blobs slow.
+
+    References
+    ----------
+    .. [1] D. A. D</span><span class="sh">'</span><span class="s">Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18
+           (2011) 060501, Eq. (3).
+    .. [2] S. I. Krasheninnikov, Phys. Lett. A 283 (2001) 368, Eq. (6).
+    </span><span class="sh">"""</span>
+    <span class="n">c_s</span><span class="p">,</span> <span class="n">rho_s</span><span class="p">,</span> <span class="n">delta</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">c_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">c_s</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">rho_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">rho_s</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">delta</span><span class="p">,</span> <span class="sh">"</span><span class="s">delta</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">L_par</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L_par</span><span class="p">,</span> <span class="sh">"</span><span class="s">L_par</span><span class="sh">"</span><span class="p">),</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">R</span><span class="p">,</span> <span class="sh">"</span><span class="s">R</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_amplitude</span><span class="p">(</span><span class="n">relative_amplitude</span><span class="p">)</span> <span class="o">*</span> <span class="n">c_s</span> <span class="o">*</span> <span class="n">L_par</span> <span class="o">/</span> <span class="n">R</span> <span class="o">*</span> <span class="p">(</span><span class="n">rho_s</span> <span class="o">/</span> <span class="n">delta</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Radial velocity of a blob whose polarization current closes through the sheaths.</p>
+
+\[v_x = c_s\,\frac{\delta n}{n}\,\frac{L_\parallel}{R}\left(\frac{\rho_s}{\delta}\right)^2\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Ion sound speed, positive.</p>
+</td></tr>
+  <tr><td><code>rho_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Ion sound gyroradius, positive.</p>
+</td></tr>
+  <tr><td><code>delta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Blob radius, Gaussian $e^{-r^2/2\delta^2}$, positive.</p>
+</td></tr>
+  <tr><td><code>L_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Sheath-to-sheath parallel connection length, positive.</p>
+</td></tr>
+  <tr><td><code>R</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Radius of curvature, positive.</p>
+</td></tr>
+  <tr><td><code>relative_amplitude</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Blob amplitude over the total density, $\delta n/n$, in (0, 1].</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>$v_x$, outward.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>D’Ippolito, Myra and Zweben (2011) Eq. (3) for an isolated blob in vacuum
+($\delta n/n = 1$), and the linear $\delta n/n$ of their normalized form
+$\hat v = (\delta n/n)/\hat\delta^2$ (p. 060501-25) with a background;
+cold ions, $c_s = (T_e/m_i)^{1/2}$. Linearized sheath closure $J_\parallel = ne^2c_s\Phi/T_e$,
+an exact nonlinear solution that convects without distortion.
+Krasheninnikov’s (2001) Eq. (6) has the same scaling with his
+$e^{-y^2/\delta^2}$ width and $n_b/n_t$; Theiler et al. have a factor 2
+with a HWHM size.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive input or an amplitude outside (0, 1].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The sheath is the least resistive path, so the dipole potential and the
+$E\times B$ speed are smallest: $v \propto \delta^{-2}$, large blobs slow.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. A. D’Ippolito, J. R. Myra and S. J. Zweben, Phys. Plasmas 18 (2011) 060501, Eq. (3).
+</li>
+  <li>S. I. Krasheninnikov, Phys. Lett. A 283 (2001) 368, Eq. (6).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="sheath_heat_flux" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#sheath_heat_flux"><code>sheath_heat_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="sheath_heat_flux" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L243-L288" title="vaft/formula/sol.py, lines 243–288 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>sheath_heat_flux(gamma, n_t, T_t, c_s)</code></pre>
+
+    <details class="ref-code" data-source-code="sheath_heat_flux"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 243–288</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sheath_heat_flux</span><span class="p">(</span><span class="n">gamma</span><span class="p">,</span> <span class="n">n_t</span><span class="p">,</span> <span class="n">T_t</span><span class="p">,</span> <span class="n">c_s</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Parallel heat-flux density into the target sheath.
+
+    $$q_{\parallel,t} = \gamma\,n_t\,e T_t\,c_s$$
+
+    Parameters
+    ----------
+    gamma : float or np.ndarray
+        Sheath heat-transmission coefficient, a model input (typically 7--8
+        for a floating D target with $T_i = T_e$), positive [-].
+    n_t : float or np.ndarray
+        Sheath-edge density, non-negative [m^-3].
+    T_t : float or np.ndarray
+        Sheath-edge electron temperature, non-negative [eV].
+    c_s : float or np.ndarray
+        Sheath-edge sound speed [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $q_{\parallel,t}$ [W/m^2].
+
+    Raises
+    ------
+    ValueError
+        A non-positive ``gamma`` or ``c_s``, a negative density or temperature.
+
+    Convention
+    ----------
+    $\gamma$ is per electron temperature: it absorbs $T_i/T_e$, secondary
+    emission and the sheath potential, so it is supplied, never a universal
+    constant. Surface recombination energy is not included.
+
+    Physical interpretation
+    -----------------------
+    The sheath lets through a fixed energy per particle, a few $T_e$: with
+    the particle flux it closes the heat balance at the target.
+
+    References
+    ----------
+    .. [1] P. C. Stangeby, *The Plasma Boundary of Magnetic Fusion Devices*,
+           IOP (2000), Sec. 2.8.
+    </span><span class="sh">"""</span>
+    <span class="n">gamma</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">gamma</span><span class="p">,</span> <span class="sh">"</span><span class="s">gamma</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">T_t</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">T_t</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_t</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">gamma</span> <span class="o">*</span> <span class="n">QE</span> <span class="o">*</span> <span class="n">T_t</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">sheath_particle_flux</span><span class="p">(</span><span class="n">n_t</span><span class="p">,</span> <span class="n">c_s</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Parallel heat-flux density into the target sheath.</p>
+
+\[q_{\parallel,t} = \gamma\,n_t\,e T_t\,c_s\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>gamma</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Sheath heat-transmission coefficient, a model input (typically 7–8 for a floating D target with $T_i = T_e$), positive.</p>
+</td></tr>
+  <tr><td><code>n_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Sheath-edge density, non-negative.</p>
+</td></tr>
+  <tr><td><code>T_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Sheath-edge electron temperature, non-negative.</p>
+</td></tr>
+  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Sheath-edge sound speed.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>$q_{\parallel,t}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$\gamma$ is per electron temperature: it absorbs $T_i/T_e$, secondary
+emission and the sheath potential, so it is supplied, never a universal
+constant. Surface recombination energy is not included.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive <code class="language-plaintext highlighter-rouge">gamma</code> or <code class="language-plaintext highlighter-rouge">c_s</code>, a negative density or temperature.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The sheath lets through a fixed energy per particle, a few $T_e$: with
+the particle flux it closes the heat balance at the target.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.8.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="sheath_particle_flux" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#sheath_particle_flux"><code>sheath_particle_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="sheath_particle_flux" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L150-L194" title="vaft/formula/sol.py, lines 150–194 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>sheath_particle_flux(n_t, c_s, *, mach=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="sheath_particle_flux"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 150–194</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sheath_particle_flux</span><span class="p">(</span><span class="n">n_t</span><span class="p">,</span> <span class="n">c_s</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mach</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Particle flux density into the target sheath.
+
+    $$\Gamma_t = M\,n_t\,c_s$$
+
+    Parameters
+    ----------
+    n_t : float or np.ndarray
+        Ion density at the sheath edge, non-negative [m^-3].
+    c_s : float or np.ndarray
+        Ion sound speed at the sheath edge (``ion_sound_speed``) [m/s].
+    mach : float
+        Parallel Mach number at the sheath edge; one is the Bohm criterion
+        satisfied marginally [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Gamma_t$, along the field [m^-2 s^-1].
+
+    Raises
+    ------
+    ValueError
+        A negative density, a non-positive sound speed or Mach number.
+
+    Convention
+    ----------
+    Parallel to $\mathbf B$ at the sheath *edge*; the flux onto the target
+    surface is this times $\sin$ of the field-line incidence angle. $n_t$
+    is the sheath-edge density, not the upstream one.
+
+    Physical interpretation
+    -----------------------
+    The sheath removes ions at the rate the presheath accelerates them to
+    the sound speed: the target is a particle sink at fixed velocity.
+
+    References
+    ----------
+    .. [1] P. C. Stangeby, *The Plasma Boundary of Magnetic Fusion Devices*,
+           IOP (2000), Sec. 2.3.
+    </span><span class="sh">"""</span>
+    <span class="n">n_t</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">n_t</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_t</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">c_s</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">c_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">c_s</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">_positive</span><span class="p">(</span><span class="n">mach</span><span class="p">,</span> <span class="sh">"</span><span class="s">mach</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">mach</span> <span class="o">*</span> <span class="n">n_t</span> <span class="o">*</span> <span class="n">c_s</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Particle flux density into the target sheath.</p>
+
+\[\Gamma_t = M\,n_t\,c_s\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Ion density at the sheath edge, non-negative.</p>
+</td></tr>
+  <tr><td><code>c_s</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Ion sound speed at the sheath edge (<code class="language-plaintext highlighter-rouge">ion_sound_speed</code>).</p>
+</td></tr>
+  <tr><td><code>mach</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Parallel Mach number at the sheath edge; one is the Bohm criterion satisfied marginally.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-2 s^-1</td><td><p>$\Gamma_t$, along the field.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Parallel to $\mathbf B$ at the sheath <em>edge</em>; the flux onto the target
+surface is this times $\sin$ of the field-line incidence angle. $n_t$
+is the sheath-edge density, not the upstream one.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative density, a non-positive sound speed or Mach number.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The sheath removes ions at the rate the presheath accelerates them to
+the sound speed: the target is a particle sink at fixed velocity.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 2.3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="spitzer_harm_parallel_heat_flux" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#spitzer_harm_parallel_heat_flux"><code>spitzer_harm_parallel_heat_flux</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="spitzer_harm_parallel_heat_flux" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L291-L342" title="vaft/formula/sol.py, lines 291–342 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>spitzer_harm_parallel_heat_flux(T_e, dT_ds, *, kappa_0=2000.0)</code></pre>
+
+    <details class="ref-code" data-source-code="spitzer_harm_parallel_heat_flux"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 291–342</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">spitzer_harm_parallel_heat_flux</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">dT_ds</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">kappa_0</span><span class="o">=</span><span class="n">KAPPA_0E</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Classical parallel electron heat conduction.
+
+    $$q_{\parallel,e} = -\kappa_0\,T_e^{5/2}\,\frac{dT_e}{ds}$$
+
+    Parameters
+    ----------
+    T_e : float or np.ndarray
+        Electron temperature, non-negative [eV].
+    dT_ds : float or np.ndarray
+        Temperature gradient along $s$ [eV/m].
+    kappa_0 : float
+        Conduction coefficient; the default is Stangeby</span><span class="sh">'</span><span class="s">s $Z = 1$ working
+        value 2000 [W/(m eV^{7/2})].
+
+    Returns
+    -------
+    float or np.ndarray
+        $q_{\parallel,e}$, positive along $+s$ [W/m^2].
+
+    Raises
+    ------
+    ValueError
+        A negative temperature or a non-positive ``kappa_0``.
+
+    Convention
+    ----------
+    $\kappa_0$ depends on $Z_\mathrm{eff}$ and on the Coulomb logarithm:
+    $3.16\,nT\tau_e/m_e$ gives 2040 at $Z = 1$, $\ln\Lambda = 15$, and the
+    default 2000 is Stangeby</span><span class="sh">'</span><span class="s">s rounded working value; pass another for
+    impure plasmas or another $\ln\Lambda$. The flux is along $+s$, upstream to target, when the
+    temperature falls towards the target.
+
+    Physical interpretation
+    -----------------------
+    $\kappa \propto T_e^{5/2}$ makes a hot SOL nearly isothermal along the
+    field and concentrates the temperature drop near the target.
+
+    Assumptions
+    -----------
+    Collisional (the electron mean free path short against the gradient
+    length); flux limiting is not applied.
+
+    References
+    ----------
+    .. [1] L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977.
+    .. [2] P. C. Stangeby, *The Plasma Boundary of Magnetic Fusion Devices*,
+           IOP (2000), Sec. 4.10.
+    </span><span class="sh">"""</span>
+    <span class="n">T_e</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">_positive</span><span class="p">(</span><span class="n">kappa_0</span><span class="p">,</span> <span class="sh">"</span><span class="s">kappa_0</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="o">-</span><span class="n">kappa_0</span> <span class="o">*</span> <span class="n">T_e</span><span class="o">**</span><span class="mf">2.5</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">dT_ds</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Classical parallel electron heat conduction.</p>
+
+\[q_{\parallel,e} = -\kappa_0\,T_e^{5/2}\,\frac{dT_e}{ds}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, non-negative.</p>
+</td></tr>
+  <tr><td><code>dT_ds</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV/m</td><td><p>Temperature gradient along $s$.</p>
+</td></tr>
+  <tr><td><code>kappa_0</code></td><td class="ref-type">float</td><td class="ref-unit">W/(m eV^{7/2})</td><td><p>Conduction coefficient; the default is Stangeby’s $Z = 1$ working value 2000.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>$q_{\parallel,e}$, positive along $+s$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$\kappa_0$ depends on $Z_\mathrm{eff}$ and on the Coulomb logarithm:
+$3.16\,nT\tau_e/m_e$ gives 2040 at $Z = 1$, $\ln\Lambda = 15$, and the
+default 2000 is Stangeby’s rounded working value; pass another for
+impure plasmas or another $\ln\Lambda$. The flux is along $+s$, upstream to target, when the
+temperature falls towards the target.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative temperature or a non-positive <code class="language-plaintext highlighter-rouge">kappa_0</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\kappa \propto T_e^{5/2}$ makes a hot SOL nearly isothermal along the
+field and concentrates the temperature drop near the target.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Collisional (the electron mean free path short against the gradient
+length); flux limiting is not applied.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>L. Spitzer and R. Harm, Phys. Rev. 89 (1953) 977.
+</li>
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 4.10.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="two_point_upstream_temperature" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#two_point_upstream_temperature"><code>two_point_upstream_temperature</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="two_point_upstream_temperature" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/sol.py#L345-L402" title="vaft/formula/sol.py, lines 345–402 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>two_point_upstream_temperature(T_t, q_par, L_par, *, kappa_0=2000.0)</code></pre>
+
+    <details class="ref-code" data-source-code="two_point_upstream_temperature"><summary>Show source <span class="ref-note">vaft/formula/sol.py, lines 345–402</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">two_point_upstream_temperature</span><span class="p">(</span><span class="n">T_t</span><span class="p">,</span> <span class="n">q_par</span><span class="p">,</span> <span class="n">L_par</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">kappa_0</span><span class="o">=</span><span class="n">KAPPA_0E</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Upstream temperature from conduction at constant parallel heat flux.
+
+    $$T_u = \left(T_t^{7/2} + \frac{7}{2}\,\frac{q_\parallel L_\parallel}{\kappa_0}\right)^{2/7}$$
+
+    Parameters
+    ----------
+    T_t : float or np.ndarray
+        Target (sheath-edge) electron temperature, non-negative [eV].
+    q_par : float or np.ndarray
+        Parallel heat-flux density, constant along the flux tube,
+        non-negative [W/m^2].
+    L_par : float or np.ndarray
+        Parallel connection length from upstream to the target, positive [m].
+    kappa_0 : float
+        Conduction coefficient [W/(m eV^{7/2})].
+
+    Returns
+    -------
+    float or np.ndarray
+        $T_u$ [eV].
+
+    Raises
+    ------
+    ValueError
+        A negative temperature or heat flux, a non-positive length or
+        ``kappa_0``.
+
+    Convention
+    ----------
+    The integral of ``spitzer_harm_parallel_heat_flux`` at constant
+    $q_\parallel$ from the target ($s = L_\parallel$) back to upstream; the
+    endpoints are the declared upstream point and the target. With a
+    uniform source from the stagnation point ($q = 0$) to the target,
+    $q_\parallel$ the target value and $L_\parallel$ measured from the
+    stagnation point, the $\tfrac72$ becomes $\tfrac74$.
+
+    Physical interpretation
+    -----------------------
+    The two-point model</span><span class="sh">'</span><span class="s">s conduction leg: $T_u$ depends on $q_\parallel L$
+    only to the $2/7$ power, so upstream temperatures are robust while the
+    target temperature is not.
+
+    Assumptions
+    -----------
+    Conduction only, no convection or volumetric losses between the two
+    points, $q_\parallel$ constant along the tube.
+
+    References
+    ----------
+    .. [1] P. C. Stangeby, *The Plasma Boundary of Magnetic Fusion Devices*,
+           IOP (2000), Sec. 5.2.
+    </span><span class="sh">"""</span>
+    <span class="n">T_t</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">T_t</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_t</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">q_par</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">q_par</span><span class="p">,</span> <span class="sh">"</span><span class="s">q_par</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">L_par</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L_par</span><span class="p">,</span> <span class="sh">"</span><span class="s">L_par</span><span class="sh">"</span><span class="p">)</span>
+    <span class="nf">_positive</span><span class="p">(</span><span class="n">kappa_0</span><span class="p">,</span> <span class="sh">"</span><span class="s">kappa_0</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">((</span><span class="n">T_t</span><span class="o">**</span><span class="mf">3.5</span> <span class="o">+</span> <span class="mf">3.5</span> <span class="o">*</span> <span class="n">q_par</span> <span class="o">*</span> <span class="n">L_par</span> <span class="o">/</span> <span class="n">kappa_0</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">/</span> <span class="mf">7.0</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Upstream temperature from conduction at constant parallel heat flux.</p>
+
+\[T_u = \left(T_t^{7/2} + \frac{7}{2}\,\frac{q_\parallel L_\parallel}{\kappa_0}\right)^{2/7}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Target (sheath-edge) electron temperature, non-negative.</p>
+</td></tr>
+  <tr><td><code>q_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">W/m^2</td><td><p>Parallel heat-flux density, constant along the flux tube, non-negative.</p>
+</td></tr>
+  <tr><td><code>L_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Parallel connection length from upstream to the target, positive.</p>
+</td></tr>
+  <tr><td><code>kappa_0</code></td><td class="ref-type">float</td><td class="ref-unit">W/(m eV^{7/2})</td><td><p>Conduction coefficient.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>$T_u$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The integral of <code class="language-plaintext highlighter-rouge">spitzer_harm_parallel_heat_flux</code> at constant
+$q_\parallel$ from the target ($s = L_\parallel$) back to upstream; the
+endpoints are the declared upstream point and the target. With a
+uniform source from the stagnation point ($q = 0$) to the target,
+$q_\parallel$ the target value and $L_\parallel$ measured from the
+stagnation point, the $\tfrac72$ becomes $\tfrac74$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A negative temperature or heat flux, a non-positive length or <code class="language-plaintext highlighter-rouge">kappa_0</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The two-point model’s conduction leg: $T_u$ depends on $q_\parallel L$
+only to the $2/7$ power, so upstream temperatures are robust while the
+target temperature is not.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Conduction only, no convection or volumetric losses between the two
+points, $q_\parallel$ constant along the tube.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>P. C. Stangeby, <em>The Plasma Boundary of Magnetic Fusion Devices</em>, IOP (2000), Sec. 5.2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/nbi/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: nbi">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/api/core/" class="navigation navigation-next navigation-unique" aria-label="Next page: API: Top level and utilities">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "API: Top level and utilities",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Api_reference_core.md",
+            "ref": "_guide/Api_reference_core.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_sol.md",
+        "mtime": "2026-09-28 13:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -1,0 +1,933 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Ballooning formulations · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/reduced-stability-diagnostics/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/formula/dimensional/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Ballooning formulations</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Ballooning_formulations">Ballooning formulations</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>How VAFT's reduced s-alpha ballooning model, Fortran DCON's C_A and GPEC.jl's BALOO-style ballooning Delta-prime relate - governing equation, normalisation, geometry kept, boundary treatment and stability index - from their sources.</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>A convention contract (shear and alpha that reduce exactly to s-hat and the CHT alpha), the s-alpha reduction step by step, a source-verified comparison table and what can and cannot be compared.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>Three high-$n$ ideal-ballooning formulations are available to VAFT:</p>
+<ul>
+  <li>the reduced Connor–Hastie–Taylor (CHT) $s$–$\alpha$ model in <code class="language-plaintext highlighter-rouge">vaft.formula.stability</code>;</li>
+  <li>Fortran DCON’s local criterion $C_A$, which VAFT reads as <code class="language-plaintext highlighter-rouge">ca1</code>;</li>
+  <li>GPEC.jl’s BALOO-style ballooning $\Delta’$ and its $\alpha_{crit}$ scans (#1098).</li>
+</ul>
+
+<p>They share a physical limit. That does <strong>not</strong> make them the same equation, the same normalisation, the
+same stability index or the same algorithm. This page records which of those claims hold, from the
+sources. It is the theory and source part (P0) of #1637. The numerical comparisons (P1–P3) need DCON and
+GPEC.jl runs and belong to the stability workflow.</p>
+
+<p>Sources:</p>
+<ul>
+  <li>VAFT <code class="language-plaintext highlighter-rouge">develop</code>;</li>
+  <li>Princeton GPEC <code class="language-plaintext highlighter-rouge">e68d7ac2</code>: <code class="language-plaintext highlighter-rouge">dcon/bal.f</code>, <code class="language-plaintext highlighter-rouge">dcon/mercier.f</code>, <code class="language-plaintext highlighter-rouge">docs/tex/dcon/notebook/bal.tex</code>;</li>
+  <li>GPEC.jl <code class="language-plaintext highlighter-rouge">OpenFUSIONToolkit/GPEC@0e68a055</code>: <code class="language-plaintext highlighter-rouge">src/LocalStability/Ballooning.jl</code>, <code class="language-plaintext highlighter-rouge">docs/src/ballooning.md</code>.</li>
+</ul>
+
+<p>Statements marked <em>derived here</em> are this page’s algebra, not the sources’.</p>
+
+<p><img src="/vaft/assets/diagrams/ballooning_formulation_hierarchy.svg" alt="ballooning formulations" /></p>
+
+<h2 id="the-common-equation">The common equation</h2>
+
+<p>Both full-geometry codes start from the local ballooning equation along an extended field line</p>
+
+\[\mathbf B\cdot\nabla\left(\frac{|\nabla\beta|^2}{B^2}\,\mathbf B\cdot\nabla\hat\varphi\right)
++ 2\frac{P'}{\chi'}\,\kappa_w\,\hat\varphi = 0,\qquad \kappa_w = \kappa_n - q'\theta\,\kappa_s,\]
+
+<p>with the following conventions:</p>
+<ul>
+  <li>$\beta = \zeta - q\theta + \int q’\theta_0\,d\psi$ is the field-line label;</li>
+  <li>$P = \mu_0 p$, and primes are $d/d\psi_N$;</li>
+  <li>$\chi’ = 2\pi\,\psi_o$, where $\psi_o$ is the poloidal flux per radian, made positive on reading;</li>
+  <li>$\theta$ and $\zeta$ have period <strong>one</strong> (turns), not $2\pi$.</li>
+</ul>
+
+<p>The first-order system both codes integrate is $y_1 = \hat\varphi$, $y_2 = Dy_1’$, with
+$y_1’ = y_2/D$ and $y_2’ = -Ky_1$. $D$ holds the field-line bending $|\nabla\beta|^2/B^2$ and $K$ holds the
+pressure–curvature drive.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>Field-line bending $D$</th>
+      <th>Curvature in $K$</th>
+      <th>Ballooning angle</th>
+      <th> </th>
+      <th> </th>
+      <th> </th>
+      <th> </th>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>DCON (<code class="language-plaintext highlighter-rouge">bal.f</code>)</td>
+      <td>$D = b_1(\theta - \theta_0 + b_2)^2 + b_3$, the square completed on $</td>
+      <td>\nabla\beta</td>
+      <td>^2/B^2$</td>
+      <td>$\kappa_n$ from the Grad–Shafranov identity, with a $P’/B^2$ term</td>
+      <td>$\theta_0 = 0$, fixed, not an input</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>GPEC.jl (<code class="language-plaintext highlighter-rouge">Ballooning.jl</code>)</td>
+      <td>$</td>
+      <td>\nabla\beta</td>
+      <td>^2/B^2 = 1/(\chi’^2</td>
+      <td>\nabla\psi</td>
+      <td>^2) + (</td>
+      <td>\nabla\psi</td>
+      <td>^2/B^2)I_{tot}^2$, with $I_{tot} = q’(\theta - \theta_k) + I_{per}$</td>
+      <td>geometric $\kappa_n$, no GS identity, FFT-filtered derivatives</td>
+      <td><code class="language-plaintext highlighter-rouge">theta_k</code> keyword, in turns</td>
+    </tr>
+    <tr>
+      <td>VAFT (<code class="language-plaintext highlighter-rouge">s_alpha_ballooning_stable</code>)</td>
+      <td>$1 + \Lambda^2$, $\Lambda = \hat s\theta - \alpha\sin\theta$</td>
+      <td>$\cos\theta + \Lambda\sin\theta$</td>
+      <td>$\theta_0 = 0$ in the solvers; $\theta$ in radians</td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>GPEC.jl shifts the periodic shear $I_{per}$ so that $I_{tot}(\theta_k) = 0$, and DCON does not. Their
+“$\theta_0 = 0$” field lines therefore coincide only for up–down symmetric equilibria.</p>
+
+<h2 id="from-the-general-equation-to-salpha">From the general equation to $s$–$\alpha$</h2>
+
+<p>None of the three sources writes this reduction out. It is standard theory (CHT 1978/79; Wesson, §6.13):</p>
+
+<ol>
+  <li><strong>Large aspect ratio</strong>, $\epsilon \ll 1$: keep $O(1)$ in the metric and $O(\epsilon)$ in the curvature.</li>
+  <li><strong>Shifted circular surfaces.</strong> The Shafranov-shift gradient makes $\nabla\theta\cdot\nabla\psi \propto \sin\theta$.</li>
+  <li><strong>Metric.</strong> $|\nabla\zeta - q\nabla\theta|^2 \simeq (q/2\pi r)^2$ and the secular shear term
+$\propto \hat s\theta$. The shift adds the periodic $-\alpha\sin\theta$, so
+$|\nabla\beta|^2/B^2 \propto 1 + \Lambda^2$.</li>
+  <li><strong>Curvature.</strong> $\kappa_n \simeq -\cos\theta/R$ and $\kappa_s \propto \sin\theta/R$, so
+$\kappa_w \propto -(\cos\theta + \Lambda\sin\theta)$.</li>
+  <li><strong>Normalisation.</strong> With $\theta$ now in radians (steps 3 and 4 use the sources’ turns),
+$\mathbf B\cdot\nabla = (qR)^{-1}\partial_\theta$ and the drive $2P’/\chi’$ becomes $\alpha$.</li>
+</ol>
+
+<p>This gives the CHT equation VAFT solves:</p>
+
+\[\frac{d}{d\theta}\left[(1 + \Lambda^2)\frac{dF}{d\theta}\right] + \alpha(\cos\theta + \Lambda\sin\theta)F = 0.\]
+
+<p>What is lost:</p>
+<ul>
+  <li>$O(\epsilon)$ metric and curvature terms;</li>
+  <li>the poloidal variation of $B$;</li>
+  <li>elongation and triangularity;</li>
+  <li>the finite-$\epsilon$ harmonics of the shift.</li>
+</ul>
+
+<p>The $s$–$\alpha$ model also lets $\alpha$ change the local shear ($-\alpha\sin\theta$) as it is scanned.
+DCON freezes the equilibrium’s local shear. GPEC.jl freezes it too, except for the thin-layer correction
+$I_{per}^{[1]}$ in its $p’$ scans.</p>
+
+<h2 id="the-normalisation-contract">The normalisation contract</h2>
+
+<p>Comparable boundaries need comparable axes. VAFT now defines both from the equilibrium’s volume, without
+choosing a minor radius or a field strength:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Quantity</th>
+      <th>VAFT formula</th>
+      <th>Equation</th>
+      <th>Circular large-$\epsilon^{-1}$ limit</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>shear</td>
+      <td><code class="language-plaintext highlighter-rouge">shear_from_volume</code></td>
+      <td>$\hat s_V = (2V/q)(q_\psi/V_\psi) = d\ln q/d\ln r_V$, $r_V = \sqrt{V/2\pi^2R_0}$</td>
+      <td>exactly $\hat s = (r/q)\,dq/dr$, for <strong>any</strong> flux label</td>
+    </tr>
+    <tr>
+      <td>pressure gradient</td>
+      <td><code class="language-plaintext highlighter-rouge">ballooning_alpha_from_volume</code></td>
+      <td>$\alpha = -(2\mu_0/(2\pi)^2)\,V_\psi\,p_\psi\,\sqrt{V/2\pi^2R_0}$</td>
+      <td>exactly $-2\mu_0R_0q^2p’(r)/B_0^2$, with $\psi$ <strong>per radian</strong> and $R_0$ the magnetic axis</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Both identities are checked analytically in <code class="language-plaintext highlighter-rouge">test/test_formula_ballooning_normalisation.py</code>. With the full
+flux in Wb, $\alpha$ comes out $(2\pi)^2$ too small. The older <code class="language-plaintext highlighter-rouge">ballooning_alpha_from_p_B_R</code> differentiates
+against the major radius $R$, so it agrees only on the outboard midplane of a large-aspect-ratio circle.</p>
+
+<p>GPEC.jl’s reference values are <code class="language-plaintext highlighter-rouge">salpha_reference</code>:</p>
+<ul>
+  <li>$s_{ref} = 2Vq_\psi/(qV_\psi)$ is $\hat s_V$.</li>
+  <li>$\alpha_{ref} = -2\mu_0\,p_\psi V_\psi\sqrt{V/2\pi R_0}$, with $\psi$ per radian, differs from the
+volume $\alpha$ above. <em>Derived here:</em> in the circular limit $\alpha_{ref} = 4\pi^{5/2}\,\alpha_{CHT} \approx 70\,\alpha_{CHT}$.</li>
+</ul>
+
+<p>That factor must be checked numerically on an analytic large-aspect-ratio equilibrium before it is read as
+an inconsistency (P1). It does not affect GPEC.jl’s own scans: $\alpha_{crit} = \alpha_{ref}\times$scale,
+so the ratio $\alpha/\alpha_{crit}$ is invariant. It does affect any plot of absolute $\alpha$ against a CHT
+diagram.</p>
+
+<h2 id="stability-indices">Stability indices</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>VAFT $s$–$\alpha$</th>
+      <th>DCON $C_A$</th>
+      <th>GPEC.jl ballooning $\Delta’$</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Start / boundary</td>
+      <td>even solution $F(0) = 1$, $F’(0) = 0$</td>
+      <td>asymptotic <strong>small</strong> solution at $-\theta_{max}$, with a first-order correction</td>
+      <td>Dirichlet $y_1 = 0$ at both $\pm\theta_{max}$</td>
+    </tr>
+    <tr>
+      <td>Matching</td>
+      <td>none: Newcomb zero-crossing test</td>
+      <td>projection on the large / small basis at $+\theta_{max}$</td>
+      <td>log-derivative jump at $\pm 10^{-3}$</td>
+    </tr>
+    <tr>
+      <td>Index</td>
+      <td>Boolean; $\alpha_1$, $\alpha_2$ by bisection</td>
+      <td>$C_A$ (<code class="language-plaintext highlighter-rouge">ca1</code>; <code class="language-plaintext highlighter-rouge">ca2</code> is not written to netCDF)</td>
+      <td>$\Delta’ = (y_2/y_1)_R - (y_2/y_1)_L$</td>
+    </tr>
+    <tr>
+      <td>Stable when</td>
+      <td>no zero crossing</td>
+      <td>$C_A &gt; 0$ (<em>derived here</em>: the start is the small solution with $y_1 &gt; 0$, so without a zero crossing the large-solution coefficient is positive)</td>
+      <td>$\Delta’ &lt; 0$ (<em>derived here</em>, from the $P’ = 0$ limit)</td>
+    </tr>
+    <tr>
+      <td>Domain</td>
+      <td>$[0, 40\pi]$ rad, RK4, $h = 0.02$</td>
+      <td>$\pm\min(10\,\theta_{max,0}\,\text{scale}, 100)$ turns, LSODE $10^{-5}$</td>
+      <td>$\pm\min(10\,\text{scale}, 16.5)$ turns, DP5 $10^{-8}$</td>
+    </tr>
+    <tr>
+      <td>Gate</td>
+      <td>none</td>
+      <td>only where $-10^4 \le D_I \le 0$ and $\psi_N \le 1$, with <code class="language-plaintext highlighter-rouge">bal.f</code>’s <strong>own</strong> determinant $D_I = \det\bar d_0$, not the <code class="language-plaintext highlighter-rouge">di</code> that <code class="language-plaintext highlighter-rouge">mercier_scan</code> writes to netCDF (DCON’s <code class="language-plaintext highlighter-rouge">alpha</code> there is the Mercier exponent $\sqrt{-D_I}$)</td>
+      <td>none</td>
+    </tr>
+    <tr>
+      <td>Scans</td>
+      <td>$\hat s$, $\alpha$ free parameters</td>
+      <td>none</td>
+      <td>thin-layer $p’$ and $q’$ perturbations: $\alpha_{crit,1}$, $\alpha_{crit,2}$</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="how-c_a-and-delta-relate">How $C_A$ and $\Delta’$ relate</h2>
+
+<p>This section is <em>derived here</em>; no source states it. The Wronskian is conserved, so
+$\Delta’ \simeq -y_{L,1}(+\theta_{max})/[y_{L,1}(0)\,y_{R,1}(0)]$, and $C_A \simeq y_1(\theta_{max})/u_{large}$.</p>
+
+<ul>
+  <li>The numerators play the same role: each is a solution launched at one end and evaluated at the other.
+The launches differ, though. A Dirichlet start carries a large-solution admixture of relative size
+$\theta_{max}^{-2\alpha_M}$. So <strong>the zeros coincide only as $\theta_{max} \to \infty$ with $D_I &lt; 0$</strong>,
+and they differ most near Mercier-marginal surfaces. GPEC.jl’s 16.5-turn cap is much shorter than DCON’s 100.</li>
+  <li>$\Delta’$ has <strong>poles</strong> where $y_{L,1}(0)\,y_{R,1}(0) = 0$. There it changes sign without marginality.
+GPEC.jl filters these heuristically: it skips a sign change when $|\Delta’| &gt; 3|\Delta’_{anchor}|$.
+$C_A$ has no poles.</li>
+  <li>$C_A$ turns positive again after a second zero crossing while the mode is still unstable. So
+“$C_A &lt; 0 \Leftrightarrow$ unstable” holds only up to the first crossing. DCON counts crossings but does
+not write them out.</li>
+  <li>The stable signs are opposite. Between the anchor and the first pole, $C_A$ has the sign of $-\Delta’$.
+They are not proportional, and not monotonic in each other.</li>
+  <li>A single $C_A$ at the experimental equilibrium cannot give $\alpha_{crit,1}$ or $\alpha_{crit,2}$.
+Those need a scan.</li>
+</ul>
+
+<h2 id="what-is-left-for-the-numerical-study">What is left for the numerical study</h2>
+
+<p>These steps need solver runs; P1 must come before P2.</p>
+<ul>
+  <li><strong>P1:</strong> on an analytic large-aspect-ratio circular equilibrium, show that VAFT $s$–$\alpha$, DCON and
+GPEC.jl give the same first boundary after normalisation. Settle the $\alpha_{ref}$ factor first.</li>
+  <li><strong>P2:</strong> finite-$\epsilon$, elongation and triangularity scans.</li>
+  <li><strong>P3:</strong> a conventional reference equilibrium and a VEST equilibrium.</li>
+</ul>
+
+<p>Separate convergence in $\theta_{max}$, step size and tolerance from model error. GPEC.jl’s
+<code class="language-plaintext highlighter-rouge">salpha_reference</code> integrates $V$ from the innermost surface <code class="language-plaintext highlighter-rouge">psilow</code>, not from the axis. That biases $V$,
+$s_{ref}$ and $\alpha_{ref}$ low near the axis, so it must be accounted for in P1 together with the
+$4\pi^{5/2}$ factor. Open source questions:</p>
+<ul>
+  <li>whether the $\theta_k \ne 0$ gauge difference shifts zeros on up–down asymmetric equilibria;</li>
+  <li>how much the GS-identity and geometric $\kappa_n$ differ on equilibria that do not satisfy GS exactly;</li>
+  <li>a bound on the Dirichlet error.</li>
+</ul>
+
+<p>See <a href="/vaft/reference/reduced-stability-diagnostics/">Reduced stability diagnostics</a> and
+<a href="/vaft/workflows/mhd-stability/">MHD stability</a>.</p>
+
+<h2 id="references">References</h2>
+
+<ol>
+  <li>J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40 (1978) 396; Proc. R. Soc. A 365 (1979) 1.</li>
+  <li>R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and R. E. Waltz, Phys. Plasmas 5 (1998) 973.</li>
+  <li>A. H. Glasser, Phys. Plasmas 23 (2016) 072505 (DCON).</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), §6.13.</li>
+</ol>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="diagram"><a href="/vaft/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Reduced stability diagnostics">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/formula/dimensional/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: dimensional">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-common-equation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The common equation</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-the-general-equation-to-salpha" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From the general equation to $s$–$\alpha$</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-normalisation-contract" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The normalisation contract</a></li><li class="page-toc-item page-toc-level-2"><a href="#stability-indices" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stability indices</a></li><li class="page-toc-item page-toc-level-2"><a href="#how-c_a-and-delta-relate" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">How $C_A$ and $\Delta’$ relate</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-is-left-for-the-numerical-study" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What is left for the numerical study</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: dimensional",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_dimensional.md",
+            "ref": "_guide/Formula_reference_dimensional.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Ballooning_formulations.md",
+        "mtime": "2026-10-05 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

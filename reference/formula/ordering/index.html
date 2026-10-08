@@ -1,0 +1,2550 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: ordering · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/asymptotic-orderings/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/plasma-models/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: ordering</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_ordering">Formula reference: ordering</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.ordering, the asymptotic ordering parameters of #1627, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.ordering</code>:
+<strong>16</strong> public functions. Each entry is what
+<code>vaft.formula.describe("ordering.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A Lundquist number, an ion skin depth over a length, a Knudsen number or a
+magnetization is not a performance figure: it is the small or large
+parameter a model’s derivation expands in. These kernels compute them from
+explicit physical inputs – the characteristic length, the resistivity, the
+collision time are always arguments, never defaults – so a caller cannot
+silently substitute a global scale for a layer scale (#1627). Whether an
+ordering is satisfied is not decided here; that is the ordering contracts’
+job.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>L</td><td>characteristic length the ordering is taken against</td><td class="ref-unit">m</td></tr>
+  <tr><td>v_A</td><td>Alfven speed</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>eta</td><td>resistivity</td><td class="ref-unit">Ohm m</td></tr>
+  <tr><td>tau_A</td><td>Alfven time L / v_A</td><td class="ref-unit">s</td></tr>
+  <tr><td>tau_R</td><td>resistive diffusion time mu_0 L^2 / eta</td><td class="ref-unit">s</td></tr>
+  <tr><td>S</td><td>Lundquist number tau_R / tau_A</td><td class="ref-unit">-</td></tr>
+  <tr><td>d_s</td><td>inertial (skin) length c / omega_ps of species s</td><td class="ref-unit">m</td></tr>
+  <tr><td>rho_s</td><td>ion-sound gyroradius c_s / Omega_i</td><td class="ref-unit">m</td></tr>
+  <tr><td>v_t</td><td>thermal speed sqrt(T / m)</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>tau_e, tau_i</td><td>Braginskii electron and ion collision times</td><td class="ref-unit">s</td></tr>
+  <tr><td>lambda</td><td>mean free path v_t tau</td><td class="ref-unit">m</td></tr>
+  <tr><td>Kn</td><td>Knudsen number lambda / L</td><td class="ref-unit">-</td></tr>
+  <tr><td>lambda_D</td><td>electron Debye length</td><td class="ref-unit">m</td></tr>
+  <tr><td>M</td><td>Mach number U / v of a flow against a reference speed</td><td class="ref-unit">-</td></tr>
+  <tr><td>Delta</td><td>pressure anisotropy (p_perp - p_par) / p</td><td class="ref-unit">-</td></tr>
+  </tbody>
+</table></div>
+
+<p>Temperatures are in eV. The thermal speed is $\sqrt{T/m}$ (NRL formulary);
+some texts use $\sqrt{2T/m}$, which multiplies every mean free path and
+Knudsen number by $\sqrt 2$. The collision times are Braginskii’s, as the NRL
+formulary gives them, with the Coulomb logarithm an explicit argument.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 16 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="alfven_time"><td><a href="#alfven_time"><code>alfven_time</code></a></td><td>Alfven transit time across a characteristic length.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="braginskii_electron_collision_time"><td><a href="#braginskii_electron_collision_time"><code>braginskii_electron_collision_time</code></a></td><td>Braginskii electron collision time.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="braginskii_ion_collision_time"><td><a href="#braginskii_ion_collision_time"><code>braginskii_ion_collision_time</code></a></td><td>Braginskii ion collision time.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="debye_length"><td><a href="#debye_length"><code>debye_length</code></a></td><td>Electron Debye length.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="evolution_time"><td><a href="#evolution_time"><code>evolution_time</code></a></td><td>Evolution time of a state variable from its rate of change.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="inertial_length"><td><a href="#inertial_length"><code>inertial_length</code></a></td><td>Inertial (skin) length of a species: the light speed over its plasma frequency.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="knudsen_number"><td><a href="#knudsen_number"><code>knudsen_number</code></a></td><td>Knudsen number: mean free path over a characteristic length.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="lundquist_number"><td><a href="#lundquist_number"><code>lundquist_number</code></a></td><td>Lundquist number: resistive diffusion time over Alfven time.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mach_number"><td><a href="#mach_number"><code>mach_number</code></a></td><td>Mach number of a flow against a reference speed.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="magnetic_reynolds_number"><td><a href="#magnetic_reynolds_number"><code>magnetic_reynolds_number</code></a></td><td>Magnetic Reynolds number: flux advection against resistive diffusion.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="magnetization"><td><a href="#magnetization"><code>magnetization</code></a></td><td>Magnetization of a species: gyro-orbits per collision time.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="mean_free_path"><td><a href="#mean_free_path"><code>mean_free_path</code></a></td><td>Mean free path: thermal speed times collision time.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="pressure_anisotropy"><td><a href="#pressure_anisotropy"><code>pressure_anisotropy</code></a></td><td>Pressure anisotropy relative to the scalar pressure.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="resistive_diffusion_time"><td><a href="#resistive_diffusion_time"><code>resistive_diffusion_time</code></a></td><td>Resistive diffusion time of magnetic field across a characteristic length.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="sound_gyroradius"><td><a href="#sound_gyroradius"><code>sound_gyroradius</code></a></td><td>Ion-sound gyroradius: the ion sound speed over the ion gyrofrequency.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="thermal_speed"><td><a href="#thermal_speed"><code>thermal_speed</code></a></td><td>Thermal speed of a species.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="alfven_time" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#alfven_time"><code>alfven_time</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="alfven_time" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L90-L128" title="vaft/formula/ordering.py, lines 90–128 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>alfven_time(L, v_A)</code></pre>
+
+    <details class="ref-code" data-source-code="alfven_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 90–128</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">alfven_time</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">v_A</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Alfven transit time across a characteristic length.
+
+    $$\tau_A = \frac{L}{v_A}$$
+
+    Parameters
+    ----------
+    L : float or np.ndarray
+        Characteristic length, positive [m].
+    v_A : float or np.ndarray
+        Alfven speed, positive (``vaft.formula.stability.v_alfven_from_B_n_mi``) [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_A$ [s].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    $L$ is the caller</span><span class="sh">'</span><span class="s">s choice and names the ordering: the minor radius for a
+    global ordering, a layer width for a tearing-layer one. Some texts use
+    $qR_0/v_A$ (the shear-Alfven transit along the field); pass $L = qR_0$
+    for that.
+
+    Physical interpretation
+    -----------------------
+    The time on which ideal-MHD forces rebalance across $L$: equilibrium is a
+    sequence of states only if the plasma evolves much more slowly than this.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014), Ch. 2.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="sh">"</span><span class="s">L</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v_A</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_A</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Alfven transit time across a characteristic length.</p>
+
+\[\tau_A = \frac{L}{v_A}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Characteristic length, positive.</p>
+</td></tr>
+  <tr><td><code>v_A</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Alfven speed, positive (<code class="language-plaintext highlighter-rouge">vaft.formula.stability.v_alfven_from_B_n_mi</code>).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_A$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$L$ is the caller’s choice and names the ordering: the minor radius for a
+global ordering, a layer width for a tearing-layer one. Some texts use
+$qR_0/v_A$ (the shear-Alfven transit along the field); pass $L = qR_0$
+for that.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The time on which ideal-MHD forces rebalance across $L$: equilibrium is a
+sequence of states only if the plasma evolves much more slowly than this.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), Ch. 2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="braginskii_electron_collision_time" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#braginskii_electron_collision_time"><code>braginskii_electron_collision_time</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="braginskii_electron_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L398-L450" title="vaft/formula/ordering.py, lines 398–450 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>braginskii_electron_collision_time(n_e, T_e, ln_Lambda, Z=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="braginskii_electron_collision_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 398–450</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">braginskii_electron_collision_time</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">T_e</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Braginskii electron collision time.
+
+    $$\tau_e = 3.44\times10^{11}\,\frac{T_e^{3/2}}{Z\,n_e\ln\Lambda}$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Electron density, positive [m^-3].
+    T_e : float or np.ndarray
+        Electron temperature, positive [eV].
+    ln_Lambda : float or np.ndarray
+        Coulomb logarithm, positive [-].
+    Z : float or np.ndarray
+        Ion charge number, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_e$ [s].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    NRL</span><span class="sh">'</span><span class="s">s $3.44\times10^5\,T_e^{3/2}/(n\ln\Lambda)$ with $n$ in cm$^{-3}$,
+    converted to m$^{-3}$; ions of charge $Z$ with $n_iZ^2 = n_eZ$ give the
+    $1/Z$, and for an ion mixture $Z = Z_{eff}$ is exact, since
+    $\sum_j n_jZ_j^2 = n_eZ_{eff}$. The Coulomb logarithm is an argument so its convention stays
+    visible (``coulomb_logarithm_electron_sauter`` or
+    ``coulomb_logarithm_from_n_T``).
+
+    Physical interpretation
+    -----------------------
+    The time between momentum-changing electron collisions: with the thermal
+    speed it sets the electron mean free path, with the gyrofrequency the
+    electron magnetization.
+
+    Assumptions
+    -----------
+    Maxwellian electrons, $\ln\Lambda \gg 1$.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, in *Reviews of Plasma Physics*, Vol. 1,
+           Consultants Bureau (1965), p. 205.
+    .. [2] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019).
+    </span><span class="sh">"""</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">3.44e11</span> <span class="o">*</span> <span class="n">T</span> <span class="o">**</span> <span class="mf">1.5</span> <span class="o">/</span> <span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">ln_Lambda</span><span class="p">,</span> <span class="sh">"</span><span class="s">ln_Lambda</span><span class="sh">"</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Braginskii electron collision time.</p>
+
+\[\tau_e = 3.44\times10^{11}\,\frac{T_e^{3/2}}{Z\,n_e\ln\Lambda}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Coulomb logarithm, positive.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Ion charge number, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_e$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>NRL’s $3.44\times10^5\,T_e^{3/2}/(n\ln\Lambda)$ with $n$ in cm$^{-3}$,
+converted to m$^{-3}$; ions of charge $Z$ with $n_iZ^2 = n_eZ$ give the
+$1/Z$, and for an ion mixture $Z = Z_{eff}$ is exact, since
+$\sum_j n_jZ_j^2 = n_eZ_{eff}$. The Coulomb logarithm is an argument so its convention stays
+visible (<code class="language-plaintext highlighter-rouge">coulomb_logarithm_electron_sauter</code> or
+<code class="language-plaintext highlighter-rouge">coulomb_logarithm_from_n_T</code>).</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The time between momentum-changing electron collisions: with the thermal
+speed it sets the electron mean free path, with the gyrofrequency the
+electron magnetization.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Maxwellian electrons, $\ln\Lambda \gg 1$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, in <em>Reviews of Plasma Physics</em>, Vol. 1, Consultants Bureau (1965), p. 205.
+</li>
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="braginskii_ion_collision_time" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#braginskii_ion_collision_time"><code>braginskii_ion_collision_time</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="braginskii_ion_collision_time" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L453-L505" title="vaft/formula/ordering.py, lines 453–505 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>braginskii_ion_collision_time(n_i, T_i, ln_Lambda, mass_number=1.0, Z=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="braginskii_ion_collision_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 453–505</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">braginskii_ion_collision_time</span><span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="n">T_i</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">,</span> <span class="n">mass_number</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Braginskii ion collision time.
+
+    $$\tau_i = 2.09\times10^{13}\,\frac{\mu^{1/2}\,T_i^{3/2}}{Z^4n_i\ln\Lambda}$$
+
+    Parameters
+    ----------
+    n_i : float or np.ndarray
+        Ion density, positive [m^-3].
+    T_i : float or np.ndarray
+        Ion temperature, positive [eV].
+    ln_Lambda : float or np.ndarray
+        Ion Coulomb logarithm, positive [-].
+    mass_number : float or np.ndarray
+        Ion mass in proton masses, $\mu = m_i/m_p$, positive [-].
+    Z : float or np.ndarray
+        Ion charge number, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_i$ [s].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    NRL</span><span class="sh">'</span><span class="s">s $2.09\times10^7\,T_i^{3/2}\mu^{1/2}/(n\ln\Lambda)$ with $n$ in
+    cm$^{-3}$, converted to m$^{-3}$, with Braginskii</span><span class="sh">'</span><span class="s">s $Z^4$ for a single
+    ion species of charge $Z$.
+
+    Physical interpretation
+    -----------------------
+    The ion-ion collision time: with the ion thermal speed it sets the ion
+    mean free path, with the ion gyrofrequency the ion magnetization.
+
+    Assumptions
+    -----------
+    One Maxwellian ion species, $\ln\Lambda \gg 1$.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, in *Reviews of Plasma Physics*, Vol. 1,
+           Consultants Bureau (1965), p. 205.
+    .. [2] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019).
+    </span><span class="sh">"""</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_i</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">2.09e13</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">mass_number</span><span class="p">,</span> <span class="sh">"</span><span class="s">mass_number</span><span class="sh">"</span><span class="p">))</span> <span class="o">*</span> <span class="n">T</span> <span class="o">**</span> <span class="mf">1.5</span>
+                <span class="o">/</span> <span class="p">(</span><span class="n">Z</span> <span class="o">**</span> <span class="mi">4</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_i</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">ln_Lambda</span><span class="p">,</span> <span class="sh">"</span><span class="s">ln_Lambda</span><span class="sh">"</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Braginskii ion collision time.</p>
+
+\[\tau_i = 2.09\times10^{13}\,\frac{\mu^{1/2}\,T_i^{3/2}}{Z^4n_i\ln\Lambda}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Ion density, positive.</p>
+</td></tr>
+  <tr><td><code>T_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Ion temperature, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Ion Coulomb logarithm, positive.</p>
+</td></tr>
+  <tr><td><code>mass_number</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Ion mass in proton masses, $\mu = m_i/m_p$, positive.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Ion charge number, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_i$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>NRL’s $2.09\times10^7\,T_i^{3/2}\mu^{1/2}/(n\ln\Lambda)$ with $n$ in
+cm$^{-3}$, converted to m$^{-3}$, with Braginskii’s $Z^4$ for a single
+ion species of charge $Z$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The ion-ion collision time: with the ion thermal speed it sets the ion
+mean free path, with the ion gyrofrequency the ion magnetization.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>One Maxwellian ion species, $\ln\Lambda \gg 1$.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, in <em>Reviews of Plasma Physics</em>, Vol. 1, Consultants Bureau (1965), p. 205.
+</li>
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="debye_length" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#debye_length"><code>debye_length</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="debye_length" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L680-L721" title="vaft/formula/ordering.py, lines 680–721 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>debye_length(n_e, T_e)</code></pre>
+
+    <details class="ref-code" data-source-code="debye_length"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 680–721</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">debye_length</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">T_e</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Electron Debye length.
+
+    $$\lambda_D = \sqrt{\frac{\epsilon_0 T_e}{n_e e^2}}$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Electron density, positive [m^-3].
+    T_e : float or np.ndarray
+        Electron temperature, positive [eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\lambda_D$ [m].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    The electron Debye length of the NRL formulary,
+    $7.43\times10^{2}\,T_e^{1/2}n_e^{-1/2}$ cm with $n_e$ in cm$^{-3}$. Ion
+    shielding, which shortens the total Debye length, is left out.
+
+    Physical interpretation
+    -----------------------
+    $\lambda_D/L \ll 1$ is quasineutrality: charge separation is confined
+    below the Debye scale, the Poisson equation reduces to $n_e = \sum Z n_i$
+    and the plasma oscillation drops out of every fluid and gyrokinetic model.
+    In a fusion core it holds by many decades; it fails in sheaths.
+
+    References
+    ----------
+    .. [1] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019).
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">EPS0</span> <span class="o">*</span> <span class="n">T</span> <span class="o">/</span> <span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">QE</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Electron Debye length.</p>
+
+\[\lambda_D = \sqrt{\frac{\epsilon_0 T_e}{n_e e^2}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>$\lambda_D$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The electron Debye length of the NRL formulary,
+$7.43\times10^{2}\,T_e^{1/2}n_e^{-1/2}$ cm with $n_e$ in cm$^{-3}$. Ion
+shielding, which shortens the total Debye length, is left out.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\lambda_D/L \ll 1$ is quasineutrality: charge separation is confined
+below the Debye scale, the Poisson equation reduces to $n_e = \sum Z n_i$
+and the plasma oscillation drops out of every fluid and gyrokinetic model.
+In a fusion core it holds by many decades; it fails in sheaths.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="evolution_time" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#evolution_time"><code>evolution_time</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="evolution_time" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L636-L677" title="vaft/formula/ordering.py, lines 636–677 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>evolution_time(X, dX_dt)</code></pre>
+
+    <details class="ref-code" data-source-code="evolution_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 636–677</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">evolution_time</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">dX_dt</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Evolution time of a state variable from its rate of change.
+
+    $$\tau_{evol} = \left|\frac{X}{dX/dt}\right|$$
+
+    Parameters
+    ----------
+    X : float or np.ndarray
+        State variable: $I_p$, stored energy, axis position, ... [any].
+    dX_dt : float or np.ndarray
+        Its time derivative, in the unit of ``X`` per second [any/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_{evol}$; infinite where $X$ is stationary [s].
+
+    Raises
+    ------
+    ValueError
+        An input is not finite.
+
+    Convention
+    ----------
+    Positive by construction. A position $X$ needs a reference: use a
+    displacement over a length, not a coordinate that passes through zero.
+
+    Physical interpretation
+    -----------------------
+    $\tau_{evol}/\tau_A \gg 1$ is the quasi-static ordering behind treating a
+    discharge as a sequence of equilibria -- a physical statement, separate
+    from whether a reconstruction converged.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014), Ch. 2.
+    </span><span class="sh">"""</span>
+    <span class="n">X</span> <span class="o">=</span> <span class="nf">_array</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="sh">"</span><span class="s">X</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">rate</span> <span class="o">=</span> <span class="nf">_array</span><span class="p">(</span><span class="n">dX_dt</span><span class="p">,</span> <span class="sh">"</span><span class="s">dX_dt</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">np</span><span class="p">.</span><span class="nf">errstate</span><span class="p">(</span><span class="n">divide</span><span class="o">=</span><span class="sh">"</span><span class="s">ignore</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">rate</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">inf</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">X</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">rate</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">rate</span><span class="p">)))</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">result</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Evolution time of a state variable from its rate of change.</p>
+
+\[\tau_{evol} = \left|\frac{X}{dX/dt}\right|\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>X</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">any</td><td><p>State variable: $I_p$, stored energy, axis position, …</p>
+</td></tr>
+  <tr><td><code>dX_dt</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">any/s</td><td><p>Its time derivative, in the unit of <code class="language-plaintext highlighter-rouge">X</code> per second.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_{evol}$; infinite where $X$ is stationary.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Positive by construction. A position $X$ needs a reference: use a
+displacement over a length, not a coordinate that passes through zero.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\tau_{evol}/\tau_A \gg 1$ is the quasi-static ordering behind treating a
+discharge as a sequence of equilibria – a physical statement, separate
+from whether a reconstruction converged.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014), Ch. 2.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="inertial_length" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#inertial_length"><code>inertial_length</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="inertial_length" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L265-L311" title="vaft/formula/ordering.py, lines 265–311 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>inertial_length(n, m, q=1.602176634e-19)</code></pre>
+
+    <details class="ref-code" data-source-code="inertial_length"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 265–311</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">inertial_length</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">m</span><span class="p">,</span> <span class="n">q</span><span class="o">=</span><span class="n">QE</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Inertial (skin) length of a species: the light speed over its plasma frequency.
+
+    $$d_s = \frac{c}{\omega_{ps}} = \sqrt{\frac{m_s}{\mu_0n_sq_s^2}}$$
+
+    Parameters
+    ----------
+    n : float or np.ndarray
+        Species density, positive [m^-3].
+    m : float or np.ndarray
+        Species mass, positive [kg].
+    q : float or np.ndarray
+        Species charge, non-zero; the elementary charge by default [C].
+
+    Returns
+    -------
+    float or np.ndarray
+        $d_s$ [m].
+
+    Raises
+    ------
+    ValueError
+        ``n`` or ``m`` is not positive, ``q`` is zero, or an input is not
+        finite.
+
+    Convention
+    ----------
+    $d_i$ with the ion mass and density, $d_e$ with the electron</span><span class="sh">'</span><span class="s">s. The
+    ordering parameter is $d_s/L$: a global $d_i/a$ and a layer $d_i/\delta$
+    are different statements.
+
+    Physical interpretation
+    -----------------------
+    Below $d_i$ ions decouple from the field and Hall physics enters; below
+    $d_e$ electron inertia does. $d_i/L \ll 1$ is the scale separation
+    single-fluid MHD needs.
+
+    References
+    ----------
+    .. [1] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019).
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="sh">"</span><span class="s">n</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="sh">"</span><span class="s">m</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">q</span> <span class="o">=</span> <span class="nf">_array</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="sh">"</span><span class="s">q</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">q</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">q must be non-zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">C_LIGHT</span> <span class="o">/</span> <span class="nf">plasma_frequency</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">m</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Inertial (skin) length of a species: the light speed over its plasma frequency.</p>
+
+\[d_s = \frac{c}{\omega_{ps}} = \sqrt{\frac{m_s}{\mu_0n_sq_s^2}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Species density, positive.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Species mass, positive.</p>
+</td></tr>
+  <tr><td><code>q</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">C</td><td><p>Species charge, non-zero; the elementary charge by default.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>$d_s$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$d_i$ with the ion mass and density, $d_e$ with the electron’s. The
+ordering parameter is $d_s/L$: a global $d_i/a$ and a layer $d_i/\delta$
+are different statements.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">n</code> or <code class="language-plaintext highlighter-rouge">m</code> is not positive, <code class="language-plaintext highlighter-rouge">q</code> is zero, or an input is not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Below $d_i$ ions decouple from the field and Hall physics enters; below
+$d_e$ electron inertia does. $d_i/L \ll 1$ is the scale separation
+single-fluid MHD needs.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="knudsen_number" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#knudsen_number"><code>knudsen_number</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="knudsen_number" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L547-L587" title="vaft/formula/ordering.py, lines 547–587 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>knudsen_number(mean_free_path, L)</code></pre>
+
+    <details class="ref-code" data-source-code="knudsen_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 547–587</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">knudsen_number</span><span class="p">(</span><span class="n">mean_free_path</span><span class="p">,</span> <span class="n">L</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Knudsen number: mean free path over a characteristic length.
+
+    $$Kn = \frac{\lambda}{L}$$
+
+    Parameters
+    ----------
+    mean_free_path : float or np.ndarray
+        Mean free path, positive [m].
+    L : float or np.ndarray
+        Characteristic length, positive: a gradient length $L_T$, $L_n$, or a
+        parallel connection length [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $Kn$ [-].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    Species- and scale-specific: $Kn_{e,T} = \lambda_e/L_{T_e}$,
+    $Kn_{\parallel} = \lambda_e/L_\parallel$. The same mean free path gives a
+    small $Kn$ against a long parallel length and a large one against a
+    steep perpendicular gradient.
+
+    Physical interpretation
+    -----------------------
+    $Kn \ll 1$ supports a local (Braginskii-type) collisional closure; as it
+    grows, transport becomes non-local and kinetic.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, in *Reviews of Plasma Physics*, Vol. 1,
+           Consultants Bureau (1965), p. 205.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">mean_free_path</span><span class="p">,</span> <span class="sh">"</span><span class="s">mean_free_path</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="sh">"</span><span class="s">L</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Knudsen number: mean free path over a characteristic length.</p>
+
+\[Kn = \frac{\lambda}{L}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>mean_free_path</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Mean free path, positive.</p>
+</td></tr>
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Characteristic length, positive: a gradient length $L_T$, $L_n$, or a parallel connection length.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$Kn$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Species- and scale-specific: $Kn_{e,T} = \lambda_e/L_{T_e}$,
+$Kn_{\parallel} = \lambda_e/L_\parallel$. The same mean free path gives a
+small $Kn$ against a long parallel length and a large one against a
+steep perpendicular gradient.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$Kn \ll 1$ supports a local (Braginskii-type) collisional closure; as it
+grows, transport becomes non-local and kinetic.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, in <em>Reviews of Plasma Physics</em>, Vol. 1, Consultants Bureau (1965), p. 205.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="lundquist_number" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#lundquist_number"><code>lundquist_number</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="lundquist_number" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L174-L217" title="vaft/formula/ordering.py, lines 174–217 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>lundquist_number(L, v_A, eta)</code></pre>
+
+    <details class="ref-code" data-source-code="lundquist_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 174–217</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">lundquist_number</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">v_A</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Lundquist number: resistive diffusion time over Alfven time.
+
+    $$S = \frac{\tau_R}{\tau_A} = \frac{\mu_0Lv_A}{\eta}$$
+
+    Parameters
+    ----------
+    L : float or np.ndarray
+        Characteristic length, positive [m].
+    v_A : float or np.ndarray
+        Alfven speed, positive [m/s].
+    eta : float or np.ndarray
+        Resistivity, positive [Ohm m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $S$ [-].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    $S$ scales with $L$: a global $S$ (with $L = a$) and a sheet or layer $S$
+    (with its own thickness or length) are different numbers. Name the
+    length when reporting it. ``vaft.process.perturbation.lundquist_number``
+    takes the two times instead, $\tau_R/\tau_A$; both are the same number.
+
+    Physical interpretation
+    -----------------------
+    $S \gg 1$ separates fast Alfvenic dynamics from slow resistive diffusion
+    at that scale: it supports ideal MHD **globally**, and says nothing about
+    thin resonant layers, where resistivity matters however large $S$ is.
+
+    References
+    ----------
+    .. [1] D. Biskamp, *Magnetic Reconnection in Plasmas*, Cambridge University
+           Press (2000), Ch. 1.
+    </span><span class="sh">"""</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="sh">"</span><span class="s">L</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">MU0</span> <span class="o">*</span> <span class="n">L</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v_A</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_A</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="sh">"</span><span class="s">eta</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Lundquist number: resistive diffusion time over Alfven time.</p>
+
+\[S = \frac{\tau_R}{\tau_A} = \frac{\mu_0Lv_A}{\eta}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Characteristic length, positive.</p>
+</td></tr>
+  <tr><td><code>v_A</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Alfven speed, positive.</p>
+</td></tr>
+  <tr><td><code>eta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Ohm m</td><td><p>Resistivity, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$S$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$S$ scales with $L$: a global $S$ (with $L = a$) and a sheet or layer $S$
+(with its own thickness or length) are different numbers. Name the
+length when reporting it. <code class="language-plaintext highlighter-rouge">vaft.process.perturbation.lundquist_number</code>
+takes the two times instead, $\tau_R/\tau_A$; both are the same number.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$S \gg 1$ separates fast Alfvenic dynamics from slow resistive diffusion
+at that scale: it supports ideal MHD <strong>globally</strong>, and says nothing about
+thin resonant layers, where resistivity matters however large $S$ is.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. Biskamp, <em>Magnetic Reconnection in Plasmas</em>, Cambridge University Press (2000), Ch. 1.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mach_number" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mach_number"><code>mach_number</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mach_number" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L724-L763" title="vaft/formula/ordering.py, lines 724–763 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>mach_number(U, v)</code></pre>
+
+    <details class="ref-code" data-source-code="mach_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 724–763</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mach_number</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="n">v</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Mach number of a flow against a reference speed.
+
+    $$M = \frac{|U|}{v}$$
+
+    Parameters
+    ----------
+    U : float or np.ndarray
+        Flow speed, either sign [m/s].
+    v : float or np.ndarray
+        Reference speed, positive: the ion thermal speed
+        (:func:`thermal_speed`), the sound speed or the Alfven speed [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $M$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``v`` is not positive, or an input is not finite.
+
+    Convention
+    ----------
+    The reference speed names the ordering: $M = U/v_{ti}$ is the sonic
+    Mach number of gyrokinetic and equilibrium flow orderings,
+    $M_A = U/v_A$ the Alfvenic one. Below $\beta \sim 1$, $M_A &lt; M$.
+
+    Physical interpretation
+    -----------------------
+    $M \ll 1$ lets a static equilibrium and a low-flow gyrokinetic model
+    drop centrifugal and Coriolis terms; $M \sim 1$ needs the rotating
+    (high-flow) forms, and $M_A \sim 1$ changes the force balance itself.
+
+    References
+    ----------
+    .. [1] F. I. Parra and P. J. Catto, Plasma Phys. Control. Fusion 52 (2010) 045004.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="nf">_array</span><span class="p">(</span><span class="n">U</span><span class="p">,</span> <span class="sh">"</span><span class="s">U</span><span class="sh">"</span><span class="p">))</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="sh">"</span><span class="s">v</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Mach number of a flow against a reference speed.</p>
+
+\[M = \frac{|U|}{v}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>U</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Flow speed, either sign.</p>
+</td></tr>
+  <tr><td><code>v</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Reference speed, positive: the ion thermal speed (<code class="language-plaintext highlighter-rouge">thermal_speed</code>), the sound speed or the Alfven speed.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$M$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The reference speed names the ordering: $M = U/v_{ti}$ is the sonic
+Mach number of gyrokinetic and equilibrium flow orderings,
+$M_A = U/v_A$ the Alfvenic one. Below $\beta \sim 1$, $M_A &lt; M$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">v</code> is not positive, or an input is not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$M \ll 1$ lets a static equilibrium and a low-flow gyrokinetic model
+drop centrifugal and Coriolis terms; $M \sim 1$ needs the rotating
+(high-flow) forms, and $M_A \sim 1$ changes the force balance itself.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>F. I. Parra and P. J. Catto, Plasma Phys. Control. Fusion 52 (2010) 045004.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="magnetic_reynolds_number" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#magnetic_reynolds_number"><code>magnetic_reynolds_number</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="magnetic_reynolds_number" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L220-L262" title="vaft/formula/ordering.py, lines 220–262 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>magnetic_reynolds_number(V, L, eta)</code></pre>
+
+    <details class="ref-code" data-source-code="magnetic_reynolds_number"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 220–262</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetic_reynolds_number</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="n">L</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Magnetic Reynolds number: flux advection against resistive diffusion.
+
+    $$R_m = \frac{\mu_0VL}{\eta}$$
+
+    Parameters
+    ----------
+    V : float or np.ndarray
+        Characteristic flow speed, non-negative [m/s].
+    L : float or np.ndarray
+        Characteristic length, positive [m].
+    eta : float or np.ndarray
+        Resistivity, positive [Ohm m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $R_m$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``V`` is negative, ``L`` or ``eta`` is not positive, or an input is
+        not finite.
+
+    Convention
+    ----------
+    $V$ is a *measured or modelled* flow; with $V = v_A$ this is the
+    Lundquist number. Do not substitute an arbitrary speed to fill a table.
+
+    Physical interpretation
+    -----------------------
+    $R_m \gg 1$: the field is frozen into the flow at that scale.
+
+    References
+    ----------
+    .. [1] D. Biskamp, *Magnetic Reconnection in Plasmas*, Cambridge University
+           Press (2000), Ch. 1.
+    </span><span class="sh">"""</span>
+    <span class="n">V</span> <span class="o">=</span> <span class="nf">_array</span><span class="p">(</span><span class="n">V</span><span class="p">,</span> <span class="sh">"</span><span class="s">V</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">V</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">V must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">MU0</span> <span class="o">*</span> <span class="n">V</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="sh">"</span><span class="s">L</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="sh">"</span><span class="s">eta</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Magnetic Reynolds number: flux advection against resistive diffusion.</p>
+
+\[R_m = \frac{\mu_0VL}{\eta}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>V</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Characteristic flow speed, non-negative.</p>
+</td></tr>
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Characteristic length, positive.</p>
+</td></tr>
+  <tr><td><code>eta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Ohm m</td><td><p>Resistivity, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$R_m$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$V$ is a <em>measured or modelled</em> flow; with $V = v_A$ this is the
+Lundquist number. Do not substitute an arbitrary speed to fill a table.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">V</code> is negative, <code class="language-plaintext highlighter-rouge">L</code> or <code class="language-plaintext highlighter-rouge">eta</code> is not positive, or an input is not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$R_m \gg 1$: the field is frozen into the flow at that scale.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>D. Biskamp, <em>Magnetic Reconnection in Plasmas</em>, Cambridge University Press (2000), Ch. 1.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="magnetization" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#magnetization"><code>magnetization</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="magnetization" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L590-L633" title="vaft/formula/ordering.py, lines 590–633 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>magnetization(gyrofrequency, collision_time)</code></pre>
+
+    <details class="ref-code" data-source-code="magnetization"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 590–633</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">magnetization</span><span class="p">(</span><span class="n">gyrofrequency</span><span class="p">,</span> <span class="n">collision_time</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Magnetization of a species: gyro-orbits per collision time.
+
+    $$\chi_s = |\Omega_s|\,\tau_s$$
+
+    Parameters
+    ----------
+    gyrofrequency : float or np.ndarray
+        Gyrofrequency, either sign, non-zero (``vaft.formula.particle.gyrofrequency``) [rad/s].
+    collision_time : float or np.ndarray
+        Collision time of the same species, positive [s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\chi_s = \Omega_s/\nu_s$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``gyrofrequency`` is zero, ``collision_time`` is not positive, or an
+        input is not finite.
+
+    Convention
+    ----------
+    Signed gyrofrequencies are taken in magnitude. Braginskii</span><span class="sh">'</span><span class="s">s transport
+    coefficients are written in this $\Omega\tau$.
+
+    Physical interpretation
+    -----------------------
+    $\chi \gg 1$: particles gyrate many times between collisions, the
+    strongly magnetized ordering behind anisotropic transport. Independent
+    of the Knudsen number: a plasma can be strongly magnetized and
+    collisionless along the field at once.
+
+    References
+    ----------
+    .. [1] S. I. Braginskii, in *Reviews of Plasma Physics*, Vol. 1,
+           Consultants Bureau (1965), p. 205.
+    </span><span class="sh">"""</span>
+    <span class="n">omega</span> <span class="o">=</span> <span class="nf">_array</span><span class="p">(</span><span class="n">gyrofrequency</span><span class="p">,</span> <span class="sh">"</span><span class="s">gyrofrequency</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">omega</span> <span class="o">==</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">gyrofrequency must be non-zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">omega</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">collision_time</span><span class="p">,</span> <span class="sh">"</span><span class="s">collision_time</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Magnetization of a species: gyro-orbits per collision time.</p>
+
+\[\chi_s = |\Omega_s|\,\tau_s\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>gyrofrequency</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Gyrofrequency, either sign, non-zero (<code class="language-plaintext highlighter-rouge">vaft.formula.particle.gyrofrequency</code>).</p>
+</td></tr>
+  <tr><td><code>collision_time</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>Collision time of the same species, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\chi_s = \Omega_s/\nu_s$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Signed gyrofrequencies are taken in magnitude. Braginskii’s transport
+coefficients are written in this $\Omega\tau$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">gyrofrequency</code> is zero, <code class="language-plaintext highlighter-rouge">collision_time</code> is not positive, or an input is not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$\chi \gg 1$: particles gyrate many times between collisions, the
+strongly magnetized ordering behind anisotropic transport. Independent
+of the Knudsen number: a plasma can be strongly magnetized and
+collisionless along the field at once.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>S. I. Braginskii, in <em>Reviews of Plasma Physics</em>, Vol. 1, Consultants Bureau (1965), p. 205.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="mean_free_path" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#mean_free_path"><code>mean_free_path</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="mean_free_path" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L508-L544" title="vaft/formula/ordering.py, lines 508–544 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>mean_free_path(v_t, tau)</code></pre>
+
+    <details class="ref-code" data-source-code="mean_free_path"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 508–544</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">mean_free_path</span><span class="p">(</span><span class="n">v_t</span><span class="p">,</span> <span class="n">tau</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Mean free path: thermal speed times collision time.
+
+    $$\lambda = v_t\tau$$
+
+    Parameters
+    ----------
+    v_t : float or np.ndarray
+        Thermal speed, positive (``thermal_speed``) [m/s].
+    tau : float or np.ndarray
+        Collision time, positive [s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\lambda$ [m].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    Inherits the thermal-speed convention: with $\sqrt{2T/m}$ it is $\sqrt2$
+    longer.
+
+    Physical interpretation
+    -----------------------
+    How far a particle travels between collisions; against a gradient length
+    it decides whether a local fluid closure holds.
+
+    References
+    ----------
+    .. [1] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019).
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">v_t</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_t</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">tau</span><span class="p">,</span> <span class="sh">"</span><span class="s">tau</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Mean free path: thermal speed times collision time.</p>
+
+\[\lambda = v_t\tau\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>v_t</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>Thermal speed, positive (<code class="language-plaintext highlighter-rouge">thermal_speed</code>).</p>
+</td></tr>
+  <tr><td><code>tau</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>Collision time, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>$\lambda$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Inherits the thermal-speed convention: with $\sqrt{2T/m}$ it is $\sqrt2$
+longer.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>How far a particle travels between collisions; against a gradient length
+it decides whether a local fluid closure holds.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="pressure_anisotropy" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#pressure_anisotropy"><code>pressure_anisotropy</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="pressure_anisotropy" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L766-L806" title="vaft/formula/ordering.py, lines 766–806 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>pressure_anisotropy(p_perp, p_par)</code></pre>
+
+    <details class="ref-code" data-source-code="pressure_anisotropy"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 766–806</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">pressure_anisotropy</span><span class="p">(</span><span class="n">p_perp</span><span class="p">,</span> <span class="n">p_par</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Pressure anisotropy relative to the scalar pressure.
+
+    $$\Delta = \frac{p_\perp - p_\parallel}{p},\qquad p = \frac{2p_\perp + p_\parallel}{3}$$
+
+    Parameters
+    ----------
+    p_perp : float or np.ndarray
+        Perpendicular pressure, positive [Pa].
+    p_par : float or np.ndarray
+        Parallel pressure, positive [Pa].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta$, signed, in $(-3, 3/2)$ [-].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    Signed: $\Delta &gt; 0$ for perpendicular heating (ICRH, perpendicular
+    NBI), $\Delta &lt; 0$ for parallel. The ordering is on $|\Delta|$, and the
+    mirror and firehose thresholds on $\beta\Delta$.
+
+    Physical interpretation
+    -----------------------
+    $|\Delta| \ll 1$ is the scalar-pressure assumption of single-fluid MHD;
+    collisions keep it, and a weakly collisional plasma with directional
+    heating or fast ions breaks it, needing CGL or kinetic pressure.
+
+    References
+    ----------
+    .. [1] G. F. Chew, M. L. Goldberger and F. E. Low, Proc. R. Soc. Lond. A 236 (1956) 112.
+    </span><span class="sh">"""</span>
+    <span class="n">perp</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">p_perp</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_perp</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">par</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">p_par</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_par</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">((</span><span class="n">perp</span> <span class="o">-</span> <span class="n">par</span><span class="p">)</span> <span class="o">/</span> <span class="p">((</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">perp</span> <span class="o">+</span> <span class="n">par</span><span class="p">)</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Pressure anisotropy relative to the scalar pressure.</p>
+
+\[\Delta = \frac{p_\perp - p_\parallel}{p},\qquad p = \frac{2p_\perp + p_\parallel}{3}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>p_perp</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Pa</td><td><p>Perpendicular pressure, positive.</p>
+</td></tr>
+  <tr><td><code>p_par</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Pa</td><td><p>Parallel pressure, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$\Delta$, signed, in $(-3, 3/2)$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Signed: $\Delta &gt; 0$ for perpendicular heating (ICRH, perpendicular
+NBI), $\Delta &lt; 0$ for parallel. The ordering is on $|\Delta|$, and the
+mirror and firehose thresholds on $\beta\Delta$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>$|\Delta| \ll 1$ is the scalar-pressure assumption of single-fluid MHD;
+collisions keep it, and a weakly collisional plasma with directional
+heating or fast ions breaks it, needing CGL or kinetic pressure.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>G. F. Chew, M. L. Goldberger and F. E. Low, Proc. R. Soc. Lond. A 236 (1956) 112.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="resistive_diffusion_time" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#resistive_diffusion_time"><code>resistive_diffusion_time</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="resistive_diffusion_time" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L131-L171" title="vaft/formula/ordering.py, lines 131–171 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>resistive_diffusion_time(L, eta)</code></pre>
+
+    <details class="ref-code" data-source-code="resistive_diffusion_time"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 131–171</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">resistive_diffusion_time</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="n">eta</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Resistive diffusion time of magnetic field across a characteristic length.
+
+    $$\tau_R = \frac{\mu_0L^2}{\eta}$$
+
+    Parameters
+    ----------
+    L : float or np.ndarray
+        Characteristic length, positive [m].
+    eta : float or np.ndarray
+        Resistivity, positive, e.g. ``spitzer_resistivity_from_T_e_Z_eff_ln_Lambda`` [Ohm m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_R$ [s].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    No geometric factor: the slowest resistive mode of a cylinder decays on
+    $\mu_0a^2/(j_{01}^2\eta)$ with $j_{01}^2 \approx 5.78$, so treat $\tau_R$
+    as an ordering scale, not a prediction of the relaxation time. A ratio
+    such as $\tau_{pulse}/\tau_R$ of order one says the ordering is not
+    separated, not that the profile is unrelaxed.
+
+    Physical interpretation
+    -----------------------
+    How long resistivity needs to diffuse field and current across $L$: a
+    current profile younger than this has not relaxed resistively.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011), Sec. 2.11.
+    </span><span class="sh">"""</span>
+    <span class="n">L</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">L</span><span class="p">,</span> <span class="sh">"</span><span class="s">L</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">MU0</span> <span class="o">*</span> <span class="n">L</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">eta</span><span class="p">,</span> <span class="sh">"</span><span class="s">eta</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Resistive diffusion time of magnetic field across a characteristic length.</p>
+
+\[\tau_R = \frac{\mu_0L^2}{\eta}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>L</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>Characteristic length, positive.</p>
+</td></tr>
+  <tr><td><code>eta</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Ohm m</td><td><p>Resistivity, positive, e.g. <code class="language-plaintext highlighter-rouge">spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_R$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>No geometric factor: the slowest resistive mode of a cylinder decays on
+$\mu_0a^2/(j_{01}^2\eta)$ with $j_{01}^2 \approx 5.78$, so treat $\tau_R$
+as an ordering scale, not a prediction of the relaxation time. A ratio
+such as $\tau_{pulse}/\tau_R$ of order one says the ordering is not
+separated, not that the profile is unrelaxed.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>How long resistivity needs to diffuse field and current across $L$: a
+current profile younger than this has not relaxed resistively.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 2.11.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="sound_gyroradius" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#sound_gyroradius"><code>sound_gyroradius</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="sound_gyroradius" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L314-L357" title="vaft/formula/ordering.py, lines 314–357 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>sound_gyroradius(T_e, m_i, B, Z=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="sound_gyroradius"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 314–357</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">sound_gyroradius</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">m_i</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">Z</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Ion-sound gyroradius: the ion sound speed over the ion gyrofrequency.
+
+    $$\rho_s = \frac{c_s}{\Omega_i} = \frac{\sqrt{m_iT_e/Z}}{eB}$$
+
+    Parameters
+    ----------
+    T_e : float or np.ndarray
+        Electron temperature, positive [eV].
+    m_i : float or np.ndarray
+        Ion mass, positive [kg].
+    B : float or np.ndarray
+        Field strength, positive [T].
+    Z : float or np.ndarray
+        Ion charge number, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\rho_s$ [m].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    Cold ions: $c_s = \sqrt{ZT_e/m_i}$ and $\Omega_i = ZeB/m_i$. With a finite
+    ion temperature some texts put $T_e + T_i$ under the root. The same
+    number is ``sol.ion_sound_speed`` (with $T_i = 0$) over
+    ``particle.gyrofrequency``.
+
+    Physical interpretation
+    -----------------------
+    The drift-wave and FLR scale at the electron temperature; $\rho_s/L_T$ is
+    the FLR ordering parameter of fluid and gyrofluid models.
+
+    References
+    ----------
+    .. [1] W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+    </span><span class="sh">"""</span>
+    <span class="n">T</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">m_i</span><span class="p">,</span> <span class="sh">"</span><span class="s">m_i</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">T</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z</span><span class="sh">"</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="n">QE</span> <span class="o">*</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="sh">"</span><span class="s">B</span><span class="sh">"</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Ion-sound gyroradius: the ion sound speed over the ion gyrofrequency.</p>
+
+\[\rho_s = \frac{c_s}{\Omega_i} = \frac{\sqrt{m_iT_e/Z}}{eB}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>m_i</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Ion mass, positive.</p>
+</td></tr>
+  <tr><td><code>B</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">T</td><td><p>Field strength, positive.</p>
+</td></tr>
+  <tr><td><code>Z</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>Ion charge number, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m</td><td><p>$\rho_s$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Cold ions: $c_s = \sqrt{ZT_e/m_i}$ and $\Omega_i = ZeB/m_i$. With a finite
+ion temperature some texts put $T_e + T_i$ under the root. The same
+number is <code class="language-plaintext highlighter-rouge">sol.ion_sound_speed</code> (with $T_i = 0$) over
+<code class="language-plaintext highlighter-rouge">particle.gyrofrequency</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The drift-wave and FLR scale at the electron temperature; $\rho_s/L_T$ is
+the FLR ordering parameter of fluid and gyrofluid models.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>W. Horton, Rev. Mod. Phys. 71 (1999) 735.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="thermal_speed" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#thermal_speed"><code>thermal_speed</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="thermal_speed" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ordering.py#L360-L395" title="vaft/formula/ordering.py, lines 360–395 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>thermal_speed(T, m)</code></pre>
+
+    <details class="ref-code" data-source-code="thermal_speed"><summary>Show source <span class="ref-note">vaft/formula/ordering.py, lines 360–395</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">thermal_speed</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">m</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Thermal speed of a species.
+
+    $$v_t = \sqrt{\frac{T}{m}}$$
+
+    Parameters
+    ----------
+    T : float or np.ndarray
+        Temperature, positive [eV].
+    m : float or np.ndarray
+        Mass, positive [kg].
+
+    Returns
+    -------
+    float or np.ndarray
+        $v_t$ [m/s].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    The NRL formulary</span><span class="sh">'</span><span class="s">s $\sqrt{T/m}$. The most-probable speed $\sqrt{2T/m}$ is
+    $\sqrt2$ larger, and so is every mean free path built on it.
+
+    Physical interpretation
+    -----------------------
+    The speed that, with a collision time, makes a mean free path.
+
+    References
+    ----------
+    .. [1] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019).
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="sh">"</span><span class="s">T</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="sh">"</span><span class="s">m</span><span class="sh">"</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Thermal speed of a species.</p>
+
+\[v_t = \sqrt{\frac{T}{m}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>Temperature, positive.</p>
+</td></tr>
+  <tr><td><code>m</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">kg</td><td><p>Mass, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>$v_t$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The NRL formulary’s $\sqrt{T/m}$. The most-probable speed $\sqrt{2T/m}$ is
+$\sqrt2$ larger, and so is every mean free path built on it.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An input is not positive and finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The speed that, with a collision time, makes a mean free path.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/asymptotic-orderings/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Asymptotic orderings">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/plasma-models/" class="navigation navigation-next navigation-unique" aria-label="Next page: Plasma models, orderings, and scales">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Plasma models, orderings, and scales",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Plasma_models.md",
+            "ref": "_guide/Plasma_models.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_ordering.md",
+        "mtime": "2026-10-05 16:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -1,0 +1,1355 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: zeff_projection · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/process/mhd_stability/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/gyrokinetic-plotting/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: zeff_projection</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_zeff_projection">Process reference: zeff_projection</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.zeff_projection, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.zeff_projection</code>:
+<strong>6</strong> public functions. Each entry is what
+<code>vaft.process.describe("zeff_projection.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The composition model (#1565) gives a local profile <code class="language-plaintext highlighter-rouge">Z_eff(rho)</code>; the
+Romero transformer balance (#1214, Lane Z) gives one scalar <code class="language-plaintext highlighter-rouge">Z_eff^res</code>,
+the constant a conductivity model needs to reproduce the observed plasma
+resistance.  They are different quantities and are compared only through an
+explicit forward projection (issue #1566): the scalar that makes the <em>same</em>
+conductivity model, on the <em>same</em> flux-surface states, produce the <em>same</em>
+resistance – or, over a window, the same resistive voltage under the <em>same</em>
+objective – as the profile does.</p>
+
+<p>The chain::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Z_eff(psi_N) on a FluxSurfaceState      [composition, #1565]
+-&gt; sigma_par(psi_N; Z_eff(psi_N))       [Lane Z's model, surface by surface]
+-&gt; R_p^profile = P_Ohm / I_p^2          [vaft.process.resistive_zeff.model_resistance]
+-&gt; Z* with R_p^model(Z*) = R_p^profile  [one slice: a bounded root]
+-&gt; or argmin_Z sum w (V_R^profile - V_R^model(Z))^2 over a window
+                                        [vaft.process.resistive_zeff.infer_resistive_zeff]
+</code></pre></div></div>
+
+<p>Nothing here writes <code class="language-plaintext highlighter-rouge">core_profiles.zeff</code>: the projection is a model-space
+scalar, never a profile.  A flat profile built from a resistive scalar needs
+the explicit assumption of <code class="language-plaintext highlighter-rouge">flat_profile_from_resistive</code>.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>Z_eff(psi_N)</td><td>effective-charge profile on the state&#39;s surfaces</td><td class="ref-unit">-</td></tr>
+  <tr><td>R_p</td><td>plasma resistance, P_Ohm / I_p^2</td><td class="ref-unit">Ohm</td></tr>
+  <tr><td>Z_eff^res,equiv</td><td>constant Z_eff giving the profile&#39;s R_p (or V_R(t))</td><td class="ref-unit">-</td></tr>
+  <tr><td>Z_eff^res,obs</td><td>Lane Z&#39;s scalar inferred from the observed V_R</td><td class="ref-unit">-</td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>Same model, same states, same objective.</strong>  The profile’s conductivity is
+Lane Z’s <code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff.parallel_conductivity</code>
+evaluated surface by surface at that surface’s Z_eff, so the profile and the
+scalar differ only in Z_eff; the window scalar is Lane Z’s own
+<code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff.infer_resistive_zeff</code> fed the profile’s
+predicted voltage, so the projection is defined in the observable space the
+experimental scalar lives in.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 6 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="flat_profile_from_resistive"><td><a href="#flat_profile_from_resistive"><code>flat_profile_from_resistive</code></a></td><td>A flat Z_eff profile from a resistive scalar – only under the stated flat assumption.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="profile_conductivity_model"><td><a href="#profile_conductivity_model"><code>profile_conductivity_model</code></a></td><td>A conductivity-model callable that evaluates Lane Z’s model at a radially varying Z_eff.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="project_window_to_resistive_scalar"><td><a href="#project_window_to_resistive_scalar"><code>project_window_to_resistive_scalar</code></a></td><td>The window scalar Lane Z’s estimator would infer if the profile were the truth.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="project_zeff_profile_to_resistive_scalar"><td><a href="#project_zeff_profile_to_resistive_scalar"><code>project_zeff_profile_to_resistive_scalar</code></a></td><td>The constant Z_eff whose model resistance equals that of a Z_eff profile, on one slice.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="spitzer_resistive_equivalent_zeff"><td><a href="#spitzer_resistive_equivalent_zeff"><code>spitzer_resistive_equivalent_zeff</code></a></td><td>Analytic resistive equivalent of a Z_eff profile under Spitzer (NRL) resistivity.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="zeff_profile_for_state"><td><a href="#zeff_profile_for_state"><code>zeff_profile_for_state</code></a></td><td>The atomic-data Z_eff profile on a flux-surface state’s own surfaces.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="flat_profile_from_resistive" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#flat_profile_from_resistive"><code>flat_profile_from_resistive</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="flat_profile_from_resistive" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/zeff_projection.py#L427-L467" title="vaft/process/zeff_projection.py, lines 427–467 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>flat_profile_from_resistive(zeff_resistive, state, *, assumption)</code></pre>
+
+    <details class="ref-code" data-source-code="flat_profile_from_resistive"><summary>Show source <span class="ref-note">vaft/process/zeff_projection.py, lines 427–467</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">flat_profile_from_resistive</span><span class="p">(</span><span class="n">zeff_resistive</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">assumption</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">A flat Z_eff profile from a resistive scalar -- only under the stated flat assumption.
+
+    Parameters
+    ----------
+    zeff_resistive : float
+        A resistive scalar (Lane Z), at least 1 [-].
+    state : FluxSurfaceState
+        The surfaces to put it on [any].
+    assumption : str
+        Must be ``</span><span class="sh">"</span><span class="s">flat</span><span class="sh">"</span><span class="s">``: the caller states the modelling assumption [-].
+
+    Returns
+    -------
+    np.ndarray
+        ``Z_eff(psi_N) = zeff_resistive`` on every surface [-].
+
+    Raises
+    ------
+    ValueError
+        Any assumption other than ``</span><span class="sh">"</span><span class="s">flat</span><span class="sh">"</span><span class="s">``, or a scalar below 1.
+
+    Convention
+    ----------
+    #1566 Sec. 6: a modelling assumption, never a measurement or an
+    inference of the profile; nothing here writes it to ``core_profiles``.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #1566 Sec. 6.
+    </span><span class="sh">"""</span>
+    <span class="k">if</span> <span class="n">assumption</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">flat</span><span class="sh">"</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">a profile from a resistive scalar needs assumption=</span><span class="sh">'</span><span class="s">flat</span><span class="sh">'</span><span class="s">, stated explicitly</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">zeff_resistive</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span> <span class="o">&gt;=</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">zeff_resistive must be at least 1, got </span><span class="si">{</span><span class="n">zeff_resistive</span><span class="si">!r}</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">full</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">shape</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">psi_norm</span><span class="p">),</span> <span class="n">value</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>A flat Z_eff profile from a resistive scalar – only under the stated flat assumption.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>zeff_resistive</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>A resistive scalar (Lane Z), at least 1.</p>
+</td></tr>
+  <tr><td><code>state</code></td><td class="ref-type">FluxSurfaceState</td><td class="ref-unit">any</td><td><p>The surfaces to put it on.</p>
+</td></tr>
+  <tr><td><code>assumption</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Must be <code class="language-plaintext highlighter-rouge">"flat"</code>: the caller states the modelling assumption.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">Z_eff(psi_N) = zeff_resistive</code> on every surface.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>#1566 Sec. 6: a modelling assumption, never a measurement or an
+inference of the profile; nothing here writes it to <code class="language-plaintext highlighter-rouge">core_profiles</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Any assumption other than <code class="language-plaintext highlighter-rouge">"flat"</code>, or a scalar below 1.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1566 Sec. 6.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="profile_conductivity_model" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#profile_conductivity_model"><code>profile_conductivity_model</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="profile_conductivity_model" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/zeff_projection.py#L105-L175" title="vaft/process/zeff_projection.py, lines 105–175 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>profile_conductivity_model(zeff_profile, *, base_model=&#39;redl&#39;, ln_lambda=&#39;sauter&#39;)</code></pre>
+
+    <details class="ref-code" data-source-code="profile_conductivity_model"><summary>Show source <span class="ref-note">vaft/process/zeff_projection.py, lines 105–175</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">profile_conductivity_model</span><span class="p">(</span>
+    <span class="n">zeff_profile</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">base_model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">redl</span><span class="sh">"</span><span class="p">,</span>
+    <span class="n">ln_lambda</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">sauter</span><span class="sh">"</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">A conductivity-model callable that evaluates Lane Z</span><span class="sh">'</span><span class="s">s model at a radially varying Z_eff.
+
+    Parameters
+    ----------
+    zeff_profile : array-like
+        Z_eff on the state</span><span class="sh">'</span><span class="s">s ``psi_norm`` surfaces, at least 1 [-].
+    base_model : str, optional
+        One of :data:`vaft.process.resistive_zeff.CONDUCTIVITY_MODELS` [-].
+    ln_lambda : float or str, optional
+        Coulomb logarithm as :func:`~vaft.process.resistive_zeff.parallel_conductivity`
+        takes it [-].
+
+    Returns
+    -------
+    callable
+        ``model(state, z, lnl) -&gt; sigma(psi_N)`` for
+        :func:`~vaft.process.resistive_zeff.model_resistance`; the scalar
+        ``z`` it is handed is ignored [any].
+
+    Raises
+    ------
+    ValueError
+        At call time: a profile that does not match the state</span><span class="sh">'</span><span class="s">s surfaces, or
+        that is non-finite or below 1.
+
+    Convention
+    ----------
+    Surface ``i`` gets ``parallel_conductivity(state, Z_eff[i])[i]``: the
+    unmodified scalar model, so a flat profile reproduces it exactly and no
+    kernel is copied.  ``model_resistance`` records ``z_eff = 1`` for this
+    route; the profile is the record of what was used.  The ``ln_lambda`` it
+    is built with must be the one ``model_resistance`` is called with; a
+    mismatch is refused, not silently overridden.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #1566 Sec. 3 (the Redl/Sauter projection through Lane Z</span><span class="sh">'</span><span class="s">s
+               conductivity models), #1214 (the models), #1486 (Lane Z).
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.process.resistive_zeff</span> <span class="kn">import</span> <span class="n">_ln_lambda_profile</span><span class="p">,</span> <span class="n">parallel_conductivity</span>
+
+    <span class="n">profile</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">zeff_profile</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">model</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">_z</span><span class="p">,</span> <span class="n">lnl</span><span class="p">):</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="nf">_profile</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">profile</span><span class="p">)</span>
+        <span class="n">own</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nf">_ln_lambda_profile</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">ln_lambda</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">lnl</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">own</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-12</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+                <span class="sh">"</span><span class="s">model_resistance was given a different ln_lambda from the one this profile model was </span><span class="sh">"</span>
+                <span class="sa">f</span><span class="sh">"</span><span class="s">built with (</span><span class="si">{</span><span class="n">ln_lambda</span><span class="si">!r}</span><span class="s">); build it with the same ln_lambda</span><span class="sh">"</span>
+            <span class="p">)</span>
+        <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty</span><span class="p">(</span><span class="n">z</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">np</span><span class="p">.</span><span class="nf">unique</span><span class="p">(</span><span class="n">z</span><span class="p">):</span>
+            <span class="n">at</span> <span class="o">=</span> <span class="n">z</span> <span class="o">==</span> <span class="n">value</span>
+            <span class="n">sigma</span><span class="p">[</span><span class="n">at</span><span class="p">]</span> <span class="o">=</span> <span class="nf">parallel_conductivity</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">value</span><span class="p">),</span> <span class="n">model</span><span class="o">=</span><span class="n">base_model</span><span class="p">,</span> <span class="n">ln_lambda</span><span class="o">=</span><span class="n">ln_lambda</span><span class="p">)[</span><span class="n">at</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">sigma</span>
+
+    <span class="n">model</span><span class="p">.</span><span class="n">zeff_profile</span> <span class="o">=</span> <span class="n">profile</span>
+    <span class="n">model</span><span class="p">.</span><span class="n">base_model</span> <span class="o">=</span> <span class="n">base_model</span>
+    <span class="n">model</span><span class="p">.</span><span class="n">__name__</span> <span class="o">=</span> <span class="sa">f</span><span class="sh">"</span><span class="s">profile_</span><span class="si">{</span><span class="n">base_model</span><span class="si">}</span><span class="sh">"</span>
+    <span class="k">return</span> <span class="n">model</span></code></pre></figure>
+
+</details>
+
+    <p>A conductivity-model callable that evaluates Lane Z’s model at a radially varying Z_eff.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>zeff_profile</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Z_eff on the state’s <code class="language-plaintext highlighter-rouge">psi_norm</code> surfaces, at least 1.</p>
+</td></tr>
+  <tr><td><code>base_model</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>One of <code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff.CONDUCTIVITY_MODELS</code>.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float or str, optional</td><td class="ref-unit">-</td><td><p>Coulomb logarithm as <code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff.parallel_conductivity</code> takes it.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">callable</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">model(state, z, lnl) -&gt; sigma(psi_N)</code> for <code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff.model_resistance</code>; the scalar <code class="language-plaintext highlighter-rouge">z</code> it is handed is ignored.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Surface <code class="language-plaintext highlighter-rouge">i</code> gets <code class="language-plaintext highlighter-rouge">parallel_conductivity(state, Z_eff[i])[i]</code>: the
+unmodified scalar model, so a flat profile reproduces it exactly and no
+kernel is copied.  <code class="language-plaintext highlighter-rouge">model_resistance</code> records <code class="language-plaintext highlighter-rouge">z_eff = 1</code> for this
+route; the profile is the record of what was used.  The <code class="language-plaintext highlighter-rouge">ln_lambda</code> it
+is built with must be the one <code class="language-plaintext highlighter-rouge">model_resistance</code> is called with; a
+mismatch is refused, not silently overridden.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> At call time: a profile that does not match the state’s surfaces, or that is non-finite or below 1.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1566 Sec. 3 (the Redl/Sauter projection through Lane Z’s conductivity models), #1214 (the models), #1486 (Lane Z).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="project_window_to_resistive_scalar" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#project_window_to_resistive_scalar"><code>project_window_to_resistive_scalar</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="project_window_to_resistive_scalar" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/zeff_projection.py#L318-L424" title="vaft/process/zeff_projection.py, lines 318–424 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>project_window_to_resistive_scalar(states, zeff_profiles, *, model=&#39;redl&#39;, ln_lambda=&#39;sauter&#39;, bounds=(1.0, 10.0), weights=&#39;uniform&#39;, profile_source=&#39;caller&#39;)</code></pre>
+
+    <p>The window scalar Lane Z’s estimator would infer if the profile were the truth.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>states</code></td><td class="ref-type">sequence of FluxSurfaceState</td><td class="ref-unit">any</td><td><p>The window’s slices.</p>
+</td></tr>
+  <tr><td><code>zeff_profiles</code></td><td class="ref-type">sequence of array-like</td><td class="ref-unit">-</td><td><p>One Z_eff profile per state, on its surfaces.</p>
+</td></tr>
+  <tr><td><code>model</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Conductivity model.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float or str, optional</td><td class="ref-unit">-</td><td><p>Coulomb logarithm.</p>
+</td></tr>
+  <tr><td><code>bounds</code></td><td class="ref-type">tuple of float, optional</td><td class="ref-unit">-</td><td><p>Search interval.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td class="ref-type">str or sequence of float, optional</td><td class="ref-unit">-</td><td><p>As <code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff.infer_resistive_zeff</code>.</p>
+</td></tr>
+  <tr><td><code>profile_source</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Where the profiles came from.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ResistiveZeffProjection</td><td class="ref-unit">any</td><td><p>The scalar, the per-slice resistances of the profile and of the scalar, the window and Lane Z’s status.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>#1566 Sec. 7: a spatio-temporal model-equivalent scalar, comparable with
+<code class="language-plaintext highlighter-rouge">Z_eff^res,obs</code> because the objective is literally the same function.
+The drive is <code class="language-plaintext highlighter-rouge">|I_p|</code>: <code class="language-plaintext highlighter-rouge">R_p</code> is a dissipation and does not depend on
+the current’s sign convention.  Near Z_eff = 1 the estimator reports
+<code class="language-plaintext highlighter-rouge">bound_hit</code> (a ~0.3 % bias at the lower bound), exactly as it does for
+the observed scalar.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Unequal numbers of states and profiles, two states at one time, or a profile off its state’s surfaces.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Per slice, <code class="language-plaintext highlighter-rouge">R_p^profile(t)</code> as in
+<code class="language-plaintext highlighter-rouge">project_zeff_profile_to_resistive_scalar</code>.</li>
+        <li>An <code class="language-plaintext highlighter-rouge">ObservedResistance</code> whose <code class="language-plaintext highlighter-rouge">V_R = R_p^profile (I_p - I_ni)</code>
+with <code class="language-plaintext highlighter-rouge">I_ni = 0</code> – the profile’s voltage, as if observed.</li>
+        <li>Lane Z’s <code class="language-plaintext highlighter-rouge">infer_resistive_zeff</code> on it: the same objective
+<code class="language-plaintext highlighter-rouge">sum w (V_R - R_p^model(Z) I_p)^2</code> and bounds as the experimental scalar.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1566 Sec. 7, #1214 Sec. 10.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="project_zeff_profile_to_resistive_scalar" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#project_zeff_profile_to_resistive_scalar"><code>project_zeff_profile_to_resistive_scalar</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="project_zeff_profile_to_resistive_scalar" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/zeff_projection.py#L235-L315" title="vaft/process/zeff_projection.py, lines 235–315 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>project_zeff_profile_to_resistive_scalar(state, zeff_profile, *, model=&#39;redl&#39;, ln_lambda=&#39;sauter&#39;, bounds=(1.0, 10.0), profile_source=&#39;caller&#39;)</code></pre>
+
+    <p>The constant Z_eff whose model resistance equals that of a Z_eff profile, on one slice.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">FluxSurfaceState</td><td class="ref-unit">any</td><td><p>One slice.</p>
+</td></tr>
+  <tr><td><code>zeff_profile</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Z_eff on the state’s <code class="language-plaintext highlighter-rouge">psi_norm</code> surfaces.</p>
+</td></tr>
+  <tr><td><code>model</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Conductivity model, as Lane Z names them.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float or str, optional</td><td class="ref-unit">-</td><td><p>Coulomb logarithm.</p>
+</td></tr>
+  <tr><td><code>bounds</code></td><td class="ref-type">tuple of float, optional</td><td class="ref-unit">-</td><td><p>Search interval for the scalar.</p>
+</td></tr>
+  <tr><td><code>profile_source</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Where the profile came from, for provenance.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ResistiveZeffProjection</td><td class="ref-unit">any</td><td><p>The scalar, both resistances, the bracket and status.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The projection is defined in resistance space with the same states and
+model on both sides (#1566 Sec. 1); a flat profile returns its own value.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A profile off the state’s surfaces, or no root inside <code class="language-plaintext highlighter-rouge">bounds</code> (the profile’s resistance is outside what a constant Z_eff in <code class="language-plaintext highlighter-rouge">bounds</code> can give).
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li><code class="language-plaintext highlighter-rouge">R_p^profile</code> from <code class="language-plaintext highlighter-rouge">model_resistance</code> with
+<code class="language-plaintext highlighter-rouge">profile_conductivity_model</code>.</li>
+        <li>A bounded root of <code class="language-plaintext highlighter-rouge">R_p^model(Z) - R_p^profile</code> (<code class="language-plaintext highlighter-rouge">brentq</code>).</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1566 Sec. 1 and 3.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="spitzer_resistive_equivalent_zeff" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#spitzer_resistive_equivalent_zeff"><code>spitzer_resistive_equivalent_zeff</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="spitzer_resistive_equivalent_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/zeff_projection.py#L178-L232" title="vaft/process/zeff_projection.py, lines 178–232 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>spitzer_resistive_equivalent_zeff(state, zeff_profile, *, ln_lambda=&#39;sauter&#39;)</code></pre>
+
+    <details class="ref-code" data-source-code="spitzer_resistive_equivalent_zeff"><summary>Show source <span class="ref-note">vaft/process/zeff_projection.py, lines 178–232</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">spitzer_resistive_equivalent_zeff</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">zeff_profile</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ln_lambda</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">sauter</span><span class="sh">"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Analytic resistive equivalent of a Z_eff profile under Spitzer (NRL) resistivity.
+
+    Parameters
+    ----------
+    state : FluxSurfaceState
+        One slice (``bootstrap = none``) [any].
+    zeff_profile : array-like
+        Z_eff on the state</span><span class="sh">'</span><span class="s">s ``psi_norm`` surfaces [-].
+    ln_lambda : float or str, optional
+        Coulomb logarithm [-].
+
+    Returns
+    -------
+    float
+        ``int Z w dV / int w dV`` with ``w = eta(Z=1) &lt;J.B&gt;^2/&lt;B^2&gt;``, the
+        Ohmic-dissipation weight [-].
+
+    Raises
+    ------
+    ValueError
+        A profile off the state</span><span class="sh">'</span><span class="s">s surfaces, a state carrying a bootstrap
+        current (the weight is then not linear in Z), or a zero weight.
+
+    Convention
+    ----------
+    NRL Spitzer resistivity is linear in Z_eff, so ``P_Ohm`` is a weighted
+    integral of Z_eff and the equivalent scalar is that weighted mean -- the
+    weight is the dissipation ``eta_1 j^2``, not the volume or the density.
+    Integrated with the same trapezoid rule on the enclosed volume as
+    :func:`~vaft.process.resistive_zeff.model_resistance`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #1566 Sec. 2 (the Spitzer reference projection).
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">scipy.integrate</span> <span class="kn">import</span> <span class="n">trapezoid</span>
+
+    <span class="kn">from</span> <span class="n">vaft.process.resistive_zeff</span> <span class="kn">import</span> <span class="n">parallel_conductivity</span>
+
+    <span class="k">if</span> <span class="nf">getattr</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="sh">"</span><span class="s">j_bootstrap_dot_b</span><span class="sh">"</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the analytic Spitzer projection needs a state without bootstrap current</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nf">_profile</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">zeff_profile</span><span class="p">)</span>
+    <span class="n">sigma_1</span> <span class="o">=</span> <span class="nf">parallel_conductivity</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="sh">"</span><span class="s">spitzer_nrl</span><span class="sh">"</span><span class="p">,</span> <span class="n">ln_lambda</span><span class="o">=</span><span class="n">ln_lambda</span><span class="p">)</span>
+    <span class="n">jb</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">j_dot_b</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">weight</span> <span class="o">=</span> <span class="n">jb</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">b2_average</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">sigma_1</span>
+    <span class="n">volume</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">volume</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">denominator</span> <span class="o">=</span> <span class="nf">trapezoid</span><span class="p">(</span><span class="n">weight</span><span class="p">,</span> <span class="n">volume</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">denominator</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the dissipation weight integrates to zero</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">float</span><span class="p">(</span><span class="nf">trapezoid</span><span class="p">(</span><span class="n">weight</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="n">volume</span><span class="p">)</span> <span class="o">/</span> <span class="n">denominator</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Analytic resistive equivalent of a Z_eff profile under Spitzer (NRL) resistivity.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">FluxSurfaceState</td><td class="ref-unit">any</td><td><p>One slice (<code class="language-plaintext highlighter-rouge">bootstrap = none</code>).</p>
+</td></tr>
+  <tr><td><code>zeff_profile</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Z_eff on the state’s <code class="language-plaintext highlighter-rouge">psi_norm</code> surfaces.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float or str, optional</td><td class="ref-unit">-</td><td><p>Coulomb logarithm.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">int Z w dV / int w dV</code> with <code class="language-plaintext highlighter-rouge">w = eta(Z=1) &lt;J.B&gt;^2/&lt;B^2&gt;</code>, the Ohmic-dissipation weight.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>NRL Spitzer resistivity is linear in Z_eff, so <code class="language-plaintext highlighter-rouge">P_Ohm</code> is a weighted
+integral of Z_eff and the equivalent scalar is that weighted mean – the
+weight is the dissipation <code class="language-plaintext highlighter-rouge">eta_1 j^2</code>, not the volume or the density.
+Integrated with the same trapezoid rule on the enclosed volume as
+<code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff.model_resistance</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A profile off the state’s surfaces, a state carrying a bootstrap current (the weight is then not linear in Z), or a zero weight.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1566 Sec. 2 (the Spitzer reference projection).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="zeff_profile_for_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#zeff_profile_for_state"><code>zeff_profile_for_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="zeff_profile_for_state" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/zeff_projection.py#L470-L512" title="vaft/process/zeff_projection.py, lines 470–512 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>zeff_profile_for_state(state, elemental_weights, **options)</code></pre>
+
+    <details class="ref-code" data-source-code="zeff_profile_for_state"><summary>Show source <span class="ref-note">vaft/process/zeff_projection.py, lines 470–512</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">zeff_profile_for_state</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">elemental_weights</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="o">**</span><span class="n">options</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">The atomic-data Z_eff profile on a flux-surface state</span><span class="sh">'</span><span class="s">s own surfaces.
+
+    Parameters
+    ----------
+    state : FluxSurfaceState
+        One slice; its ``T_e``, ``n_e`` and enclosed volume are used [any].
+    elemental_weights : mapping
+        Relative elemental densities, e.g. ``{</span><span class="sh">"</span><span class="s">C</span><span class="sh">"</span><span class="s">: 1, </span><span class="sh">"</span><span class="s">O</span><span class="sh">"</span><span class="s">: 1}``; further
+        keyword arguments go to
+        :func:`vaft.process.impurity.resolve_radial_composition`
+        (``normalization``, ``target_zeff``, ``ionization``, ``plasma_age_s``,
+        ``projection``/``resistive_target``, ``tables``...) [-].
+
+    Returns
+    -------
+    RadialImpurityComposition
+        On ``psi_norm``, with ``dV`` from the state</span><span class="sh">'</span><span class="s">s volume [any].
+
+    Raises
+    ------
+    ValueError
+        As ``resolve_radial_composition``.
+
+    Convention
+    ----------
+    The profile is built from the very T_e and n_e the conductivity model
+    uses, so composition and resistance share one state.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #1566 Sec. 5 (connect #1565 profiles to #1214).
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.process.impurity</span> <span class="kn">import</span> <span class="n">resolve_radial_composition</span>
+
+    <span class="n">volume</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">volume</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">edges</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">concatenate</span><span class="p">(([</span><span class="n">volume</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">volume</span><span class="p">[</span><span class="mi">1</span><span class="p">:]</span> <span class="o">+</span> <span class="n">volume</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]),</span> <span class="p">[</span><span class="n">volume</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]))</span>
+    <span class="k">return</span> <span class="nf">resolve_radial_composition</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">T_e</span><span class="p">,</span> <span class="n">state</span><span class="p">.</span><span class="n">n_e</span><span class="p">,</span> <span class="n">state</span><span class="p">.</span><span class="n">psi_norm</span><span class="p">,</span> <span class="n">elemental_weights</span><span class="p">,</span>
+                                      <span class="n">volume_weights</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">edges</span><span class="p">),</span> <span class="n">time</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">time</span><span class="p">),</span> <span class="o">**</span><span class="n">options</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The atomic-data Z_eff profile on a flux-surface state’s own surfaces.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">FluxSurfaceState</td><td class="ref-unit">any</td><td><p>One slice; its <code class="language-plaintext highlighter-rouge">T_e</code>, <code class="language-plaintext highlighter-rouge">n_e</code> and enclosed volume are used.</p>
+</td></tr>
+  <tr><td><code>elemental_weights</code></td><td class="ref-type">mapping</td><td class="ref-unit">-</td><td><p>Relative elemental densities, e.g. <code class="language-plaintext highlighter-rouge">{"C": 1, "O": 1}</code>; further keyword arguments go to <code class="language-plaintext highlighter-rouge">vaft.process.impurity.resolve_radial_composition</code> (<code class="language-plaintext highlighter-rouge">normalization</code>, <code class="language-plaintext highlighter-rouge">target_zeff</code>, <code class="language-plaintext highlighter-rouge">ionization</code>, <code class="language-plaintext highlighter-rouge">plasma_age_s</code>, <code class="language-plaintext highlighter-rouge">projection</code>/<code class="language-plaintext highlighter-rouge">resistive_target</code>, <code class="language-plaintext highlighter-rouge">tables</code>…).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">RadialImpurityComposition</td><td class="ref-unit">any</td><td><p>On <code class="language-plaintext highlighter-rouge">psi_norm</code>, with <code class="language-plaintext highlighter-rouge">dV</code> from the state’s volume.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The profile is built from the very T_e and n_e the conductivity model
+uses, so composition and resistance share one state.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">resolve_radial_composition</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1566 Sec. 5 (connect #1565 profiles to #1214).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/mhd_stability/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: mhd_stability">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" class="navigation navigation-next navigation-unique" aria-label="Next page: Gyrokinetic plotting">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Gyrokinetic plotting",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Gyrokinetic_plotting.md",
+            "ref": "_guide/Gyrokinetic_plotting.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_zeff_projection.md",
+        "mtime": "2026-10-02 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

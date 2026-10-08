@@ -1,0 +1,1705 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: fast_ion · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/formula/dimensional/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/formula/kinetic/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: fast_ion</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_fast_ion">Formula reference: fast_ion</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.fast_ion, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.fast_ion</code>:
+<strong>8</strong> public functions. Each entry is what
+<code>vaft.formula.describe("fast_ion.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A light analytic baseline for beam (or other fast) ions in a Maxwellian plasma
+(issue #1606): the critical velocity at which electron and ion drag are equal,
+the Spitzer slowing-down time on electrons, the time to slow between two
+speeds, the steady classical slowing-down distribution of a monoenergetic
+source, and the fast-ion density, energy density and scalar pressure it holds.
+It is not a replacement for an orbit-following or Fokker–Planck solver
+(NUBEAM, #1216): pitch-angle scattering, energy diffusion, orbits and charge
+exchange are absent, so the distribution is isotropic by construction.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>v_b</td><td>birth (injection) speed of the fast ions</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>v_c</td><td>critical speed, where electron and ion drag are equal</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>E_c</td><td>critical energy, m_b v_c^2 / 2</td><td class="ref-unit">eV</td></tr>
+  <tr><td>tau_s</td><td>Spitzer slowing-down time on electrons</td><td class="ref-unit">s</td></tr>
+  <tr><td>S</td><td>fast-ion birth rate per unit volume</td><td class="ref-unit">m^-3 s^-1</td></tr>
+  <tr><td>n_f, W_f</td><td>fast-ion density and energy density</td><td class="ref-unit">[m^-3], [J m^-3]</td></tr>
+  <tr><td>p_f</td><td>scalar fast-ion pressure, 2 W_f / 3</td><td class="ref-unit">Pa</td></tr>
+  <tr><td>A, Z</td><td>mass number [u] and charge number of a species</td><td class="ref-unit">-</td></tr>
+  </tbody>
+</table></div>
+
+<p>Temperatures in eV, energies of fast ions in eV, every other quantity SI.
+The drag law is the classical one: $dv/dt = -(v/\tau_s)(1 + v_c^3/v^3)$,
+valid for $v_{th,i} \ll v \ll v_{th,e}$.  Field-ion species enter the
+critical speed through $\sum_j n_j Z_j^2/A_j$ only.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="critical_energy_from_T_e_A_b_n_species"><td><a href="#critical_energy_from_T_e_A_b_n_species"><code>critical_energy_from_T_e_A_b_n_species</code></a></td><td>Critical energy of a fast ion of mass number A_b: E_c = m_b v_c^2 / 2.
+</td></tr>
+  <tr data-ref-row="critical_velocity_from_T_e_n_species"><td><a href="#critical_velocity_from_T_e_n_species"><code>critical_velocity_from_T_e_n_species</code></a></td><td>Critical speed at which a fast ion’s drag on electrons equals its drag on the field ions.
+</td></tr>
+  <tr data-ref-row="fast_ion_density_from_source"><td><a href="#fast_ion_density_from_source"><code>fast_ion_density_from_source</code></a></td><td>Fast-ion density held by a steady source slowing down classically.
+</td></tr>
+  <tr data-ref-row="fast_ion_energy_density_from_source"><td><a href="#fast_ion_energy_density_from_source"><code>fast_ion_energy_density_from_source</code></a></td><td>Kinetic-energy density held by a steady source slowing down classically.
+</td></tr>
+  <tr data-ref-row="fast_ion_pressure_from_energy_density"><td><a href="#fast_ion_pressure_from_energy_density"><code>fast_ion_pressure_from_energy_density</code></a></td><td>Scalar fast-ion pressure of an isotropic fast population: p_f = 2 W_f / 3.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="slowing_down_distribution"><td><a href="#slowing_down_distribution"><code>slowing_down_distribution</code></a></td><td>Steady isotropic classical slowing-down distribution of a monoenergetic source.
+</td></tr>
+  <tr data-ref-row="slowing_down_time_between_speeds"><td><a href="#slowing_down_time_between_speeds"><code>slowing_down_time_between_speeds</code></a></td><td>Time a fast ion takes to slow from one speed to a lower one under classical drag.
+</td></tr>
+  <tr data-ref-row="slowing_down_time_from_T_e_n_e_A_b_Z_b"><td><a href="#slowing_down_time_from_T_e_n_e_A_b_Z_b"><code>slowing_down_time_from_T_e_n_e_A_b_Z_b</code></a></td><td>Spitzer slowing-down time of a fast ion on electrons.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="critical_energy_from_T_e_A_b_n_species" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#critical_energy_from_T_e_A_b_n_species"><code>critical_energy_from_T_e_A_b_n_species</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="critical_energy_from_T_e_A_b_n_species" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/fast_ion.py#L144-L197" title="vaft/formula/fast_ion.py, lines 144–197 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>critical_energy_from_T_e_A_b_n_species(T_e, A_b, n_e, n_j, Z_j, A_j)</code></pre>
+
+    <details class="ref-code" data-source-code="critical_energy_from_T_e_A_b_n_species"><summary>Show source <span class="ref-note">vaft/formula/fast_ion.py, lines 144–197</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">critical_energy_from_T_e_A_b_n_species</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">A_b</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">,</span> <span class="n">A_j</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Critical energy of a fast ion of mass number A_b: E_c = m_b v_c^2 / 2.
+
+    $$E_c = \Big(\frac{3\sqrt\pi}{4}\Big)^{2/3}
+      \Big(\frac{m_u}{m_e}\Big)^{1/3} A_b\,T_e
+      \Big(\frac{1}{n_e}\sum_j\frac{n_jZ_j^2}{A_j}\Big)^{2/3}
+      \approx 14.8\,A_b\,T_e\,\Big(\frac{1}{n_e}\sum_j\frac{n_jZ_j^2}{A_j}\Big)^{2/3}$$
+
+    Parameters
+    ----------
+    T_e : float or array-like
+        Electron temperature, positive [eV].
+    A_b : float or array-like
+        Mass number of the fast ion, positive [-].
+    n_e : float or array-like
+        Electron density, positive [m^-3].
+    n_j : array-like
+        Density of each field-ion species, species on the last axis [m^-3].
+    Z_j : array-like
+        Charge of each field-ion species, positive [-].
+    A_j : array-like
+        Mass number of each field-ion species, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $E_c$ [eV].
+
+    Raises
+    ------
+    ValueError
+        As :func:`critical_velocity_from_T_e_n_species`, or a non-positive A_b.
+
+    Physical interpretation
+    -----------------------
+    For a pure deuterium plasma and a deuterium beam, $E_c \approx 18.7 T_e$:
+    a 30 keV beam into 100 eV electrons is far above it and heats electrons.
+    Impurities act only through $\sum_j n_jZ_j^2/A_j$ at fixed $n_e$: fully
+    stripped carbon or oxygen in deuterium leave it unchanged ($Z^2/A = Z/2$,
+    as for D), while in hydrogen, or partly ionised, they lower $E_c$.
+
+    References
+    ----------
+    .. [1] T. H. Stix, Plasma Phys. 14 (1972) 367.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+
+    See Also
+    --------
+    critical_velocity_from_T_e_n_species
+    </span><span class="sh">"""</span>
+    <span class="n">a_b</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">A_b</span><span class="p">,</span> <span class="sh">"</span><span class="s">A_b</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">v_c</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">critical_velocity_from_T_e_n_species</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">,</span> <span class="n">A_j</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">a_b</span> <span class="o">*</span> <span class="n">_AMU</span> <span class="o">*</span> <span class="n">v_c</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">QE</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Critical energy of a fast ion of mass number A_b: E_c = m_b v_c^2 / 2.</p>
+
+\[E_c = \Big(\frac{3\sqrt\pi}{4}\Big)^{2/3}
+  \Big(\frac{m_u}{m_e}\Big)^{1/3} A_b\,T_e
+  \Big(\frac{1}{n_e}\sum_j\frac{n_jZ_j^2}{A_j}\Big)^{2/3}
+  \approx 14.8\,A_b\,T_e\,\Big(\frac{1}{n_e}\sum_j\frac{n_jZ_j^2}{A_j}\Big)^{2/3}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>A_b</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Mass number of the fast ion, positive.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>n_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density of each field-ion species, species on the last axis.</p>
+</td></tr>
+  <tr><td><code>Z_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge of each field-ion species, positive.</p>
+</td></tr>
+  <tr><td><code>A_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Mass number of each field-ion species, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">eV</td><td><p>$E_c$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">critical_velocity_from_T_e_n_species</code>, or a non-positive A_b.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>For a pure deuterium plasma and a deuterium beam, $E_c \approx 18.7 T_e$:
+a 30 keV beam into 100 eV electrons is far above it and heats electrons.
+Impurities act only through $\sum_j n_jZ_j^2/A_j$ at fixed $n_e$: fully
+stripped carbon or oxygen in deuterium leave it unchanged ($Z^2/A = Z/2$,
+as for D), while in hydrogen, or partly ionised, they lower $E_c$.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>critical_velocity_from_T_e_n_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, Plasma Phys. 14 (1972) 367.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="critical_velocity_from_T_e_n_species" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#critical_velocity_from_T_e_n_species"><code>critical_velocity_from_T_e_n_species</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="critical_velocity_from_T_e_n_species" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/fast_ion.py#L90-L141" title="vaft/formula/fast_ion.py, lines 90–141 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>critical_velocity_from_T_e_n_species(T_e, n_e, n_j, Z_j, A_j)</code></pre>
+
+    <details class="ref-code" data-source-code="critical_velocity_from_T_e_n_species"><summary>Show source <span class="ref-note">vaft/formula/fast_ion.py, lines 90–141</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">critical_velocity_from_T_e_n_species</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">,</span> <span class="n">A_j</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Critical speed at which a fast ion</span><span class="sh">'</span><span class="s">s drag on electrons equals its drag on the field ions.
+
+    $$v_c^3 = \frac{3\sqrt{\pi}}{4}\,\frac{m_e}{m_u}\,
+      \Big(\frac{1}{n_e}\sum_j \frac{n_j Z_j^2}{A_j}\Big)\,v_{te}^3,\qquad
+      v_{te} = \sqrt{2 e T_e/m_e}$$
+
+    Parameters
+    ----------
+    T_e : float or array-like
+        Electron temperature, positive [eV].
+    n_e : float or array-like
+        Electron density, positive [m^-3].
+    n_j : array-like
+        Density of each field-ion species, species on the last axis,
+        non-negative [m^-3].
+    Z_j : array-like
+        Charge of each field-ion species, positive [-].
+    A_j : array-like
+        Mass number of each field-ion species, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $v_c$, independent of the fast ion</span><span class="sh">'</span><span class="s">s own mass and charge [m/s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a non-positive temperature, density, charge or mass,
+        or no species axis.
+
+    Physical interpretation
+    -----------------------
+    Above $v_c$ a fast ion loses energy mainly to electrons, below it mainly
+    to ions; $E_c = m_b v_c^2/2$ is where a beam</span><span class="sh">'</span><span class="s">s heating switches from
+    electrons to ions.
+
+    References
+    ----------
+    .. [1] T. H. Stix, Plasma Phys. 14 (1972) 367, Eq. (9).
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+
+    See Also
+    --------
+    critical_energy_from_T_e_A_b_n_species
+    </span><span class="sh">"""</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">field</span> <span class="o">=</span> <span class="nf">_field_ion_sum</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">n_j</span><span class="p">,</span> <span class="n">Z_j</span><span class="p">,</span> <span class="n">A_j</span><span class="p">)</span>
+    <span class="n">v_te</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">QE</span> <span class="o">*</span> <span class="n">te</span> <span class="o">/</span> <span class="n">ME</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">((</span><span class="mf">0.75</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">ME</span> <span class="o">/</span> <span class="n">_AMU</span><span class="p">)</span> <span class="o">*</span> <span class="n">field</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">/</span> <span class="mf">3.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">v_te</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Critical speed at which a fast ion’s drag on electrons equals its drag on the field ions.</p>
+
+\[v_c^3 = \frac{3\sqrt{\pi}}{4}\,\frac{m_e}{m_u}\,
+  \Big(\frac{1}{n_e}\sum_j \frac{n_j Z_j^2}{A_j}\Big)\,v_{te}^3,\qquad
+  v_{te} = \sqrt{2 e T_e/m_e}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>n_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density of each field-ion species, species on the last axis, non-negative.</p>
+</td></tr>
+  <tr><td><code>Z_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge of each field-ion species, positive.</p>
+</td></tr>
+  <tr><td><code>A_j</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Mass number of each field-ion species, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m/s</td><td><p>$v_c$, independent of the fast ion’s own mass and charge.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a non-positive temperature, density, charge or mass, or no species axis.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Above $v_c$ a fast ion loses energy mainly to electrons, below it mainly
+to ions; $E_c = m_b v_c^2/2$ is where a beam’s heating switches from
+electrons to ions.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>critical_energy_from_T_e_A_b_n_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, Plasma Phys. 14 (1972) 367, Eq. (9).
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fast_ion_density_from_source" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fast_ion_density_from_source"><code>fast_ion_density_from_source</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="fast_ion_density_from_source" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/fast_ion.py#L370-L413" title="vaft/formula/fast_ion.py, lines 370–413 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>fast_ion_density_from_source(S, tau_s, v_b, v_c)</code></pre>
+
+    <details class="ref-code" data-source-code="fast_ion_density_from_source"><summary>Show source <span class="ref-note">vaft/formula/fast_ion.py, lines 370–413</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">fast_ion_density_from_source</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">tau_s</span><span class="p">,</span> <span class="n">v_b</span><span class="p">,</span> <span class="n">v_c</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Fast-ion density held by a steady source slowing down classically.
+
+    $$n_f = \frac{S\,\tau_s}{3}\,\ln\!\Big(1 + \frac{v_b^3}{v_c^3}\Big)$$
+
+    Parameters
+    ----------
+    S : float or array-like
+        Birth rate per unit volume, non-negative [m^-3 s^-1].
+    tau_s : float or array-like
+        Spitzer slowing-down time, positive [s].
+    v_b : float or array-like
+        Birth speed, positive [m/s].
+    v_c : float or array-like
+        Critical speed, positive [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $n_f$ [m^-3].
+
+    Raises
+    ------
+    ValueError
+        As :func:`slowing_down_distribution`.
+
+    Physical interpretation
+    -----------------------
+    The source rate times the time to slow to rest: $n_f = S\,t(v_b \to 0)$.
+
+    References
+    ----------
+    .. [1] T. H. Stix, Plasma Phys. 14 (1972) 367.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+
+    See Also
+    --------
+    fast_ion_energy_density_from_source
+    </span><span class="sh">"""</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="sh">"</span><span class="s">S</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">tau_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">tau_s</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x3</span> <span class="o">=</span> <span class="p">(</span><span class="nf">_positive</span><span class="p">(</span><span class="n">v_b</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_b</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v_c</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_c</span><span class="sh">"</span><span class="p">))</span> <span class="o">**</span> <span class="mi">3</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">source</span> <span class="o">*</span> <span class="n">tau</span> <span class="o">/</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">log1p</span><span class="p">(</span><span class="n">x3</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Fast-ion density held by a steady source slowing down classically.</p>
+
+\[n_f = \frac{S\,\tau_s}{3}\,\ln\!\Big(1 + \frac{v_b^3}{v_c^3}\Big)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3 s^-1</td><td><p>Birth rate per unit volume, non-negative.</p>
+</td></tr>
+  <tr><td><code>tau_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">s</td><td><p>Spitzer slowing-down time, positive.</p>
+</td></tr>
+  <tr><td><code>v_b</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Birth speed, positive.</p>
+</td></tr>
+  <tr><td><code>v_c</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Critical speed, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>$n_f$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">slowing_down_distribution</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The source rate times the time to slow to rest: $n_f = S\,t(v_b \to 0)$.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>fast_ion_energy_density_from_source</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, Plasma Phys. 14 (1972) 367.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fast_ion_energy_density_from_source" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fast_ion_energy_density_from_source"><code>fast_ion_energy_density_from_source</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="fast_ion_energy_density_from_source" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/fast_ion.py#L428-L481" title="vaft/formula/fast_ion.py, lines 428–481 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>fast_ion_energy_density_from_source(S, tau_s, A_b, v_b, v_c)</code></pre>
+
+    <details class="ref-code" data-source-code="fast_ion_energy_density_from_source"><summary>Show source <span class="ref-note">vaft/formula/fast_ion.py, lines 428–481</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">fast_ion_energy_density_from_source</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">tau_s</span><span class="p">,</span> <span class="n">A_b</span><span class="p">,</span> <span class="n">v_b</span><span class="p">,</span> <span class="n">v_c</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Kinetic-energy density held by a steady source slowing down classically.
+
+    $$W_f = \frac{m_b}{2}\int_0^{v_b} v^2 f\,4\pi v^2\,dv
+      = \frac{S\,\tau_s\,m_b\,v_c^2}{2}\,G\!\Big(\frac{v_b}{v_c}\Big),\qquad
+      G(x) = \int_0^x \frac{u^4}{u^3+1}\,du$$
+
+    with $G(x) = x^2/2 - \frac16\ln\frac{x^2-x+1}{(x+1)^2}
+    - \frac{1}{\sqrt3}\big[\arctan\frac{2x-1}{\sqrt3} + \frac\pi6\big]$.
+
+    Parameters
+    ----------
+    S : float or array-like
+        Birth rate per unit volume, non-negative [m^-3 s^-1].
+    tau_s : float or array-like
+        Spitzer slowing-down time, positive [s].
+    A_b : float or array-like
+        Mass number of the fast ion, positive [-].
+    v_b : float or array-like
+        Birth speed, positive [m/s].
+    v_c : float or array-like
+        Critical speed, positive [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $W_f$ [J m^-3].
+
+    Raises
+    ------
+    ValueError
+        As :func:`slowing_down_distribution`, or a non-positive A_b.
+
+    Physical interpretation
+    -----------------------
+    For $v_b \gg v_c$, $W_f \to S\,\tau_s\,E_b/2$: the source power times
+    the energy e-folding time $\tau_s/2$.
+
+    References
+    ----------
+    .. [1] T. H. Stix, Plasma Phys. 14 (1972) 367.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+
+    See Also
+    --------
+    fast_ion_pressure_from_energy_density
+    </span><span class="sh">"""</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="sh">"</span><span class="s">S</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">tau_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">tau_s</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">m_b</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">A_b</span><span class="p">,</span> <span class="sh">"</span><span class="s">A_b</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">_AMU</span>
+    <span class="n">vc</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v_c</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_c</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v_b</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_b</span><span class="sh">"</span><span class="p">)</span> <span class="o">/</span> <span class="n">vc</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">source</span> <span class="o">*</span> <span class="n">tau</span> <span class="o">*</span> <span class="n">m_b</span> <span class="o">*</span> <span class="n">vc</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="nf">_velocity_moment_4</span><span class="p">(</span><span class="n">x</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Kinetic-energy density held by a steady source slowing down classically.</p>
+
+\[W_f = \frac{m_b}{2}\int_0^{v_b} v^2 f\,4\pi v^2\,dv
+  = \frac{S\,\tau_s\,m_b\,v_c^2}{2}\,G\!\Big(\frac{v_b}{v_c}\Big),\qquad
+  G(x) = \int_0^x \frac{u^4}{u^3+1}\,du\]
+
+    <p>with $G(x) = x^2/2 - \frac16\ln\frac{x^2-x+1}{(x+1)^2}</p>
+    <ul>
+      <li>\frac{1}{\sqrt3}\big[\arctan\frac{2x-1}{\sqrt3} + \frac\pi6\big]$.</li>
+    </ul>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>S</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3 s^-1</td><td><p>Birth rate per unit volume, non-negative.</p>
+</td></tr>
+  <tr><td><code>tau_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">s</td><td><p>Spitzer slowing-down time, positive.</p>
+</td></tr>
+  <tr><td><code>A_b</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Mass number of the fast ion, positive.</p>
+</td></tr>
+  <tr><td><code>v_b</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Birth speed, positive.</p>
+</td></tr>
+  <tr><td><code>v_c</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Critical speed, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">J m^-3</td><td><p>$W_f$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">slowing_down_distribution</code>, or a non-positive A_b.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>For $v_b \gg v_c$, $W_f \to S\,\tau_s\,E_b/2$: the source power times
+the energy e-folding time $\tau_s/2$.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>fast_ion_pressure_from_energy_density</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, Plasma Phys. 14 (1972) 367.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fast_ion_pressure_from_energy_density" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fast_ion_pressure_from_energy_density"><code>fast_ion_pressure_from_energy_density</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="fast_ion_pressure_from_energy_density" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/fast_ion.py#L484-L519" title="vaft/formula/fast_ion.py, lines 484–519 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>fast_ion_pressure_from_energy_density(W_f)</code></pre>
+
+    <details class="ref-code" data-source-code="fast_ion_pressure_from_energy_density"><summary>Show source <span class="ref-note">vaft/formula/fast_ion.py, lines 484–519</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">fast_ion_pressure_from_energy_density</span><span class="p">(</span><span class="n">W_f</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Scalar fast-ion pressure of an isotropic fast population: p_f = 2 W_f / 3.
+
+    $$p_f = \tfrac{2}{3}W_f$$
+
+    Parameters
+    ----------
+    W_f : float or array-like
+        Fast-ion kinetic-energy density, non-negative [J m^-3].
+
+    Returns
+    -------
+    float or np.ndarray
+        $p_f$ [Pa].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative energy density.
+
+    Convention
+    ----------
+    Isotropic: $p_\parallel = p_\perp = p_f$.  An anisotropic population has
+    $p_f = (p_\parallel + 2p_\perp)/3$ with $W_f = (p_\parallel + 2p_\perp)/2$,
+    which this scalar form keeps; the split itself is not represented.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+
+    See Also
+    --------
+    fast_ion_energy_density_from_source
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">2.0</span> <span class="o">/</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">W_f</span><span class="p">,</span> <span class="sh">"</span><span class="s">W_f</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Scalar fast-ion pressure of an isotropic fast population: p_f = 2 W_f / 3.</p>
+
+\[p_f = \tfrac{2}{3}W_f\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>W_f</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">J m^-3</td><td><p>Fast-ion kinetic-energy density, non-negative.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Pa</td><td><p>$p_f$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Isotropic: $p_\parallel = p_\perp = p_f$.  An anisotropic population has
+$p_f = (p_\parallel + 2p_\perp)/3$ with $W_f = (p_\parallel + 2p_\perp)/2$,
+which this scalar form keeps; the split itself is not represented.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite or negative energy density.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>fast_ion_energy_density_from_source</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="slowing_down_distribution" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#slowing_down_distribution"><code>slowing_down_distribution</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="slowing_down_distribution" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/fast_ion.py#L310-L367" title="vaft/formula/fast_ion.py, lines 310–367 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>slowing_down_distribution(v, S, tau_s, v_b, v_c)</code></pre>
+
+    <details class="ref-code" data-source-code="slowing_down_distribution"><summary>Show source <span class="ref-note">vaft/formula/fast_ion.py, lines 310–367</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">slowing_down_distribution</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">tau_s</span><span class="p">,</span> <span class="n">v_b</span><span class="p">,</span> <span class="n">v_c</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Steady isotropic classical slowing-down distribution of a monoenergetic source.
+
+    $$f(v) = \frac{S\,\tau_s}{4\pi}\,\frac{H(v_b - v)}{v^3 + v_c^3}$$
+
+    normalised so that $\int f\,d^3v = n_f$.
+
+    Parameters
+    ----------
+    v : float or array-like
+        Speed, non-negative [m/s].
+    S : float or array-like
+        Birth rate per unit volume, non-negative [m^-3 s^-1].
+    tau_s : float or array-like
+        Spitzer slowing-down time, positive [s].
+    v_b : float or array-like
+        Birth speed, positive [m/s].
+    v_c : float or array-like
+        Critical speed, positive [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $f(v)$ [s^3 m^-6].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a negative speed or source, or a non-positive
+        tau_s, v_b or v_c.
+
+    Assumptions
+    -----------
+    Steady state, a single birth speed, classical drag; no pitch-angle
+    scattering is needed for the scalar moments because the distribution is
+    taken isotropic.
+
+    Limitations
+    -----------
+    Isotropic by construction: a real beam is not.  Its anisotropic pressure
+    split $p_f = (p_\parallel + 2 p_\perp)/3$ is a later extension.
+
+    References
+    ----------
+    .. [1] T. H. Stix, Plasma Phys. 14 (1972) 367.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+
+    See Also
+    --------
+    fast_ion_density_from_source
+    </span><span class="sh">"""</span>
+    <span class="n">speed</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="sh">"</span><span class="s">v</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">source</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="sh">"</span><span class="s">S</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">tau_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">tau_s</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">vb</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v_b</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_b</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">vc</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v_c</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_c</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">speed</span> <span class="o">&lt;=</span> <span class="n">vb</span><span class="p">,</span> <span class="n">source</span> <span class="o">*</span> <span class="n">tau</span> <span class="o">/</span> <span class="p">(</span><span class="mf">4.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">speed</span><span class="o">**</span><span class="mi">3</span> <span class="o">+</span> <span class="n">vc</span><span class="o">**</span><span class="mi">3</span><span class="p">)),</span> <span class="mf">0.0</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Steady isotropic classical slowing-down distribution of a monoenergetic source.</p>
+
+\[f(v) = \frac{S\,\tau_s}{4\pi}\,\frac{H(v_b - v)}{v^3 + v_c^3}\]
+
+    <p>normalised so that $\int f\,d^3v = n_f$.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>v</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Speed, non-negative.</p>
+</td></tr>
+  <tr><td><code>S</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3 s^-1</td><td><p>Birth rate per unit volume, non-negative.</p>
+</td></tr>
+  <tr><td><code>tau_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">s</td><td><p>Spitzer slowing-down time, positive.</p>
+</td></tr>
+  <tr><td><code>v_b</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Birth speed, positive.</p>
+</td></tr>
+  <tr><td><code>v_c</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Critical speed, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s^3 m^-6</td><td><p>$f(v)$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a negative speed or source, or a non-positive tau_s, v_b or v_c.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · Limitations · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Steady state, a single birth speed, classical drag; no pitch-angle
+scattering is needed for the scalar moments because the distribution is
+taken isotropic.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Isotropic by construction: a real beam is not.  Its anisotropic pressure
+split $p_f = (p_\parallel + 2 p_\perp)/3$ is a later extension.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>fast_ion_density_from_source</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, Plasma Phys. 14 (1972) 367.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="slowing_down_time_between_speeds" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#slowing_down_time_between_speeds"><code>slowing_down_time_between_speeds</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="slowing_down_time_between_speeds" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/fast_ion.py#L258-L307" title="vaft/formula/fast_ion.py, lines 258–307 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>slowing_down_time_between_speeds(tau_s, v_c, v_from, v_to=0.0)</code></pre>
+
+    <details class="ref-code" data-source-code="slowing_down_time_between_speeds"><summary>Show source <span class="ref-note">vaft/formula/fast_ion.py, lines 258–307</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">slowing_down_time_between_speeds</span><span class="p">(</span><span class="n">tau_s</span><span class="p">,</span> <span class="n">v_c</span><span class="p">,</span> <span class="n">v_from</span><span class="p">,</span> <span class="n">v_to</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Time a fast ion takes to slow from one speed to a lower one under classical drag.
+
+    $$t = \frac{\tau_s}{3}\,\ln\frac{v_{from}^3 + v_c^3}{v_{to}^3 + v_c^3}$$
+
+    Parameters
+    ----------
+    tau_s : float or array-like
+        Spitzer slowing-down time, positive [s].
+    v_c : float or array-like
+        Critical speed, positive [m/s].
+    v_from : float or array-like
+        Starting speed, e.g. the birth speed, non-negative [m/s].
+    v_to : float or array-like, optional
+        Final speed, at most ``v_from``; default 0, the full slowing-down
+        (thermalisation) time [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        Elapsed time [s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, non-positive tau_s or v_c, or v_to &gt; v_from.
+
+    Validity
+    --------
+    Classical drag only; the last stretch below the ion thermal speed is not
+    drag-dominated, so the time to </span><span class="sh">"</span><span class="s">zero</span><span class="sh">"</span><span class="s"> is the time to merge with the
+    thermal ions to within that approximation.
+
+    References
+    ----------
+    .. [1] T. H. Stix, Plasma Phys. 14 (1972) 367.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 5.4.
+
+    See Also
+    --------
+    slowing_down_time_from_T_e_n_e_A_b_Z_b
+    </span><span class="sh">"""</span>
+    <span class="n">tau</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">tau_s</span><span class="p">,</span> <span class="sh">"</span><span class="s">tau_s</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">vc</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">v_c</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_c</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">v0</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">v_from</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_from</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">v1</span> <span class="o">=</span> <span class="nf">_non_negative</span><span class="p">(</span><span class="n">v_to</span><span class="p">,</span> <span class="sh">"</span><span class="s">v_to</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">v1</span> <span class="o">&gt;</span> <span class="n">v0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">v_to must not exceed v_from</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">tau</span> <span class="o">/</span> <span class="mf">3.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">log</span><span class="p">((</span><span class="n">v0</span><span class="o">**</span><span class="mi">3</span> <span class="o">+</span> <span class="n">vc</span><span class="o">**</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">v1</span><span class="o">**</span><span class="mi">3</span> <span class="o">+</span> <span class="n">vc</span><span class="o">**</span><span class="mi">3</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Time a fast ion takes to slow from one speed to a lower one under classical drag.</p>
+
+\[t = \frac{\tau_s}{3}\,\ln\frac{v_{from}^3 + v_c^3}{v_{to}^3 + v_c^3}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>tau_s</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">s</td><td><p>Spitzer slowing-down time, positive.</p>
+</td></tr>
+  <tr><td><code>v_c</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Critical speed, positive.</p>
+</td></tr>
+  <tr><td><code>v_from</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m/s</td><td><p>Starting speed, e.g. the birth speed, non-negative.</p>
+</td></tr>
+  <tr><td><code>v_to</code></td><td class="ref-type">float or array-like, optional</td><td class="ref-unit">m/s</td><td><p>Final speed, at most <code class="language-plaintext highlighter-rouge">v_from</code>; default 0, the full slowing-down (thermalisation) time.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>Elapsed time.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, non-positive tau_s or v_c, or v_to &gt; v_from.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Validity · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Validity</h4>
+
+      <p>Classical drag only; the last stretch below the ion thermal speed is not
+drag-dominated, so the time to “zero” is the time to merge with the
+thermal ions to within that approximation.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>slowing_down_time_from_T_e_n_e_A_b_Z_b</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, Plasma Phys. 14 (1972) 367.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="slowing_down_time_from_T_e_n_e_A_b_Z_b" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#slowing_down_time_from_T_e_n_e_A_b_Z_b"><code>slowing_down_time_from_T_e_n_e_A_b_Z_b</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="slowing_down_time_from_T_e_n_e_A_b_Z_b" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/fast_ion.py#L200-L255" title="vaft/formula/fast_ion.py, lines 200–255 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>slowing_down_time_from_T_e_n_e_A_b_Z_b(T_e, n_e, A_b, Z_b, ln_Lambda)</code></pre>
+
+    <details class="ref-code" data-source-code="slowing_down_time_from_T_e_n_e_A_b_Z_b"><summary>Show source <span class="ref-note">vaft/formula/fast_ion.py, lines 200–255</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">slowing_down_time_from_T_e_n_e_A_b_Z_b</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="n">n_e</span><span class="p">,</span> <span class="n">A_b</span><span class="p">,</span> <span class="n">Z_b</span><span class="p">,</span> <span class="n">ln_Lambda</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Spitzer slowing-down time of a fast ion on electrons.
+
+    $$\tau_s = \frac{3\,(2\pi)^{3/2}\,\varepsilon_0^2\,m_b\,(eT_e)^{3/2}}
+      {n_e\,Z_b^2\,e^4\,m_e^{1/2}\,\ln\Lambda}
+      \approx 6.27\times10^{14}\,\frac{A_b\,T_e^{3/2}}{Z_b^2\,n_e\,\ln\Lambda}$$
+
+    with $T_e$ in eV and $n_e$ in m^-3 in the numeric form.
+
+    Parameters
+    ----------
+    T_e : float or array-like
+        Electron temperature, positive [eV].
+    n_e : float or array-like
+        Electron density, positive [m^-3].
+    A_b : float or array-like
+        Mass number of the fast ion, positive [-].
+    Z_b : float or array-like
+        Charge of the fast ion, positive [-].
+    ln_Lambda : float or array-like
+        Coulomb logarithm, positive [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\tau_s$ [s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive input.
+
+    Convention
+    ----------
+    The e-folding time of the fast ion</span><span class="sh">'</span><span class="s">s *momentum* against electron drag
+    alone, $dv/dt = -v/\tau_s$ for $v \gg v_c$; the energy e-folds in
+    $\tau_s/2$.  The Coulomb logarithm is the caller</span><span class="sh">'</span><span class="s">s: pass the electron one
+    (:func:`vaft.formula.equilibrium.coulomb_logarithm_from_n_T`).
+
+    References
+    ----------
+    .. [1] T. H. Stix, Plasma Phys. 14 (1972) 367.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 2.15 and 5.4.
+
+    See Also
+    --------
+    slowing_down_time_between_speeds
+    </span><span class="sh">"""</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">QE</span>
+    <span class="n">ne</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">m_b</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">A_b</span><span class="p">,</span> <span class="sh">"</span><span class="s">A_b</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">_AMU</span>
+    <span class="n">z_b</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">Z_b</span><span class="p">,</span> <span class="sh">"</span><span class="s">Z_b</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">lnl</span> <span class="o">=</span> <span class="nf">_positive</span><span class="p">(</span><span class="n">ln_Lambda</span><span class="p">,</span> <span class="sh">"</span><span class="s">ln_Lambda</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">3.0</span> <span class="o">*</span> <span class="p">(</span><span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">EPS0</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">m_b</span> <span class="o">*</span> <span class="n">te</span><span class="o">**</span><span class="mf">1.5</span>
+                <span class="o">/</span> <span class="p">(</span><span class="n">ne</span> <span class="o">*</span> <span class="n">z_b</span><span class="o">**</span><span class="mi">2</span> <span class="o">*</span> <span class="n">QE</span><span class="o">**</span><span class="mi">4</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">sqrt</span><span class="p">(</span><span class="n">ME</span><span class="p">)</span> <span class="o">*</span> <span class="n">lnl</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Spitzer slowing-down time of a fast ion on electrons.</p>
+
+\[\tau_s = \frac{3\,(2\pi)^{3/2}\,\varepsilon_0^2\,m_b\,(eT_e)^{3/2}}
+  {n_e\,Z_b^2\,e^4\,m_e^{1/2}\,\ln\Lambda}
+  \approx 6.27\times10^{14}\,\frac{A_b\,T_e^{3/2}}{Z_b^2\,n_e\,\ln\Lambda}\]
+
+    <p>with $T_e$ in eV and $n_e$ in m^-3 in the numeric form.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>T_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature, positive.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density, positive.</p>
+</td></tr>
+  <tr><td><code>A_b</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Mass number of the fast ion, positive.</p>
+</td></tr>
+  <tr><td><code>Z_b</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Charge of the fast ion, positive.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Coulomb logarithm, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">s</td><td><p>$\tau_s$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The e-folding time of the fast ion’s <em>momentum</em> against electron drag
+alone, $dv/dt = -v/\tau_s$ for $v \gg v_c$; the energy e-folds in
+$\tau_s/2$.  The Coulomb logarithm is the caller’s: pass the electron one
+(<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.coulomb_logarithm_from_n_T</code>).</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite or non-positive input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>slowing_down_time_between_speeds</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, Plasma Phys. 14 (1972) 367.
+</li>
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 2.15 and 5.4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/formula/dimensional/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: dimensional">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/formula/kinetic/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: kinetic">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: kinetic",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_kinetic.md",
+            "ref": "_guide/Formula_reference_kinetic.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_fast_ion.md",
+        "mtime": "2026-10-05 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

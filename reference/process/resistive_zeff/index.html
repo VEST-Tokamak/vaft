@@ -1,0 +1,1490 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: resistive_zeff · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/process/confinement/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/formula/impurity/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: resistive_zeff</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_resistive_zeff">Process reference: resistive_zeff</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.resistive_zeff, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.resistive_zeff</code>:
+<strong>7</strong> public functions. Each entry is what
+<code>vaft.process.describe("resistive_zeff.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Infers one scalar <code class="language-plaintext highlighter-rouge">Zeff_resistive</code> over a time window: the effective charge
+a stated parallel-conductivity model needs to reproduce the plasma resistance
+observed through Romero’s transformer balance (issue #1214).  It is a
+<em>model-inferred</em> quantity, not the composition value <code class="language-plaintext highlighter-rouge">sum n_i Z_i^2 / n_e</code>;
+it absorbs every error in T_e, the equilibrium, the boundary voltage, the
+conductivity model and any non-inductive current, and is named and stored so
+that nobody mistakes it for a measurement.  Nothing here writes
+<code class="language-plaintext highlighter-rouge">core_profiles.zeff</code>.</p>
+
+<p>The chain, and where each step’s state changes::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>boundary flux psi_B, I_p, li_3 per slice          [RomeroBoundaryFlux]
+-&gt; smoothed in time, differentiated               [Smoothing]
+-&gt; V_B, V_I, V_R = V_B - V_I, R_p = V_R/(I_p - I_ni)  [ObservedResistance]
+flux-surface state: T_e, n_e, &lt;J.B&gt;, &lt;B^2&gt;, V(psi) [FluxSurfaceState]
+-&gt; sigma_par(Z) -&gt; P_Ohm(Z) -&gt; R_p^model(Z)        [ModelResistance]
+-&gt; bounded scalar fit of V_R^model(Z) to V_R^obs   [ResistiveZeffInference]
+</code></pre></div></div>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>psi_B</td><td>boundary poloidal flux, full flux in Romero&#39;s sign</td><td class="ref-unit">Wb</td></tr>
+  <tr><td>V_B</td><td>boundary loop voltage, -d psi_B / dt</td><td class="ref-unit">V</td></tr>
+  <tr><td>V_I</td><td>inductive voltage, L_i dI_p/dt + I_p/2 dL_i/dt</td><td class="ref-unit">V</td></tr>
+  <tr><td>V_R</td><td>resistive voltage, V_B - V_I = R_p (I_p - I_ni)</td><td class="ref-unit">V</td></tr>
+  <tr><td>L_i</td><td>dimensional internal inductance, mu0 R0 li_3 / 2</td><td class="ref-unit">H</td></tr>
+  <tr><td>&lt;J.B&gt;</td><td>flux-surface average of J.B</td><td class="ref-unit">A T m^-2</td></tr>
+  <tr><td>&lt;B^2&gt;</td><td>flux-surface average of B^2 (IMAS gm5)</td><td class="ref-unit">T^2</td></tr>
+  <tr><td>sigma_par</td><td>parallel electrical conductivity</td><td class="ref-unit">S m^-1</td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>Romero’s voltage convention, full webers.</strong>  Every voltage is
+<code class="language-plaintext highlighter-rouge">V = -d psi/dt</code> on the full flux, so a positive <code class="language-plaintext highlighter-rouge">V_B</code> sustains a positive
+<code class="language-plaintext highlighter-rouge">I_p</code> (issue #781).  This is <em>not</em> the Ejima convention of
+<code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.loop_voltage_from_total_flux</code>
+(<code class="language-plaintext highlighter-rouge">+2 pi d psi/dt</code> on a per-radian flux, #354): the observed path accepts a
+<code class="language-plaintext highlighter-rouge">RomeroBoundaryFlux</code> only, which carries its convention tag, and
+refuses anything else rather than guess which one an array is in.</p>
+
+<p><strong>Ohmic power, not j_tor.</strong>  The model resistance is the flux-surface
+Ohmic dissipation over the current squared,
+<code class="language-plaintext highlighter-rouge">R_p = int &lt;E.B&gt;&lt;J.B&gt;/&lt;B^2&gt; dV / I_p^2</code> with
+<code class="language-plaintext highlighter-rouge">&lt;E.B&gt; = (&lt;J.B&gt; - &lt;J_bs.B&gt;) / sigma_par</code>.  <code class="language-plaintext highlighter-rouge">V_R I_p</code> is the same
+dissipation in Romero’s balance, so the two sides are one definition.  The
+parallel current is never replaced by <code class="language-plaintext highlighter-rouge">j_tor</code> – they differ at VEST
+aspect ratio (#1214 Sec. 7.2).</p>
+
+<p><strong>One scalar, not a profile.</strong>  A single global resistance constrains a
+single amplitude; the <em>inferred</em> <code class="language-plaintext highlighter-rouge">Z_eff</code> is held constant across radius and
+across the inference window (#1214 Sec. 10).  The forward model accepts a
+prescribed profile <code class="language-plaintext highlighter-rouge">Z_eff(psi)</code> – one from an impurity model, say (#1566)
+– to project it onto the resistance; it is never fitted.</p>
+
+<p><strong>Plasma current from the reconstruction.</strong>  <code class="language-plaintext highlighter-rouge">I_p</code> in <code class="language-plaintext highlighter-rouge">R_p = V_R/I_p</code>
+and in the flux-surface state is the equilibrium’s <code class="language-plaintext highlighter-rouge">global_quantities.ip</code>,
+not the Rogowski: the current that normalises <code class="language-plaintext highlighter-rouge">&lt;J.B&gt;</code> and the one that
+divides <code class="language-plaintext highlighter-rouge">V_R</code> are then the same number (#1514).  On Tier A they differ
+from the Rogowski by 5-10 %.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="infer_resistive_zeff"><td><a href="#infer_resistive_zeff"><code>infer_resistive_zeff</code></a></td><td>Bounded scalar Z_eff that makes the model resistive voltage match the observed one.
+</td></tr>
+  <tr data-ref-row="model_resistance"><td><a href="#model_resistance"><code>model_resistance</code></a></td><td>Plasma resistance a conductivity model predicts from the flux-surface Ohmic power.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="observed_resistance"><td><a href="#observed_resistance"><code>observed_resistance</code></a></td><td>Resistive voltage and plasma resistance from Romero’s transformer balance.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="parallel_conductivity"><td><a href="#parallel_conductivity"><code>parallel_conductivity</code></a></td><td>Parallel electrical conductivity on every surface of a flux-surface state.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="per_slice_resistive_zeff"><td><a href="#per_slice_resistive_zeff"><code>per_slice_resistive_zeff</code></a></td><td>Z_eff solved at each state on its own: a diagnostic of the window estimate.
+</td></tr>
+  <tr data-ref-row="resistive_zeff_sensitivity"><td><a href="#resistive_zeff_sensitivity"><code>resistive_zeff_sensitivity</code></a></td><td>Nominal resistive Z_eff and how far each input moves it.
+</td></tr>
+  <tr data-ref-row="smooth_local_polynomial"><td><a href="#smooth_local_polynomial"><code>smooth_local_polynomial</code></a></td><td>Local least-squares polynomial smoothing on a non-uniform time axis.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="infer_resistive_zeff" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#infer_resistive_zeff"><code>infer_resistive_zeff</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="infer_resistive_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/resistive_zeff.py#L902-L1116" title="vaft/process/resistive_zeff.py, lines 902–1116 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>infer_resistive_zeff(observed, states, *, model, ln_lambda, bounds, weights, time_tolerance_s=5e-05, scan_points=41)</code></pre>
+
+    <p>Bounded scalar Z_eff that makes the model resistive voltage match the observed one.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>observed</code></td><td class="ref-type">ObservedResistance</td><td class="ref-unit">any</td><td><p>Observed <code class="language-plaintext highlighter-rouge">V_R</code> history from <code class="language-plaintext highlighter-rouge">observed_resistance</code>.</p>
+</td></tr>
+  <tr><td><code>states</code></td><td class="ref-type">sequence of FluxSurfaceState</td><td class="ref-unit">any</td><td><p>Flux-surface states at times inside <code class="language-plaintext highlighter-rouge">observed.time</code>.</p>
+</td></tr>
+  <tr><td><code>model</code></td><td class="ref-type">str or callable</td><td class="ref-unit">any</td><td><p>Conductivity model, as in <code class="language-plaintext highlighter-rouge">parallel_conductivity</code>.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float or str</td><td class="ref-unit">-</td><td><p>Coulomb logarithm, as in <code class="language-plaintext highlighter-rouge">parallel_conductivity</code>.</p>
+</td></tr>
+  <tr><td><code>bounds</code></td><td class="ref-type">tuple of float</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(Z_min, Z_max)</code>, explicit; the solution is never clipped.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td class="ref-type">str or sequence of float</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"uniform"</code> or one weight per state; required.</p>
+</td></tr>
+  <tr><td><code>time_tolerance_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Largest gap between a state and its observed sample.</p>
+</td></tr>
+  <tr><td><code>scan_points</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Log-spaced Z samples used to test monotonicity first.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ResistiveZeffInference</td><td class="ref-unit">any</td><td><p>The #1214 Sec. 11 result: estimate (<code class="language-plaintext highlighter-rouge">zeff</code>, <code class="language-plaintext highlighter-rouge">uncertainty</code>, <code class="language-plaintext highlighter-rouge">bounds</code>, <code class="language-plaintext highlighter-rouge">objective</code>, <code class="language-plaintext highlighter-rouge">status</code>), observed and predicted voltages, quality and provenance.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> No state, bounds that are not <code class="language-plaintext highlighter-rouge">1 &lt;= Z_min &lt; Z_max</code>, weights of the wrong length, or a state with no observed sample at its time [-].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Match each state to the observed sample at its time.</li>
+        <li>Keep every matched sample, counting those flagged
+<code class="language-plaintext highlighter-rouge">R_p_nonpositive</code> (dropping them would bias Z upward); a
+non-positive mean <code class="language-plaintext highlighter-rouge">V_R</code> gives <code class="language-plaintext highlighter-rouge">not_identifiable</code>.</li>
+        <li>Scan <code class="language-plaintext highlighter-rouge">R_p^model(Z)</code> over the bounds; a non-monotonic response gives
+<code class="language-plaintext highlighter-rouge">non_monotonic</code> without a fit.</li>
+        <li>Minimise <code class="language-plaintext highlighter-rouge">J(Z) = sum w (V_R^obs - R_p^model(Z) (I_p - I_ni))^2</code>
+with a bounded scalar search.</li>
+        <li>Uncertainty from the curvature of <code class="language-plaintext highlighter-rouge">J</code> and the residual scatter
+(<code class="language-plaintext highlighter-rouge">None</code> with one sample); a minimum within 0.1 % of the range from
+a bound gives <code class="language-plaintext highlighter-rouge">bound_hit</code>. The scan only brackets the search: its
+smallest <code class="language-plaintext highlighter-rouge">J</code> sitting at an end point says nothing by itself, since
+a clean plasma (Z_eff ~ 1.0-1.03) minimises inside the first scan
+interval without touching the bound.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">time_tolerance_s</code> 50 us is a numerical convenience below the 1e-4 s
+rounding of the Lane K state key (#1454); <code class="language-plaintext highlighter-rouge">scan_points</code> 41 is a
+numerical convenience.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>One amplitude only: Z_eff is constant across radius and time
+(#1214 Sec. 10).  The uncertainty is statistical; the systematic part
+comes from <code class="language-plaintext highlighter-rouge">resistive_zeff_sensitivity</code>.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1214 Secs. 9-11.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="model_resistance" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#model_resistance"><code>model_resistance</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="model_resistance" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/resistive_zeff.py#L795-L881" title="vaft/process/resistive_zeff.py, lines 795–881 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>model_resistance(state, z_eff, *, model, ln_lambda)</code></pre>
+
+    <p>Plasma resistance a conductivity model predicts from the flux-surface Ohmic power.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">FluxSurfaceState</td><td class="ref-unit">any</td><td><p>One slice: profiles, <code class="language-plaintext highlighter-rouge">&lt;J.B&gt;</code>, <code class="language-plaintext highlighter-rouge">&lt;B^2&gt;</code>, enclosed volume and the optional bootstrap <code class="language-plaintext highlighter-rouge">&lt;J_bs.B&gt;</code>.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float or array_like</td><td class="ref-unit">-</td><td><p>Effective charge, constant or a profile on <code class="language-plaintext highlighter-rouge">state.psi_norm</code>, as in <code class="language-plaintext highlighter-rouge">parallel_conductivity</code>.  A profile is a forward input only: <code class="language-plaintext highlighter-rouge">infer_resistive_zeff</code> still fits one scalar (#1214 Sec. 10).</p>
+</td></tr>
+  <tr><td><code>model</code></td><td class="ref-type">str or callable</td><td class="ref-unit">any</td><td><p>Conductivity model, as in <code class="language-plaintext highlighter-rouge">parallel_conductivity</code>.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float or str</td><td class="ref-unit">-</td><td><p>Coulomb logarithm, as in <code class="language-plaintext highlighter-rouge">parallel_conductivity</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ModelResistance</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">R_p = P_Ohm / I_p^2</code> [Ohm], with the conductivity profile and the model, <code class="language-plaintext highlighter-rouge">ln Lambda</code> and bootstrap labels it came from.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">V_R I_p = P_Ohm</code> is the resistive term of Romero’s Poynting balance,
+so this <code class="language-plaintext highlighter-rouge">R_p</code> is the same quantity <code class="language-plaintext highlighter-rouge">observed_resistance</code> closes
+for.  <code class="language-plaintext highlighter-rouge">&lt;E.J&gt; ~ &lt;E.B&gt;&lt;J.B&gt;/&lt;B^2&gt;</code> treats <code class="language-plaintext highlighter-rouge">J_par/B</code> as a flux function;
+the parallel current is used, never <code class="language-plaintext highlighter-rouge">j_tor</code> (#1214 Sec. 7.2).</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Propagated from <code class="language-plaintext highlighter-rouge">parallel_conductivity</code> [-].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li><code class="language-plaintext highlighter-rouge">sigma_par(psi)</code> from <code class="language-plaintext highlighter-rouge">parallel_conductivity</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">&lt;E.B&gt; = (&lt;J.B&gt; - &lt;J_bs.B&gt;) / sigma_par</code> – <code class="language-plaintext highlighter-rouge">&lt;J_bs.B&gt;</code> is zero
+when the state carries none.</li>
+        <li><code class="language-plaintext highlighter-rouge">P_Ohm = int &lt;E.B&gt;&lt;J.B&gt;/&lt;B^2&gt; dV</code> by the trapezoid rule on the
+enclosed volume.</li>
+        <li><code class="language-plaintext highlighter-rouge">R_p = P_Ohm / I_p^2</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">&lt;E.J&gt; ~ &lt;E.B&gt;&lt;J.B&gt;/&lt;B^2&gt;</code> is exact only when <code class="language-plaintext highlighter-rouge">J_par/B</code> is a flux
+function; the poloidal variation of the Pfirsch-Schlueter current is
+dropped, which at VEST aspect ratio is part of the model-form uncertainty
+rather than a resolved term.  Steady state is not assumed: the current
+profile is the equilibrium’s own, and only its parallel resistivity is
+modelled.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>S. P. Hirshman and D. J. Sigmar, Nucl. Fusion 21 (1981) 1079 – the flux-surface parallel Ohm’s law.
+</li>
+  <li>#1214 Sec. 7.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="observed_resistance" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#observed_resistance"><code>observed_resistance</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="observed_resistance" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/resistive_zeff.py#L506-L647" title="vaft/process/resistive_zeff.py, lines 506–647 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>observed_resistance(flux, *, I_ni, smoothing)</code></pre>
+
+    <p>Resistive voltage and plasma resistance from Romero’s transformer balance.</p>
+
+    <p>Smooths the plasma current, the boundary flux and the internal inductance,
+evaluates <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.romero_flux_balance</code> on them, and
+reports <code class="language-plaintext highlighter-rouge">V_R = V_B - V_I</code> and <code class="language-plaintext highlighter-rouge">R_p = V_R / (I_p - I_ni)</code> sample by
+sample with the assumptions that produced them.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>flux</code></td><td class="ref-type">RomeroBoundaryFlux</td><td class="ref-unit">any</td><td><p>Boundary flux, current and <code class="language-plaintext highlighter-rouge">li_3</code> in Romero’s convention; nothing else is accepted.</p>
+</td></tr>
+  <tr><td><code>I_ni</code></td><td class="ref-type">float or array_like</td><td class="ref-unit">A</td><td><p>Non-inductively driven current. Required: <code class="language-plaintext highlighter-rouge">0</code> asserts a purely Ohmic discharge and is recorded as such, never assumed.</p>
+</td></tr>
+  <tr><td><code>smoothing</code></td><td class="ref-type">Smoothing</td><td class="ref-unit">any</td><td><p>How the series are smoothed before differentiation; required.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ObservedResistance</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">V_B</code>, <code class="language-plaintext highlighter-rouge">V_I</code>, <code class="language-plaintext highlighter-rouge">V_R</code> [V], <code class="language-plaintext highlighter-rouge">R_p</code> [Ohm], the derivatives, <code class="language-plaintext highlighter-rouge">inductive_fraction = |V_I| / |V_B|</code> and per-sample <code class="language-plaintext highlighter-rouge">flags</code> (<code class="language-plaintext highlighter-rouge">R_p_nonpositive</code>, <code class="language-plaintext highlighter-rouge">V_B_nonpositive</code>), plus the provenance of the flux convention, <code class="language-plaintext highlighter-rouge">li</code> definition, smoothing and current-source assumption.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Romero’s: full-weber flux, <code class="language-plaintext highlighter-rouge">V = -dpsi/dt</code>; a positive <code class="language-plaintext highlighter-rouge">V_B</code> drives a
+positive <code class="language-plaintext highlighter-rouge">I_p</code> and an Ohmic <code class="language-plaintext highlighter-rouge">R_p</code> is positive.  The Ejima loop voltage
+of <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.loop_voltage_from_total_flux</code> differs
+by sign and, on a per-radian flux, by 2 pi (#354), which is why only a
+tagged <code class="language-plaintext highlighter-rouge">RomeroBoundaryFlux</code> gets in.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>TypeError</code> <code class="language-plaintext highlighter-rouge">flux</code> is not a <code class="language-plaintext highlighter-rouge">RomeroBoundaryFlux</code>: a bare loop-voltage array carries no convention and is refused [-].
+</li>
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">I_ni</code> does not broadcast to the time axis, or <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.romero_flux_balance</code> rejects the series [-].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Smooth <code class="language-plaintext highlighter-rouge">I_p</code>, <code class="language-plaintext highlighter-rouge">psi_B</code> and <code class="language-plaintext highlighter-rouge">L_i</code> with <code class="language-plaintext highlighter-rouge">smoothing</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">psi_C = psi_B + L_i I_p</code> (Romero eqs. 35-36) and run the balance
+with <code class="language-plaintext highlighter-rouge">R_p = 0</code> so that its <code class="language-plaintext highlighter-rouge">V_R</code> is unused.</li>
+        <li><code class="language-plaintext highlighter-rouge">V_R = V_B - V_I</code>; <code class="language-plaintext highlighter-rouge">R_p = V_R / (I_p - I_ni)</code>.</li>
+        <li>Flag samples whose <code class="language-plaintext highlighter-rouge">V_B</code> or <code class="language-plaintext highlighter-rouge">R_p</code> is not positive.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p>None.  <code class="language-plaintext highlighter-rouge">I_ni</code> and <code class="language-plaintext highlighter-rouge">smoothing</code> have no default: an assumed value for
+either moves <code class="language-plaintext highlighter-rouge">R_p</code> and must be the caller’s stated choice.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  Closed-flux phase only, as the balance it calls.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">R_p</code> is a closure: it absorbs every error in <code class="language-plaintext highlighter-rouge">V_B</code>, <code class="language-plaintext highlighter-rouge">L_i</code> and
+<code class="language-plaintext highlighter-rouge">I_ni</code>.  <code class="language-plaintext highlighter-rouge">dL_i/dt</code> from reconstructed <code class="language-plaintext highlighter-rouge">li_3</code> is the noisiest term;
+where <code class="language-plaintext highlighter-rouge">inductive_fraction</code> is large the resistance is a small difference
+of large numbers and should not be fitted.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010) 115002, eqs. (23)-(27), (35)-(40).
+</li>
+  <li>#1214 Sec. 5 (observed path) and Sec. 4 (convention).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="parallel_conductivity" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#parallel_conductivity"><code>parallel_conductivity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="parallel_conductivity" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/resistive_zeff.py#L691-L792" title="vaft/process/resistive_zeff.py, lines 691–792 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>parallel_conductivity(state, z_eff, *, model, ln_lambda)</code></pre>
+
+    <p>Parallel electrical conductivity on every surface of a flux-surface state.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">FluxSurfaceState</td><td class="ref-unit">any</td><td><p>Electron profiles and geometry on a flux grid.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float or array_like</td><td class="ref-unit">-</td><td><p>Effective charge: one value for a constant charge, or a profile with one value per surface of <code class="language-plaintext highlighter-rouge">state.psi_norm</code> (#1566); at least 1 everywhere.</p>
+</td></tr>
+  <tr><td><code>model</code></td><td class="ref-type">str or callable</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">"spitzer_nrl"</code> (<code class="language-plaintext highlighter-rouge">1/eta_par</code> of the NRL Formulary, linear in Z), <code class="language-plaintext highlighter-rouge">"sauter_spitzer"</code> (Sauter’s Spitzer with N(Z)), <code class="language-plaintext highlighter-rouge">"sauter"</code> or <code class="language-plaintext highlighter-rouge">"redl"</code> (the neoclassical corrections), or a callable <code class="language-plaintext highlighter-rouge">model(state, z_eff, ln_lambda_profile) -&gt; sigma</code> – the seam a NEO conductivity table plugs into without an API change.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float or str</td><td class="ref-unit">-</td><td><p>Coulomb logarithm: a number, or <code class="language-plaintext highlighter-rouge">"sauter"</code> for Sauter’s electron <code class="language-plaintext highlighter-rouge">ln Lambda_e(n_e, T_e)</code> on every surface.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">S/m</td><td><p><code class="language-plaintext highlighter-rouge">sigma_par</code> on <code class="language-plaintext highlighter-rouge">state.psi_norm</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Parallel, not perpendicular: <code class="language-plaintext highlighter-rouge">spitzer_nrl</code> is <code class="language-plaintext highlighter-rouge">1/eta_par</code> with the
+NRL coefficient 5.2e-5 Ohm m eV^1.5 (#1188).  The neoclassical models use
+the circular trapped fraction from <code class="language-plaintext highlighter-rouge">epsilon = (R_out - R_in)/(R_out + R_in)</code>
+unless the state carries its own, and <code class="language-plaintext highlighter-rouge">R = (R_out + R_in)/2</code> in
+<code class="language-plaintext highlighter-rouge">nu_e*</code> – as <code class="language-plaintext highlighter-rouge">vaft.omas.neoclassical.compute_conductivity</code> does.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> <code class="language-plaintext highlighter-rouge">z_eff</code> below 1, a profile whose length is not the state’s, an unknown model name, or a non-positive <code class="language-plaintext highlighter-rouge">ln_lambda</code> [-].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">spitzer_nrl</code> and <code class="language-plaintext highlighter-rouge">sauter_spitzer</code> differ by tens of percent at
+<code class="language-plaintext highlighter-rouge">Z &gt; 1</code> (linear Z against <code class="language-plaintext highlighter-rouge">Z N(Z)</code>); the model name is part of the
+result.  The axis surface has <code class="language-plaintext highlighter-rouge">epsilon = 0</code> and no trapped particles.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834; 9 (2002) 5140 (erratum).
+</li>
+  <li>A. Redl et al., Phys. Plasmas 28 (2021) 022502.
+</li>
+  <li>NRL Plasma Formulary (2019), p. 29.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="per_slice_resistive_zeff" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#per_slice_resistive_zeff"><code>per_slice_resistive_zeff</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="per_slice_resistive_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/resistive_zeff.py#L1120-L1190" title="vaft/process/resistive_zeff.py, lines 1120–1190 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>per_slice_resistive_zeff(observed, states, *, model, ln_lambda, bounds, time_tolerance_s=5e-05)</code></pre>
+
+    <details class="ref-code" data-source-code="per_slice_resistive_zeff"><summary>Show source <span class="ref-note">vaft/process/resistive_zeff.py, lines 1120–1190</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">per_slice_resistive_zeff</span><span class="p">(</span>
+    <span class="n">observed</span><span class="p">:</span> <span class="n">ObservedResistance</span><span class="p">,</span>
+    <span class="n">states</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">FluxSurfaceState</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Callable</span><span class="p">],</span>
+    <span class="n">ln_lambda</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span>
+    <span class="n">bounds</span><span class="p">:</span> <span class="nb">tuple</span><span class="p">,</span>
+    <span class="n">time_tolerance_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">5e-5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Z_eff solved at each state on its own: a diagnostic of the window estimate.
+
+    Parameters
+    ----------
+    observed : ObservedResistance
+        Observed ``V_R`` history from :func:`observed_resistance` [any].
+    states : sequence of FluxSurfaceState
+        Flux-surface states inside ``observed.time`` [any].
+    model : str or callable
+        Conductivity model, as in :func:`parallel_conductivity` [any].
+    ln_lambda : float or str
+        Coulomb logarithm, as in :func:`parallel_conductivity` [-].
+    bounds : tuple of float
+        ``(Z_min, Z_max)`` [-].
+    time_tolerance_s : float, optional
+        Largest gap between a state and its observed sample [s].
+
+    Returns
+    -------
+    dict
+        ``time`` [s], ``zeff`` (NaN where a slice has no estimate) [-] and
+        ``status`` per state, ordered in time [any].
+
+    Raises
+    ------
+    ValueError
+        Propagated from :func:`infer_resistive_zeff` [-].
+
+    Processing steps
+    ----------------
+    1. Order the states in time.
+    2. Run :func:`infer_resistive_zeff` on each state alone.
+    3. Keep the value only for ``ok`` and ``bound_hit``; ``bound_hit`` keeps
+       its bound value so the reader sees where it stuck.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Not the estimate: #1214 Sec. 9 fits one scalar over a window, because one
+    sample carries the full noise of a differentiated ``V_R`` and no residual
+    to judge it by.  These values show whether that scalar hides a trend, and
+    are labelled as a diagnostic wherever they are drawn.
+
+    Provenance
+    ----------
+    .. [issue] #1214 Secs. 9-10.
+    </span><span class="sh">"""</span>
+    <span class="n">ordered</span> <span class="o">=</span> <span class="nf">sorted</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">s</span><span class="p">:</span> <span class="n">s</span><span class="p">.</span><span class="n">time</span><span class="p">)</span>
+    <span class="n">times</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">statuses</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">state</span> <span class="ow">in</span> <span class="n">ordered</span><span class="p">:</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="nf">infer_resistive_zeff</span><span class="p">(</span>
+            <span class="n">observed</span><span class="p">,</span> <span class="p">[</span><span class="n">state</span><span class="p">],</span> <span class="n">model</span><span class="o">=</span><span class="n">model</span><span class="p">,</span> <span class="n">ln_lambda</span><span class="o">=</span><span class="n">ln_lambda</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="n">bounds</span><span class="p">,</span>
+            <span class="n">weights</span><span class="o">=</span><span class="sh">"</span><span class="s">uniform</span><span class="sh">"</span><span class="p">,</span> <span class="n">time_tolerance_s</span><span class="o">=</span><span class="n">time_tolerance_s</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">times</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">time</span><span class="p">))</span>
+        <span class="n">statuses</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">result</span><span class="p">.</span><span class="n">status</span><span class="p">)</span>
+        <span class="n">values</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">result</span><span class="p">.</span><span class="n">zeff</span> <span class="k">if</span> <span class="n">result</span><span class="p">.</span><span class="n">zeff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="sh">"</span><span class="s">time</span><span class="sh">"</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">times</span><span class="p">),</span> <span class="sh">"</span><span class="s">zeff</span><span class="sh">"</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+            <span class="sh">"</span><span class="s">status</span><span class="sh">"</span><span class="p">:</span> <span class="nf">tuple</span><span class="p">(</span><span class="n">statuses</span><span class="p">)}</span></code></pre></figure>
+
+</details>
+
+    <p>Z_eff solved at each state on its own: a diagnostic of the window estimate.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>observed</code></td><td class="ref-type">ObservedResistance</td><td class="ref-unit">any</td><td><p>Observed <code class="language-plaintext highlighter-rouge">V_R</code> history from <code class="language-plaintext highlighter-rouge">observed_resistance</code>.</p>
+</td></tr>
+  <tr><td><code>states</code></td><td class="ref-type">sequence of FluxSurfaceState</td><td class="ref-unit">any</td><td><p>Flux-surface states inside <code class="language-plaintext highlighter-rouge">observed.time</code>.</p>
+</td></tr>
+  <tr><td><code>model</code></td><td class="ref-type">str or callable</td><td class="ref-unit">any</td><td><p>Conductivity model, as in <code class="language-plaintext highlighter-rouge">parallel_conductivity</code>.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float or str</td><td class="ref-unit">-</td><td><p>Coulomb logarithm, as in <code class="language-plaintext highlighter-rouge">parallel_conductivity</code>.</p>
+</td></tr>
+  <tr><td><code>bounds</code></td><td class="ref-type">tuple of float</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(Z_min, Z_max)</code>.</p>
+</td></tr>
+  <tr><td><code>time_tolerance_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Largest gap between a state and its observed sample.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">time</code> [s], <code class="language-plaintext highlighter-rouge">zeff</code> (NaN where a slice has no estimate) [-] and <code class="language-plaintext highlighter-rouge">status</code> per state, ordered in time.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Propagated from <code class="language-plaintext highlighter-rouge">infer_resistive_zeff</code> [-].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Order the states in time.</li>
+        <li>Run <code class="language-plaintext highlighter-rouge">infer_resistive_zeff</code> on each state alone.</li>
+        <li>Keep the value only for <code class="language-plaintext highlighter-rouge">ok</code> and <code class="language-plaintext highlighter-rouge">bound_hit</code>; <code class="language-plaintext highlighter-rouge">bound_hit</code> keeps
+its bound value so the reader sees where it stuck.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Not the estimate: #1214 Sec. 9 fits one scalar over a window, because one
+sample carries the full noise of a differentiated <code class="language-plaintext highlighter-rouge">V_R</code> and no residual
+to judge it by.  These values show whether that scalar hides a trend, and
+are labelled as a diagnostic wherever they are drawn.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1214 Secs. 9-10.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="resistive_zeff_sensitivity" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#resistive_zeff_sensitivity"><code>resistive_zeff_sensitivity</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="resistive_zeff_sensitivity" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/resistive_zeff.py#L1192-L1325" title="vaft/process/resistive_zeff.py, lines 1192–1325 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>resistive_zeff_sensitivity(flux, states, *, I_ni, smoothing, model, ln_lambda, bounds, weights, relative_perturbation=0.1, smoothing_factors=(0.5, 2.0), models=(&#39;spitzer_nrl&#39;, &#39;sauter&#39;, &#39;redl&#39;), time_tolerance_s=5e-05)</code></pre>
+
+    <p>Nominal resistive Z_eff and how far each input moves it.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>flux</code></td><td class="ref-type">RomeroBoundaryFlux</td><td class="ref-unit">any</td><td><p>Boundary flux history.</p>
+</td></tr>
+  <tr><td><code>states</code></td><td class="ref-type">sequence of FluxSurfaceState</td><td class="ref-unit">any</td><td><p>Flux-surface states in the window.</p>
+</td></tr>
+  <tr><td><code>I_ni</code></td><td class="ref-type">float or array_like</td><td class="ref-unit">A</td><td><p>Non-inductive current, as in <code class="language-plaintext highlighter-rouge">observed_resistance</code>.</p>
+</td></tr>
+  <tr><td><code>smoothing</code></td><td class="ref-type">Smoothing</td><td class="ref-unit">any</td><td><p>Nominal smoothing.</p>
+</td></tr>
+  <tr><td><code>model</code></td><td class="ref-type">str or callable</td><td class="ref-unit">any</td><td><p>Nominal conductivity model.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float or str</td><td class="ref-unit">-</td><td><p>Coulomb logarithm.</p>
+</td></tr>
+  <tr><td><code>bounds</code></td><td class="ref-type">tuple of float</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">(Z_min, Z_max)</code>.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td class="ref-type">str or sequence of float</td><td class="ref-unit">-</td><td><p>As in <code class="language-plaintext highlighter-rouge">infer_resistive_zeff</code>.</p>
+</td></tr>
+  <tr><td><code>relative_perturbation</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Fractional change applied to T_e, n_e and li_3, each way.</p>
+</td></tr>
+  <tr><td><code>smoothing_factors</code></td><td class="ref-type">tuple of float, optional</td><td class="ref-unit">-</td><td><p>Multipliers of the smoothing window.</p>
+</td></tr>
+  <tr><td><code>models</code></td><td class="ref-type">tuple of str, optional</td><td class="ref-unit">-</td><td><p>Alternative conductivity models compared with the nominal one.</p>
+</td></tr>
+  <tr><td><code>time_tolerance_s</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>As in <code class="language-plaintext highlighter-rouge">infer_resistive_zeff</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">tuple</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">(nominal, table)</code>: the nominal <code class="language-plaintext highlighter-rouge">ResistiveZeffInference</code>, with its <code class="language-plaintext highlighter-rouge">sensitivity</code> filled with the largest shift per input, and a list of rows <code class="language-plaintext highlighter-rouge">{"input", "setting", "zeff", "delta", "status"}</code></p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Propagated from <code class="language-plaintext highlighter-rouge">infer_resistive_zeff</code> [-].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Nominal inference.</li>
+        <li>Re-infer with T_e, n_e and li_3 scaled by <code class="language-plaintext highlighter-rouge">1 +/- relative_perturbation</code>.</li>
+        <li>Re-infer with the smoothing window scaled by each factor.</li>
+        <li>Re-infer with each alternative conductivity model, and without the
+bootstrap current if the states carry one.</li>
+        <li><code class="language-plaintext highlighter-rouge">delta = Z - Z_nominal</code>; the largest absolute delta per input goes
+into <code class="language-plaintext highlighter-rouge">nominal.sensitivity</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">relative_perturbation</code> 0.1 and <code class="language-plaintext highlighter-rouge">smoothing_factors</code> (0.5, 2) are
+numerical-convenience probes of local sensitivity, not uncertainty
+estimates of VEST diagnostics; <code class="language-plaintext highlighter-rouge">models</code> is the conventional
+Spitzer/Sauter/Redl ladder of #1214 Sec. 3.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>One-at-a-time perturbations; no correlation between inputs.  NEO enters
+only as a callable model the caller supplies.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1214 Sec. 12 and Phase F.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="smooth_local_polynomial" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#smooth_local_polynomial"><code>smooth_local_polynomial</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="smooth_local_polynomial" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/resistive_zeff.py#L431-L503" title="vaft/process/resistive_zeff.py, lines 431–503 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>smooth_local_polynomial(time, values, *, window_s, order)</code></pre>
+
+    <details class="ref-code" data-source-code="smooth_local_polynomial"><summary>Show source <span class="ref-note">vaft/process/resistive_zeff.py, lines 431–503</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">smooth_local_polynomial</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">window_s</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">order</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Local least-squares polynomial smoothing on a non-uniform time axis.
+
+    A Savitzky-Golay filter written for unevenly spaced samples: at each
+    sample a polynomial of ``order`` is fitted by least squares to every
+    sample within ``window_s / 2`` of it, and its value there is returned.
+    EFIT slices arrive at about 1 ms with gaps, which the uniform-grid filter
+    cannot take.
+
+    Parameters
+    ----------
+    time : array_like
+        Sample times, strictly increasing [s].
+    values : array_like
+        The sampled quantity, same length as ``time`` [any].
+    window_s : float
+        Full width of the fitting window [s].
+    order : int
+        Polynomial order; at least ``order + 2`` samples must fall in every
+        window [-].
+
+    Returns
+    -------
+    np.ndarray
+        Smoothed values on ``time`` [any].
+
+    Raises
+    ------
+    ValueError
+        Lengths differ, time does not strictly increase, or a window holds
+        fewer than ``order + 2`` samples -- a fit with no redundancy is an
+        interpolation, not a smoothing, and is refused [-].
+
+    Processing steps
+    ----------------
+    1. For each sample, select the samples with ``|t - t_i| &lt;= window_s/2``.
+    2. Fit a polynomial of ``order`` in ``t - t_i`` by least squares.
+    3. Return its constant term.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The window shrinks to one side at the ends of the record, where the fit
+    extrapolates and is least reliable; cut a margin of ``window_s / 2`` off
+    the inference window if the end samples matter.
+
+    Provenance
+    ----------
+    .. [1] A. Savitzky and M. J. E. Golay, Anal. Chem. 36 (1964) 1627 --
+           the uniform-grid special case.
+    </span><span class="sh">"""</span>
+    <span class="n">t</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">t</span><span class="p">.</span><span class="n">shape</span> <span class="o">!=</span> <span class="n">x</span><span class="p">.</span><span class="n">shape</span> <span class="ow">or</span> <span class="n">t</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">time and values must be one-dimensional and the same length</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">diff</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">time must strictly increase</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">order</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+    <span class="n">half</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="nf">float</span><span class="p">(</span><span class="n">window_s</span><span class="p">)</span>
+    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">empty_like</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">centre</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">t</span><span class="p">):</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">t</span> <span class="o">-</span> <span class="n">centre</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="n">half</span> <span class="o">+</span> <span class="mf">1e-12</span>
+        <span class="k">if</span> <span class="n">mask</span><span class="p">.</span><span class="nf">sum</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">order</span> <span class="o">+</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">mask</span><span class="p">.</span><span class="nf">sum</span><span class="p">()</span><span class="si">}</span><span class="s"> samples within </span><span class="si">{</span><span class="n">window_s</span><span class="si">:</span><span class="n">g</span><span class="si">}</span><span class="s"> s of t = </span><span class="si">{</span><span class="n">centre</span><span class="si">:</span><span class="p">.</span><span class="mi">4</span><span class="n">f</span><span class="si">}</span><span class="s"> s; </span><span class="sh">"</span>
+                <span class="sa">f</span><span class="sh">"</span><span class="s">order </span><span class="si">{</span><span class="n">order</span><span class="si">}</span><span class="s"> needs at least </span><span class="si">{</span><span class="n">order</span> <span class="o">+</span> <span class="mi">2</span><span class="si">}</span><span class="s"> -- widen the window</span><span class="sh">"</span>
+            <span class="p">)</span>
+        <span class="n">coeffs</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="n">polynomial</span><span class="p">.</span><span class="n">polynomial</span><span class="p">.</span><span class="nf">polyfit</span><span class="p">(</span><span class="n">t</span><span class="p">[</span><span class="n">mask</span><span class="p">]</span> <span class="o">-</span> <span class="n">centre</span><span class="p">,</span> <span class="n">x</span><span class="p">[</span><span class="n">mask</span><span class="p">],</span> <span class="n">order</span><span class="p">)</span>
+        <span class="n">out</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">coeffs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">out</span></code></pre></figure>
+
+</details>
+
+    <p>Local least-squares polynomial smoothing on a non-uniform time axis.</p>
+
+    <p>A Savitzky-Golay filter written for unevenly spaced samples: at each
+sample a polynomial of <code class="language-plaintext highlighter-rouge">order</code> is fitted by least squares to every
+sample within <code class="language-plaintext highlighter-rouge">window_s / 2</code> of it, and its value there is returned.
+EFIT slices arrive at about 1 ms with gaps, which the uniform-grid filter
+cannot take.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">array_like</td><td class="ref-unit">s</td><td><p>Sample times, strictly increasing.</p>
+</td></tr>
+  <tr><td><code>values</code></td><td class="ref-type">array_like</td><td class="ref-unit">any</td><td><p>The sampled quantity, same length as <code class="language-plaintext highlighter-rouge">time</code>.</p>
+</td></tr>
+  <tr><td><code>window_s</code></td><td class="ref-type">float</td><td class="ref-unit">s</td><td><p>Full width of the fitting window.</p>
+</td></tr>
+  <tr><td><code>order</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Polynomial order; at least <code class="language-plaintext highlighter-rouge">order + 2</code> samples must fall in every window.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">any</td><td><p>Smoothed values on <code class="language-plaintext highlighter-rouge">time</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Lengths differ, time does not strictly increase, or a window holds fewer than <code class="language-plaintext highlighter-rouge">order + 2</code> samples – a fit with no redundancy is an interpolation, not a smoothing, and is refused [-].
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>For each sample, select the samples with <code class="language-plaintext highlighter-rouge">|t - t_i| &lt;= window_s/2</code>.</li>
+        <li>Fit a polynomial of <code class="language-plaintext highlighter-rouge">order</code> in <code class="language-plaintext highlighter-rouge">t - t_i</code> by least squares.</li>
+        <li>Return its constant term.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The window shrinks to one side at the ends of the record, where the fit
+extrapolates and is least reliable; cut a margin of <code class="language-plaintext highlighter-rouge">window_s / 2</code> off
+the inference window if the end samples matter.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>A. Savitzky and M. J. E. Golay, Anal. Chem. 36 (1964) 1627 – the uniform-grid special case.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/confinement/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: confinement">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/formula/impurity/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: impurity">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: impurity",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_impurity.md",
+            "ref": "_guide/Formula_reference_impurity.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_resistive_zeff.md",
+        "mtime": "2026-10-01 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

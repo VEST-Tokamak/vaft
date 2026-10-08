@@ -1,0 +1,1013 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>API: Top level and utilities · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/formula/sol/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/api/database/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >API: Top level and utilities</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/api/Api_reference_core">API: Top level and utilities</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated reference of the objects Top level and utilities publishes, read from each module's __all__ and docstrings (issue 162).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>The signature, summary, deprecation status and source of every published object.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from each module's <code>__all__</code> by <code>python -m vaft._api_catalog</code>:
+<strong>25</strong> published objects in <strong>5</strong> modules.
+Signatures and summaries are read from the source; nothing here is written by hand.
+<a href="/vaft/reference/api/">All API pages</a></p>
+
+<div class="ref-index tex2jax_ignore" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 25 objects by name or module" aria-label="Filter objects" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.compat"><code>vaft.compat</code></a></th></tr>
+  <tr data-ref-row="vaft.compat.apply_runtime_compat_patches vaft.compat vaft.apply_runtime_compat_patches"><td><a href="#vaft.compat.apply_runtime_compat_patches"><code>apply_runtime_compat_patches</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.cumtrapz_compat vaft.compat "><td><a href="#vaft.compat.cumtrapz_compat"><code>cumtrapz_compat</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.ensure_home_environment vaft.compat "><td><a href="#vaft.compat.ensure_home_environment"><code>ensure_home_environment</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.executable_candidates vaft.compat "><td><a href="#vaft.compat.executable_candidates"><code>executable_candidates</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.executable_suffixes vaft.compat "><td><a href="#vaft.compat.executable_suffixes"><code>executable_suffixes</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.is_executable vaft.compat "><td><a href="#vaft.compat.is_executable"><code>is_executable</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.IS_WINDOWS vaft.compat "><td><a href="#vaft.compat.IS_WINDOWS"><code>IS_WINDOWS</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.compat.remove_directory vaft.compat "><td><a href="#vaft.compat.remove_directory"><code>remove_directory</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.reopenable_temporary_file vaft.compat "><td><a href="#vaft.compat.reopenable_temporary_file"><code>reopenable_temporary_file</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.resolve_executable vaft.compat "><td><a href="#vaft.compat.resolve_executable"><code>resolve_executable</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.short_temporary_directory vaft.compat "><td><a href="#vaft.compat.short_temporary_directory"><code>short_temporary_directory</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.temporary_directory vaft.compat "><td><a href="#vaft.compat.temporary_directory"><code>temporary_directory</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.trapz_compat vaft.compat "><td><a href="#vaft.compat.trapz_compat"><code>trapz_compat</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.compat.user_home vaft.compat "><td><a href="#vaft.compat.user_home"><code>user_home</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.ods_access"><code>vaft.ods_access</code></a></th></tr>
+  <tr data-ref-row="vaft.ods_access.accessor_for vaft.ods_access "><td><a href="#vaft.ods_access.accessor_for"><code>accessor_for</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.ods_access.get_path vaft.ods_access vaft.machine_mapping.utils.get_path"><td><a href="#vaft.ods_access.get_path"><code>get_path</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.ods_access.ODS_ACCESSOR vaft.ods_access vaft.plot.backend.access.ODS_ACCESSOR"><td><a href="#vaft.ods_access.ODS_ACCESSOR"><code>ODS_ACCESSOR</code></a></td><td>data</td></tr>
+  <tr data-ref-row="vaft.ods_access.path_count vaft.ods_access vaft.machine_mapping.utils.path_count"><td><a href="#vaft.ods_access.path_count"><code>path_count</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.ods_access.path_exists vaft.ods_access vaft.machine_mapping.utils.path_exists"><td><a href="#vaft.ods_access.path_exists"><code>path_exists</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.ods_access.path_value vaft.ods_access vaft.machine_mapping.utils.path_value"><td><a href="#vaft.ods_access.path_value"><code>path_value</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.ods_access.PathAccessor vaft.ods_access vaft.plot.backend.access.PathAccessor"><td><a href="#vaft.ods_access.PathAccessor"><code>PathAccessor</code></a></td><td>class</td></tr>
+  <tr data-ref-row="vaft.ods_access.register_accessor vaft.ods_access vaft.plot.backend.access.register_accessor"><td><a href="#vaft.ods_access.register_accessor"><code>register_accessor</code></a></td><td>function</td></tr>
+  <tr data-ref-row="vaft.ods_access.set_path vaft.ods_access vaft.machine_mapping.utils.set_path"><td><a href="#vaft.ods_access.set_path"><code>set_path</code></a></td><td>function</td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.spectroscopy"><code>vaft.spectroscopy</code></a></th></tr>
+  <tr data-ref-row="vaft.spectroscopy.parse_species vaft.spectroscopy "><td><a href="#vaft.spectroscopy.parse_species"><code>parse_species</code></a></td><td>function <span class="ref-flag ref-flag-deprecated">Deprecated</span></td></tr>
+  </tbody><tbody>
+  <tr class="ref-group"><th colspan="2"><a href="#module-vaft.version"><code>vaft.version</code></a></th></tr>
+  <tr data-ref-row="vaft.version.__version__ vaft.version vaft.__version__"><td><a href="#vaft.version.__version__"><code>__version__</code></a></td><td>data</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No object matches.</p>
+</div>
+
+<h2 id="module-vaft.compat">vaft.compat</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Runtime compatibility helpers for dependency and platform differences.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.compat.apply_runtime_compat_patches" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.apply_runtime_compat_patches"><code>apply_runtime_compat_patches</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.apply_runtime_compat_patches" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L355-L390" title="vaft/compat.py, lines 355–390 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>apply_runtime_compat_patches() -&gt; None</code></pre>
+
+    <p>Apply broad NumPy/SciPy shims that are safe for all runtime paths.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.apply_runtime_compat_patches</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.cumtrapz_compat" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.cumtrapz_compat"><code>cumtrapz_compat</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.cumtrapz_compat" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L65-L76" title="vaft/compat.py, lines 65–76 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>cumtrapz_compat(y, x=None, dx=1.0, axis: int = -1, initial=0.0)</code></pre>
+
+    <p>Evaluate cumulative trapezoidal integration across SciPy versions.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.ensure_home_environment" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.ensure_home_environment"><code>ensure_home_environment</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.ensure_home_environment" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L90-L106" title="vaft/compat.py, lines 90–106 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>ensure_home_environment() -&gt; str | None</code></pre>
+
+    <p>Set <code class="language-plaintext highlighter-rouge">HOME</code> from the platform home on native Windows when absent.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.executable_candidates" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.executable_candidates"><code>executable_candidates</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.executable_candidates" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L131-L150" title="vaft/compat.py, lines 131–150 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>executable_candidates(path: str | Path) -&gt; tuple[Path, ...]</code></pre>
+
+    <p>Return the filenames that could satisfy a request for <code class="language-plaintext highlighter-rouge">path</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.executable_suffixes" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.executable_suffixes"><code>executable_suffixes</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.executable_suffixes" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L119-L128" title="vaft/compat.py, lines 119–128 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>executable_suffixes() -&gt; tuple[str, ...]</code></pre>
+
+    <p>Return the suffixes this platform appends when launching a program.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.is_executable" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.is_executable"><code>is_executable</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.is_executable" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L161-L184" title="vaft/compat.py, lines 161–184 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>is_executable(path: str | Path) -&gt; bool</code></pre>
+
+    <p>Report whether this platform can start <code class="language-plaintext highlighter-rouge">path</code> as a program.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.IS_WINDOWS" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.IS_WINDOWS"><code>IS_WINDOWS</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>IS_WINDOWS = False</code></pre>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.remove_directory" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.remove_directory"><code>remove_directory</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.remove_directory" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L210-L240" title="vaft/compat.py, lines 210–240 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>remove_directory(path: str | Path, *, missing_ok: bool = True) -&gt; bool</code></pre>
+
+    <p>Delete a directory tree; return whether it is now gone.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.reopenable_temporary_file" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.reopenable_temporary_file"><code>reopenable_temporary_file</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.reopenable_temporary_file" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L187-L207" title="vaft/compat.py, lines 187–207 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>reopenable_temporary_file(*, suffix: str = &#39;&#39;, prefix: str = &#39;vaft-&#39;) -&gt; Iterator[Path]</code></pre>
+
+    <p>Yield a path to a temporary file another library may open by name.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.resolve_executable" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.resolve_executable"><code>resolve_executable</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.resolve_executable" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L153-L158" title="vaft/compat.py, lines 153–158 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>resolve_executable(path: str | Path) -&gt; Path | None</code></pre>
+
+    <p>Return the file that satisfies <code class="language-plaintext highlighter-rouge">path</code> on this platform, or <code class="language-plaintext highlighter-rouge">None</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.short_temporary_directory" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.short_temporary_directory"><code>short_temporary_directory</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.short_temporary_directory" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L293-L352" title="vaft/compat.py, lines 293–352 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>short_temporary_directory(*, max_length: int, prefix: str = &#39;vaft-&#39;) -&gt; Iterator[Path]</code></pre>
+
+    <p>Like <code class="language-plaintext highlighter-rouge">temporary_directory</code>, but the path is at most <em>max_length</em>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.temporary_directory" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.temporary_directory"><code>temporary_directory</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.temporary_directory" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L243-L267" title="vaft/compat.py, lines 243–267 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>temporary_directory(*, prefix: str = &#39;vaft-&#39;) -&gt; Iterator[Path]</code></pre>
+
+    <p>Like <code class="language-plaintext highlighter-rouge">tempfile.TemporaryDirectory</code>, but never raises on cleanup.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.trapz_compat" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.trapz_compat"><code>trapz_compat</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.trapz_compat" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L44-L62" title="vaft/compat.py, lines 44–62 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>trapz_compat(y, x=None, dx=1.0, axis: int = -1)</code></pre>
+
+    <p>Evaluate trapezoidal integration across NumPy versions.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.compat.user_home" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.compat.user_home"><code>user_home</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.compat.user_home" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/compat.py#L79-L87" title="vaft/compat.py, lines 79–87 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>user_home() -&gt; Path</code></pre>
+
+    <p>Return the user’s home directory on any platform.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.ods_access">vaft.ods_access</h2>
+
+<div class="ref-note tex2jax_ignore"><p>Non-mutating dotted-path access for ODS objects and plain mappings (issue #118).</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.ods_access.accessor_for" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.ods_access.accessor_for"><code>accessor_for</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.ods_access.accessor_for" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L334-L348" title="vaft/ods_access.py, lines 334–348 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>accessor_for(obj: Any) -&gt; PathAccessor</code></pre>
+
+    <p>The accessor that reads <code class="language-plaintext highlighter-rouge">obj</code>; a raw native IMAS object is refused.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.ods_access.get_path" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.ods_access.get_path"><code>get_path</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.ods_access.get_path" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L355-L369" title="vaft/ods_access.py, lines 355–369 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>get_path(source: Any, path: str) -&gt; Any</code></pre>
+
+    <p>Read a dotted path that the caller’s contract requires to be present.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.machine_mapping.utils.get_path</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.ods_access.ODS_ACCESSOR" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.ods_access.ODS_ACCESSOR"><code>ODS_ACCESSOR</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>ODS_ACCESSOR = &lt;vaft.ods_access._ODSAccessor&gt;</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.plot.backend.access.ODS_ACCESSOR</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.ods_access.path_count" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.ods_access.path_count"><code>path_count</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.ods_access.path_count" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L258-L271" title="vaft/ods_access.py, lines 258–271 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>path_count(source: Any, path: str) -&gt; int</code></pre>
+
+    <p>Length of the container at <code class="language-plaintext highlighter-rouge">path</code>, <code class="language-plaintext highlighter-rouge">0</code> when it is absent or empty.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.machine_mapping.utils.path_count</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.ods_access.path_exists" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.ods_access.path_exists"><code>path_exists</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.ods_access.path_exists" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L208-L225" title="vaft/ods_access.py, lines 208–225 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>path_exists(source: Any, path: str) -&gt; bool</code></pre>
+
+    <p>Whether a dotted path resolves to actual content, without creating it.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.machine_mapping.utils.path_exists</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.ods_access.path_value" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.ods_access.path_value"><code>path_value</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.ods_access.path_value" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L232-L250" title="vaft/ods_access.py, lines 232–250 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>path_value(source: Any, path: str, default: Any = None) -&gt; Any</code></pre>
+
+    <p>The value at <code class="language-plaintext highlighter-rouge">path</code>, or <code class="language-plaintext highlighter-rouge">default</code> when it carries no content.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.machine_mapping.utils.path_value</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.ods_access.PathAccessor" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.ods_access.PathAccessor"><code>PathAccessor</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">class</span></span>
+<a class="ref-source" data-source="vaft.ods_access.PathAccessor" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L291-L298" title="vaft/ods_access.py, lines 291–298 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>PathAccessor(*args, **kwargs)</code></pre>
+
+    <p>How one data model answers IMAS-DD dotted paths, without mutation.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.plot.backend.access.PathAccessor</code>.</p>
+    <details class="ref-more"><summary>3 members</summary>
+<ul class="api-members">
+<li><code>get</code> <span class="ref-type">method</span> <a class="ref-source" data-source="vaft.ods_access.PathAccessor.get" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L294-L294" title="vaft/ods_access.py, lines 294–294 at 964ae66">source</a></li>
+<li><code>count</code> <span class="ref-type">method</span> <a class="ref-source" data-source="vaft.ods_access.PathAccessor.count" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L296-L296" title="vaft/ods_access.py, lines 296–296 at 964ae66">source</a></li>
+<li><code>has</code> <span class="ref-type">method</span> <a class="ref-source" data-source="vaft.ods_access.PathAccessor.has" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L298-L298" title="vaft/ods_access.py, lines 298–298 at 964ae66">source</a></li>
+</ul>
+</details>
+  </section>
+  <section class="ref-entry" id="vaft.ods_access.register_accessor" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.ods_access.register_accessor"><code>register_accessor</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.ods_access.register_accessor" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L324-L331" title="vaft/ods_access.py, lines 324–331 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>register_accessor(predicate: Callable[[Any], bool], accessor: PathAccessor) -&gt; None</code></pre>
+
+    <p>Route objects for which <code class="language-plaintext highlighter-rouge">predicate</code> holds to <code class="language-plaintext highlighter-rouge">accessor</code>.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.plot.backend.access.register_accessor</code>.</p>
+
+  </section>
+  <section class="ref-entry" id="vaft.ods_access.set_path" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.ods_access.set_path"><code>set_path</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span></span>
+<a class="ref-source" data-source="vaft.ods_access.set_path" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/ods_access.py#L372-L384" title="vaft/ods_access.py, lines 372–384 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>set_path(source: Any, path: str, value: Any) -&gt; None</code></pre>
+
+    <p>Write a dotted path into either a plain dict or an OMAS ODS object.</p>
+
+    <p class="ref-note">Also exported as <code>vaft.machine_mapping.utils.set_path</code>.</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.spectroscopy">vaft.spectroscopy</h2>
+
+<p class="ref-note"><span class="ref-flag ref-flag-deprecated">Deprecated module</span> vaft.spectroscopy is deprecated and will be removed in vaft 0.10.0; import vaft.data.atomic (elements, species) or va...</p>
+
+<div class="ref-note tex2jax_ignore"><p>Deprecated alias of <code class="language-plaintext highlighter-rouge">vaft.data.atomic</code> and <code class="language-plaintext highlighter-rouge">vaft.data.spectroscopy</code>.</p>
+</div>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.spectroscopy.parse_species" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.spectroscopy.parse_species"><code>parse_species</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">function</span><span class="ref-flag ref-flag-deprecated" title="vaft.spectroscopy is deprecated and will be removed in vaft 0.10.0; import vaft.data.atomic (elements, species) or va...">Deprecated</span></span>
+<a class="ref-source" data-source="vaft.spectroscopy.parse_species" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/spectroscopy.py#L55-L62" title="vaft/spectroscopy.py, lines 55–62 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>parse_species(text: Any) -&gt; Species | None</code></pre>
+
+    <p>Deprecated: the species of any <code class="language-plaintext highlighter-rouge">emission=</code> term, series terms included.</p>
+
+    <p class="ref-note"><strong>Deprecated:</strong> vaft.spectroscopy is deprecated and will be removed in vaft 0.10.0; import vaft.data.atomic (elements, species) or va...</p>
+
+  </section>
+</div>
+
+<h2 id="module-vaft.version">vaft.version</h2>
+
+<div class="ref-entries tex2jax_ignore">
+  <section class="ref-entry" id="vaft.version.__version__" data-catalog="api">
+    <header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#vaft.version.__version__"><code>__version__</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">data</span></span>
+
+</header>
+    <pre class="ref-signature"><code>__version__ = &#39;0.8.0&#39;</code></pre>
+
+    <p class="ref-note">Also exported as <code>vaft.__version__</code>.</p>
+
+  </section>
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/formula/sol/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: sol">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/api/database/" class="navigation navigation-next navigation-unique" aria-label="Next page: API: vaft.database">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.compat" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.compat</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.ods_access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.ods_access</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.spectroscopy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.spectroscopy</a></li><li class="page-toc-item page-toc-level-2"><a href="#module-vaft.version" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">vaft.version</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "API: vaft.database",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Api_reference_database.md",
+            "ref": "_guide/Api_reference_database.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Api_reference_core.md",
+        "mtime": "2026-09-29 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

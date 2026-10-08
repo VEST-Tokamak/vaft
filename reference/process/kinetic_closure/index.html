@@ -1,0 +1,1058 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: kinetic_closure · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/formula/kinetic/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/process/mode_frequency/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: kinetic_closure</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_kinetic_closure">Process reference: kinetic_closure</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.kinetic_closure, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.kinetic_closure</code>:
+<strong>3</strong> public functions. Each entry is what
+<code>vaft.process.describe("kinetic_closure.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>Connects pieces VAFT already has – Thomson n_e and T_e, a T_i/T_e policy,
+an impurity composition (#1565), the per-species pressure law – into one
+pressure construction that does not assume <code class="language-plaintext highlighter-rouge">n_i = n_e</code>, and adds a
+lightweight fast-ion baseline (<code class="language-plaintext highlighter-rouge">vaft.formula.fast_ion</code>) for when no
+NUBEAM run exists.  Thermal and fast pressure stay separate quantities.</p>
+
+<p>The chain::</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>core_profiles slice (matched by time): n_e, T_e, T_i or T_i/T_e policy
++ impurity composition (vaft.process.impurity.resolve_impurity_composition)
+    -&gt; species densities n_s = n_e (n_s/n_e), main ion diluted   [dilution="species"]
+       or n_i = n_e, one hydrogenic ion                           [dilution="none", the old form]
+    -&gt; p_e = e n_e T_e,  p_i = e sum_s n_s T_s,  p_thermal = p_e + p_i
++ optional fast-ion source (fast_ion_slowing_down_estimate)
+    -&gt; p_fast = 2 W_f / 3
+-&gt; PressureAssembly: p_e, p_i_thermal, p_thermal, p_fast, p_total
+</code></pre></div></div>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>p_e, p_i</td><td>electron and summed ion thermal pressure</td><td class="ref-unit">Pa</td></tr>
+  <tr><td>p_fast</td><td>scalar fast-ion pressure</td><td class="ref-unit">Pa</td></tr>
+  <tr><td>p_total</td><td>p_thermal + p_fast</td><td class="ref-unit">Pa</td></tr>
+  <tr><td>S</td><td>fast-ion birth rate per unit volume</td><td class="ref-unit">m^-3 s^-1</td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>Thermal and fast never share a field.</strong>  <code class="language-plaintext highlighter-rouge">p_thermal</code> holds Maxwellian
+species only; <code class="language-plaintext highlighter-rouge">p_total</code> adds <code class="language-plaintext highlighter-rouge">p_fast</code>.  Writing fast pressure into a
+thermal field is what #1606 Sec. 5 forbids.</p>
+
+<p><strong>Every assumed number is recorded.</strong>  The T_i source (measured or a ratio
+with its record), the composition’s kind and source, the dilution mode and
+the fast-ion inputs are in <code class="language-plaintext highlighter-rouge">provenance</code>.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 3 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="assemble_pressure"><td><a href="#assemble_pressure"><code>assemble_pressure</code></a></td><td>Electron, per-species ion, thermal, fast and total pressure, each kept separate.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="fast_ion_slowing_down_estimate"><td><a href="#fast_ion_slowing_down_estimate"><code>fast_ion_slowing_down_estimate</code></a></td><td>Classical slowing-down density, energy and pressure of one fast-ion source on a grid.
+</td></tr>
+  <tr data-ref-row="infer_kinetic_closure"><td><a href="#infer_kinetic_closure"><code>infer_kinetic_closure</code></a></td><td>Densities, temperatures and separated pressures of one core_profiles slice, dilution-aware.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="assemble_pressure" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#assemble_pressure"><code>assemble_pressure</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="assemble_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/kinetic_closure.py#L121-L194" title="vaft/process/kinetic_closure.py, lines 121–194 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>assemble_pressure(n_e, T_e, ion_densities, ion_temperatures, *, p_fast=None, provenance=None)</code></pre>
+
+    <details class="ref-code" data-source-code="assemble_pressure"><summary>Show source <span class="ref-note">vaft/process/kinetic_closure.py, lines 121–194</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assemble_pressure</span><span class="p">(</span>
+    <span class="n">n_e</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">T_e</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
+    <span class="n">ion_densities</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">ion_temperatures</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">p_fast</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">provenance</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PressureAssembly</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">Electron, per-species ion, thermal, fast and total pressure, each kept separate.
+
+    Parameters
+    ----------
+    n_e : array-like
+        Electron density [m^-3].
+    T_e : array-like
+        Electron temperature [eV].
+    ion_densities : mapping
+        Thermal density of each ion species by label [m^-3].
+    ion_temperatures : mapping
+        Temperature of each ion species, same labels [eV].
+    p_fast : array-like, optional
+        Scalar pressure of non-thermal populations; ``None`` when there is none
+        to add [Pa].
+    provenance : mapping, optional
+        Record carried into the result [any].
+
+    Returns
+    -------
+    PressureAssembly
+        ``p_e = e n_e T_e``, ``p_i_species`` and their sum ``p_i_thermal``,
+        ``p_thermal = p_e + p_i_thermal``, ``p_fast`` and
+        ``p_total = p_thermal + p_fast`` [Pa].
+
+    Raises
+    ------
+    ValueError
+        Labels that differ between densities and temperatures, or negative
+        densities, temperatures or fast pressure.
+
+    Convention
+    ----------
+    Thermal and fast pressure are never merged into one field; ``p_total`` is
+    the only sum of the two.  Uses :func:`vaft.formula.equilibrium.electron_pressure`
+    and :func:`~vaft.formula.equilibrium.ion_pressure` per species.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #1606 Sec. 2 and 5.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.formula.equilibrium</span> <span class="kn">import</span> <span class="n">electron_pressure</span><span class="p">,</span> <span class="n">ion_pressure</span>
+
+    <span class="k">if</span> <span class="nf">set</span><span class="p">(</span><span class="n">ion_densities</span><span class="p">)</span> <span class="o">!=</span> <span class="nf">set</span><span class="p">(</span><span class="n">ion_temperatures</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">ion_densities and ion_temperatures must name the same species</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">ne</span> <span class="o">=</span> <span class="nf">_finite_non_negative</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">te</span> <span class="o">=</span> <span class="nf">_finite_non_negative</span><span class="p">(</span><span class="n">T_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">T_e</span><span class="sh">"</span><span class="p">,</span> <span class="n">ne</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="n">p_e</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">electron_pressure</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">nan_to_num</span><span class="p">(</span><span class="n">ne</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">nan_to_num</span><span class="p">(</span><span class="n">te</span><span class="p">)),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">p_e</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">ne</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">te</span><span class="p">),</span> <span class="n">p_e</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">p_species</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">density</span> <span class="ow">in</span> <span class="n">ion_densities</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nf">_finite_non_negative</span><span class="p">(</span><span class="n">density</span><span class="p">,</span> <span class="sa">f</span><span class="sh">"</span><span class="s">density of </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">ne</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="nf">_finite_non_negative</span><span class="p">(</span><span class="n">ion_temperatures</span><span class="p">[</span><span class="n">label</span><span class="p">],</span> <span class="sa">f</span><span class="sh">"</span><span class="s">temperature of </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="sh">"</span><span class="p">,</span> <span class="n">ne</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+        <span class="n">ok</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">t</span><span class="p">)</span>
+        <span class="n">p_species</span><span class="p">[</span><span class="n">label</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">ok</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">ion_pressure</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">ok</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">np</span><span class="p">.</span><span class="nf">where</span><span class="p">(</span><span class="n">ok</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">))),</span> <span class="n">np</span><span class="p">.</span><span class="n">nan</span><span class="p">)</span>
+    <span class="n">p_i</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="nf">list</span><span class="p">(</span><span class="n">p_species</span><span class="p">.</span><span class="nf">values</span><span class="p">()),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">p_species</span> <span class="k">else</span> <span class="n">np</span><span class="p">.</span><span class="nf">zeros_like</span><span class="p">(</span><span class="n">p_e</span><span class="p">)</span>
+    <span class="n">p_thermal</span> <span class="o">=</span> <span class="n">p_e</span> <span class="o">+</span> <span class="n">p_i</span>
+    <span class="n">fast</span> <span class="o">=</span> <span class="bp">None</span> <span class="k">if</span> <span class="n">p_fast</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="nf">_finite_non_negative</span><span class="p">(</span><span class="n">p_fast</span><span class="p">,</span> <span class="sh">"</span><span class="s">p_fast</span><span class="sh">"</span><span class="p">,</span> <span class="n">ne</span><span class="p">.</span><span class="n">shape</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">PressureAssembly</span><span class="p">(</span><span class="n">p_e</span><span class="o">=</span><span class="n">p_e</span><span class="p">,</span> <span class="n">p_i_species</span><span class="o">=</span><span class="n">p_species</span><span class="p">,</span> <span class="n">p_i_thermal</span><span class="o">=</span><span class="n">p_i</span><span class="p">,</span> <span class="n">p_thermal</span><span class="o">=</span><span class="n">p_thermal</span><span class="p">,</span>
+                            <span class="n">p_fast</span><span class="o">=</span><span class="n">fast</span><span class="p">,</span> <span class="n">p_total</span><span class="o">=</span><span class="n">p_thermal</span> <span class="o">+</span> <span class="p">(</span><span class="mf">0.0</span> <span class="k">if</span> <span class="n">fast</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="n">fast</span><span class="p">),</span>
+                            <span class="n">provenance</span><span class="o">=</span><span class="nf">dict</span><span class="p">(</span><span class="n">provenance</span> <span class="ow">or</span> <span class="p">{}))</span></code></pre></figure>
+
+</details>
+
+    <p>Electron, per-species ion, thermal, fast and total pressure, each kept separate.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature.</p>
+</td></tr>
+  <tr><td><code>ion_densities</code></td><td class="ref-type">mapping</td><td class="ref-unit">m^-3</td><td><p>Thermal density of each ion species by label.</p>
+</td></tr>
+  <tr><td><code>ion_temperatures</code></td><td class="ref-type">mapping</td><td class="ref-unit">eV</td><td><p>Temperature of each ion species, same labels.</p>
+</td></tr>
+  <tr><td><code>p_fast</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">Pa</td><td><p>Scalar pressure of non-thermal populations; <code class="language-plaintext highlighter-rouge">None</code> when there is none to add.</p>
+</td></tr>
+  <tr><td><code>provenance</code></td><td class="ref-type">mapping, optional</td><td class="ref-unit">any</td><td><p>Record carried into the result.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">PressureAssembly</td><td class="ref-unit">Pa</td><td><p><code class="language-plaintext highlighter-rouge">p_e = e n_e T_e</code>, <code class="language-plaintext highlighter-rouge">p_i_species</code> and their sum <code class="language-plaintext highlighter-rouge">p_i_thermal</code>, <code class="language-plaintext highlighter-rouge">p_thermal = p_e + p_i_thermal</code>, <code class="language-plaintext highlighter-rouge">p_fast</code> and <code class="language-plaintext highlighter-rouge">p_total = p_thermal + p_fast</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Thermal and fast pressure are never merged into one field; <code class="language-plaintext highlighter-rouge">p_total</code> is
+the only sum of the two.  Uses <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.electron_pressure</code>
+and <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.ion_pressure</code> per species.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Labels that differ between densities and temperatures, or negative densities, temperatures or fast pressure.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1606 Sec. 2 and 5.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="fast_ion_slowing_down_estimate" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#fast_ion_slowing_down_estimate"><code>fast_ion_slowing_down_estimate</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="fast_ion_slowing_down_estimate" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/kinetic_closure.py#L197-L328" title="vaft/process/kinetic_closure.py, lines 197–328 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>fast_ion_slowing_down_estimate(n_e, T_e, field_ions, source_rate, beam_energy_eV, *, A_b, Z_b=1.0, ln_Lambda=None, time=None, rho=None)</code></pre>
+
+    <p>Classical slowing-down density, energy and pressure of one fast-ion source on a grid.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density.</p>
+</td></tr>
+  <tr><td><code>T_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature.</p>
+</td></tr>
+  <tr><td><code>field_ions</code></td><td class="ref-type">mapping</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">label -&gt; (density, Z, A)</code> of every thermal ion species.</p>
+</td></tr>
+  <tr><td><code>source_rate</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3 s^-1</td><td><p>Fast-ion birth rate per unit volume on the grid.</p>
+</td></tr>
+  <tr><td><code>beam_energy_eV</code></td><td class="ref-type">float</td><td class="ref-unit">eV</td><td><p>Birth energy of the fast ions.</p>
+</td></tr>
+  <tr><td><code>A_b</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Mass number of the fast ion.</p>
+</td></tr>
+  <tr><td><code>Z_b</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Charge of the fast ion.</p>
+</td></tr>
+  <tr><td><code>ln_Lambda</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">-</td><td><p>Electron Coulomb logarithm; default the NRL form of n_e, T_e.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time of the profiles; <code class="language-plaintext highlighter-rouge">infer_kinetic_closure</code> refuses the estimate for a slice further away than its tolerance.</p>
+</td></tr>
+  <tr><td><code>rho</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">-</td><td><p>Radial grid of the profiles; checked against the slice grid.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">FastIonEstimate</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">v_c</code>, <code class="language-plaintext highlighter-rouge">E_c</code>, <code class="language-plaintext highlighter-rouge">tau_s</code>, the thermalisation time, <code class="language-plaintext highlighter-rouge">n_fast</code>, <code class="language-plaintext highlighter-rouge">W_fast</code> and the isotropic <code class="language-plaintext highlighter-rouge">p_fast = 2 W_fast / 3</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-positive beam energy, mass or charge, or a negative source rate.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Assumptions · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li><code class="language-plaintext highlighter-rouge">v_c</code> from the field ions (<code class="language-plaintext highlighter-rouge">vaft.formula.fast_ion.critical_velocity_from_T_e_n_species</code>).</li>
+        <li><code class="language-plaintext highlighter-rouge">tau_s</code> on electrons with ln Lambda.</li>
+        <li>Steady slowing-down density and energy density from <code class="language-plaintext highlighter-rouge">source_rate</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">p_fast = 2 W_fast / 3</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Steady state, a single birth energy, classical drag, local deposition
+(no orbit width), an isotropic population, no charge-exchange loss.
+Points with a non-positive or non-finite n_e or T_e (the zero edge of a
+fitted profile) have no defined drag and are returned as NaN.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A baseline, not NUBEAM: orbit losses, anisotropy and charge exchange –
+large in a small device like VEST – are absent, so it bounds the fast
+pressure from above where those losses matter.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>T. H. Stix, Plasma Phys. 14 (1972) 367.
+</li>
+  <li>#1606 Sec. 3-4.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="infer_kinetic_closure" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#infer_kinetic_closure"><code>infer_kinetic_closure</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="infer_kinetic_closure" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/process/kinetic_closure.py#L359-L571" title="vaft/process/kinetic_closure.py, lines 359–571 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>infer_kinetic_closure(ods, *, time=None, tolerance=0.0005, dilution=&#39;species&#39;, composition=None, machine_preset=None, shot=None, ti_te_ratio=None, ti_record=None, use_stored_inferred_ti=False, fast_ion=None)</code></pre>
+
+    <p>Densities, temperatures and separated pressures of one core_profiles slice, dilution-aware.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">ODS</td><td class="ref-unit">any</td><td><p>Source of n_e, T_e and (when stored) the main-ion T_i; read without creating paths.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Slice time; required when the IDS holds several slices.</p>
+</td></tr>
+  <tr><td><code>tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Largest <code class="language-plaintext highlighter-rouge">|t_slice - time|</code> accepted.</p>
+</td></tr>
+  <tr><td><code>dilution</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">species</code> (composition-resolved ion densities) or <code class="language-plaintext highlighter-rouge">none</code> (the legacy n_i = n_e single hydrogenic ion, keyed by the stored main-ion label, <code class="language-plaintext highlighter-rouge">H+</code> when none is stored).</p>
+</td></tr>
+  <tr><td><code>composition</code></td><td class="ref-type">ImpurityComposition, optional</td><td class="ref-unit">any</td><td><p>Explicit composition for <code class="language-plaintext highlighter-rouge">vaft.process.impurity.resolve_impurity_composition</code>.</p>
+</td></tr>
+  <tr><td><code>machine_preset</code></td><td class="ref-type">str or mapping, optional</td><td class="ref-unit">any</td><td><p>Machine preset for the same resolver (<code class="language-plaintext highlighter-rouge">"vest"</code>).</p>
+</td></tr>
+  <tr><td><code>shot</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Shot whose preset era applies.</p>
+</td></tr>
+  <tr><td><code>ti_te_ratio</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>T_i = ratio T_e for every ion when the slice stores no measured T_i: none at all, or one whose <code class="language-plaintext highlighter-rouge">temperature_fit.parameters</code> record says it was assumed (<code class="language-plaintext highlighter-rouge">ti_te_ratio=...; status=assumed</code>) or inferred (<code class="language-plaintext highlighter-rouge">origin=inferred</code>).</p>
+</td></tr>
+  <tr><td><code>ti_record</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>Provenance text for that ratio (e.g. the VEST policy record).</p>
+</td></tr>
+  <tr><td><code>use_stored_inferred_ti</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Take a stored T_i whose record says <code class="language-plaintext highlighter-rouge">origin=inferred</code> (a lane K pressure partition) as the ion temperature, recorded as inferred; off by default, as in <code class="language-plaintext highlighter-rouge">vaft.process.transport_state.build_transport_state</code>.</p>
+</td></tr>
+  <tr><td><code>fast_ion</code></td><td class="ref-type">FastIonEstimate, optional</td><td class="ref-unit">any</td><td><p>A fast-ion estimate on the same grid, added as <code class="language-plaintext highlighter-rouge">p_fast</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">KineticClosure</td><td class="ref-unit">any</td><td><p>Composition, ion densities and temperatures, the <code class="language-plaintext highlighter-rouge">PressureAssembly</code> and the provenance of every input.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">dilution="none"</code> reproduces <code class="language-plaintext highlighter-rouge">pressure_thermal = e n_e (T_e + T_i)</code> of
+<code class="language-plaintext highlighter-rouge">vaft.process.profile.core_profiles_from_eq_ratio</code> exactly; the
+<code class="language-plaintext highlighter-rouge">species</code> mode differs from it by <code class="language-plaintext highlighter-rouge">e n_e T_i (sum_s n_s/n_e - 1)</code>.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An unknown dilution mode, no slice at the time, no n_e or T_e, no measured T_i and no ratio (an inferred one needs the opt-in or a ratio), an ion-temperature record in no known grammar, several hydrogenic ions, a composition that cannot be resolved, a composition resolved on another grid than n_e, or a fast-ion estimate from another grid or time.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Match the slice by time; read n_e, T_e and the main-ion T_i if stored.</li>
+        <li><code class="language-plaintext highlighter-rouge">species</code>: resolve the composition (stored ions, explicit, preset;
+#1565 precedence) and form n_s = n_e (n_s/n_e) with the diluted main
+ion; <code class="language-plaintext highlighter-rouge">none</code>: one hydrogenic ion with n_i = n_e.</li>
+        <li>Ion temperatures for every ion: the stored main-ion T_i when its
+<code class="language-plaintext highlighter-rouge">temperature_fit.parameters</code> record classifies as measured
+(<code class="language-plaintext highlighter-rouge">vaft.machine_mapping.core_profiles.classify_ti_record</code>); a
+stored T_i the product itself assumed or inferred is not a measurement
+and is outranked by the caller’s ratio (recorded as assumed) – an
+inferred one is used only on <code class="language-plaintext highlighter-rouge">use_stored_inferred_ti</code> (recorded as
+inferred); <code class="language-plaintext highlighter-rouge">provenance["ti"]</code> carries <code class="language-plaintext highlighter-rouge">status</code> and <code class="language-plaintext highlighter-rouge">lineage</code>.</li>
+        <li>Assemble p_e, p_i, p_thermal; add <code class="language-plaintext highlighter-rouge">fast_ion</code> as p_fast.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p>A fitted <code class="language-plaintext highlighter-rouge">core_profiles</code> slice (Thomson n_e, T_e; T_i measured or not).</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>Derived kinetic densities and separated pressures; nothing is written.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.  A machine preset reaches it only as <code class="language-plaintext highlighter-rouge">machine_preset</code>.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Impurities share the main-ion temperature, read from the one hydrogenic
+<code class="language-plaintext highlighter-rouge">ion[]</code> entry (by <code class="language-plaintext highlighter-rouge">element.0.z_n</code>, not position).  A measured record
+is taken at its word: whether the measurement itself is sound (CX
+coverage, fit span) is the profile stage’s finding, not re-examined here.
+The fast-ion
+pressure is the caller’s estimate; it must share the slice’s grid (and
+its time and rho when the estimate records them).  No deposition model
+is run here.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1606 Sec. 1-2 and 5; #1565 (composition); #1526 (the T_i record grammar, cold review 0.8.0 delta-absorb-19 physics F1).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/formula/kinetic/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: kinetic">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/process/mode_frequency/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: mode_frequency">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: mode_frequency",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_mode_frequency.md",
+            "ref": "_guide/Process_reference_mode_frequency.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_kinetic_closure.md",
+        "mtime": "2026-10-05 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -1,0 +1,1242 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Equilibrium representations · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/formula/boundaries/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/formula/ntv/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Equilibrium representations</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Equilibrium_representations">Equilibrium representations</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>One canonical EquilibriumData, and five kinds of thing derived from it (coordinate, projection, representation, derived quantity, solver convention), each with its VAFT entry points.</dd>
+    <dt>Prerequisites / inputs</dt><dd>An equilibrium record; the packaged 39915 sample is enough.</dd>
+    <dt>Expected result</dt><dd>For every branch of the equilibrium hierarchy, which category it belongs to, which public API implements it, what provenance it carries, and what is still missing.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>A tokamak equilibrium reaches an analysis as $\psi(R,Z)$, a $q(\psi)$ profile, a
+$\rho_{tor,N}$ grid, a set of Miller numbers, Fourier boundary coefficients, a PEST grid, camera
+pixels, a field-line trajectory, an $m/n$ helical perturbation or a local transport input. These
+forms are related, but they are not interchangeable. This page names the five kinds of object
+VAFT derives from an equilibrium, maps the hierarchy of issue #1201 onto the functions that
+implement it, and lists what is not yet implemented.</p>
+
+<p>Every branch starts from one canonical record, <code class="language-plaintext highlighter-rouge">vaft.data.EquilibriumData</code>, built by
+<code class="language-plaintext highlighter-rouge">vaft.process.as_equilibrium</code> from an ODS, a GEQDSK or an analytic generator. The record keeps the
+source’s convention and does not convert it on construction. What follows is always</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>canonical state  +  explicit transformation  =  derived object (with provenance)
+</code></pre></div></div>
+
+<p>and never one object that holds every coordinate, projection and approximation at once.</p>
+
+<h2 id="the-five-categories">The five categories</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Category</th>
+      <th>Answers</th>
+      <th>VAFT examples</th>
+      <th>Is not</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>coordinate</td>
+      <td><em>where</em> a quantity is parameterized</td>
+      <td>$\psi_N$, $\rho_{pol,N}$, $\rho_{tor,N}$, PEST $\theta^*$</td>
+      <td>$\rho_{tor,N} = \sqrt{\psi_N}$</td>
+    </tr>
+    <tr>
+      <td>projection</td>
+      <td><em>where</em> the same object is viewed</td>
+      <td>R–Z plane, top view, 3-D embedding, camera pixels</td>
+      <td>a camera overlay as a 2-D equilibrium</td>
+    </tr>
+    <tr>
+      <td>representation</td>
+      <td><em>how</em> the state is encoded or approximated</td>
+      <td>Miller surface, <code class="language-plaintext highlighter-rouge">FourierSurface</code>, Solov’ev fit, prescribed island</td>
+      <td>Miller as an arbitrary LCFS</td>
+    </tr>
+    <tr>
+      <td>derived quantity</td>
+      <td><em>what physics</em> follows from the state</td>
+      <td>$q$, shear, $a/L_T$, rational surfaces, shaping</td>
+      <td>$a/L_T$ as a radial coordinate</td>
+    </tr>
+    <tr>
+      <td>solver convention</td>
+      <td><em>how an external code</em> stores it</td>
+      <td>COCOS index, Wb vs Wb/rad, DCON/GPEC Jacobian, TGLF units</td>
+      <td>a Fourier contour angle as a magnetic angle</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="coordinate">Coordinate</h3>
+
+<p>A coordinate labels positions in the plasma. A quantity is a function <em>of</em> it, and changing the
+coordinate changes the abscissa but not the physics. Radial coordinates label flux surfaces.
+Poloidal coordinates label points on one surface. Two coordinates can share the range $[0,1]$ or
+$[0,2\pi)$ and still label different points. The definition, not the range or the name, makes a
+coordinate.</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">vaft.process.derive_radial_coordinates(eq)</code> returns <code class="language-plaintext highlighter-rouge">psi_n</code>, <code class="language-plaintext highlighter-rouge">rho_pol_n</code> and <code class="language-plaintext highlighter-rouge">rho_tor_n</code> as
+<code class="language-plaintext highlighter-rouge">DerivedValue</code> records. Each record gives its definition, for example
+<code class="language-plaintext highlighter-rouge">sqrt(int_axis^psi q dpsi / int_axis^boundary q dpsi)</code> for $\rho_{tor,N}$. When the record cannot
+form $\rho_{tor,N}$, it gives a reason and does not substitute $\sqrt{\psi_N}$.</li>
+  <li><code class="language-plaintext highlighter-rouge">vaft.process.MappedPositions</code> from <code class="language-plaintext highlighter-rouge">equilibrium_mapping_thomson_scattering</code> and
+<code class="language-plaintext highlighter-rouge">equilibrium_mapping_charge_exchange</code> gives each kinetic channel in every radial coordinate the
+equilibrium supports (<a href="/vaft/workflows/equilibrium-kinetic-profiles/">Equilibrium and kinetic profiles</a>).</li>
+  <li><code class="language-plaintext highlighter-rouge">vaft.process.straight_field_line_map</code> returns a <code class="language-plaintext highlighter-rouge">StraightFieldLineMap</code> that evaluates the
+PEST angle $\theta^*$ and $\psi_N$ at any $(R,Z)$ and tabulates <code class="language-plaintext highlighter-rouge">theta</code> and <code class="language-plaintext highlighter-rouge">theta_star</code> on a
+surface.</li>
+  <li><code class="language-plaintext highlighter-rouge">vaft.formula.generalized_straight_field_line_angle</code> gives the PEST, Boozer, Hamada and
+equal-arc angles of one surface. <code class="language-plaintext highlighter-rouge">vaft.formula.sfl_toroidal_angle_shift</code> gives the matching
+toroidal shift $\nu$. The family is drawn by <code class="language-plaintext highlighter-rouge">vaft.diagram.sfl_coordinate_taxonomy</code>
+(<a href="/vaft/reference/diagrams/#straight-field-line-coordinates">Scientific diagrams</a>).</li>
+</ul>
+
+<p><strong>Is not:</strong> $\rho_{tor,N}$ is not $\sqrt{\psi_N}$, and the geometric angle
+$\theta = \mathrm{atan2}(Z-Z_a, R-R_a)$ is not the PEST $\theta^*$. The packaged 39915 ODS stores
+$\sqrt{\psi_N}$ under <code class="language-plaintext highlighter-rouge">profiles_1d.rho_tor_norm</code>, so the stored name does not tell you the
+definition (see <a href="#gaps">Gaps</a>).</p>
+
+<h3 id="projection">Projection</h3>
+
+<p>A projection shows the same physical object in another space: the poloidal plane, the machine
+$X$–$Y$ plane, a 3-D scene or a detector. It creates no new equilibrium, fits nothing and loses no
+physics that the viewing geometry does not remove. It can add calibration: a camera projection
+depends on a calibrated camera model as well as on the equilibrium.</p>
+
+<ul>
+  <li>The R–Z flux map, drawn by the <code class="language-plaintext highlighter-rouge">equilibrium_field_psi</code> plot recipe from a <code class="language-plaintext highlighter-rouge">vaft.plot.Field2D</code>
+model.</li>
+  <li>The top view, <code class="language-plaintext highlighter-rouge">vaft.plot.equilibrium_geometry_topview</code>.</li>
+  <li>The camera view: <code class="language-plaintext highlighter-rouge">vaft.omas.camera_projection_for</code> returns a calibrated
+<code class="language-plaintext highlighter-rouge">vaft.process.camera_geometry.CameraProjection</code>, and <code class="language-plaintext highlighter-rouge">vaft.omas.compute_camera_visible_efit_overlay</code>
+projects the LCFS and flux surfaces into pixels without writing anything back.</li>
+  <li>The 3-D axisymmetric embedding: <code class="language-plaintext highlighter-rouge">vaft.process.camera_geometry.sweep_toroidal</code> sweeps a contour
+toroidally, and <code class="language-plaintext highlighter-rouge">vaft.plot.Geometry3DLayers</code> / <code class="language-plaintext highlighter-rouge">vaft.plot.render_geometry_3d_layers</code> draw it.</li>
+</ul>
+
+<p><strong>Is not:</strong> a camera overlay is not a 2-D equilibrium, and a toroidal sweep of an axisymmetric
+surface is not a 3-D equilibrium.</p>
+
+<h3 id="representation">Representation</h3>
+
+<p>A representation encodes the state, or part of it, in another form, usually with fewer degrees
+of freedom. It is lossy, so it has to report how well it reproduces what it replaced. A
+representation fitted to the state describes it only within its fit validity.</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">vaft.process.fit_miller_surface</code> returns a <code class="language-plaintext highlighter-rouge">MillerFitResult</code> with <code class="language-plaintext highlighter-rouge">rms_error</code>,
+<code class="language-plaintext highlighter-rouge">normalized_rms_error</code>, <code class="language-plaintext highlighter-rouge">max_error</code>, <code class="language-plaintext highlighter-rouge">hausdorff_distance</code>, <code class="language-plaintext highlighter-rouge">accepted</code> and <code class="language-plaintext highlighter-rouge">reason</code>. It refuses
+surfaces near an active X-point.</li>
+  <li><code class="language-plaintext highlighter-rouge">vaft.process.fit_fourier_surface</code> / <code class="language-plaintext highlighter-rouge">evaluate_fourier_surface</code> / <code class="language-plaintext highlighter-rouge">fit_fourier_surface_sequence</code>
+work with <code class="language-plaintext highlighter-rouge">vaft.data.FourierSurface</code>, which records its curve parameter in <code class="language-plaintext highlighter-rouge">angle_convention</code>
+(<code class="language-plaintext highlighter-rouge">"arc_length"</code>).</li>
+  <li>The analytic ladder: <code class="language-plaintext highlighter-rouge">vaft.process.solovev_to_equilibrium</code> and <code class="language-plaintext highlighter-rouge">solovev_example(topology=...)</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.guazzotto_freidberg_to_equilibrium</code> for Guazzotto–Freidberg parts 1 and 2, and
+the inverse fit <code class="language-plaintext highlighter-rouge">vaft.process.fit_solovev</code>. All of them return or consume <code class="language-plaintext highlighter-rouge">EquilibriumData</code>, so
+an analytic state follows the same downstream paths as a reconstruction.</li>
+  <li>A prescribed island: <code class="language-plaintext highlighter-rouge">vaft.process.MagneticIslandSpec</code> and <code class="language-plaintext highlighter-rouge">magnetic_island_topology</code>.</li>
+</ul>
+
+<p><strong>Is not:</strong> a Miller shape is not an arbitrary LCFS. A fit that works on the nearly up-down
+symmetric VEST limited boundary says nothing about beans, racetracks or diverted shapes
+(<code class="language-plaintext highlighter-rouge">notebooks/edge_and_boundary_representation.ipynb</code>).</p>
+
+<h3 id="derived-quantity">Derived quantity</h3>
+
+<p>A derived quantity is physics computed from the state: a number or profile that the equilibrium
+implies, not a new label for positions. It is plotted <em>against</em> a coordinate. Its value can
+depend on the coordinate and length scale used to define it, and then that choice is part of the
+quantity.</p>
+
+<ul>
+  <li>$q$, magnetic shear and $\alpha$ on a Miller surface (<code class="language-plaintext highlighter-rouge">MillerSurface.q</code>, <code class="language-plaintext highlighter-rouge">.magnetic_shear</code>,
+<code class="language-plaintext highlighter-rouge">.alpha</code>), and $q$ recomputed from the PEST map as $F\oint dl/(R|\nabla\psi|)$.</li>
+  <li>Shaping observables from <code class="language-plaintext highlighter-rouge">vaft.process.contour_shaping_observables</code>, and the boundary topology
+record from <code class="language-plaintext highlighter-rouge">vaft.process.derive_boundary_representation</code> (<code class="language-plaintext highlighter-rouge">Topology</code>, X-points, strike points,
+gaps).</li>
+  <li>Normalized gradients: <code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.profile_gradient</code>, which keeps the plot
+coordinate, the gradient coordinate and the reference length apart and records all three
+(see <a href="#profile-gradients">Profile gradients</a> below). The older kernels
+<code class="language-plaintext highlighter-rouge">vaft.formula.normalized_gradient_scale_length(x, y, a)</code> and
+<code class="language-plaintext highlighter-rouge">SyntheticKineticProfiles.a_over_L(channel, coordinate)</code> take no equilibrium map.</li>
+</ul>
+
+<p><strong>Is not:</strong> $a/L_T$ is not a radial coordinate. On one $T_e$ profile at $\rho_{tor,N}=0.6$, the
+reference notebook gets 3.0, 2.95, 2.07 and 2.95 from four gradient conventions. A gradient is
+defined only once its derivative coordinate and its reference length are stated.</p>
+
+<h3 id="profile-gradients">Profile gradients</h3>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients</code> (#551) computes $-L\,d\ln f/dx_g$ with four separate roles:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>argument</th>
+      <th>role</th>
+      <th>values</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">coordinate</code></td>
+      <td>the abscissa the result is placed on</td>
+      <td>any <code class="language-plaintext highlighter-rouge">RADIAL_COORDINATES</code> name</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gradient_coordinate</code></td>
+      <td>what the derivative is taken with respect to</td>
+      <td>any <code class="language-plaintext highlighter-rouge">RADIAL_COORDINATES</code> name; <code class="language-plaintext highlighter-rouge">r_minor</code> or <code class="language-plaintext highlighter-rouge">r_outboard</code> for a normalized result</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reference_length</code></td>
+      <td>the length that multiplies the derivative</td>
+      <td><code class="language-plaintext highlighter-rouge">None</code>, <code class="language-plaintext highlighter-rouge">a_minor</code>, <code class="language-plaintext highlighter-rouge">R_major_axis</code>, <code class="language-plaintext highlighter-rouge">R_major_surface</code>, <code class="language-plaintext highlighter-rouge">L_ref</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">convention</code></td>
+      <td>a code preset resolving the two above</td>
+      <td><code class="language-plaintext highlighter-rouge">tglf</code>, <code class="language-plaintext highlighter-rouge">cgyro</code>, <code class="language-plaintext highlighter-rouge">gs2</code>, <code class="language-plaintext highlighter-rouge">gkw</code>, <code class="language-plaintext highlighter-rouge">gene</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">radial_coordinate_map(eq, time)</code> gives every coordinate of the registry on one slice’s
+$\psi$ grid, each as a <code class="language-plaintext highlighter-rouge">DerivedValue</code>: $\psi_N$, $\rho_{pol,N}$, $\rho_{tor,N}$ (from $q$, never the
+$\sqrt{\psi_N}$ proxy), the midplane crossings <code class="language-plaintext highlighter-rouge">r_inboard</code>/<code class="language-plaintext highlighter-rouge">r_outboard</code> at the axis height,
+<code class="language-plaintext highlighter-rouge">r_center</code>, <code class="language-plaintext highlighter-rouge">r_minor</code> $=(R_{out}-R_{in})/2$ and <code class="language-plaintext highlighter-rouge">r_minor_norm</code> $= r_{minor}/a$. Here $a$ is
+<code class="language-plaintext highlighter-rouge">r_minor</code> on the LCFS. That is not the contour half-width <code class="language-plaintext highlighter-rouge">minor_radius</code> of
+<code class="language-plaintext highlighter-rouge">derive_global_descriptors</code>, and <code class="language-plaintext highlighter-rouge">r_minor</code> is never $R_{out}-R_{axis}$.
+<code class="language-plaintext highlighter-rouge">radial_coordinate_map_from_arrays</code> builds the same map from stored radii, such as an
+<code class="language-plaintext highlighter-rouge">input.gacode</code>.</p>
+
+<p>The profile is differentiated on its own grid. The chain rule $d/dx_g = (dx_p/dx_g)\,d/dx_p$
+then carries it through the map, and only then is it interpolated, which is GACODE’s order.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.profile_gradients</span> <span class="kn">import</span> <span class="n">profile_gradient</span><span class="p">,</span> <span class="n">radial_coordinate_map</span>
+
+<span class="n">cmap</span> <span class="o">=</span> <span class="nf">radial_coordinate_map</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="mf">0.32</span><span class="p">)</span>          <span class="c1"># one equilibrium slice, chosen by time
+</span><span class="n">psi_norm</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mi">101</span><span class="p">)</span>
+<span class="n">te</span> <span class="o">=</span> <span class="mf">200.0</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="mf">0.9</span> <span class="o">*</span> <span class="n">psi_norm</span><span class="p">)</span> <span class="o">**</span> <span class="mf">1.5</span> <span class="o">+</span> <span class="mf">10.0</span>   <span class="c1"># an analytic T_e [eV] on psi_norm
+</span><span class="n">rho</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">linspace</span><span class="p">(</span><span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<span class="n">a_lt</span> <span class="o">=</span> <span class="nf">profile_gradient</span><span class="p">(</span><span class="n">te</span><span class="p">,</span> <span class="n">psi_norm</span><span class="p">,</span> <span class="sh">"</span><span class="s">psi_norm</span><span class="sh">"</span><span class="p">,</span> <span class="n">equilibrium</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span>
+                        <span class="n">coordinate</span><span class="o">=</span><span class="sh">"</span><span class="s">rho_tor_norm</span><span class="sh">"</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">,</span> <span class="n">at</span><span class="o">=</span><span class="n">rho</span><span class="p">)</span>
+<span class="n">r_lt</span> <span class="o">=</span> <span class="nf">profile_gradient</span><span class="p">(</span><span class="n">te</span><span class="p">,</span> <span class="n">psi_norm</span><span class="p">,</span> <span class="sh">"</span><span class="s">psi_norm</span><span class="sh">"</span><span class="p">,</span> <span class="n">equilibrium</span><span class="o">=</span><span class="n">cmap</span><span class="p">,</span> <span class="n">coordinate</span><span class="o">=</span><span class="sh">"</span><span class="s">rho_tor_norm</span><span class="sh">"</span><span class="p">,</span>
+                        <span class="n">gradient_coordinate</span><span class="o">=</span><span class="sh">"</span><span class="s">r_minor</span><span class="sh">"</span><span class="p">,</span> <span class="n">reference_length</span><span class="o">=</span><span class="sh">"</span><span class="s">R_major_axis</span><span class="sh">"</span><span class="p">,</span> <span class="n">at</span><span class="o">=</span><span class="n">rho</span><span class="p">)</span>
+<span class="n">r_lt</span><span class="p">.</span><span class="n">values</span> <span class="o">/</span> <span class="n">a_lt</span><span class="p">.</span><span class="n">values</span>                      <span class="c1"># R0/a at every point: the same physical derivative
+</span><span class="n">a_lt</span><span class="p">.</span><span class="n">metadata</span><span class="p">[</span><span class="sh">"</span><span class="s">mathematical_definition</span><span class="sh">"</span><span class="p">]</span>     <span class="c1"># '-a * d(log(f)) / d(r_minor)'
+</span></code></pre></div></div>
+
+<p>Each result carries <code class="language-plaintext highlighter-rouge">quantity</code>, <code class="language-plaintext highlighter-rouge">source_quantity</code>, <code class="language-plaintext highlighter-rouge">plot_coordinate</code>, <code class="language-plaintext highlighter-rouge">gradient_coordinate</code>,
+<code class="language-plaintext highlighter-rouge">reference_length</code> (definition, symbol, value, unit, provenance), <code class="language-plaintext highlighter-rouge">requested_convention</code>, the
+resolved convention and <code class="language-plaintext highlighter-rouge">mathematical_definition</code>.</p>
+
+<p><strong>Presets</strong></p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">tglf</code> and <code class="language-plaintext highlighter-rouge">cgyro</code> resolve to <code class="language-plaintext highlighter-rouge">r_minor</code> and <code class="language-plaintext highlighter-rouge">a_minor</code>, the GACODE definition. On the
+locpargen 48224 fixture, <code class="language-plaintext highlighter-rouge">tglf</code> reproduces <code class="language-plaintext highlighter-rouge">RLTS_*</code>/<code class="language-plaintext highlighter-rouge">RLNS_*</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">gs2</code> needs the run’s <code class="language-plaintext highlighter-rouge">irho</code> and <code class="language-plaintext highlighter-rouge">local_eq</code>:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">irho = 2</code> with a numerical equilibrium resolves to <code class="language-plaintext highlighter-rouge">a_minor</code>;</li>
+      <li><code class="language-plaintext highlighter-rouge">irho = 2</code> with Miller (<code class="language-plaintext highlighter-rouge">local_eq</code>) resolves to the run’s own <code class="language-plaintext highlighter-rouge">L_ref</code>;</li>
+      <li>other <code class="language-plaintext highlighter-rouge">irho</code> values are refused.</li>
+    </ul>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">gkw</code> needs <code class="language-plaintext highlighter-rouge">geom_type</code>:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">circ</code> resolves to <code class="language-plaintext highlighter-rouge">R_major_axis</code>;</li>
+      <li><code class="language-plaintext highlighter-rouge">s-alpha</code> resolves to the run’s <code class="language-plaintext highlighter-rouge">L_ref</code>;</li>
+      <li>shaped geometries are refused, because their $\psi$ uses the surface’s global $R$
+extremes.</li>
+    </ul>
+  </li>
+  <li><code class="language-plaintext highlighter-rouge">gene</code> takes the run’s own gradient coordinate and <code class="language-plaintext highlighter-rouge">L_ref</code> and is never a fixed major radius.</li>
+</ul>
+
+<p>Whatever cannot be formed is refused with <code class="language-plaintext highlighter-rouge">ValueError</code>, never extrapolated:</p>
+
+<ul>
+  <li>a non-monotonic map;</li>
+  <li>a point outside the radial support;</li>
+  <li>a profile value that is not positive;</li>
+  <li>an unavailable coordinate or reference length.</li>
+</ul>
+
+<p>The <code class="language-plaintext highlighter-rouge">*_profile_gradient</code> plot views are built on this layer; see
+<a href="/vaft/workflows/equilibrium-kinetic-profiles/#normalized-gradients">Normalized gradients</a>.</p>
+
+<h3 id="solver-convention">Solver convention</h3>
+
+<p>A solver convention is how a code, a file format or an IMAS version stores a state: the COCOS
+index, the sign and direction choices it implies, the flux unit (Wb or Wb/rad), the poloidal-angle
+Jacobian of a solver mesh, and a code’s normalizations. It changes numbers without changing
+physics. Quantities from two sources are comparable only after their conventions are converted to
+a common one.</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">vaft.data.EquilibriumConvention</code> (<code class="language-plaintext highlighter-rouge">cocos</code>, <code class="language-plaintext highlighter-rouge">psi_per_radian</code>, sign fields, <code class="language-plaintext highlighter-rouge">source</code>, and
+<code class="language-plaintext highlighter-rouge">contradicted</code> when the data disagree with the declaration). <code class="language-plaintext highlighter-rouge">vaft.process.convert_cocos(eq, target)</code>
+converts it explicitly. <a href="/vaft/reference/process/cocos/">Process reference: cocos</a>.</li>
+  <li><code class="language-plaintext highlighter-rouge">vaft.process.straight_field_line_tables</code> reads the angle tables of a DCON/GPEC mesh and
+requires <code class="language-plaintext highlighter-rouge">jacobian=</code> to be named. <code class="language-plaintext highlighter-rouge">lab_to_straight_field_line</code> applies them.</li>
+  <li><code class="language-plaintext highlighter-rouge">TGLFNormalisation</code> in <code class="language-plaintext highlighter-rouge">vaft.code.gacode.tglf.inputs</code> gives TGLF’s $a$, $c_s$, $\rho_s$ and
+$B_\mathrm{unit}$ from explicit definitions, checked against <code class="language-plaintext highlighter-rouge">locpargen</code>.</li>
+</ul>
+
+<p><strong>Is not:</strong> a Fourier curve parameter is not a magnetic poloidal angle. <code class="language-plaintext highlighter-rouge">FourierSurface</code> uses an
+arc-length angle, which differs from both the geometric and the PEST angle on the same surface.
+Reading a solver’s angle (<code class="language-plaintext highlighter-rouge">straight_field_line_tables</code>) is also different from constructing one
+from the equilibrium (<code class="language-plaintext highlighter-rouge">straight_field_line_map</code>).</p>
+
+<h2 id="the-hierarchy-in-vaft">The hierarchy in VAFT</h2>
+
+<p><code class="language-plaintext highlighter-rouge">EquilibriumData</code> is a single-slice, axisymmetric working model for numerical
+algorithms, not a persistence format. GEQDSK, ODS, and native IDS remain the
+storage and interchange records. A <code class="language-plaintext highlighter-rouge">DerivedValue</code> records its SI unit,
+definition, source fields, convention, method, tolerances, and quality; missing
+or ambiguous inputs produce an unavailable value with a reason. VAFT does not
+guess one COCOS index when observable signs admit several.</p>
+
+<p>The normalized radial coordinates are
+$\psi_N=(\psi-\psi_{axis})/(\psi_{boundary}-\psi_{axis})$,
+$\rho_{pol,N}=\sqrt{\psi_N}$, and
+$\rho_{tor,N}=\sqrt{\int q\,d\psi/\int_{boundary}q\,d\psi}$.
+A non-monotonic toroidal-flux mapping is reported, rather than repaired by
+taking absolute values. Shape descriptors use
+<code class="language-plaintext highlighter-rouge">major_radius=(R_out+R_in)/2</code>; the LCFS area centroid is recorded separately
+because it is the radius needed for Pappus’s volume theorem. Poloidal-field
+calculations honor the COCOS <code class="language-plaintext highlighter-rouge">e_Bp</code> factor, so <code class="language-plaintext highlighter-rouge">beta_p</code> and <code class="language-plaintext highlighter-rouge">li</code> agree across
+Wb and Wb/rad representations.</p>
+
+<p>Local Miller fits report RMS, maximum, and Hausdorff contour errors. Fits near
+the separatrix (<code class="language-plaintext highlighter-rouge">psi_n &gt;= 0.995</code>) or within <code class="language-plaintext highlighter-rouge">0.05a</code> of an X-point are flagged
+because the local form is unreliable there. The analytic Solov’ev model assumes
+axisymmetric constant-<code class="language-plaintext highlighter-rouge">p'</code> and constant-<code class="language-plaintext highlighter-rouge">FF'</code> solutions; it is an example and
+regression model rather than a general experimental equilibrium solver. Edge
+<code class="language-plaintext highlighter-rouge">dRsep</code> is the upper-minus-lower X-point flux-surface radius at the outboard
+midplane, and is reported only for diverted configurations.</p>
+
+<p>Boundary topology is inferred from the flux map without machine-specific
+geometry. Stationary points are classified by the Hessian determinant; a
+saddle becomes an active X-point only if its flux matches the boundary within
+a curvature- and grid-dependent window and the confined region reaches it.
+Irrelevant numerical saddles remain in <code class="language-plaintext highlighter-rouge">x_points</code> with <code class="language-plaintext highlighter-rouge">active=False</code>.
+A diverted boundary yields upper single-null, lower single-null, or
+double-null topology. A wall-contacting LCFS without an active X-point is
+limited; a clipped region, missing wall, or indeterminate boundary is
+<code class="language-plaintext highlighter-rouge">AMBIGUOUS</code> with a reason.</p>
+
+<p>The branches of #1201 §2, their category, and where each starts in the code. <strong>Status</strong> follows the
+acceptance audit posted on #1201: <em>met</em> means a public API plus a test or documentation demonstrates
+it.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Branch</th>
+      <th>Category</th>
+      <th>Canonical entry points</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Radial coordinates</td>
+      <td>coordinate</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.derive_radial_coordinates</code>, <code class="language-plaintext highlighter-rouge">vaft.process.MappedPositions</code>, <code class="language-plaintext highlighter-rouge">vaft.process.psi_to_radial</code> (midplane radii)</td>
+      <td>partly met</td>
+    </tr>
+    <tr>
+      <td>Poloidal / magnetic coordinates</td>
+      <td>coordinate</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.straight_field_line_map</code> (native PEST), <code class="language-plaintext highlighter-rouge">vaft.process.straight_field_line_tables</code> (read DCON/GPEC), <code class="language-plaintext highlighter-rouge">vaft.formula.generalized_straight_field_line_angle</code>, <code class="language-plaintext highlighter-rouge">vaft.formula.sfl_toroidal_angle_shift</code></td>
+      <td>partly met</td>
+    </tr>
+    <tr>
+      <td>Physical-space views</td>
+      <td>projection</td>
+      <td><code class="language-plaintext highlighter-rouge">Profile1D</code> and <code class="language-plaintext highlighter-rouge">Field2D</code> in <code class="language-plaintext highlighter-rouge">vaft.plot</code>, <code class="language-plaintext highlighter-rouge">vaft.plot.equilibrium_geometry_topview</code>, <code class="language-plaintext highlighter-rouge">vaft.plot.Geometry3DLayers</code></td>
+      <td>partly met</td>
+    </tr>
+    <tr>
+      <td>Diagnostic projections</td>
+      <td>projection</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.camera_projection_for</code>, <code class="language-plaintext highlighter-rouge">vaft.omas.compute_camera_visible_efit_overlay</code></td>
+      <td>partly met</td>
+    </tr>
+    <tr>
+      <td>Compact geometric representations</td>
+      <td>representation</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.fit_miller_surface</code>, <code class="language-plaintext highlighter-rouge">vaft.process.fit_fourier_surface</code>, <code class="language-plaintext highlighter-rouge">vaft.process.evaluate_fourier_surface</code>, <code class="language-plaintext highlighter-rouge">vaft.data.MXHChebyshevRepresentation</code></td>
+      <td>Miller and Fourier met</td>
+    </tr>
+    <tr>
+      <td>Analytic hierarchy</td>
+      <td>representation</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.solovev_to_equilibrium</code>, <code class="language-plaintext highlighter-rouge">vaft.process.solovev_example</code>, <code class="language-plaintext highlighter-rouge">vaft.process.guazzotto_freidberg_to_equilibrium</code>, <code class="language-plaintext highlighter-rouge">vaft.process.fit_solovev</code></td>
+      <td>partly met</td>
+    </tr>
+    <tr>
+      <td>Kinetic / gradient representations</td>
+      <td>derived quantity</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.profile_gradient</code>, <code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.radial_coordinate_map</code>, <code class="language-plaintext highlighter-rouge">vaft.formula.normalized_gradient_scale_length</code>, <code class="language-plaintext highlighter-rouge">vaft.data.SyntheticKineticProfiles</code>, <code class="language-plaintext highlighter-rouge">vaft.data.GradientProfile</code></td>
+      <td>met: process layer and <code class="language-plaintext highlighter-rouge">*_profile_gradient</code> views</td>
+    </tr>
+    <tr>
+      <td>Boundary / topology</td>
+      <td>derived quantity</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.derive_boundary_representation</code>, <code class="language-plaintext highlighter-rouge">vaft.data.BoundaryRepresentation</code>, <code class="language-plaintext highlighter-rouge">vaft.data.Topology</code>, <code class="language-plaintext highlighter-rouge">vaft.process.contour_shaping_observables</code></td>
+      <td>shape vs topology met</td>
+    </tr>
+    <tr>
+      <td>Perturbed / helical</td>
+      <td>representation</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.process.MagneticIslandSpec</code>, <code class="language-plaintext highlighter-rouge">vaft.process.magnetic_island_topology</code>, <code class="language-plaintext highlighter-rouge">GpecCylindricalOutput</code> in <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code></td>
+      <td>partly met</td>
+    </tr>
+    <tr>
+      <td>Conventions (all branches)</td>
+      <td>solver convention</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.data.EquilibriumConvention</code>, <code class="language-plaintext highlighter-rouge">vaft.process.convert_cocos</code>, <code class="language-plaintext highlighter-rouge">vaft.process.make_equilibrium_field_interpolator</code></td>
+      <td>partly met</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The per-function pages are under <a href="/vaft/reference/process/">Process reference</a>,
+<a href="/vaft/reference/formula/">Formula reference</a> and the
+<a href="/vaft/reference/plot/">Plot reference</a>.</p>
+
+<h2 id="the-provenance-thread">The provenance thread</h2>
+
+<p>Every object derived from an equilibrium should point back to the same state. Five things identify
+that state, and each has a place in the code:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Thread</th>
+      <th>Where it lives</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>source</td>
+      <td><code class="language-plaintext highlighter-rouge">EquilibriumData.metadata</code>, <code class="language-plaintext highlighter-rouge">EquilibriumConvention.source</code>; <code class="language-plaintext highlighter-rouge">DerivationProvenance.source_type</code> and <code class="language-plaintext highlighter-rouge">.source_fields</code></td>
+    </tr>
+    <tr>
+      <td>time</td>
+      <td><code class="language-plaintext highlighter-rouge">EquilibriumData.time</code>; <code class="language-plaintext highlighter-rouge">DerivationProvenance.source_time</code></td>
+    </tr>
+    <tr>
+      <td>COCOS and flux unit</td>
+      <td><code class="language-plaintext highlighter-rouge">EquilibriumData.convention.cocos</code> and <code class="language-plaintext highlighter-rouge">.psi_per_radian</code>; <code class="language-plaintext highlighter-rouge">DerivationProvenance.convention</code></td>
+    </tr>
+    <tr>
+      <td>method</td>
+      <td><code class="language-plaintext highlighter-rouge">DerivationProvenance.method</code>, <code class="language-plaintext highlighter-rouge">.interpolation</code>, <code class="language-plaintext highlighter-rouge">.fit_range</code>, <code class="language-plaintext highlighter-rouge">.radial_coordinate</code></td>
+    </tr>
+    <tr>
+      <td>residual</td>
+      <td><code class="language-plaintext highlighter-rouge">DerivedValue.quality</code>; <code class="language-plaintext highlighter-rouge">MillerFitResult</code> / <code class="language-plaintext highlighter-rouge">FourierFitResult</code> errors; <code class="language-plaintext highlighter-rouge">SolovevFit.metrics</code>; camera <code class="language-plaintext highlighter-rouge">reproj_mean_px</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Same shot and time does not mean the same equilibrium. The package also ships a standalone 39915
+g-file at 319 ms, which is a different EFIT run stored per radian. The source record, not the
+timestamp, identifies the state.</p>
+
+<p>The check below runs on the packaged sample. It asserts the COCOS instead of trusting it, then
+confirms that each derived object still names the same time and convention.</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">index</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">argmin</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">abs</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">equilibrium.time</span><span class="sh">"</span><span class="p">])</span> <span class="o">-</span> <span class="mf">0.319</span><span class="p">)))</span>
+<span class="n">eq</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">as_equilibrium</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_index</span><span class="o">=</span><span class="n">index</span><span class="p">,</span> <span class="n">convention</span><span class="o">=</span><span class="mi">11</span><span class="p">)</span>
+<span class="k">assert</span> <span class="n">eq</span><span class="p">.</span><span class="n">convention</span><span class="p">.</span><span class="n">cocos</span> <span class="o">==</span> <span class="mi">11</span> <span class="ow">and</span> <span class="n">eq</span><span class="p">.</span><span class="n">convention</span><span class="p">.</span><span class="n">psi_per_radian</span> <span class="ow">is</span> <span class="bp">False</span>   <span class="c1"># psi in Wb
+</span>
+<span class="n">coords</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">derive_radial_coordinates</span><span class="p">(</span><span class="n">eq</span><span class="p">)</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="n">coords</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">item</span><span class="p">.</span><span class="n">provenance</span>
+    <span class="k">assert</span> <span class="n">item</span><span class="p">.</span><span class="n">available</span><span class="p">,</span> <span class="n">item</span><span class="p">.</span><span class="n">reason</span>
+    <span class="k">assert</span> <span class="nf">abs</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">source_time</span> <span class="o">-</span> <span class="n">eq</span><span class="p">.</span><span class="n">time</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">5e-4</span> <span class="ow">and</span> <span class="n">p</span><span class="p">.</span><span class="n">convention</span><span class="p">.</span><span class="n">cocos</span> <span class="o">==</span> <span class="n">eq</span><span class="p">.</span><span class="n">convention</span><span class="p">.</span><span class="n">cocos</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="mi">10</span><span class="n">s</span><span class="si">}</span><span class="s"> </span><span class="si">{</span><span class="n">item</span><span class="p">.</span><span class="n">definition</span><span class="si">:</span><span class="mi">55</span><span class="n">s</span><span class="si">}</span><span class="s"> [</span><span class="si">{</span><span class="n">p</span><span class="p">.</span><span class="n">method</span><span class="si">}</span><span class="s">]</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">miller</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">fit_miller_surface</span><span class="p">(</span><span class="n">eq</span><span class="p">.</span><span class="n">lcfs</span><span class="p">)</span>
+<span class="n">fourier</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">fit_fourier_surface</span><span class="p">(</span><span class="n">eq</span><span class="p">.</span><span class="n">lcfs</span><span class="p">,</span> <span class="n">modes</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Miller  nRMS</span><span class="sh">"</span><span class="p">,</span> <span class="nf">round</span><span class="p">(</span><span class="n">miller</span><span class="p">.</span><span class="n">normalized_rms_error</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="sh">"</span><span class="s">accepted</span><span class="sh">"</span><span class="p">,</span> <span class="n">miller</span><span class="p">.</span><span class="n">accepted</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Fourier nRMS</span><span class="sh">"</span><span class="p">,</span> <span class="nf">round</span><span class="p">(</span><span class="n">fourier</span><span class="p">.</span><span class="n">normalized_rms_error</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="sh">"</span><span class="s">angle</span><span class="sh">"</span><span class="p">,</span> <span class="n">fourier</span><span class="p">.</span><span class="n">surface</span><span class="p">.</span><span class="n">angle_convention</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Miller provenance carries a convention:</span><span class="sh">"</span><span class="p">,</span> <span class="n">miller</span><span class="p">.</span><span class="n">provenance</span><span class="p">.</span><span class="n">convention</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">)</span>  <span class="c1"># False: #604
+</span>
+<span class="n">eq_rad</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">process</span><span class="p">.</span><span class="nf">convert_cocos</span><span class="p">(</span><span class="n">eq</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>                  <span class="c1"># same state, psi per radian
+</span><span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">flux-span ratio</span><span class="sh">"</span><span class="p">,</span> <span class="p">(</span><span class="n">eq</span><span class="p">.</span><span class="n">psi_boundary</span> <span class="o">-</span> <span class="n">eq</span><span class="p">.</span><span class="n">psi_axis</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">eq_rad</span><span class="p">.</span><span class="n">psi_boundary</span> <span class="o">-</span> <span class="n">eq_rad</span><span class="p">.</span><span class="n">psi_axis</span><span class="p">))</span>  <span class="c1"># 2*pi
+</span></code></pre></div></div>
+
+<p>The last lines show where the thread breaks today. A Miller fit of a bare contour carries no time
+or convention (#604), so the caller has to keep them.</p>
+
+<p>The whole chain is <code class="language-plaintext highlighter-rouge">notebooks/equilibrium_representation_reference.ipynb</code>. It takes the 39915
+slice at 0.319 s through the four radial coordinates, the R–Z map, a PEST grid with a $q$
+residual, Miller and Fourier fits, $a/L_T$ in four conventions, rational surfaces, a prescribed
+island with a field-line check, a 3-D embedding and a camera projection, and checks source, time,
+COCOS and flux unit at each step. The GPEC response step is missing because no GPEC output is
+packaged.</p>
+
+<h2 id="gaps">Gaps</h2>
+
+<p>These are the items the #1201 audit grades <em>not met</em> or <em>partly met</em>, with the issue that owns
+each. “Unowned” means no issue other than #1201 tracks it.</p>
+
+<p><strong>Partly met</strong></p>
+
+<ul>
+  <li>Radial coordinates:
+    <ul>
+      <li>The process layer names coordinates <code class="language-plaintext highlighter-rouge">psi_n</code> / <code class="language-plaintext highlighter-rouge">rho_*_n</code>, while profiles and plots use
+<code class="language-plaintext highlighter-rouge">*_norm</code>.</li>
+      <li>The packaged 39915 ODS stores $\sqrt{\psi_N}$ under <code class="language-plaintext highlighter-rouge">profiles_1d.rho_tor_norm</code>. The plot
+recipe detects this with <code class="language-plaintext highlighter-rouge">vaft.data._derived.is_rho_pol_proxy</code>, but a direct reader of the
+leaf does not (unowned).</li>
+    </ul>
+  </li>
+  <li>Geometric radii.
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">r_minor</code>, <code class="language-plaintext highlighter-rouge">r_minor_norm</code> and <code class="language-plaintext highlighter-rouge">r_center</code> are defined in
+<code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.RADIAL_COORDINATES</code> (#551).</li>
+      <li>The older tuples in <code class="language-plaintext highlighter-rouge">vaft.plot</code> and <code class="language-plaintext highlighter-rouge">vaft.process.profile</code> are not unified with it.</li>
+      <li><code class="language-plaintext highlighter-rouge">vaft/plot/onedim.py</code> still uses $r - r_{axis}$ (#479).</li>
+    </ul>
+  </li>
+  <li>Flux coordinates. The native map is PEST only. There is no direct inverse
+$(\psi,\theta^*)\to(R,Z)$, no Jacobian output, no native Boozer or Hamada map (only the
+per-surface formulas), and no closure or Jacobian residual on the map (#472).</li>
+  <li>Angle identity on the read path:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">straight_field_line_tables</code> returns bare <code class="language-plaintext highlighter-rouge">(lab, sfl)</code> tuples.</li>
+      <li><code class="language-plaintext highlighter-rouge">vaft/machine_mapping/mhd_linear.py</code> defaults an unrecorded Jacobian to <code class="language-plaintext highlighter-rouge">"hamada"</code> (unowned).</li>
+    </ul>
+  </li>
+  <li>On-surface view. There is no first-class $f(\theta \mid \psi)$ view; the notebook builds one
+from <code class="language-plaintext highlighter-rouge">StraightFieldLineMap.surface()</code> (#1201 phase E).</li>
+  <li>Projections:
+    <ul>
+      <li>There is no projection abstraction and no general 3-D embedding. <code class="language-plaintext highlighter-rouge">sweep_toroidal</code> is a camera
+helper that works in centimetres and calls the toroidal angle <code class="language-plaintext highlighter-rouge">theta</code>.</li>
+      <li>The camera overlay reads raw ODS paths instead of going through <code class="language-plaintext highlighter-rouge">as_equilibrium</code>.</li>
+      <li>The camera’s toroidal frame is not reconciled with the port frame (#746).</li>
+    </ul>
+  </li>
+  <li>Compact representations:
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">MillerSurface</code> mixes geometry with $q$, shear and $\alpha$.</li>
+      <li><code class="language-plaintext highlighter-rouge">BoundaryRepresentation.fourier_coefficients</code> and <code class="language-plaintext highlighter-rouge">MXHChebyshevRepresentation</code> do not record
+their angle convention (#942).</li>
+    </ul>
+  </li>
+  <li>Flow equilibria. <code class="language-plaintext highlighter-rouge">EquilibriumData</code> has no governing-equation field. A Guazzotto–Freidberg flow
+case is kept distinct only because exporting it raises (#1149).</li>
+  <li>Code presets. TGLF and CGYRO resolve fixed. GS2 and GKW resolve only the configurations their
+manuals fix, and GENE resolves only from the run’s own metadata (#551).</li>
+  <li>Advanced divertors. Snowflake, X-divertor and Super-X exist only as a TES input (#950).</li>
+  <li>Islands and perturbations (unowned; #886 covers the prescribed island):
+    <ul>
+      <li>The solver-derived island separatrix is reconstructed only inside the plot backend.</li>
+      <li>No island record says whether it is prescribed or solver-derived.</li>
+      <li>There is no public real-space or diagnostic-space projection of a complex GPEC perturbation.</li>
+    </ul>
+  </li>
+  <li>Conventions:
+    <ul>
+      <li>A default-constructed record falls back to Wb/rad (#603).</li>
+      <li>Miller provenance carries no convention (#604).</li>
+    </ul>
+  </li>
+  <li>Discovery. No API lists the available coordinates, projections and representations with their
+required source data (#1201 phase H).</li>
+</ul>
+
+<p>Two audit findings have been fixed since the audit:</p>
+
+<ul>
+  <li>The kinetic plot recipes drew $\sqrt{\psi_N}$ under a $\psi_N$ label (#1314).</li>
+  <li><code class="language-plaintext highlighter-rouge">make_equilibrium_field_interpolator</code> assumed Wb/rad when no COCOS was given. It now reads the
+convention from the record (#1313).</li>
+</ul>
+
+<h2 id="see-also">See also</h2>
+
+<ul>
+  <li><a href="/vaft/workflows/equilibrium-kinetic-profiles/">Equilibrium and kinetic profiles</a>:
+radial mapping of kinetic channels.</li>
+  <li><a href="/vaft/reference/geometric-approximations/">Geometric approximations</a>: slab,
+cylinder and torus as model geometries, which are a different axis from the representations here.</li>
+  <li><a href="/vaft/reference/diagrams/">Scientific diagrams</a>: the tokamak-geometry and
+straight-field-line sections.</li>
+  <li>Notebooks: <code class="language-plaintext highlighter-rouge">equilibrium_representation_reference.ipynb</code>, <code class="language-plaintext highlighter-rouge">edge_and_boundary_representation.ipynb</code>,
+<code class="language-plaintext highlighter-rouge">compact_equilibrium_representation.ipynb</code>, <code class="language-plaintext highlighter-rouge">local_miller_equilibrium_fitting.ipynb</code>,
+<code class="language-plaintext highlighter-rouge">analytic_solovev_equilibrium.ipynb</code>, <code class="language-plaintext highlighter-rouge">analytic_island_model_and_synthetic_response_model.ipynb</code>.</li>
+</ul>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    <div class="related-resource-group" data-resource-kind="notebooks">
+      <h3>Notebooks</h3>
+      <ul>
+        
+          
+          <li data-resource-id="equilibrium-representations">
+            
+              
+                <a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/equilibrium_representation_reference.ipynb">One equilibrium, many representations</a>
+              
+            <span class="resource-status resource-status-runnable">runnable</span>
+            
+          </li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/reference/process/"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/reference/api/plot/"><code>vaft.plot</code></a></li>
+        
+          
+          <li data-resource-id="diagram"><a href="/vaft/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/reference/api/code/"><code>vaft.code</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/formula/boundaries/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: boundaries">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/formula/ntv/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: ntv">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-five-categories" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The five categories</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#coordinate" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coordinate</a></li><li class="page-toc-item page-toc-level-3"><a href="#projection" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Projection</a></li><li class="page-toc-item page-toc-level-3"><a href="#representation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Representation</a></li><li class="page-toc-item page-toc-level-3"><a href="#derived-quantity" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Derived quantity</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile-gradients" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Profile gradients</a></li><li class="page-toc-item page-toc-level-3"><a href="#solver-convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Solver convention</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#the-hierarchy-in-vaft" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The hierarchy in VAFT</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-provenance-thread" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The provenance thread</a></li><li class="page-toc-item page-toc-level-2"><a href="#gaps" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Gaps</a></li><li class="page-toc-item page-toc-level-2"><a href="#see-also" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">See also</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: ntv",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_ntv.md",
+            "ref": "_guide/Formula_reference_ntv.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Equilibrium_representations.md",
+        "mtime": "2026-09-28 09:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

@@ -1,0 +1,922 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Browser GUI · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/computational-layers/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/api/gui/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Browser GUI</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/workflows/GUI">Browser GUI</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>A Panel application over the same loading, discovery and plotting APIs a notebook uses.</dd>
+    <dt>Prerequisites / inputs</dt><dd>VAFT installed; a browser on the machine you sit at.</dd>
+    <dt>Expected result</dt><dd>The plot browser at http://localhost:5006, locally or through a forwarded port.</dd>
+    <dt>Status</dt><dd>Experimental reference application (#1086); workspaces follow the GUI roadmap (#1359).</dd>
+  </dl>
+</aside>
+
+<p><code class="language-plaintext highlighter-rouge">vaft gui</code> serves a small browser application: pick a data source, pick one of the plots VAFT
+can draw from it, and change that plot’s controls. It is a presentation layer, not a separate
+analysis tool. The plot list comes from <code class="language-plaintext highlighter-rouge">vaft.omas.available_plots</code>, the controls from the
+plot’s capability record, and every drawing from <code class="language-plaintext highlighter-rouge">vaft.omas.render_plot</code>, so what the GUI
+shows is what the same calls give in a notebook.</p>
+
+<p>The application runs where VAFT and the data are, and the browser only displays it. The same
+command therefore works on a workstation, on a remote server over SSH, and on a cluster node,
+with no X11 or remote desktop.</p>
+
+<h2 id="install">Install</h2>
+
+<p>Nothing beyond VAFT itself: Panel is one of its dependencies, so <code class="language-plaintext highlighter-rouge">vaft gui</code> works in any VAFT
+environment. <code class="language-plaintext highlighter-rouge">import vaft</code> does not import Panel; only launching the GUI does. (Panel used to be
+the optional <code class="language-plaintext highlighter-rouge">gui</code> extra; <code class="language-plaintext highlighter-rouge">pip install 'vaft[gui]'</code> still works and adds nothing.)</p>
+
+<h2 id="run-locally">Run locally</h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft gui                          <span class="c"># first packaged sample, opens a browser</span>
+vaft gui <span class="nt">--sample</span> 39915 41524     <span class="c"># two samples, compared on each plot</span>
+vaft gui <span class="nt">--file</span> equilibrium.json
+vaft gui <span class="nt">--shot</span> 39915 41524       <span class="c"># database shots (needs HSDS read access)</span>
+vaft gui <span class="nt">--plot</span> equilibrium_field_psi <span class="nt">--port</span> 5010
+vaft gui <span class="nt">--workspace</span> diagnostics  <span class="c"># start in another workspace (plots, diagnostics, database)</span>
+</code></pre></div></div>
+
+<p>The page is an application shell. The sidebar starts with the <strong>workspaces</strong>:</p>
+
+<ul>
+  <li><strong>Plots:</strong> the plot explorer described below.</li>
+  <li><strong>Diagnostics:</strong> the same explorer narrowed to one diagnostic.</li>
+  <li><strong>Database:</strong> the database sources, the connection, and opening database shots.</li>
+</ul>
+
+<p>A strip above the main area shows the shared selection, which every workspace reads: what is open, the time on
+screen (for a plot with a slice or time control), the database namespace and the state of the
+database connection. Errors from any workspace appear under that strip.</p>
+
+<p>In the <strong>Plots</strong> workspace, the sidebar holds the source picker, the plot selector and the
+plot’s controls, and the figure fills the main area. Slices, channels, units and overlays appear
+only for plots that offer them. A value a plot cannot draw leaves the previous figure on screen
+and shows the reason above it.</p>
+
+<p>The plot selector is built from plot discovery (<code class="language-plaintext highlighter-rouge">available_plots</code>), not from a list kept in the
+GUI:</p>
+
+<ul>
+  <li><strong>Grouping and labels.</strong> Plots are grouped by subject, with the subject’s aliases, and labelled
+by view and quantity (<code class="language-plaintext highlighter-rouge">time / current</code> under <code class="language-plaintext highlighter-rouge">plasma_current [ip, ...]</code>). The canonical plot
+name stays the plot’s identity and is shown under <strong>About this plot</strong>.</li>
+  <li><strong>Search.</strong> The box above the selector narrows the list. It uses the registry’s own query, so
+<code class="language-plaintext highlighter-rouge">ip</code> finds the plasma current, plus a plain text match on names, labels and subjects. The plot
+on screen stays drawn while you search.</li>
+  <li><strong>Available / All supported.</strong> <strong>Available</strong> lists what the open source can draw. <strong>All
+supported</strong> adds every other plot VAFT has for this kind of data, marked <em>(unavailable)</em>.
+Choosing one draws nothing and shows discovery’s reason, for example the missing IDS path.
+With several database shots, a plot is available only when every shot can draw it, and the
+reason names the shot that cannot.</li>
+  <li>
+    <p><strong>About this plot.</strong> The discovery record behind the plot: description, canonical name and
+function, IDS read, backends, controls and interaction modes.</p>
+  </li>
+  <li><strong>Files.</strong> Type server paths (one per line), pick them with <strong>Browse server files</strong> (the files
+of the machine the GUI runs on), or upload them from your own computer. Uploads are copied to a
+temporary folder on the server for the session (at most 512 MB per upload); select an IMAS
+entry’s <code class="language-plaintext highlighter-rouge">master.h5</code> together with its per-IDS files to upload the entry.</li>
+  <li><strong>Database shots.</strong> Nothing is downloaded up front. Loading a shot lists the IDS it stores
+(<code class="language-plaintext highlighter-rouge">vaft.database.stored_ids</code>) and judges the plots from that list; each plot then fetches only the
+IDS it reads, the first time it is drawn, and keeps them in memory for every later plot and
+control change. The status line names the IDS in memory, and <strong>Load chosen IDS</strong> fetches IDS
+ahead of any plot. Reading needs HSDS read access to the shot’s per-IDS domains.</li>
+  <li><strong>Several shots.</strong> Pick several samples, or type several database shots (<code class="language-plaintext highlighter-rouge">39915, 41524</code>); every
+plot then draws them together, labelled by shot.</li>
+  <li><strong>Interactive or static.</strong> Plots that have a Plotly rendering open interactive: box zoom, pan,
+scroll zoom, hover read-out, spike lines, and drawing tools to mark lines, regions and shapes.
+Zoom survives a change of slice or unit. <strong>Static</strong> switches to the Matplotlib image, and the
+choice is remembered for the next plot.</li>
+  <li><strong>Playback.</strong> A plot with a slice or time control – equilibrium slices, camera frames – gets a
+player beneath it: play, pause, step, loop, and the frame interval. Each frame is the plot
+redrawn on the server with every other control as chosen, so a frame that cannot be drawn is
+reported and skipped. Writing the sequence to a video file is not part of the GUI yet (#1049/#1050).</li>
+  <li><strong>Figure.</strong> Width and height in pixels, axis limits and log scales; empty fields stay automatic.</li>
+  <li><strong>Export.</strong> Downloads the current plot as PNG, SVG or PDF at the chosen DPI. The file is the
+Matplotlib rendering with the controls and figure settings on screen, whichever renderer is shown.</li>
+</ul>
+
+<p>Loading a source computes its plot catalog, which takes a few seconds the first time.</p>
+
+<p>The <strong>Diagnostics</strong> workspace shows processed diagnostics by diagnostic, not by SQL field:</p>
+
+<ul>
+  <li><strong>Choosing a diagnostic.</strong> Plasma current, flux loops, B-pol probes, Thomson scattering and
+so on, grouped by category. The list is the diagnostic registry, the same source as the
+diagnostics table in these docs; a diagnostic with no plots is not listed.</li>
+  <li><strong>Its plots.</strong> They are the discovery records whose required data lies under the
+diagnostic’s IDS path. The explorer below is the one from <strong>Plots</strong>, narrowed to them: the
+open shots compare on each plot, and controls, figure options and export work the same.</li>
+  <li><strong>About this diagnostic.</strong> The registry record: processed IDS path, family, availability,
+mapping status, measured and derived quantities, and the recorded source.</li>
+  <li><strong>Not yet available.</strong> Raw-versus-processed comparison and raw field inspection need an API
+that names each diagnostic’s raw DAQ fields; they come when that API lands.</li>
+</ul>
+
+<p>The <strong>Database</strong> workspace contains:</p>
+
+<ul>
+  <li><strong>Namespaces.</strong> A table of the namespaces a shot can be read from: what each holds, whether
+VAFT may write to it, and whether it covers every shot or only the shots its product was made
+for. It comes from <code class="language-plaintext highlighter-rouge">vaft.database.sources</code>.</li>
+  <li><strong>Opening shots.</strong> Pick a namespace, type shots and press <strong>Open in Plots</strong>. The plot explorer
+opens them and becomes the active workspace.</li>
+  <li><strong>Credentials.</strong> The HSDS configuration h5pyd will use: the file, the endpoint and the
+username. Environment variables override the file. Passwords and API keys show only as
+<em>configured</em> or <em>not set</em>. The GUI never shows, logs or stores a secret; change the
+configuration with <code class="language-plaintext highlighter-rouge">vaft hsds configure</code> in a terminal.</li>
+  <li><strong>Test connection.</strong> Asks the server whether it is ready, and puts the answer in the status
+strip. The page does not contact the server until you press it.</li>
+</ul>
+
+<h3 id="adding-a-workspace">Adding a workspace</h3>
+
+<p>Workspaces are registered rather than built in, and the later domain workspaces (#1359) plug
+in the same way:</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.gui</span> <span class="kn">import</span> <span class="n">register_workspace</span>
+
+<span class="k">class</span> <span class="nc">EquilibriumWorkspace</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">shell</span><span class="p">):</span>           <span class="c1"># shell.selection, shell.report, shell.show
+</span>        <span class="n">self</span><span class="p">.</span><span class="n">shell</span> <span class="o">=</span> <span class="n">shell</span>
+    <span class="k">def</span> <span class="nf">sidebar</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="k">return</span> <span class="p">[...]</span>      <span class="c1"># Panel objects
+</span>    <span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="k">return</span> <span class="p">[...]</span>
+    <span class="k">def</span> <span class="nf">activate</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="p">...</span>              <span class="c1"># optional: called each time it is shown
+</span>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="p">...</span>                 <span class="c1"># optional: called when the browser session ends
+</span>
+<span class="nf">register_workspace</span><span class="p">(</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="n">EquilibriumWorkspace</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p>A workspace is built the first time it is shown. It reads and changes the shared selection
+through <code class="language-plaintext highlighter-rouge">shell.selection</code> (a <code class="language-plaintext highlighter-rouge">vaft.gui.SelectionState</code>), and draws through the public VAFT APIs
+like every other workspace.</p>
+
+<h2 id="run-on-a-remote-host-over-ssh">Run on a remote host over SSH</h2>
+
+<p>The server binds to <code class="language-plaintext highlighter-rouge">127.0.0.1</code> by default, so it is not reachable from other machines. Forward
+the port instead:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ssh <span class="nt">-L</span> 5006:localhost:5006 user@server
+vaft gui <span class="nt">--no-show</span>            <span class="c"># on the server</span>
+</code></pre></div></div>
+
+<p>Then open <a href="http://localhost:5006">http://localhost:5006</a> on your own machine. <code class="language-plaintext highlighter-rouge">vaft gui</code> does not try to open a browser
+when it runs inside an SSH session. Keep the local port equal to the server’s: the page’s
+connection is only accepted from <code class="language-plaintext highlighter-rouge">localhost:&lt;port&gt;</code> of the server. To forward to another local
+port, name it: <code class="language-plaintext highlighter-rouge">ssh -L 8080:localhost:5006 ...</code> with <code class="language-plaintext highlighter-rouge">vaft gui --allow-websocket-origin localhost:8080</code>.</p>
+
+<p>Under SSH the page asks for a password, which <code class="language-plaintext highlighter-rouge">vaft gui</code> prints when it starts (any user name is
+accepted). Set <code class="language-plaintext highlighter-rouge">VAFT_GUI_PASSWORD</code> to choose it yourself; see <a href="#access">Access</a> for why.</p>
+
+<h2 id="run-in-vs-code-remote-ssh">Run in VS Code Remote-SSH</h2>
+
+<p>Run <code class="language-plaintext highlighter-rouge">vaft gui</code> in the VS Code terminal of the remote window. VS Code detects the port and
+forwards it; open it from the notification or the <strong>Ports</strong> panel. If VS Code forwards to a
+different local port because 5006 is taken on your machine, the page stays blank: restart with
+<code class="language-plaintext highlighter-rouge">--allow-websocket-origin localhost:&lt;that port&gt;</code>, or pick a free <code class="language-plaintext highlighter-rouge">--port</code> on both ends.</p>
+
+<h2 id="run-on-a-cluster-node">Run on a cluster node</h2>
+
+<p>Start the GUI on a compute node (inside an interactive allocation), then tunnel to that node
+through the login node. The tunnel must end on the compute node itself, because the server
+listens only on that node’s loopback:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c"># on the compute node</span>
+vaft gui <span class="nt">--no-show</span> <span class="nt">--port</span> 5006
+
+<span class="c"># on your machine</span>
+ssh <span class="nt">-J</span> user@login-node <span class="nt">-L</span> 5006:localhost:5006 user@&lt;compute-node&gt;
+</code></pre></div></div>
+
+<p>If compute nodes do not accept SSH from the login node, ask the site how interactive jobs expose
+ports; do not bind <code class="language-plaintext highlighter-rouge">--address 0.0.0.0</code> on a shared cluster.</p>
+
+<h2 id="access">Access</h2>
+
+<p>Loopback keeps other <em>machines</em> out, not other <em>users</em>: on a login or compute node shared with
+others, anyone logged in to that node can connect to <code class="language-plaintext highlighter-rouge">127.0.0.1:5006</code>. The application reads
+files and database data with your permissions, so <code class="language-plaintext highlighter-rouge">vaft gui</code> protects it with a password whenever
+it runs under SSH or binds another address (<code class="language-plaintext highlighter-rouge">--auth auto</code>, the default). Use <code class="language-plaintext highlighter-rouge">--auth password</code> to
+require it locally too, and <code class="language-plaintext highlighter-rouge">--auth none</code> only on a machine nobody else uses.</p>
+
+<p>Binding another address (<code class="language-plaintext highlighter-rouge">--address 0.0.0.0</code>) also prints a warning: the connection is not
+encrypted. To serve a team, put the GUI behind a proxy with HTTPS instead, as below.</p>
+
+<h2 id="host-it-for-a-team">Host it for a team</h2>
+
+<p><code class="language-plaintext highlighter-rouge">vaft gui --hosted</code> serves people who are not the server’s user, behind a reverse proxy that
+terminates HTTPS. What changes against a personal <code class="language-plaintext highlighter-rouge">vaft gui</code>:</p>
+
+<ul>
+  <li><strong>Samples and database shots only.</strong> The file source, the server file browser and uploads are
+left out of the page, and a file source is refused even if one is sent. A reader cannot reach
+the server’s disk through the GUI.
+The Database workspace does not show the server’s own HSDS configuration (file, endpoint,
+account name) either.</li>
+  <li><strong>Every reader signs in.</strong> With <code class="language-plaintext highlighter-rouge">--auth hsds</code>, readers sign in with their own HSDS account:
+the user name and password are checked against the HSDS the GUI reads from (<code class="language-plaintext highlighter-rouge">GET /about</code>,
+which answers 401 to a wrong account) and kept nowhere. Otherwise <code class="language-plaintext highlighter-rouge">--hosted</code> asks one shared
+password, which must be set in <code class="language-plaintext highlighter-rouge">VAFT_GUI_PASSWORD</code> (a random one would change unseen on every
+restart). <code class="language-plaintext highlighter-rouge">--auth none</code> is for a proxy that authenticates by itself.</li>
+  <li><strong>The proxy’s headers are trusted</strong> (<code class="language-plaintext highlighter-rouge">X-Forwarded-For</code>, <code class="language-plaintext highlighter-rouge">X-Forwarded-Proto</code>), and <code class="language-plaintext highlighter-rouge">--prefix</code>
+serves the app under a path, so it can sit next to another service on the same host.</li>
+</ul>
+
+<p>Whoever signs in, everyone reads the database with the credentials the service runs with:
+<code class="language-plaintext highlighter-rouge">--auth hsds</code> decides who may enter, not what they may read. Give it a <strong>read-only
+HSDS account</strong> through <code class="language-plaintext highlighter-rouge">HS_ENDPOINT</code>, <code class="language-plaintext highlighter-rouge">HS_USERNAME</code> and <code class="language-plaintext highlighter-rouge">HS_PASSWORD</code>, never an admin one.</p>
+
+<p>The files in <a href="https://github.com/VEST-Tokamak/vaft/tree/develop/vaft/deploy/gui"><code class="language-plaintext highlighter-rouge">vaft/deploy/gui/</code></a>
+are a working starting point for Ubuntu with nginx and systemd, serving
+<code class="language-plaintext highlighter-rouge">https://&lt;host&gt;/gui/</code> next to HSDS on the same host. They ship with the package, so an
+install from PyPI has them too: <code class="language-plaintext highlighter-rouge">importlib.resources.files("vaft.deploy.gui")</code> is the
+installed directory.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>File</th>
+      <th>Where it goes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft-gui.service</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/etc/systemd/system/</code>; runs <code class="language-plaintext highlighter-rouge">vaft gui --hosted --prefix /gui</code> as an unprivileged <code class="language-plaintext highlighter-rouge">vaft-gui</code> user with systemd sandboxing and a memory cap</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft-gui.env.example</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/etc/vaft-gui.env</code> (mode 0600); the page password and the HSDS read account</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">nginx-vaft-gui.conf</code></td>
+      <td>the nginx site; keeps HSDS on port 80 as before, serves <code class="language-plaintext highlighter-rouge">/gui/</code> over HTTPS only, and throttles the login form</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft-gui-proxy.conf</code></td>
+      <td><code class="language-plaintext highlighter-rouge">/etc/nginx/snippets/</code>; the websocket proxy settings the site includes</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The service’s <code class="language-plaintext highlighter-rouge">--allow-websocket-origin</code> must name the host the browser opens (without a port
+for the default 80/443). The page loads Panel’s fonts and assets from public CDNs, so readers
+need internet access; the server does not.</p>
+
+<p>Hosted, one process holds every reader’s session, and each session keeps the IDS it has read in
+memory until its tab closes. <code class="language-plaintext highlighter-rouge">MemoryMax</code> in the unit bounds the whole service.</p>
+
+<h2 id="what-comes-next">What comes next</h2>
+
+<p>The browser application is Track A of the GUI roadmap (#1359). A fuller plot explorer follows,
+then workspaces for routine diagnostics, equilibrium,
+fluctuations and stability, operational space, start-up and pipeline monitoring.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="omas"><a href="/vaft/reference/api/omas/"><code>vaft.omas</code></a></li>
+        
+          
+          <li data-resource-id="database"><a href="/vaft/reference/api/database/"><code>vaft.database</code></a></li>
+        
+          
+          <li data-resource-id="plot"><a href="/vaft/reference/api/plot/"><code>vaft.plot</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    <div class="related-resource-group" data-resource-kind="data-sources">
+      <h3>Input data</h3>
+      <ul>
+        
+          
+          <li data-resource-id="sample-ods"><strong>Packaged offline sample ODS</strong><br><span>Deterministic sample data available without credentials.</span></li>
+        
+          
+          <li data-resource-id="hsds-public"><strong>Public VEST HSDS namespace</strong><br><span>Read-only shot data accessed with h5pyd and local HSDS configuration.</span></li>
+        
+      </ul>
+    </div>
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/computational-layers/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Computational layers">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/api/gui/" class="navigation navigation-next navigation-unique" aria-label="Next page: API: vaft.gui">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#adding-a-workspace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Adding a workspace</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#host-it-for-a-team" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Host it for a team</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "API: vaft.gui",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Api_reference_gui.md",
+            "ref": "_guide/Api_reference_gui.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/GUI.md",
+        "mtime": "2026-09-30 09:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

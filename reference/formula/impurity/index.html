@@ -1,0 +1,1791 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: impurity · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/process/resistive_zeff/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/process/core_q_context/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: impurity</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_impurity">Formula reference: impurity</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.impurity, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.impurity</code>:
+<strong>9</strong> public functions. Each entry is what
+<code>vaft.formula.describe("impurity.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A plasma of electrons, one main ion and any number of impurity species
+(issue #1565, Stage A).  Each impurity species is an element in one stated
+charge state with a relative particle density $w_i$; the functions here turn
+that composition and a target plasma effective charge into absolute density
+fractions, collapse the mixture onto one pseudo-impurity that keeps the
+charge, $Z^2$ and mass moments, expand it back, and give the main-ion
+fraction and dilution both from a resolved species list and from
+$Z_\mathrm{eff}$ with an effective impurity charge.</p>
+
+<p>The whole-plasma effective charge $\sum_s n_s Z_s^2 / n_e$ and the charge of
+the reduced pseudo-impurity $Z_{I,\mathrm{eff}} = S_2/S_1$ are different
+quantities and are never interchanged here.  The plasma $Z_\mathrm{eff}$ of
+a resolved species list is <code class="language-plaintext highlighter-rouge">vaft.formula.atomic.z_eff_from_n_s_Z_s</code>;
+the issue’s <code class="language-plaintext highlighter-rouge">compute_zeff</code> is that function, not a second copy.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>w_i</td><td>relative impurity particle density, sum_i w_i = 1</td><td class="ref-unit">-</td></tr>
+  <tr><td>Z_i</td><td>charge state of impurity species i (never its atomic number) [-]</td><td class="ref-unit"></td></tr>
+  <tr><td>A_i</td><td>mass of impurity species i</td><td class="ref-unit">u</td></tr>
+  <tr><td>S_1, S_2</td><td>sum_i w_i Z_i and sum_i w_i Z_i^2</td><td class="ref-unit">-</td></tr>
+  <tr><td>A_bar</td><td>sum_i w_i A_i</td><td class="ref-unit">u</td></tr>
+  <tr><td>Z_m</td><td>main-ion charge (1 for hydrogenic)</td><td class="ref-unit">-</td></tr>
+  <tr><td>alpha</td><td>total impurity density over n_e, sum_i n_i / n_e</td><td class="ref-unit">-</td></tr>
+  <tr><td>Z_I,eff</td><td>charge of the reduced pseudo-impurity, S_2 / S_1</td><td class="ref-unit">-</td></tr>
+  <tr><td>f_main</td><td>main-ion fraction n_main / n_e</td><td class="ref-unit">-</td></tr>
+  <tr><td>f_dil</td><td>main-ion dilution 1 - f_main</td><td class="ref-unit">-</td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>The species axis is the last axis.</strong>  Every species-indexed argument
+(weights, charges, masses, densities) runs over species along its last
+axis and broadcasts over the leading ones, so one call evaluates a whole
+radial profile.  Weights must already sum to one: renormalising a user’s
+fractions is a provenance decision and lives in <code class="language-plaintext highlighter-rouge">vaft.process.impurity</code>,
+which keeps the original input beside the normalised one.</p>
+
+<p><strong>Quasi-neutrality closes every system.</strong>  $n_e = Z_m n_\mathrm{main} +
+\sum_i Z_i n_i$ and $Z_\mathrm{eff} n_e = Z_m^2 n_\mathrm{main} + \sum_i
+Z_i^2 n_i$; no other ion is present.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 9 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="dilution_fraction_from_species"><td><a href="#dilution_fraction_from_species"><code>dilution_fraction_from_species</code></a></td><td>Main-ion dilution from an explicit impurity species list.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="dilution_fraction_from_zeff"><td><a href="#dilution_fraction_from_zeff"><code>dilution_fraction_from_zeff</code></a></td><td>Main-ion dilution from Z_eff and one effective impurity charge.
+</td></tr>
+  <tr data-ref-row="expand_effective_impurity"><td><a href="#expand_effective_impurity"><code>expand_effective_impurity</code></a></td><td>Species densities of a known relative composition behind a pseudo-impurity.
+</td></tr>
+  <tr data-ref-row="impurity_mixture_moments"><td><a href="#impurity_mixture_moments"><code>impurity_mixture_moments</code></a></td><td>Charge and mass moments of a normalised impurity mixture.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="main_ion_density_from_species"><td><a href="#main_ion_density_from_species"><code>main_ion_density_from_species</code></a></td><td>Main-ion density that keeps a plasma with these impurities quasi-neutral.
+</td></tr>
+  <tr data-ref-row="main_ion_density_from_zeff"><td><a href="#main_ion_density_from_zeff"><code>main_ion_density_from_zeff</code></a></td><td>Main-ion density from n_e, Z_eff and one effective impurity charge.
+</td></tr>
+  <tr data-ref-row="main_ion_fraction_from_zeff"><td><a href="#main_ion_fraction_from_zeff"><code>main_ion_fraction_from_zeff</code></a></td><td>Main-ion fraction of the electron density from Z_eff and one effective impurity charge.
+</td></tr>
+  <tr data-ref-row="reduce_impurity_mixture"><td><a href="#reduce_impurity_mixture"><code>reduce_impurity_mixture</code></a></td><td>The single pseudo-impurity that keeps a mixture’s charge, Z^2 and mass moments.
+</td></tr>
+  <tr data-ref-row="solve_impurity_mixture_for_target_zeff"><td><a href="#solve_impurity_mixture_for_target_zeff"><code>solve_impurity_mixture_for_target_zeff</code></a></td><td>Impurity and main-ion density fractions that give a target effective charge.
+</td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="dilution_fraction_from_species" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#dilution_fraction_from_species"><code>dilution_fraction_from_species</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="dilution_fraction_from_species" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/impurity.py#L580-L629" title="vaft/formula/impurity.py, lines 580–629 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>dilution_fraction_from_species(n_e, impurity_densities, impurity_charges, main_ion_charge=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="dilution_fraction_from_species"><summary>Show source <span class="ref-note">vaft/formula/impurity.py, lines 580–629</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dilution_fraction_from_species</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">impurity_densities</span><span class="p">,</span> <span class="n">impurity_charges</span><span class="p">,</span> <span class="n">main_ion_charge</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Main-ion dilution from an explicit impurity species list.
+
+    $$f_\mathrm{dil} = 1 - \frac{n_\mathrm{main}}{n_e},\qquad
+      n_\mathrm{main} = \frac{n_e - \sum_j Z_j n_j}{Z_m}
+      \;\xrightarrow{Z_m = 1}\; f_\mathrm{dil} = \sum_j Z_j \frac{n_j}{n_e}$$
+
+    Parameters
+    ----------
+    n_e : float or array-like
+        Electron density, finite and positive [m^-3].
+    impurity_densities : array-like
+        Density of each impurity species along the last axis, non-negative [m^-3].
+    impurity_charges : array-like
+        Charge state of each species, positive [-].
+    main_ion_charge : float, optional
+        Main-ion charge $Z_m$, default 1 [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $f_\mathrm{dil}$ [-].
+
+    Raises
+    ------
+    ValueError
+        Invalid input, or impurities carrying more charge than there are
+        electrons ($\sum_j Z_j n_j &gt; n_e$).
+
+    Convention
+    ----------
+    Preferred over :func:`dilution_fraction_from_zeff` whenever the species
+    are resolved: it needs no effective charge and is exact for any mixture
+    and any charge-state distribution (pass each charge state, or each
+    element at its $\langle Z\rangle$ -- quasi-neutrality is linear in $Z$).
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    main_ion_density_from_species
+    </span><span class="sh">"""</span>
+    <span class="n">ne</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">ne</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_e must be positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">main</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">main_ion_density_from_species</span><span class="p">(</span><span class="n">ne</span><span class="p">,</span> <span class="n">impurity_densities</span><span class="p">,</span> <span class="n">impurity_charges</span><span class="p">,</span> <span class="n">main_ion_charge</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">main</span> <span class="o">/</span> <span class="n">ne</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Main-ion dilution from an explicit impurity species list.</p>
+
+\[f_\mathrm{dil} = 1 - \frac{n_\mathrm{main}}{n_e},\qquad
+  n_\mathrm{main} = \frac{n_e - \sum_j Z_j n_j}{Z_m}
+  \;\xrightarrow{Z_m = 1}\; f_\mathrm{dil} = \sum_j Z_j \frac{n_j}{n_e}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>impurity_densities</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density of each impurity species along the last axis, non-negative.</p>
+</td></tr>
+  <tr><td><code>impurity_charges</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge state of each species, positive.</p>
+</td></tr>
+  <tr><td><code>main_ion_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion charge $Z_m$, default 1.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$f_\mathrm{dil}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Preferred over <code class="language-plaintext highlighter-rouge">dilution_fraction_from_zeff</code> whenever the species
+are resolved: it needs no effective charge and is exact for any mixture
+and any charge-state distribution (pass each charge state, or each
+element at its $\langle Z\rangle$ – quasi-neutrality is linear in $Z$).</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Invalid input, or impurities carrying more charge than there are electrons ($\sum_j Z_j n_j &gt; n_e$).
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>main_ion_density_from_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="dilution_fraction_from_zeff" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#dilution_fraction_from_zeff"><code>dilution_fraction_from_zeff</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="dilution_fraction_from_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/impurity.py#L501-L536" title="vaft/formula/impurity.py, lines 501–536 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>dilution_fraction_from_zeff(z_eff, impurity_charge, main_ion_charge=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="dilution_fraction_from_zeff"><summary>Show source <span class="ref-note">vaft/formula/impurity.py, lines 501–536</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dilution_fraction_from_zeff</span><span class="p">(</span><span class="n">z_eff</span><span class="p">,</span> <span class="n">impurity_charge</span><span class="p">,</span> <span class="n">main_ion_charge</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Main-ion dilution from Z_eff and one effective impurity charge.
+
+    $$f_\mathrm{dil} = 1 - \frac{n_\mathrm{main}}{n_e}
+      \;\xrightarrow{Z_m = 1}\; \frac{Z_\mathrm{eff} - 1}{Z_I - 1}$$
+
+    Parameters
+    ----------
+    z_eff : float or array-like
+        Plasma effective charge, in $[Z_m, Z_I]$ [-].
+    impurity_charge : float or array-like
+        Charge $Z_I$ of the one (effective) impurity, greater than $Z_m$ [-].
+    main_ion_charge : float, optional
+        Main-ion charge $Z_m$, default 1 [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $f_\mathrm{dil}$ [-].
+
+    Raises
+    ------
+    ValueError
+        As :func:`main_ion_fraction_from_zeff`.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    main_ion_fraction_from_zeff
+    dilution_fraction_from_species
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">main_ion_fraction_from_zeff</span><span class="p">(</span><span class="n">z_eff</span><span class="p">,</span> <span class="n">impurity_charge</span><span class="p">,</span> <span class="n">main_ion_charge</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Main-ion dilution from Z_eff and one effective impurity charge.</p>
+
+\[f_\mathrm{dil} = 1 - \frac{n_\mathrm{main}}{n_e}
+  \;\xrightarrow{Z_m = 1}\; \frac{Z_\mathrm{eff} - 1}{Z_I - 1}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>z_eff</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Plasma effective charge, in $[Z_m, Z_I]$.</p>
+</td></tr>
+  <tr><td><code>impurity_charge</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Charge $Z_I$ of the one (effective) impurity, greater than $Z_m$.</p>
+</td></tr>
+  <tr><td><code>main_ion_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion charge $Z_m$, default 1.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$f_\mathrm{dil}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> As <code class="language-plaintext highlighter-rouge">main_ion_fraction_from_zeff</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>main_ion_fraction_from_zeff
+dilution_fraction_from_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="expand_effective_impurity" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#expand_effective_impurity"><code>expand_effective_impurity</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="expand_effective_impurity" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/impurity.py#L361-L438" title="vaft/formula/impurity.py, lines 361–438 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>expand_effective_impurity(density, charge, weights, charges, mass=None, masses=None)</code></pre>
+
+    <details class="ref-code" data-source-code="expand_effective_impurity"><summary>Show source <span class="ref-note">vaft/formula/impurity.py, lines 361–438</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">expand_effective_impurity</span><span class="p">(</span><span class="n">density</span><span class="p">,</span> <span class="n">charge</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">charges</span><span class="p">,</span> <span class="n">mass</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">masses</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Species densities of a known relative composition behind a pseudo-impurity.
+
+    $$n_i = \frac{n_{I,\mathrm{eff}} Z_{I,\mathrm{eff}}}{S_1}\,w_i,
+      \qquad\text{requiring}\quad Z_{I,\mathrm{eff}} = \frac{S_2}{S_1}$$
+
+    the inverse of :func:`reduce_impurity_mixture` once the relative
+    composition $w_i$ is retained.
+
+    Parameters
+    ----------
+    density : float or array-like
+        Pseudo-impurity density $n_{I,\mathrm{eff}}$, non-negative, in any
+        unit [m^-3].
+    charge : float or array-like
+        Pseudo-impurity charge $Z_{I,\mathrm{eff}}$, which must equal
+        $S_2/S_1$ of the composition [-].
+    weights : array-like
+        Relative particle densities $w_i$ along the last axis, summing to one [-].
+    charges : array-like
+        Charge state $Z_i$ of each species, positive [-].
+    mass : float or array-like, optional
+        Pseudo-impurity mass $A_{I,\mathrm{eff}}$; when given with ``masses``
+        it must equal $\bar A S_2/S_1^2$ [u].
+    masses : array-like, optional
+        Mass $A_i$ of each species, positive [u].
+
+    Returns
+    -------
+    np.ndarray
+        Density $n_i$ of each species, species on the last axis, in the unit of
+        ``density`` [m^-3].
+
+    Raises
+    ------
+    ValueError
+        Invalid input, a negative density, ``mass`` without ``masses``, or a
+        pseudo-impurity whose charge (or mass) is not the one this composition
+        reduces to -- then no species densities reproduce both its charge and
+        $Z^2$ moments.
+
+    Assumptions
+    -----------
+    The relative composition is the one the pseudo-impurity was reduced
+    from.  A pseudo-impurity alone does not determine a mixture; the
+    weights are the extra information the round trip needs.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    reduce_impurity_mixture
+    </span><span class="sh">"""</span>
+    <span class="n">n_eff</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">density</span><span class="p">,</span> <span class="sh">"</span><span class="s">density</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">n_eff</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">density must be non-negative</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">z_eff</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">charge</span><span class="p">,</span> <span class="sh">"</span><span class="s">charge</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">moments</span> <span class="o">=</span> <span class="nf">impurity_mixture_moments</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">charges</span><span class="p">,</span> <span class="n">masses</span><span class="p">)</span>
+    <span class="n">s1</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">moments</span><span class="p">.</span><span class="n">S1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">s2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">moments</span><span class="p">.</span><span class="n">S2</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="n">z_eff</span><span class="p">,</span> <span class="n">s2</span> <span class="o">/</span> <span class="n">s1</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1.0e-6</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span>
+            <span class="sh">"</span><span class="s">charge is not the effective charge S2/S1 of this composition; </span><span class="sh">"</span>
+            <span class="sh">"</span><span class="s">no species densities keep both its charge and Z^2 moments</span><span class="sh">"</span>
+        <span class="p">)</span>
+    <span class="k">if</span> <span class="n">mass</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="n">moments</span><span class="p">.</span><span class="n">A_bar</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">mass can only be checked against the species masses; pass masses too</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">mass</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">expected</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">moments</span><span class="p">.</span><span class="n">A_bar</span><span class="p">)</span> <span class="o">*</span> <span class="n">s2</span> <span class="o">/</span> <span class="n">s1</span><span class="o">**</span><span class="mi">2</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="p">.</span><span class="nf">allclose</span><span class="p">(</span><span class="nf">_finite</span><span class="p">(</span><span class="n">mass</span><span class="p">,</span> <span class="sh">"</span><span class="s">mass</span><span class="sh">"</span><span class="p">),</span> <span class="n">expected</span><span class="p">,</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1.0e-6</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">mass is not the effective mass A_bar S2/S1^2 of this composition</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="nf">_weights</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+    <span class="n">scale</span> <span class="o">=</span> <span class="n">n_eff</span> <span class="o">*</span> <span class="n">z_eff</span> <span class="o">/</span> <span class="n">s1</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">scale</span><span class="p">)[...,</span> <span class="bp">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">w</span> <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">ndim</span><span class="p">(</span><span class="n">scale</span><span class="p">)</span> <span class="k">else</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">w</span>
+    <span class="k">return</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Species densities of a known relative composition behind a pseudo-impurity.</p>
+
+\[n_i = \frac{n_{I,\mathrm{eff}} Z_{I,\mathrm{eff}}}{S_1}\,w_i,
+  \qquad\text{requiring}\quad Z_{I,\mathrm{eff}} = \frac{S_2}{S_1}\]
+
+    <p>the inverse of <code class="language-plaintext highlighter-rouge">reduce_impurity_mixture</code> once the relative
+composition $w_i$ is retained.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>density</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Pseudo-impurity density $n_{I,\mathrm{eff}}$, non-negative, in any unit.</p>
+</td></tr>
+  <tr><td><code>charge</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Pseudo-impurity charge $Z_{I,\mathrm{eff}}$, which must equal $S_2/S_1$ of the composition.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Relative particle densities $w_i$ along the last axis, summing to one.</p>
+</td></tr>
+  <tr><td><code>charges</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge state $Z_i$ of each species, positive.</p>
+</td></tr>
+  <tr><td><code>mass</code></td><td class="ref-type">float or array-like, optional</td><td class="ref-unit">u</td><td><p>Pseudo-impurity mass $A_{I,\mathrm{eff}}$; when given with <code class="language-plaintext highlighter-rouge">masses</code> it must equal $\bar A S_2/S_1^2$.</p>
+</td></tr>
+  <tr><td><code>masses</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">u</td><td><p>Mass $A_i$ of each species, positive.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">np.ndarray</td><td class="ref-unit">m^-3</td><td><p>Density $n_i$ of each species, species on the last axis, in the unit of <code class="language-plaintext highlighter-rouge">density</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Invalid input, a negative density, <code class="language-plaintext highlighter-rouge">mass</code> without <code class="language-plaintext highlighter-rouge">masses</code>, or a pseudo-impurity whose charge (or mass) is not the one this composition reduces to – then no species densities reproduce both its charge and $Z^2$ moments.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>The relative composition is the one the pseudo-impurity was reduced
+from.  A pseudo-impurity alone does not determine a mixture; the
+weights are the extra information the round trip needs.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>reduce_impurity_mixture</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="impurity_mixture_moments" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#impurity_mixture_moments"><code>impurity_mixture_moments</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="impurity_mixture_moments" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/impurity.py#L142-L197" title="vaft/formula/impurity.py, lines 142–197 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>impurity_mixture_moments(weights, charges, masses=None)</code></pre>
+
+    <details class="ref-code" data-source-code="impurity_mixture_moments"><summary>Show source <span class="ref-note">vaft/formula/impurity.py, lines 142–197</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">impurity_mixture_moments</span><span class="p">(</span><span class="n">weights</span><span class="p">,</span> <span class="n">charges</span><span class="p">,</span> <span class="n">masses</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Charge and mass moments of a normalised impurity mixture.
+
+    $$S_1 = \sum_i w_i Z_i,\qquad S_2 = \sum_i w_i Z_i^2,\qquad
+      \bar A = \sum_i w_i A_i,\qquad \sum_i w_i = 1$$
+
+    Parameters
+    ----------
+    weights : array-like
+        Relative particle density $w_i$ of each impurity species along the
+        last axis, non-negative and summing to one [-].
+    charges : array-like
+        Charge state $Z_i$ of each species, positive, broadcastable against
+        ``weights`` [-].
+    masses : array-like, optional
+        Mass $A_i$ of each species, positive; omitted, $\bar A$ is ``None`` [u].
+
+    Returns
+    -------
+    MixtureMoments
+        ``S1`` and ``S2`` [-], and ``A_bar`` or ``None`` [u], each with the
+        species axis removed [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, a negative weight, a non-positive charge or mass,
+        or weights that do not sum to one.
+
+    Convention
+    ----------
+    $Z_i$ is the ionic charge of the state the species is in, not the
+    element</span><span class="sh">'</span><span class="s">s atomic number: carbon as C$^{4+}$ has $Z = 4$.  A partially
+    ionised element contributes its charge-state-averaged $\langle Z\rangle$
+    to $S_1$ and $\langle Z^2\rangle$ to $S_2$, not $\langle Z\rangle^2$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    solve_impurity_mixture_for_target_zeff
+    reduce_impurity_mixture
+    </span><span class="sh">"""</span>
+    <span class="n">w</span> <span class="o">=</span> <span class="nf">_weights</span><span class="p">(</span><span class="n">weights</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">charges</span><span class="p">,</span> <span class="sh">"</span><span class="s">charges</span><span class="sh">"</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">w</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+    <span class="n">s1</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">s2</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">w</span> <span class="o">*</span> <span class="n">z</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">a_bar</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">masses</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">masses</span><span class="p">,</span> <span class="sh">"</span><span class="s">masses</span><span class="sh">"</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="n">a_bar</span> <span class="o">=</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">broadcast_to</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_shapes</span><span class="p">(</span><span class="n">w</span><span class="p">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">a</span><span class="p">.</span><span class="n">shape</span><span class="p">))</span> <span class="o">*</span> <span class="n">a</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nc">MixtureMoments</span><span class="p">(</span><span class="nf">_out</span><span class="p">(</span><span class="n">s1</span><span class="p">),</span> <span class="nf">_out</span><span class="p">(</span><span class="n">s2</span><span class="p">),</span> <span class="n">a_bar</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Charge and mass moments of a normalised impurity mixture.</p>
+
+\[S_1 = \sum_i w_i Z_i,\qquad S_2 = \sum_i w_i Z_i^2,\qquad
+  \bar A = \sum_i w_i A_i,\qquad \sum_i w_i = 1\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>weights</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Relative particle density $w_i$ of each impurity species along the last axis, non-negative and summing to one.</p>
+</td></tr>
+  <tr><td><code>charges</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge state $Z_i$ of each species, positive, broadcastable against <code class="language-plaintext highlighter-rouge">weights</code>.</p>
+</td></tr>
+  <tr><td><code>masses</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">u</td><td><p>Mass $A_i$ of each species, positive; omitted, $\bar A$ is <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">MixtureMoments</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">S1</code> and <code class="language-plaintext highlighter-rouge">S2</code> [-], and <code class="language-plaintext highlighter-rouge">A_bar</code> or <code class="language-plaintext highlighter-rouge">None</code> [u], each with the species axis removed.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>$Z_i$ is the ionic charge of the state the species is in, not the
+element’s atomic number: carbon as C$^{4+}$ has $Z = 4$.  A partially
+ionised element contributes its charge-state-averaged $\langle Z\rangle$
+to $S_1$ and $\langle Z^2\rangle$ to $S_2$, not $\langle Z\rangle^2$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, a negative weight, a non-positive charge or mass, or weights that do not sum to one.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>solve_impurity_mixture_for_target_zeff
+reduce_impurity_mixture</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="main_ion_density_from_species" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#main_ion_density_from_species"><code>main_ion_density_from_species</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="main_ion_density_from_species" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/impurity.py#L632-L678" title="vaft/formula/impurity.py, lines 632–678 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>main_ion_density_from_species(n_e, impurity_densities, impurity_charges, main_ion_charge=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="main_ion_density_from_species"><summary>Show source <span class="ref-note">vaft/formula/impurity.py, lines 632–678</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">main_ion_density_from_species</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">impurity_densities</span><span class="p">,</span> <span class="n">impurity_charges</span><span class="p">,</span> <span class="n">main_ion_charge</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Main-ion density that keeps a plasma with these impurities quasi-neutral.
+
+    $$n_\mathrm{main} = \frac{n_e - \sum_j Z_j n_j}{Z_m}$$
+
+    Parameters
+    ----------
+    n_e : float or array-like
+        Electron density, finite and positive [m^-3].
+    impurity_densities : array-like
+        Density of each impurity species along the last axis, non-negative [m^-3].
+    impurity_charges : array-like
+        Charge state of each species, positive [-].
+    main_ion_charge : float, optional
+        Main-ion charge $Z_m$, default 1 [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $n_\mathrm{main}$ [m^-3].
+
+    Raises
+    ------
+    ValueError
+        Invalid input, or $\sum_j Z_j n_j &gt; n_e$ (a negative main-ion density).
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    dilution_fraction_from_species
+    </span><span class="sh">"""</span>
+    <span class="n">zm</span> <span class="o">=</span> <span class="nf">_main_charge</span><span class="p">(</span><span class="n">main_ion_charge</span><span class="p">)</span>
+    <span class="n">ne</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">ne</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_e must be positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">impurity_densities</span><span class="p">,</span> <span class="sh">"</span><span class="s">impurity_densities</span><span class="sh">"</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">impurity_charges</span><span class="p">,</span> <span class="sh">"</span><span class="s">impurity_charges</span><span class="sh">"</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+    <span class="n">impurity_electrons</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">main</span> <span class="o">=</span> <span class="p">(</span><span class="n">ne</span> <span class="o">-</span> <span class="n">impurity_electrons</span><span class="p">)</span> <span class="o">/</span> <span class="n">zm</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">main</span> <span class="o">&lt;</span> <span class="o">-</span><span class="n">_RTOL</span> <span class="o">*</span> <span class="n">ne</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the impurities carry more charge than there are electrons</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">clip</span><span class="p">(</span><span class="n">main</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="bp">None</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Main-ion density that keeps a plasma with these impurities quasi-neutral.</p>
+
+\[n_\mathrm{main} = \frac{n_e - \sum_j Z_j n_j}{Z_m}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>impurity_densities</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density of each impurity species along the last axis, non-negative.</p>
+</td></tr>
+  <tr><td><code>impurity_charges</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge state of each species, positive.</p>
+</td></tr>
+  <tr><td><code>main_ion_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion charge $Z_m$, default 1.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>$n_\mathrm{main}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Invalid input, or $\sum_j Z_j n_j &gt; n_e$ (a negative main-ion density).
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>dilution_fraction_from_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="main_ion_density_from_zeff" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#main_ion_density_from_zeff"><code>main_ion_density_from_zeff</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="main_ion_density_from_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/impurity.py#L539-L577" title="vaft/formula/impurity.py, lines 539–577 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>main_ion_density_from_zeff(n_e, z_eff, impurity_charge, main_ion_charge=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="main_ion_density_from_zeff"><summary>Show source <span class="ref-note">vaft/formula/impurity.py, lines 539–577</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">main_ion_density_from_zeff</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="n">z_eff</span><span class="p">,</span> <span class="n">impurity_charge</span><span class="p">,</span> <span class="n">main_ion_charge</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Main-ion density from n_e, Z_eff and one effective impurity charge.
+
+    $$n_\mathrm{main} = n_e\,\frac{Z_I - Z_\mathrm{eff}}{Z_m\,(Z_I - Z_m)}$$
+
+    Parameters
+    ----------
+    n_e : float or array-like
+        Electron density, finite and positive [m^-3].
+    z_eff : float or array-like
+        Plasma effective charge, in $[Z_m, Z_I]$ [-].
+    impurity_charge : float or array-like
+        Charge $Z_I$ of the one (effective) impurity, greater than $Z_m$ [-].
+    main_ion_charge : float, optional
+        Main-ion charge $Z_m$, default 1 [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $n_\mathrm{main}$ [m^-3].
+
+    Raises
+    ------
+    ValueError
+        A non-positive ``n_e``, or as :func:`main_ion_fraction_from_zeff`.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    main_ion_density_from_species
+    </span><span class="sh">"""</span>
+    <span class="n">ne</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">n_e</span><span class="p">,</span> <span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">ne</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">n_e must be positive</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">ne</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="nf">main_ion_fraction_from_zeff</span><span class="p">(</span><span class="n">z_eff</span><span class="p">,</span> <span class="n">impurity_charge</span><span class="p">,</span> <span class="n">main_ion_charge</span><span class="p">)))</span></code></pre></figure>
+
+</details>
+
+    <p>Main-ion density from n_e, Z_eff and one effective impurity charge.</p>
+
+\[n_\mathrm{main} = n_e\,\frac{Z_I - Z_\mathrm{eff}}{Z_m\,(Z_I - Z_m)}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>n_e</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density, finite and positive.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Plasma effective charge, in $[Z_m, Z_I]$.</p>
+</td></tr>
+  <tr><td><code>impurity_charge</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Charge $Z_I$ of the one (effective) impurity, greater than $Z_m$.</p>
+</td></tr>
+  <tr><td><code>main_ion_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion charge $Z_m$, default 1.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">m^-3</td><td><p>$n_\mathrm{main}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-positive <code class="language-plaintext highlighter-rouge">n_e</code>, or as <code class="language-plaintext highlighter-rouge">main_ion_fraction_from_zeff</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>See Also · References</summary>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>main_ion_density_from_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="main_ion_fraction_from_zeff" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#main_ion_fraction_from_zeff"><code>main_ion_fraction_from_zeff</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="main_ion_fraction_from_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/impurity.py#L448-L498" title="vaft/formula/impurity.py, lines 448–498 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>main_ion_fraction_from_zeff(z_eff, impurity_charge, main_ion_charge=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="main_ion_fraction_from_zeff"><summary>Show source <span class="ref-note">vaft/formula/impurity.py, lines 448–498</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">main_ion_fraction_from_zeff</span><span class="p">(</span><span class="n">z_eff</span><span class="p">,</span> <span class="n">impurity_charge</span><span class="p">,</span> <span class="n">main_ion_charge</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Main-ion fraction of the electron density from Z_eff and one effective impurity charge.
+
+    $$f_\mathrm{main} = \frac{n_\mathrm{main}}{n_e}
+      = \frac{Z_I - Z_\mathrm{eff}}{Z_m\,(Z_I - Z_m)}
+      \;\xrightarrow{Z_m = 1}\; \frac{Z_I - Z_\mathrm{eff}}{Z_I - 1}$$
+
+    Parameters
+    ----------
+    z_eff : float or array-like
+        Plasma effective charge, in $[Z_m, Z_I]$ [-].
+    impurity_charge : float or array-like
+        Charge $Z_I$ of the one (effective) impurity, e.g.
+        $Z_{I,\mathrm{eff}}(\rho)$ of a reduced mixture, greater than $Z_m$ [-].
+    main_ion_charge : float, optional
+        Main-ion charge $Z_m$, default 1 [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $f_\mathrm{main}$ [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite input, $Z_I \le Z_m$, or $Z_\mathrm{eff}$ outside
+        $[Z_m, Z_I]$.
+
+    Physical interpretation
+    -----------------------
+    A $Z_\mathrm{eff}$ scan is not a dilution scan: the same $Z_\mathrm{eff}$
+    removes more main ions when the impurity charge is lower.  At
+    $Z_\mathrm{eff} = 2$, carbon ($Z_I = 6$) leaves $f_\mathrm{main} = 0.8$,
+    the VEST C/O mixture ($Z_{I,\mathrm{eff}} = 50/7$) leaves $36/43 \approx 0.837$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    dilution_fraction_from_zeff
+    main_ion_density_from_species
+    </span><span class="sh">"""</span>
+    <span class="n">zm</span> <span class="o">=</span> <span class="nf">_main_charge</span><span class="p">(</span><span class="n">main_ion_charge</span><span class="p">)</span>
+    <span class="n">zi</span> <span class="o">=</span> <span class="nf">_impurity_charge</span><span class="p">(</span><span class="n">impurity_charge</span><span class="p">,</span> <span class="n">zm</span><span class="p">)</span>
+    <span class="n">zeff</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">z_eff</span><span class="p">,</span> <span class="sh">"</span><span class="s">z_eff</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">zeff</span> <span class="o">&lt;</span> <span class="n">zm</span> <span class="o">-</span> <span class="n">_RTOL</span><span class="p">)</span> <span class="ow">or</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">zeff</span> <span class="o">&gt;</span> <span class="n">zi</span> <span class="o">+</span> <span class="n">_RTOL</span> <span class="o">*</span> <span class="n">zi</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">z_eff must lie in [Z_m, Z_I]</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">clip</span><span class="p">((</span><span class="n">zi</span> <span class="o">-</span> <span class="n">zeff</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">zm</span> <span class="o">*</span> <span class="p">(</span><span class="n">zi</span> <span class="o">-</span> <span class="n">zm</span><span class="p">)),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="n">zm</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Main-ion fraction of the electron density from Z_eff and one effective impurity charge.</p>
+
+\[f_\mathrm{main} = \frac{n_\mathrm{main}}{n_e}
+  = \frac{Z_I - Z_\mathrm{eff}}{Z_m\,(Z_I - Z_m)}
+  \;\xrightarrow{Z_m = 1}\; \frac{Z_I - Z_\mathrm{eff}}{Z_I - 1}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>z_eff</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Plasma effective charge, in $[Z_m, Z_I]$.</p>
+</td></tr>
+  <tr><td><code>impurity_charge</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Charge $Z_I$ of the one (effective) impurity, e.g. $Z_{I,\mathrm{eff}}(\rho)$ of a reduced mixture, greater than $Z_m$.</p>
+</td></tr>
+  <tr><td><code>main_ion_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion charge $Z_m$, default 1.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">-</td><td><p>$f_\mathrm{main}$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite input, $Z_I \le Z_m$, or $Z_\mathrm{eff}$ outside $[Z_m, Z_I]$.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A $Z_\mathrm{eff}$ scan is not a dilution scan: the same $Z_\mathrm{eff}$
+removes more main ions when the impurity charge is lower.  At
+$Z_\mathrm{eff} = 2$, carbon ($Z_I = 6$) leaves $f_\mathrm{main} = 0.8$,
+the VEST C/O mixture ($Z_{I,\mathrm{eff}} = 50/7$) leaves $36/43 \approx 0.837$.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>dilution_fraction_from_zeff
+main_ion_density_from_species</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="reduce_impurity_mixture" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#reduce_impurity_mixture"><code>reduce_impurity_mixture</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="reduce_impurity_mixture" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/impurity.py#L285-L358" title="vaft/formula/impurity.py, lines 285–358 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>reduce_impurity_mixture(densities, charges, masses=None)</code></pre>
+
+    <details class="ref-code" data-source-code="reduce_impurity_mixture"><summary>Show source <span class="ref-note">vaft/formula/impurity.py, lines 285–358</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">reduce_impurity_mixture</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="n">charges</span><span class="p">,</span> <span class="n">masses</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The single pseudo-impurity that keeps a mixture</span><span class="sh">'</span><span class="s">s charge, Z^2 and mass moments.
+
+    $$Z_{I,\mathrm{eff}} = \frac{\sum_i n_i Z_i^2}{\sum_i n_i Z_i},\qquad
+      n_{I,\mathrm{eff}} = \frac{(\sum_i n_i Z_i)^2}{\sum_i n_i Z_i^2},\qquad
+      A_{I,\mathrm{eff}} = \frac{\sum_i n_i A_i}{n_{I,\mathrm{eff}}}$$
+
+    so that $n_{I,\mathrm{eff}} Z_{I,\mathrm{eff}} = \sum n_i Z_i$,
+    $n_{I,\mathrm{eff}} Z_{I,\mathrm{eff}}^2 = \sum n_i Z_i^2$ and
+    $n_{I,\mathrm{eff}} A_{I,\mathrm{eff}} = \sum n_i A_i$.
+
+    Parameters
+    ----------
+    densities : array-like
+        Density of each impurity species along the last axis, non-negative,
+        in any one unit (absolute, or relative to $n_e$) [m^-3].
+    charges : array-like
+        Charge state $Z_i$ of each species, positive [-].
+    masses : array-like, optional
+        Mass $A_i$ of each species, positive; omitted, ``mass`` is ``None`` [u].
+
+    Returns
+    -------
+    EffectiveImpurity
+        ``charge`` $Z_{I,\mathrm{eff}}$ [-], ``density`` $n_{I,\mathrm{eff}}$
+        in the unit of ``densities`` [m^-3], and ``mass`` $A_{I,\mathrm{eff}}$
+        or ``None`` [u].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or negative densities, non-positive charges or masses, or a
+        mixture of zero total density.
+
+    Physical interpretation
+    -----------------------
+    Quasi-neutrality and $Z_\mathrm{eff}$ see only the first two moments, so
+    an interface that takes one impurity reproduces both exactly with this
+    pseudo-species; the mass moment keeps the impurity mass density.  For the
+    VEST C$^{6+}$:O$^{8+}$ = 1:1 mixture at $Z_\mathrm{eff} = 2$ this is
+    $Z_{I,\mathrm{eff}} = 50/7$, $n_{I,\mathrm{eff}}/n_e = 49/2150$ and
+    $A_{I,\mathrm{eff}} = \bar A S_2/S_1^2 \approx 14.29$.
+
+    Limitations
+    -----------
+    Higher moments are not kept: a model sensitive to $Z^3$ or to the
+    individual masses (impurity transport, collision operators resolving
+    each species) sees a different plasma.  Prefer the explicit species list
+    wherever the downstream code accepts one.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    expand_effective_impurity
+    </span><span class="sh">"""</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">densities</span><span class="p">,</span> <span class="sh">"</span><span class="s">densities</span><span class="sh">"</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="bp">False</span><span class="p">)</span>
+    <span class="n">z</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">charges</span><span class="p">,</span> <span class="sh">"</span><span class="s">charges</span><span class="sh">"</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">n</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_arrays</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">z</span><span class="p">)</span>
+    <span class="n">charge_density</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">np</span><span class="p">.</span><span class="nf">any</span><span class="p">(</span><span class="n">charge_density</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">a mixture of zero total density has no effective impurity</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">z2_density</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">n</span> <span class="o">*</span> <span class="n">z</span><span class="o">**</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">effective_charge</span> <span class="o">=</span> <span class="n">z2_density</span> <span class="o">/</span> <span class="n">charge_density</span>
+    <span class="n">effective_density</span> <span class="o">=</span> <span class="n">charge_density</span><span class="o">**</span><span class="mi">2</span> <span class="o">/</span> <span class="n">z2_density</span>
+    <span class="n">mass</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">masses</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="n">a</span> <span class="o">=</span> <span class="nf">_species</span><span class="p">(</span><span class="n">masses</span><span class="p">,</span> <span class="sh">"</span><span class="s">masses</span><span class="sh">"</span><span class="p">,</span> <span class="n">positive</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+        <span class="n">mass_density</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">sum</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">broadcast_to</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="nf">broadcast_shapes</span><span class="p">(</span><span class="n">n</span><span class="p">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">a</span><span class="p">.</span><span class="n">shape</span><span class="p">))</span> <span class="o">*</span> <span class="n">a</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">mass</span> <span class="o">=</span> <span class="nf">_out</span><span class="p">(</span><span class="n">mass_density</span> <span class="o">/</span> <span class="n">effective_density</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">EffectiveImpurity</span><span class="p">(</span><span class="nf">_out</span><span class="p">(</span><span class="n">effective_charge</span><span class="p">),</span> <span class="nf">_out</span><span class="p">(</span><span class="n">effective_density</span><span class="p">),</span> <span class="n">mass</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The single pseudo-impurity that keeps a mixture’s charge, Z^2 and mass moments.</p>
+
+\[Z_{I,\mathrm{eff}} = \frac{\sum_i n_i Z_i^2}{\sum_i n_i Z_i},\qquad
+  n_{I,\mathrm{eff}} = \frac{(\sum_i n_i Z_i)^2}{\sum_i n_i Z_i^2},\qquad
+  A_{I,\mathrm{eff}} = \frac{\sum_i n_i A_i}{n_{I,\mathrm{eff}}}\]
+
+    <p>so that $n_{I,\mathrm{eff}} Z_{I,\mathrm{eff}} = \sum n_i Z_i$,
+$n_{I,\mathrm{eff}} Z_{I,\mathrm{eff}}^2 = \sum n_i Z_i^2$ and
+$n_{I,\mathrm{eff}} A_{I,\mathrm{eff}} = \sum n_i A_i$.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>densities</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Density of each impurity species along the last axis, non-negative, in any one unit (absolute, or relative to $n_e$).</p>
+</td></tr>
+  <tr><td><code>charges</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge state $Z_i$ of each species, positive.</p>
+</td></tr>
+  <tr><td><code>masses</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">u</td><td><p>Mass $A_i$ of each species, positive; omitted, <code class="language-plaintext highlighter-rouge">mass</code> is <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">EffectiveImpurity</td><td class="ref-unit">u</td><td><p><code class="language-plaintext highlighter-rouge">charge</code> $Z_{I,\mathrm{eff}}$ [-], <code class="language-plaintext highlighter-rouge">density</code> $n_{I,\mathrm{eff}}$ in the unit of <code class="language-plaintext highlighter-rouge">densities</code> [m^-3], and <code class="language-plaintext highlighter-rouge">mass</code> $A_{I,\mathrm{eff}}$ or <code class="language-plaintext highlighter-rouge">None</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Non-finite or negative densities, non-positive charges or masses, or a mixture of zero total density.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Limitations · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>Quasi-neutrality and $Z_\mathrm{eff}$ see only the first two moments, so
+an interface that takes one impurity reproduces both exactly with this
+pseudo-species; the mass moment keeps the impurity mass density.  For the
+VEST C$^{6+}$:O$^{8+}$ = 1:1 mixture at $Z_\mathrm{eff} = 2$ this is
+$Z_{I,\mathrm{eff}} = 50/7$, $n_{I,\mathrm{eff}}/n_e = 49/2150$ and
+$A_{I,\mathrm{eff}} = \bar A S_2/S_1^2 \approx 14.29$.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Higher moments are not kept: a model sensitive to $Z^3$ or to the
+individual masses (impurity transport, collision operators resolving
+each species) sees a different plasma.  Prefer the explicit species list
+wherever the downstream code accepts one.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>expand_effective_impurity</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="solve_impurity_mixture_for_target_zeff" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#solve_impurity_mixture_for_target_zeff"><code>solve_impurity_mixture_for_target_zeff</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="solve_impurity_mixture_for_target_zeff" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/impurity.py#L200-L282" title="vaft/formula/impurity.py, lines 200–282 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>solve_impurity_mixture_for_target_zeff(target_zeff, weights, charges, main_ion_charge=1.0)</code></pre>
+
+    <p>Impurity and main-ion density fractions that give a target effective charge.</p>
+
+\[\alpha = \frac{Z_\mathrm{eff} - Z_m}{S_2 - Z_m S_1},\qquad
+  \frac{n_i}{n_e} = \alpha\,w_i,\qquad
+  \frac{n_\mathrm{main}}{n_e} = \frac{1 - \alpha S_1}{Z_m}\]
+
+    <p>which for a hydrogenic main ion ($Z_m = 1$) is
+$\alpha = (Z_\mathrm{eff}-1)/(S_2-S_1)$.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>target_zeff</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">-</td><td><p>Plasma effective charge to realise, in $[Z_m,\,S_2/S_1]$.</p>
+</td></tr>
+  <tr><td><code>weights</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Relative impurity particle densities $w_i$ along the last axis, summing to one.</p>
+</td></tr>
+  <tr><td><code>charges</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p>Charge state $Z_i$ of each impurity species, positive.</p>
+</td></tr>
+  <tr><td><code>main_ion_charge</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion charge $Z_m$, default 1.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">ImpurityMixtureSolution</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">impurity_fractions</code> $n_i/n_e$ (species on the last axis), <code class="language-plaintext highlighter-rouge">main_ion_fraction</code> $n_\mathrm{main}/n_e$ and <code class="language-plaintext highlighter-rouge">alpha</code> $=\sum_i n_i/n_e$.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Invalid weights or charges, a mixture no more charged than the main ion ($S_2 \le Z_m S_1$), or a target outside $[Z_m,\,S_2/S_1]$, where some density would be negative.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · See Also · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>The ceiling $S_2/S_1$ is the plasma with no main ion left, which is
+exactly $Z_{I,\mathrm{eff}}$: no amount of this mixture can raise
+$Z_\mathrm{eff}$ past its own reduced charge.  For C$^{6+}$:O$^{8+}$ =
+1:1 at $Z_\mathrm{eff} = 2$, $S_1 = 7$, $S_2 = 50$ and
+$n_C/n_e = n_O/n_e = 1/86$.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Quasi-neutrality and exactly these ions: one main ion of charge $Z_m$
+and the stated impurity species in the stated charge states.</p>
+
+      <h4 class="ref-label no_toc">See Also</h4>
+
+      <p>vaft.formula.atomic.impurity_fraction_from_effective_charge
+reduce_impurity_mixture</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>J. Wesson, <em>Tokamaks</em>, 4th ed., Oxford University Press (2011), Sec. 4.25.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/process/resistive_zeff/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: resistive_zeff">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/process/core_q_context/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: core_q_context">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Process reference: core_q_context",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Process_reference_core_q_context.md",
+            "ref": "_guide/Process_reference_core_q_context.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_impurity.md",
+        "mtime": "2026-10-02 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

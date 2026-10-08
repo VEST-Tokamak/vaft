@@ -1,0 +1,1030 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Formula reference: ntv · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><link rel="stylesheet" href="/vaft/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/reference/equilibrium-representations/" />
+        
+
+        
+            <link rel="next" href="/vaft/reference/formula/waves/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft">
+            
+                <a href="/vaft/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/workflows/start-here/">
+                    
+                        <a href="/vaft/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/workflows/gui/">
+                    
+                        <a href="/vaft/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/reference/api/">
+                    
+                        <a href="/vaft/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/reference/computational-layers/">
+                    
+                        <a href="/vaft/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/reference/plasma-models/">
+                    
+                        <a href="/vaft/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/reference/dependency-graph/">
+                    
+                        <a href="/vaft/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/reference/ontology/">
+                    
+                        <a href="/vaft/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/reference/software-dependencies/">
+                    
+                        <a href="/vaft/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/reference/external-codes/">
+                    
+                        <a href="/vaft/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/reference/mcp/">
+                    
+                        <a href="/vaft/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/reference/formula/">
+                    
+                        <a href="/vaft/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/reference/reduced-representations/">
+                    
+                        <a href="/vaft/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/reference/diagrams/">
+                    
+                        <a href="/vaft/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/reference/process/">
+                    
+                        <a href="/vaft/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/reference/plot/">
+                    
+                        <a href="/vaft/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/reference/diagram/">
+                    
+                        <a href="/vaft/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/reference/wall-modes/">
+                    
+                        <a href="/vaft/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/reference/wall-reduction/">
+                    
+                        <a href="/vaft/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/reference/imas-concepts/">
+                    
+                        <a href="/vaft/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/reference/database-data-sources/">
+                    
+                        <a href="/vaft/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/reference/notebooks/">
+                    
+                        <a href="/vaft/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/reference/references/">
+                    
+                        <a href="/vaft/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/reference/contacts/">
+                    
+                        <a href="/vaft/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Formula reference: ntv</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/formula/Formula_reference_ntv">Formula reference: ntv</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.formula.ntv, read from the standardized docstrings (issue 248).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Definition, units, conventions, validity, limitations and literature references for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.formula.ntv</code>:
+<strong>2</strong> public functions. Each entry is what
+<code>vaft.formula.describe("ntv.&lt;name&gt;")</code> prints.
+<a href="/vaft/reference/formula/">All formula categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>A non-axisymmetric $\delta B$ makes the radial particle flux of each species
+non-ambipolar. Quasineutrality forces a return (polarisation) current that
+cancels the net radial current, and its $\mathbf J\times\mathbf B$ is the
+toroidal torque on the plasma – NTV, equal and opposite to the
+$\mathbf J\times\mathbf B$ of the non-ambipolar current itself. The <em>size</em> of
+the flux needs the bounce-averaged drift-kinetic response (PENT/PENTRC, NEO,
+kinetic GPEC; <code class="language-plaintext highlighter-rouge">vaft.code</code>). What is here is the part that is exact and
+convention-bearing: the precession frequency whose zero is the
+superbanana-plateau resonance, and the flux-force relation that turns
+non-ambipolar fluxes into torque.</p>
+
+<p>Shaing’s asymptotic regimes lie on two branches, in order of decreasing
+collisionality:</p>
+
+<ul>
+  <li>non-resonant ($\omega_d$ bounded away from zero): $1/\nu$ while
+$\nu_\mathrm{eff}$ exceeds the precession, flux $\propto 1/\nu$; then the
+$\nu$–$\sqrt\nu$ regime, a collisional boundary layer at the
+trapped-passing boundary, whose $\sqrt\nu$ part dominates as $\nu \to 0$;</li>
+  <li>resonant ($\omega_d \to 0$ for some trapped particles): $1/\nu$, then the
+superbanana plateau, flux independent of $\nu$, then the superbanana
+regime, flux $\propto\nu$, at the lowest collisionality.</li>
+</ul>
+
+<p>Shaing states the $1/\nu$ boundary as $\nu/\epsilon$ against $|q\omega_E|$
+with the magnetic precession neglected; with it kept the comparison is with
+$|\omega_d|$. The connected formula that joins the regimes (Shaing, Sun and
+Sabbagh 2010) is not implemented: its kernels need the bounce-averaged
+$\delta B$ spectrum and source-specific normalisations. The diagrams draw the
+exponents only.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>omega_exb</td><td>toroidal E x B rotation frequency, $-d\Phi/d\psi_\mathrm{out}$</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>omega_magnetic</td><td>bounce-averaged toroidal magnetic-drift precession</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>omega_d</td><td>bounce-averaged toroidal precession</td><td class="ref-unit">rad/s</td></tr>
+  <tr><td>Z_s</td><td>charge number of species s</td><td class="ref-unit">-</td></tr>
+  <tr><td>Gamma_s</td><td>$\langle\Gamma_s\cdot\nabla V\rangle$, particles of species s crossing the surface</td><td class="ref-unit">1/s</td></tr>
+  <tr><td>psi</td><td>$RA_\phi$, poloidal flux per radian, IMAS $\phi$</td><td class="ref-unit">Wb/rad</td></tr>
+  <tr><td>V</td><td>volume enclosed by the surface</td><td class="ref-unit">m^3</td></tr>
+  </tbody>
+</table></div>
+
+<p>Precession frequencies are toroidal and positive along the plasma current,
+as VAFT’s kinetic-profile <code class="language-plaintext highlighter-rouge">omega_exb</code> is ($-d\Phi/d\psi_\mathrm{out}$ with
+$\psi_\mathrm{out}$ the poloidal flux per radian increasing outward, e.g.
+TRANSP <code class="language-plaintext highlighter-rouge">PLFLX</code>); <code class="language-plaintext highlighter-rouge">omega_exb</code> is never the toroidal fluid rotation
+<code class="language-plaintext highlighter-rouge">omega_tor</code>. The torque is positive along the IMAS $\phi$ (counter-clockwise
+from above), with $\psi = RA_\phi$ as
+<code class="language-plaintext highlighter-rouge">vaft.formula.particle.psi_per_radian_from_cocos</code> returns it.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 2 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="nonambipolar_torque_density"><td><a href="#nonambipolar_torque_density"><code>nonambipolar_torque_density</code></a></td><td>Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ntv_precession_frequency"><td><a href="#ntv_precession_frequency"><code>ntv_precession_frequency</code></a></td><td>Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="nonambipolar_torque_density" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#nonambipolar_torque_density"><code>nonambipolar_torque_density</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="nonambipolar_torque_density" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ntv.py#L148-L216" title="vaft/formula/ntv.py, lines 148–216 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>nonambipolar_torque_density(charge_numbers, particle_flux, dpsi_dV)</code></pre>
+
+    <details class="ref-code" data-source-code="nonambipolar_torque_density"><summary>Show source <span class="ref-note">vaft/formula/ntv.py, lines 148–216</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">nonambipolar_torque_density</span><span class="p">(</span><span class="n">charge_numbers</span><span class="p">,</span> <span class="n">particle_flux</span><span class="p">,</span> <span class="n">dpsi_dV</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).
+
+    $$T_\phi = \frac{d\psi}{dV}\sum_s Z_s e\,\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle$$
+
+    Parameters
+    ----------
+    charge_numbers : array_like
+        $Z_s$ of each species, electrons $-1$, shape ``(S,)`` [-].
+    particle_flux : array_like
+        $\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle$ of each species along
+        axis 0, shape ``(S, ...)``: particles crossing the surface outward
+        per second [1/s].
+    dpsi_dV : float or np.ndarray
+        $d\psi/dV$ of $\psi = RA_\phi$, broadcast against the trailing axes
+        of ``particle_flux``; negative for a plasma current along $+\phi$
+        [Wb/(rad m^3)].
+
+    Returns
+    -------
+    float or np.ndarray
+        Torque density on the plasma about the symmetry axis, positive
+        along the IMAS $\phi$, averaged over the surface [N m/m^3].
+
+    Raises
+    ------
+    ValueError
+        Species counts differ, or an input is not finite.
+
+    Convention
+    ----------
+    With $\mathbf B = \nabla\psi\times\nabla\phi + F\nabla\phi$ and
+    $\psi = RA_\phi$ per radian (``psi_per_radian_from_cocos``; IMAS COCOS 11
+    stores $-2\pi\psi$), $R\hat\phi\cdot(\mathbf J\times\mathbf B)
+    = -\mathbf J\cdot\nabla\psi$ exactly. The non-ambipolar current
+    $\mathbf J_\mathrm{na} = \sum_s Z_se\boldsymbol\Gamma_s$ is cancelled by a
+    return current $-\mathbf J_\mathrm{na}$, whose $\mathbf J\times\mathbf B$
+    -- equivalently, the sum of each species</span><span class="sh">'</span><span class="s"> toroidal viscous force -- is
+    the torque on the plasma: $T_\phi = +\langle\mathbf J_\mathrm{na}\cdot
+    \nabla\psi\rangle = (d\psi/dV)\sum_s Z_se\langle\boldsymbol\Gamma_s\cdot
+    \nabla V\rangle$. In Shaing</span><span class="sh">'</span><span class="s">s $\psi = -RA_\phi$ this reads
+    $-(d\psi/dV)\sum_s Z_se\Gamma_s$. A torque *density*; integrate over $V$
+    for the torque. Ambipolar fluxes give zero.
+
+    Physical interpretation
+    -----------------------
+    An outward non-ambipolar ion flux in a plasma with current along $+\phi$
+    ($d\psi/dV &lt; 0$) drives rotation against the current -- the
+    counter-current torque of fast-ion ripple loss and of ion-root NTV.
+
+    Assumptions
+    -----------
+    Steady state on the transport time scale, quasineutrality; the fluxes
+    are the non-ambipolar parts from a kinetic calculation this function
+    does not make. No phenomenological $-\nu_\mathrm{NTV}(\Omega - \Omega_0)$
+    damping model is implied.
+
+    References
+    ----------
+    .. [1] K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
+    .. [2] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 8.
+    </span><span class="sh">"""</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">charge_numbers</span><span class="p">,</span> <span class="sh">"</span><span class="s">charge_numbers</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">flux</span> <span class="o">=</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">particle_flux</span><span class="p">,</span> <span class="sh">"</span><span class="s">particle_flux</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">Z</span><span class="p">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">flux</span><span class="p">.</span><span class="n">ndim</span> <span class="o">&lt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">flux</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">!=</span> <span class="n">Z</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">charge_numbers must be 1-D with one entry per species along axis 0 of particle_flux</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">QE</span> <span class="o">*</span> <span class="n">np</span><span class="p">.</span><span class="nf">tensordot</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_finite</span><span class="p">(</span><span class="n">dpsi_dV</span><span class="p">,</span> <span class="sh">"</span><span class="s">dpsi_dV</span><span class="sh">"</span><span class="p">)</span> <span class="o">*</span> <span class="n">current</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Flux-surface-averaged toroidal torque density on the plasma from non-ambipolar radial fluxes (NTV).</p>
+
+\[T_\phi = \frac{d\psi}{dV}\sum_s Z_s e\,\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>charge_numbers</code></td><td class="ref-type">array_like</td><td class="ref-unit">-</td><td><p>$Z_s$ of each species, electrons $-1$, shape <code class="language-plaintext highlighter-rouge">(S,)</code>.</p>
+</td></tr>
+  <tr><td><code>particle_flux</code></td><td class="ref-type">array_like</td><td class="ref-unit">1/s</td><td><p>$\langle\boldsymbol\Gamma_s\cdot\nabla V\rangle$ of each species along axis 0, shape <code class="language-plaintext highlighter-rouge">(S, ...)</code>: particles crossing the surface outward per second.</p>
+</td></tr>
+  <tr><td><code>dpsi_dV</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">Wb/(rad m^3)</td><td><p>$d\psi/dV$ of $\psi = RA_\phi$, broadcast against the trailing axes of <code class="language-plaintext highlighter-rouge">particle_flux</code>; negative for a plasma current along $+\phi$</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">N m/m^3</td><td><p>Torque density on the plasma about the symmetry axis, positive along the IMAS $\phi$, averaged over the surface.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>With $\mathbf B = \nabla\psi\times\nabla\phi + F\nabla\phi$ and
+$\psi = RA_\phi$ per radian (<code class="language-plaintext highlighter-rouge">psi_per_radian_from_cocos</code>; IMAS COCOS 11
+stores $-2\pi\psi$), $R\hat\phi\cdot(\mathbf J\times\mathbf B)
+= -\mathbf J\cdot\nabla\psi$ exactly. The non-ambipolar current
+$\mathbf J_\mathrm{na} = \sum_s Z_se\boldsymbol\Gamma_s$ is cancelled by a
+return current $-\mathbf J_\mathrm{na}$, whose $\mathbf J\times\mathbf B$
+– equivalently, the sum of each species’ toroidal viscous force – is
+the torque on the plasma: $T_\phi = +\langle\mathbf J_\mathrm{na}\cdot
+\nabla\psi\rangle = (d\psi/dV)\sum_s Z_se\langle\boldsymbol\Gamma_s\cdot
+\nabla V\rangle$. In Shaing’s $\psi = -RA_\phi$ this reads
+$-(d\psi/dV)\sum_s Z_se\Gamma_s$. A torque <em>density</em>; integrate over $V$
+for the torque. Ambipolar fluxes give zero.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Species counts differ, or an input is not finite.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>An outward non-ambipolar ion flux in a plasma with current along $+\phi$
+($d\psi/dV &lt; 0$) drives rotation against the current – the
+counter-current torque of fast-ion ripple loss and of ion-root NTV.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Steady state on the transport time scale, quasineutrality; the fluxes
+are the non-ambipolar parts from a kinetic calculation this function
+does not make. No phenomenological $-\nu_\mathrm{NTV}(\Omega - \Omega_0)$
+damping model is implied.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
+</li>
+  <li>P. Helander and D. J. Sigmar, <em>Collisional Transport in Magnetized Plasmas</em>, Cambridge University Press (2002), Ch. 8.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ntv_precession_frequency" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ntv_precession_frequency"><code>ntv_precession_frequency</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="ntv_precession_frequency" href="https://github.com/VEST-Tokamak/vaft/blob/964ae664d0bda42f81ade2611773c5d37c5ea128/vaft/formula/ntv.py#L82-L145" title="vaft/formula/ntv.py, lines 82–145 at 964ae66">source</a>
+</header>
+    <pre class="ref-signature"><code>ntv_precession_frequency(omega_exb, omega_magnetic)</code></pre>
+
+    <details class="ref-code" data-source-code="ntv_precession_frequency"><summary>Show source <span class="ref-note">vaft/formula/ntv.py, lines 82–145</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ntv_precession_frequency</span><span class="p">(</span><span class="n">omega_exb</span><span class="p">,</span> <span class="n">omega_magnetic</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.
+
+    $$\omega_d = \omega_E + \omega_B \qquad (= q\,\omega_E^\mathrm{Shaing} + \omega_B)$$
+
+    Parameters
+    ----------
+    omega_exb : float or np.ndarray
+        Toroidal E x B rotation frequency $\omega_E = -d\Phi/d\psi_\mathrm{out}$,
+        $\psi_\mathrm{out}$ the poloidal flux per radian increasing outward --
+        VAFT</span><span class="sh">'</span><span class="s">s kinetic-profile ``omega_exb``, positive along the plasma
+        current, not the toroidal fluid rotation [rad/s].
+    omega_magnetic : float or np.ndarray
+        Bounce-averaged toroidal precession by the grad-B and curvature
+        drifts, for the species and energy considered, positive along the
+        plasma current [rad/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\omega_d$, positive along the plasma current; zero on the
+        superbanana-plateau resonance [rad/s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite input.
+
+    Convention
+    ----------
+    Both inputs must be measured in the same toroidal orientation; VAFT</span><span class="sh">'</span><span class="s">s
+    is along the plasma current, the orientation of ``omega_exb``. A rigid
+    rotation $\omega\hat\phi$ has $\mathbf E = -\omega\nabla(RA_\phi)$, so
+    $-d\Phi/d\psi_\mathrm{out}$ is the rotation along the current whichever
+    way the current flows. Shaing writes $q\omega_E + \omega_B$ with his
+    $\omega_E$ taken against the *toroidal* flux; since $d\psi_t = q\,d\psi$,
+    his $q\omega_E$ is this ``omega_exb``. The toroidal rotation
+    $\omega_\phi$ differs from $\omega_E$ by the diamagnetic and
+    poloidal-flow terms of radial force balance, and substituting it moves
+    the resonance. $\omega_B \propto$ energy over charge, so each species and
+    energy has its own $\omega_d$. This is the $\ell = 0$ case of
+    ``vaft.formula.particle.bounce_harmonic_detuning`` with $n = -1$.
+
+    Physical interpretation
+    -----------------------
+    A trapped orbit precessing at $\omega_d$ sees a static $\delta B$ at a
+    Doppler-shifted frequency; where $\omega_d \to 0$ it sits in a fixed
+    phase of the perturbation and its radial step accumulates -- the
+    superbanana plateau, whose flux no longer depends on collisions.
+    Away from it, $\nu_\mathrm{eff}$ against $|\omega_d|$ separates the
+    $1/\nu$ regime from the $\nu$--$\sqrt\nu$ regime.
+
+    Assumptions
+    -----------
+    Bounce-averaged guiding-centre motion; $\omega_E$ constant across the
+    banana width.
+
+    References
+    ----------
+    .. [1] K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
+    .. [2] J.-K. Park, A. H. Boozer and J. E. Menard, Phys. Rev. Lett. 102
+           (2009) 065002.
+    </span><span class="sh">"""</span>
+    <span class="k">return</span> <span class="nf">_out</span><span class="p">(</span><span class="nf">_finite</span><span class="p">(</span><span class="n">omega_exb</span><span class="p">,</span> <span class="sh">"</span><span class="s">omega_exb</span><span class="sh">"</span><span class="p">)</span> <span class="o">+</span> <span class="nf">_finite</span><span class="p">(</span><span class="n">omega_magnetic</span><span class="p">,</span> <span class="sh">"</span><span class="s">omega_magnetic</span><span class="sh">"</span><span class="p">))</span></code></pre></figure>
+
+</details>
+
+    <p>Bounce-averaged toroidal precession of trapped particles, whose zero is the superbanana-plateau resonance.</p>
+
+\[\omega_d = \omega_E + \omega_B \qquad (= q\,\omega_E^\mathrm{Shaing} + \omega_B)\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>omega_exb</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Toroidal E x B rotation frequency $\omega_E = -d\Phi/d\psi_\mathrm{out}$, $\psi_\mathrm{out}$ the poloidal flux per radian increasing outward – VAFT’s kinetic-profile <code class="language-plaintext highlighter-rouge">omega_exb</code>, positive along the plasma current, not the toroidal fluid rotation.</p>
+</td></tr>
+  <tr><td><code>omega_magnetic</code></td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>Bounce-averaged toroidal precession by the grad-B and curvature drifts, for the species and energy considered, positive along the plasma current.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">float or np.ndarray</td><td class="ref-unit">rad/s</td><td><p>$\omega_d$, positive along the plasma current; zero on the superbanana-plateau resonance.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Both inputs must be measured in the same toroidal orientation; VAFT’s
+is along the plasma current, the orientation of <code class="language-plaintext highlighter-rouge">omega_exb</code>. A rigid
+rotation $\omega\hat\phi$ has $\mathbf E = -\omega\nabla(RA_\phi)$, so
+$-d\Phi/d\psi_\mathrm{out}$ is the rotation along the current whichever
+way the current flows. Shaing writes $q\omega_E + \omega_B$ with his
+$\omega_E$ taken against the <em>toroidal</em> flux; since $d\psi_t = q\,d\psi$,
+his $q\omega_E$ is this <code class="language-plaintext highlighter-rouge">omega_exb</code>. The toroidal rotation
+$\omega_\phi$ differs from $\omega_E$ by the diamagnetic and
+poloidal-flow terms of radial force balance, and substituting it moves
+the resonance. $\omega_B \propto$ energy over charge, so each species and
+energy has its own $\omega_d$. This is the $\ell = 0$ case of
+<code class="language-plaintext highlighter-rouge">vaft.formula.particle.bounce_harmonic_detuning</code> with $n = -1$.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A non-finite input.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Physical interpretation · Assumptions · References</summary>
+
+      <h4 class="ref-label no_toc">Physical interpretation</h4>
+
+      <p>A trapped orbit precessing at $\omega_d$ sees a static $\delta B$ at a
+Doppler-shifted frequency; where $\omega_d \to 0$ it sits in a fixed
+phase of the perturbation and its radial step accumulates – the
+superbanana plateau, whose flux no longer depends on collisions.
+Away from it, $\nu_\mathrm{eff}$ against $|\omega_d|$ separates the
+$1/\nu$ regime from the $\nu$–$\sqrt\nu$ regime.</p>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>Bounce-averaged guiding-centre motion; $\omega_E$ constant across the
+banana width.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>K. C. Shaing, Phys. Plasmas 10 (2003) 1443.
+</li>
+  <li>J.-K. Park, A. H. Boozer and J. E. Menard, Phys. Rev. Lett. 102 (2009) 065002.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/reference/formula/"><code>vaft.formula</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/reference/equilibrium-representations/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Equilibrium representations">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/reference/formula/waves/" class="navigation navigation-next navigation-unique" aria-label="Next page: Formula reference: waves">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Formula reference: waves",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Formula_reference_waves.md",
+            "ref": "_guide/Formula_reference_waves.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Formula_reference_ntv.md",
+        "mtime": "2026-09-28 10:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-08 04:38:22 +0000"
+    },
+    "basePath": "/vaft",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/assets/gitbook/custom.js"></script>
+<script src="/vaft/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>
