@@ -511,6 +511,21 @@ def test_the_remote_copy_is_kept_unless_asked_otherwise(side, cluster):
         assert (work / "out.txt").read_text() == "done\n"
 
 
+@pytest.mark.parametrize("label", ["tables/../../scratch2", "../..", "a b", ".hidden", "x;rm"])
+def test_a_label_that_is_not_one_path_component_is_refused_before_anything_is_staged(side, cluster, label):
+    """``label`` names the remote staging directory, which ``keep_remote=False``
+    then ``rm -rf``s, and the local scratch directory: ``..`` or a separator in
+    it would reach outside both (cold review 0.8.0 plot-gui-packaging F2)."""
+    local, remote = side
+    work = local.parent / "elsewhere"
+    work.mkdir()
+    with pytest.raises(ValueError, match="label"):
+        _backend(_host(local, remote, keep_remote=False)).run(_shell(work, "true", label=label))
+    assert not (cluster.directory / "calls.jsonl").exists()  # no ssh, no rsync: refused before the host was contacted
+    assert not (work / SCRATCH_DIRECTORY).exists()
+    assert not (remote / "work").exists()
+
+
 def test_a_mapped_working_directory_is_never_removed(side, cluster):
     """``keep_remote=False`` clears what this backend staged, nothing else.
 

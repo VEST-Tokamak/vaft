@@ -16,6 +16,7 @@ import warnings
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from ._brand import FAVICON_URL, LOGO_DATA_URI
 from ._require import require_panel
 from .catalog_view import describe, group_options, matching_names
 from .composer import CompositionEditor
@@ -89,6 +90,9 @@ class BrowserApp:
         self._plot_count = 0
         #: The last single plot drawn, for coming back from a composition.
         self._last_drawn: str | None = None
+        #: Which discovery records the selector offers (``None``: all); a
+        #: workspace narrows the explorer this way, e.g. to one diagnostic.
+        self.plot_filter: Callable[[Any], bool] | None = None
         self._updating = False
         #: Called with no arguments whenever what is open or the selected time
         #: may have changed; the shell publishes it to the shared selection.
@@ -281,6 +285,9 @@ class BrowserApp:
             self._show_error(error)
             return False
         names = [name for members in groups.values() for name in members]
+        if self.plot_filter is not None:
+            offered = {record.name for record in self.session.catalog() if self._offered(record)}
+            names = [name for name in names if name in offered]
         self._plot_count = len(names)
         self.composer.set_plots(names)
         self._updating = True
@@ -391,12 +398,41 @@ class BrowserApp:
     # -- plot -----------------------------------------------------------------
     def _plot_groups(self) -> dict[str, Any]:
         """The selector's groups: discovery's records, searched, by subject."""
-        records = list(self.session.full_catalog())
+        records = [record for record in self.session.full_catalog() if self._offered(record)]
         groups = group_options(
             records, unavailable=self.scope.value == "all",
             names=matching_names(self.search.value, records),
         )
         return groups or {"": {}}
+
+    def _offered(self, record: Any) -> bool:
+        return self.plot_filter is None or bool(self.plot_filter(record))
+
+    def set_plot_filter(self, plot_filter: Callable[[Any], bool] | None) -> None:
+        """Offer only the plots ``plot_filter`` accepts, and draw the first if the one on screen is not."""
+        self.plot_filter = plot_filter
+        if self.session.ods is None:
+            return
+        self._relist()
+        offered = [record.name for record in self.session.catalog() if self._offered(record)]
+        # The composer and the count offer the same plots as the selector.
+        self._plot_count = len(offered)
+        self.composer.set_plots(offered)
+        self._update_status()
+        if self._last_drawn not in offered:
+            self._last_drawn = None  # never redrawn from outside the filter
+        if self.mode.value == "compose":
+            return  # the composition on screen stays; the plot box is hidden
+        if self.session.plot in offered:
+            return
+        if offered and self.plot.value == offered[0]:
+            self.show(offered[0], renderer=self._renderer_for(offered[0]))  # same value: no watcher call
+        elif offered:
+            self.plot.value = offered[0]
+        else:
+            self.session.release()
+            self._clear_plot(keep_selector=True)
+            self._changed()
 
     def _relist(self, _event: Any = None) -> None:
         """List the plots again after a search or a change of scope."""
@@ -606,7 +642,9 @@ class BrowserApp:
             # it, the last one drawn) is drawn again -- only if it can be.
             name = self.plot.value or self._last_drawn
             record = self.session.capability(name) if name else None
-            drawable = name and (record is None or getattr(record, "available", True) is not False)
+            drawable = name and (record is None or getattr(record, "available", True) is not False) and (
+                record is None or self._offered(record)
+            )
             if drawable and self.show(name, renderer=self._renderer_for(name)):
                 return
             # Nothing to draw: the composition goes too, or it would still be
@@ -844,6 +882,7 @@ class BrowserApp:
         pn = require_panel()
         return pn.template.FastListTemplate(
             title="VAFT", sidebar=self.sidebar(), main=self.main(), sidebar_width=360,
+            logo=LOGO_DATA_URI, favicon=FAVICON_URL, header_background="#0b1a2e",
         )
 
     def close(self) -> None:
@@ -959,7 +998,8 @@ def serve(
     readers are not this server's user, so the app opens samples and database
     shots only -- no server paths, no file browser, no uploads -- the password
     is always asked and must be given (a service's restart would otherwise
-    change it unseen), and the proxy's ``X-Forwarded-*`` headers are trusted.
+    change it unseen) unless ``auth="none"`` leaves authentication to a proxy
+    that does it by itself, and the proxy's ``X-Forwarded-*`` headers are trusted.
     ``prefix`` serves the app under a URL path, e.g. ``/gui`` when the proxy
     passes ``https://host/gui/`` through.  The proxy's public host name goes
     in ``websocket_origin``.

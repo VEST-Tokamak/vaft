@@ -60,14 +60,15 @@ from vaft.plot.models import (
     ReferenceSlope,
     Series,
     Spectrogram,
+    SpectrogramTrack,
     TextPanel,
 )
 from vaft.plot.display import PSI_STYLES, channel_label, figure_title, resolve_display
 from vaft.plot.selection import ACTIVE, ALL, INBOARD, OUTBOARD, SIGNAL_PRESETS, UNCLASSIFIED, VALID
 from vaft.plot.registry import get_spec
-from vaft.spectroscopy import (
+from vaft.data.atomic import format_species
+from vaft.data.spectroscopy import (
     describe_available,
-    format_species,
     matches,
     parse_emission_term,
     parse_line_label,
@@ -856,15 +857,13 @@ MACHINE_DIAGNOSTICS = (
     "interferometer", "langmuir_probes",
 )
 MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOSTICS,
-                    "coils_non_axisymmetric", "ec_launchers", "nbi")
+                    "coils_non_axisymmetric", "ec_launchers", "nbi", "equilibrium_section")
 DEFAULT_MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
 
 
-def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
-                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
-    """Use one source registry for selected families in composed machine plots."""
-    from vaft.plot.machine_geometry import machine_geometry_view
-
+def _shared_machine_source(ods: Any, options: Mapping[str, Any], families: tuple[str, ...]
+                           ) -> tuple[Any, tuple[str, ...], Mapping[str, Any] | None]:
+    """Resolve the geometry source, family selection and manifest of a composed view."""
     chosen = options.get("geometry_families")
     if chosen is not None:
         families = (chosen,) if isinstance(chosen, str) else tuple(chosen)
@@ -872,10 +871,31 @@ def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
     manifest = options.get("geometry_manifest")
     if geometry_data is not ods and manifest is None:
         raise ValueError("separate geometry_data requires geometry_manifest provenance")
+    return geometry_data, families, manifest
+
+
+def _shared_machine_view(ods: Any, view: str, options: Mapping[str, Any],
+                         families: tuple[str, ...]) -> GeometryLayers | Geometry3DLayers:
+    """Use one source registry for selected families in composed machine plots."""
+    from vaft.plot.machine_geometry import machine_geometry_view
+
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
     return machine_geometry_view(
         geometry_data, view, families=families, manifest=manifest,
         axis_length=float(options.get("axis_length", 0.25)),
     )
+
+
+def _stored_undrawable_families(ods: Any, options: Mapping[str, Any],
+                                families: tuple[str, ...]) -> list[str]:
+    """Selected families whose records are stored but drew nothing in the view."""
+    from vaft.plot.machine_geometry import machine_geometry_registry
+
+    if not families:
+        return []
+    geometry_data, families, manifest = _shared_machine_source(ods, options, families)
+    return sorted({record.family for record in
+                   machine_geometry_registry(geometry_data, families=families, manifest=manifest)})
 
 
 def _machine_view_title(base: str, shared: GeometryLayers | Geometry3DLayers) -> str:
@@ -3387,6 +3407,19 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
         DEFAULT_MACHINE_OVERLAYS if options.get("overlay") is None
         else _overlay_option(options, MACHINE_OVERLAYS)
     )
+    if "equilibrium_section" in names:
+        if len(names) != 1:
+            raise ValueError("equilibrium_section is a complete composed view; select it alone")
+        from vaft.plot.equilibrium_section import DEFAULT_SECTION_PHI, DEFAULT_FLUX_LEVELS, build_equilibrium_section
+
+        # The R-Z recipe has no time axis, so validate_options refuses time=
+        # before this builder runs; the kernel's time= stays reachable through
+        # build_equilibrium_section itself (0.8.0 delta-19b C-F4).
+        return build_equilibrium_section(
+            ods, time_slice=options.get("time_slice"),
+            section_phi=float(options.get("section_phi", DEFAULT_SECTION_PHI)),
+            flux_surface_levels=tuple(options.get("flux_surface_levels", DEFAULT_FLUX_LEVELS)),
+        ).rz
     names = tuple(dict.fromkeys((*names, *(MACHINE_DIAGNOSTICS if "diagnostics" in names else ()))))
     layers: list[GeometryLayer] = list(_wall_layers(ods)) if "wall" in names else []
     # Coils and passive structure are drawn as sets: the composed view names
@@ -3409,6 +3442,12 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
     shared = _shared_machine_view(ods, "rz", options, selected)
     layers.extend(shared.layers)
     if not layers:
+        stored = _stored_undrawable_families(ods, options, selected)
+        if stored:
+            raise ValueError(
+                f"machine geometry {', '.join(stored)} is stored but none of its "
+                "records can be drawn in the R-Z view (a position without a height)"
+            )
         raise ValueError(
             "none of the poloidal machine geometry IDS (wall, pf_active, "
             "pf_passive, magnetics, thomson_scattering, charge_exchange, "
@@ -5550,6 +5589,16 @@ def _gk_title(base: str, entries: Sequence[tuple[str, Any]]) -> str:
     return base + (f" — unmatched: {', '.join(mismatches)}" if mismatches else "")
 
 
+#: The plots that read ``include_unconverged=`` (declared-only, see
+#: :data:`vaft.plot.backend.options.DECLARED_ONLY_OPTIONS`): the two linear
+#: spectra and the overview that composes them.  Any other plot refuses it.
+UNCONVERGED_MODE_PLOTS = frozenset({
+    "gyrokinetics_spectrum_growth_rate",
+    "gyrokinetics_spectrum_frequency",
+    "gyrokinetics_overview",
+})
+
+
 def _gk_unconverged(obj: Any, mode: str) -> bool:
     """An initial-value eigenmode that reached no tolerance (``growth_rate_tolerance`` is
     written only for a converged run): its last-step value is not an eigenvalue."""
@@ -5610,7 +5659,7 @@ def _build_gk_growth_rate(entries: Sequence[tuple[str, Any]], **options: Any) ->
     include = bool(options.get("include_unconverged", False))
     series = [s for label, obj in _labelled(entries)
               for s in _gk_linear_series(label, obj, "growth_rate_norm", include_unconverged=include,
-                                         short=bool(options.get("short_labels")))]
+                                         short=bool(options.get("_short_labels")))]
     if not series:
         raise ValueError(f"no converged {_GK}.linear growth rates in this input "
                          "(include_unconverged=True draws initial-value runs that reached none)")
@@ -5628,7 +5677,7 @@ def _build_gk_frequency(entries: Sequence[tuple[str, Any]], **options: Any) -> P
     include = bool(options.get("include_unconverged", False))
     series = [s for label, obj in _labelled(entries)
               for s in _gk_linear_series(label, obj, "frequency_norm", include_unconverged=include,
-                                         short=bool(options.get("short_labels")))]
+                                         short=bool(options.get("_short_labels")))]
     if not series:
         raise ValueError(f"no converged {_GK}.linear frequencies in this input")
     conventions = {_gk_parameter(obj, "frequency_sign_convention") for _label, obj in entries}
@@ -5692,7 +5741,7 @@ def _gk_flux_builder(quantity: str, y_label: str):
             for s in range(total.shape[0]):
                 species = _gk_species_label(obj, s)
                 series.append(Series(x=ky[order], y=total[s][order],
-                                     label=species if options.get("short_labels") else f"{name} {species}"))
+                                     label=species if options.get("_short_labels") else f"{name} {species}"))
         if not series:
             raise ValueError(f"no ky-resolved {quantity} flux in this input")
         quasi = {_get(obj, f"{_GK}.non_linear.quasi_linear") for _label, obj in entries}
@@ -5799,14 +5848,15 @@ def _gk_local_state_lines(obj: Any) -> list[str]:
 def _build_gk_overview(obj: Any, **options: Any) -> Panels:
     """The members a run supports, plus its local state; a missing quantity drops its panel."""
     entries = [("", obj)]
+    include = bool(options.get("include_unconverged", False))
     models: list[Any] = []
     for available, build in (
         (_gk_spectrum_available("growth_rate_norm"),
-         lambda: _build_gk_growth_rate(entries, short_labels=True)),
+         lambda: _build_gk_growth_rate(entries, _short_labels=True, include_unconverged=include)),
         (_gk_spectrum_available("frequency_norm"),
-         lambda: _build_gk_frequency(entries, short_labels=True)),
+         lambda: _build_gk_frequency(entries, _short_labels=True, include_unconverged=include)),
         (_gk_flux_spectrum_available("energy"),
-         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries, short_labels=True)),
+         lambda: _gk_flux_builder("energy", r"$Q/Q_{ref}$")(entries, _short_labels=True)),
         (_gk_eigenfunction_available, lambda: _build_gk_eigenfunction(obj)),
     ):
         if available(obj) is None:
@@ -5945,6 +5995,24 @@ def _tt_available(quantity: str):
     return available
 
 
+def _tt_slice_times(obj: Any, m: int) -> np.ndarray:
+    base = f"core_transport.model.{m}.profiles_1d"
+    return np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(_count(obj, base))],
+                    dtype=float)
+
+
+def _tt_reference_time(entries: Sequence[tuple[str, Any]]) -> float | None:
+    """The instant a request without ``time`` means: the first stored slice of the
+    first anomalous model, so every other model is matched to it by its own time
+    rather than by slice position."""
+    for _label, obj in entries:
+        for m in _tt_models(obj):
+            times = _tt_slice_times(obj, m)
+            if times.size:
+                return None if np.isnan(times[0]) else float(times[0])
+    return None
+
+
 def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
     base = f"core_transport.model.{m}.profiles_1d"
     count = _count(obj, base)
@@ -5952,7 +6020,7 @@ def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
         return None
     if time is None:
         return 0
-    times = np.array([_get(obj, f"{base}.{t}.time", np.nan) for t in range(count)], dtype=float)
+    times = _tt_slice_times(obj, m)
     if np.all(np.isnan(times)):
         return 0
     return int(np.nanargmin(np.abs(times - float(time))))
@@ -5961,9 +6029,15 @@ def _tt_slice(obj: Any, m: int, time: Any) -> int | None:
 def _tt_builder(quantity: str, y_label: str, y_unit: str):
     def builder(entries: Sequence[tuple[str, Any]], **options: Any) -> Profile1D:
         series = []
+        # Match slices by time, not by index: with no ``time`` the first model's
+        # first slice sets the instant and every model picks its nearest slice.
+        time = options.get("time")
+        if time is None:
+            time = _tt_reference_time(entries)
+        slice_times: dict[str, float | None] = {}
         for label, obj in _labelled(entries):
             for m in _tt_models(obj):
-                t = _tt_slice(obj, m, options.get("time"))
+                t = _tt_slice(obj, m, time)
                 if t is None:
                     continue
                 base = f"core_transport.model.{m}.profiles_1d.{t}"
@@ -5973,6 +6047,8 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
                     continue
                 code = _get(obj, f"core_transport.model.{m}.code.name") or f"model {m}"
                 name = (label if str(code) in label else f"{label} ({code})") if label else str(code)
+                stored = _get(obj, f"{base}.time", None)
+                slice_times[name] = None if stored is None else float(stored)
                 # one colour per model; electrons solid, ions dashed
                 color = palette(sum(1 for item in series if item.label.endswith(' e')))
                 series.append(Series(x=rho, y=electrons, label=f"{name} e", style={"color": color}))
@@ -5988,6 +6064,7 @@ def _tt_builder(quantity: str, y_label: str, y_unit: str):
             series=tuple(series), coordinate_label=r"$\rho_{tor,N}$",
             y_label=y_label, y_unit=y_unit,
             title=f"{_FLUX_WORD[quantity]} flux",
+            metadata={"time": time, "slice_time": slice_times},
         )
     return builder
 
@@ -6027,8 +6104,8 @@ RECIPES["turbulent_transport_overview"] = PanelRecipe(
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
-    description="Wall, coils, passive structure and diagnostic positions composed.",
-    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, *_COIL_3D_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *_topview_reads()),
+    description="Wall, coils, passive structure and diagnostic positions; equilibrium_section selects the same-shot EFIT section.",
+    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, *_COIL_3D_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *_topview_reads(), *_EQUILIBRIUM_SLICE_READS, *_EFIT_CONSTRAINT_READS),
     backend=NEUTRAL,
 )
 RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
@@ -6971,10 +7048,13 @@ def _build_romero_balance(ods: Any, **options: Any) -> Panels:
         # negative-current shot would enlarge |I_p - I_ni| instead of reducing it.
         ip = np.asarray([_get(ods, f"equilibrium.time_slice.{int(i)}.global_quantities.ip")
                          for i in out["time_index"]], dtype=float)
-        if np.any(np.sign(ip) != np.sign(i_ni)) or abs(i_ni) >= np.min(np.abs(ip)):
+        # The orientation check is the np.sign comparison; the magnitude is a
+        # bound on I_ni only and never replaces the signed I_p.
+        ip_magnitude = np.abs(ip)
+        if np.any(np.sign(ip) != np.sign(i_ni)) or abs(i_ni) >= ip_magnitude.min():
             raise ValueError(
                 f"non_inductive_current={i_ni:g} A must carry the sign of I_p and stay below |I_p| "
-                f"in the window ({np.min(np.abs(ip)):.4g}-{np.max(np.abs(ip)):.4g} A, sign {np.sign(ip[0]):+g})"
+                f"in the window ({ip_magnitude.min():.4g}-{ip_magnitude.max():.4g} A, sign {np.sign(ip[0]):+g})"
             )
     r_p = _romero_resistance(options.get("plasma_resistance"), t.size)
     given = None
@@ -7152,7 +7232,7 @@ def _efit_overlay_layers(
 #: projection methods that map machine geometry into its pixels (section 20).
 from vaft.plot.machine_geometry import MACHINE_GEOMETRY_FAMILIES
 
-CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry") + MACHINE_GEOMETRY_FAMILIES
+CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry", "equilibrium_section") + MACHINE_GEOMETRY_FAMILIES
 
 #: Where a vacuum field line is seeded when ``seeds=`` names none [m]: VEST's
 #: startup reference point, the one ``startup_proxies_time`` reads.
@@ -7248,8 +7328,11 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
     image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
     channel_name = _camera_visible_channel_name(ods, channel)
     overlays = _overlay_option(options)
+    if "equilibrium_section" in overlays and len(overlays) != 1:
+        raise ValueError("equilibrium_section is a complete camera overlay; select it alone")
     layers: list[GeometryLayer] = []
     notes: list[str] = []
+    section = None
     if overlays:
         from vaft.omas.process_wrapper import (
             compute_camera_visible_efit_overlay,
@@ -7265,6 +7348,28 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
                 "no dataset_description.data_entry.pulse; pass shot= or a CameraProjection"
             )
         projection = _projection_option(options, shot)
+        if "equilibrium_section" in overlays:
+            from vaft.plot.equilibrium_section import DEFAULT_SECTION_PHI, DEFAULT_FLUX_LEVELS, build_equilibrium_section
+
+            pulse = _get(ods, "dataset_description.data_entry.pulse")
+            if shot is None:
+                raise ValueError("equilibrium_section requires the camera and equilibrium source shot")
+            if pulse is not None and int(pulse) != int(shot):
+                raise ValueError("equilibrium_section requires camera and equilibrium from the same shot")
+            if projection.provenance.get("shot") not in (None, int(shot)):
+                raise ValueError("camera projection shot differs from the source shot")
+            section = build_equilibrium_section(
+                ods, time=resolved_time,
+                section_phi=float(options.get("section_phi", DEFAULT_SECTION_PHI)),
+                flux_surface_levels=tuple(options.get("flux_surface_levels", DEFAULT_FLUX_LEVELS)),
+                projection=projection,
+            )
+            layers.extend(section.camera_layers)
+            notes.append(
+                f"R-Z section phi={np.rad2deg(section.section_phi):.1f} deg; "
+                f"equilibrium t={section.equilibrium_time * 1e3:.1f} ms; "
+                f"delta t={(resolved_time - section.equilibrium_time) * 1e3:+.1f} ms"
+            )
         selected_families = tuple(name for name in overlays if name in MACHINE_GEOMETRY_FAMILIES)
         if "machine_geometry" in overlays or selected_families:
             from vaft.plot.machine_geometry import machine_geometry_view
@@ -7338,15 +7443,20 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
                 + ", ".join(f"({r:.3f}, {z:.3f}) m" for r, z in (rec["seed"] for rec in records))
                 if records else "no vacuum field line seeds"
             )
-    title = options.get(
-        "title",
+    default_title = (
+        f"FAST camera shot {shot}: t={resolved_time * 1e3:.1f} ms\n"
+        f"R-Z section phi={np.rad2deg(section.section_phi):.1f}°; "
+        f"EFIT t={section.equilibrium_time * 1e3:.1f} ms "
+        f"(Δt={(resolved_time - section.equilibrium_time) * 1e3:+.1f} ms)"
+        if section is not None else
         f"{channel_name} frame {idx} @ t={resolved_time:.4f}s"
-        + (f" -- shot {shot}: {'; '.join(notes)}" if notes else ""),
+        + (f" -- shot {shot}: {'; '.join(notes)}" if notes else "")
     )
+    title = options.get("title", default_title)
     geometry_manifest = options.get("geometry_manifest")
     if ("machine_geometry" in overlays or any(name in MACHINE_GEOMETRY_FAMILIES for name in overlays)) and geometry_manifest and geometry_manifest.get("kind") == "cross-shot-diagnostic-fixture":
-        reference = geometry_manifest["geometry_reference"]["source_shot"]
-        title += f"\nCross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+        from vaft.plot.machine_geometry import cross_shot_notice
+        title += "\n" + cross_shot_notice(geometry_manifest["geometry_reference"]["source_shot"])
     return Image2D(values=image, value_label="Digital levels", title=title, overlays=tuple(layers))
 
 
@@ -7750,8 +7860,8 @@ def _build_camera_visible_image_mhd_power(ods: Any, **options: Any) -> Image2D:
 
 RECIPES["camera_visible_image"] = CallableRecipe(
     builder=_build_camera_visible_image,
-    description="One camera frame with optional overlays through one projection.",
-    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name", *_EQUILIBRIUM_SLICE_READS, *_WALL_LIMITER_READS),
+    description="One camera frame with optional overlays, including a same-shot equilibrium section.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name", *_EQUILIBRIUM_SLICE_READS, *_WALL_LIMITER_READS, *_PF_COIL_READS, *_PF_PASSIVE_READS, *_EFIT_CONSTRAINT_READS, *_geometry_reads("magnetics_geometry_poloidal")),
     backend=OMAS_BOUND,
     reason='vaft.omas.process_wrapper._resolve_camera_frame and the overlay helpers subscript the ODS; camera_projection_for reads the packaged pose by shot',
 )
@@ -9285,6 +9395,10 @@ def declares_option(name: str, option: str) -> bool:
     """Whether plot ``name`` declares the declared-only ``option``."""
     if option in RATIONAL_SURFACE_OPTIONS:
         return name in RATIONAL_SURFACE_PLOTS
+    if option in MODE_OVERLAY_OPTIONS:
+        return name in MODE_OVERLAY_PLOTS
+    if option == "include_unconverged":
+        return name in UNCONVERGED_MODE_PLOTS
     return choice_options_for(name, option) is not None
 
 
@@ -10827,7 +10941,8 @@ def _build_spectrogram(
     if signal is None:
         raise ValueError(f"{recipe.signal_path.format(i=index)} is not available")
     time = _first_time(ods, recipe.time_paths, i=index)
-    if time is None or time.size != signal.size:
+    timed = time is not None and time.size == signal.size
+    if not timed:
         time = np.arange(signal.size, dtype=float)
 
     time_range = options.get("time_range")
@@ -10845,7 +10960,7 @@ def _build_spectrogram(
         time, signal, method=method, sample_rate=float(sample_rate), options=options
     )
     ceiling = _display_ceiling(result, options)
-    return Spectrogram.from_result(
+    model = Spectrogram.from_result(
         result,
         max_frequency=ceiling,
         cmap=options.get("cmap", "hot_r"),
@@ -10853,6 +10968,19 @@ def _build_spectrogram(
         value_label=recipe.value_label,
         **_spectrogram_ridge(result, options, ceiling),
     )
+    request = _mode_overlay_request(options)
+    if request is None:
+        return model
+    if not timed:
+        _warn_at_caller(
+            f"mode_overlay is not drawn: {recipe.signal_path.format(i=index)} has no time base, "
+            "so predicted tracks cannot be paired with it by time"
+        )
+        return model
+    # The map's own time axis (window centres), not the raw signal span: a
+    # track is drawn only where there is a spectrogram column under it.
+    window = (float(model.time[0]), float(model.time[-1])) if model.time.size else (np.nan, np.nan)
+    return _with_mode_overlay(model, ods, request, window)
 
 
 def _spectrogram_ridge(result: Any, options: dict, ceiling: float | None) -> dict[str, Any]:
@@ -10890,6 +11018,172 @@ def _spectrogram_ridge(result: Any, options: dict, ceiling: float | None) -> dic
         f", |jump| <= {float(jump) / 1e3:.3g} kHz" if jump is not None else ""
     )
     return {"ridge_time": ridge.time, "ridge_frequency": ridge.frequency, "ridge_label": label}
+
+
+# --- mode-frequency overlay (issue #460) -----------------------------------------
+
+#: The option that overlays predicted mode-frequency tracks on a spectrogram:
+#: ``mode_overlay=[(m, n), ...]``.  Declared-only
+#: (:data:`vaft.plot.backend.options.DECLARED_ONLY_OPTIONS`): only the plots in
+#: :data:`MODE_OVERLAY_PLOTS` take it.
+MODE_OVERLAY_OPTIONS = ("mode_overlay",)
+
+#: The fluctuation spectrograms that draw ``mode_overlay=`` tracks.  The
+#: prediction itself (:func:`vaft.process.mode_frequency.mode_frequency_tracks`)
+#: is diagnostic-independent; a spectrogram joins this set when its overlay
+#: is wanted there.
+MODE_OVERLAY_PLOTS = frozenset({"mirnov_spectrogram"})
+
+#: The model the overlay draws, named in the legend and the metadata.
+MODE_OVERLAY_MODEL = "toroidal_rotation"
+
+#: Palette slots of the overlay tracks: every slot but the tracked ridge's (2).
+_MODE_OVERLAY_COLOURS = (0, 1, 3, 4, 5, 6, 7, 8, 9)
+_MODE_OVERLAY_BRANCH_STYLES = ("--", ":", "-.")
+
+
+def mode_overlay_reads(name: str) -> tuple[str, ...]:
+    """The DD inputs ``mode_overlay=`` of plot ``name`` reads beyond the spectrogram's own.
+
+    The equilibrium that places ``|q| = m/n`` (q, psi and its range, the
+    toroidal coordinate, the outboard radius a velocity is divided by -- or,
+    on a slice that stores no ``r_outboard``, the 2-D flux map, boundary
+    outline and magnetic axis it is derived from) and the core-profile
+    rotation, by preference ``rotation_frequency_tor`` then
+    ``velocity.toroidal`` (``velocity_tor`` in older files), on either flux
+    grid, with the profile's ``grid.psi`` that tells a genuine ``rho_tor_norm``
+    from the ``sqrt(psi_N)`` proxy.
+
+    ``test/test_plot_recipe_reads.py`` records what the overlay actually reads
+    and fails on a read missing here.
+    """
+    if name not in MODE_OVERLAY_PLOTS:
+        return ()
+    eq = "equilibrium.time_slice.{i}"
+    cp = "core_profiles.profiles_1d.{i}"
+    return (
+        f"{eq}.time", "equilibrium.time",
+        f"{eq}.profiles_1d.q", f"{eq}.profiles_1d.psi", f"{eq}.profiles_1d.rho_tor_norm",
+        f"{eq}.profiles_1d.r_outboard",
+        f"{eq}.global_quantities.psi_axis", f"{eq}.global_quantities.psi_boundary",
+        f"{eq}.profiles_2d.{{j}}.grid.dim1", f"{eq}.profiles_2d.{{j}}.grid.dim2",
+        f"{eq}.profiles_2d.{{j}}.psi", f"{eq}.boundary.outline.r",
+        f"{eq}.global_quantities.magnetic_axis.r", f"{eq}.global_quantities.magnetic_axis.z",
+        f"{cp}.time", "core_profiles.time",
+        f"{cp}.grid.rho_tor_norm", f"{cp}.grid.rho_pol_norm", f"{cp}.grid.psi",
+        f"{cp}.ion.{{j}}.rotation_frequency_tor", f"{cp}.ion.{{j}}.velocity.toroidal",
+        f"{cp}.ion.{{j}}.velocity_tor",
+    )
+
+
+def _mode_overlay_request(options: Mapping[str, Any]) -> tuple[tuple[int, int], ...] | None:
+    """The ``(m, n)`` modes asked of a spectrogram, or ``None`` when none were.
+
+    A malformed request raises: it is the caller's error, not missing data.
+    """
+    raw = options.get("mode_overlay")
+    if raw is None:
+        return None
+    from vaft.process.mode_frequency import _modes
+
+    try:
+        return _modes(raw)
+    except ValueError as exc:
+        raise ValueError(f"mode_overlay= takes (m, n) pairs, e.g. [(2, 1), (4, 2)]: {exc}") from None
+
+
+def _finite_list(values: Any) -> list[float | None]:
+    """An array as a JSON list, NaN as ``None``."""
+    return [float(v) if np.isfinite(v) else None for v in np.asarray(values, dtype=float)]
+
+
+def _with_mode_overlay(
+    model: Spectrogram, ods: Any, modes: tuple[tuple[int, int], ...], window: tuple[float, float]
+) -> Spectrogram:
+    """``model`` with the predicted tracks of ``modes`` drawn over it (issue #460).
+
+    The tracks come from :func:`vaft.process.mode_frequency.mode_frequency_tracks`;
+    this only presents them.  ``|f_pred|`` is drawn, on the equilibrium times,
+    clipped to the spectrogram's own time axis (``window``): the prediction is paired with
+    the spectrogram by time, and invalid samples stay gaps.  Missing inputs
+    warn and return ``model`` unchanged.
+    """
+    from vaft.process.mode_frequency import mode_frequency_tracks
+
+    try:
+        result = mode_frequency_tracks(ods, modes, model=MODE_OVERLAY_MODEL)
+    except ValueError as exc:
+        _warn_at_caller(f"mode_overlay is not drawn: {exc}")
+        return model
+
+    start, stop = window
+    lines: list[SpectrogramTrack] = []
+    records: list[dict[str, Any]] = []
+    branches: dict[tuple[int, int], int] = {}
+    for track in result.tracks:
+        branches[(track.m, track.n)] = branches.get((track.m, track.n), 0) + 1
+    for track in result.tracks:
+        pair = (track.m, track.n)
+        inside = (track.time >= start) & (track.time <= stop)
+        frequency = np.where(inside & track.valid, np.abs(track.predicted_frequency), np.nan)
+        # The line is |n f_phi|, so the multiplier is |n|: a hypothesis with a
+        # negative n (the sign of n is a frame choice -- a fit in the VEST
+        # clock frame carries the opposite sign to IMAS phi) is drawn at the
+        # same magnitude as its mirror and must not read "-1 × f_φ" over a
+        # positive line.  The signed n stays in the mode name and the metadata.
+        label = f"{track.m}/{track.n} (q = {track.q:g}): {abs(track.n)} × f_φ"
+        if branches[pair] > 1:
+            label += f", root {track.branch + 1}"
+        drawn = bool(np.any(np.isfinite(frequency)))
+        if drawn:
+            colour = _MODE_OVERLAY_COLOURS[modes.index(pair) % len(_MODE_OVERLAY_COLOURS)]
+            lines.append(SpectrogramTrack(
+                time=track.time, frequency=frequency, label=label,
+                style={
+                    "color": palette(colour),
+                    "linestyle": _MODE_OVERLAY_BRANCH_STYLES[track.branch % len(_MODE_OVERLAY_BRANCH_STYLES)],
+                    "linewidth": 1.4, "marker": "o", "markersize": 3,
+                },
+            ))
+        elif all(status == "no_surface" for status in track.status) and track.branch == 0:
+            _warn_at_caller(
+                f"mode_overlay {track.m}/{track.n}: |q| = {track.q:g} does not occur in any equilibrium "
+                "slice; no track is drawn for it"
+            )
+        else:
+            counts: dict[str, int] = {}
+            for status, here in zip(track.status, inside):
+                key = status if here else "outside_spectrogram_window"
+                counts[key] = counts.get(key, 0) + 1
+            _warn_at_caller(
+                f"mode_overlay {label}: no valid prediction inside the spectrogram window "
+                f"[{start:g}, {stop:g}] s ({', '.join(f'{k}: {v}' for k, v in sorted(counts.items()))}); "
+                "no track is drawn"
+            )
+        records.append({
+            "label": label, "m": track.m, "n": track.n, "q": track.q, "branch": track.branch,
+            "drawn": drawn,
+            "time": _finite_list(track.time),
+            "psi_norm": _finite_list(track.psi_norm),
+            "rho_tor_norm": _finite_list(track.rho_tor_norm),
+            "r_outboard": _finite_list(track.r_outboard),
+            "toroidal_rotation_frequency": _finite_list(track.toroidal_rotation_frequency),
+            "predicted_frequency": _finite_list(track.predicted_frequency),
+            "status": list(track.status),
+        })
+    metadata = dict(model.metadata)
+    metadata["mode_overlay"] = {
+        "model": result.model,
+        "modes": [list(pair) for pair in result.modes],
+        "drawn": "|predicted_frequency| on the equilibrium times inside the analysed window",
+        "window": [start, stop],
+        "provenance": result.provenance,
+        "tracks": records,
+    }
+    return dataclasses.replace(
+        model, tracks=tuple(model.tracks) + tuple(lines),
+        tracks_title=f"predicted ({result.model} model)", metadata=metadata,
+    )
 
 
 def _build_power_spectrum(
@@ -13150,6 +13444,8 @@ RECIPES["mhd_linear_time_energy_perturbed"] = CallableRecipe(
 #: read off the number: a stable DCON mode and a weakly driven GPEC mode are
 #: both small and positive.
 _DRIVE_ENERGY_SOLVERS = frozenset({"gpec"})
+#: PEST3 matching codes: their mhd_linear blocks hold no eigenfunction or energy.
+_MATCHING_SOLVERS = frozenset({"rdcon", "stride"})
 
 
 def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
@@ -13161,7 +13457,9 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
     document.  A block with no ``time_slice`` attribute (DCON fragments before
     version 2, #940) is keyed on ``None`` and matches any slice; since version 2
     DCON blocks carry ``time_slice`` too, so for a cell both DCON and GPEC wrote
-    the later block in document order names the solver.
+    the later block in document order names the solver.  RDCON and STRIDE blocks
+    (version 2, #939) carry ``time_slice`` as well but write neither the
+    eigenfunction nor ``energy_perturbed``, so they never name a cell.
     """
     parameters = _get(ods, "mhd_linear.code.parameters", "") or ""
     found: dict[tuple[int | None, int], str] = {}
@@ -13172,11 +13470,14 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
                 n_tor = int(named["n_tor"])
             except (KeyError, ValueError):
                 continue
+            name = str(named.get("name", "")).lower()
+            if name in _MATCHING_SOLVERS:
+                continue
             slice_index = (
                 int(named["time_slice"]) if named.get("time_slice", "").strip().isdigit()
                 else None
             )
-            found[(slice_index, n_tor)] = str(named.get("name", "")).lower()
+            found[(slice_index, n_tor)] = name
         return found
 
     def _children(node: Any, tag: str) -> list[Any]:
@@ -13192,10 +13493,13 @@ def _mhd_linear_solver_names(ods: Any) -> dict[tuple[int | None, int], str]:
             n_tor = int(_scalar(solver["@n_tor"]))
         except (TypeError, ValueError):
             continue
+        name = str(_scalar(solver.get("@name", ""))).lower()
+        if name in _MATCHING_SOLVERS:
+            continue
         slice_index = (
             int(_scalar(solver["@time_slice"])) if "@time_slice" in solver else None
         )
-        found[(slice_index, n_tor)] = str(_scalar(solver.get("@name", ""))).lower()
+        found[(slice_index, n_tor)] = name
     return found
 
 
@@ -16431,7 +16735,16 @@ def _build_edge_q_time(entries: Sequence[tuple[str, Any]], *, _plot_name: str, *
         # The plot's "auto" is the full-shot magnetics trace when there is one:
         # the equilibrium slices then overlay it as the check (issue #1583).
         resolved = ("magnetics" if _magnetics_usable(ods) else "equilibrium") if source == "auto" else source
-        result = edge_q_estimate(ods, source=resolved, **kwargs)
+        try:
+            result = edge_q_estimate(ods, source=resolved, **kwargs)
+        except ValueError as error:
+            if "configuration" in kwargs and str(error).startswith("configuration "):
+                # The formula names its own argument; the view's option is start_configuration.
+                raise ValueError(
+                    f"start_configuration={kwargs['configuration']!r} applies to q95_scaling='start' only; "
+                    f"the {str(kwargs.get('scaling', 'start')).upper()} guideline has no configuration factor"
+                ) from error
+            raise
         name = result.label if key == "estimated_q95" else quantity_label
         titles.add(name)
         time = np.asarray(result.time, dtype=float)

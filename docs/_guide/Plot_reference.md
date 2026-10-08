@@ -30,6 +30,13 @@ renderer `vaft.plot.<name>` takes the typed view model instead. How the shared k
 explained on [Experimental interpretation]({{ site.baseurl }}/workflows/experimental-interpretation/)
 and in the [`vaft.plot` API]({{ site.baseurl }}/reference/api/).
 
+What a plot is *for* is written once, in its renderer's docstring, and read here through
+`vaft.plot.documentation(name)`: **Interpretation** says what the figure shows and which questions
+it answers, **Options** what the choices that change the representation mean, and **Limitations**
+what not to conclude from it alone. A GUI help panel reads the same parsed text. The option
+values themselves are listed by `vaft.omas.available_plots(ods)`, not repeated in the prose.
+Plots not yet written to this contract show only their one-line description.
+
 Each picture is drawn from one of the packaged sample shots by the plot's own adapter, with
 `python -m vaft.plot.docs_thumbnails`, and committed; the caption names the shot. A plot no packaged
 sample can draw shows why instead, and a picture drawn before its renderer or sample last changed is
@@ -243,3 +250,5 @@ canonical home (`legacy`). They have no subject / view identity and no `vaft.oma
 </section>
 {% endfor %}
 </div>
+
+What these objects mean scientifically -- which concept a plot draws, which diagnostic measures it, which Data Dictionary path represents it -- is generated in the [scientific ontology explorer]({{ site.baseurl }}/reference/ontology/).

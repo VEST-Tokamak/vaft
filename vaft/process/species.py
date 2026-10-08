@@ -53,7 +53,7 @@ from typing import Any, Mapping, Optional, Sequence
 
 import numpy as np
 
-from vaft.spectroscopy import Species
+from vaft.data.atomic import AtomicSpecies as Species
 
 __all__ = [
     "BASES",
@@ -133,11 +133,15 @@ def _profile(value: Any, n: Optional[int], name: str) -> np.ndarray:
     return array
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class SpeciesComponent:
     """One physical component: a nuclide, in one charge state, in one kinetic population.
 
-    ``species`` carries the element and mass number (a ``vaft.spectroscopy.Species``);
+    Components compare by identity (``eq=False``): ``charge``, ``density`` and the
+    moments are arrays, and the dataclass field-by-field ``==`` would raise on them.
+    ``component_id`` is the physics identity, ``state_id`` the value identity.
+
+    ``species`` carries the element and mass number (a :class:`vaft.data.atomic.AtomicSpecies`);
     ``charge`` is the ionic charge -- a profile ``<Z>(rho)`` when ``bundled`` (several
     charge states of one element stored together, ``charge_range`` = their lowest and
     highest charge), with ``mean_square_charge`` ``<Z^2>(rho)`` beside it.  ``density``
@@ -315,7 +319,7 @@ _HYDROGEN_MASSES = {1: 1.00784, 2: 2.01410, 3: 3.01605}
 
 def _nuclide(z_n: float, mass: Optional[float]) -> tuple[Species, float]:
     """The nuclide of a stored ion: hydrogen isotopes by mass, other elements by Z_n."""
-    from vaft.spectroscopy import ATOMIC_NUMBERS
+    from vaft.data.atomic import ATOMIC_NUMBERS
 
     z = int(round(float(z_n)))
     if z == 1:
@@ -373,7 +377,9 @@ def species_state_from_core_profiles(ods: Any, *, time: Optional[float] = None,
        (or the scalar ``z_average``/``z_square_average``), its own
        temperature when stored); otherwise the ion is one component -- bundled
        with ``z_ion_1d``/``z_ion_square_1d`` when present.  A share of the ion
-       density its states do not carry is reported in the provenance notes.
+       density its states do not carry, and a ``z_ion_square_1d`` stored on an
+       ion of one integer charge state (ignored: ``<Z^2> = Z^2`` there), are
+       reported in the provenance notes.
     4. At every level, ``density_thermal`` (or ``density - density_fast``) is
        the thermal component and ``density_fast`` a separate fast one; an
        ion-level ``density_fast`` is kept even when the states carry none.
@@ -512,6 +518,12 @@ def species_state_from_core_profiles(ods: Any, *, time: Optional[float] = None,
             charge, bundled = float(z_ion), abs(float(z_ion) - round(float(z_ion))) > 1e-9
         else:
             raise ValueError(f"{base}.{ion} has no charge (z_ion or z_ion_1d)")
+        if z2 is not None and not bundled:
+            # a non-VAFT writer's <Z^2> beside one integer charge state: <Z^2> = Z^2 by
+            # definition there, so the stored profile is not a moment of this component
+            notes[f"{ion} ({label})"] = (f"z_ion_square_1d ignored: z_ion = {charge:g} is one charge state "
+                                         "(<Z^2> = Z^2); only a bundled ion carries a <Z^2> profile")
+            z2 = None
         thermal, fast = split(ion)
         add(species, charge, bundled, None if z2 is None else _profile(z2, n, "z_ion_square_1d"),
             thermal, fast, mass_amu, ion_temperature, origin, f"{base}.{ion} ({label})")
@@ -520,6 +532,18 @@ def species_state_from_core_profiles(ods: Any, *, time: Optional[float] = None,
     return CanonicalSpeciesState(tuple(components), rho=None if rho is None else np.asarray(rho, float),
                                  n_e=ne, time=_slice_time(ods, index),
                                  provenance={"source": base, "constructor": "core_profiles", "notes": notes})
+
+
+def _resolved_moment(values: Any, n: int) -> Optional[np.ndarray]:
+    """A resolved composition's per-species charge moment as ``(n, n_species)``, or None."""
+    if values is None:
+        return None
+    values = np.atleast_2d(np.asarray(values, dtype=float))
+    if values.shape[0] == 1 and n > 1:
+        values = np.repeat(values, n, axis=0)
+    if values.shape[0] != n:
+        raise ValueError(f"the composition's charge moments have {values.shape[0]} points, n_e has {n}")
+    return values
 
 
 def species_state_from_composition(composition: Any, n_e: Any, *, rho: Any = None,
@@ -547,7 +571,9 @@ def species_state_from_composition(composition: Any, n_e: Any, *, rho: Any = Non
     CanonicalSpeciesState
         The thermal main ion and, for a radial composition, one component per
         ionised charge state of every element (the most explicit form); for a
-        resolved composition, one per species [any].
+        resolved composition, one per species -- a bundle carrying the
+        composition's ``<Z>(rho)`` / ``<Z^2>(rho)`` where it resolved a
+        bundled ion (``mean_charge`` / ``mean_square_charge``) [any].
 
     Raises
     ------
@@ -562,7 +588,10 @@ def species_state_from_composition(composition: Any, n_e: Any, *, rho: Any = Non
     The origin of every component is the composition's kind (``assumed``,
     ``explicit``, ``derived``, ``inferred``); ``explicit`` is recorded as
     ``assumed``, as the #1565 writers do.  The main ion and its charge are the
-    composition's own (``H``/``D``/``T``, or e.g. ``He`` with charge 2).
+    composition's own (``H``/``D``/``T``, or e.g. ``He`` with charge 2).  A
+    resolved species' ``charge_state`` is only its label: the component's
+    charge is the composition's radial ``<Z>`` moment where one exists, and a
+    non-integer label without moments is a bundle at that scalar charge.
 
     Applicability
     -------------
@@ -623,9 +652,23 @@ def species_state_from_composition(composition: Any, n_e: Any, *, rho: Any = Non
         main = np.broadcast_to(np.asarray(composition.main_ion_fraction, dtype=float), ne.shape)
         components = [SpeciesComponent(main_species, main_charge, "thermal", ne * main, main_mass,
                                        origin=origin, source=f"{composition.source}: main ion")]
+        mean_z, mean_z2 = (_resolved_moment(getattr(composition, name, None), ne.size)
+                           for name in ("mean_charge", "mean_square_charge"))
         for j, item in enumerate(composition.species):
-            components.append(SpeciesComponent(Species(item.element, round(item.mass)), item.charge_state,
+            # the label is a scalar (#1769: the stored z_ion or the density-weighted <Z>);
+            # the component takes the radial moments of a bundled ion where they exist
+            charge, bundled, z2 = float(item.charge_state), False, None
+            column = None if mean_z is None else mean_z[:, j]
+            finite = None if column is None else column[np.isfinite(column)]
+            if finite is not None and finite.size and not (
+                    abs(finite[0] - round(finite[0])) < 1e-9 and np.all(np.abs(finite - finite[0]) < 1e-9)):
+                charge, bundled = column, True
+                z2 = None if mean_z2 is None else mean_z2[:, j]
+            elif abs(charge - round(charge)) > 1e-9:
+                bundled = True       # a mean charge with no radial moments: one bundle at that <Z>
+            components.append(SpeciesComponent(Species(item.element, round(item.mass)), charge,
                                                "thermal", ne * fractions[:, j], item.mass, origin=origin,
+                                               bundled=bundled, mean_square_charge=z2,
                                                source=f"{composition.source}: {item.label}"))
         return CanonicalSpeciesState(tuple(components), rho=grid, n_e=ne,
                                      time=composition.time if time is None else time,
@@ -737,7 +780,8 @@ def _merge_impurities(state: CanonicalSpeciesState, keep=lambda c: False) -> tup
     point where any merged density is undefined stays undefined.
     """
     kept = [c for c in state.components if c.hydrogenic or c.population != "thermal" or keep(c)]
-    merged = [c for c in state.components if c not in kept]
+    kept_ids = {id(c) for c in kept}
+    merged = [c for c in state.components if id(c) not in kept_ids]
     if not merged:
         return kept, {"merged": []}
     densities = np.stack([c.density for c in merged], axis=-1)

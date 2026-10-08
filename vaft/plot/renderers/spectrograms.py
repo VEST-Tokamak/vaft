@@ -67,7 +67,17 @@ def render_spectrogram(
             model.ridge_time, model.ridge_frequency, color=resolve_color("palette:2"),
             linewidth=1.4, label=model.ridge_label or "tracked ridge",
         )
-        axes.legend(loc="upper right", fontsize="small")
+    for track in model.tracks:
+        # Predicted tracks (issue #460): NaN samples are gaps, never bridged.
+        line_style = dict(track.style)
+        if "color" in line_style:
+            line_style["color"] = resolve_color(line_style["color"])
+        axes.plot(track.time, track.frequency, label=track.label, **line_style)
+    if model.ridge_time is not None or model.tracks:
+        axes.legend(
+            loc="upper right", fontsize="small",
+            title=model.tracks_title or None, title_fontsize="small",
+        )
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 
@@ -109,7 +119,39 @@ def camera_visible_spectrogram(
 def mirnov_spectrogram(
     model: Spectrogram, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Time-frequency map of one Mirnov coil signal."""
+    """Time-frequency map of one Mirnov coil signal.
+
+    Interpretation
+    --------------
+    The spectral magnitude of one Mirnov coil's voltage in sliding windows.  A
+    coherent MHD mode appears as a narrow band, and its frequency history shows
+    onset, frequency chirping as rotation changes, and locking when the band
+    drops to zero frequency and vanishes; broadband activity and crashes appear
+    as vertical stripes.
+
+    Options
+    -------
+    ``method=`` chooses the transform: a short-time Fourier transform, the
+    Hann-window FFT the VEST Mirnov analyses were written against, or a
+    continuous wavelet, whose resolution varies with frequency and which needs
+    a named ``frequency_range=``.  Window length trades time against frequency
+    resolution.  ``frequency_range=`` names the analysis band.  ``track=``
+    overlays the ridge of the dominant frequency in a band, with ``max_jump=``
+    limiting how far it may move between windows.
+
+    Limitations
+    -----------
+    One coil gives no mode numbers: identifying m and n needs the phase across
+    an array.  The coil voltage is a time derivative, so higher frequencies are
+    emphasized.  The observed frequency is in the laboratory frame and includes
+    the plasma rotation's Doppler shift, so it is not the mode frequency in the
+    plasma frame.  A narrow band can also be pickup or aliasing.
+
+    See Also
+    --------
+    mirnov_time_voltage : the coil signals themselves.
+    mirnov_spatial_phase : toroidal phase per band, for the mode number n.
+    """
     return render_spectrogram(model, ax=ax, show=show, **style)
 
 

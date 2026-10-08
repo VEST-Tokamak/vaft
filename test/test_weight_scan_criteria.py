@@ -352,3 +352,18 @@ def test_a_products_dir_extends_the_reference_set(scan, tmp_path, monkeypatch):
     ctx = scan._context(None)
     assert ctx["products"][42962] == tmp_path / "42962.json.gz"
     assert 39915 in ctx["products"] and ctx["thomson_root"] == tmp_path
+
+
+@pytest.mark.parametrize("stage", ["3", "4"])
+def test_the_settings_refusal_names_every_stage_that_takes_them(scan, tmp_path, capsys, stage):
+    # --stage 6 (#1663) takes --settings like 1, 2 and 5; the refusal text must
+    # agree with the --settings help and the dispatch (cold review 0.8.0 delta-absorb-17 F5).
+    settings = tmp_path / "settings.json"
+    settings.write_text("[]", encoding="utf-8")
+    with pytest.raises(SystemExit) as exit_info:
+        scan.main(["--output", str(tmp_path / "out"), "--table", str(tmp_path / "table"),
+                   "--stage", stage, "--settings", str(settings)])
+    assert exit_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "--settings applies to stages 1, 2, 5 and 6" in err
+    assert "stages 3 and 4 solve their own" in err

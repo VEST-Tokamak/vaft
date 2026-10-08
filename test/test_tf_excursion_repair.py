@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import gzip
+import json
+
 import numpy as np
 import pytest
 
-from vaft.machine_mapping.tf import repair_tf_excursions
+from vaft.machine_mapping.tf import repair_tf_excursions, vfit_tf_dynamic
 from vaft.machine_mapping.utils import resolve_vest_diagnostic
 
 TIME = np.arange(0.0, 1.0, 4e-5)
@@ -120,3 +123,68 @@ def test_a_slow_recovery_and_a_shifted_offset_are_bridged_from_before_the_onset(
     assert intervals and intervals[0][0] <= 0.295 and intervals[-1][1] >= 0.36
     assert _two_ms_error(repaired, true, 6500.0) < 0.2
     assert _two_ms_error(measured, true, 6500.0) > 5.0
+
+
+# --------------------------------------------------------------------------- #
+# The repair is recorded in the stage manifest (cold review 0.8.0 delta-absorb-16 F2)
+# --------------------------------------------------------------------------- #
+
+SHOT = 48245
+TF_FIELD = 1          # vest.yaml diagnostics.tf.source.field
+TF_FACTOR = -3.0e4    # vest.yaml diagnostics.tf.calibration: amperes = volts * factor
+
+
+def _write_tf_raw_dump(path, current_amperes):
+    """A slow-DAQ archive holding only the TF coil channel, in raw volts."""
+    payload = {
+        "shot": SHOT,
+        "fields": {str(TF_FIELD): {"data": (np.asarray(current_amperes) / TF_FACTOR).tolist(), "type": "slow"}},
+    }
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump(payload, handle)
+
+
+def test_the_repaired_intervals_reach_the_diagnostics_manifest(tmp_path):
+    """`vfit_tf_current_detailed` returns the intervals it replaced and the
+    stage rewrote `tf.coil.0.current.data` from them, yet the manifest's
+    `quality_summary.repaired` was a literal `[]`: a false provenance statement
+    on every shot whose BTOR is a fitted line (48238-48269, 46250, 46500, ...)."""
+    from vaft.omas.vest_upstream import (
+        build_diagnostics_ods,
+        build_static_ods,
+        machine_era_for_shot,
+        write_stage_product,
+    )
+
+    _true, measured = _tf()
+    measured[(TIME > 0.303) & (TIME < 0.326)] -= 25000.0
+    raw = tmp_path / "raw.json.gz"
+    _write_tf_raw_dump(raw, measured)
+    static, static_manifest = build_static_ods(machine_era_for_shot(SHOT).name)
+    static_path = tmp_path / "static.json.gz"
+    write_stage_product(static, static_manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+
+    ods, manifest = build_diagnostics_ods(shot=SHOT, raw_source=raw, static_ods=static_path)
+
+    assert manifest["channel_status"]["tf"]["status"] == "success"
+    repaired = manifest["quality_summary"]["repaired"]
+    assert len(repaired) == 1
+    (entry,) = repaired
+    assert entry["component"] == "tf" and entry["signal"] == "tf.coil.0.current"
+    assert entry["start"] <= 0.303 and entry["end"] >= 0.326 and entry["end"] - entry["start"] < 0.030
+    assert "straight line" in entry["method"] and "#1543" in entry["method"]
+    assert manifest["channel_status"]["tf"]["repaired"] == repaired
+    # The IDS says the same thing where a reader of the product looks for it.
+    assert f"{entry['start']:.4f}-{entry['end']:.4f} s" in str(ods["tf.ids_properties.comment"])
+    json.dumps(manifest)  # the manifest is written as JSON; the entries must survive that
+
+
+def test_a_healthy_record_reports_no_repair(tmp_path):
+    _true, measured = _tf()
+    raw = tmp_path / "raw.json.gz"
+    _write_tf_raw_dump(raw, measured)
+    report = {}
+
+    vfit_tf_dynamic({}, SHOT, 0.0, 1.0, 4e-5, raw_source=raw, report=report)
+
+    assert report == {"repaired": []}

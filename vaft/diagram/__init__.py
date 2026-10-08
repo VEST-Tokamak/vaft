@@ -13,9 +13,10 @@ where :mod:`vaft.plot` shows data and results. The boundary:
 
 Diagrams: ``magnetic_island`` (poloidal, top and 3-D projections of one
 island model) and the stability / operational-space charts
-``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``,
+``peeling_ballooning`` (schematic), ``s_alpha_ballooning``, ``hugill``, ``hugill_st``,
 ``troyon`` and ``li_qa`` (Wesson 1989 empirical / Cheng 1987 theoretical); reduced stability
-diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; single-particle motion: ``exb_drift``, ``curvature_drift``,
+diagnostics (#1635): ``stability_diagnostic_taxonomy`` and ``interchange_criteria``; ballooning
+formulations (#1637): ``ballooning_formulation_hierarchy``; single-particle motion: ``exb_drift``, ``curvature_drift``,
 ``magnetization_current`` and ``toroidal_drift``; tearing physics upstream
 of the island: ``rational_surface``, ``delta_prime`` and
 ``tearing_layer_matching``; 3-D perturbation harmonics:
@@ -24,6 +25,8 @@ of the island: ``rational_surface``, ``delta_prime`` and
 the classification ``collision_processes``; geometric approximations:
 ``geometry_ordering_map``, ``field_line_geometry``, ``mode_number_mapping`` and
 ``mhd_mode_geometry_map`` (#1574);
+reduced representations (#1626): ``reduced_representation_hierarchy`` and ``reduction_graph``;
+asymptotic orderings (#1627): ``timescale_hierarchy`` and ``ordering_contract_map``;
 tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
 ``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
@@ -42,7 +45,9 @@ against integrated pairs plus the research community and ownership:
 ``scientific_representation``, ``experimental_research_infrastructure``,
 ``scientific_credibility``, ``research_modality_architecture``,
 ``fusion_research_ecosystem`` and ``scientific_ownership_architecture``; the VEST data platform
-(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the physics-workflow
+(#1550): ``vest_data_platform`` and ``vest_data_platform_overview``; the software
+and external-code ecosystem (#1648): ``software_dependency_ecosystem`` and
+``external_code_integration``; the physics-workflow
 spine (#1585): ``plasma_parameter_inference``, ``romero_transformer_balance``,
 ``resistive_zeff_inference``, ``magnetic_efit``, ``kinetic_efit``,
 ``analytic_mhd_equilibrium``, ``chease_coupling``, ``tokamaker_coupling``,
@@ -54,7 +59,8 @@ vocabulary (#1101): ``tokamak_top_view``, ``cocos_orientation``,
 ``machine_and_equilibrium_geometry``, ``structured_rz_grid``, ``geometry_to_mesh``,
 ``logical_to_physical_mapping`` and ``physical_to_flux_mapping``; current-profile
 and q topology (#1604): ``current_profile_shapes``, ``q_profile_landmarks``,
-``q_profile_topologies`` and ``rational_surface_topology``.
+``q_profile_topologies`` and ``rational_surface_topology``; current diffusion and
+current drive (#1605): ``current_diffusion`` and ``current_drive_profiles``.
 
 A builder returns a :class:`Diagram`, which holds the TikZ source at once
 and renders it to SVG -- the canonical artifact -- on first request (inline
@@ -75,7 +81,9 @@ __all__ = [
     "s_alpha_ballooning",
     "stability_diagnostic_taxonomy",
     "interchange_criteria",
+    "ballooning_formulation_hierarchy",
     "hugill",
+    "hugill_st",
     "troyon",
     "li_qa",
     "exb_drift",
@@ -94,7 +102,11 @@ __all__ = [
     "geometry_ordering_map",
     "field_line_geometry",
     "mode_number_mapping",
+    "reduced_representation_hierarchy",
+    "reduction_graph",
     "mhd_mode_geometry_map",
+    "timescale_hierarchy",
+    "ordering_contract_map",
     "tokamak_torus",
     "flux_surfaces",
     "shaping_family",
@@ -150,6 +162,8 @@ __all__ = [
     "q_profile_landmarks",
     "q_profile_topologies",
     "rational_surface_topology",
+    "current_diffusion",
+    "current_drive_profiles",
     "slab_field_configuration",
     "current_sheet",
     "harris_sheet",
@@ -230,6 +244,8 @@ __all__ = [
     "scientific_ownership_architecture",
     "vest_data_platform",
     "vest_data_platform_overview",
+    "software_dependency_ecosystem",
+    "external_code_integration",
     "plasma_parameter_inference",
     "romero_transformer_balance",
     "resistive_zeff_inference",
@@ -262,7 +278,9 @@ _LOCATIONS = {
     "s_alpha_ballooning": "._stability_space",
     "stability_diagnostic_taxonomy": "._reduced_stability",
     "interchange_criteria": "._reduced_stability",
+    "ballooning_formulation_hierarchy": "._ballooning_formulations",
     "hugill": "._stability_space",
+    "hugill_st": "._stability_space",
     "troyon": "._stability_space",
     "li_qa": "._li_qa",
     "exb_drift": "._particle_motion",
@@ -281,6 +299,10 @@ _LOCATIONS = {
     "geometry_ordering_map": "._geometry",
     "field_line_geometry": "._geometry",
     "mode_number_mapping": "._geometry",
+    "reduced_representation_hierarchy": "._reduced_representations",
+    "reduction_graph": "._reduced_representations",
+    "timescale_hierarchy": "._orderings",
+    "ordering_contract_map": "._orderings",
     "mhd_mode_geometry_map": "._mode_geometry",
     "tokamak_torus": "._tokamak_geometry",
     "flux_surfaces": "._tokamak_geometry",
@@ -337,6 +359,8 @@ _LOCATIONS = {
     "q_profile_landmarks": "._equilibrium_profiles",
     "q_profile_topologies": "._equilibrium_profiles",
     "rational_surface_topology": "._equilibrium_profiles",
+    "current_diffusion": "._current_diffusion",
+    "current_drive_profiles": "._current_diffusion",
     "slab_field_configuration": "._field_configurations",
     "current_sheet": "._field_configurations",
     "harris_sheet": "._field_configurations",
@@ -417,6 +441,8 @@ _LOCATIONS = {
     "scientific_ownership_architecture": "._research_concepts",
     "vest_data_platform": "._platform",
     "vest_data_platform_overview": "._platform",
+    "software_dependency_ecosystem": "._ecosystem",
+    "external_code_integration": "._ecosystem",
     "plasma_parameter_inference": "._workflow_specs",
     "romero_transformer_balance": "._workflow_specs",
     "resistive_zeff_inference": "._workflow_specs",

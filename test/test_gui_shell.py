@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from types import SimpleNamespace
 
 import matplotlib
@@ -55,7 +56,7 @@ def test_the_registry_orders_workspaces_and_refuses_a_second_of_one_name():
 def test_vaft_gui_lists_its_builtin_workspaces():
     import vaft.gui
 
-    assert vaft.gui.WORKSPACES.names()[:2] == ["plots", "database"]
+    assert vaft.gui.WORKSPACES.names()[:3] == ["plots", "diagnostics", "database"]
 
 
 # -- the shell ------------------------------------------------------------------------
@@ -231,7 +232,8 @@ def test_a_shot_opened_in_the_explorer_moves_the_database_namespace(shell):
 
 def test_credentials_are_summarised_without_their_secrets(shell, tmp_path, monkeypatch):
     path = tmp_path / ".hscfg"
-    path.write_text("hs_endpoint = https://hsds.example\nhs_username = alice\nhs_password = hunter2-secret\n")
+    path.write_text("hs_endpoint = https://hsds.example\nhs_username = alice\nhs_password = hunter2-secret\n",
+                    encoding="utf-8")
     path.chmod(0o644)
     shell.show("database")
     database = shell.workspaces["database"]
@@ -239,7 +241,13 @@ def test_credentials_are_summarised_without_their_secrets(shell, tmp_path, monke
     text = database.credentials.object
     assert "hunter2-secret" not in text and "hunter2-secret" not in repr(summary)
     assert "https://hsds.example" in text and "alice" in text and "Password: configured" in text
-    assert "API key: not set" in text and "chmod 600" in text
+    assert "API key: not set" in text
+    if os.name == "nt":
+        # hscfg.insecure_permissions is False on Windows by design (no POSIX mode bits),
+        # so the GUI must not hand out advice the platform cannot act on.
+        assert "chmod 600" not in text and "warning" not in summary
+    else:
+        assert "chmod 600" in text
     monkeypatch.setenv("HS_API_KEY", "key-from-env")
     summary = gui_workspaces.credential_summary(path)
     assert summary["hs_api_key"] == "configured (environment)" and "key-from-env" not in repr(summary)

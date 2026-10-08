@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import io
 import os
+import warnings
 from unittest import mock
 from urllib.error import URLError
 
@@ -33,6 +34,7 @@ from vaft.data.public import (
     vest_summary_to_confinement_table,
 )
 from vaft.data.public import _fetch
+from vaft.data.public.vest_confinement import VEST_SUMMARY_DEFINITIONS
 from vaft.formula import confinement_time_from_engineering_parameters
 
 _HEADER = (
@@ -497,8 +499,9 @@ def test_a_db5_file_without_wtot_reads_with_nan_global_columns(db5):
 def test_h_factor_resolves_the_energy_basis(db5):
     thermal = h_factor(db5, "H98y2")
     assert thermal.attrs["energy_basis"] == "thermal" and thermal.attrs["approximation"] is None
-    # ITER89-P is a global scaling: without tau_e_global_s it is NaN, not silently thermal...
-    strict = h_factor(db5, "ITER89P")
+    # ITER89-P is a global scaling: without tau_e_global_s it is NaN (and says so), not silently thermal...
+    with pytest.warns(UserWarning, match="#1713"):
+        strict = h_factor(db5, "ITER89P")
     assert strict.isna().all() and strict.attrs["energy_basis"] == "global"
     # ...with a global time it uses it...
     with_global = db5.assign(tau_e_global_s=db5["tau_e_th_s"] * 1.2)
@@ -513,3 +516,113 @@ def test_h_factor_resolves_the_energy_basis(db5):
     np.testing.assert_array_equal(h_factor(db5, "ITER89P", thermal_as_global="JET").to_numpy(), jet_only.to_numpy())
     with pytest.raises(ValueError, match="machine"):
         h_factor(db5.drop(columns="machine"), "ITER89P", thermal_as_global={"JET"})
+
+
+def test_h_factor_accepts_a_numpy_bool_flag(db5):
+    # A flag derived from the data, e.g. ``(table.machine == "VEST").all()``,
+    # is a numpy bool; it must mean the same as the Python bool (cold review
+    # 0.8.0 delta-absorb-16 confinement F1).
+    expected = h_factor(db5, "ITER89P", thermal_as_global=True)
+    got = h_factor(db5, "ITER89P", thermal_as_global=np.True_)
+    np.testing.assert_array_equal(got.to_numpy(), expected.to_numpy())
+    assert got.attrs["substituted_rows"] == expected.attrs["substituted_rows"] >= 1
+    with pytest.warns(UserWarning, match="#1713"):
+        assert h_factor(db5, "ITER89P", thermal_as_global=np.False_).isna().all()
+    # A number that is not a bool is still refused, with a message that names the parameter.
+    with pytest.raises(TypeError, match="thermal_as_global"):
+        h_factor(db5, "ITER89P", thermal_as_global=1)
+
+
+def test_vest_summary_definitions_quote_the_stored_energy_factor_the_code_uses():
+    # The summary adapter's provenance strings describe vaft.omas.formula_wrapper's
+    # power balance, which forms W_th = (3/2) <p> V; the p_loss string said 2/3
+    # (cold review 0.8.0 delta-absorb-16 confinement F7).
+    import inspect
+    import re
+    from fractions import Fraction
+
+    from vaft.omas import formula_wrapper
+
+    p_loss = VEST_SUMMARY_DEFINITIONS["p_loss_definition"]
+    tau_e = VEST_SUMMARY_DEFINITIONS["tau_e_definition"]
+    factor = Fraction(re.search(r"W = \((\d+/\d+)\)<p>V", p_loss).group(1))
+    assert factor == Fraction(3, 2)
+    assert float(factor) == float(re.search(r"W_th = ([\d.]+) <p_kinetic> V", tau_e).group(1))
+    # ...and that is the factor the power balance applies: both paths form
+    # W_th through the formula, and the formula itself is 3/2 <p> V.
+    from vaft.formula.equilibrium import thermal_energy_from_p_V
+
+    for fn in (formula_wrapper.compute_power_balance, formula_wrapper.compute_tau_E_exp):
+        source = inspect.getsource(fn)
+        assert "thermal_energy_from_p_V(" in source and "(2.0 / 3.0)" not in source
+    assert thermal_energy_from_p_V(1.0, 2.0) == float(factor) * 1.0 * 2.0 == 3.0
+
+
+def test_no_inline_three_halves_energy_factor_remains_outside_the_formula_layer():
+    """W_th = 3/2 <p> V has one definition, ``thermal_energy_from_p_V`` (#1768); a
+    literal ``3.0 / 2.0`` (or ``3 / 2``) used as a multiplier anywhere else under
+    ``vaft/`` is a second one that can drift -- two survived the PR in
+    ``vaft/plot/time.py`` and ``vaft/omas/update.py`` (cold review 0.8.0
+    delta-absorb-19 physics, #1768 note).  Read with ``ast``: comments,
+    docstrings and ``** (3 / 2)`` exponents do not count."""
+    import ast
+    from pathlib import Path
+
+    import vaft
+
+    package = Path(vaft.__file__).resolve().parent
+
+    def three_halves(node):
+        return (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)
+                and isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant)
+                and node.left.value == 3 and node.right.value == 2)
+
+    offenders = []
+    for path in sorted(package.rglob("*.py")):
+        if path.is_relative_to(package / "formula"):
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult) and (
+                three_halves(node.left) or three_halves(node.right)
+            ):
+                offenders.append(f"{path.relative_to(package.parent)}:{node.lineno}")
+    assert not offenders, f"inline 3/2 energy factor; route through thermal_energy_from_p_V: {offenders}"
+
+
+def test_update_equilibrium_stored_energy_is_the_formula_on_the_pressure_integral():
+    """``energy_mhd`` = 3/2 int p dV through ``thermal_energy_from_p_V`` on the
+    integral (V = 1), numerically what the inline literal gave."""
+    from omas import ODS
+
+    from vaft.compat import trapz_compat
+    from vaft.formula.equilibrium import thermal_energy_from_p_V
+    from vaft.omas.update import update_equilibrium_stored_energy
+
+    volume = np.linspace(0.0, 0.8, 21)
+    pressure = 2.0e3 * (1.0 - volume / volume[-1]) ** 2
+    ods = ODS()
+    ods["equilibrium.time_slice.0.profiles_1d.pressure"] = pressure
+    ods["equilibrium.time_slice.0.profiles_1d.volume"] = volume
+    update_equilibrium_stored_energy(ods)
+    integral = trapz_compat(pressure, x=volume)
+    energy = float(ods["equilibrium.time_slice.0.global_quantities.energy_mhd"])
+    assert energy == thermal_energy_from_p_V(integral, 1.0) == 3.0 / 2.0 * integral
+    assert energy == pytest.approx(1.5 * 2.0e3 * 0.8 / 3.0, rel=1e-2)
+
+
+def test_h_factor_warns_when_the_energy_basis_gate_blanks_rows(db5):
+    # The #1713 gate is deliberate, but it must not be silent: a global or
+    # unaudited scaling without tau_e_global_s names itself and the gate
+    # (cold review 0.8.0 delta-absorb-16 confinement F5).
+    with pytest.warns(UserWarning, match=r"h_factor\('ITER89P'\).*#1713.*thermal_as_global") as record:
+        strict = h_factor(db5, "ITER89P")
+    assert strict.isna().all() and len(record) == 1
+    with pytest.warns(UserWarning, match="Kurskiev2022.*unaudited"):
+        h_factor(db5, "Kurskiev2022")
+    # The way out silences it: thermal rows allowed, or a global time supplied.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        h_factor(db5, "ITER89P", thermal_as_global=True)
+        h_factor(db5.assign(tau_e_global_s=db5["tau_e_th_s"]), "ITER89P")
+        h_factor(db5, "H98y2")   # thermal scalings never warn
