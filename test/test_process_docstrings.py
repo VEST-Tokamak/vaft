@@ -127,6 +127,7 @@ PIPELINE = frozenset({
     "time_history_ordering_quantities",
     "profile_ordering_quantities",
     "ordering_table",
+    "ordering_margins",
     # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
     "mode_frequency_tracks",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;

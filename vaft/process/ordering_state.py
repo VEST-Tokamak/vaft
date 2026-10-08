@@ -69,6 +69,9 @@ import numpy as np
 
 __all__ = [
     "COVERAGE_TIERS",
+    "DEFAULT_COLUMNS",
+    "contract_population",
+    "ordering_margins",
     "global_ordering_quantities",
     "ordering_coverage",
     "ordering_table",
@@ -412,7 +415,11 @@ def profile_ordering_quantities(
     -----------
     Gradient lengths of sparse Thomson channels are finite differences of a
     few points; a profile fit should be passed when the raw channels are
-    noisy. One main-ion species; impurities enter only through ``Z_eff``.
+    noisy. One main-ion species with ``n_i = n_e`` (no impurity dilution);
+    impurities enter only through ``Z_eff`` in the electron collisions. One
+    Coulomb logarithm serves both species, so the ion collision time and
+    Sauter's ``nu*_i`` use the caller's (electron) ``lnLambda`` rather than
+    Sauter's own ion value -- a 10-20 % effect on the ion quantities.
 
     Applicability
     -------------
@@ -466,33 +473,41 @@ def profile_ordering_quantities(
 
     inv_lte = _inverse_gradient_length(r, te)
     one = np.ones(r.shape)
-    e_ok = ok(ne, te, b, q, r)
-    if e_ok.any():
-        safe_ne, safe_te, safe_b, safe_q, safe_r = (np.where(e_ok, x, 1.0) for x in (ne, te, b, q, r))
-        rho_s = sound_gyroradius(safe_te, m_i, safe_b)
-        out["rho_s_over_LTe"] = _masked(e_ok & np.isfinite(inv_lte), rho_s * inv_lte)
-        tau_e = braginskii_electron_collision_time(safe_ne, safe_te, float(ln_lambda), float(z_eff))
-        lam_e = mean_free_path(thermal_speed(safe_te, ME), tau_e)
-        out["electron_parallel_knudsen_number"] = _masked(e_ok, knudsen_number(lam_e, safe_q * major))
-        out["electron_magnetization"] = _masked(e_ok, magnetization(np.abs(gyrofrequency(-QE, ME, safe_b)), tau_e))
-        eps = safe_r / major
-        out["electron_collisionality"] = _masked(e_ok, np.asarray(electron_collisionality_sauter(
-            safe_ne, safe_te, safe_q, major, eps, float(z_eff), float(ln_lambda)), dtype=float) * one)
-        out["debye_length_over_L"] = _masked(e_ok & np.isfinite(inv_lte), debye_length(safe_ne, safe_te) * inv_lte)
+    # Each quantity is gated only by what it uses: a missing q removes the
+    # Knudsen numbers and collisionalities, never rho_s or the magnetization.
+    safe = {name: np.where(ok(x), x, 1.0) for name, x in (("ne", ne), ("te", te), ("b", b), ("q", q), ("r", r))}
+    e_base = ok(ne, te, b, r)
+    e_q = e_base & ok(q)
+    if e_base.any():
+        rho_s = sound_gyroradius(safe["te"], m_i, safe["b"])
+        out["rho_s_over_LTe"] = _masked(ok(te, b, r) & np.isfinite(inv_lte), rho_s * inv_lte)
+        tau_e = braginskii_electron_collision_time(safe["ne"], safe["te"], float(ln_lambda), float(z_eff))
+        out["electron_magnetization"] = _masked(e_base, magnetization(np.abs(gyrofrequency(-QE, ME, safe["b"])), tau_e))
+        out["debye_length_over_L"] = _masked(ok(ne, te, r) & np.isfinite(inv_lte),
+                                             debye_length(safe["ne"], safe["te"]) * inv_lte)
+        if e_q.any():
+            lam_e = mean_free_path(thermal_speed(safe["te"], ME), tau_e)
+            out["electron_parallel_knudsen_number"] = _masked(e_q, knudsen_number(lam_e, safe["q"] * major))
+            out["electron_collisionality"] = _masked(e_q, np.asarray(electron_collisionality_sauter(
+                safe["ne"], safe["te"], safe["q"], major, safe["r"] / major, float(z_eff), float(ln_lambda)),
+                dtype=float) * one)
     if ti is not None:
         inv_lti = _inverse_gradient_length(r, ti)
-        i_ok = ok(ne, ti, b, q, r)
-        if i_ok.any():
-            safe_ne, safe_ti, safe_b, safe_q, safe_r = (np.where(i_ok, x, 1.0) for x in (ne, ti, b, q, r))
+        safe_ti = np.where(ok(ti), ti, 1.0)
+        i_base = ok(ne, ti, b, r)
+        i_q = i_base & ok(q)
+        if i_base.any():
             v_ti = thermal_speed(safe_ti, m_i)
-            rho_i = larmor_radius(QE, m_i, v_ti, safe_b)
-            out["rho_i_over_LTi"] = _masked(i_ok & np.isfinite(inv_lti), np.abs(rho_i) * inv_lti)
-            tau_i = braginskii_ion_collision_time(safe_ne, safe_ti, float(ln_lambda), float(ion_mass_amu), 1.0)
-            out["ion_parallel_knudsen_number"] = _masked(
-                i_ok, knudsen_number(mean_free_path(v_ti, tau_i), safe_q * major))
-            out["ion_magnetization"] = _masked(i_ok, magnetization(np.abs(gyrofrequency(QE, m_i, safe_b)), tau_i))
-            out["ion_collisionality"] = _masked(i_ok, np.asarray(ion_collisionality_sauter(
-                safe_ne, safe_ti, safe_q, major, safe_r / major, 1.0, float(ln_lambda)), dtype=float) * one)
+            rho_i = larmor_radius(QE, m_i, v_ti, safe["b"])
+            out["rho_i_over_LTi"] = _masked(ok(ti, b, r) & np.isfinite(inv_lti), np.abs(rho_i) * inv_lti)
+            tau_i = braginskii_ion_collision_time(safe["ne"], safe_ti, float(ln_lambda), float(ion_mass_amu), 1.0)
+            out["ion_magnetization"] = _masked(i_base, magnetization(np.abs(gyrofrequency(QE, m_i, safe["b"])), tau_i))
+            if i_q.any():
+                out["ion_parallel_knudsen_number"] = _masked(
+                    i_q, knudsen_number(mean_free_path(v_ti, tau_i), safe["q"] * major))
+                out["ion_collisionality"] = _masked(i_q, np.asarray(ion_collisionality_sauter(
+                    safe["ne"], safe_ti, safe["q"], major, safe["r"] / major, 1.0, float(ln_lambda)),
+                    dtype=float) * one)
     return out
 
 
@@ -559,23 +574,36 @@ def ordering_table(states, *, columns: Mapping[str, str] | None = None, ion_mass
     return table
 
 
-def ordering_coverage(table):
-    r"""The fraction of states with a finite value, per ordering quantity, by #1627 tier.
+#: Ordering groups defined once per state; every other group is per flux surface or mode.
+_STATE_GROUPS = ("global", "time_history")
+
+
+def _state_quantity(name: str) -> bool:
+    from vaft.validation.orderings import ORDERING_QUANTITIES
+
+    return ORDERING_QUANTITIES[name].group in _STATE_GROUPS
+
+
+def ordering_coverage(states, points=None):
+    r"""The fraction of states (or profile points) with a finite value, per ordering quantity, by #1627 tier.
 
     $$f_q = \frac{\#\{k : q_k\ \text{finite}\}}{N}$$
 
     Parameters
     ----------
-    table : pandas.DataFrame
-        Ordering columns as named in
-        :data:`~vaft.validation.orderings.ORDERING_QUANTITIES`; other columns
-        are ignored [-].
+    states : pandas.DataFrame
+        One row per state; global and time-history quantities are counted
+        here [-].
+    points : pandas.DataFrame, optional
+        One row per state and flux surface; profile, foundational and mode
+        quantities are counted here when given, else in ``states`` [-].
 
     Returns
     -------
     pandas.DataFrame
-        One row per registered quantity: ``group``, ``tier``, ``assessed``
-        (count), ``fraction``; a quantity the table lacks has fraction 0 [-].
+        One row per registered quantity: ``group``, ``tier``, ``of`` (states or
+        points), ``assessed`` (count) and ``fraction``; a quantity the table
+        lacks has fraction 0 [-].
 
     Limitations
     -----------
@@ -597,15 +625,129 @@ def ordering_coverage(table):
 
     tier_of = {group: tier for tier, groups in COVERAGE_TIERS.items() for group in groups}
     flow = set(COVERAGE_TIERS["tier3_flow"])
-    n = len(table)
     rows = []
     for name, quantity in ORDERING_QUANTITIES.items():
+        table = states if (points is None or quantity.group in _STATE_GROUPS) else points
         if name in table.columns:
-            values = pd.to_numeric(table[name], errors="coerce")
-            assessed = int(np.isfinite(values.to_numpy(dtype=float)).sum())
+            values = pd.to_numeric(table[name], errors="coerce").to_numpy(dtype=float)
+            assessed = int(np.isfinite(values).sum())
         else:
             assessed = 0
         rows.append({"quantity": name, "group": quantity.group,
                      "tier": "tier3_flow" if name in flow else tier_of[quantity.group],
-                     "assessed": assessed, "fraction": assessed / n if n else math.nan})
+                     "of": "states" if table is states else "points",
+                     "assessed": assessed, "fraction": assessed / len(table) if len(table) else math.nan})
     return pd.DataFrame(rows).set_index("quantity")
+
+
+def ordering_margins(contracts, states, points=None):
+    r"""Median ordering margin and the fraction on the permitted side, per assessable ordering.
+
+    $$m = \log_{10}(x_0/x)\ (\text{small}),\qquad m = \log_{10}(x/x_0)\ (\text{large})$$
+
+    Parameters
+    ----------
+    contracts : Mapping or iterable of ApproximationContract
+        The contracts whose orderings are summarised; an ordering listed by
+        several is reported once [-].
+    states : pandas.DataFrame
+        Global and time-history quantities, one row per state [-].
+    points : pandas.DataFrame, optional
+        Profile quantities, one row per flux surface; ``states`` is used when
+        absent [-].
+
+    Returns
+    -------
+    pandas.DataFrame
+        Indexed by ``"<quantity> (<ordering>)"``: ``per`` (state or point), ``n``,
+        ``median_margin`` [decades] and ``permitted`` (fraction with ``m > 0``),
+        sorted from the least to the most room [-].
+
+    Processing steps
+    ----------------
+    1. Collect each distinct ``(quantity, ordering, threshold)`` once.
+    2. Take a global or time-history quantity from ``states`` (one value per
+       state, never repeated per profile point) and any other from ``points``.
+    3. Margins with :func:`vaft.validation.applicability.ordering_margin`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Issues #1627 (margins first) and #1629 §5.
+    """
+    import pandas as pd
+
+    from vaft.validation.applicability import ordering_margin
+
+    items = contracts.values() if hasattr(contracts, "values") else contracts
+    seen, rows = set(), []
+    for contract in items:
+        for a in contract.assumptions:
+            key = (a.quantity, a.ordering, a.threshold)
+            if key in seen:
+                continue
+            seen.add(key)
+            table = states if (points is None or _state_quantity(a.quantity)) else points
+            if a.quantity not in table:
+                continue
+            values = pd.to_numeric(table[a.quantity], errors="coerce").dropna()
+            if values.empty:
+                continue
+            m = values.map(lambda v: ordering_margin(v, a.ordering, a.threshold)).dropna()
+            if m.empty:
+                continue
+            rows.append({"ordering": f"{a.quantity} ({a.ordering})",
+                         "per": "state" if table is states else "point", "n": int(len(m)),
+                         "median_margin": float(m.median()), "permitted": float((m > 0).mean())})
+    frame = pd.DataFrame(rows, columns=["ordering", "per", "n", "median_margin", "permitted"])
+    return frame.set_index("ordering").sort_values("median_margin")
+
+
+def contract_population(contract, states, points=None):
+    r"""Evaluate one contract on the table its orderings live on.
+
+    $$\text{table} = \begin{cases}\text{states} & \text{every ordering global or time-history}\\
+      \text{points} & \text{otherwise}\end{cases}$$
+
+    Parameters
+    ----------
+    contract : ApproximationContract
+        A #1627 ordering contract [-].
+    states : pandas.DataFrame
+        One row per state [-].
+    points : pandas.DataFrame, optional
+        One row per state and flux surface, carrying the state's global and
+        time-history quantities as well; required for a contract with a
+        profile ordering [-].
+
+    Returns
+    -------
+    pandas.DataFrame
+        :func:`vaft.validation.applicability.evaluate_population` output, with
+        ``attrs['evaluated_on']`` ``"states"`` or ``"points"`` [-].
+
+    Limitations
+    -----------
+    A contract mixing global and profile orderings is evaluated per flux
+    surface, so a state contributes one row per surface; a state without
+    profiles is then absent from it.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Issue #1629 §8-§9: per-state evaluation of state-level contracts,
+       per-surface of local ones.
+    """
+    from vaft.validation.applicability import evaluate_population
+
+    state_level = all(_state_quantity(a.quantity) for a in contract.assumptions)
+    table = states if (state_level or points is None) else points
+    evaluated = evaluate_population(contract, table)
+    evaluated.attrs["evaluated_on"] = "states" if table is states else "points"
+    return evaluated

@@ -31,7 +31,16 @@ column or a manifest entry, never silent:
   impurity preset) and ``ln Lambda`` the NRL value at the global ``n_e``,
   ``T_e``;
 * the plasma age is the state time minus the onset that
-  :func:`vaft.omas.plasma_timing.plasma_timing` finds in the diagnostics ODS.
+  :func:`vaft.omas.plasma_timing.plasma_timing` finds in the diagnostics ODS;
+* ``beta`` (toroidal, a fraction) is the confinement table's ``beta_normal``
+  through the Troyon definition :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip`
+  inverted, with that state's ``a``, ``B0`` and ``I_p``.
+
+Why not ``vaft.database.summary()``: its presets carry neither the Thomson
+profile fits nor the EFIT ``q`` profile per slice, and its EFIT is the
+production product rather than the #1331 campaign's graded reconstructions;
+the campaign atlas is the population #1629 asks for, so it is assembled here
+and the choice is recorded in the manifest.
 
 Usage (vestserver, a worktree on PYTHONPATH, never the production checkout)::
 
@@ -101,9 +110,15 @@ def _area_mean(rho, values) -> float:
     return float(trapz(values[ok] * rho[ok], rho[ok]) / trapz(rho[ok], rho[ok]))
 
 
+_EFIT_CACHE: dict[Path, dict] = {}
+
+
 def _q_on(efit_path: Path, time_s: float, rho: np.ndarray, tolerance: float):
     """``|q|`` of the EFIT slice at ``time_s`` interpolated onto ``rho``, or ``None``."""
-    data = _load_json(efit_path)
+    if efit_path not in _EFIT_CACHE:
+        _EFIT_CACHE.clear()  # one product per shot: keep only the current one
+        _EFIT_CACHE[efit_path] = _load_json(efit_path)
+    data = _EFIT_CACHE[efit_path]
     slices = (data.get("equilibrium") or {}).get("time_slice") or []
     best, best_dt = None, math.inf
     for slice_ in slices:
@@ -151,15 +166,24 @@ def _onset(filedb: Path, shot: int):
 
 def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_tolerance: float):
     from vaft.formula.equilibrium import coulomb_logarithm_from_n_T
+    from vaft.formula.stability import beta_N_from_beta_a_B0_Ip
     from vaft.process.ordering_state import (
         global_ordering_quantities,
         profile_ordering_quantities,
         time_history_ordering_quantities,
     )
 
-    geometry = {}
+    geometry: dict[int, list[dict]] = {}
     for row in _rows(confinement):
-        geometry[(int(row["shot"]), round(_float(row["time_s"]), 4))] = row
+        geometry.setdefault(int(row["shot"]), []).append(row)
+
+    def geometry_at(shot: int, time_s: float) -> dict:
+        """The confinement row nearest ``time_s`` within the tolerance (match by time, never by index)."""
+        rows = geometry.get(shot, [])
+        if not rows:
+            return {}
+        best = min(rows, key=lambda r: abs(_float(r["time_s"]) - time_s))
+        return best if abs(_float(best["time_s"]) - time_s) <= time_tolerance else {}
     ti_rows: dict[tuple, list[dict]] = {}
     ti_path = atlas / "ti_inferred.csv"
     if ti_path.exists():
@@ -172,7 +196,7 @@ def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_toler
         if row["efit_lineage"] != "magnetics":
             continue
         shot, time_s = int(row["shot"]), round(_float(row["time_efit_s"]), 4)
-        geo = geometry.get((shot, time_s), {})
+        geo = geometry_at(shot, time_s)
         a, r0, b0 = _float(geo.get("a_m")), _float(geo.get("r_geo_m")), _float(geo.get("b_t_T"))
         record = {"shot": shot, "time_efit_s": time_s, "efit_quality": row["efit_quality"],
                   "thomson_consistent": row.get("thomson_consistent", ""), "a_m": a, "r_geo_m": r0,
@@ -193,7 +217,13 @@ def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_toler
         record.update(onset_s=onset, onset_source=onset_source,
                       plasma_age_s=time_s - onset if math.isfinite(onset) else math.nan)
         common = dict(minor_radius=a, b0=b0, n_e=n_e, t_e=t_e, z_eff=z_eff, ln_lambda=ln_lambda)
-        record.update(global_ordering_quantities(major_radius=r0, **common))
+        beta_n, ip = _float(geo.get("beta_normal")), record["i_p_A"]
+        beta = math.nan
+        if all(math.isfinite(x) and x > 0 for x in (beta_n, a, b0)) and math.isfinite(ip) and ip != 0:
+            beta = beta_n * abs(ip) / 1e6 / (a * b0) / 100.0  # Troyon: beta[%] = beta_N I_p[MA] / (a B0)
+            assert math.isclose(beta_N_from_beta_a_B0_Ip(100.0 * beta, a, b0, abs(ip) / 1e6), beta_n)
+        record["beta_t"] = beta
+        record.update(global_ordering_quantities(major_radius=r0, beta=beta, **common))
         record.update(time_history_ordering_quantities(plasma_current=record["i_p_A"],
                                                        current_rate=record["dip_dt_A_s"],
                                                        plasma_age=record["plasma_age_s"], **common))
@@ -219,6 +249,10 @@ def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_toler
                 if good.sum() >= 2:
                     order = np.argsort(ti_rho[good])
                     ti = np.interp(rho[keep], ti_rho[good][order], ti_val[good][order], left=np.nan, right=np.nan)
+                    if not np.any(np.isfinite(ti)):
+                        ti = None
+                    else:
+                        record["ti_over_te_median"] = float(np.nanmedian(ti / prof["t_e"][keep]))
             record.setdefault("t_i_source", "inferred" if ti is not None else "missing")
             quantities = profile_ordering_quantities(
                 minor_radius_coordinate=r, n_e=prof["n_e"][keep], t_e=prof["t_e"][keep],
@@ -262,6 +296,9 @@ def main(argv=None) -> int:
                 "atlas": str(args.atlas), "confinement": str(args.confinement), "filedb": str(args.filedb),
                 "z_eff_assumed": args.z_eff, "time_tolerance_s": args.time_tolerance,
                 "states": len(states), "profile_rows": len(profiles),
+                "ln_lambda": "NRL electron-ion, coulomb_logarithm_from_n_T at the global n_e, T_e",
+                "onset": "vaft.omas.plasma_timing.plasma_timing on the diagnostics ODS (H-alpha first, then I_p)",
+                "beta": "beta_normal of the confinement table through the Troyon definition",
                 "assumptions": ["r = rho_tor_norm * a", "B = B0 R0 / (R0 + r)",
                                 "global n_e, T_e = area-weighted profile means", "n_i = n_e",
                                 "Z_eff constant (assumed)",

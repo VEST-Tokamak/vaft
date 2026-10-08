@@ -15,7 +15,9 @@ import pytest
 
 from vaft.process.ordering_state import (
     COVERAGE_TIERS,
+    contract_population,
     global_ordering_quantities,
+    ordering_margins,
     ordering_coverage,
     ordering_table,
     profile_ordering_quantities,
@@ -135,6 +137,86 @@ def test_coverage_counts_every_registered_quantity_by_tier():
     assert coverage.loc["sonic_mach_number", "tier"] == "tier3_flow"
     assert coverage.loc["k_perp_rho_i", "assessed"] == 0
     assert set(coverage["tier"]) <= set(COVERAGE_TIERS)
+
+
+def test_coverage_counts_profile_quantities_on_the_points_table():
+    states = pd.DataFrame({"lundquist_number": [1e5, np.nan]})
+    points = pd.DataFrame({"rho_s_over_LTe": [0.01, 0.02, np.nan, 0.03]})
+    coverage = ordering_coverage(states, points)
+    assert (coverage.loc["lundquist_number", "of"], coverage.loc["lundquist_number", "fraction"]) == ("states", 0.5)
+    assert (coverage.loc["rho_s_over_LTe", "of"], coverage.loc["rho_s_over_LTe", "fraction"]) == ("points", 0.75)
+
+
+def test_margins_count_a_global_ordering_once_per_state_not_per_point():
+    from vaft.validation.orderings import contract
+
+    states = pd.DataFrame({"lundquist_number": [1e4, 1e6]})
+    points = pd.DataFrame({"lundquist_number": [1e4] * 9 + [1e6], "rho_s_over_LTe": [0.01] * 10})
+    margins = ordering_margins({"m": contract("ideal_single_fluid_mhd"), "f": contract("flr_small_fluid")},
+                               states, points)
+    s_row = margins.loc["lundquist_number (large)"]
+    assert (s_row["per"], s_row["n"], s_row["median_margin"]) == ("state", 2, pytest.approx(5.0))
+    assert margins.loc["rho_s_over_LTe (small)", "per"] == "point"
+    assert margins.loc["rho_s_over_LTe (small)", "median_margin"] == pytest.approx(2.0)
+    assert list(margins["median_margin"]) == sorted(margins["median_margin"])
+
+
+def test_a_state_level_contract_is_evaluated_per_state_and_a_local_one_per_point():
+    from vaft.validation.orderings import contract
+
+    states = pd.DataFrame({"tau_age_over_tau_resistive": [0.5, 2.0]})
+    points = pd.DataFrame({"tau_age_over_tau_resistive": [0.5] * 5 + [2.0], "electron_collisionality": [3.0] * 6})
+    relaxed = contract_population(contract("resistively_relaxed_current"), states, points)
+    assert relaxed.attrs["evaluated_on"] == "states" and len(relaxed) == 2
+    banana = contract_population(contract("banana_regime_neoclassical"), states, points)
+    assert banana.attrs["evaluated_on"] == "points" and len(banana) == 6
+
+
+def test_the_population_summary_separates_decided_from_evaluated_orderings():
+    from vaft.validation.applicability import evaluate_population, summarize_population
+    from vaft.validation.orderings import contract
+
+    c = contract("braginskii_two_fluid")
+    rows = pd.DataFrame({"electron_parallel_knudsen_number": [0.1, 3.0, 0.2],
+                         "electron_magnetization": [1e4, 1e4, 1e4]})
+    summary = summarize_population(evaluate_population(c, rows), c)
+    assert summary["n"] == 3
+    assert summary["OUTSIDE"] == pytest.approx(1 / 3)
+    assert summary["UNASSESSED"] == pytest.approx(2 / 3)
+    assert summary["evaluated_hold"] == pytest.approx(2 / 3)
+    assert summary["main_limitation"] == "electron_parallel_knudsen_number"
+    assert "ion_magnetization" in summary["unassessed"]
+    assert set(summary["assessable"]) == {"electron_parallel_knudsen_number", "electron_magnetization"}
+
+
+def test_a_missing_safety_factor_removes_only_the_quantities_that_use_it():
+    kwargs, _ = _profiles()
+    p = profile_ordering_quantities(**{**kwargs, "safety_factor": np.full(12, np.nan)})
+    for name in ("electron_parallel_knudsen_number", "electron_collisionality",
+                 "ion_parallel_knudsen_number", "ion_collisionality"):
+        assert np.all(np.isnan(p[name])), name
+    for name in ("rho_s_over_LTe", "electron_magnetization", "debye_length_over_L", "rho_i_over_LTi",
+                 "ion_magnetization"):
+        assert np.any(np.isfinite(p[name])), name
+
+
+def test_magnetization_collisionality_and_debye_match_their_definitions():
+    kwargs, l_t = _profiles()
+    p = profile_ordering_quantities(**kwargs)
+    t_e, t_i, n, r = kwargs["t_e"], kwargs["t_i"], 1e19, kwargs["minor_radius_coordinate"]
+    tau_e = 3.44e5 * t_e ** 1.5 / (2.0 * 1e13 * 15.0)
+    np.testing.assert_allclose(p["electron_magnetization"], QE * 0.18 / ME * tau_e, rtol=1e-3)
+    tau_i = 2.09e7 * t_i ** 1.5 / (1e13 * 15.0)  # NRL, mu = 1, Z = 1
+    np.testing.assert_allclose(p["ion_magnetization"], QE * 0.18 / MP * tau_i, rtol=1e-3)
+    lam_i = np.sqrt(t_i * QE / MP) * tau_i
+    np.testing.assert_allclose(p["ion_parallel_knudsen_number"], lam_i / (2.0 * 0.38), rtol=1e-3)
+    lam_d = np.sqrt(8.8541878128e-12 * t_e / (n * QE))
+    inner = slice(2, -2)
+    np.testing.assert_allclose(p["debye_length_over_L"][inner], (lam_d / l_t)[inner], rtol=2e-2)
+    # Sauter Eq. (18b): nu*_e = 6.921e-18 q R n_e Z_eff lnLambda / (T_e^2 eps^1.5)
+    eps = r / 0.38
+    nu_e = 6.921e-18 * 2.0 * 0.38 * n * 2.0 * 15.0 / (t_e ** 2 * eps ** 1.5)
+    np.testing.assert_allclose(p["electron_collisionality"], nu_e, rtol=1e-3)
 
 
 def test_the_table_feeds_the_ordering_contracts_directly():
