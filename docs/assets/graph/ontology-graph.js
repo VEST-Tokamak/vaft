@@ -176,7 +176,7 @@
       if (facts.length) html += '<ul class="vg-list">' + facts.join('') + '</ul>';
       // sentences, one per line: a contract's assumptions, limitations and references
       ['assumptions', 'limitations', 'references'].forEach(function (key) {
-        if (!f[key] || !f[key].length) return;
+        if (!Array.isArray(f[key]) || !f[key].length) return;
         html += '<h4>' + v.escape(key) + '</h4><ul class="vg-list">' + f[key].map(function (item) {
           return '<li>' + v.escape(item) + '</li>';
         }).join('') + '</ul>';

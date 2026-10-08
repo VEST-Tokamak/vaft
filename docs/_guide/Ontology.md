@@ -39,9 +39,13 @@ fact and says which (*From* in the detail panel):
 
 The reduction graphs name quantities by their own keys (`q`, `I_p`, `s_hat`, `p_profile`). Only the keys
 the vocabulary resolves become edges; the rest are listed as unresolved, so the overlap between the two
-vocabularies is visible rather than assumed. Machine-readable applicability contracts declared beside
-formulas, codes and workflows (#1628) and learned-model metadata (#669) are not consumed yet: neither
-exists as an offline registry today.
+vocabularies is visible rather than assumed. Today no reduction step performed outside a formula has
+both ends in the vocabulary, so `derived_from` has no edges yet.
+
+Not consumed yet: of the machine-readable applicability contracts (#1628), only the operational-boundary
+calibration domains in `vaft.formula.boundaries` exist offline, and contracts declared beside formulas,
+codes and workflows do not exist yet. Learned-model metadata (#669) lives in an external model checkout
+rather than in the package, so it cannot be read offline.
 
 **Identity is strict.** `ip` and `I_p` are registered aliases of `plasma_current` and resolve to
 it; `beta_n`, `beta_p` and `beta_t` are three concepts in one family, not synonyms. A term that

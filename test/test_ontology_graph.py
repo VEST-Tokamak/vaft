@@ -260,6 +260,23 @@ def test_reductions_connect_a_formula_only_to_quantities_the_vocabulary_resolves
     assert ("s_hat", origin) in audited  # the vocabulary has no shear concept: audited, not invented
 
 
+def test_a_reduction_step_outside_a_formula_derives_the_target_from_the_source(monkeypatch):
+    from vaft.formula import _taxonomy
+
+    families = {"synthetic": (
+        _taxonomy.Relation(("q",), "plasma_current", kind="integral"),  # both ends resolve
+        _taxonomy.Relation(("s_hat",), "r_mix", "stability.kadomtsev_mixing_radius"),  # neither resolves
+    )}
+    monkeypatch.setattr(_taxonomy, "REDUCTION_FAMILIES", families)
+    snapshot = ontology.ontology_snapshot()
+    assert ("concept:plasma_current", "concept:q") in _edges(snapshot, "derived_from")  # target <- source
+    assert ("concept:q", "concept:plasma_current") not in _edges(snapshot, "derived_from")
+    # a formula whose quantities the vocabulary does not know is audited, not drawn as an island
+    assert "api:vaft.formula.stability.kadomtsev_mixing_radius" not in _nodes(snapshot)
+    audited = {row["term"] for row in snapshot["unresolved"] if row["origin"] == "vaft.formula._taxonomy"}
+    assert {"s_hat", "r_mix"} <= audited
+
+
 def test_a_formula_node_carries_its_reduction_section(snapshot):
     from vaft.formula.catalog import describe
 
@@ -273,6 +290,7 @@ def test_a_formula_node_carries_its_reduction_section(snapshot):
             assert "reduction_kind" not in node["facets"]
             continue
         facets = node["facets"]
+        assert "vaft.formula.catalog" in node["origins"]  # the catalog owns the Reduction section
         assert (facets["reduction_input"], facets["reduction_output"], facets["reduction_kind"],
                 facets["locality"], facets["physical_role"]) == (
             list(reduction.input), reduction.output, reduction.kind, reduction.locality, reduction.role)

@@ -229,10 +229,10 @@
       if (!target) {
         var lower = query.toLowerCase();
         // a namespaced id named exactly ("lundquist_number" for ordering_quantity:lundquist_number)
-        // wins over a longer id that merely contains the text (api:...ordering.lundquist_number)
+        // wins over a longer id that merely contains the text (api:...ordering.lundquist_number);
+        // exact means exact: case is part of a name, so "Te" never becomes "te"
         var match = items.filter(function (item) {
-          var id = item.id.toLowerCase();
-          return id.slice(id.indexOf(':') + 1) === lower;
+          return item.id.slice(item.id.indexOf(':') + 1) === query;
         })[0] || items.filter(function (item) { return item.id.toLowerCase().indexOf(lower) !== -1; })[0];
         target = match ? match.id : null;
       }

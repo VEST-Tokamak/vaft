@@ -454,7 +454,9 @@ def _formula_api(graph: _Graph, key: str, origin: str) -> str:
     node_id = _api(graph, f"{spec.module}.{spec.qualname.rsplit('.', 1)[-1]}", origin, "formula")
     if spec.reduction is not None:
         reduction = spec.reduction
-        graph.node(node_id, "api", graph.nodes[node_id]["label"], origin, reduction_input=list(reduction.input),
+        # the Reduction section is the formula catalog's fact, whichever registry reached the formula
+        graph.node(node_id, "api", graph.nodes[node_id]["label"], "vaft.formula.catalog",
+                   reduction_input=list(reduction.input),
                    reduction_output=reduction.output, reduction_kind=reduction.kind, locality=reduction.locality,
                    physical_role=reduction.role)
     return node_id
@@ -476,7 +478,8 @@ def _reductions(graph: _Graph) -> None:
             sources = [(key, resolve_term(key, quantities_only=True)) for key in relation.sources]
             step = relation.formula or relation.kind
             if target is None:
-                graph.miss(relation.target, origin, f"reduced by {step} ({family})")
+                graph.miss(relation.target, origin,
+                           f"produced by {step} from {' + '.join(relation.sources)} ({family})")
             for key, source in sources:
                 if source is None:
                     graph.miss(key, origin, f"reduced by {step} to {relation.target} ({family})")

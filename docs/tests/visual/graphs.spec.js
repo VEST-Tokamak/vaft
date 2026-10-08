@@ -204,6 +204,9 @@ test('an alias resolves to its canonical concept, and a family member stays itse
   await expect(page.locator('.vg-details')).toContainText('Aliases');
   await search(page, 'beta_n');
   await expect(page.locator('.vg-title')).toHaveText('beta_n');
+  // case is part of a name: "IP" is not the registered alias "ip"
+  await search(page, 'IP');
+  await expect(page.locator('.vg-title')).not.toHaveText('plasma_current');
   await expect(page.locator('.vg-details')).toContainText('member of');
 });
 
@@ -225,7 +228,7 @@ test('a physical model lists the ordering quantities it assumes, and each names 
   await expect(page.locator('input[name="vg-view"][value="assessment"]')).toBeChecked();
   await expect(page.locator('.vg-title')).toHaveText('ideal_single_fluid_mhd');
   await expect(page.locator('.vg-details')).toContainText('assumes');
-  await expect(page.locator('.vg-details')).toContainText('lundquist_number');
+  await expect(page.locator('.vg-details [data-focus="ordering_quantity:lundquist_number"]')).toHaveCount(1);
   await search(page, 'lundquist_number');
   await expect(page.locator('.vg-details')).toContainText('assumed by');
   await expect(page.locator('.vg-details')).toContainText('provided by');
