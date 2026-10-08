@@ -207,12 +207,14 @@ _DIRECT = (
 #: ``table.attrs["conventions"]`` declares them (the equilibrium-state table declares
 #: :data:`vaft.omas.equilibrium_state.EQUILIBRIUM_STATE_CONVENTIONS`, b0 at R_ref).
 PR08_CONVENTIONS = {
-    "normalized_current": {"b_field_definition": "|BT|, vacuum toroidal field at the geometric axis",
-                           "radius_reference": "major_radius (RGEO, geometric, R_geo)"},
-    "normalized_beta": {"b_field_definition": "|BT|, vacuum toroidal field at the geometric axis",
-                        "radius_reference": "major_radius (RGEO, geometric, R_geo)"},
-    "toroidal_field": {"b_field_definition": "|BT|, vacuum toroidal field at the geometric axis",
-                       "radius_reference": "major_radius (RGEO, geometric, R_geo)"},
+    **{column: {"b_field_definition": "|BT|, vacuum toroidal field at the geometric axis",
+                "radius_reference": "major_radius (RGEO, geometric, R_geo)", "radius_symbol": "R_geo"}
+       for column in ("normalized_current", "normalized_beta", "toroidal_field", "inverse_cylindrical_q",
+                      "kink_safety_factor_elliptic", "kink_safety_factor_cylindrical",
+                      "edge_safety_factor_95_estimate_iter", "edge_safety_factor_95_estimate_start")},
+    "internal_inductance_li3": {"b_field_definition": "none (B_p only)",
+                                "radius_reference": "major_radius (RGEO): PR08 LI is normalised by R_geo",
+                                "radius_symbol": "R_geo"},
 }
 
 #: Deterministic coordinates: column -> (unit, how).

@@ -558,6 +558,59 @@ def test_vest_summary_definitions_quote_the_stored_energy_factor_the_code_uses()
     assert thermal_energy_from_p_V(1.0, 2.0) == float(factor) * 1.0 * 2.0 == 3.0
 
 
+def test_no_inline_three_halves_energy_factor_remains_outside_the_formula_layer():
+    """W_th = 3/2 <p> V has one definition, ``thermal_energy_from_p_V`` (#1768); a
+    literal ``3.0 / 2.0`` (or ``3 / 2``) used as a multiplier anywhere else under
+    ``vaft/`` is a second one that can drift -- two survived the PR in
+    ``vaft/plot/time.py`` and ``vaft/omas/update.py`` (cold review 0.8.0
+    delta-absorb-19 physics, #1768 note).  Read with ``ast``: comments,
+    docstrings and ``** (3 / 2)`` exponents do not count."""
+    import ast
+    from pathlib import Path
+
+    import vaft
+
+    package = Path(vaft.__file__).resolve().parent
+
+    def three_halves(node):
+        return (isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div)
+                and isinstance(node.left, ast.Constant) and isinstance(node.right, ast.Constant)
+                and node.left.value == 3 and node.right.value == 2)
+
+    offenders = []
+    for path in sorted(package.rglob("*.py")):
+        if path.is_relative_to(package / "formula"):
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult) and (
+                three_halves(node.left) or three_halves(node.right)
+            ):
+                offenders.append(f"{path.relative_to(package.parent)}:{node.lineno}")
+    assert not offenders, f"inline 3/2 energy factor; route through thermal_energy_from_p_V: {offenders}"
+
+
+def test_update_equilibrium_stored_energy_is_the_formula_on_the_pressure_integral():
+    """``energy_mhd`` = 3/2 int p dV through ``thermal_energy_from_p_V`` on the
+    integral (V = 1), numerically what the inline literal gave."""
+    from omas import ODS
+
+    from vaft.compat import trapz_compat
+    from vaft.formula.equilibrium import thermal_energy_from_p_V
+    from vaft.omas.update import update_equilibrium_stored_energy
+
+    volume = np.linspace(0.0, 0.8, 21)
+    pressure = 2.0e3 * (1.0 - volume / volume[-1]) ** 2
+    ods = ODS()
+    ods["equilibrium.time_slice.0.profiles_1d.pressure"] = pressure
+    ods["equilibrium.time_slice.0.profiles_1d.volume"] = volume
+    update_equilibrium_stored_energy(ods)
+    integral = trapz_compat(pressure, x=volume)
+    energy = float(ods["equilibrium.time_slice.0.global_quantities.energy_mhd"])
+    assert energy == thermal_energy_from_p_V(integral, 1.0) == 3.0 / 2.0 * integral
+    assert energy == pytest.approx(1.5 * 2.0e3 * 0.8 / 3.0, rel=1e-2)
+
+
 def test_h_factor_warns_when_the_energy_basis_gate_blanks_rows(db5):
     # The #1713 gate is deliberate, but it must not be silent: a global or
     # unaudited scaling without tau_e_global_s names itself and the gate

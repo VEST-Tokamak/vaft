@@ -360,11 +360,16 @@ def test_the_presentation_ecosystem_is_a_projection_of_the_detailed_one():
     assert all(set(v) <= roles for v in slide.model["role_projection"].values())
     assert all(set(v) <= activities for v in slide.model["verb_projection"].values())
     assert set(slide.model["states"]) <= set(full.model["states"])
-    assert all(set(v) <= set(full.model["contexts"]) for v in slide.model["context_projection"].values())
-    # it keeps community, activities, shared states, present and future contexts, and experiment beside models
+    assert all(set(v) <= activities for v in slide.model["use_projection"].values())
+    # It keeps community, activities and shared states, then connects three uses without making them a sequence.
     assert {"experiment", "theory"} <= set(slide.model["roles"])
     assert slide.scene.role("node:activities") and "Shared scientific states" in slide.scene.role("node:states")[1].text
-    assert {"experiments", "future"} <= set(slide.model["contexts"])
+    assert slide.model["uses"] == ("experiments", "interpretation", "modelling")
+    exchange = {(a, b) for a, b, _ in slide.model["edges"] if a.startswith("use:")}
+    assert exchange == {("use:experiments", "use:interpretation"),
+                        ("use:interpretation", "use:experiments"),
+                        ("use:interpretation", "use:modelling"),
+                        ("use:modelling", "use:interpretation")}
     assert slide.model["reference"] == "VEST" and slide.scene.role("reference")
 
 

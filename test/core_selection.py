@@ -236,6 +236,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagram_mhd_waves.py",
     "test_diagram_mode_geometry.py",
     "test_diagram_nbi.py",
+    "test_diagram_ordering_contracts.py",
     "test_diagram_orderings.py",
     "test_diagram_particle_motion.py",
     "test_diagram_platform.py",
@@ -347,6 +348,12 @@ CORE_MODULES: tuple[str, ...] = (
     # records, the generic impossibilities, serialization and CGYRO's derived
     # #1353 record. Pure Python, ~3 s.
     "test_plasma_formalism.py",
+    # Ordering contracts (#1627 phase C): the registry against applicability's rules,
+    # the cited kernels against the catalog, and evaluation on synthetic states.
+    "test_validation_orderings.py",
+    # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
+    # profiles with known answers and the packaged 39915 slice. Under 15 s.
+    "test_core_q_context.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

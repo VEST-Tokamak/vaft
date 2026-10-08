@@ -348,6 +348,19 @@ def test_negative_rotation_is_drawn_as_magnitude():
     assert model.metadata["mode_overlay"]["tracks"][0]["predicted_frequency"][1] == pytest.approx(-F0)
 
 
+def test_a_negative_toroidal_mode_number_is_labelled_by_the_magnitude_it_draws(shot):
+    # The sign of n is a frame choice (a VEST clock-frame fit is the IMAS
+    # mirror), the drawn line is |n f_phi|: the multiplier reads |n|, the
+    # signed hypothesis stays in the mode name and the metadata.
+    model = vo.extract_mirnov_spectrogram(shot, mode_overlay=[(2, -1)])
+    (track,) = model.tracks
+    assert track.label == "2/-1 (q = 2): 1 × f_φ"
+    assert np.allclose(track.frequency[np.isfinite(track.frequency)], F0)
+    record = model.metadata["mode_overlay"]["tracks"][0]
+    assert record["label"] == track.label and record["n"] == -1
+    assert record["predicted_frequency"][1] == pytest.approx(-F0)
+
+
 def test_without_the_option_the_spectrogram_is_unchanged(shot):
     plain = vo.extract_mirnov_spectrogram(shot)
     base = R._build_spectrogram(shot, R.RECIPES["mirnov_spectrogram"])
@@ -503,6 +516,8 @@ def test_a_proxy_rho_tor_grid_is_read_at_the_root_rho_pol():
     _equilibrium(ods)
     proxy = np.sqrt(np.linspace(0.0, 1.0, 21))   # what pre-#276 files stored as rho_tor_norm
     _rotation(ods, f_phi=lambda t, rho: F0 * (1.0 + rho), leaf="rotation_frequency_tor", grid=proxy)
+    for k in range(len(ROT_TIMES)):
+        ods[f"core_profiles.profiles_1d.{k}.grid.psi"] = np.linspace(0.0, -0.01, proxy.size)  # uniform psi_N
     result = mode_frequency_tracks(ods, [(3, 1)])
     track = _track(result, 3, 1)
     ok = track.valid
@@ -511,6 +526,23 @@ def test_a_proxy_rho_tor_grid_is_read_at_the_root_rho_pol():
     assert not np.allclose(track.predicted_frequency[ok], F0 * (1.0 + 2.0 / 3.0), rtol=1e-3)
     assert result.provenance["toroidal_rotation"]["coordinate"] == ["rho_pol_norm"]
     assert result.provenance["toroidal_rotation"]["rho_tor_norm_proxy_profiles"] == [0, 1, 2]
+
+
+def test_a_genuine_rho_tor_grid_without_grid_psi_is_read_as_declared():
+    # The same numbers as the proxy, but the profile stores no grid.psi: there
+    # is nothing to test the grid against, so its label is believed, not
+    # overruled by a guess at a uniform psi_N (cold review 0.8.0, F2).
+    ods = ODS()
+    _equilibrium(ods)
+    grid = np.sqrt(np.linspace(0.0, 1.0, 21))
+    _rotation(ods, f_phi=lambda t, rho: F0 * (1.0 + rho), leaf="rotation_frequency_tor", grid=grid)
+    assert all("psi" not in ods[f"core_profiles.profiles_1d.{k}.grid"] for k in range(len(ROT_TIMES)))
+    result = mode_frequency_tracks(ods, [(3, 1)])
+    track = _track(result, 3, 1)
+    ok = track.valid
+    assert np.allclose(track.predicted_frequency[ok], F0 * (1.0 + 2.0 / 3.0), rtol=1e-6)
+    assert result.provenance["toroidal_rotation"]["coordinate"] == ["rho_tor_norm"]
+    assert result.provenance["toroidal_rotation"]["rho_tor_norm_proxy_profiles"] == []
 
 
 def test_the_tracks_are_clipped_to_the_spectrograms_own_time_axis(shot):

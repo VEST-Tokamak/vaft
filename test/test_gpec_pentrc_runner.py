@@ -795,7 +795,8 @@ def test_a_pentrc_memory_stop_says_so(cell, tmp_path, monkeypatch):
     from vaft.code.gpec import _pentrc, _runtime
 
     def run(executable_path, cwd, log_path, *, config):
-        Path(log_path).write_text("partial\n", encoding="utf-8")
+        # bytes, not text: text mode writes "\r\n" on Windows and the reason counts bytes
+        Path(log_path).write_bytes(b"partial\n")
         execution = ExecutionResult(returncode=None, timed_out=True, runtime_status="memory_limit",
                                     peak_rss_mb=9000.0, elapsed_s=42.0)
         raise _runtime.GPECLimitStop([str(executable_path)], 300.0, execution,

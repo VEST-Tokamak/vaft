@@ -68,7 +68,7 @@ def test_machine_view_keeps_diagnostic_geometry_distinct(fixture_data):
     )
     interferometer = [layer for layer in model.layers if layer.label == "Interferometer LOS"]
     langmuir = [layer for layer in model.layers if layer.label == "Langmuir sites"]
-    sxr = [layer for layer in model.layers if layer.label == "SXR LOS"]
+    sxr = [layer for layer in model.layers if layer.label == "Soft X-ray LOS"]
     assert len(interferometer) == 1
     assert interferometer[0].kind == "polyline"
     # The three stored corners remain on the sampled Cartesian LOS, including
@@ -285,11 +285,50 @@ def test_sha256_pinned_calibration_assets_are_checked_out_with_lf():
     )
     if out.returncode != 0:
         pytest.skip("not a git checkout")
+    table = _check_attr_table(out.stdout)
     for path in paths:
-        attrs = dict(
-            line.rsplit(": ", 2)[1:] for line in out.stdout.splitlines() if line.startswith(path)
-        )
+        attrs = table.get(_attr_key(path), {})
         assert attrs.get("text") == "unset" or attrs.get("eol") == "lf", (path, out.stdout)
+
+
+def _attr_key(path: str) -> str:
+    import os
+
+    return os.path.normcase(os.path.normpath(path))
+
+
+def _check_attr_table(stdout: str) -> dict[str, dict[str, str]]:
+    """``git check-attr`` output as {path: {attribute: value}}.
+
+    Git quotes a path that needs escaping, which on Windows is every absolute
+    path (``"D:\\a\\vaft\\..."``), so a ``startswith(path)`` match found
+    nothing there and the gate read the attributes as unset while they were
+    ``text: auto`` / ``eol: lf``.  Unquote C-style and normalise before keying.
+    """
+    table: dict[str, dict[str, str]] = {}
+    for line in stdout.splitlines():
+        try:
+            path, name, value = line.rsplit(": ", 2)
+        except ValueError:
+            continue
+        if len(path) >= 2 and path[0] == path[-1] == '"':
+            path = path[1:-1].encode("latin-1").decode("unicode_escape")
+        table.setdefault(_attr_key(path), {})[name] = value
+    return table
+
+
+def test_check_attr_table_reads_the_quoted_windows_form():
+    """The quoted, backslash-escaped path Git prints on Windows must still key."""
+    win = r"D:\a\vaft\vaft\vaft\data\geometry\camera_visible\pose_39915.json"
+    quoted = '"' + win.replace("\\", "\\\\") + '"'
+    posix = "/home/r/vaft/vaft/data/geometry/camera_visible/intrinsics.json"
+    stdout = "\n".join([
+        f"{quoted}: text: auto", f"{quoted}: eol: lf",
+        f"{posix}: text: auto", f"{posix}: eol: lf", "",
+    ])
+    table = _check_attr_table(stdout)
+    assert table[_attr_key(win)] == {"text": "auto", "eol": "lf"}
+    assert table[_attr_key(posix)] == {"text": "auto", "eol": "lf"}
 
 
 def test_calibration_checksum_still_rejects_crlf_content(tmp_path, monkeypatch):

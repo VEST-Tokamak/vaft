@@ -538,6 +538,7 @@ whose physics is not documented.
 Phase B encodes the vocabulary of §10 as `vaft.code.formalism.PlasmaFormalism`. It is an immutable record with
 controlled values and is not a model class:
 
+<!-- docs-snippet: skip fragment (`config` is the caller's CGYRO run configuration, which the page never builds; shows the call shape) -->
 ```python
 from vaft.code.gacode import cgyro
 cgyro.plasma_formalism(config).as_dict()   # versioned, JSON-ready

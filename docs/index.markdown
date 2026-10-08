@@ -5,13 +5,37 @@ layout: home
 title: VAFT — Versatile Analysis Framework for Tokamak
 ---
 
-![VAFT]({{ site.baseurl }}/assets/images/IMG_3873.jpg)
+<section class="vaft-hero">
+  <img class="vaft-hero-logo vaft-hero-logo-light" src="{{ site.baseurl }}/assets/brand/vaft-wordmark.svg" alt="VAFT">
+  <img class="vaft-hero-logo vaft-hero-logo-dark" src="{{ site.baseurl }}/assets/brand/vaft-wordmark-dark.svg" alt="VAFT">
+  <p class="vaft-hero-tagline">Connecting nuclear fusion knowledge across disciplines for integrated tokamak research</p>
+  <p class="vaft-hero-summary">Machine-agnostic workflows for interoperable IMAS data and reproducible tokamak analysis.</p>
+  <p class="vaft-hero-commands"><code>vaft.setup()</code> <code>vaft help</code></p>
+</section>
 
-> **Integrate fusion science knowledge so it can be discovered, verified, compared, and studied.**
+## Get started
+
+<div class="vaft-start">
+  <a class="vaft-start-card" href="{{ site.baseurl }}/workflows/start-here/"><strong>Install and set up</strong><span>Install VAFT, then run <code>vaft.setup()</code> or <code>vaft help</code>.</span></a>
+  <a class="vaft-start-card" href="{{ site.baseurl }}/reference/notebooks/"><strong>Tutorials</strong><span>Runnable notebooks with verified outputs.</span></a>
+  <a class="vaft-start-card" href="{{ site.baseurl }}/workflows/data-access-imas/"><strong>Guides</strong><span>Research workflows from data access to stability.</span></a>
+  <a class="vaft-start-card" href="{{ site.baseurl }}/reference/api/"><strong>Catalogs and API</strong><span>The API, formula and process catalogs.</span></a>
+  <a class="vaft-start-card" href="{{ site.baseurl }}/workflows/gui/"><strong>GUI</strong><span>Browse and plot data with <code>vaft gui</code>.</span></a>
+</div>
+
+## From the machine to the analysis
+
+<ol class="vaft-pipeline">
+  <li><strong>VEST</strong>Diagnostics and machine data from the tokamak.</li>
+  <li><strong>IMAS ODS</strong>Standardized, per-shot OMAS data structures.</li>
+  <li><strong>HSDS / FileDB</strong>The shared database, remote or on disk.</li>
+  <li><strong>Analysis codes</strong>EFIT, CHEASE, GPEC, TokaMaker and VAFT's own models.</li>
+</ol>
 
 **VAFT** is a standardized, verifiable, and interoperable scientific framework for machine-agnostic
-tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and
-analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied.
+tokamak research. It connects experimental data, reconstructed and simulated plasma states, and
+analysis workflows across research disciplines. Shared data structures and traceable results make
+these contributions easier to use together and verify.
 Its full end-to-end implementation on the
 [VEST (Versatile Experiment Spherical Torus)](https://eng.snu.ac.kr/) tokamak at Seoul National
 University serves as the reference implementation for modern, reproducible, and data-driven fusion

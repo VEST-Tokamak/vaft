@@ -286,6 +286,7 @@ ODS-level entry point.
 
 ### E — atomic + resistive Z_eff(ρ)
 
+<!-- docs-snippet: skip fragment (te, ne, rho, P_R and zeff_res_obs are the caller's fitted profiles and resistive projection, which the page never defines; shows the call shape) -->
 ```python
 from vaft.process.impurity import resolve_radial_composition, populate_radial_impurity_profiles
 

@@ -13,6 +13,7 @@ OMAS-bound under-declaration can slip through; the neutral half is exact.
 from __future__ import annotations
 
 import contextlib
+import copy
 import io
 import warnings
 
@@ -275,6 +276,52 @@ def test_the_ignored_reads_are_still_needed(sample, monkeypatch):
             if undeclared(via_ods, recipe.reads, without) == with_all:
                 stale.append(f"{name}: {template} no longer needs ignoring ({reason})")
     assert not stale, stale
+
+
+# ---------------------------------------------------------------------------
+# spectrogram overlays: outside _callables(), so declared and recorded here
+# ---------------------------------------------------------------------------
+
+
+def _spectrogram_reads(recipe: R.SpectrogramRecipe) -> tuple[str, ...]:
+    """The templates a ``SpectrogramRecipe`` reads on its own."""
+    paths = (recipe.signal_path, *recipe.fallback_signal_paths, *recipe.time_paths,
+             recipe.container, recipe.label_path)
+    return tuple(p for p in paths if p)
+
+
+def _with_rotation(ods):
+    """``ods`` with a toroidal-rotation profile over its equilibrium span (no packaged shot stores one)."""
+    times = np.asarray(ods["equilibrium.time"], dtype=float)
+    rho = np.linspace(0.0, 1.0, 21)
+    for k, t in enumerate((times[0], times[-1])):
+        base = f"core_profiles.profiles_1d.{k}"
+        ods[f"{base}.time"] = float(t)
+        ods[f"{base}.grid.rho_tor_norm"] = rho
+        ods[f"{base}.grid.psi"] = np.linspace(0.0, -0.01, rho.size)
+        ods[f"{base}.ion.0.velocity.toroidal"] = np.full(rho.size, 1.0e4)
+    ods["core_profiles.time"] = np.array([times[0], times[-1]], dtype=float)
+    return ods
+
+
+@pytest.mark.parametrize("name", sorted(R.MODE_OVERLAY_PLOTS))
+def test_a_mode_overlay_reads_only_what_its_annotation_declares(name, sample, monkeypatch):
+    recipe = R.RECIPES[name]
+    assert isinstance(recipe, R.SpectrogramRecipe), f"{name} is a {type(recipe).__name__}: declare it as a CallableRecipe"
+    declared = R.mode_overlay_reads(name)
+    assert declared, f"{name} declares no overlay reads"
+    for template in declared:
+        dd.from_template(template)  # raises on a malformed template
+    # The packaged EFIT stores no r_outboard, so the overlay derives it from
+    # the 2-D map: the recording covers that path, not only the stored one.
+    ods = _with_rotation(copy.deepcopy(sample))
+    with accessor_reads(monkeypatch) as via_accessor, ods_reads(monkeypatch) as via_ods:
+        model = _quiet_build(name, ods, mode_overlay=[(3, 1)])
+    assert model.metadata["mode_overlay"]["tracks"], "the overlay did not run, so nothing was recorded"
+    for path in via_accessor.paths:
+        via_ods.add(path)
+    missing = undeclared(via_ods, (*_spectrogram_reads(recipe), *declared))
+    assert not missing, missing[:40]
 
 
 # ---------------------------------------------------------------------------

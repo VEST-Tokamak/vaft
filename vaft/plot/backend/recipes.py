@@ -857,7 +857,7 @@ MACHINE_DIAGNOSTICS = (
     "interferometer", "langmuir_probes",
 )
 MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics", *MACHINE_DIAGNOSTICS,
-                    "coils_non_axisymmetric", "ec_launchers", "nbi")
+                    "coils_non_axisymmetric", "ec_launchers", "nbi", "equilibrium_section")
 DEFAULT_MACHINE_OVERLAYS = ("coils", "passive", "wall", "diagnostics")
 
 
@@ -3407,6 +3407,19 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
         DEFAULT_MACHINE_OVERLAYS if options.get("overlay") is None
         else _overlay_option(options, MACHINE_OVERLAYS)
     )
+    if "equilibrium_section" in names:
+        if len(names) != 1:
+            raise ValueError("equilibrium_section is a complete composed view; select it alone")
+        from vaft.plot.equilibrium_section import DEFAULT_SECTION_PHI, DEFAULT_FLUX_LEVELS, build_equilibrium_section
+
+        # The R-Z recipe has no time axis, so validate_options refuses time=
+        # before this builder runs; the kernel's time= stays reachable through
+        # build_equilibrium_section itself (0.8.0 delta-19b C-F4).
+        return build_equilibrium_section(
+            ods, time_slice=options.get("time_slice"),
+            section_phi=float(options.get("section_phi", DEFAULT_SECTION_PHI)),
+            flux_surface_levels=tuple(options.get("flux_surface_levels", DEFAULT_FLUX_LEVELS)),
+        ).rz
     names = tuple(dict.fromkeys((*names, *(MACHINE_DIAGNOSTICS if "diagnostics" in names else ()))))
     layers: list[GeometryLayer] = list(_wall_layers(ods)) if "wall" in names else []
     # Coils and passive structure are drawn as sets: the composed view names
@@ -6091,8 +6104,8 @@ RECIPES["turbulent_transport_overview"] = PanelRecipe(
 )
 RECIPES["machine_geometry_poloidal"] = CallableRecipe(
     builder=_build_machine_poloidal,
-    description="Wall, coils, passive structure and diagnostic positions composed.",
-    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, *_COIL_3D_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *_topview_reads()),
+    description="Wall, coils, passive structure and diagnostic positions; equilibrium_section selects the same-shot EFIT section.",
+    reads=(*_WALL_LIMITER_READS, *_PF_PASSIVE_READS, *_PF_COIL_READS, *_COIL_3D_READS, "pf_active.coil.{i}.element.{j}.geometry.geometry_type", "pf_passive.loop.{i}.element.{j}.geometry.geometry_type", *_geometry_reads("magnetics_geometry_poloidal", "thomson_scattering_geometry_poloidal", "charge_exchange_geometry_poloidal"), *_topview_reads(), *_EQUILIBRIUM_SLICE_READS, *_EFIT_CONSTRAINT_READS),
     backend=NEUTRAL,
 )
 RECIPES["equilibrium_geometry_topview"] = CallableRecipe(
@@ -7035,10 +7048,13 @@ def _build_romero_balance(ods: Any, **options: Any) -> Panels:
         # negative-current shot would enlarge |I_p - I_ni| instead of reducing it.
         ip = np.asarray([_get(ods, f"equilibrium.time_slice.{int(i)}.global_quantities.ip")
                          for i in out["time_index"]], dtype=float)
-        if np.any(np.sign(ip) != np.sign(i_ni)) or abs(i_ni) >= np.min(np.abs(ip)):
+        # The orientation check is the np.sign comparison; the magnitude is a
+        # bound on I_ni only and never replaces the signed I_p.
+        ip_magnitude = np.abs(ip)
+        if np.any(np.sign(ip) != np.sign(i_ni)) or abs(i_ni) >= ip_magnitude.min():
             raise ValueError(
                 f"non_inductive_current={i_ni:g} A must carry the sign of I_p and stay below |I_p| "
-                f"in the window ({np.min(np.abs(ip)):.4g}-{np.max(np.abs(ip)):.4g} A, sign {np.sign(ip[0]):+g})"
+                f"in the window ({ip_magnitude.min():.4g}-{ip_magnitude.max():.4g} A, sign {np.sign(ip[0]):+g})"
             )
     r_p = _romero_resistance(options.get("plasma_resistance"), t.size)
     given = None
@@ -7216,7 +7232,7 @@ def _efit_overlay_layers(
 #: projection methods that map machine geometry into its pixels (section 20).
 from vaft.plot.machine_geometry import MACHINE_GEOMETRY_FAMILIES
 
-CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry") + MACHINE_GEOMETRY_FAMILIES
+CAMERA_OVERLAYS = ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry", "equilibrium_section") + MACHINE_GEOMETRY_FAMILIES
 
 #: Where a vacuum field line is seeded when ``seeds=`` names none [m]: VEST's
 #: startup reference point, the one ``startup_proxies_time`` reads.
@@ -7312,8 +7328,11 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
     image = _camera_visible_frame_image(ods, channel=channel, detector=detector, frame_index=idx)
     channel_name = _camera_visible_channel_name(ods, channel)
     overlays = _overlay_option(options)
+    if "equilibrium_section" in overlays and len(overlays) != 1:
+        raise ValueError("equilibrium_section is a complete camera overlay; select it alone")
     layers: list[GeometryLayer] = []
     notes: list[str] = []
+    section = None
     if overlays:
         from vaft.omas.process_wrapper import (
             compute_camera_visible_efit_overlay,
@@ -7329,6 +7348,28 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
                 "no dataset_description.data_entry.pulse; pass shot= or a CameraProjection"
             )
         projection = _projection_option(options, shot)
+        if "equilibrium_section" in overlays:
+            from vaft.plot.equilibrium_section import DEFAULT_SECTION_PHI, DEFAULT_FLUX_LEVELS, build_equilibrium_section
+
+            pulse = _get(ods, "dataset_description.data_entry.pulse")
+            if shot is None:
+                raise ValueError("equilibrium_section requires the camera and equilibrium source shot")
+            if pulse is not None and int(pulse) != int(shot):
+                raise ValueError("equilibrium_section requires camera and equilibrium from the same shot")
+            if projection.provenance.get("shot") not in (None, int(shot)):
+                raise ValueError("camera projection shot differs from the source shot")
+            section = build_equilibrium_section(
+                ods, time=resolved_time,
+                section_phi=float(options.get("section_phi", DEFAULT_SECTION_PHI)),
+                flux_surface_levels=tuple(options.get("flux_surface_levels", DEFAULT_FLUX_LEVELS)),
+                projection=projection,
+            )
+            layers.extend(section.camera_layers)
+            notes.append(
+                f"R-Z section phi={np.rad2deg(section.section_phi):.1f} deg; "
+                f"equilibrium t={section.equilibrium_time * 1e3:.1f} ms; "
+                f"delta t={(resolved_time - section.equilibrium_time) * 1e3:+.1f} ms"
+            )
         selected_families = tuple(name for name in overlays if name in MACHINE_GEOMETRY_FAMILIES)
         if "machine_geometry" in overlays or selected_families:
             from vaft.plot.machine_geometry import machine_geometry_view
@@ -7402,11 +7443,16 @@ def _build_camera_visible_image(ods: Any, **options: Any) -> Image2D:
                 + ", ".join(f"({r:.3f}, {z:.3f}) m" for r, z in (rec["seed"] for rec in records))
                 if records else "no vacuum field line seeds"
             )
-    title = options.get(
-        "title",
+    default_title = (
+        f"FAST camera shot {shot}: t={resolved_time * 1e3:.1f} ms\n"
+        f"R-Z section phi={np.rad2deg(section.section_phi):.1f}°; "
+        f"EFIT t={section.equilibrium_time * 1e3:.1f} ms "
+        f"(Δt={(resolved_time - section.equilibrium_time) * 1e3:+.1f} ms)"
+        if section is not None else
         f"{channel_name} frame {idx} @ t={resolved_time:.4f}s"
-        + (f" -- shot {shot}: {'; '.join(notes)}" if notes else ""),
+        + (f" -- shot {shot}: {'; '.join(notes)}" if notes else "")
     )
+    title = options.get("title", default_title)
     geometry_manifest = options.get("geometry_manifest")
     if ("machine_geometry" in overlays or any(name in MACHINE_GEOMETRY_FAMILIES for name in overlays)) and geometry_manifest and geometry_manifest.get("kind") == "cross-shot-diagnostic-fixture":
         from vaft.plot.machine_geometry import cross_shot_notice
@@ -7814,8 +7860,8 @@ def _build_camera_visible_image_mhd_power(ods: Any, **options: Any) -> Image2D:
 
 RECIPES["camera_visible_image"] = CallableRecipe(
     builder=_build_camera_visible_image,
-    description="One camera frame with optional overlays through one projection.",
-    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name", *_EQUILIBRIUM_SLICE_READS, *_WALL_LIMITER_READS),
+    description="One camera frame with optional overlays, including a same-shot equilibrium section.",
+    reads=(*_CAMERA_FRAME_READS, "camera_visible.channel.{i}.name", *_EQUILIBRIUM_SLICE_READS, *_WALL_LIMITER_READS, *_PF_COIL_READS, *_PF_PASSIVE_READS, *_EFIT_CONSTRAINT_READS, *_geometry_reads("magnetics_geometry_poloidal")),
     backend=OMAS_BOUND,
     reason='vaft.omas.process_wrapper._resolve_camera_frame and the overlay helpers subscript the ODS; camera_projection_for reads the packaged pose by shot',
 )
@@ -11002,9 +11048,16 @@ def mode_overlay_reads(name: str) -> tuple[str, ...]:
     """The DD inputs ``mode_overlay=`` of plot ``name`` reads beyond the spectrogram's own.
 
     The equilibrium that places ``|q| = m/n`` (q, psi and its range, the
-    toroidal coordinate, the outboard radius a velocity is divided by) and the
-    core-profile rotation, by preference ``rotation_frequency_tor`` then
-    ``velocity.toroidal`` (``velocity_tor`` in older files), on either flux grid.
+    toroidal coordinate, the outboard radius a velocity is divided by -- or,
+    on a slice that stores no ``r_outboard``, the 2-D flux map, boundary
+    outline and magnetic axis it is derived from) and the core-profile
+    rotation, by preference ``rotation_frequency_tor`` then
+    ``velocity.toroidal`` (``velocity_tor`` in older files), on either flux
+    grid, with the profile's ``grid.psi`` that tells a genuine ``rho_tor_norm``
+    from the ``sqrt(psi_N)`` proxy.
+
+    ``test/test_plot_recipe_reads.py`` records what the overlay actually reads
+    and fails on a read missing here.
     """
     if name not in MODE_OVERLAY_PLOTS:
         return ()
@@ -11015,8 +11068,11 @@ def mode_overlay_reads(name: str) -> tuple[str, ...]:
         f"{eq}.profiles_1d.q", f"{eq}.profiles_1d.psi", f"{eq}.profiles_1d.rho_tor_norm",
         f"{eq}.profiles_1d.r_outboard",
         f"{eq}.global_quantities.psi_axis", f"{eq}.global_quantities.psi_boundary",
+        f"{eq}.profiles_2d.{{j}}.grid.dim1", f"{eq}.profiles_2d.{{j}}.grid.dim2",
+        f"{eq}.profiles_2d.{{j}}.psi", f"{eq}.boundary.outline.r",
+        f"{eq}.global_quantities.magnetic_axis.r", f"{eq}.global_quantities.magnetic_axis.z",
         f"{cp}.time", "core_profiles.time",
-        f"{cp}.grid.rho_tor_norm", f"{cp}.grid.rho_pol_norm",
+        f"{cp}.grid.rho_tor_norm", f"{cp}.grid.rho_pol_norm", f"{cp}.grid.psi",
         f"{cp}.ion.{{j}}.rotation_frequency_tor", f"{cp}.ion.{{j}}.velocity.toroidal",
         f"{cp}.ion.{{j}}.velocity_tor",
     )
@@ -11072,7 +11128,12 @@ def _with_mode_overlay(
         pair = (track.m, track.n)
         inside = (track.time >= start) & (track.time <= stop)
         frequency = np.where(inside & track.valid, np.abs(track.predicted_frequency), np.nan)
-        label = f"{track.m}/{track.n} (q = {track.q:g}): {track.n} × f_φ"
+        # The line is |n f_phi|, so the multiplier is |n|: a hypothesis with a
+        # negative n (the sign of n is a frame choice -- a fit in the VEST
+        # clock frame carries the opposite sign to IMAS phi) is drawn at the
+        # same magnitude as its mirror and must not read "-1 × f_φ" over a
+        # positive line.  The signed n stays in the mode name and the metadata.
+        label = f"{track.m}/{track.n} (q = {track.q:g}): {abs(track.n)} × f_φ"
         if branches[pair] > 1:
             label += f", root {track.branch + 1}"
         drawn = bool(np.any(np.isfinite(frequency)))

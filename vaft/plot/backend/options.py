@@ -107,6 +107,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("geometry_data", "any", description="separate geometry input for a calibrated camera overlay"),
         OptionSpec("geometry_manifest", "any", description="cross-shot provenance for projected geometry"),
         OptionSpec("geometry_families", "any", description="machine geometry families included in every view"),
+        OptionSpec("section_phi", "float", description="IMAS toroidal angle [rad] of an equilibrium R-Z section; default 6MR"),
         OptionSpec("axis_length", "float", description="display extent of a directed axis in metres"),
         OptionSpec("projection", "any", description="camera projection method"),
         OptionSpec("theta_deg_range", "range",

@@ -732,7 +732,8 @@ def cylindrical_current_diffusion_rate(r, I, eta, j_ni=None):
     ------
     ValueError
         ``r`` is not an increasing grid from 0 with at least three points,
-        an array differs in shape from ``r``, or ``eta`` is not positive.
+        an array differs in shape from ``r``, ``I`` does not vanish on the
+        axis, or ``eta`` is not positive.
 
     Convention
     ----------
@@ -771,6 +772,8 @@ def cylindrical_current_diffusion_rate(r, I, eta, j_ni=None):
     for name, value in (("I", I), ("eta", eta), ("j_ni", j_ni)):
         if value.shape != r.shape:
             raise ValueError(f"{name} must have the shape of r, {r.shape}, not {value.shape}")
+    if I[0] != 0.0:
+        raise ValueError(f"I must vanish on the axis (no current is enclosed at r = 0), not I[0] = {I[0]:g}")
     if np.any(eta <= 0.0):
         raise ValueError("eta must be positive")
     face = 0.5 * (r[1:] + r[:-1])
