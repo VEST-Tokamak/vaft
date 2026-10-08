@@ -35,6 +35,19 @@ fact and says which (*From* in the detail panel):
 | `vaft.validation.registry` | named checks, what they check and the function that computes them |
 | `vaft.data.cocos` | the COCOS convention of each code and data format |
 | `vaft._ecosystem` | external codes, their adapters and the IDS their results are mapped into |
+| `vaft.formula._taxonomy` (#1626) | which quantity a formula reduces to which, through the vocabulary concept each reduction quantity declares; each formula's `Reduction` section (input and output representation, reduction kind, locality, physical role) as facets |
+| `Semantics` sections of formula and process docstrings | the vocabulary quantities a function consumes and produces, where nothing else connects it; an unknown term fails generation |
+| `vaft.validation.orderings` (#1627) | each physical model's approximation contract, the ordering quantities it assumes small or large, and the formula kernels that compute them |
+
+The reduction graphs name quantities by their own keys (`s_hat`, `j_phi_field`, `p_profile`). A key becomes
+an edge only through the vocabulary concept its quantity declares (`s_hat` is `magnetic_shear`; `j_phi`
+and `j_phi_field` are both `j_tor` in two representations); a composite such as `q_features` declares
+none and is listed as unresolved, so the remaining gap is visible rather than assumed.
+
+Not consumed yet: of the machine-readable applicability contracts (#1628), only the operational-boundary
+calibration domains in `vaft.formula.boundaries` exist offline, and contracts declared beside formulas,
+codes and workflows do not exist yet. Learned-model metadata (#669) lives in an external model checkout
+rather than in the package, so it cannot be read offline.
 
 **Identity is strict.** `ip` and `I_p` are registered aliases of `plasma_current` and resolve to
 it; `beta_n`, `beta_p` and `beta_t` are three concepts in one family, not synonyms. A term that
@@ -47,7 +60,7 @@ a Data Dictionary path (*represented by*) only where that is unambiguous: a plot
 quantity that reads exactly one quantity path.
 
 Start from the compact **Concepts** view, search for a concept or an alias (`ip`, `ne`, `q95`,
-`thomson`), and switch views to see its representations, implementations or assessment.
+`thomson`, `resistive_mhd`), and switch views to see its representations, implementations or assessment.
 
 {% include graph/viewer.html adapter="ontology" src="/assets/graph/ontology-graph.json" label="VAFT scientific ontology graph" placeholder="Search a concept, alias, diagnostic, IDS, Data Dictionary path or check" %}
 

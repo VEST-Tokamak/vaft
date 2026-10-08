@@ -313,7 +313,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
     "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
-    "definitions", "reduction",
+    "definitions", "reduction", "semantics",
 }
 
 
