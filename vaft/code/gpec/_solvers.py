@@ -468,8 +468,8 @@ def write_rmatch_resistive_layers(run_dir: Path, mode: int, options) -> dict:
 #: ``delta.out`` (``match.f:814``), and never ``globalsol.bin``.  The packaged
 #: ``rdcon.in`` sets ``coil%rpec_flag=f`` and ``rmatch.in`` sets
 #: ``match_flag=t``, so these three are what a successful companion leaves.
-#: ``delta.out`` is also the file ``_formalism`` reads as evidence that the
-#: inner layer was solved.
+#: ``delta.out`` is also the file the plasma-formalism classification (#1734)
+#: reads as evidence that the inner layer was solved.
 RMATCH_MATCH_OUTPUTS: tuple[str, ...] = ("delta.out", "insol.bin", "outsol_tot.bin")
 
 #: What ``rmatch`` writes on its RPEC path instead (``match.f:1463``).  VAFT

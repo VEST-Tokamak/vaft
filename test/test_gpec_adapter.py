@@ -686,6 +686,7 @@ def test_a_successful_rmatch_completes_an_rdcon_cell(monkeypatch, tmp_path, case
     )
 
     (record,) = result.records
+    assert record.status == "completed"
     assert record.commands == ()
     assert record.missing_optional_outputs == ()
     assert {path.name for path in record.outputs} >= set(rmatch_wrote)
