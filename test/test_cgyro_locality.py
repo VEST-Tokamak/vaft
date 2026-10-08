@@ -148,3 +148,49 @@ def test_an_electrostatic_low_ky_nonlinear_run_is_refused_before_anything_runs(t
     with pytest.raises(SystemExit, match="omega_H"):
         module.main(common + ["--field-model", "es", "--ky", "0.1"])
     assert module.ES_MIN_KY >= 0.2
+
+
+def _build_nonlinear_module():
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "build_nonlinear",
+        Path(__file__).parents[1] / "workflow" / "gyrokinetic" / "build_nonlinear.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_batch_means_gives_the_window_mean_and_the_spread_of_block_means():
+    """A periodic burst train: the mean is exact, and with one burst per block the block
+    means agree, so the standard error vanishes; with half a period per block it does not."""
+    module = _build_nonlinear_module()
+    t = np.linspace(0.0, 400.0, 4001)
+    y = 5.0 + 4.0 * np.sin(2 * np.pi * t / 100.0)
+    whole = module.batch_means(t, y, 4)                  # one period per block
+    assert whole["mean"] == pytest.approx(5.0, abs=1e-6)
+    assert whole["block_means"] == pytest.approx([5.0] * 4, abs=1e-6)
+    assert whole["standard_error"] == pytest.approx(0.0, abs=1e-6)
+    half = module.batch_means(t, y, 8)                   # half a period per block
+    assert half["standard_error"] > 0.5
+    with pytest.raises(ValueError):
+        module.batch_means(t, y, 1)
+
+
+def test_the_zonal_fraction_is_one_when_only_n0_carries_power(tmp_path):
+    module = _build_nonlinear_module()
+    run = nonlinear_run(tmp_path, ell=3.0)
+    from pathlib import Path
+
+    grid = run.grid
+    n_radial, theta, n_n = grid["n_radial"], grid["theta_plot"], grid["n_n"]
+    steps = len(run.time)
+    field = np.zeros((n_radial, theta, n_n, steps), dtype=np.complex64)
+    field[:, :, 0, :] = 1.0
+    field.reshape(-1, order="F").tofile(Path(run.directory) / "bin.cgyro.kxky_phi")
+    out = module.zonal_fraction(run)
+    assert np.allclose(out["fraction"], 1.0)
+    field[:, :, 1, :] = 1.0
+    field.reshape(-1, order="F").tofile(Path(run.directory) / "bin.cgyro.kxky_phi")
+    assert np.allclose(module.zonal_fraction(run)["fraction"], 1.0 / 2.0)

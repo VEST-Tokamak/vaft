@@ -15,6 +15,14 @@ The locality QA (:func:`vaft.code.gacode.cgyro.locality_report`) is evaluated on
 same window: ``rho*``, ``L_x/a``, the measured radial correlation length ``l_corr`` and
 ``epsilon_local = l_corr / min(L_Ti, L_Te, L_n, L_q)``, with box and locality verdicts.
 
+A bursty run (turbulence and zonal flows trading energy, #1484) is not stationary on
+any short window, so the window mean is quoted with a batch-means uncertainty: the window
+is cut into ``--blocks`` equal blocks, each block is averaged, and the spread of the
+block means gives the standard error of the window mean (blocks longer than the burst
+spacing make the block means nearly independent). The zonal fraction
+``|phi_{n=0}|^2 / |phi|^2`` from ``bin.cgyro.kxky_phi`` is written as a trace, so the
+phase of the cycle each block sits in can be read off.
+
 Writes ``nonlinear.json`` and ``flux_trace.png`` next to the run.
 """
 
@@ -81,12 +89,59 @@ def _mean(t: np.ndarray, y: np.ndarray) -> float:
     return float(integrate(y, t) / (t[-1] - t[0]))
 
 
+def batch_means(t: np.ndarray, y: np.ndarray, blocks: int) -> dict:
+    """Window mean with a batch-means standard error.
+
+    The window is cut into ``blocks`` equal time spans; each is averaged
+    (trapezoid, like the window mean), and ``std(block means) / sqrt(blocks)`` is
+    the standard error of the window mean. Valid when the blocks are long compared
+    with the correlation time of ``y``; for a bursty trace that means longer than the
+    burst spacing, which the caller chooses through ``blocks``.
+    """
+    t = np.asarray(t, dtype=float)
+    y = np.asarray(y, dtype=float)
+    if blocks < 2:
+        raise ValueError("batch means needs at least two blocks")
+    edges = np.linspace(t[0], t[-1], blocks + 1)
+    means = []
+    for a, b in zip(edges[:-1], edges[1:]):
+        inside = (t >= a) & (t <= b)
+        if np.count_nonzero(inside) < 2:
+            raise ValueError(f"block [{a:g}, {b:g}] holds fewer than two samples")
+        means.append(_mean(t[inside], y[inside]))
+    means = np.asarray(means)
+    return {"mean": _mean(t, y), "block_means": means.tolist(), "blocks": int(blocks),
+            "block_length": float(edges[1] - edges[0]),
+            "standard_error": float(np.std(means, ddof=1) / np.sqrt(blocks))}
+
+
+def zonal_fraction(run) -> Optional[dict]:
+    """``|phi_{n=0}|^2 / sum_n |phi_n|^2`` versus time, from ``bin.cgyro.kxky_phi``
+    (radial and theta_plot averaged); ``None`` when the run did not write it."""
+    from vaft.code.gacode.cgyro.locality import _kxky_phi
+
+    grid = getattr(run, "grid", None) or {}
+    if int(grid.get("n_n", 1)) < 2 or run.directory is None:
+        return None
+    field = _kxky_phi(Path(run.directory), grid, bool((run.equilibrium or {}).get("hiprec_flag")))
+    if field is None:
+        return None
+    time = np.asarray(run.time, dtype=float)[: field.shape[-1]]
+    power = (np.abs(field[..., : time.size]) ** 2).mean(axis=1)    # (radial, n, time)
+    zonal = power[:, 0].sum(axis=0)
+    total = power.sum(axis=(0, 1))
+    return {"time": time.tolist(), "fraction": (zonal / np.where(total > 0, total, np.nan)).tolist()}
+
+
 def main(argv: Optional[list[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--run", type=Path, required=True, help="nonlinear run directory")
     parser.add_argument("--sensitivity", type=Path, help="#1482 sensitivity.csv")
     parser.add_argument("--window", type=float, nargs=2)
     parser.add_argument("--drift-tolerance", type=float, default=0.2)
+    parser.add_argument("--blocks", type=int, default=4,
+                        help="batch-means blocks over the window (make them longer than the "
+                             "burst spacing)")
     args = parser.parse_args(argv)
 
     from vaft.code.gacode.cgyro import collect_cgyro_outputs
@@ -117,6 +172,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     first = _mean(tw[: half + 1], q_tot[mask][: half + 1])
     second = _mean(tw[half:], q_tot[mask][half:])
     drift = abs(second - first) / max(abs(averages["q_tot_gb"]), 1e-30)
+    batches = {name: batch_means(tw, series[mask], args.blocks) for name, series in
+               (("q_tot_gb", q_tot), ("q_i_gb", q_i), ("q_e_gb", q_e))}
+    zonal = zonal_fraction(run)
     sat = _sat_reference(args.sensitivity, record, record["field_model"])
     locality = _locality(args.run, run, window)
 
@@ -125,10 +183,15 @@ def main(argv: Optional[list[str]] = None) -> int:
         "sim_time_end": float(t[-1]), "window": list(window), "window_choice": choice,
         **averages,
         "q_tot_std_in_window": float(np.std(q_tot[mask])),
+        # Standard error of the window mean from block means: the number to quote for
+        # a bursty run, where the window std mostly measures the bursts themselves.
+        "batch_means": batches,
+        "q_tot_gb_standard_error": batches["q_tot_gb"]["standard_error"],
         "half_window_drift": drift,
         "stationary": bool(drift <= args.drift_tolerance),
         "tglf_q_tot_gb": {f"sat{k}": v for k, v in sorted(sat.items())},
         "cgyro_over_tglf": {f"sat{k}": averages["q_tot_gb"] / v for k, v in sorted(sat.items()) if v},
+        "zonal_fraction": zonal,
         "resolution": (record.get("provenance") or {}).get("resolution"),
         # Box adequacy and the local approximation, judged on the same window as the
         # flux: a local result is quoted together with how local it actually is.
