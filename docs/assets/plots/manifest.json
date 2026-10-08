@@ -197,9 +197,9 @@
     },
     "current_overview_reconstruction": {
       "call": "vaft.omas.plot_current_overview_reconstruction(vaft.omas.load(vaft.data.sample(41524)))",
-      "model_sha256": "2123caab7c064c40bf56725fa3bbd14d189abd10ad6a7a930f2756083c0b6550",
-      "png_sha256": "0dfb07738c512ee7a9e83001dfd1784846e46d4bce31843f6b7d29abcb5b90f0",
-      "renderer_sha256": "3f633ca187ebb9bb13405a3674ee907f0a0503e575dd67d0ef00b2f47f9852bd",
+      "model_sha256": "e9ba08ea286363947e09cdc088a871dd613f6d4cd3e3a41b6b26341abce4cc08",
+      "png_sha256": "b9be7fd569a5d3ea0d51b12ba6b1eb6fa7911b52a1df678f53952fdb09819ccd",
+      "renderer_sha256": "2ed8cbd68910e69277214b449c3b768f77b0f90e222c24d2169ddbb55a246a82",
       "sample_sha256": "d560035e42292cf120ee30845da8c332f94da87fbed4c80bd8dd4d7e44af8e33",
       "shot": 41524,
       "status": "rendered"
@@ -789,8 +789,8 @@
       "status": "rendered"
     },
     "kinetic_overview_profiles": {
-      "status": "no_sample",
-      "reason": "cross-shot repository fixture is intentionally not assigned a packaged sample shot"
+      "reason": "cross-shot repository fixture is intentionally not assigned a packaged sample shot",
+      "status": "no_sample"
     },
     "limiter_current_time": {
       "call": "vaft.omas.plot_limiter_current_time(vaft.omas.load(vaft.data.sample(39915)))",
