@@ -1404,8 +1404,8 @@ def eddy_inputs_absent_from_data(diagnostics_ods: str | Path, diagnostics_manife
 
     ``None`` unless every component the solve needs and the diagnostics product
     lacks (``pf_active``, ``magnetics``) is recorded in the diagnostics
-    manifest's ``channel_status`` as ``unavailable`` because its raw signal is
-    absent ("Required VEST raw signal is unavailable ..."): a truncated raw
+    manifest's ``channel_status`` as ``unavailable`` because the raw store
+    returned no waveform for it: a truncated raw
     dump, a shot without PF acquisition (#1799). That is a property of the
     shot, recorded as the stage's result. Anything else -- a component missing
     without such a record, or unavailable for another reason -- stays an error,
@@ -1423,7 +1423,10 @@ def eddy_inputs_absent_from_data(diagnostics_ods: str | Path, diagnostics_manife
     for component in missing:
         entry = status.get(component) or {}
         reason = str(entry.get("reason") or "")
-        if entry.get("status") != "unavailable" or "raw signal is unavailable" not in reason.lower():
+        # "returned no waveform" is the raw store's absence verdict; the shared
+        # "Required VEST raw signal is unavailable" prefix also heads unusable-data
+        # errors (mismatched lengths, extra channels), which are not absences.
+        if entry.get("status") != "unavailable" or "returned no waveform" not in reason.lower():
             return None
         reasons.append(f"{component}: {reason}")
     return "; ".join(reasons)

@@ -69,7 +69,21 @@ def main() -> int:
             filament_fraction=_csv_floats(args.filament_fraction),
             dt_sub=args.dt_sub,
         )
+    except UnacquiredPFCircuitError as error:
+        # A PF circuit the solve needs was never recorded for this shot
+        # (#1568): a property of the data, recorded as the result. Every other
+        # missing input -- a whole diagnostics component unavailable, which
+        # can be a configuration fault -- still fails the rule.
+        LOGGER.warning("shot %s: eddy has no output: %s", args.shot, error)
+        ods, manifest = eddy_no_output_product(
+            shot=args.shot,
+            diagnostics_ods=args.diagnostics_ods,
+            static_ods=args.static_ods,
+            reason=error.reason,
+        )
+
     except raw_db.RawSignalUnavailableError:
+        # Ordered after UnacquiredPFCircuitError, which subclasses this error.
         # The solve's inputs are missing from the diagnostics product. When the
         # diagnostics stage recorded their raw signals as absent (a truncated
         # raw dump, a shot without PF acquisition; #1799), that is the shot's
@@ -89,19 +103,6 @@ def main() -> int:
             static_ods=args.static_ods,
             reason=reason,
         )
-    except UnacquiredPFCircuitError as error:
-        # A PF circuit the solve needs was never recorded for this shot
-        # (#1568): a property of the data, recorded as the result. Every other
-        # missing input -- a whole diagnostics component unavailable, which
-        # can be a configuration fault -- still fails the rule.
-        LOGGER.warning("shot %s: eddy has no output: %s", args.shot, error)
-        ods, manifest = eddy_no_output_product(
-            shot=args.shot,
-            diagnostics_ods=args.diagnostics_ods,
-            static_ods=args.static_ods,
-            reason=error.reason,
-        )
-
     write_stage_product(ods, manifest, output=args.output, metadata=args.metadata)
     LOGGER.info("Eddy ODS saved to %s", args.output)
     return 0

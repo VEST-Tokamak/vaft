@@ -1084,13 +1084,17 @@ def test_an_eddy_input_absent_from_the_raw_data_is_recognised_only_from_the_diag
         return path
 
     raw_absent = {"status": "unavailable",
-                  "reason": "Required VEST raw signal is unavailable for shot 46076, field 109 (plasma-current Rogowski coil)"}
+                  "reason": "Required VEST raw signal is unavailable for shot 46076, field 109 (plasma-current Rogowski coil): the data source returned no waveform."}
     reason = eddy_inputs_absent_from_data(diagnostics, manifest(magnetics=raw_absent))
     assert reason is not None and reason.startswith("magnetics: Required VEST raw signal is unavailable")
 
     # Unavailable for another reason, or not recorded at all: possibly a fault, so not a result.
     saturated = {"status": "unavailable", "reason": "Every sample is saturated at [-5.0, 5.0]"}
     assert eddy_inputs_absent_from_data(diagnostics, manifest(magnetics=saturated)) is None
+    # Same raw-error prefix, but unusable data rather than absent data.
+    unusable = {"status": "unavailable",
+                "reason": "Required VEST raw signal is unavailable for shot 46076, field 109: time and data lengths differ"}
+    assert eddy_inputs_absent_from_data(diagnostics, manifest(magnetics=unusable)) is None
     assert eddy_inputs_absent_from_data(diagnostics, manifest()) is None
     assert eddy_inputs_absent_from_data(diagnostics, tmp_path / "missing.json") is None
 
@@ -1099,7 +1103,7 @@ def test_an_eddy_input_absent_from_the_raw_data_is_recognised_only_from_the_diag
     neither["dataset_description.data_entry.pulse"] = 46076
     save_ods(neither, diagnostics)
     assert eddy_inputs_absent_from_data(diagnostics, manifest(magnetics=raw_absent)) is None
-    pf_absent = {"status": "unavailable", "reason": "Required VEST raw signal is unavailable for shot 45071, field 2 (PF active coil current)"}
+    pf_absent = {"status": "unavailable", "reason": "Required VEST raw signal is unavailable for shot 45071, field 2 (PF active coil current): the data source returned no waveform."}
     both = eddy_inputs_absent_from_data(diagnostics, manifest(magnetics=raw_absent, pf_active=pf_absent))
     assert both is not None and "pf_active:" in both and "magnetics:" in both
 
@@ -1132,7 +1136,7 @@ def test_the_eddy_stage_records_a_raw_absent_input_and_still_fails_without_the_r
     record = tmp_path / "diagnostics-manifest.json"
     record.write_text(json.dumps({"channel_status": {"magnetics": {
         "status": "unavailable",
-        "reason": "Required VEST raw signal is unavailable for shot 46076, field 109 (plasma-current Rogowski coil)"}}}),
+        "reason": "Required VEST raw signal is unavailable for shot 46076, field 109 (plasma-current Rogowski coil): the data source returned no waveform."}}}),
         encoding="utf-8")
     shim = ("import runpy, sys; "
             "sys.meta_path[:] = [f for f in sys.meta_path if '__editable__' not in type(f).__module__]; "
@@ -1158,3 +1162,47 @@ def test_the_eddy_stage_records_a_raw_absent_input_and_still_fails_without_the_r
 
     result, metadata = run()  # no record: it may be a configuration fault, so it stays a failure
     assert result.returncode != 0 and not metadata.exists()
+
+
+def test_the_eddy_stage_still_records_an_unacquired_pf_circuit_as_no_output(tmp_path):
+    """#1568 through the script: UnacquiredPFCircuitError subclasses RawSignalUnavailableError,
+    so its handler must come first (cold review of #1799)."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repository = Path(__file__).resolve().parents[1]
+    script = repository / "workflow" / "automatic_pipeline_1_routine_data_processing" / "generate_eddy_ods.py"
+    shot = 48700
+    static_path = tmp_path / "static.json"
+    static, static_manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, static_manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+    diagnostics = ODS(consistency_check=False)
+    time = np.linspace(0.0, 0.01, 50)
+    diagnostics["pf_active"] = copy.deepcopy(static["pf_active"])
+    diagnostics["pf_active.time"] = time
+    for coil_index in range(len(diagnostics["pf_active.coil"])):
+        diagnostics[f"pf_active.coil.{coil_index}.current.time"] = time
+        diagnostics[f"pf_active.coil.{coil_index}.current.data"] = (
+            np.full_like(time, np.nan) if coil_index == 4 else np.zeros_like(time)
+        )
+    diagnostics["magnetics.ip.0.time"] = time
+    diagnostics["magnetics.ip.0.data"] = 1e4 * np.sin(np.linspace(0.0, 1.0, 50))
+    diagnostics_path = tmp_path / "diagnostics.json"
+    save_ods(diagnostics, diagnostics_path)
+    record = tmp_path / "diagnostics-manifest.json"
+    record.write_text(json.dumps({"channel_status": {}}), encoding="utf-8")
+    shim = ("import runpy, sys; "
+            "sys.meta_path[:] = [f for f in sys.meta_path if '__editable__' not in type(f).__module__]; "
+            "sys.path.insert(0, sys.argv[1]); script = sys.argv[2]; sys.argv = sys.argv[2:]; "
+            "runpy.run_path(script, run_name='__main__')")
+    metadata = tmp_path / "eddy-manifest.json"
+    result = subprocess.run(
+        [sys.executable, "-c", shim, str(repository), str(script), "--shot", str(shot),
+         "--diagnostics-ods", str(diagnostics_path), "--diagnostics-manifest", str(record),
+         "--static-ods", str(static_path), "--output", str(tmp_path / "eddy.json"), "--metadata", str(metadata)],
+        capture_output=True, text=True, cwd=repository,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    written = json.loads(metadata.read_text(encoding="utf-8"))
+    assert written["status"] == "no_output" and "PF5" in written["eddy_status"]
