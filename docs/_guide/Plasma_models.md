@@ -615,9 +615,10 @@ GPEC software suite
 +-- DCON      kin_flag=f  ideal_stability       fluid  / ideal_mhd                       static
 |             kin_flag=t  ideal_stability       hybrid / drift_kinetic, coupling energy, bounce_averaged, delta_f
 |                                               populations from ion_flag / electron_flag (never "all")
-+-- RDCON                 resistive_stability   fluid  / resistive_mhd when RMATCH solved the inner layer,
-|                                               else ideal_mhd (outer region); Te/ne -> Spitzer eta stays an
-|                                               extension, never a kinetic equation
++-- RDCON                 resistive_stability   fluid  / resistive_mhd when RMATCH solved the inner layer
+|                                               (match_flag writes delta.out), else ideal_mhd (outer region);
+|                                               an RPEC run (globalsol.bin) is perturbed_equilibrium; Te/ne ->
+|                                               Spitzer eta stays an extension, never a kinetic equation
 +-- STRIDE                resistive_stability   fluid  / ideal_mhd (outer-region Delta-prime, no eta)
 +-- GPEC                  perturbed_equilibrium fluid or hybrid, inherited from the DCON run it reads
 |                                               (singthresh_* layer models stay auxiliary, in extensions)
@@ -625,7 +626,8 @@ GPEC software suite
                                                 one species per run; methods, nutype, f0type in extensions
 ```
 
-MATCH and RMATCH get no record of their own: they are numerical stages of the DCON and RDCON calculations they
+A run whose governing namelist is absent, or whose physics flag cannot be read, gets **no** record rather than
+the upstream defaults. MATCH and RMATCH get no record of their own: they are numerical stages of the DCON and RDCON calculations they
 complete, recorded in those runs' extensions. No named kinetic limit (Kruskal-Oberman, ...) is recorded from
 `kin_flag` alone.
 

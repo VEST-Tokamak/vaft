@@ -785,9 +785,13 @@ def run_pentrc(
         run_dir, mode=mode, options=options, kinetic_file=kinetic_file,
         config=config, allow_unbounded_runtime=allow_unbounded_runtime,
     )
-    if Path(record.workdir).is_dir():
-        # A closure on the GPEC displacement, one species per run (#1734).
+    skipped_for_another_reason = record.status == "skipped" and record.reason != "run_mode=prepare_only"
+    if Path(record.workdir).is_dir() and not skipped_for_another_reason:
+        # A closure on the GPEC displacement, one species per run (#1734); no
+        # record when the cell holds no pentrc.in to show what it was.
         from ._formalism import resolve_plasma_formalism
 
-        record.plasma_formalism = resolve_plasma_formalism("pentrc", record.workdir).as_dict()
+        formalism = resolve_plasma_formalism("pentrc", record.workdir)
+        if formalism is not None:
+            record.plasma_formalism = formalism.as_dict()
     return record

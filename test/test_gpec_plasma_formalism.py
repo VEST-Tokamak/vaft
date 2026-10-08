@@ -71,6 +71,28 @@ def test_dcon_kinetic_defaults_follow_upstream_when_the_namelist_omits_them(tmp_
     assert record.extensions["passing_particles"] is False and record.extensions["trapped_particles"] is True
 
 
+def test_a_missing_or_unreadable_namelist_gives_no_record(tmp_path):
+    assert resolve_plasma_formalism("dcon", tmp_path) is None
+    cell = tmp_path / "bad"
+    cell.mkdir()
+    (cell / "dcon.in").write_text("&dcon_control\n    kin_flag = maybe\n/\n", encoding="utf-8")
+    assert resolve_plasma_formalism("dcon", cell) is None  # never fall back to "ideal"
+
+
+def test_several_assignments_on_one_line_are_all_read(tmp_path):
+    cell = tmp_path / "dcon"
+    cell.mkdir()
+    (cell / "dcon.in").write_text("&dcon_control\n    kin_flag=.T., electron_flag=t, ion_flag=.f.\n/\n",
+                                  encoding="utf-8")
+    record = resolve_plasma_formalism("dcon", cell)
+    assert record.bulk_description == "hybrid" and record.kinetic_population == ("electrons",)
+
+
+def test_kin_flag_without_a_species_is_ideal(tmp_path):
+    record = resolve_plasma_formalism("dcon", _cell(tmp_path, "dcon.in", kin_flag="t", ion_flag="f", electron_flag="f"))
+    assert record.bulk_description == "fluid" and record.extensions["kin_flag_without_species"] is True
+
+
 def test_kin_flag_alone_names_no_kinetic_limit(tmp_path):
     cell = _cell(tmp_path, "dcon.in", kin_flag="t")
     text = json.dumps(resolve_plasma_formalism("dcon", cell).as_dict()).lower()
@@ -79,18 +101,33 @@ def test_kin_flag_alone_names_no_kinetic_limit(tmp_path):
 
 def test_rdcon_is_resistive_stability_and_profiles_never_make_it_kinetic(tmp_path):
     cell = _cell(tmp_path, "rdcon.in")
-    without = resolve_plasma_formalism("rdcon", cell, config=SimpleNamespace(rdcon=SimpleNamespace(t_e=None)))
-    profiles = resolve_plasma_formalism("rdcon", cell, config=SimpleNamespace(rdcon=SimpleNamespace(t_e=[1.0])))
-    for record in (without, profiles):
+    shutil.copy(TEMPLATES / "rmatch.in", cell / "rmatch.in")
+    template = resolve_plasma_formalism("rdcon", cell)
+    profiles = resolve_plasma_formalism("rdcon", cell, config=SimpleNamespace(rdcon=SimpleNamespace(has_kinetic_profiles=True)))
+    for record in (template, profiles):
         assert record.scientific_operation == "resistive_stability" and record.bulk_description == "fluid"
         assert record.kinetic_equation is None
-    assert without.extensions["resistivity"] == "template_scalar"
+    assert template.extensions["resistivity"] == "template_scalar"
     assert profiles.extensions["resistivity"] == "profile_informed_spitzer"
-    # No RMATCH solution: only the ideal outer region was solved.
-    assert without.fluid_model == "ideal_mhd" and without.extensions["inner_layer"].startswith("not solved")
-    (cell / "globalsol.bin").write_bytes(b"")
+    # Without RMATCH's solution only the ideal outer region was solved.
+    assert template.fluid_model == "ideal_mhd" and template.extensions["inner_layer"].startswith("not solved")
+
+
+def test_rdcon_inner_layer_evidence_is_delta_out_not_globalsol(tmp_path):
+    """match_flag writes delta.out (rmatch/match.f:814); globalsol.bin is RPEC only (match.f:1463)."""
+    cell = _cell(tmp_path, "rdcon.in")
+    (cell / "delta.out").write_text("", encoding="utf-8")
     solved = resolve_plasma_formalism("rdcon", cell)
-    assert solved.fluid_model == "resistive_mhd" and solved.extensions["inner_layer"].startswith("rmatch")
+    assert solved.fluid_model == "resistive_mhd" and solved.extensions["inner_layer"].startswith("rmatch match_flag")
+    (cell / "globalsol.bin").write_bytes(b"")
+    rpec = resolve_plasma_formalism("rdcon", cell)
+    assert rpec.scientific_operation == "perturbed_equilibrium" and rpec.regime == "static"
+
+
+def test_a_per_surface_eta_is_read_from_rmatch_in_without_the_config(tmp_path):
+    cell = _cell(tmp_path, "rdcon.in")
+    (cell / "rmatch.in").write_text("&match_input\n    eta=1e-8, 2e-8, 3e-8\n/\n", encoding="utf-8")
+    assert resolve_plasma_formalism("rdcon", cell).extensions["resistivity"] == "per_surface_array"
 
 
 def test_stride_is_the_ideal_outer_region_and_not_rdcon(tmp_path):
@@ -108,9 +145,9 @@ def test_gpec_inherits_ideal_or_kinetic_from_its_dcon_cell(tmp_path):
     assert ideal.scientific_operation == kinetic.scientific_operation == "perturbed_equilibrium"
     assert ideal.bulk_description == "fluid" and kinetic.bulk_description == "hybrid"
     assert kinetic.kinetic_coupling == "energy" and "inherited" in kinetic.extensions["kinetic_source"]
-    # Without the DCON namelist the record says what it assumed.
-    unknown = resolve_plasma_formalism("gpec", gpec)
-    assert unknown.bulk_description == "fluid" and "not found" in unknown.extensions["dcon_namelist"]
+    # Without the DCON cell nothing says whether GPEC inherited a kinetic response.
+    assert resolve_plasma_formalism("gpec", gpec) is None
+    assert resolve_plasma_formalism("gpec", gpec, dcon_dir=tmp_path / "nowhere") is None
 
 
 def test_gpec_thresholds_do_not_change_the_governing_formalism(tmp_path):
@@ -129,7 +166,8 @@ def test_pentrc_is_a_one_species_closure(tmp_path):
     assert (record.scientific_operation, record.bulk_description, record.kinetic_coupling) == (
         "toroidal_torque", "hybrid", "closure")
     assert record.kinetic_population == ("electrons",)
-    assert record.extensions["methods"] == ("tgar",)  # frozen: lists read back as tuples and record.extensions["collision_operator"] == "krook"
+    assert record.extensions["methods"] == ("tgar",)  # frozen: lists read back as tuples
+    assert record.extensions["collision_operator"] == "krook"
 
 
 def test_match_and_rmatch_have_no_record_of_their_own(tmp_path):
@@ -172,6 +210,10 @@ def test_the_record_travels_with_mhd_linear(tmp_path):
     rdcon = tmp_path / "rdcon"
     rdcon.mkdir()
     shutil.copy(data / "rdcon_39915_319_n1" / "rdcon_output_n1.nc", rdcon / "rdcon_output_n1.nc")
+    shutil.copy(TEMPLATES / "rdcon.in", rdcon / "rdcon.in")
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    shutil.copy(data / "rdcon_39915_319_n1" / "rdcon_output_n1.nc", bare / "rdcon_output_n1.nc")
     ods = ODS(consistency_check=False)
     mhd_linear(ods, str(dcon), {"module": "dcon", "modes": [1]})
     mhd_linear(ods, str(rdcon), {"module": "rdcon", "modes": [1]})
@@ -179,3 +221,8 @@ def test_the_record_travels_with_mhd_linear(tmp_path):
     [rdcon_row] = extract_rdcon_stability(ods)
     assert PlasmaFormalism.from_dict(dcon_row["plasma_formalism"]) == resolve_plasma_formalism("dcon", dcon)
     assert PlasmaFormalism.from_dict(rdcon_row["plasma_formalism"]).scientific_operation == "resistive_stability"
+    # Mapped from a directory without its namelist: no record, not an "ideal" guess.
+    other = ODS(consistency_check=False)
+    mhd_linear(other, str(bare), {"module": "rdcon", "modes": [1]})
+    [bare_row] = extract_rdcon_stability(other)
+    assert bare_row["plasma_formalism"] is None

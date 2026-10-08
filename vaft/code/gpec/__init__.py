@@ -425,8 +425,16 @@ def _threshold_blockers_in_dcon(dcon_dir: Path) -> list[str]:
 
 
 def _attach_formalism(record: GPECModuleRun, config: GPECSuiteConfig, *, dcon_dir: Path | None = None) -> None:
-    """Record the run's plasma formalism (#1734) from the namelists it was prepared with."""
+    """Record the run's plasma formalism (#1734) from the namelists it was prepared with.
+
+    Only for a cell this call prepared and ran (or deliberately left at
+    ``prepare_only``): a cell skipped for a missing executable, an invalid DCON
+    result or an unprepared directory may hold another configuration's
+    namelists, which are not this run's formalism.
+    """
     if not Path(record.workdir).is_dir():
+        return
+    if record.status == "skipped" and record.reason != "run_mode=prepare_only":
         return
     from ._formalism import resolve_plasma_formalism
 
