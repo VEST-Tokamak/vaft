@@ -35,13 +35,14 @@ fact and says which (*From* in the detail panel):
 | `vaft.validation.registry` | named checks, what they check and the function that computes them |
 | `vaft.data.cocos` | the COCOS convention of each code and data format |
 | `vaft._ecosystem` | external codes, their adapters and the IDS their results are mapped into |
-| `vaft.formula._taxonomy` (#1626) | which quantity a formula reduces to which; each formula's `Reduction` section (input and output representation, reduction kind, locality, physical role) as facets |
+| `vaft.formula._taxonomy` (#1626) | which quantity a formula reduces to which, through the vocabulary concept each reduction quantity declares; each formula's `Reduction` section (input and output representation, reduction kind, locality, physical role) as facets |
+| `Semantics` sections of formula and process docstrings | the vocabulary quantities a function consumes and produces, where nothing else connects it; an unknown term fails generation |
 | `vaft.validation.orderings` (#1627) | each physical model's approximation contract, the ordering quantities it assumes small or large, and the formula kernels that compute them |
 
-The reduction graphs name quantities by their own keys (`q`, `I_p`, `s_hat`, `p_profile`). Only the keys
-the vocabulary resolves become edges; the rest are listed as unresolved, so the overlap between the two
-vocabularies is visible rather than assumed. Today no reduction step performed outside a formula has
-both ends in the vocabulary, so `derived_from` has no edges yet.
+The reduction graphs name quantities by their own keys (`s_hat`, `j_phi_field`, `p_profile`). A key becomes
+an edge only through the vocabulary concept its quantity declares (`s_hat` is `magnetic_shear`; `j_phi`
+and `j_phi_field` are both `j_tor` in two representations); a composite such as `q_features` declares
+none and is listed as unresolved, so the remaining gap is visible rather than assumed.
 
 Not consumed yet: of the machine-readable applicability contracts (#1628), only the operational-boundary
 calibration domains in `vaft.formula.boundaries` exist offline, and contracts declared beside formulas,

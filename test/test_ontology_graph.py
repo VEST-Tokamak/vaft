@@ -242,30 +242,36 @@ def test_reductions_connect_a_formula_only_to_quantities_the_vocabulary_resolves
     consumes, produces = _edges(snapshot, "consumes"), _edges(snapshot, "produces")
     audited = {(row["term"], row["origin"]) for row in snapshot["unresolved"]}
     origin = "vaft.formula._taxonomy"
+    def concept(key):
+        declared = _taxonomy.QUANTITIES[key].concept
+        return ontology.resolve_term(declared, quantities_only=True) if declared else None
+
     for relations in _taxonomy.REDUCTION_FAMILIES.values():
         for relation in relations:
             for key in (*relation.sources, relation.target):
-                if ontology.resolve_term(key, quantities_only=True) is None:
+                if concept(key) is None:
                     assert (key, origin) in audited, key
             if not relation.formula:
                 continue
             spec = describe(relation.formula)
             api = f"api:{spec.module}.{spec.qualname.rsplit('.', 1)[-1]}"
-            target = ontology.resolve_term(relation.target, quantities_only=True)
-            sources = [ontology.resolve_term(key, quantities_only=True) for key in relation.sources]
+            target = concept(relation.target)
+            sources = [concept(key) for key in relation.sources]
             assert ((api, target) in produces) == bool(target and api in nodes), relation
             for source in filter(None, sources):
                 assert (api, source) in consumes, relation
     assert ("api:vaft.formula.equilibrium.shear_from_r_q", "concept:q") in consumes
-    assert ("s_hat", origin) in audited  # the vocabulary has no shear concept: audited, not invented
+    # s_hat is magnetic_shear because its Quantity says so, not because of its spelling
+    assert ("api:vaft.formula.equilibrium.shear_from_r_q", "concept:magnetic_shear") in produces
+    assert ("q_features", origin) in audited  # a composite declares no concept: audited, not invented
 
 
 def test_a_reduction_step_outside_a_formula_derives_the_target_from_the_source(monkeypatch):
     from vaft.formula import _taxonomy
 
     families = {"synthetic": (
-        _taxonomy.Relation(("q",), "plasma_current", kind="integral"),  # both ends resolve
-        _taxonomy.Relation(("s_hat",), "r_mix", "stability.kadomtsev_mixing_radius"),  # neither resolves
+        _taxonomy.Relation(("q",), "I_p", kind="integral"),  # both ends declare a concept
+        _taxonomy.Relation(("alpha",), "q_features", "stability.kadomtsev_mixing_radius"),  # neither does
     )}
     monkeypatch.setattr(_taxonomy, "REDUCTION_FAMILIES", families)
     snapshot = ontology.ontology_snapshot()
@@ -274,7 +280,7 @@ def test_a_reduction_step_outside_a_formula_derives_the_target_from_the_source(m
     # a formula whose quantities the vocabulary does not know is audited, not drawn as an island
     assert "api:vaft.formula.stability.kadomtsev_mixing_radius" not in _nodes(snapshot)
     audited = {row["term"] for row in snapshot["unresolved"] if row["origin"] == "vaft.formula._taxonomy"}
-    assert {"s_hat", "r_mix"} <= audited
+    assert {"alpha", "q_features"} <= audited
 
 
 def test_a_formula_node_carries_its_reduction_section(snapshot):
@@ -355,3 +361,104 @@ def test_the_docs_build_declares_the_generator_page_and_endpoint():
     for linking in ("API_reference.md", "Formula_reference.md", "Process_reference.md", "Plot_reference.md",
                     "Dependency_graph.md", "Pipeline_graph.md"):
         assert "/reference/ontology/" in (DOCS / "_guide" / linking).read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# phase 3: the Semantics docstring section and the shared quantity vocabulary
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("text", "expected"), [
+    ("consumes: plasma_current, b_t\nproduces: q95", (("plasma_current", "b_t"), ("q95",))),
+    ("produces: energy_confinement_time", ((), ("energy_confinement_time",))),
+    ("  consumes :  q ,  b_t ,\r\nproduces: q95", (("q", "b_t"), ("q95",))),  # spacing, trailing comma, CRLF
+    (None, None),  # no section at all
+])
+def test_a_semantics_section_parses_its_two_keys(text, expected):
+    from vaft._semantics import parse_semantics
+
+    semantics, errors = parse_semantics(text)
+    assert errors == ()
+    assert (None if semantics is None else (semantics.consumes, semantics.produces)) == expected
+
+
+@pytest.mark.parametrize("text", [
+    "inputs: q", "consumes q", "consumes:", "consumes: q\nconsumes: q95", "consumes: q, q",
+    "produces: q-95", "Consumes: q",
+    "",  # a heading with nothing under it is an error, not an absent section
+])
+def test_a_malformed_semantics_section_is_rejected_whole(text):
+    from vaft._semantics import parse_semantics
+
+    semantics, errors = parse_semantics(text)
+    assert semantics is None and errors
+
+
+def test_a_malformed_semantics_section_makes_the_formula_nonconforming():
+    from vaft.formula import catalog
+
+    def toy(x):
+        """Toy.
+
+        Parameters
+        ----------
+        x : float [m]
+            A length.
+
+        Returns
+        -------
+        float [m]
+            The length.
+
+        Semantics
+        ---------
+        consumes minor_radius
+        """
+        return x
+
+    spec = catalog._spec(toy, "toy", "utils", "vaft.formula.utils", ())
+    assert spec.semantics is None and any("Semantics" in error for error in spec.errors)
+
+
+def test_every_semantics_term_is_a_quantity_of_the_vocabulary_and_becomes_an_edge(snapshot):
+    from vaft.formula.catalog import list_formulas
+    from vaft.process.catalog import list_processes
+
+    consumes, produces = _edges(snapshot, "consumes"), _edges(snapshot, "produces")
+    annotated = [spec for spec in [*list_formulas(), *list_processes()] if spec.semantics is not None]
+    assert annotated  # the pilot set
+    for spec in annotated:
+        api = f"api:{spec.module}.{spec.name}"
+        for term in spec.semantics.consumes:
+            assert (api, ontology.resolve_term(term, quantities_only=True)) in consumes, (spec.name, term)
+        for term in spec.semantics.produces:
+            assert (api, ontology.resolve_term(term, quantities_only=True)) in produces, (spec.name, term)
+    # a scaling estimate is its own concept, not the reconstructed q95
+    assert ("api:vaft.formula.equilibrium.estimated_q95", "concept:estimated_q95") in produces
+    assert ("api:vaft.formula.equilibrium.estimated_q95", "concept:q95") not in produces
+    assert ("api:vaft.process.langmuir.electron_density", "concept:electron_temperature") in consumes
+
+
+def test_an_unknown_semantics_term_fails_generation(monkeypatch):
+    from vaft._semantics import Semantics
+    from vaft.formula import catalog
+
+    spec = catalog.describe("equilibrium.estimated_q95")
+    broken = type(spec)(**{**spec.__dict__, "semantics": Semantics(produces=("estimated_q95_value",))})
+    monkeypatch.setattr(catalog, "list_formulas", lambda *a, **k: [broken])
+    with pytest.raises(ontology.OntologyError, match="no term of the vocabulary"):
+        ontology.ontology_snapshot()
+
+
+def test_every_declared_reduction_concept_is_a_quantity_of_the_vocabulary():
+    from vaft.formula import _taxonomy
+
+    for key, quantity in _taxonomy.QUANTITIES.items():
+        if quantity.concept is not None:
+            assert ontology.resolve_term(quantity.concept, quantities_only=True) == f"concept:{quantity.concept}", key
+    # representations of one quantity share one concept; a composite declares none
+    assert _taxonomy.QUANTITIES["j_phi"].concept == _taxonomy.QUANTITIES["j_phi_field"].concept == "j_tor"
+    assert _taxonomy.QUANTITIES["q_features"].concept is None
+    # a key that is a different definition of a vocabulary quantity is not mapped onto it:
+    # the virial l_i is the Lao/EFIT normalisation, concept:li is the IMAS li_3
+    assert _taxonomy.QUANTITIES["l_i"].concept is None
