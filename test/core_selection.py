@@ -313,6 +313,9 @@ CORE_MODULES: tuple[str, ...] = (
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
     "test_formula_fast_ion.py",
+    # Turbulence-zonal-flow predator-prey reduced model (#1820): analytic kernels
+    # checked against a numerical orbit. Pure NumPy, under 5 s.
+    "test_formula_turbulence.py",
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
     "test_process_impurity.py",

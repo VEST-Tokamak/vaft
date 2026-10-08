@@ -45,6 +45,7 @@ flowchart LR
 | `vaft.formula.impurity` | Impurity-mixture moments, densities for a target $Z_\mathrm{eff}$, the reduced pseudo-impurity, main-ion dilution |
 | `vaft.formula.fast_ion` | Classical fast-ion slowing down: critical speed and energy, slowing-down times, distribution, density, energy density and pressure |
 | `vaft.formula.kinetic` | Multi-species electron collision time and electron–ion energy-exchange time |
+| `vaft.formula.turbulence` | Turbulence–zonal-flow predator–prey (Lotka–Volterra) model: right-hand side, fixed point, invariant, small-amplitude period and response lag |
 | `vaft.formula.statistics` | Residual, goodness-of-fit and solver-convergence statistics used by the validation layer |
 
 `vaft/formula/__init__.py` resolves its submodules lazily (PEP 562): importing one of them costs

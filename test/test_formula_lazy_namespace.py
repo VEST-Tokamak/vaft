@@ -54,6 +54,7 @@ _IMPORT_ORDER = (
     "ordering",
     "fast_ion",
     "kinetic",
+    "turbulence",
 )
 
 
