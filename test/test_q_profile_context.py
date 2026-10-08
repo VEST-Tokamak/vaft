@@ -1,4 +1,4 @@
-"""Core q-profile, rational-surface, low-shear and boundary context (#1798).
+"""Core q-profile, rational-surface, low-shear and boundary context (#1798, #1838).
 
 Synthetic profiles with known answers for each case the issue lists, plus the
 packaged 39915 slice (a VEST spherical tokamak: q > 1 everywhere, limited).
@@ -11,7 +11,7 @@ import json
 import numpy as np
 import pytest
 
-from vaft.process.core_q_context import core_q_context, core_q_context_from_profiles, low_shear_regions
+from vaft.process.q_profile_context import core_q_context, core_q_context_from_profiles, low_shear_regions
 
 PSI = np.linspace(0.0, 1.0, 401)
 
@@ -196,6 +196,33 @@ def test_record_is_strict_json():
     assert record["q1_surface_count"] == 2 and record["double_resonant_pairs"][0]["delta_rho"] > 0
 
 
+def test_a_nan_radius_drops_only_itself_not_the_next_sample():
+    """#1838: the duplicate-radius guard compared with the raw previous sample."""
+    k = 120
+    q = _reversed(0.9, psi_min=PSI[k + 1])
+    psi = PSI.copy()
+    psi[k] = np.nan
+    ctx = core_q_context_from_profiles(psi, q)
+    # The minimum sits on sample k+1, right after the NaN, and is still found there.
+    assert ctx.psi_n_at_q_min == pytest.approx(PSI[k + 1])
+    assert ctx.q_min == pytest.approx(0.9)
+
+
+def test_one_interior_maximum_is_single_maximum_not_multi_extremum():
+    hump = 3.0 - 4.0 * (PSI - 0.5) ** 2
+    assert core_q_context_from_profiles(PSI, hump).q_profile_topology == "single_maximum"
+    assert core_q_context_from_profiles(PSI, _reversed(0.9)).q_profile_topology == "reversed_shear"
+    two_turns = 2.5 + 0.5 * np.sin(3 * np.pi * PSI)
+    assert core_q_context_from_profiles(PSI, two_turns).q_profile_topology == "multi_extremum"
+
+
+def test_time_is_recorded_when_given_and_none_from_bare_profiles():
+    assert core_q_context_from_profiles(PSI, _monotonic()).time is None
+    ctx = core_q_context_from_profiles(PSI, _monotonic(), time_slice=3, time=0.318)
+    assert (ctx.time_slice, ctx.time) == (3, 0.318)
+    assert ctx.as_record()["time"] == 0.318
+
+
 def test_packaged_39915_slice():
     pytest.importorskip("omas")
     from _sample_fixtures import sample_ods
@@ -203,6 +230,7 @@ def test_packaged_39915_slice():
     ods = sample_ods()
     before = set(ods.flat().keys())
     ctx = core_q_context(ods, 0)
+    assert ctx.time == pytest.approx(float(ods["equilibrium.time_slice.0.time"]))
     # The packaged rho_tor_norm is the sqrt(psi_n) proxy (#276): named for what it is.
     assert ctx.coordinate.startswith("rho_pol_norm") and "proxy" in ctx.provenance["radius"]
     assert ctx.boundary_topology == "limited"

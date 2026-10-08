@@ -180,6 +180,9 @@ class CoreQContext:
     """Equilibrium descriptors for core low-n MHD interpretation at one time slice."""
 
     time_slice: Optional[int]
+    #: Time of that slice, from ``equilibrium.time_slice[].time`` (or ``equilibrium.time``);
+    #: ``None`` when the caller gave bare profiles without one [s].
+    time: Optional[float]
     #: Name of the radial coordinate every ``rho`` and every shear uses.
     coordinate: str
     #: Sign of q in the source convention (+1, -1, or 0 for mixed); every q here is |q|.
@@ -194,7 +197,9 @@ class CoreQContext:
     psi_n_at_q_min: float
     rho_at_q_min: float
     q_min_on_axis: bool
-    #: ``monotonic``, ``weak_shear``, ``reversed_shear``, ``multi_extremum`` or ``undetermined``.
+    #: ``monotonic``, ``weak_shear``, ``reversed_shear`` (one interior minimum),
+    #: ``single_maximum`` (one interior maximum), ``multi_extremum`` (two or more turns)
+    #: or ``undetermined``.
     q_profile_topology: str
     shear_sign_changes_rho: tuple[float, ...]
     q95: Optional[float]
@@ -405,8 +410,8 @@ def _profile_topology(rho, q_abs, shear, usable, weak_shear, atol, rtol):
         if not finite.any() or np.max(np.abs(s[finite])) < weak_shear:
             return "weak_shear", (), ()
         return "monotonic", (), ()
-    if len(turns) == 1 and q[turns[0]] < q[0]:
-        return "reversed_shear", changes, values
+    if len(turns) == 1:
+        return ("reversed_shear" if q[turns[0]] < q[0] else "single_maximum"), changes, values
     return "multi_extremum", changes, values
 
 
@@ -446,6 +451,7 @@ def core_q_context_from_profiles(
     boundary_topology: str = "unknown",
     boundary_reason: str = "not supplied",
     time_slice: Optional[int] = None,
+    time: Optional[float] = None,
 ) -> CoreQContext:
     """Core q-profile, rational-surface, low-shear and boundary context from 1-D profiles.
 
@@ -486,6 +492,8 @@ def core_q_context_from_profiles(
         Why that topology was, or could not be, decided [-].
     time_slice : int, optional
         The slice index to record [-].
+    time : float, optional
+        The time of that slice to record [s].
 
     Returns
     -------
@@ -605,8 +613,11 @@ def core_q_context_from_profiles(
             rho_note = "rho_tor_norm given but it is the sqrt(psi_n) proxy (#276); named as such"
         else:
             rho, coordinate, rho_note = candidate, "rho_tor_norm", "rho_tor_norm as given"
-    # Duplicate radii (psi_n clipped below 0) cannot carry a derivative.
-    usable &= np.concatenate(([True], np.diff(rho) > 0)) | ~np.isfinite(rho)
+    # Duplicate radii (psi_n clipped below 0) cannot carry a derivative.  Each
+    # sample is compared with the last finite radius before it, so a NaN radius
+    # drops only itself, not the finite sample after it.
+    previous = np.fmax.accumulate(np.where(np.isfinite(rho), rho, -np.inf))
+    usable &= np.concatenate(([True], rho[1:] > previous[:-1]))
     usable &= np.isfinite(rho)
     shear = _shear(rho, q_abs, usable)
 
@@ -707,6 +718,7 @@ def core_q_context_from_profiles(
 
     return CoreQContext(
         time_slice=time_slice,
+        time=None if time is None else float(time),
         coordinate=coordinate,
         q_sign=q_sign,
         q_axis=float(q_abs[i_axis]),
@@ -749,6 +761,20 @@ def core_q_context_from_profiles(
             "double_resonant_pairs": "every consecutive same-m/n pair not separated by a gap",
         },
     )
+
+
+def _slice_time(ods: Any, time_slice: int) -> Optional[float]:
+    """``equilibrium.time_slice[i].time``, else ``equilibrium.time[i]``, else ``None``."""
+    from vaft.machine_mapping.utils import path_exists
+
+    path = f"equilibrium.time_slice.{time_slice}.time"
+    if path_exists(ods, path):
+        return float(ods[path])
+    if path_exists(ods, "equilibrium.time"):
+        times = np.atleast_1d(np.asarray(ods["equilibrium.time"], dtype=float))
+        if time_slice < times.size:
+            return float(times[time_slice])
+    return None
 
 
 def core_q_context(ods: Any, time_slice: int = 0, **options: Any) -> CoreQContext:
@@ -849,5 +875,6 @@ def core_q_context(ods: Any, time_slice: int = 0, **options: Any) -> CoreQContex
         pressure=optional("pressure"),
         volume=optional("volume"),
         time_slice=int(time_slice),
+        time=_slice_time(ods, int(time_slice)),
         **options,
     )
