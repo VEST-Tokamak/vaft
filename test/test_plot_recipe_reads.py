@@ -73,6 +73,10 @@ NEUTRAL = frozenset({
     # reads through vaft.ods_access.
     "summary_time_estimated_q95", "summary_time_q_star_cylindrical",
     "summary_time_q_star_kink", "summary_time_normalized_current",
+    # The I_p/PF/eddy overview reads paths through the accessor and grades
+    # each slice with vaft.validation.equilibrium.verify_convergence, which
+    # reads through vaft.ods_access.
+    "current_overview_reconstruction",
 })
 OMAS_BOUND = frozenset({
     "kinetic_overview_profiles",

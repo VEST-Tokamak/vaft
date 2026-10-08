@@ -43,6 +43,8 @@ __all__ = [
     "chease_overview_refinement_summary",
     "core_profiles_time_volume_averaged",
     "current_overview",
+    "current_overview_reconstruction",
+    "current_overview_reconstruction",
     "diagnostics_overview",
     "kinetic_overview_profiles",
     "equilibrium_overview",
@@ -801,6 +803,88 @@ def current_overview(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Plasma, PF coil and eddy current panels on a shared time axis."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="electromagnetics",
+    subject="current",
+    view="overview",
+    quantity="reconstruction",
+    description=(
+        "Measured I_p with the reconstructed I_p of every equilibrium slice by "
+        "convergence, PF ampere-turns and eddy currents, in kA."
+    ),
+    ids=("magnetics", "pf_active", "pf_passive", "equilibrium"),
+    required_paths=(
+        "magnetics.ip.0.data",
+        "equilibrium.time_slice.{i}.global_quantities.ip",
+        "pf_active.coil.{i}.current.data",
+        "pf_passive.time",
+        "pf_passive.loop.{i}.current",
+    ),
+)
+def current_overview_reconstruction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Plasma, PF and eddy currents in kA, with every reconstructed slice's I_p.
+
+    Parameters
+    ----------
+    model : Panels
+        The three stacked time histories the adapter built.
+    ax : sequence of Axes, optional
+        Three axes to draw into; a new figure when omitted.
+    show : bool
+        Show the figure as well as returning it.
+
+    Interpretation
+    --------------
+    The three currents that set the poloidal field of a VEST discharge, on
+    one time axis.  The top panel is the Rogowski plasma current with, as
+    markers at each slice's time, the plasma current the equilibrium
+    reconstruction fitted: filled where the solver's evidence says the slice
+    converged, a cross where it says it did not, hollow where no evidence was
+    stored.  A marker on the trace says the reconstruction matched the
+    measured current; one off it, or a cross, says that slice should not be
+    read further.  The middle panel is each PF coil's current times its turns,
+    the ampere-turns that actually drive flux, so coils of different turn
+    counts compare directly.  The bottom panel is the current induced in the
+    vessel and passive structure: every loop faint, their total strong, so the
+    spread behind the total stays visible without a legend entry per loop.
+
+    Options
+    -------
+    ``orientation=`` signs the plasma-current panel as
+    ``plasma_current_time`` does: the default draws the measured current
+    positive and the reconstructed points follow the same sign;
+    ``"canonical"`` keeps the stored sign.  ``time_range=`` cuts all three
+    panels to a window and makes it the shared axis; without it the axis
+    spans the data the panels hold.
+
+    Convention
+    ----------
+    Currents are in kA; the PF panel is in kA-turns, each coil's current
+    times the sum of its elements' absolute turns, so the stored current's
+    sign is kept.  The PF and eddy panels keep the IMAS sign; only the plasma
+    current is re-signed for display, and the figure title says so when it is.
+
+    Limitations
+    -----------
+    The eddy currents are a circuit-model solution (``pf_passive`` from
+    ``vaft.omas.compute_eddy_currents``), not a measurement.  Convergence is
+    the solver's own evidence as ``vaft.validation.equilibrium.
+    verify_convergence`` reads it; a converged slice can still fit the
+    magnetics poorly, which ``equilibrium_overview_fit_quality`` shows.  PF
+    coils that carry no current at all in the shot are not drawn;
+    ``pf_coil_time_current_turns`` draws every coil.
+
+    See Also
+    --------
+    current_overview : the same three currents in A, one trace per coil and the eddy total.
+    equilibrium_overview_convergence : the convergence evidence behind the markers.
+    passive_structure_time_current : the eddy current alone, or selected loops.
+    """
     return render_panels(model, ax=ax, show=show, **style)
 
 

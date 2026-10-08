@@ -1401,6 +1401,43 @@ _EFIT_QUALITY_READS = (
     "equilibrium.time_slice.{i}.profiles_2d.0.psi",
 )
 
+#: What vaft.validation.equilibrium.verify_convergence reads for one slice:
+#: EFIT's a-file verdict and tolerances inside code.parameters, the stored
+#: Grad-Shafranov deviation, the run flag and the declared result, plus what
+#: convergence_metrics' self-consistency block reads (the I_p constraint and
+#: the psi map at the axis and boundary) whether or not the verdict uses it.
+_CONVERGENCE_VERDICT_READS = (
+    "equilibrium.code.parameters",
+    "equilibrium.code.output_flag",
+    "equilibrium.time_slice.{i}.convergence.iterations_n",
+    "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
+    "equilibrium.time_slice.{i}.convergence.result.name",
+    "equilibrium.time_slice.{i}.convergence.result.index",
+    "equilibrium.time_slice.{i}.convergence.result.description",
+    *(f"equilibrium.time_slice.{{i}}.constraints.ip.{leaf}"
+      for leaf in ("measured", "measured_error_upper", "reconstructed", "chi_squared")),
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+    "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+    "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+)
+
+#: current_overview_reconstruction: measured I_p, the reconstructed I_p of
+#: every slice with its convergence verdict, PF ampere-turns and eddy currents.
+_CURRENT_OVERVIEW_RECONSTRUCTION_READS = (
+    "magnetics.ip.0.data", "magnetics.ip.0.time", *_MAGNETICS_TIME,
+    "equilibrium.time", "equilibrium.time_slice.{i}.time",
+    "equilibrium.time_slice.{i}.global_quantities.ip",
+    *_CONVERGENCE_VERDICT_READS,
+    "pf_active.time", "pf_active.coil.{i}.current.data", "pf_active.coil.{i}.current.time",
+    "pf_active.coil.{i}.name", "pf_active.coil.{i}.element.{j}.turns_with_sign",
+    "pf_passive.time", "pf_passive.loop.{i}.current",
+    "dataset_description.data_entry.pulse",
+)
+
 RECIPES: dict[str, Any] = {
     # --- magnetics -----------------------------------------------------------
     "plasma_current_time": LineRecipe(
@@ -2145,6 +2182,16 @@ RECIPES: dict[str, Any] = {
             "passive_structure_time_current",
         ),
         suptitle="Electromagnetic Currents",
+    ),
+    # The slide companion of current_overview: the reconstructed I_p of every
+    # slice beside the measurement, PF ampere-turns and the eddy total over
+    # its loops, all in kA (built by code, so the scaling is the builder's).
+    "current_overview_reconstruction": CallableRecipe(
+        builder=lambda ods, **options: _build_current_overview_reconstruction(ods, **options),
+        description="Measured and reconstructed I_p, PF ampere-turns and eddy currents, in kA.",
+        reads=_CURRENT_OVERVIEW_RECONSTRUCTION_READS,
+        backend=NEUTRAL,
+        windowed=True,
     ),
     "core_profiles_time_volume_averaged": PanelRecipe(
         members=(
@@ -8325,6 +8372,200 @@ def _build_passive_current(ods: Any, *, channels: Any = None, **_: Any) -> LineS
         x_label="Time", x_unit="s",
         y_label="Eddy Current", y_unit="A",
         title="Passive Structure Current",
+    )
+
+
+# ---------------------------------------------------------------------------
+# current_overview_reconstruction: I_p measured and reconstructed, PF
+# ampere-turns and the eddy currents on one time axis, in kA.
+# ---------------------------------------------------------------------------
+
+#: How a reconstructed slice is drawn for each convergence verdict: filled
+#: where the solver's evidence says it converged, a cross where it says the
+#: slice must not be trusted, hollow where no evidence was left at all.
+_SLICE_VERDICT_MARKERS: tuple[tuple[str, str, Mapping[str, Any]], ...] = (
+    ("converged", "EFIT converged", {"marker": "o", "markersize": 5}),
+    ("not_converged", "EFIT not converged", {"marker": "x", "markersize": 6, "mew": 1.5}),
+    ("unknown", "EFIT (convergence unknown)", {"marker": "o", "markersize": 5, "fillstyle": "none"}),
+)
+
+
+def _slice_convergence(ods: Any, index: int) -> str:
+    """``converged``, ``not_converged`` or ``unknown`` for one equilibrium slice.
+
+    The verdict is :func:`vaft.validation.equilibrium.verify_convergence`'s,
+    which reads through :mod:`vaft.ods_access` only: ``pass`` and ``warn``
+    (the iteration cap was hit or the exit tolerance missed, while the
+    acceptance test held) count as converged, ``fail`` as not.  That verdict
+    already weighs ``code.output_flag``, so ``not_available`` means no run
+    flag either, and the slice is shown as unknown rather than guessed.
+    """
+    from vaft.validation.equilibrium import verify_convergence
+    from vaft.validation.model import ValidationStatus
+
+    status = verify_convergence(ods, time_slice=index)["status"]
+    if status in (ValidationStatus.PASS, ValidationStatus.WARN):
+        return "converged"
+    if status == ValidationStatus.FAIL:
+        return "not_converged"
+    return "unknown"
+
+
+def _reconstructed_ip_points(ods: Any) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """The reconstructed I_p [A] at each slice's own time, by convergence verdict.
+
+    A slice is placed at ``time_slice[i].time`` when it stores one and at
+    ``equilibrium.time[i]`` only when that array has one entry per slice, so a
+    point never lands at another slice's time.
+    """
+    count = _count(ods, "equilibrium.time_slice")
+    times = _array(ods, "equilibrium.time")
+    shared = times if times is not None and times.ndim == 1 and times.size == count else None
+    points: dict[str, list[tuple[float, float]]] = {key: [] for key, _, _ in _SLICE_VERDICT_MARKERS}
+    for index in range(count):
+        ip = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.ip")
+        own = _get(ods, f"equilibrium.time_slice.{index}.time")
+        when = own if own is not None else (None if shared is None else shared[index])
+        if ip is None or when is None:
+            continue
+        ip, when = float(np.asarray(ip, dtype=float).ravel()[0]), float(np.asarray(when, dtype=float).ravel()[0])
+        if np.isfinite(ip) and np.isfinite(when):
+            points[_slice_convergence(ods, index)].append((when, ip))
+    out = {}
+    for key, pairs in points.items():
+        if pairs:
+            pairs.sort()
+            out[key] = (np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs]))
+    return out
+
+
+def _windowed(series: Series, window: tuple[float, float] | None) -> Series | None:
+    """``series`` cut to ``window`` (inclusive), or ``None`` when nothing is left."""
+    if window is None:
+        return series
+    keep = (series.x >= window[0]) & (series.x <= window[1])
+    if not keep.any():
+        return None
+    return dataclasses.replace(series, x=series.x[keep], y=series.y[keep])
+
+
+def _build_current_overview_reconstruction(ods: Any, **options: Any) -> Panels:
+    """I_p (measured and every EFIT slice), PF ampere-turns and eddy currents in kA.
+
+    Panel 1 draws the Rogowski I_p and, as markers at each slice's time, the
+    I_p each reconstruction converged to, split by the solver's convergence
+    verdict.  Panel 2 weights each PF coil's current by its turns, as
+    ``pf_coil_time_current_turns`` does; coils that carry no current at all
+    in the shot are left out.
+    Panel 3 draws every passive loop faint and unlabelled under their total.
+    ``orientation=`` signs panel 1 as ``plasma_current_time`` does (the
+    measured trace decides, the reconstruction follows); ``time_range=`` cuts
+    every panel to a window and makes it the axis.
+    """
+    orientation = options.get("orientation", "intuitive")
+    window = _range_option(options, "time_range")
+    kilo = 1.0e-3
+
+    # --- I_p -----------------------------------------------------------------
+    ip = _array(ods, "magnetics.ip.0.data")
+    ip_time = _first_time(ods, ("magnetics.ip.0.time", *_MAGNETICS_TIME))
+    if ip is None or ip_time is None or ip.shape != ip_time.shape:
+        raise ValueError("magnetics.ip.0.data with a matching time base is required")
+    measured = Series(x=ip_time, y=ip * kilo, label="Measured",
+                      style={"color": "role:measured", "lw": 1.3})
+    oriented, flipped = _orient((measured,), orientation)
+    sign = -1.0 if flipped else 1.0
+    ip_series: list[Series] = [oriented[0]]
+    points = _reconstructed_ip_points(ods)
+    if not points:
+        raise ValueError("no equilibrium slice stores global_quantities.ip at a known time")
+    for key, label, marker in _SLICE_VERDICT_MARKERS:
+        if key not in points:
+            continue
+        when, value = points[key]
+        # Drawn beside the measurement rather than in a role of it: a role
+        # replaces the label with the role's name, and the three verdicts must
+        # stay distinguishable.  The sign follows the measured trace's.
+        ip_series.append(Series(
+            x=when, y=sign * value * kilo, label=f"{label} (n={when.size})",
+            style={"color": "role:reconstructed", "linestyle": "none", **marker},
+        ))
+
+    # --- PF ampere-turns -------------------------------------------------------
+    coil_traces: list[Series] = []
+    for index in range(_count(ods, "pf_active.coil")):
+        current = _array(ods, f"pf_active.coil.{index}.current.data")
+        time = _first_time(ods, ("pf_active.coil.{i}.current.time", "pf_active.time"), i=index)
+        if current is None or time is None or current.shape != time.shape:
+            continue
+        name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"coil {index}")
+        if not np.any(np.nan_to_num(current)):
+            continue  # a coil the shot never energised: a flat line and a legend entry
+        turns = _weight(ods, "pf_active.coil.{i}.element.:.turns_with_sign", index)
+        coil_traces.append(Series(
+            x=time, y=current * turns * kilo, label=name, index=index,
+            style={"color": palette(len(coil_traces))},
+        ))
+    if not coil_traces:
+        raise ValueError("no PF coil carries a current with a matching time base")
+
+    # --- eddy currents ----------------------------------------------------------
+    passive_time = _array(ods, "pf_passive.time")
+    if passive_time is None:
+        raise ValueError(
+            "pf_passive.time is not available; solve the eddy currents first "
+            "with vaft.omas.compute_eddy_currents(ods, [], [])"
+        )
+    loops: list[Series] = []
+    total = np.zeros_like(passive_time, dtype=float)
+    for index in range(_count(ods, "pf_passive.loop")):
+        current = _array(ods, f"pf_passive.loop.{index}.current")
+        if current is None or current.shape != passive_time.shape:
+            continue
+        total = total + current
+        loops.append(Series(x=passive_time, y=current * kilo, label="", index=index,
+                            style={"color": "emphasis:faint", "alpha": 0.15, "lw": 0.5}))
+    if not loops:
+        raise ValueError("no passive loop current matches the pf_passive time base")
+    if not np.isfinite(total).any():
+        raise ValueError(
+            "the eddy-current solution is entirely non-finite; the impedance "
+            "matrix was singular and solve_eddy_currents fell back to NaN"
+        )
+    eddy = [*loops, Series(x=passive_time, y=total * kilo, label=f"Total ({len(loops)} loops)",
+                           style={"color": palette(0), "lw": 1.8})]
+
+    panels_series = []
+    for traces in (ip_series, coil_traces, eddy):
+        kept = [cut for cut in (_windowed(trace, window) for trace in traces) if cut is not None]
+        if not kept:
+            raise ValueError(f"time_range={window} holds none of a panel's samples")
+        panels_series.append(tuple(kept))
+    if window is None:
+        # Clipped to the data: the shared axis spans what the three panels hold.
+        spans = [(float(np.nanmin(s.x)), float(np.nanmax(s.x))) for traces in panels_series for s in traces]
+        limits = (min(a for a, _ in spans), max(b for _, b in spans))
+        if not limits[1] > limits[0]:
+            limits = None
+    else:
+        limits = window
+
+    pulse = _get(ods, "dataset_description.data_entry.pulse")
+    shot = "" if pulse is None else f" #{pulse}"
+    return Panels(
+        models=(
+            LineSeries(series=panels_series[0], x_label="Time", x_unit="s",
+                       y_label=r"$I_\mathrm{p}$", y_unit="kA", x_limits=limits),
+            LineSeries(series=panels_series[1], x_label="Time", x_unit="s",
+                       y_label=r"$I_\mathrm{PF}$", y_unit="kA-turns", x_limits=limits),
+            LineSeries(series=panels_series[2], x_label="Time", x_unit="s",
+                       y_label=r"$I_\mathrm{eddy}$", y_unit="kA", x_limits=limits),
+        ),
+        ncols=1, share_x=True, share_legend=False,
+        # The total is the eddy panel's one labelled trace; the legend policy
+        # drops a lone entry, which would leave the faint loops unexplained.
+        member_styles=({}, {}, {"legend": True}),
+        suptitle=f"Plasma, PF and eddy currents{shot}" + (" (I_p sign flipped)" if flipped else ""),
     )
 
 
