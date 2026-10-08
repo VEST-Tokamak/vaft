@@ -8,6 +8,9 @@ source of truth for:
 
 * the registered subjects and their strict aliases,
 * quantity-level aliases for concise tokamak terminology,
+* canonical quantities, with or without an alias (:data:`CANONICAL_QUANTITIES`),
+  which the formula/process ``Semantics`` sections and the generated ontology
+  resolve against as well (#1702),
 * quantity families -- named groups of distinct, related quantities.
 
 Alias semantics are strict: an alias is registered only when both terms
@@ -194,22 +197,26 @@ def _build_quantity_aliases() -> dict[str, str]:
 QUANTITY_ALIASES: dict[str, str] = _build_quantity_aliases()
 
 #: Canonical quantities that need no alias (yet): physical quantities a plot
-#: names as its ``quantity`` or a #1626 reduction graph reduces (#1702).
+#: names as its ``quantity`` or a #1626 reduction graph reduces (#1702).  A
+#: name joins only when it means one quantity: ``pressure`` stays out, because
+#: plots and diagnostics use it for both plasma and neutral gas pressure, and
+#: ``estimated_q95`` (a scaling estimate) stays distinct from ``q95``.
 _UNALIASED_QUANTITIES = (
     "b_t",
     "elongation",
+    "energy_confinement_time",
+    "estimated_q95",
     "greenwald_fraction",
     "j_tor",
     "magnetic_shear",
     "major_radius",
     "minor_radius",
     "mixing_radius",
+    "normalized_current",
     "nu_star",
     "peaking_factor",
-    "pressure",
     "psi",
     "rho_star",
-    "tau_e",
     "triangularity",
     "zeff",
 )

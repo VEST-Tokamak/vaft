@@ -2184,7 +2184,6 @@ def beta_normal_from_beta_volume(beta_volume: float,
     Semantics
     ---------
     consumes: minor_radius, b_t, plasma_current
-    produces: beta_n
 
     References
     ----------
@@ -3297,7 +3296,8 @@ def normalized_plasma_current(Ip: Union[float, np.ndarray],
 
     Semantics
     ---------
-    consumes: plasma_current, major_radius, minor_radius, b_t
+    consumes: plasma_current, minor_radius, b_t
+    produces: normalized_current
 
     References
     ----------
@@ -3481,7 +3481,7 @@ def estimated_q95(a: Union[float, np.ndarray],
     Semantics
     ---------
     consumes: plasma_current, b_t, minor_radius, major_radius, elongation, triangularity
-    produces: q95
+    produces: estimated_q95
 
     References
     ----------
@@ -5243,7 +5243,7 @@ def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
 
     Semantics
     ---------
-    produces: tau_e
+    produces: energy_confinement_time
 
     References
     ----------
@@ -5595,7 +5595,7 @@ def goldston_l_mode_confinement_time_from_I_P_R_a_kappa(
     Semantics
     ---------
     consumes: plasma_current, major_radius, minor_radius, elongation
-    produces: tau_e
+    produces: energy_confinement_time
 
     References
     ----------

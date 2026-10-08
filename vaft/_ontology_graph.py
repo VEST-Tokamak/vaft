@@ -532,8 +532,11 @@ def _semantics(graph: _Graph) -> None:
                 for term in terms:
                     target = resolve_term(term, quantities_only=True)
                     if target is None:
-                        raise OntologyError(f"{spec.module}.{spec.name} Semantics {relation} {term!r}, "
-                                            "which is no quantity of vaft.plot.taxonomy")
+                        named = resolve_term(term)
+                        what = (f"a {graph.nodes[named]['facets'].get('concept_kind') or named.split(':', 1)[0]} "
+                                "subject, not a quantity") if named in graph.nodes else "no term of the vocabulary"
+                        raise OntologyError(f"{spec.module}.{spec.name} Semantics {relation} {term!r}, which is "
+                                            f"{what} (vaft.plot.taxonomy)")
                     graph.edge(api, target, relation, origin)
 
 

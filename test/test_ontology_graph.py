@@ -370,8 +370,9 @@ def test_the_docs_build_declares_the_generator_page_and_endpoint():
 
 @pytest.mark.parametrize(("text", "expected"), [
     ("consumes: plasma_current, b_t\nproduces: q95", (("plasma_current", "b_t"), ("q95",))),
-    ("produces: tau_e", ((), ("tau_e",))),
-    (None, None),
+    ("produces: energy_confinement_time", ((), ("energy_confinement_time",))),
+    ("  consumes :  q ,  b_t ,\r\nproduces: q95", (("q", "b_t"), ("q95",))),  # spacing, trailing comma, CRLF
+    (None, None),  # no section at all
 ])
 def test_a_semantics_section_parses_its_two_keys(text, expected):
     from vaft._semantics import parse_semantics
@@ -383,14 +384,14 @@ def test_a_semantics_section_parses_its_two_keys(text, expected):
 
 @pytest.mark.parametrize("text", [
     "inputs: q", "consumes q", "consumes:", "consumes: q\nconsumes: q95", "consumes: q, q",
-    "produces: q-95", "\n\n",
+    "produces: q-95", "Consumes: q",
+    "",  # a heading with nothing under it is an error, not an absent section
 ])
 def test_a_malformed_semantics_section_is_rejected_whole(text):
     from vaft._semantics import parse_semantics
 
     semantics, errors = parse_semantics(text)
-    assert semantics is None
-    assert errors or not text.strip()
+    assert semantics is None and errors
 
 
 def test_a_malformed_semantics_section_makes_the_formula_nonconforming():
@@ -432,7 +433,9 @@ def test_every_semantics_term_is_a_quantity_of_the_vocabulary_and_becomes_an_edg
             assert (api, ontology.resolve_term(term, quantities_only=True)) in consumes, (spec.name, term)
         for term in spec.semantics.produces:
             assert (api, ontology.resolve_term(term, quantities_only=True)) in produces, (spec.name, term)
-    assert ("api:vaft.formula.equilibrium.estimated_q95", "concept:q95") in produces
+    # a scaling estimate is its own concept, not the reconstructed q95
+    assert ("api:vaft.formula.equilibrium.estimated_q95", "concept:estimated_q95") in produces
+    assert ("api:vaft.formula.equilibrium.estimated_q95", "concept:q95") not in produces
     assert ("api:vaft.process.langmuir.electron_density", "concept:electron_temperature") in consumes
 
 
@@ -443,7 +446,7 @@ def test_an_unknown_semantics_term_fails_generation(monkeypatch):
     spec = catalog.describe("equilibrium.estimated_q95")
     broken = type(spec)(**{**spec.__dict__, "semantics": Semantics(produces=("estimated_q95_value",))})
     monkeypatch.setattr(catalog, "list_formulas", lambda *a, **k: [broken])
-    with pytest.raises(ontology.OntologyError, match="no quantity"):
+    with pytest.raises(ontology.OntologyError, match="no term of the vocabulary"):
         ontology.ontology_snapshot()
 
 
@@ -456,3 +459,6 @@ def test_every_declared_reduction_concept_is_a_quantity_of_the_vocabulary():
     # representations of one quantity share one concept; a composite declares none
     assert _taxonomy.QUANTITIES["j_phi"].concept == _taxonomy.QUANTITIES["j_phi_field"].concept == "j_tor"
     assert _taxonomy.QUANTITIES["q_features"].concept is None
+    # a key that is a different definition of a vocabulary quantity is not mapped onto it:
+    # the virial l_i is the Lao/EFIT normalisation, concept:li is the IMAS li_3
+    assert _taxonomy.QUANTITIES["l_i"].concept is None

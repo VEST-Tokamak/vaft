@@ -47,11 +47,11 @@ class Semantics:
 def parse_semantics(text: Optional[str]) -> Tuple[Optional[Semantics], Tuple[str, ...]]:
     """The ``Semantics`` section's value and every problem with it.
 
-    ``(None, ())`` when there is no section.  An unknown, repeated or empty
-    key, a malformed term, or a section naming nothing yields
-    ``(None, errors)``: a half-valid section is never returned.
+    ``(None, ())`` when there is no section (``text is None``).  An unknown,
+    repeated or empty key, a malformed term, or a heading with nothing under
+    it yields ``(None, errors)``: a half-valid section is never returned.
     """
-    if text is None or not text.strip():
+    if text is None:
         return None, ()
     errors: list[str] = []
     values: dict[str, Tuple[str, ...]] = {}
