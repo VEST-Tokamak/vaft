@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b11b41d</code>. What is described
+  <code>c5ee7ec</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -448,7 +448,11 @@ fact and says which (<em>From</em> in the detail panel):</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.formula._taxonomy</code> (#1626)</td>
-      <td>which quantity a formula reduces to which; each formula’s <code class="language-plaintext highlighter-rouge">Reduction</code> section (input and output representation, reduction kind, locality, physical role) as facets</td>
+      <td>which quantity a formula reduces to which, through the vocabulary concept each reduction quantity declares; each formula’s <code class="language-plaintext highlighter-rouge">Reduction</code> section (input and output representation, reduction kind, locality, physical role) as facets</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">Semantics</code> sections of formula and process docstrings</td>
+      <td>the vocabulary quantities a function consumes and produces, where nothing else connects it; an unknown term fails generation</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.validation.orderings</code> (#1627)</td>
@@ -457,10 +461,10 @@ fact and says which (<em>From</em> in the detail panel):</p>
   </tbody>
 </table>
 
-<p>The reduction graphs name quantities by their own keys (<code class="language-plaintext highlighter-rouge">q</code>, <code class="language-plaintext highlighter-rouge">I_p</code>, <code class="language-plaintext highlighter-rouge">s_hat</code>, <code class="language-plaintext highlighter-rouge">p_profile</code>). Only the keys
-the vocabulary resolves become edges; the rest are listed as unresolved, so the overlap between the two
-vocabularies is visible rather than assumed. Today no reduction step performed outside a formula has
-both ends in the vocabulary, so <code class="language-plaintext highlighter-rouge">derived_from</code> has no edges yet.</p>
+<p>The reduction graphs name quantities by their own keys (<code class="language-plaintext highlighter-rouge">s_hat</code>, <code class="language-plaintext highlighter-rouge">j_phi_field</code>, <code class="language-plaintext highlighter-rouge">p_profile</code>). A key becomes
+an edge only through the vocabulary concept its quantity declares (<code class="language-plaintext highlighter-rouge">s_hat</code> is <code class="language-plaintext highlighter-rouge">magnetic_shear</code>; <code class="language-plaintext highlighter-rouge">j_phi</code>
+and <code class="language-plaintext highlighter-rouge">j_phi_field</code> are both <code class="language-plaintext highlighter-rouge">j_tor</code> in two representations); a composite such as <code class="language-plaintext highlighter-rouge">q_features</code> declares
+none and is listed as unresolved, so the remaining gap is visible rather than assumed.</p>
 
 <p>Not consumed yet: of the machine-readable applicability contracts (#1628), only the operational-boundary
 calibration domains in <code class="language-plaintext highlighter-rouge">vaft.formula.boundaries</code> exist offline, and contracts declared beside formulas,
@@ -504,7 +508,7 @@ quantity that reads exactly one quantity path.</p>
 
 <script src="/vaft/develop/assets/graph/viewer.js"></script>
 
-<p class="vg-meta">924 nodes and 4254 typed relations in this snapshot; 218 unresolved terms.</p>
+<p class="vg-meta">956 nodes and 4307 typed relations in this snapshot; 197 unresolved terms.</p>
 
 <noscript><p class="vg-noscript">The explorer is interactive and needs JavaScript. The registries
 it reads are documented in the <a href="/vaft/develop/reference/plot/">plot reference</a>,
@@ -571,11 +575,11 @@ the <a href="/vaft/develop/reference/vest-diagnostics/">VEST diagnostics</a> pag
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">produces</code></td>
-      <td>an external code’s result is mapped into an IDS; a formula computes a quantity</td>
+      <td>an external code’s result is mapped into an IDS; a formula or process computes a quantity</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">consumes</code></td>
-      <td>a formula takes a quantity as input</td>
+      <td>a formula or process takes a quantity as input</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">derived_from</code></td>
@@ -594,39 +598,28 @@ the <a href="/vaft/develop/reference/vest-diagnostics/">VEST diagnostics</a> pag
 defines them, or an alias identifies two different subjects. They are kept here, not merged by
 similarity, until the vocabulary or the registry is changed on purpose.</p>
 
-<details><summary>218 unresolved terms</summary>
+<details><summary>197 unresolved terms</summary>
 
 | Term | From | Where |
 | --- | --- | --- |
 | `B_p_field` | `vaft.formula._taxonomy` | produced by differential from psi (current_q); reduced by virial.virial_li_from_volume to l_i (current_q); reduced by weighted_average to B_theta (current_q) |
 | `B_theta` | `vaft.formula._taxonomy` | produced by weighted_average from B_p_field (current_q); reduced by geometry.cylindrical_safety_factor_from_r_B to q (current_q) |
 | `I_enc` | `vaft.formula._taxonomy` | produced by integral from j_phi_field (current_q); reduced by feature_extraction to I_p (current_q) |
-| `W` | `vaft.formula._taxonomy` | produced by normalization from p_integral (pressure_energy) |
 | `a_over_L` | `vaft.formula._taxonomy` | produced by utils.normalized_gradient_scale_length from nT_profile (kinetic_profiles) |
 | `alpha` | `vaft.formula._taxonomy` | produced by stability.ballooning_alpha_from_p_B_R from p_profile (pressure_energy) |
-| `beta_N` | `vaft.formula._taxonomy` | produced by equilibrium.beta_normal_from_beta_tor from beta_t (pressure_energy) |
 | `central_avg` | `vaft.formula._taxonomy` | produced by weighted_average from nT_profile (kinetic_profiles); reduced by equilibrium.peaking_factor to peaking (kinetic_profiles) |
 | `dimless_exponents` | `vaft.formula._taxonomy` | produced by equilibrium.dimensionless_scaling_coeffs_from_engineering_scaling_coeffs from eng_exponents (dimensionless_similarity) |
 | `eng_exponents` | `vaft.formula._taxonomy` | reduced by equilibrium.dimensionless_scaling_coeffs_from_engineering_scaling_coeffs to dimless_exponents (dimensionless_similarity) |
 | `engineering` | `vaft.formula._taxonomy` | reduced by equilibrium.rho_star_from_M_T_B_R_epsilon to rho_star (dimensionless_similarity); reduced by equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I to nu_star (dimensionless_similarity); reduced by equilibrium.confinement_time_from_engineering_parameters to tau_E (dimensionless_similarity) |
-| `f_G` | `vaft.formula._taxonomy` | produced by stability.greenwald_fraction from n_avg (kinetic_profiles) |
-| `j_phi_field` | `vaft.formula._taxonomy` | produced by differential from psi (current_q); reduced by integral to I_enc (current_q) |
 | `l_i` | `vaft.formula._taxonomy` | produced by virial.virial_li_from_volume from B_p_field (current_q) |
 | `nT_profile` | `vaft.formula._taxonomy` | reduced by utils.normalized_gradient_scale_length to a_over_L (kinetic_profiles); reduced by weighted_average to central_avg (kinetic_profiles); reduced by neoclassical.electron_collisionality_sauter to nu_star_local (kinetic_profiles); reduced by weighted_average to n_avg (kinetic_profiles) |
 | `n_avg` | `vaft.formula._taxonomy` | produced by weighted_average from nT_profile (kinetic_profiles); reduced by stability.greenwald_fraction to f_G (kinetic_profiles) |
-| `nu_star` | `vaft.formula._taxonomy` | produced by equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I from engineering (dimensionless_similarity) |
 | `nu_star_local` | `vaft.formula._taxonomy` | produced by neoclassical.electron_collisionality_sauter from nT_profile (kinetic_profiles) |
 | `omega_tau` | `vaft.formula._taxonomy` | produced by equilibrium.omega_i_tau_E_from_B_tau_E_M from tau_E (dimensionless_similarity) |
 | `p_avg` | `vaft.formula._taxonomy` | produced by weighted_average from p_profile (pressure_energy); reduced by equilibrium.beta_toroidal_from_p_B0 to beta_t (pressure_energy) |
 | `p_integral` | `vaft.formula._taxonomy` | produced by integral from p_profile (pressure_energy); reduced by equilibrium.beta_poloidal_from_pressure_integral to beta_p (pressure_energy); reduced by normalization to W (pressure_energy) |
 | `p_profile` | `vaft.formula._taxonomy` | reduced by integral to p_integral (pressure_energy); reduced by weighted_average to p_avg (pressure_energy); reduced by stability.ballooning_alpha_from_p_B_R to alpha (pressure_energy) |
-| `peaking` | `vaft.formula._taxonomy` | produced by equilibrium.peaking_factor from central_avg (kinetic_profiles) |
-| `psi` | `vaft.formula._taxonomy` | reduced by differential to B_p_field (current_q); reduced by differential to j_phi_field (current_q) |
 | `q_features` | `vaft.formula._taxonomy` | produced by feature_extraction from q (current_q) |
-| `r_mix` | `vaft.formula._taxonomy` | produced by stability.kadomtsev_mixing_radius from q (current_q) |
-| `rho_star` | `vaft.formula._taxonomy` | produced by equilibrium.rho_star_from_M_T_B_R_epsilon from engineering (dimensionless_similarity) |
-| `s_hat` | `vaft.formula._taxonomy` | produced by equilibrium.shear_from_r_q from q (current_q) |
-| `tau_E` | `vaft.formula._taxonomy` | produced by equilibrium.confinement_time_from_engineering_parameters from engineering (dimensionless_similarity); reduced by equilibrium.omega_i_tau_E_from_B_tau_E_M to omega_tau (dimensionless_similarity) |
 | `arc_current` | `vaft.machine_mapping.registry` | measured by helicity_injection |
 | `arc_voltage` | `vaft.machine_mapping.registry` | measured by helicity_injection |
 | `b_field_tor_vacuum_r` | `vaft.machine_mapping.registry` | derived by tf |
@@ -688,7 +681,6 @@ similarity, until the vocabulary or the registry is changed on purpose.</p>
 | `2d` | `vaft.plot.registry` | quantity of equilibrium_field_2d |
 | `analysis` | `vaft.plot.registry` | quantity of equilibrium_overview |
 | `b_field_perturbed` | `vaft.plot.registry` | quantity of mhd_linear_profile_b_field_perturbed; quantity of mhd_linear_spectrum_b_field_perturbed |
-| `b_t` | `vaft.plot.registry` | quantity of tf_coil_time_b_t |
 | `b_t_vacuum_r` | `vaft.plot.registry` | quantity of tf_coil_time_b_t_vacuum_r |
 | `beta` | `vaft.plot.registry` | quantity of equilibrium_time_beta |
 | `bootstrap_current` | `vaft.plot.registry` | quantity of neoclassical_profile_bootstrap_current |
@@ -712,7 +704,6 @@ similarity, until the vocabulary or the registry is changed on purpose.</p>
 | `efit_overlay` | `vaft.plot.registry` | quantity of camera_visible_image_efit_overlay |
 | `eigenfunction` | `vaft.plot.registry` | quantity of gyrokinetics_profile_eigenfunction; quantity of mhd_linear_overview_eigenfunction |
 | `electron_heating` | `vaft.plot.registry` | quantity of nbi_profile_electron_heating |
-| `elongation` | `vaft.plot.registry` | quantity of equilibrium_time_elongation |
 | `energy` | `vaft.plot.registry` | quantity of summary_time_energy |
 | `energy_flux` | `vaft.plot.registry` | quantity of gyrokinetics_spectrum_energy_flux; quantity of turbulent_transport_profile_energy_flux |
 | `energy_perturbed` | `vaft.plot.registry` | quantity of mhd_linear_time_energy_perturbed |
@@ -724,7 +715,6 @@ similarity, until the vocabulary or the registry is changed on purpose.</p>
 | `equilibrium/time_slice(:)/global_quantities/qa` | `vaft.plot.registry` | not in the Data Dictionary |
 | `equilibrium/time_slice(:)/profiles_1d/ffprime` | `vaft.plot.registry` | not in the Data Dictionary |
 | `equilibrium/time_slice(:)/profiles_1d/pprime` | `vaft.plot.registry` | not in the Data Dictionary |
-| `estimated_q95` | `vaft.plot.registry` | quantity of summary_time_estimated_q95 |
 | `f` | `vaft.plot.registry` | quantity of equilibrium_profile_f |
 | `ffprime` | `vaft.plot.registry` | quantity of equilibrium_profile_ffprime |
 | `field` | `vaft.plot.registry` | quantity of b_field_probe_spatial_field; quantity of b_field_probe_time_field; quantity of impa_profile_field; quantity of impa_time_field |
@@ -744,18 +734,14 @@ similarity, until the vocabulary or the registry is changed on purpose.</p>
 | `ion_heating` | `vaft.plot.registry` | quantity of nbi_profile_ion_heating |
 | `island` | `vaft.plot.registry` | quantity of mhd_linear_geometry_island |
 | `island_width` | `vaft.plot.registry` | quantity of mhd_linear_profile_island_width |
-| `j_tor` | `vaft.plot.registry` | quantity of equilibrium_profile_j_tor |
 | `lines_of_sight` | `vaft.plot.registry` | quantity of soft_x_rays_geometry_lines_of_sight |
 | `magnetics/b_field_pol_probe/time` | `vaft.plot.registry` | not in the Data Dictionary |
 | `magnetics/flux_loop/time` | `vaft.plot.registry` | not in the Data Dictionary |
 | `magnetics/ip(:)/validity` | `vaft.plot.registry` | not in the Data Dictionary |
 | `magnetics/ip(:)/validity_timed` | `vaft.plot.registry` | not in the Data Dictionary |
-| `major_radius` | `vaft.plot.registry` | quantity of equilibrium_time_major_radius |
 | `mhd_power` | `vaft.plot.registry` | quantity of camera_visible_image_mhd_power |
 | `midplane` | `vaft.plot.registry` | quantity of vacuum_field_midplane |
-| `minor_radius` | `vaft.plot.registry` | quantity of equilibrium_time_minor_radius |
 | `n_e_line` | `vaft.plot.registry` | quantity of interferometer_time_n_e_line |
-| `normalized_current` | `vaft.plot.registry` | quantity of summary_time_normalized_current |
 | `particle_flux` | `vaft.plot.registry` | quantity of gyrokinetics_spectrum_particle_flux; quantity of turbulent_transport_profile_particle_flux |
 | `pf_passive/loop(:)/identifier` | `vaft.plot.registry` | not in the Data Dictionary |
 | `phase` | `vaft.plot.registry` | quantity of mirnov_spatial_phase |
@@ -768,7 +754,6 @@ similarity, until the vocabulary or the registry is changed on purpose.</p>
 | `pressure_weight_scan` | `vaft.plot.registry` | quantity of equilibrium_overview_pressure_weight_scan |
 | `profile_validity` | `vaft.plot.registry` | quantity of chease_overview_profile_validity |
 | `profiles` | `vaft.plot.registry` | quantity of equilibrium_overview_profiles; quantity of kinetic_overview_profiles |
-| `psi` | `vaft.plot.registry` | quantity of equilibrium_field_psi |
 | `psi_vacuum` | `vaft.plot.registry` | quantity of equilibrium_field_psi_vacuum |
 | `q_star_cylindrical` | `vaft.plot.registry` | quantity of summary_time_q_star_cylindrical |
 | `q_star_kink` | `vaft.plot.registry` | quantity of summary_time_q_star_kink |
@@ -784,7 +769,6 @@ similarity, until the vocabulary or the registry is changed on purpose.</p>
 | `spectrum` | `vaft.plot.registry` | quantity of mhd_linear_field_spectrum |
 | `summary` | `vaft.plot.registry` | quantity of equilibrium_table_summary; quantity of equilibrium_text_summary |
 | `topview` | `vaft.plot.registry` | quantity of coil_3d_geometry_topview; quantity of equilibrium_geometry_topview; quantity of machine_geometry_topview |
-| `triangularity` | `vaft.plot.registry` | quantity of equilibrium_time_triangularity |
 | `triangularity_lower` | `vaft.plot.registry` | quantity of equilibrium_time_triangularity_lower |
 | `triangularity_upper` | `vaft.plot.registry` | quantity of equilibrium_time_triangularity_upper |
 | `vacuum` | `vaft.plot.registry` | quantity of magnetics_overview_vacuum |
@@ -799,7 +783,6 @@ similarity, until the vocabulary or the registry is changed on purpose.</p>
 | `wall_mode` | `vaft.plot.registry` | quantity of passive_structure_geometry_wall_mode |
 | `wall_reduction` | `vaft.plot.registry` | quantity of passive_structure_field_wall_reduction; quantity of passive_structure_overview_wall_reduction |
 | `wall_time` | `vaft.plot.registry` | quantity of passive_structure_overview_wall_time |
-| `zeff` | `vaft.plot.registry` | quantity of core_profiles_profile_zeff |
 | `continuity` | `vaft.validation.registry` | checked by verification.continuity |
 | `convention` | `vaft.validation.registry` | checked by verification.convention |
 | `convergence` | `vaft.validation.registry` | checked by verification.convergence |
@@ -1038,7 +1021,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-08 06:07:31 +0000"
+        "time": "2026-10-08 06:28:43 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
