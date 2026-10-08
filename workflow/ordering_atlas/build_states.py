@@ -34,7 +34,10 @@ column or a manifest entry, never silent:
   :func:`vaft.omas.plasma_timing.plasma_timing` finds in the diagnostics ODS;
 * ``beta`` (toroidal, a fraction) is the confinement table's ``beta_normal``
   through the Troyon definition :func:`vaft.formula.stability.beta_N_from_beta_a_B0_Ip`
-  inverted, with that state's ``a``, ``B0`` and ``I_p``.
+  inverted with the **same** inputs that produced it: the EFIT slice's own
+  ``global_quantities.ip`` and vacuum ``b0`` (at ``r0`` = 0.4 m) and the
+  table's boundary minor radius -- never the measured current or the field at
+  ``R_geo``, which would bias it by ~10 %.
 
 Why not ``vaft.database.summary()``: its presets carry neither the Thomson
 profile fits nor the EFIT ``q`` profile per slice, and its EFIT is the
@@ -113,19 +116,41 @@ def _area_mean(rho, values) -> float:
 _EFIT_CACHE: dict[Path, dict] = {}
 
 
-def _q_on(efit_path: Path, time_s: float, rho: np.ndarray, tolerance: float):
-    """``|q|`` of the EFIT slice at ``time_s`` interpolated onto ``rho``, or ``None``."""
-    if efit_path not in _EFIT_CACHE:
+def _efit(path: Path) -> dict:
+    if path not in _EFIT_CACHE:
         _EFIT_CACHE.clear()  # one product per shot: keep only the current one
-        _EFIT_CACHE[efit_path] = _load_json(efit_path)
-    data = _EFIT_CACHE[efit_path]
-    slices = (data.get("equilibrium") or {}).get("time_slice") or []
+        _EFIT_CACHE[path] = _load_json(path)
+    return _EFIT_CACHE[path]
+
+
+def _efit_slice(path: Path, time_s: float, tolerance: float):
+    """``(index, slice)`` of the EFIT slice nearest ``time_s`` within the tolerance, else ``(None, None)``."""
+    slices = (_efit(path).get("equilibrium") or {}).get("time_slice") or []
     best, best_dt = None, math.inf
-    for slice_ in slices:
+    for index, slice_ in enumerate(slices):
         dt = abs(_float(slice_.get("time")) - time_s)
         if dt < best_dt:
-            best, best_dt = slice_, dt
+            best, best_dt = index, dt
     if best is None or best_dt > tolerance:
+        return None, None
+    return best, slices[best]
+
+
+def _efit_ip_b0(path: Path, time_s: float, tolerance: float):
+    """The EFIT slice's plasma current and vacuum field: the inputs ``beta_normal`` was computed from."""
+    index, slice_ = _efit_slice(path, time_s, tolerance)
+    if slice_ is None:
+        return math.nan, math.nan
+    ip = _float((slice_.get("global_quantities") or {}).get("ip"))
+    b0s = ((_efit(path).get("equilibrium") or {}).get("vacuum_toroidal_field") or {}).get("b0") or []
+    b0 = _float(b0s[index]) if index < len(b0s) else math.nan
+    return ip, b0
+
+
+def _q_on(efit_path: Path, time_s: float, rho: np.ndarray, tolerance: float):
+    """``|q|`` of the EFIT slice at ``time_s`` interpolated onto ``rho``, or ``None``."""
+    _, best = _efit_slice(efit_path, time_s, tolerance)
+    if best is None:
         return None
     p1 = best.get("profiles_1d") or {}
     q = np.abs(np.asarray(p1.get("q") or [], dtype=float))
@@ -175,7 +200,8 @@ def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_toler
 
     geometry: dict[int, list[dict]] = {}
     for row in _rows(confinement):
-        geometry.setdefault(int(row["shot"]), []).append(row)
+        if row.get("efit_lineage", "magnetics") == "magnetics" and math.isfinite(_float(row.get("time_s"))):
+            geometry.setdefault(int(row["shot"]), []).append(row)
 
     def geometry_at(shot: int, time_s: float) -> dict:
         """The confinement row nearest ``time_s`` within the tolerance (match by time, never by index)."""
@@ -197,12 +223,13 @@ def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_toler
             continue
         shot, time_s = int(row["shot"]), round(_float(row["time_efit_s"]), 4)
         geo = geometry_at(shot, time_s)
+        geometry_dt = abs(_float(geo.get("time_s")) - time_s) if geo else math.nan
         a, r0, b0 = _float(geo.get("a_m")), _float(geo.get("r_geo_m")), _float(geo.get("b_t_T"))
         record = {"shot": shot, "time_efit_s": time_s, "efit_quality": row["efit_quality"],
                   "thomson_consistent": row.get("thomson_consistent", ""), "a_m": a, "r_geo_m": r0,
                   "b_t_T": b0, "i_p_A": _float(geo.get("i_p_A")), "dip_dt_A_s": _float(geo.get("dip_dt_A_s")),
                   "n_e_line_avg_m3": _float(geo.get("n_e_line_avg_m3")), "geometry_source": "confinement"
-                  if geo else "missing"}
+                  if geo else "missing", "geometry_dt_s": geometry_dt}
         cp_path = atlas / "core_profiles" / f"{shot}.json.gz"
         prof = _profile_at(_load_json(cp_path)["core_profiles"], time_s, time_tolerance) if cp_path.exists() else None
         record["profile_time_s"] = prof["time"] if prof else math.nan
@@ -217,20 +244,25 @@ def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_toler
         record.update(onset_s=onset, onset_source=onset_source,
                       plasma_age_s=time_s - onset if math.isfinite(onset) else math.nan)
         common = dict(minor_radius=a, b0=b0, n_e=n_e, t_e=t_e, z_eff=z_eff, ln_lambda=ln_lambda)
-        beta_n, ip = _float(geo.get("beta_normal")), record["i_p_A"]
+        beta_n = _float(geo.get("beta_normal"))
+        efit_product = row.get("efit_product")
+        efit_path = filedb / efit_product if efit_product else None
+        ip_efit, b0_efit = (_efit_ip_b0(efit_path, time_s, time_tolerance)
+                            if efit_path is not None and efit_path.exists() else (math.nan, math.nan))
         beta = math.nan
-        if all(math.isfinite(x) and x > 0 for x in (beta_n, a, b0)) and math.isfinite(ip) and ip != 0:
-            beta = beta_n * abs(ip) / 1e6 / (a * b0) / 100.0  # Troyon: beta[%] = beta_N I_p[MA] / (a B0)
-            assert math.isclose(beta_N_from_beta_a_B0_Ip(100.0 * beta, a, b0, abs(ip) / 1e6), beta_n)
-        record["beta_t"] = beta
+        if all(math.isfinite(x) and x != 0 for x in (beta_n, a, ip_efit, b0_efit)):
+            # Troyon, beta[%] = beta_N I_p[MA] / (a B0), with the inputs beta_N was made from
+            beta = beta_n * abs(ip_efit) / 1e6 / (a * abs(b0_efit)) / 100.0
+            if not math.isclose(beta_N_from_beta_a_B0_Ip(100.0 * beta, a, abs(b0_efit), abs(ip_efit) / 1e6), beta_n):
+                raise RuntimeError(f"beta inversion does not round-trip for {shot} @ {time_s}")
+        record.update(beta_t=beta, ip_efit_A=ip_efit, b0_efit_T=b0_efit)
         record.update(global_ordering_quantities(major_radius=r0, beta=beta, **common))
         record.update(time_history_ordering_quantities(plasma_current=record["i_p_A"],
                                                        current_rate=record["dip_dt_A_s"],
                                                        plasma_age=record["plasma_age_s"], **common))
         q = None
-        efit_product = row.get("efit_product")
-        if prof is not None and efit_product and (filedb / efit_product).exists():
-            q = _q_on(filedb / efit_product, time_s, prof["rho"], time_tolerance)
+        if prof is not None and efit_path is not None and efit_path.exists():
+            q = _q_on(efit_path, time_s, prof["rho"], time_tolerance)
         record["q_source"] = "efit_slice" if q is not None else "missing"
         if prof is not None and all(math.isfinite(x) and x > 0 for x in (a, r0, b0)) and ln_lambda > 0:
             rho = prof["rho"]
@@ -298,7 +330,8 @@ def main(argv=None) -> int:
                 "states": len(states), "profile_rows": len(profiles),
                 "ln_lambda": "NRL electron-ion, coulomb_logarithm_from_n_T at the global n_e, T_e",
                 "onset": "vaft.omas.plasma_timing.plasma_timing on the diagnostics ODS (H-alpha first, then I_p)",
-                "beta": "beta_normal of the confinement table through the Troyon definition",
+                "beta": "beta_normal of the confinement table through the Troyon definition, inverted with the "
+                        "EFIT slice's I_p and vacuum B0 (r0 = 0.4 m), the inputs beta_normal was made from",
                 "assumptions": ["r = rho_tor_norm * a", "B = B0 R0 / (R0 + r)",
                                 "global n_e, T_e = area-weighted profile means", "n_i = n_e",
                                 "Z_eff constant (assumed)",

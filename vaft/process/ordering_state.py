@@ -71,9 +71,9 @@ __all__ = [
     "COVERAGE_TIERS",
     "DEFAULT_COLUMNS",
     "contract_population",
-    "ordering_margins",
     "global_ordering_quantities",
     "ordering_coverage",
+    "ordering_margins",
     "ordering_table",
     "profile_ordering_quantities",
     "time_history_ordering_quantities",
@@ -720,8 +720,9 @@ def contract_population(contract, states, points=None):
         One row per state [-].
     points : pandas.DataFrame, optional
         One row per state and flux surface, carrying the state's global and
-        time-history quantities as well; required for a contract with a
-        profile ordering [-].
+        time-history quantities as well. Without it every contract is
+        evaluated per state, and its profile orderings are then
+        ``UNASSESSED`` [-].
 
     Returns
     -------

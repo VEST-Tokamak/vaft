@@ -237,3 +237,13 @@ def test_a_partially_known_ion_temperature_keeps_its_gradient_where_known():
     p = profile_ordering_quantities(**{**kwargs, "t_i": t_i})
     assert np.all(np.isnan(p["rho_i_over_LTi"][:3]))
     assert np.all(np.isfinite(p["rho_i_over_LTi"][4:-1]))
+
+
+def test_no_assessable_ordering_reads_as_no_evidence_not_as_failure():
+    from vaft.validation.applicability import evaluate_population, summarize_population
+    from vaft.validation.orderings import contract
+
+    c = contract("local_neoclassical")
+    summary = summarize_population(evaluate_population(c, pd.DataFrame({"unrelated": [1.0, 2.0]})), c)
+    assert math.isnan(summary["evaluated_hold"])
+    assert summary["UNASSESSED"] == 1.0 and summary["assessable"] == ()

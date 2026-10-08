@@ -423,6 +423,7 @@ def summarize_population(evaluated: Any, contract: ApproximationContract) -> dic
         fraction of rows where every assumption that *could* be evaluated holds
         and at least one could -- what the data say about the orderings it
         reaches, separate from whether the contract as a whole is decided;
+        NaN when no assumption could be evaluated on any row;
     ``assessable`` / ``unassessed``
         assumptions evaluated on at least one row, and those on none;
     ``main_limitation``
@@ -444,7 +445,8 @@ def summarize_population(evaluated: Any, contract: ApproximationContract) -> dic
     if n and status_columns:
         per_row = evaluated[status_columns]
         held = (~per_row.eq("OUTSIDE").any(axis=1)) & per_row.eq("SUPPORTED").any(axis=1)
-        summary["evaluated_hold"] = float(held.mean())
+        # NaN, not 0, when nothing could be evaluated: "no evidence" is not "fails"
+        summary["evaluated_hold"] = float(held.mean()) if assessable else math.nan
     else:
         summary["evaluated_hold"] = math.nan
     limiting = evaluated.loc[statuses == "OUTSIDE", "limiting"].value_counts() if n else pd.Series(dtype=int)
