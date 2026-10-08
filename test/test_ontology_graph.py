@@ -234,6 +234,69 @@ def test_external_codes_come_from_the_ecosystem_catalog(snapshot):
     assert ("code:chease", "ids:equilibrium") in _edges(snapshot, "produces")
 
 
+def test_reductions_connect_a_formula_only_to_quantities_the_vocabulary_resolves(snapshot):
+    from vaft.formula import _taxonomy
+    from vaft.formula.catalog import describe
+
+    nodes = _nodes(snapshot)
+    consumes, produces = _edges(snapshot, "consumes"), _edges(snapshot, "produces")
+    audited = {(row["term"], row["origin"]) for row in snapshot["unresolved"]}
+    origin = "vaft.formula._taxonomy"
+    for relations in _taxonomy.REDUCTION_FAMILIES.values():
+        for relation in relations:
+            for key in (*relation.sources, relation.target):
+                if ontology.resolve_term(key, quantities_only=True) is None:
+                    assert (key, origin) in audited, key
+            if not relation.formula:
+                continue
+            spec = describe(relation.formula)
+            api = f"api:{spec.module}.{spec.qualname.rsplit('.', 1)[-1]}"
+            target = ontology.resolve_term(relation.target, quantities_only=True)
+            sources = [ontology.resolve_term(key, quantities_only=True) for key in relation.sources]
+            assert ((api, target) in produces) == bool(target and api in nodes), relation
+            for source in filter(None, sources):
+                assert (api, source) in consumes, relation
+    assert ("api:vaft.formula.equilibrium.shear_from_r_q", "concept:q") in consumes
+    assert ("s_hat", origin) in audited  # the vocabulary has no shear concept: audited, not invented
+
+
+def test_a_formula_node_carries_its_reduction_section(snapshot):
+    from vaft.formula.catalog import describe
+
+    for node in snapshot["nodes"]:
+        if node["kind"] != "api" or node["facets"].get("role") != "formula":
+            continue
+        module, _, name = node["label"].rpartition(".")
+        spec = describe(f"{module.rsplit('.', 1)[-1]}.{name}")
+        reduction = spec.reduction
+        if reduction is None:
+            assert "reduction_kind" not in node["facets"]
+            continue
+        facets = node["facets"]
+        assert (facets["reduction_input"], facets["reduction_output"], facets["reduction_kind"],
+                facets["locality"], facets["physical_role"]) == (
+            list(reduction.input), reduction.output, reduction.kind, reduction.locality, reduction.role)
+
+
+def test_model_contracts_and_ordering_quantities_come_from_the_orderings_registry(snapshot):
+    from vaft.formula.catalog import describe
+    from vaft.validation import orderings
+
+    nodes = _nodes(snapshot)
+    assumes, provided = _edges(snapshot, "assumes"), _edges(snapshot, "provided_by")
+    for name, contract in orderings.CONTRACTS.items():
+        node = nodes[f"model:{name}"]
+        assert node["facets"]["physical_model"] == contract.physical_model
+        assert {target for source, target in assumes if source == f"model:{name}"} == {
+            f"ordering_quantity:{a.quantity}" for a in contract.assumptions}
+    for name, quantity in orderings.ORDERING_QUANTITIES.items():
+        kernels = {f"api:{describe(k).module}.{describe(k).qualname.rsplit('.', 1)[-1]}" for k in quantity.kernels}
+        assert {target for source, target in provided if source == f"ordering_quantity:{name}"} == kernels
+    # a contract is a model of its own registry, never folded into a taxonomy subject by spelling
+    assert not {n.split(":", 1)[1] for n in nodes if n.startswith("model:")} & {
+        n.split(":", 1)[1] for n in nodes if n.startswith("concept:")}
+
+
 def test_generation_is_offline(monkeypatch):
     def refuse(*_args, **_kwargs):
         raise AssertionError("ontology generation opened a network socket")
@@ -256,7 +319,8 @@ def test_the_source_receipt_build_py_checks(snapshot):
     spec.loader.exec_module(build)
     pairs = build._SOURCE_PAIR.findall(ontology._dump(snapshot))
     assert {path for path, _ in pairs} >= {"vaft/_ontology_graph.py", "vaft/plot/taxonomy.py",
-                                           "vaft/machine_mapping/vest.yaml"}
+                                           "vaft/machine_mapping/vest.yaml", "vaft/formula/_taxonomy.py",
+                                           "vaft/validation/orderings.py"}
     for relative, digest in pairs:
         assert hashlib.sha256((ROOT / relative).read_bytes()).hexdigest() == digest
     assert snapshot["provenance"] == PROVENANCE

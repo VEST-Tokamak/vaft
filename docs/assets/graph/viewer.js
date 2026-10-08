@@ -228,7 +228,12 @@
       var target = known[query] ? query : null;
       if (!target) {
         var lower = query.toLowerCase();
-        var match = items.filter(function (item) { return item.id.toLowerCase().indexOf(lower) !== -1; })[0];
+        // a namespaced id named exactly ("lundquist_number" for ordering_quantity:lundquist_number)
+        // wins over a longer id that merely contains the text (api:...ordering.lundquist_number)
+        var match = items.filter(function (item) {
+          var id = item.id.toLowerCase();
+          return id.slice(id.indexOf(':') + 1) === lower;
+        })[0] || items.filter(function (item) { return item.id.toLowerCase().indexOf(lower) !== -1; })[0];
         target = match ? match.id : null;
       }
       var message = self.root.querySelector('[data-vg-search-result]');

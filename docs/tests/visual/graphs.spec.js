@@ -219,6 +219,18 @@ test('the assessment view links a concept to the check that assesses it', async 
   await expect(page.locator('.vg-details')).toContainText('diagnostic_fit.ip');
 });
 
+test('a physical model lists the ordering quantities it assumes, and each names its kernel', async ({ page }) => {
+  await openOntology(page);
+  await search(page, 'ideal_single_fluid_mhd');
+  await expect(page.locator('input[name="vg-view"][value="assessment"]')).toBeChecked();
+  await expect(page.locator('.vg-title')).toHaveText('ideal_single_fluid_mhd');
+  await expect(page.locator('.vg-details')).toContainText('assumes');
+  await expect(page.locator('.vg-details')).toContainText('lundquist_number');
+  await search(page, 'lundquist_number');
+  await expect(page.locator('.vg-details')).toContainText('assumed by');
+  await expect(page.locator('.vg-details')).toContainText('provided by');
+});
+
 test('in-site navigation between the explorers leaks no handlers or dividers', async ({ page }) => {
   await page.goto('workflows/start-here/');
   for (const label of ['Dependency explorer', 'Pipeline lineage explorer', 'Dependency explorer']) {

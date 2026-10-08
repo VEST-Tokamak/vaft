@@ -10,25 +10,28 @@
   var KIND_COLOR = {
     concept: '#4e79a7', concept_family: '#a0cbe8', diagnostic: '#f28e2b', machine: '#ffbe7d',
     code: '#59a14f', data_format: '#8cd17d', plot: '#b07aa1', api: '#9c755f', ids: '#e15759',
-    dd_path: '#ff9da7', validation: '#76b7b2', convention: '#edc948'
+    dd_path: '#ff9da7', validation: '#76b7b2', convention: '#edc948', model: '#d37295',
+    ordering_quantity: '#bab0ac'
   };
   var KIND_LABEL = {
     concept: 'Scientific concepts', concept_family: 'Families', diagnostic: 'Diagnostics', machine: 'Machine systems',
     code: 'External codes', data_format: 'Data formats', plot: 'Plots', api: 'API functions', ids: 'IMAS IDS',
-    dd_path: 'Data Dictionary paths', validation: 'Validation checks', convention: 'Conventions'
+    dd_path: 'Data Dictionary paths', validation: 'Validation checks', convention: 'Conventions',
+    model: 'Physical models', ordering_quantity: 'Ordering quantities'
   };
   var VIEW_LABEL = {
     concepts: 'Concepts (concepts, families, diagnostics, codes)',
     representations: 'Representations (IDS, Data Dictionary, mapping)',
     implementations: 'Implementations (plots, adapters)',
-    assessment: 'Assessment (validation, conventions)'
+    assessment: 'Assessment (validation, conventions, model validity)'
   };
   var LIMIT = 220;
   // how a relation reads from its target's side
   var INVERSE = {
     member_of: 'members', measures: 'measured by', derives: 'derived by', represented_by: 'represents',
     part_of: 'contains', mapped_by: 'maps', visualized_by: 'visualizes', reads: 'read by', assessed_by: 'assesses',
-    provided_by: 'provides', uses_convention: 'used by', implemented_by: 'implements', produces: 'produced by'
+    provided_by: 'provides', uses_convention: 'used by', implemented_by: 'implements', produces: 'produced by',
+    consumes: 'consumed by', derived_from: 'reduces to', assumes: 'assumed by'
   };
 
   var g = null;
@@ -77,6 +80,8 @@
         { selector: 'node.on-code, node.on-data_format', style: { 'shape': 'round-diamond' } },
         { selector: 'node.on-ids, node.on-dd_path', style: { 'shape': 'rectangle' } },
         { selector: 'node.on-validation', style: { 'shape': 'round-triangle' } },
+        { selector: 'node.on-model', style: { 'shape': 'round-pentagon' } },
+        { selector: 'node.on-ordering_quantity', style: { 'shape': 'round-tag' } },
         { selector: 'edge.on-member_of', style: { 'line-style': 'dashed', 'target-arrow-shape': 'none' } },
         { selector: 'edge.on-part_of, edge.on-reads', style: { 'line-style': 'dotted', 'opacity': 0.5 } }
       ];
@@ -162,12 +167,20 @@
       var facts = [];
       ['units', 'coordinates', 'data_type', 'lifecycle', 'dd_version', 'view', 'domain', 'category', 'family',
         'availability', 'mapping_status', 'ids_path', 'unit', 'measure', 'tolerance', 'cocos', 'psi_unit', 'roles', 'mode',
-        'maturity', 'role'].forEach(function (key) {
+        'maturity', 'role', 'physical_model', 'definition', 'scale', 'scope', 'group', 'reduction_input',
+        'reduction_output', 'reduction_kind', 'locality', 'physical_role'].forEach(function (key) {
         if (f[key] === undefined) return;
         var value = Array.isArray(f[key]) ? f[key].join(', ') : String(f[key]);
         facts.push('<li><span class="vg-meta">' + v.escape(key.replace(/_/g, ' ')) + ':</span> ' + v.escape(value) + '</li>');
       });
       if (facts.length) html += '<ul class="vg-list">' + facts.join('') + '</ul>';
+      // sentences, one per line: a contract's assumptions, limitations and references
+      ['assumptions', 'limitations', 'references'].forEach(function (key) {
+        if (!f[key] || !f[key].length) return;
+        html += '<h4>' + v.escape(key) + '</h4><ul class="vg-list">' + f[key].map(function (item) {
+          return '<li>' + v.escape(item) + '</li>';
+        }).join('') + '</ul>';
+      });
       var links = [v.link(f.plot_url, 'Plot reference'), v.link(f.api_url, 'API documentation'),
         v.link(f.code_url, 'External-code reference'), v.link(f.diagnostics_url, 'VEST diagnostics'),
         f.source && f.source.path ? v.sourceLink(f.source, 'Source') : ''];

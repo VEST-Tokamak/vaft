@@ -34,6 +34,14 @@ fact and says which (*From* in the detail panel):
 | `vaft.validation.registry` | named checks, what they check and the function that computes them |
 | `vaft.data.cocos` | the COCOS convention of each code and data format |
 | `vaft._ecosystem` | external codes, their adapters and the IDS their results are mapped into |
+| `vaft.formula._taxonomy` (#1626) | which quantity a formula reduces to which; each formula's `Reduction` section (input and output representation, reduction kind, locality, physical role) as facets |
+| `vaft.validation.orderings` (#1627) | each physical model's approximation contract, the ordering quantities it assumes small or large, and the formula kernels that compute them |
+
+The reduction graphs name quantities by their own keys (`q`, `I_p`, `s_hat`, `p_profile`). Only the keys
+the vocabulary resolves become edges; the rest are listed as unresolved, so the overlap between the two
+vocabularies is visible rather than assumed. Machine-readable applicability contracts declared beside
+formulas, codes and workflows (#1628) and learned-model metadata (#669) are not consumed yet: neither
+exists as an offline registry today.
 
 **Identity is strict.** `ip` and `I_p` are registered aliases of `plasma_current` and resolve to
 it; `beta_n`, `beta_p` and `beta_t` are three concepts in one family, not synonyms. A term that
@@ -46,7 +54,7 @@ a Data Dictionary path (*represented by*) only where that is unambiguous: a plot
 quantity that reads exactly one quantity path.
 
 Start from the compact **Concepts** view, search for a concept or an alias (`ip`, `ne`, `q95`,
-`thomson`), and switch views to see its representations, implementations or assessment.
+`thomson`, `resistive_mhd`), and switch views to see its representations, implementations or assessment.
 
 {% include graph/viewer.html adapter="ontology" src="/assets/graph/ontology-graph.json" label="VAFT scientific ontology graph" placeholder="Search a concept, alias, diagnostic, IDS, Data Dictionary path or check" %}
 
