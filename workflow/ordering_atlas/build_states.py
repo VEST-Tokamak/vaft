@@ -20,8 +20,13 @@ column or a manifest entry, never silent:
   ``rho_tor_norm``; ``r = rho_tor_norm * a`` (circular approximation, VEST
   ``kappa ~ 1.6``) and ``B = B0 R0 / (R0 + r)`` (vacuum field, outboard
   midplane);
-* ``T_i`` is the pressure-partition-inferred value of ``ti_inferred.csv`` when
-  present (``t_i_source = inferred``), otherwise absent -- never ``T_e``;
+* ``T_i`` is the pressure-partition-inferred value of ``ti_inferred.csv``
+  (its ``grid`` rows) **only on states whose Thomson verdict is consistent**
+  under criteria v2 (#1521, ``1 <= p/p_e <= 2``). Elsewhere the partition
+  attributes ``p - p_e`` to the ions and gives ``T_i/T_e`` of 6 on average and
+  up to ~200, which no ohmic VEST plasma carries; those states get
+  ``t_i_source = inferred_inconsistent`` and no ion quantities. ``T_i`` is
+  never set to ``T_e``;
 * ``Z_eff`` is an explicit assumption (``--z-eff``, default 2.0, the VEST
   impurity preset) and ``ln Lambda`` the NRL value at the global ``n_e``,
   ``T_e``;
@@ -159,7 +164,7 @@ def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_toler
     ti_path = atlas / "ti_inferred.csv"
     if ti_path.exists():
         for row in _rows(ti_path):
-            if row.get("efit_lineage") == "magnetics":
+            if row.get("efit_lineage") == "magnetics" and row.get("kind", "grid") == "grid":
                 ti_rows.setdefault((int(row["shot"]), round(_float(row["time_efit_s"]), 4)), []).append(row)
     onsets: dict[int, tuple] = {}
     states, profiles = [], []
@@ -203,6 +208,10 @@ def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_toler
             r = rho[keep] * a
             ti = None
             channels = ti_rows.get((shot, time_s))
+            consistent = str(row.get("thomson_consistent", "")).lower() == "true"
+            if channels and not consistent:
+                record["t_i_source"] = "inferred_inconsistent"
+                channels = None
             if channels:
                 ti_rho = np.array([_float(c["rho_tor_norm"]) for c in channels])
                 ti_val = np.array([_float(c["t_i_ev"]) for c in channels])
@@ -210,7 +219,7 @@ def build(atlas: Path, confinement: Path, filedb: Path, z_eff: float, time_toler
                 if good.sum() >= 2:
                     order = np.argsort(ti_rho[good])
                     ti = np.interp(rho[keep], ti_rho[good][order], ti_val[good][order], left=np.nan, right=np.nan)
-            record["t_i_source"] = "inferred" if ti is not None else "missing"
+            record.setdefault("t_i_source", "inferred" if ti is not None else "missing")
             quantities = profile_ordering_quantities(
                 minor_radius_coordinate=r, n_e=prof["n_e"][keep], t_e=prof["t_e"][keep],
                 magnetic_field=b0 * r0 / (r0 + r),
@@ -255,7 +264,8 @@ def main(argv=None) -> int:
                 "states": len(states), "profile_rows": len(profiles),
                 "assumptions": ["r = rho_tor_norm * a", "B = B0 R0 / (R0 + r)",
                                 "global n_e, T_e = area-weighted profile means", "n_i = n_e",
-                                "Z_eff constant (assumed)", "T_i only where pressure-partition inferred"]}
+                                "Z_eff constant (assumed)",
+                                "T_i only where pressure-partition inferred AND Thomson-consistent (criteria v2)"]}
     (args.out / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"{len(states)} states, {len(profiles)} profile rows -> {args.out}")
     return 0
