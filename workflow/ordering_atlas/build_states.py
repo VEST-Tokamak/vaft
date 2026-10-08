@@ -125,10 +125,17 @@ def _onset(filedb: Path, shot: int):
     if not candidates:
         return math.nan, "no diagnostics ODS"
     try:
-        from omas import ODS
+        import tempfile
 
-        ods = ODS()
-        ods.update(_load_json(candidates[0]))
+        from omas import load_omas_json
+
+        # the documented loader, never an ODS assignment (#118: assignment vivifies paths)
+        with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as handle:
+            json.dump(_load_json(candidates[0]), handle)
+        try:
+            ods = load_omas_json(handle.name, consistency_check=False)
+        finally:
+            Path(handle.name).unlink()
         timing = plasma_timing(ods)
     except Exception as error:  # a broken ODS is a missing onset, recorded
         return math.nan, f"timing failed: {type(error).__name__}"

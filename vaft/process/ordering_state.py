@@ -313,6 +313,23 @@ def time_history_ordering_quantities(
     return out
 
 
+def _inverse_gradient_length(r: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """``|dln y / dr|`` on the finite, positive samples of ``y``; NaN elsewhere.
+
+    A profile known only on part of the grid (an ion temperature inferred
+    inside the Thomson span) keeps its gradient where it is known instead of
+    losing it everywhere.
+    """
+    from vaft.formula.utils import normalized_gradient_scale_length
+
+    out = np.full(r.shape, np.nan)
+    ok = np.isfinite(r) & np.isfinite(y) & (y > 0)
+    if ok.sum() >= 3:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            out[ok] = np.abs(normalized_gradient_scale_length(r[ok], y[ok], 1.0))
+    return out
+
+
 def _masked(valid: np.ndarray, values: np.ndarray) -> np.ndarray:
     out = np.full(valid.shape, np.nan)
     out[valid] = values[valid]
@@ -376,7 +393,8 @@ def profile_ordering_quantities(
 
     Processing steps
     ----------------
-    1. Gradient lengths ``L_T = |T / (dT/dr)|`` per species on ``r``.
+    1. Gradient lengths ``L_T = |T / (dT/dr)|`` per species on ``r``, on the
+       finite positive samples of that species' temperature only.
     2. ``rho_s`` from ``T_e`` and ``rho_i = v_ti / Omega_ci`` with
        ``v_ti = sqrt(T_i/m_i)``; each over its own ``L_T``.
     3. Braginskii collision times, mean free paths ``v_t tau`` and the
@@ -419,7 +437,6 @@ def profile_ordering_quantities(
         thermal_speed,
     )
     from vaft.formula.particle import gyrofrequency, larmor_radius
-    from vaft.formula.utils import normalized_gradient_scale_length
 
     r = np.asarray(minor_radius_coordinate, dtype=float)
     ne = np.asarray(n_e, dtype=float)
@@ -447,8 +464,7 @@ def profile_ordering_quantities(
             mask &= np.isfinite(array) & (array > 0)
         return mask
 
-    with np.errstate(divide="ignore", invalid="ignore"):
-        inv_lte = np.abs(normalized_gradient_scale_length(r, te, 1.0)) if np.all(np.isfinite(te)) else np.full(r.shape, np.nan)
+    inv_lte = _inverse_gradient_length(r, te)
     one = np.ones(r.shape)
     e_ok = ok(ne, te, b, q, r)
     if e_ok.any():
@@ -464,9 +480,7 @@ def profile_ordering_quantities(
             safe_ne, safe_te, safe_q, major, eps, float(z_eff), float(ln_lambda)), dtype=float) * one)
         out["debye_length_over_L"] = _masked(e_ok & np.isfinite(inv_lte), debye_length(safe_ne, safe_te) * inv_lte)
     if ti is not None:
-        with np.errstate(divide="ignore", invalid="ignore"):
-            inv_lti = (np.abs(normalized_gradient_scale_length(r, ti, 1.0)) if np.all(np.isfinite(ti))
-                       else np.full(r.shape, np.nan))
+        inv_lti = _inverse_gradient_length(r, ti)
         i_ok = ok(ne, ti, b, q, r)
         if i_ok.any():
             safe_ne, safe_ti, safe_b, safe_q, safe_r = (np.where(i_ok, x, 1.0) for x in (ne, ti, b, q, r))

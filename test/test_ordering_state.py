@@ -146,3 +146,12 @@ def test_the_table_feeds_the_ordering_contracts_directly():
     population = evaluate_population(contract("ideal_single_fluid_mhd"), ordering_table(states))
     assert population.loc[0, "lundquist_number_status"] == "SUPPORTED"
     assert population.loc[0, "status"] == "UNASSESSED"  # profile and mode orderings are absent
+
+
+def test_a_partially_known_ion_temperature_keeps_its_gradient_where_known():
+    kwargs, l_t = _profiles()
+    t_i = kwargs["t_i"].copy()
+    t_i[:3] = np.nan  # e.g. inferred only inside the Thomson span
+    p = profile_ordering_quantities(**{**kwargs, "t_i": t_i})
+    assert np.all(np.isnan(p["rho_i_over_LTi"][:3]))
+    assert np.all(np.isfinite(p["rho_i_over_LTi"][4:-1]))
