@@ -89,3 +89,22 @@ def test_strict_positivity_where_the_formula_needs_it():
         pp.predator_prey_rhs(-1.0, 1.0, **PARAMS)
     with pytest.raises(ValueError, match="approximation"):
         pp.predator_prey_period(0.3, 0.1, approximation="exact")
+
+
+def test_the_time_average_over_whole_periods_is_the_fixed_point():
+    n_star, e_star = pp.predator_prey_fixed_point(**PARAMS)
+    t, y = integrate(1.5, 0.3, 200.0, dt=2e-3)
+    dn = y[:, 0] - n_star
+    up = np.where((dn[:-1] < 0) & (dn[1:] >= 0))[0]
+    a, b = up[0], up[-1]                                   # whole periods only
+    integ = getattr(np, "trapezoid", None) or np.trapz
+    span = t[b] - t[a]
+    assert integ(y[a:b + 1, 0], t[a:b + 1]) / span == pytest.approx(n_star, rel=2e-3)
+    assert integ(y[a:b + 1, 1], t[a:b + 1]) / span == pytest.approx(e_star, rel=2e-3)
+
+
+def test_both_outputs_share_one_broadcast_shape():
+    n_star, e_star = pp.predator_prey_fixed_point(0.3, 0.5, 0.2, np.array([0.1, 0.2]))
+    assert np.shape(n_star) == np.shape(e_star) == (2,)
+    dn, de = pp.predator_prey_rhs(1.0, 0.6, 0.3, 0.5, 0.2, np.array([0.1, 0.2]))
+    assert np.shape(dn) == np.shape(de) == (2,)

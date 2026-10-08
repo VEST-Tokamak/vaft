@@ -159,6 +159,7 @@ def predator_prey_rhs(turbulence, zonal, gamma_eff, coupling_suppression, coupli
     c1 = _rate(coupling_suppression, "coupling_suppression", strict=False)
     c2 = _rate(coupling_drive, "coupling_drive", strict=False)
     gz = _rate(gamma_zonal, "gamma_zonal", strict=False)
+    n, e, g, c1, c2, gz = np.broadcast_arrays(n, e, g, c1, c2, gz)
     return _out(g * n - c1 * n * e), _out(c2 * n * e - gz * e)
 
 
@@ -222,6 +223,7 @@ def predator_prey_fixed_point(gamma_eff, coupling_suppression, coupling_drive, g
     c1 = _rate(coupling_suppression, "coupling_suppression", strict=True)
     c2 = _rate(coupling_drive, "coupling_drive", strict=True)
     gz = _rate(gamma_zonal, "gamma_zonal", strict=True)
+    g, c1, c2, gz = np.broadcast_arrays(g, c1, c2, gz)
     return _out(gz / c2), _out(g / c1)
 
 
@@ -382,7 +384,8 @@ def predator_prey_response_lag(gamma_eff, gamma_zonal, *, approximation="lineari
     Linearizing about the fixed point gives $\delta\dot N = -c_1N_*\delta E$
     and $\delta\dot E = c_2E_*\delta N$, so $\delta E$ is $\delta N$ shifted by
     a quarter period: the zonal flow builds up while the turbulence is high
-    and peaks as it starts to collapse.
+    and peaks when the turbulence, already falling, crosses its mean level
+    and is collapsing fastest.
 
     Assumptions
     -----------
