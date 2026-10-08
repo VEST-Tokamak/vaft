@@ -424,6 +424,17 @@ def _threshold_blockers_in_dcon(dcon_dir: Path) -> list[str]:
     return problems
 
 
+def _attach_formalism(record: GPECModuleRun, config: GPECSuiteConfig, *, dcon_dir: Path | None = None) -> None:
+    """Record the run's plasma formalism (#1734) from the namelists it was prepared with."""
+    if not Path(record.workdir).is_dir():
+        return
+    from ._formalism import resolve_plasma_formalism
+
+    formalism = resolve_plasma_formalism(record.module, record.workdir, config=config, dcon_dir=dcon_dir)
+    if formalism is not None:
+        record.plasma_formalism = formalism.as_dict()
+
+
 def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:
     """Locate same-cell DCON output, possibly in a separate code work tree."""
 
@@ -841,7 +852,12 @@ def run_gpec_suite_case(
     run_order = tuple(module for module in ("dcon", "rdcon", "stride", "gpec") if module in modules)
     for mode in modes:
         for module in run_order:
-            records.append(_run_module(inputs, config, module, mode))
+            record = _run_module(inputs, config, module, mode)
+            _attach_formalism(
+                record, config,
+                dcon_dir=_dcon_run_dir(inputs, mode, Path(inputs.geqdsk)) if module == "gpec" else None,
+            )
+            records.append(record)
 
     failures = [record for record in records if record.status == "failed"]
     returncode = 1 if failures else 0
