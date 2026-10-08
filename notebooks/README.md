@@ -89,6 +89,7 @@ Pipeline notebooks are expanded as the reusable VAFT functions behind them becom
 - `profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`: Existing profile-fitting and kinetic-diagnostic example notebook.
 - `confinement_time_scaling.ipynb`: Existing confinement time scaling analysis notebook.
 - `single_machine_confinement_scaling_and_dimensional_analysis.ipynb`: What one machine can identify about confinement scaling — engineering fits with their identifiability diagnostics, Buckingham-Pi groups from an exact dimension-matrix null space, the Connor–Kadomtsev constraint derived from the quasi-neutral similarity assumption, the engineering/dimensionless equivalence test, and VEST's Tier A result sorted into four failure modes (#1621).
+- `vest_ordering_and_model_applicability.ipynb`: Which asymptotic orderings and reduced models the VEST Tier A population supports, as continuous margins and contract statuses, with representative states for downstream solver studies (#1629).
 - `tokamak_power_balance.ipynb`: Radiation loss channels on one power-density basis — a temperature scan at assumed flat density, then the same channels integrated over the measured Thomson profiles of the packaged kinetic-EFIT sample (shot 48224 at 300 ms), which the flat estimate underestimates by a factor of two.
 - `shot_characteristics_classification.ipynb`: Per-shot feature records from the packaged shots — timing with its detector and agreement, equilibrium descriptors, a class label with its threshold sensitivity shown, a review state beside the automatic proposal, and the summary table an aggregation rule would write.
 - `vest_daily_monitoring.ipynb`: Existing daily monitoring notebook for VEST data review.
@@ -130,7 +131,8 @@ Use the following order as the main technical path through the notebooks. Existi
 27. `multiple_tokamak_comparison.ipynb`
 28. `multi_machine_confinement_database.ipynb`
 29. `multi_machine_operation_space_database.ipynb`
-30. `publication_figures.ipynb`
+30. `vest_ordering_and_model_applicability.ipynb`
+31. `publication_figures.ipynb`
 
 For a shorter review focused only on the notebooks still waiting on an external
 Fortran code, read their **Requirements to run this page** sections:
