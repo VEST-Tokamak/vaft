@@ -44,7 +44,6 @@ __all__ = [
     "core_profiles_time_volume_averaged",
     "current_overview",
     "current_overview_reconstruction",
-    "current_overview_reconstruction",
     "diagnostics_overview",
     "kinetic_overview_profiles",
     "equilibrium_overview",
@@ -282,7 +281,11 @@ def render_panels(
         # finalize hangs it from the top edge inside the band tight_layout
         # reserves for it (just above the first row's titles, whatever the
         # grid's shape), and again when a presentation format re-lays it out.
-        figure.suptitle(model.suptitle)
+        title = figure.suptitle(model.suptitle)
+        if model.title_over_axes:
+            from ..style import TITLE_OVER_AXES_GID
+
+            title.set_gid(TITLE_OVER_AXES_GID)
     # A figure the caller owns keeps the caller's layout: tight_layout is
     # applied only to a figure this renderer created (issue #260 section 8;
     # a figure that redraws its panels must not be re-laid-out each time).
@@ -813,16 +816,17 @@ def current_overview(
     quantity="reconstruction",
     description=(
         "Measured I_p with the reconstructed I_p of every equilibrium slice by "
-        "convergence, PF ampere-turns and eddy currents, in kA."
+        "convergence, PF coil currents and eddy currents, in kA."
     ),
     ids=("magnetics", "pf_active", "pf_passive", "equilibrium"),
     required_paths=(
         "magnetics.ip.0.data",
-        "equilibrium.time_slice.{i}.global_quantities.ip",
         "pf_active.coil.{i}.current.data",
         "pf_passive.time",
         "pf_passive.loop.{i}.current",
     ),
+    # Without an equilibrium the top panel is the measured current alone.
+    optional_paths=("equilibrium.time_slice.{i}.global_quantities.ip",),
 )
 def current_overview_reconstruction(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
@@ -847,11 +851,15 @@ def current_overview_reconstruction(
     converged, a cross where it says it did not, hollow where no evidence was
     stored.  A marker on the trace says the reconstruction matched the
     measured current; one off it, or a cross, says that slice should not be
-    read further.  The middle panel is each PF coil's current times its turns,
-    the ampere-turns that actually drive flux, so coils of different turn
-    counts compare directly.  The bottom panel is the current induced in the
-    vessel and passive structure: every loop faint, their total strong, so the
-    spread behind the total stays visible without a legend entry per loop.
+    read further.  The middle panel is each PF coil's current as stored, per
+    turn.  The bottom panel is the current induced in the vessel and passive
+    structure: their total strong against the left axis, and every loop faint
+    against a right-hand axis of its own, since one loop carries about a
+    hundredth of the total and would otherwise vanish onto zero.  In the
+    Matplotlib figure the two axes put their zero at the same height whenever
+    both ranges straddle it, so a loop and the total read above or below it
+    the same way; their scales differ.  Without an equilibrium the top panel
+    is the measured current alone.
 
     Options
     -------
@@ -860,13 +868,21 @@ def current_overview_reconstruction(
     positive and the reconstructed points follow the same sign;
     ``"canonical"`` keeps the stored sign.  ``time_range=`` cuts all three
     panels to a window and makes it the shared axis; without it the axis
-    spans the data the panels hold.
+    spans the discharge -- from the first PF coil or plasma current above a
+    tenth of its peak to the last, with a 5 % margin each side -- rather
+    than the whole record.
+
+    Under a presentation format the figure is drawn at most 6.5 in wide (a
+    column beside a cross-section on a slide), with each panel's legend in
+    the corner a discharge leaves empty, at half the format's type size
+    (never below 7 pt), and the title centred over the time axis;
+    ``figsize=`` or ``ax=`` take the canvas over.
 
     Convention
     ----------
-    Currents are in kA; the PF panel is in kA-turns, each coil's current
-    times the sum of its elements' absolute turns, so the stored current's
-    sign is kept.  The PF and eddy panels keep the IMAS sign; only the plasma
+    Currents are in kA.  The PF panel is the stored coil current, per turn
+    (``pf_coil_time_current_turns`` multiplies it by the turns).  The PF and
+    eddy panels keep the IMAS sign; only the plasma
     current is re-signed for display, and the figure title says so when it is.
 
     Limitations
@@ -877,7 +893,10 @@ def current_overview_reconstruction(
     verify_convergence`` reads it; a converged slice can still fit the
     magnetics poorly, which ``equilibrium_overview_fit_quality`` shows.  PF
     coils that carry no current at all in the shot are not drawn;
-    ``pf_coil_time_current_turns`` draws every coil.
+    ``pf_coil_time_current`` draws every coil.  A loop sample that is not
+    finite is left out of the total at that time, and the total is missing
+    only where no loop is finite.  The 6.5 in column keeps the format's type
+    size, so a ``poster`` figure is tall and narrow; pass ``figsize=`` there.
 
     See Also
     --------

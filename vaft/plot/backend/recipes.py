@@ -1426,14 +1426,14 @@ _CONVERGENCE_VERDICT_READS = (
 )
 
 #: current_overview_reconstruction: measured I_p, the reconstructed I_p of
-#: every slice with its convergence verdict, PF ampere-turns and eddy currents.
+#: every slice with its convergence verdict, PF coil currents and eddy currents.
 _CURRENT_OVERVIEW_RECONSTRUCTION_READS = (
     "magnetics.ip.0.data", "magnetics.ip.0.time", *_MAGNETICS_TIME,
     "equilibrium.time", "equilibrium.time_slice.{i}.time",
     "equilibrium.time_slice.{i}.global_quantities.ip",
     *_CONVERGENCE_VERDICT_READS,
     "pf_active.time", "pf_active.coil.{i}.current.data", "pf_active.coil.{i}.current.time",
-    "pf_active.coil.{i}.name", "pf_active.coil.{i}.element.{j}.turns_with_sign",
+    "pf_active.coil.{i}.name",
     "pf_passive.time", "pf_passive.loop.{i}.current",
     "dataset_description.data_entry.pulse",
 )
@@ -2184,11 +2184,11 @@ RECIPES: dict[str, Any] = {
         suptitle="Electromagnetic Currents",
     ),
     # The slide companion of current_overview: the reconstructed I_p of every
-    # slice beside the measurement, PF ampere-turns and the eddy total over
-    # its loops, all in kA (built by code, so the scaling is the builder's).
+    # slice beside the measurement, the PF coil currents and the eddy total
+    # over its loops, all in kA (built by code, so the scaling is the builder's).
     "current_overview_reconstruction": CallableRecipe(
         builder=lambda ods, **options: _build_current_overview_reconstruction(ods, **options),
-        description="Measured and reconstructed I_p, PF ampere-turns and eddy currents, in kA.",
+        description="Measured and reconstructed I_p, PF coil currents and eddy currents, in kA.",
         reads=_CURRENT_OVERVIEW_RECONSTRUCTION_READS,
         backend=NEUTRAL,
         windowed=True,
@@ -8377,7 +8377,7 @@ def _build_passive_current(ods: Any, *, channels: Any = None, **_: Any) -> LineS
 
 # ---------------------------------------------------------------------------
 # current_overview_reconstruction: I_p measured and reconstructed, PF
-# ampere-turns and the eddy currents on one time axis, in kA.
+# coil currents and the eddy currents on one time axis, in kA.
 # ---------------------------------------------------------------------------
 
 #: How a reconstructed slice is drawn for each convergence verdict: filled
@@ -8446,21 +8446,69 @@ def _windowed(series: Series, window: tuple[float, float] | None) -> Series | No
     keep = (series.x >= window[0]) & (series.x <= window[1])
     if not keep.any():
         return None
-    return dataclasses.replace(series, x=series.x[keep], y=series.y[keep])
+    # Every per-sample array is cut with x and y, or the trace rejects itself.
+    yerr = None if series.yerr is None else np.asarray(series.yerr)[..., keep]
+    mask = None if series.valid_mask is None else series.valid_mask[keep]
+    return dataclasses.replace(series, x=series.x[keep], y=series.y[keep], yerr=yerr, valid_mask=mask)
+
+
+#: The legend style of the stacked overview: compact, unframed, at half the
+#: format's type size (resolved by the line renderer, never below 7 pt).
+_OVERVIEW_LEGEND: Mapping[str, Any] = {
+    "fontsize_scale": 0.5, "frameon": False, "handlelength": 1.2,
+    "labelspacing": 0.2, "columnspacing": 1.0, "borderaxespad": 0.4,
+}
+
+#: Fraction of its peak a current must exceed to count as driven: the plasma
+#: current against its own peak, the PF coils against the largest coil's.
+_DISCHARGE_ACTIVE_FRACTION = 0.10
+#: Margin either side of the driven span, as a fraction of it.
+_DISCHARGE_MARGIN = 0.05
+
+
+def _discharge_window(ip: Series, coils: Sequence[Series]) -> tuple[float, float] | None:
+    """The span the coils and the plasma are driven, with a margin; ``None`` if none.
+
+    A record holds long quiet stretches before the first coil fires and after
+    the plasma has gone, which squeeze the discharge into a sliver of the
+    axis.  The span runs from the first sample any PF coil carries more than
+    :data:`_DISCHARGE_ACTIVE_FRACTION` of the largest coil's peak, or the
+    plasma more than that fraction of its own, to the last such sample, and
+    is widened by :data:`_DISCHARGE_MARGIN` either side.  Offsets that never
+    return to zero stay below the threshold, so they do not stretch it.
+    """
+    starts, ends = [], []
+    for traces in ((ip,), tuple(coils)):
+        peak = max((float(np.nanmax(np.abs(t.y))) for t in traces if np.isfinite(t.y).any()), default=0.0)
+        if not peak > 0.0:
+            continue
+        for trace in traces:
+            active = np.abs(np.nan_to_num(trace.y)) > _DISCHARGE_ACTIVE_FRACTION * peak
+            if active.any():
+                starts.append(float(trace.x[active][0]))
+                ends.append(float(trace.x[active][-1]))
+    if not starts:
+        return None
+    low, high = min(starts), max(ends)
+    if not high > low:
+        return None
+    margin = _DISCHARGE_MARGIN * (high - low)
+    return (low - margin, high + margin)
 
 
 def _build_current_overview_reconstruction(ods: Any, **options: Any) -> Panels:
-    """I_p (measured and every EFIT slice), PF ampere-turns and eddy currents in kA.
+    """I_p (measured and every EFIT slice), PF coil currents and eddy currents in kA.
 
     Panel 1 draws the Rogowski I_p and, as markers at each slice's time, the
     I_p each reconstruction converged to, split by the solver's convergence
-    verdict.  Panel 2 weights each PF coil's current by its turns, as
-    ``pf_coil_time_current_turns`` does; coils that carry no current at all
-    in the shot are left out.
-    Panel 3 draws every passive loop faint and unlabelled under their total.
+    verdict.  Panel 2 is each PF coil's current as stored, per turn as
+    ``pf_coil_time_current`` draws it; coils that carry no current at all in
+    the shot are left out.  Panel 3 draws the eddy total, with every passive
+    loop faint against a right-hand axis of its own.
     ``orientation=`` signs panel 1 as ``plasma_current_time`` does (the
     measured trace decides, the reconstruction follows); ``time_range=`` cuts
-    every panel to a window and makes it the axis.
+    every panel to a window and makes it the axis, and without it the window
+    is the discharge (:func:`_discharge_window`).
     """
     orientation = options.get("orientation", "intuitive")
     window = _range_option(options, "time_range")
@@ -8475,23 +8523,11 @@ def _build_current_overview_reconstruction(ods: Any, **options: Any) -> Panels:
                       style={"color": "role:measured", "lw": 1.3})
     oriented, flipped = _orient((measured,), orientation)
     sign = -1.0 if flipped else 1.0
-    ip_series: list[Series] = [oriented[0]]
-    points = _reconstructed_ip_points(ods)
-    if not points:
-        raise ValueError("no equilibrium slice stores global_quantities.ip at a known time")
-    for key, label, marker in _SLICE_VERDICT_MARKERS:
-        if key not in points:
-            continue
-        when, value = points[key]
-        # Drawn beside the measurement rather than in a role of it: a role
-        # replaces the label with the role's name, and the three verdicts must
-        # stay distinguishable.  The sign follows the measured trace's.
-        ip_series.append(Series(
-            x=when, y=sign * value * kilo, label=f"{label} (n={when.size})",
-            style={"color": "role:reconstructed", "linestyle": "none", **marker},
-        ))
+    # Without an equilibrium (EFIT not run on the shot) the panel is the
+    # measured current alone; the markers are added once the window is known.
+    points = _reconstructed_ip_points(ods) if _count(ods, "equilibrium.time_slice") else {}
 
-    # --- PF ampere-turns -------------------------------------------------------
+    # --- PF coil currents -------------------------------------------------------
     coil_traces: list[Series] = []
     for index in range(_count(ods, "pf_active.coil")):
         current = _array(ods, f"pf_active.coil.{index}.current.data")
@@ -8501,10 +8537,9 @@ def _build_current_overview_reconstruction(ods: Any, **options: Any) -> Panels:
         name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"coil {index}")
         if not np.any(np.nan_to_num(current)):
             continue  # a coil the shot never energised: a flat line and a legend entry
-        turns = _weight(ods, "pf_active.coil.{i}.element.:.turns_with_sign", index)
         coil_traces.append(Series(
-            x=time, y=current * turns * kilo, label=name, index=index,
-            style={"color": palette(len(coil_traces))},
+            x=time, y=current * kilo, label=name, index=index,
+            style={"color": palette(len(coil_traces)), "lw": 1.3},
         ))
     if not coil_traces:
         raise ValueError("no PF coil carries a current with a matching time base")
@@ -8518,28 +8553,65 @@ def _build_current_overview_reconstruction(ods: Any, **options: Any) -> Panels:
         )
     loops: list[Series] = []
     total = np.zeros_like(passive_time, dtype=float)
+    finite = np.zeros(passive_time.shape, dtype=bool)
     for index in range(_count(ods, "pf_passive.loop")):
         current = _array(ods, f"pf_passive.loop.{index}.current")
         if current is None or current.shape != passive_time.shape:
             continue
-        total = total + current
-        loops.append(Series(x=passive_time, y=current * kilo, label="", index=index,
+        # A sample one loop lacks is left out of the total, not allowed to
+        # blank it; the total is missing only where no loop has a value.
+        total = total + np.nan_to_num(current, nan=0.0, posinf=0.0, neginf=0.0)
+        finite |= np.isfinite(current)
+        # One loop carries ~1% of the total, so the loops are drawn against a
+        # right-hand axis of their own; on the total's scale they collapse onto
+        # zero.  The first one names them all in the legend.
+        loops.append(Series(x=passive_time, y=current * kilo,
+                            label="" if loops else "Each loop (right axis)", index=index,
+                            secondary=True,
                             style={"color": "emphasis:faint", "alpha": 0.15, "lw": 0.5}))
     if not loops:
         raise ValueError("no passive loop current matches the pf_passive time base")
-    if not np.isfinite(total).any():
+    total = np.where(finite, total, np.nan)
+    if not finite.any():
         raise ValueError(
             "the eddy-current solution is entirely non-finite; the impedance "
             "matrix was singular and solve_eddy_currents fell back to NaN"
         )
+    # The total is the line the faint loops are read against, drawn as the
+    # panel's reference; widths match the other panels' traces.
     eddy = [*loops, Series(x=passive_time, y=total * kilo, label=f"Total ({len(loops)} loops)",
-                           style={"color": palette(0), "lw": 1.8})]
+                           style={"color": "role:reference", "lw": 1.5})]
 
+    asked = window is not None
+    if window is None:
+        window = _discharge_window(oriented[0], coil_traces)
+    ip_series: list[Series] = [oriented[0]]
+    for key, label, marker in _SLICE_VERDICT_MARKERS:
+        if key not in points:
+            continue
+        when, value = points[key]
+        if window is not None:
+            inside = (when >= window[0]) & (when <= window[1])
+            when, value = when[inside], value[inside]
+        if not when.size:
+            continue
+        # Drawn beside the measurement rather than in a role of it: a role
+        # replaces the label with the role's name, and the three verdicts must
+        # stay distinguishable.  The sign follows the measured trace's, and the
+        # count is of the slices drawn.
+        ip_series.append(Series(
+            x=when, y=sign * value * kilo, label=f"{label} (n={when.size})",
+            style={"color": "role:reconstructed", "linestyle": "none", **marker},
+        ))
     panels_series = []
     for traces in (ip_series, coil_traces, eddy):
         kept = [cut for cut in (_windowed(trace, window) for trace in traces) if cut is not None]
         if not kept:
-            raise ValueError(f"time_range={window} holds none of a panel's samples")
+            where = f"time_range={window}" if asked else f"the discharge window {window}"
+            raise ValueError(
+                f"{where} holds none of a panel's samples"
+                + ("" if asked else "; pass time_range= to choose the window")
+            )
         panels_series.append(tuple(kept))
     if window is None:
         # Clipped to the data: the shared axis spans what the three panels hold.
@@ -8557,14 +8629,26 @@ def _build_current_overview_reconstruction(ods: Any, **options: Any) -> Panels:
             LineSeries(series=panels_series[0], x_label="Time", x_unit="s",
                        y_label=r"$I_\mathrm{p}$", y_unit="kA", x_limits=limits),
             LineSeries(series=panels_series[1], x_label="Time", x_unit="s",
-                       y_label=r"$I_\mathrm{PF}$", y_unit="kA-turns", x_limits=limits),
+                       y_label=r"$I_\mathrm{PF}$", y_unit="kA", x_limits=limits),
             LineSeries(series=panels_series[2], x_label="Time", x_unit="s",
-                       y_label=r"$I_\mathrm{eddy}$", y_unit="kA", x_limits=limits),
+                       y_label=r"$I_\mathrm{eddy}$", y_unit="kA", x_limits=limits,
+                       secondary_y_label="per loop", secondary_y_unit="kA"),
         ),
         ncols=1, share_x=True, share_legend=False,
-        # The total is the eddy panel's one labelled trace; the legend policy
-        # drops a lone entry, which would leave the faint loops unexplained.
-        member_styles=({}, {}, {"legend": True}),
+        # Each legend in the corner a discharge leaves empty -- before
+        # breakdown for I_p and the eddy currents, after the swing for PF --
+        # at half the format's type size.  The eddy legend is forced on: the
+        # policy can drop one of so few entries, which would leave the faint
+        # loops on the right axis unexplained.
+        member_styles=(
+            {"legend_placement": {**_OVERVIEW_LEGEND, "loc": "upper left"}},
+            {"legend_placement": {**_OVERVIEW_LEGEND, "loc": "upper right", "ncol": 2}},
+            {"legend": True, "legend_placement": {**_OVERVIEW_LEGEND, "loc": "upper left"}},
+        ),
+        # A column beside a cross-section on a slide; the right-hand eddy
+        # scale would otherwise pull the title off the time axis.
+        max_width_in=6.5,
+        title_over_axes=True,
         suptitle=f"Plasma, PF and eddy currents{shot}" + (" (I_p sign flipped)" if flipped else ""),
     )
 

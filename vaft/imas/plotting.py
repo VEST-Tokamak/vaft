@@ -534,7 +534,7 @@ def plot_current_overview_reconstruction(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Measured and reconstructed I_p, PF ampere-turns and eddy currents, in kA.
+    """Measured and reconstructed I_p, PF coil currents and eddy currents, in kA.
 
     Renders with :func:`vaft.plot.current_overview_reconstruction` from native IMAS input.
     """

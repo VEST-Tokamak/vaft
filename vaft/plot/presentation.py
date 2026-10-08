@@ -450,6 +450,10 @@ class Presentation:
         if self.format is None:
             return fallback
         width = self.format.width_in
+        cap = getattr(model, "max_width_in", None)
+        if cap is not None:
+            # A composite drawn as a narrow column (Panels.max_width_in).
+            width = min(width, float(cap))
         ceiling = self.format.max_height_in
         policy = GEOMETRY.get(type(model).__name__, GeometryPolicy("aspect", 0.62))
         if policy.kind == "aspect":
