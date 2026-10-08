@@ -52,10 +52,12 @@ def test_rendering_without_the_toolchain_says_what_is_missing(monkeypatch):
 
 def test_without_the_toolchain_a_canonical_diagram_is_served_from_its_committed_asset(monkeypatch):
     """The tutorials run offline with no TeX: a diagram built with the exact
-    arguments of a committed asset displays that asset, byte for byte."""
+    arguments of a committed asset displays that asset, byte for byte as the
+    renderer wrote it (its build record line is not part of the picture)."""
     monkeypatch.setattr(shutil, "which", lambda name: None)
     d = vaft.diagram.rational_surface()
-    assert d.svg == (ASSETS / "rational_surface.svg").read_text(encoding="utf-8")
+    _, body = build.read_record(ASSETS / "rational_surface.svg")
+    assert d.svg == body
 
 
 def test_without_the_toolchain_a_non_canonical_diagram_still_refuses(monkeypatch):
