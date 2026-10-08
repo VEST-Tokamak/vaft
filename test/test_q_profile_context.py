@@ -208,6 +208,18 @@ def test_a_nan_radius_drops_only_itself_not_the_next_sample():
     assert ctx.q_min == pytest.approx(0.9)
 
 
+def test_a_radius_on_an_unusable_sample_sets_no_bar_for_later_samples():
+    """An out-of-order radius where q is NaN is never validated, so it must not drop the rest."""
+    q = _monotonic(q0=1.2)
+    q[120] = np.nan
+    rho = PSI.copy()  # a real toroidal radius, not the sqrt(psi_n) proxy
+    rho[120] = 5.0
+    ctx = core_q_context_from_profiles(PSI, q, rho_tor_norm=rho)
+    reference = core_q_context_from_profiles(np.delete(PSI, 120), np.delete(q, 120), rho_tor_norm=np.delete(rho, 120))
+    assert ctx.coordinate == "rho_tor_norm"
+    assert ctx.q95 is not None and ctx.q95 == pytest.approx(reference.q95)
+
+
 def test_one_interior_maximum_is_single_maximum_not_multi_extremum():
     hump = 3.0 - 4.0 * (PSI - 0.5) ** 2
     assert core_q_context_from_profiles(PSI, hump).q_profile_topology == "single_maximum"

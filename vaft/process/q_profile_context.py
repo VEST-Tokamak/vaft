@@ -614,9 +614,11 @@ def core_q_context_from_profiles(
         else:
             rho, coordinate, rho_note = candidate, "rho_tor_norm", "rho_tor_norm as given"
     # Duplicate radii (psi_n clipped below 0) cannot carry a derivative.  Each
-    # sample is compared with the last finite radius before it, so a NaN radius
-    # drops only itself, not the finite sample after it.
-    previous = np.fmax.accumulate(np.where(np.isfinite(rho), rho, -np.inf))
+    # sample is compared with the last usable radius before it, so a NaN radius
+    # drops only itself, not the finite sample after it; a radius on a sample
+    # that is not usable (q NaN, the axis outlier) was never validated and sets
+    # no bar for the samples after it.
+    previous = np.fmax.accumulate(np.where(usable & np.isfinite(rho), rho, -np.inf))
     usable &= np.concatenate(([True], rho[1:] > previous[:-1]))
     usable &= np.isfinite(rho)
     shear = _shear(rho, q_abs, usable)
