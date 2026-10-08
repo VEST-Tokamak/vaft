@@ -399,6 +399,7 @@ def test_corrective_updater_refuses_a_read_only_source(monkeypatch):
         Path(__file__).parents[1]
         / "workflow"
         / "automatic_pipeline_2_corrective_data_update"
+        / "legacy"
     )
     if not workflow.exists():
         pytest.skip("workflow scripts are not part of the distribution")

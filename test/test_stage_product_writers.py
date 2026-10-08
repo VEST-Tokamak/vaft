@@ -42,11 +42,12 @@ ALLOWED = {
         "artifact rather than its product: it is not in the `omas_product` "
         "grammar and has no declared container."
     ),
-    "workflow/automatic_pipeline_2_corrective_data_update/update_core_profile.py": (
+    "workflow/automatic_pipeline_2_corrective_data_update/legacy/"
+    "update_core_profile.py": (
         "a legacy script writing the shot-first `public/` tree, which is a "
         "read-only record of the pre-canonical pipeline (#89, #138)."
     ),
-    "workflow/automatic_pipeline_2_corrective_data_update/"
+    "workflow/automatic_pipeline_2_corrective_data_update/legacy/"
     "update_thomson_scattering_and_core_profile.py": (
         "same legacy shot-first `public/` writer."
     ),

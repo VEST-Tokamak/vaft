@@ -153,6 +153,7 @@ class TestUpdaterAgreesWithTheLibrary:
             Path(__file__).resolve().parents[1]
             / "workflow"
             / "automatic_pipeline_2_corrective_data_update"
+            / "legacy"
             / "update_thomson_scattering_and_core_profile.py"
         )
         spec = importlib.util.spec_from_file_location("ts_updater", script)
