@@ -217,7 +217,7 @@ except Exception as e:
 
 # and the corrective updaters refuse to be pointed at public
 VAFT_HSDS_SOURCE=public python -c '
-import sys; sys.path.insert(0, "workflow/automatic_pipeline_2_corrective_data_update")
+import sys; sys.path.insert(0, "workflow/automatic_pipeline_2_corrective_data_update/legacy")
 try:
     import update_thomson_scattering_and_core_profile; print("FAIL")
 except Exception as e:
