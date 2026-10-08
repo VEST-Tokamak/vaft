@@ -3412,8 +3412,11 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
             raise ValueError("equilibrium_section is a complete composed view; select it alone")
         from vaft.plot.equilibrium_section import DEFAULT_SECTION_PHI, DEFAULT_FLUX_LEVELS, build_equilibrium_section
 
+        # The R-Z recipe has no time axis, so validate_options refuses time=
+        # before this builder runs; the kernel's time= stays reachable through
+        # build_equilibrium_section itself (0.8.0 delta-19b C-F4).
         return build_equilibrium_section(
-            ods, time=options.get("time"), time_slice=options.get("time_slice"),
+            ods, time_slice=options.get("time_slice"),
             section_phi=float(options.get("section_phi", DEFAULT_SECTION_PHI)),
             flux_surface_levels=tuple(options.get("flux_surface_levels", DEFAULT_FLUX_LEVELS)),
         ).rz
