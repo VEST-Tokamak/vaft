@@ -665,6 +665,21 @@ class GPECModuleRun:
     #: that has an eigenfunction and one that never will, so it is reported
     #: rather than left for a caller to rediscover by listing the directory.
     missing_optional_outputs: tuple[str, ...] = ()
+    #: The run's physical formulation (#1734), the versioned
+    #: :meth:`vaft.code.formalism.PlasmaFormalism.as_dict`, derived from the
+    #: namelists the cell was prepared with.  Kept as that plain dict so a run
+    #: manifest built with ``dataclasses.asdict`` carries it unchanged; ``None``
+    #: when the cell was never prepared.  :attr:`formalism` rebuilds the record.
+    plasma_formalism: Optional[Mapping[str, Any]] = None
+
+    @property
+    def formalism(self):
+        """The :class:`vaft.code.formalism.PlasmaFormalism` of this run, or ``None``."""
+        if self.plasma_formalism is None:
+            return None
+        from ..formalism import PlasmaFormalism
+
+        return PlasmaFormalism.from_dict(self.plasma_formalism)
 
     @property
     def ok(self) -> bool:
