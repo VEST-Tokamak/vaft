@@ -16,11 +16,14 @@ import json
 import re
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 import pytest
 import yaml
+
+# tomllib is 3.11+; on 3.10 this module skips instead of breaking collection
+# of the whole session (python-compat 3.10 leg on v0.8.0).
+tomllib = pytest.importorskip("tomllib")
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
