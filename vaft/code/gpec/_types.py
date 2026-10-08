@@ -70,7 +70,7 @@ class RDCONOptions:
     ``rmatch`` wants one resistivity and one mass density *per rational
     surface*, and the packaged ``rmatch.in`` supplies a single scalar, so it
     stops with ``eta requires N non-zero elements`` before writing
-    ``globalsol.bin`` (#716). Delta-prime is unaffected -- RDCON computes it
+    ``delta.out`` or any inner-layer solution (#716). Delta-prime is unaffected -- RDCON computes it
     and ``rmatch`` does not -- so this is opt-in rather than required.
 
     Supplying ``t_e``/``n_e`` fills both arrays from the plasma: after RDCON

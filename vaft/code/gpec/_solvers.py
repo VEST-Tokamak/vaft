@@ -457,6 +457,27 @@ def write_rmatch_resistive_layers(run_dir: Path, mode: int, options) -> dict:
     }
 
 
+#: What ``rmatch`` writes when it solves the inner layers (``match_flag``).
+#:
+#: ``match_run`` takes one of two exits. With ``coil%rpec_flag`` -- which it
+#: reads back from RDCON's ``deltabin`` header (``rmatch/match.f:173``), so
+#: ``rdcon.in`` decides it -- it runs ``match_rpec``, writes ``globalsol.bin``
+#: (``match.f:1463``) and stops with "RPEC termination." (``match.f:266-272``).
+#: Otherwise, under ``match_flag``, ``match_solution`` writes
+#: ``outsol_tot.bin`` (``match.f:715``), ``insol.bin`` (``match.f:750``) and
+#: ``delta.out`` (``match.f:814``), and never ``globalsol.bin``.  The packaged
+#: ``rdcon.in`` sets ``coil%rpec_flag=f`` and ``rmatch.in`` sets
+#: ``match_flag=t``, so these three are what a successful companion leaves.
+#: ``delta.out`` is also the file ``_formalism`` reads as evidence that the
+#: inner layer was solved.
+RMATCH_MATCH_OUTPUTS: tuple[str, ...] = ("delta.out", "insol.bin", "outsol_tot.bin")
+
+#: What ``rmatch`` writes on its RPEC path instead (``match.f:1463``).  VAFT
+#: never enables it; a configuration that did would expect this in place of
+#: :data:`RMATCH_MATCH_OUTPUTS`.
+RMATCH_RPEC_OUTPUTS: tuple[str, ...] = ("globalsol.bin",)
+
+
 class RDCONSolver:
     name = "rdcon"
 
@@ -475,8 +496,8 @@ class RDCONSolver:
             f"rdcon_output_n{mode}.nc",
             "delta_gw.out",
             "dcon.out",
-            "globalsol.bin",
             "vmat.bin",
+            *RMATCH_MATCH_OUTPUTS,
         )
 
     def prepare_companions(self, run_dir: Path, mode: int, config) -> None:
@@ -498,10 +519,11 @@ class RDCONSolver:
         return ("rmatch",)
 
     def companion_outputs(self, mode: int) -> tuple[str, ...]:
-        # globalsol.bin is rmatch's (rmatch/match.f:1372). vmat.bin and
-        # delta_gw.out only look like companion output: RDCON writes both
-        # itself (rdcon/sing.f:73, rdcon/gal.f:1419).
-        return ("globalsol.bin",)
+        # What rmatch writes on the path the packaged namelists select; see
+        # RMATCH_MATCH_OUTPUTS. vmat.bin and delta_gw.out only look like
+        # companion output: RDCON writes both itself (rdcon/sing.f:73,
+        # rdcon/gal.f:1419).
+        return RMATCH_MATCH_OUTPUTS
 
     def check_success(self, run_dir: Path, mode: int) -> tuple[bool, str]:
         return _check_matching_output(run_dir, self.stability_output(mode))
@@ -538,7 +560,8 @@ class STRIDESolver:
 #: ``rdconfile``) and GPEC joins each onto ``dcon_dir``.  Only the first two
 #: are always needed: ``vacuum.bin`` is deprecated and ignored (GPEC says so
 #: on startup) and ``globalsol.bin`` is read only under ``gal_flag``, which is
-#: off in the packaged namelist.  So the optional two are staged when a DCON
+#: off in the packaged namelist (and only ``rmatch``'s RPEC path writes it,
+#: see :data:`RMATCH_RPEC_OUTPUTS`).  So the optional two are staged when a DCON
 #: run produced them and their absence is not an error.
 DCON_PRODUCTS_FOR_GPEC: tuple[tuple[str, bool], ...] = (
     ("euler.bin", True),
