@@ -2181,6 +2181,11 @@ def beta_normal_from_beta_volume(beta_volume: float,
     $\beta_N$ of an optimized no-wall sequence nearly doubles (3.15 at A = 10 to
     5.85 at A = 1.25) while this one stays at 3.2 within 3 % [2]_, [3]_.
     
+    Semantics
+    ---------
+    consumes: minor_radius, b_t, plasma_current
+    produces: beta_n
+
     References
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
@@ -3290,6 +3295,10 @@ def normalized_plasma_current(Ip: Union[float, np.ndarray],
     $\beta_N = \beta_t[\%]/I_N$ and that the ST beta-limit literature plots
     against.
 
+    Semantics
+    ---------
+    consumes: plasma_current, major_radius, minor_radius, b_t
+
     References
     ----------
     .. [1] J. E. Menard et al., Phys. Plasmas 23 (2016) 072508,
@@ -3468,6 +3477,11 @@ def estimated_q95(a: Union[float, np.ndarray],
     kind: closure
     locality: global
     role: global_descriptor
+
+    Semantics
+    ---------
+    consumes: plasma_current, b_t, minor_radius, major_radius, elongation, triangularity
+    produces: q95
 
     References
     ----------
@@ -5227,6 +5241,10 @@ def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     radiation subtracted depending on the database); the ITER definition of
     $\tau_{E,th}$ needs $P_{loss}$ from :func:`loss_power_from_p_heat_dWdt_p_rad`.
 
+    Semantics
+    ---------
+    produces: tau_e
+
     References
     ----------
     .. [1] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 3.
@@ -5573,6 +5591,11 @@ def goldston_l_mode_confinement_time_from_I_P_R_a_kappa(
     -----------
     Pure L-mode; the ohmic phase needs the quadrature of
     :func:`ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux`.
+
+    Semantics
+    ---------
+    consumes: plasma_current, major_radius, minor_radius, elongation
+    produces: tau_e
 
     References
     ----------

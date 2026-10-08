@@ -24,6 +24,8 @@ edge comes from a registry that already owns the fact, and records which:
   IDS they are mapped into;
 * :mod:`vaft.formula._taxonomy` (#1626) -- which quantity a formula reduces to
   which, with each formula's ``Reduction`` section as facets;
+* the ``Semantics`` sections of :mod:`vaft.formula` and :mod:`vaft.process`
+  docstrings -- the quantities a function consumes and produces, in the vocabulary;
 * :mod:`vaft.validation.orderings` (#1627) -- the physical models' approximation
   contracts, the ordering quantities they assume and the kernels computing them.
 
@@ -64,7 +66,7 @@ KINDS = {
     "code": "an external scientific code",
     "data_format": "a data model or file format with a fixed convention",
     "plot": "a canonical VAFT plot",
-    "api": "a VAFT function: a mapping, a validation provider, a code adapter or a formula",
+    "api": "a VAFT function: a mapping, a validation provider, a code adapter, a formula or a process",
     "ids": "an IMAS IDS",
     "dd_path": "a Data Dictionary path",
     "validation": "a named validation check",
@@ -87,8 +89,8 @@ RELATIONS = {
     "provided_by": "a check or an ordering quantity is computed by a VAFT function",
     "uses_convention": "a code or data format uses a COCOS convention",
     "implemented_by": "an external code is integrated through a VAFT adapter",
-    "produces": "an external code's result is mapped into an IDS; a formula computes a quantity",
-    "consumes": "a formula takes a quantity as input",
+    "produces": "an external code's result is mapped into an IDS; a formula or process computes a quantity",
+    "consumes": "a formula or process takes a quantity as input",
     "derived_from": "a quantity is reduced from another by a step VAFT performs outside a formula",
     "assumes": "a physical model is valid only where an ordering quantity is small or large",
 }
@@ -246,7 +248,7 @@ def _taxonomy(graph: _Graph) -> None:
     for subject in taxonomy.SUBJECTS.values():
         graph.node(node_id_for_subject(subject.name), _SUBJECT_KIND[subject.kind], subject.name, origin,
                    concept_kind=subject.kind, aliases=sorted(subject.aliases))
-    quantities: dict[str, list[str]] = {}
+    quantities: dict[str, list[str]] = {name: [] for name in taxonomy.CANONICAL_QUANTITIES}
     for alias, canonical in taxonomy.QUANTITY_ALIASES.items():
         quantities.setdefault(canonical, [])
         if alias != canonical:
@@ -465,17 +467,28 @@ def _formula_api(graph: _Graph, key: str, origin: str) -> str:
 def _reductions(graph: _Graph) -> None:
     """#1626: which quantity is reduced to which, and by which formula.
 
-    The reduction graphs name quantities by their own keys (``q``, ``I_p``,
-    ``s_hat``).  A key becomes an edge only where :func:`resolve_term` resolves
-    it; every other key is audited, never matched by spelling.
+    The reduction graphs name quantities by their own keys (``s_hat``,
+    ``j_phi_field``).  A key becomes an edge only through the ``concept`` its
+    ``Quantity`` declares, resolved by :func:`resolve_term`; a key without one
+    is audited, never matched by spelling.
     """
     from vaft.formula import _taxonomy
 
     origin = "vaft.formula._taxonomy"
+
+    def concept(key: str) -> Optional[str]:
+        declared = _taxonomy.QUANTITIES[key].concept
+        if declared is None:
+            return None
+        resolved = resolve_term(declared, quantities_only=True)
+        if resolved is None:
+            raise OntologyError(f"reduction quantity {key} declares concept {declared}, which the vocabulary lacks")
+        return resolved
+
     for family, relations in _taxonomy.REDUCTION_FAMILIES.items():
         for relation in relations:
-            target = resolve_term(relation.target, quantities_only=True)
-            sources = [(key, resolve_term(key, quantities_only=True)) for key in relation.sources]
+            target = concept(relation.target)
+            sources = [(key, concept(key)) for key in relation.sources]
             step = relation.formula or relation.kind
             if target is None:
                 graph.miss(relation.target, origin,
@@ -496,6 +509,32 @@ def _reductions(graph: _Graph) -> None:
                 for _, source in sources:
                     if source and source != target:
                         graph.edge(target, source, "derived_from", origin)
+
+
+def _semantics(graph: _Graph) -> None:
+    """The ``Semantics`` sections of formulas and processes (#1702 phase 3).
+
+    Every term must be a quantity of the vocabulary: the section is a contract,
+    so an unknown term is an error here, not an audit row.
+    """
+    from vaft.formula.catalog import list_formulas
+    from vaft.process.catalog import list_processes
+
+    for origin, specs in (("vaft.formula.catalog", list_formulas()), ("vaft.process.catalog", list_processes())):
+        for spec in specs:
+            if spec.semantics is None:
+                continue
+            if origin == "vaft.formula.catalog":
+                api = _formula_api(graph, spec.qualname, origin)  # with its Reduction facets
+            else:
+                api = _api(graph, f"{spec.module}.{spec.name}", origin, "process")
+            for relation, terms in (("consumes", spec.semantics.consumes), ("produces", spec.semantics.produces)):
+                for term in terms:
+                    target = resolve_term(term, quantities_only=True)
+                    if target is None:
+                        raise OntologyError(f"{spec.module}.{spec.name} Semantics {relation} {term!r}, "
+                                            "which is no quantity of vaft.plot.taxonomy")
+                    graph.edge(api, target, relation, origin)
 
 
 def _orderings(graph: _Graph) -> None:
@@ -565,6 +604,7 @@ def ontology_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     _conventions(graph)
     _external_codes(graph)
     _reductions(graph)
+    _semantics(graph)
     _orderings(graph)
     _ambiguous_aliases(graph)
     _views(graph)

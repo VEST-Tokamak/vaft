@@ -24,6 +24,7 @@ from dataclasses import dataclass
 
 __all__ = [
     "FAMILIES",
+    "CANONICAL_QUANTITIES",
     "QUANTITY_ALIASES",
     "SUBJECTS",
     "QuantityFamily",
@@ -192,6 +193,30 @@ def _build_quantity_aliases() -> dict[str, str]:
 #: Concise canonical quantity names with strict aliases (issue #251 section 11).
 QUANTITY_ALIASES: dict[str, str] = _build_quantity_aliases()
 
+#: Canonical quantities that need no alias (yet): physical quantities a plot
+#: names as its ``quantity`` or a #1626 reduction graph reduces (#1702).
+_UNALIASED_QUANTITIES = (
+    "b_t",
+    "elongation",
+    "greenwald_fraction",
+    "j_tor",
+    "magnetic_shear",
+    "major_radius",
+    "minor_radius",
+    "mixing_radius",
+    "nu_star",
+    "peaking_factor",
+    "pressure",
+    "psi",
+    "rho_star",
+    "tau_e",
+    "triangularity",
+    "zeff",
+)
+
+#: Every canonical quantity name: the alias targets and the unaliased ones.
+CANONICAL_QUANTITIES: frozenset[str] = frozenset(QUANTITY_ALIASES.values()) | frozenset(_UNALIASED_QUANTITIES)
+
 
 def resolve_quantity(term: str) -> str:
     """Return the canonical quantity name for ``term`` (name or strict alias).
@@ -199,7 +224,7 @@ def resolve_quantity(term: str) -> str:
     A canonical quantity resolves to itself; unknown terms raise
     :class:`KeyError`.
     """
-    if term in set(QUANTITY_ALIASES.values()):
+    if term in CANONICAL_QUANTITIES:
         return term
     canonical = QUANTITY_ALIASES.get(term)
     if canonical is not None:
