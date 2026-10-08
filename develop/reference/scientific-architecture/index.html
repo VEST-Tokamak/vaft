@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1d26a04</code>. What is described
+  <code>656f040</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -450,7 +450,9 @@ as one graph.</p>
 architectural verdict: an import that crosses a layer shows where code <em>is</em>, and the normative view
 says where it <em>should</em> be. The pipeline lineage explorer keeps execution, scientific-reference, validation-evidence
 and publication relations apart, and shows artifact lineage as a view of its own.
-Where VAFT’s software comes
+A third generated graph, the <a href="/vaft/develop/reference/ontology/">Scientific ontology explorer</a>,
+shows what things mean: scientific concepts, the diagnostics that measure them, the Data Dictionary
+paths that represent them, and the codes, plots and checks that use them. It shares no edges with the other two. Where VAFT’s software comes
 from is in <a href="/vaft/develop/reference/software-dependencies/">Software dependencies</a> and
 <a href="/vaft/develop/reference/external-codes/">External scientific codes</a>.</p>
 
@@ -765,7 +767,7 @@ DAG-based without making <code class="language-plaintext highlighter-rouge">Work
       <td>implemented</td>
     </tr>
     <tr>
-      <td>Dependency explorer, pipeline lineage explorer</td>
+      <td>Dependency explorer, pipeline lineage explorer, scientific ontology explorer</td>
       <td>implemented on <code class="language-plaintext highlighter-rouge">develop</code></td>
     </tr>
     <tr>
@@ -1061,7 +1063,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-08 04:41:35 +0000"
+        "time": "2026-10-08 05:24:26 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
