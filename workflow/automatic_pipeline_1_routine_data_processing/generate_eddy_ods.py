@@ -18,7 +18,13 @@ from pathlib import Path
 os.environ.setdefault("MPLCONFIGDIR", tempfile.mkdtemp(prefix="vaft-mpl-"))
 
 from vaft.machine_mapping.pf_active import UnacquiredPFCircuitError
-from vaft.omas.vest_upstream import build_eddy_ods, eddy_no_output_product, write_stage_product
+from vaft.database import raw as raw_db
+from vaft.omas.vest_upstream import (
+    build_eddy_ods,
+    eddy_inputs_absent_from_data,
+    eddy_no_output_product,
+    write_stage_product,
+)
 
 
 LOGGER = logging.getLogger("vaft.generate_eddy_ods")
@@ -33,6 +39,12 @@ def main() -> int:
     parser.add_argument("--shot", required=True, type=int, help="VEST shot number.")
     parser.add_argument("--diagnostics-ods", "--input", required=True, type=Path, help="Input diagnostics ODS JSON.")
     parser.add_argument("--static-ods", required=True, type=Path, help="Versioned static machine ODS.")
+    parser.add_argument(
+        "--diagnostics-manifest",
+        type=Path,
+        default=None,
+        help="The diagnostics stage manifest: lets a raw-absent eddy input be recorded as no_output.",
+    )
     parser.add_argument("--output", required=True, type=Path, help="Output eddy ODS JSON.")
     parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest JSON.")
     parser.add_argument("--filament-r", default="0.35,0.35,0.35", help="Comma-separated plasma filament R positions.")
@@ -56,6 +68,26 @@ def main() -> int:
             filament_z=_csv_floats(args.filament_z),
             filament_fraction=_csv_floats(args.filament_fraction),
             dt_sub=args.dt_sub,
+        )
+    except raw_db.RawSignalUnavailableError:
+        # The solve's inputs are missing from the diagnostics product. When the
+        # diagnostics stage recorded their raw signals as absent (a truncated
+        # raw dump, a shot without PF acquisition; #1799), that is the shot's
+        # result. Otherwise -- no manifest, or a component missing for another
+        # reason -- it stays a failure, since it can be a configuration fault.
+        reason = (
+            eddy_inputs_absent_from_data(args.diagnostics_ods, args.diagnostics_manifest)
+            if args.diagnostics_manifest is not None
+            else None
+        )
+        if reason is None:
+            raise
+        LOGGER.warning("shot %s: eddy has no output: %s", args.shot, reason)
+        ods, manifest = eddy_no_output_product(
+            shot=args.shot,
+            diagnostics_ods=args.diagnostics_ods,
+            static_ods=args.static_ods,
+            reason=reason,
         )
     except UnacquiredPFCircuitError as error:
         # A PF circuit the solve needs was never recorded for this shot
