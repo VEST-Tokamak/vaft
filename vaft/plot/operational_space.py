@@ -90,7 +90,8 @@ def _is_spherical(machine_class: Optional[str]) -> bool:
 
 
 #: Shorter names written along a line in the inline style, where the legend's full name would not fit the curve.
-ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)", "cheng_1987_li_qa_upper": "Resistive kink",
+ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)", "sykes_2000_st_hugill": "Hugill (Sykes 2000)",
+                    "greenwald_hugill_st": "Greenwald (ST)", "cheng_1987_li_qa_upper": "Resistive kink",
                     "cheng_1987_li_qa_lower": "Ideal external kink"}
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
 BOUNDARY_NAMES = {
@@ -411,11 +412,123 @@ def _label_along(ax, curve: _b.BoundaryCurve, text: str, color: str, where: floa
     up = np.array([-np.sin(np.radians(angle_disp)), np.cos(np.radians(angle_disp))])
     va = "bottom" if float(np.dot(up, _unstable_direction(curve.allowed_side))) >= 0 else "top"
     # the angle is given in data coordinates and turned with the axes, so a later resize keeps it on the line
-    return ax.text(anchor[0], anchor[1], " " + text + " ",
-                   rotation=float(np.degrees(np.arctan2(d_data[1], d_data[0]))), transform_rotates_text=True,
-                   rotation_mode="anchor", ha="center", va=va, color=color, fontsize="small", zorder=4,
-                   clip_on=True, bbox=dict(boxstyle="square,pad=0.15", facecolor="white", edgecolor="none",
-                                           alpha=0.75))
+    label = ax.text(anchor[0], anchor[1], " " + text + " ",
+                    rotation=float(np.degrees(np.arctan2(d_data[1], d_data[0]))), transform_rotates_text=True,
+                    rotation_mode="anchor", ha="center", va=va, color=color, fontsize="small", zorder=4,
+                    clip_on=True, bbox=dict(boxstyle="square,pad=0.15", facecolor="white", edgecolor="none",
+                                            alpha=0.75))
+    return _keep_inside(ax, label)
+
+
+#: Where along a boundary its name is tried, in order, until it covers no name already written.
+LABEL_POSITIONS = (0.6, 0.35, 0.8, 0.2, 0.9, 0.5, 0.7, 0.1, 0.45, 0.25, 0.95)
+
+
+def _label_is_fixed(ax, curve: _b.BoundaryCurve) -> bool:
+    """Whether the name's place along the line does not depend on the requested position (a saw-tooth)."""
+    probes = []
+    for where in (0.2, 0.8):
+        label = _label_along(ax, curve, "x", "black", where=where)
+        if label is None:
+            return False
+        probes.append(label.get_position())
+        label.remove()
+    return np.allclose(probes[0], probes[1])
+
+
+def _footprint(text, renderer):
+    """The label's outline in display coordinates: its rotated background box when it has one (a rotated name's
+    axis-aligned extent covers far more than its words), else its extent."""
+    from matplotlib.path import Path
+
+    from matplotlib.text import Annotation
+
+    if isinstance(text, Annotation):   # an annotation places its offset text only when it is laid out
+        text.update_positions(renderer)
+    patch = text.get_bbox_patch()
+    if patch is not None:
+        text.update_bbox_position_size(renderer)
+        return patch.get_transform().transform_path(patch.get_path())
+    e = text.get_window_extent(renderer)
+    return Path([(e.x0, e.y0), (e.x1, e.y0), (e.x1, e.y1), (e.x0, e.y1), (e.x0, e.y0)])
+
+
+def _overlap(path, others) -> float:
+    """How much an outline covers the others: the fraction of a sample grid inside it that falls in any of them."""
+    v = path.vertices
+    xs = np.linspace(v[:, 0].min(), v[:, 0].max(), 12)
+    ys = np.linspace(v[:, 1].min(), v[:, 1].max(), 6)
+    grid = np.array([(a, b) for a in xs for b in ys])
+    own = grid[path.contains_points(grid)]
+    if not len(own):
+        return 0.0
+    hit = np.zeros(len(own), bool)
+    for other in others:
+        hit |= other.contains_points(own)
+    return float(hit.mean())
+
+
+def _place_label(ax, curve: _b.BoundaryCurve, text: str, color: str, placed: list):
+    """``_label_along`` at the first position along the line where the name covers none in ``placed`` (outlines
+    in display coordinates); when every position covers one, the position with the least overlap (a crowded plot
+    keeps its name rather than losing it)."""
+    try:
+        renderer = ax.figure.canvas.get_renderer()
+    except Exception:  # noqa: BLE001 - no renderer: the default position
+        return _label_along(ax, curve, text, color)
+    best = None
+    for where in LABEL_POSITIONS:
+        label = _label_along(ax, curve, text, color, where=where)
+        if label is None:
+            return None
+        _shift_inside(ax, label, renderer)   # where it will be drawn, before it is compared
+        area = _overlap(_footprint(label, renderer), placed)
+        label.remove()
+        if best is None or area < best[0]:
+            best = (area, where)
+        if area == 0:
+            break
+    label = _label_along(ax, curve, text, color, where=best[1])
+    if label is not None:
+        _shift_inside(ax, label, renderer)
+        placed.append(_footprint(label, renderer))
+    return label
+
+
+def _shift_inside(ax, text, renderer) -> None:
+    """Move a label that pokes out of the axes back inside; a label larger than the axes stays where it is."""
+    try:
+        bb, box = text.get_window_extent(renderer), ax.get_window_extent(renderer)
+    except Exception:  # noqa: BLE001 - a backend without extents: keep the placement
+        return
+    if bb.width >= box.width or bb.height >= box.height:
+        return
+    dx = max(0.0, box.x0 - bb.x0) - max(0.0, bb.x1 - box.x1)
+    dy = max(0.0, box.y0 - bb.y0) - max(0.0, bb.y1 - box.y1)
+    if not (dx or dy):
+        return
+    from matplotlib.text import Annotation
+
+    if isinstance(text, Annotation) and text.anncoords == "offset points":   # its text sits at an offset in points
+        to_points = 72.0 / ax.figure.dpi
+        ox, oy = text.xyann
+        text.xyann = (ox + dx * to_points, oy + dy * to_points)
+    else:
+        px, py = ax.transData.transform(text.get_position())
+        text.set_position(tuple(ax.transData.inverted().transform((px + dx, py + dy))))
+
+
+def _keep_inside(ax, text):
+    """Keep a label inside its axes: at every draw, once the layout is final, a label that pokes out is shifted
+    back in so clipping does not cut its words; a label larger than the axes is left where it is."""
+    draw = text.draw
+
+    def draw_inside(renderer):
+        _shift_inside(ax, text, renderer)
+        return draw(renderer)
+
+    text.draw = draw_inside
+    return text
 
 
 def _allowed_mask(curve: _b.BoundaryCurve, px: np.ndarray, py: np.ndarray) -> np.ndarray:
@@ -658,7 +771,8 @@ def _scales() -> Tuple[float, float]:
 
 
 def _draw_trajectories(ax, trajectories, x: str, y: str, time: str, colour_of, size: float) -> None:
-    """Each discharge's states joined in time order, one marker size throughout; an arrow ends the path."""
+    """Each discharge's states joined in time order, one marker size throughout; an arrowhead on every step, so the
+    direction reads along the whole equilibrium sequence, not only at its end."""
     for k, (label, sub) in enumerate(trajectories.items()):
         if time not in sub.columns:
             raise KeyError(f"trajectory {label!r} has no time column {time!r}")
@@ -671,10 +785,11 @@ def _draw_trajectories(ax, trajectories, x: str, y: str, time: str, colour_of, s
         ax.plot(t["_x"], t["_y"], color=edge, linewidth=1.0 * lw, zorder=5)
         ax.scatter(t["_x"], t["_y"], s=np.full(len(t), size), c=[colour_of(r) for _, r in t.iterrows()],
                    edgecolors=edge, linewidths=1.4 * lw, zorder=6, label=str(label))
-        if len(t) > 1:
-            ax.annotate("", xy=(t["_x"].iloc[-1], t["_y"].iloc[-1]), xytext=(t["_x"].iloc[-2], t["_y"].iloc[-2]),
-                        arrowprops=dict(arrowstyle="-|>", color=edge, linewidth=1.2 * lw, shrinkA=0,
-                                        shrinkB=0.5 * np.sqrt(size) + 2, mutation_scale=12 * lw),
+        for i in range(len(t) - 1):
+            ax.annotate("", xy=(t["_x"].iloc[i + 1], t["_y"].iloc[i + 1]), xytext=(t["_x"].iloc[i], t["_y"].iloc[i]),
+                        arrowprops=dict(arrowstyle="-|>", color=edge, linewidth=1.2 * lw,
+                                        shrinkA=0.5 * np.sqrt(size), shrinkB=0.5 * np.sqrt(size) + 2,
+                                        mutation_scale=12 * lw),
                         zorder=7)
 
 
@@ -1043,6 +1158,7 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                              label=textwrap.fill(text + " (Theoretical)", width=46, subsequent_indent="  ")))
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    placed = []   # extents of the notes and names already written, so a later one does not cover them
     if inline:
         for curve in plan.curves:
             note, side = SOURCE_ENDS.get(curve.key, (None, None))
@@ -1064,15 +1180,26 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             note = note.format(end=f"{x_end:g}")
             if y0 <= y_end <= y1:
                 offset, ha, va = ((4, 0), "left", "center") if side == "right" else ((-2, 4), "right", "bottom")
-                ax.annotate(note, xy=(x_end, y_end), xytext=offset, textcoords="offset points", ha=ha, va=va,
-                            fontsize="x-small", style="italic", color="0.35", zorder=4, annotation_clip=True)
+                written = _keep_inside(ax, ax.annotate(note, xy=(x_end, y_end), xytext=offset,
+                                                       textcoords="offset points", ha=ha, va=va, fontsize="x-small",
+                                                       style="italic", color="0.35", zorder=5, annotation_clip=True))   # above the names' boxes
+                try:
+                    renderer = ax.figure.canvas.get_renderer()
+                    _shift_inside(ax, written, renderer)
+                    placed.append(_footprint(written, renderer))
+                except Exception:  # noqa: BLE001 - no renderer: the note is not counted
+                    pass
     if inline and plan.curves:
-        for i, curve in enumerate(plan.curves):
+        # names that cannot move along their line (a saw-tooth sits beyond its extreme) go first, so the movable
+        # ones find room around them
+        order = sorted(range(len(plan.curves)), key=lambda k: not _label_is_fixed(ax, plan.curves[k]))
+        for i in order:
+            curve = plan.curves[i]
             name = ALONG_LINE_NAMES.get(curve.key, BOUNDARY_NAMES.get(curve.key, curve.key))
             entry = _b.get_boundary(curve.key)
             if entry.kind in REFERENCE_KINDS and entry.form == "threshold":   # short: the legend has the full name
                 name = f"{REFERENCE_SHORT_NAMES.get(curve.key, entry.target.symbol)} {entry.coefficient:.3g}"
-            _label_along(ax, curve, name, BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)])
+            _place_label(ax, curve, name, BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)], placed)
         limits = [curve for curve in plan.curves
                   if curve.key not in REFERENCE_ONLY and _kind(curve.key) not in REFERENCE_KINDS]
         words = {_allowed_word(_b.get_boundary(curve.key)) for curve in limits}

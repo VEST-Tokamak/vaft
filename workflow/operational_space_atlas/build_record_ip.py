@@ -17,7 +17,7 @@ With ``--onset`` it also writes ``record_onsets.csv``: the plasma window of each
 authoritative, the plasma-current pulse the fallback), with the source that answered, the
 light/current agreement and the flags, so the notebook can align the waveforms at onset.
 
-    python build_record_ip.py --shots 44801 41664 44740 42963 40325 42986 39915 39917 42962 39916 \\
+    python build_record_ip.py --shots 44801 41664 44740 42963 40325 42986 39915 39917 42962 39916 42944 \\
         --filedb /srv/vest.filedb --out ~/runs/campaign/atlas/lane_v
 """
 from __future__ import annotations

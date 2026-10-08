@@ -845,3 +845,25 @@ def test_experimental_levels_keep_their_applicability_out_of_the_legend_but_on_t
     assert diiid and not any("[" in x for x in diiid)
     assert ax.vaft_applicability["strait_1988_diiid_beta_n_envelope"][0] == "OUTSIDE"
     assert any("Troyon" in x and "[" in x for x in texts)   # the stability reference keeps its status
+
+
+def test_a_trajectory_has_an_arrowhead_on_every_step():
+    t = _hugill_table()
+    t["time_efit_s"] = np.linspace(0.30, 0.33, len(t))
+    _, ax = operational_space_population(t, "hugill", trajectories={"Shot A": t.iloc[[0, 2, 4, 6]]})
+    arrows = [a for a in ax.texts if type(a).__name__ == "Annotation" and a.arrow_patch is not None]
+    assert len(arrows) == 3
+
+
+def test_inline_names_stay_inside_their_axes():
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 17, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    fig, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0.0, 18.0),
+                                           y_range=(0.0, 2.0), format="slide")
+    fig.canvas.draw()
+    renderer, box = fig.canvas.get_renderer(), ax.get_window_extent()
+    for label in ax.texts:
+        if type(label).__name__ == "Annotation" or not label.get_text().strip():
+            continue
+        bb = label.get_window_extent(renderer)
+        if bb.width < box.width and bb.height < box.height:
+            assert box.x0 - 1 <= bb.x0 and bb.x1 <= box.x1 + 1 and box.y0 - 1 <= bb.y0 and bb.y1 <= box.y1 + 1, label.get_text()
