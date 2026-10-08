@@ -8,6 +8,10 @@
 \usetikzlibrary{arrows.meta}
 % a packaged picture (vaft.diagram Image): dvisvgm's img special, drawn down from the box's top-left
 \newcommand{\vaftimage}[3]{\raisebox{0pt}[#2][0pt]{\makebox[#1][l]{\raisebox{#2}{\special{dvisvgm:img #1 #2 #3}}}}}
+% shrink content to a width only when it is wider (vaft.diagram workflow equations); a TikZ scale,
+% because dvisvgm does not apply graphicx's dvips scaling specials
+\newsavebox{\vaftfitbox}
+\newcommand{\vaftfit}[2]{\sbox{\vaftfitbox}{#2}\ifdim\wd\vaftfitbox>#1\pgfmathsetmacro{\vaftscale}{#1/\wd\vaftfitbox}\tikz[baseline=(vaftfit.base)]\node[inner sep=0pt,scale=\vaftscale](vaftfit){\usebox{\vaftfitbox}};\else\usebox{\vaftfitbox}\fi}
 \definecolor{islandblue}{RGB}{28,103,210}
 \definecolor{islanddark}{RGB}{22,55,116}
 \definecolor{qblue}{RGB}{96,164,232}
@@ -165,6 +169,22 @@
   connector both/.style={<->,black!70,line width=1.0pt},
   connector feedback/.style={->,black!55,dashed,line width=1.0pt},
   connector dependency/.style={->,black!40,line width=0.7pt},
+  wf measured/.style={draw=absfluid!85!black,line width=1.0pt,rounded corners=3pt,fill=absfluid!14},
+  wf reconstructed/.style={draw=islanddark,line width=1.0pt,rounded corners=3pt,fill=qblue!22},
+  wf derived/.style={draw=islanddark!70,line width=0.9pt,rounded corners=3pt,fill=white},
+  wf inferred/.style={draw=abskinetic!90!black,line width=1.0pt,rounded corners=3pt,fill=abskinetic!16},
+  wf synthetic/.style={draw=abskinetic!90!black,dash dot,line width=1.0pt,rounded corners=3pt,fill=abskinetic!5},
+  wf prior/.style={draw=black!55,dashed,line width=1.0pt,rounded corners=3pt,fill=black!4},
+  wf convention/.style={draw=chartblue!70,densely dotted,line width=1.2pt,rounded corners=3pt,fill=white},
+  wf machine/.style={draw=black!80,line width=1.0pt,fill=black!14,sharp corners},
+  wf code input/.style={draw=absequil!85,line width=1.0pt,rounded corners=3pt,fill=absequil!10},
+  wf solver/.style={draw=islanddark,line width=1.8pt,rounded corners=3pt,fill=qblue!10},
+  wf native result/.style={draw=black!60,line width=1.0pt,rounded corners=3pt,fill=black!8},
+  wf standardized/.style={draw=absequil!90!black,line width=1.4pt,rounded corners=8pt,fill=absequil!18},
+  map exact/.style={<->,islanddark,line width=1.6pt},
+  map limit/.style={->,black!75,line width=1.1pt},
+  map analogue/.style={->,black!60,dashed,line width=1.1pt},
+  map branch/.style={->,driftred!85!black,dash dot,line width=1.3pt},
 }
 \begin{document}
 \begin{tikzpicture}

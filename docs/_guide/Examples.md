@@ -9,7 +9,7 @@ guide:
   architecture: Executable examples and immutable provenance connecting develop source to published outputs.
   prerequisites: The pinned companion source, its documented environment, and optional public HSDS configuration.
   expected: A complete notebook inventory and verified artifact cards with hashes and execution context.
-  status: Inventory tracks this branch. The nine published output cards are legacy artifacts that predate the current notebooks (issue #156).
+  status: "Inventory tracks this branch. The nine published output cards are legacy artifacts that predate the current notebooks (issue #156)."
 related:
   notebooks: [database-initialization, plotting-sample, fluctuation-diagnostics, kinetic-efit, chease-refinement, confinement-scaling, external-codes, pipeline-overview]
   api: [database, omas, imas, mapping, process, plot, code]
@@ -93,8 +93,12 @@ import vaft
 
 vaft.data.available_samples()                          # (39915, 41524, 41672)
 sample_path = vaft.data.sample(39915)                  # packaged OMAS artifact
-imas_path = vaft.data.sample(39915, representation="imas")
+imas_path = vaft.data.sample(39915, representation="imas")   # repository checkout only
 ```
+
+A `pip install vaft` carries only the OMAS form of 39915 (`omas.json.gz`, which both adapters read);
+its IMAS netCDF twin `imas.nc` is repository-only, so `representation="imas"` raises a
+`FileNotFoundError` naming the file from an installed wheel and needs a Git checkout.
 
 For the IMAS round trip:
 
@@ -150,7 +154,7 @@ See [Magnetics]({{ site.baseurl }}/guide/Magnetics/) and [Processing]({{ site.ba
 | [`conference_operational_space_atlas.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/conference_operational_space_atlas.ipynb) | The #1331 Tier A good and admissible EFIT states on literature operational-space projections (β_N–l_i, Troyon, q95–l_i, Wesson l_i–q_ψ), coloured by the kinetic, stability and transport atlas layers. Needs the atlas tables in `$VAFT_ATLAS_DIR` (vestserver campaign outputs). |
 | [`analytic_solovev_equilibrium.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/analytic_solovev_equilibrium.ipynb) | Constant-source analytic Solov'ev construction, verified against the gridded field; a VEST-like analytic baseline with Miller characterization, descriptors and geometry/source scans. |
 | [`analytic_guazzotto_freidberg_equilibrium.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/analytic_guazzotto_freidberg_equilibrium.ipynb) | Guazzotto–Freidberg analytic equilibria with vanishing edge pressure and current: the paper's Table 4 reproduced, a VEST-like shape in three topologies, and the contrast with Solov'ev. |
-| [`analytic_fixed_to_free_boundary.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/analytic_fixed_to_free_boundary.ipynb) | Fit synthetic PF currents from analytic fixed-boundary equilibria with independent direct Green and TokaMaker `get_vfixed()` routes, then compare initial, refined, and frozen-current free-boundary results. Requires an installed OFT for native solves. |
+| [`analytic_fixed_to_free_boundary.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/develop/notebooks/analytic_fixed_to_free_boundary.ipynb) | Execute 20 analytic fixed-to-free cases with independent direct Green and TokaMaker `get_vfixed()` fits, then compare initial, refined and final current-frozen results. The notebook stores compact tables and figures; fresh native solves require an installed OFT. |
 | [`analytic_plasma_state_presets.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/analytic_plasma_state_presets.ipynb) | Synthetic L-mode, H-mode, ITB and H-mode + ITB kinetic states on one fixed Solov'ev geometry: derived pressure and gradients, barrier semantics, the projection onto (R, Z), and why a prescribed state is not a self-consistent equilibrium. |
 | [`synthetic_kinetic_profiles_from_equilibrium.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/synthetic_kinetic_profiles_from_equilibrium.ipynb) | Synthetic kinetic profiles from a real and an analytic equilibrium, fidelity Levels 0-3: equilibrium-constrained against kinetic pressure closure with residuals, composition and Z_eff, the core_profiles output, and what is assumed rather than derived. |
 | [`self_consistent_equilibrium_kinetic_iteration.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/self_consistent_equilibrium_kinetic_iteration.ipynb) | An assumption-driven self-consistent equilibrium and kinetic-profile state: the equilibrium pressure decomposed, or CHEASE re-solved for the kinetic pressure until the two agree, with the iteration history, the current policy, what is held and what is recomputed, and the failure states. |
@@ -218,6 +222,7 @@ Both binaries are optional: the notebooks degrade to input generation when the e
 | [`profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/profile_fitting_using_equilibrium_and_kinetic_diagnostics.ipynb) | Map Thomson scattering onto equilibrium flux surfaces to fit core `Te` and `ne` profiles. |
 | [`kinetic_efit_end_to_end.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/kinetic_efit_end_to_end.ipynb) | Build electron and ion profiles from the paired shot 48224 repository inputs at 300 ms. |
 | [`confinement_time_scaling.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/confinement_time_scaling.ipynb) | Single-shot workflow test, then a dataset-wide confinement-time scaling and regression study. |
+| [`single_machine_confinement_scaling_and_dimensional_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/single_machine_confinement_scaling_and_dimensional_analysis.ipynb) | What a single machine can identify: engineering-fit diagnostics, exact Buckingham-Pi groups, the Connor–Kadomtsev constraint from its assumption, and the engineering/dimensionless equivalence test (#1621). |
 | [`tokamak_power_balance.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/tokamak_power_balance.ipynb) | Ohmic input against radiated and conducted losses, with an Aurora-based impurity treatment. |
 
 The profile notebook is the largest runnable example that stays inside pure VAFT:
@@ -243,7 +248,8 @@ See [Profiles]({{ site.baseurl }}/guide/Profiles/) and [Formula]({{ site.baseurl
 | [`publication_figures.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/publication_figures.ipynb) | Reproduce publication-quality composite figures at print DPI. |
 | [`verification_and_validation.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/verification_and_validation.ipynb) | Cross-check volume-averaged parameters across shots and export a V&V spreadsheet. |
 | [`multiple_tokamak_comparison.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/multiple_tokamak_comparison.ipynb) | *(design shell)* Planned cross-device comparison of geometry, equilibrium, and diagnostic signals. |
-| [`multi_machine_database_comparison.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/multi_machine_database_comparison.ipynb) | Published multi-machine databases in common VAFT semantics (#1205): ITPA DB5.2.3 confinement and VEST in one confinement table, TCV and ITPA TC-26 L-H transitions in one event table, ITPA PR08 profiles mapped to ODS and overlaid on VEST, with IMAS mapping coverage and source definitions. Needs network; TC-26 from a local copy. |
+| [`multi_machine_confinement_database.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/multi_machine_confinement_database.ipynb) | Published multi-machine databases in common VAFT semantics (#1205): ITPA DB5.2.3 confinement and VEST in one confinement table, TCV and ITPA TC-26 L-H transitions in one event table, ITPA PR08 profiles mapped to ODS and overlaid on VEST, with IMAS mapping coverage and source definitions. Needs network; TC-26 from a local copy. |
+| [`multi_machine_operation_space_database.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/{{ site.data.notebook_outputs.source_commit }}/notebooks/multi_machine_operation_space_database.ipynb) | Public equilibria from seven machines on every registered operational-space projection the equilibrium alone supplies (#1620): one COCOS-11 state table, projections found from the registry, registered boundaries with their basis and calibration machines, ST and conventional populations kept apart. Needs network. |
 
 Canonical plots are named `vaft.omas.plot_{subject}_{view}[_{quantity}]` — the subject is the physical
 thing, not the IDS that stores it, so the plasma current is `plot_plasma_current_time`. Any adapter accepts a

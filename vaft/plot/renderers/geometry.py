@@ -422,7 +422,33 @@ def charge_exchange_geometry_poloidal(
 def machine_geometry_poloidal(
     model: GeometryLayers, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Composed poloidal machine view."""
+    """Composed poloidal machine view.
+
+    Interpretation
+    --------------
+    The machine's poloidal cross-section in one axes: first wall and limiters,
+    poloidal-field coils, passive conducting structure, and the positions and
+    sight lines of the diagnostics.  It is the map for locating a sensor
+    relative to the plasma and coils, for reading other poloidal-plane figures,
+    and for planning where a measurement looks.
+
+    Options
+    -------
+    ``overlay=`` selects which machine parts are drawn; with none named,
+    everything the input describes is drawn.
+
+    Limitations
+    -----------
+    It is an axisymmetric projection: toroidally localized parts such as
+    non-axisymmetric coils, ports and launchers appear at their poloidal
+    position with their toroidal location lost.  The geometry is drawn as the
+    input's machine description gives it, including any simplification in that
+    description.
+
+    See Also
+    --------
+    machine_geometry_topview : the same machine seen from above.
+    """
     return render_geometry_layers(model, ax=ax, show=show, **style)
 
 

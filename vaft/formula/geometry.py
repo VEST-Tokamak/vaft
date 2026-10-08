@@ -63,6 +63,10 @@ __all__ = [
     "cylindrical_parallel_wavenumber",
     "cylindrical_poloidal_field",
     "peaked_current_safety_factor",
+    "cylindrical_enclosed_current",
+    "cylindrical_poloidal_flux",
+    "cylindrical_internal_inductance",
+    "cylindrical_current_diffusion_rate",
     "local_slab_from_cylinder",
     "harris_sheet_field",
     "harris_sheet_current_density",
@@ -335,6 +339,14 @@ def cylindrical_safety_factor_from_r_B(r, B_theta, B_z, R0):
     A periodic cylinder; a screw pinch has the same $q$ with $R_0$ set by
     the imposed period.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: state_coordinate
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
@@ -440,6 +452,14 @@ def cylindrical_poloidal_field(r, I_enclosed):
     current makes $B_\theta$ rise fast and then fall as $1/r$, which is what
     shapes $q(r)$.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: normalization
+    locality: flux_surface_local
+    role: profile_descriptor
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
@@ -513,6 +533,256 @@ def peaked_current_safety_factor(x, q_a, nu):
     with np.errstate(invalid="ignore", divide="ignore"):
         result = np.where(x2 > 1e-12, q_a * x2 / np.where(denom > 0.0, denom, 1.0), q_a / (nu + 1.0))
     return float(result) if np.ndim(result) == 0 else result
+
+
+def _radial_grid(r) -> np.ndarray:
+    r = np.asarray(r, dtype=float)
+    if r.ndim != 1 or r.size < 2:
+        raise ValueError("r must be a 1-D grid of at least two radii")
+    if r[0] != 0.0 or np.any(np.diff(r) <= 0.0):
+        raise ValueError("r must start on the axis (r[0] = 0) and increase")
+    return r
+
+
+def _cumulative_trapezoid(y: np.ndarray, r: np.ndarray) -> np.ndarray:
+    return np.concatenate([[0.0], np.cumsum(0.5 * (y[1:] + y[:-1]) * np.diff(r))])
+
+
+def cylindrical_enclosed_current(r, j_z):
+    r"""Axial current inside each radius of a straight current column.
+
+    $$I(r) = 2\pi\int_0^r j_z(r')\,r'\,dr'$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid, starting at the axis and increasing [m].
+    j_z : np.ndarray
+        Axial current density on ``r`` [A/m^2].
+
+    Returns
+    -------
+    np.ndarray
+        $I(r)$ on ``r``; ``I[-1]`` is the total current $I_p$ [A].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0, or ``j_z`` differs in shape.
+
+    Convention
+    ----------
+    Positive along $+z$, the stand-in for the toroidal direction. Trapezoidal
+    in $r$, so the error is second order in the grid spacing.
+
+    Physical interpretation
+    -----------------------
+    Two current profiles with the same $I_p$ differ only in where the current
+    is enclosed; ``cylindrical_poloidal_field`` turns $I(r)$ into $B_\theta(r)$,
+    and that redistribution is what changes $q(r)$ and $l_i$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    """
+    r = _radial_grid(r)
+    j_z = np.asarray(j_z, dtype=float)
+    if j_z.shape != r.shape:
+        raise ValueError(f"j_z must have the shape of r, {r.shape}, not {j_z.shape}")
+    return 2.0 * np.pi * _cumulative_trapezoid(j_z * r, r)
+
+
+def cylindrical_poloidal_flux(r, B_theta, R0):
+    r"""Poloidal flux per radian of a straightened torus, zero on the axis.
+
+    $$\psi(r) = R_0\int_0^r B_\theta(r')\,dr'$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid, starting at the axis and increasing [m].
+    B_theta : np.ndarray
+        Poloidal field on ``r`` [T].
+    R0 : float
+        Major radius the torus is straightened at [m].
+
+    Returns
+    -------
+    np.ndarray
+        $\psi(r)$ on ``r`` [Wb/rad].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0, ``B_theta`` differs in shape
+        or ``R0`` is not positive and finite.
+
+    Convention
+    ----------
+    Per radian, as COCOS 1--8 (a g-file) store it, and zero on the axis;
+    multiply by $2\pi$ for the full flux in Wb of IMAS / COCOS 11. $\psi_N =
+    \psi/\psi(a)$ is the same either way. It increases outward for a
+    positive $B_\theta$. Trapezoidal in $r$.
+
+    Physical interpretation
+    -----------------------
+    $\psi_N$ is not $r/a$: where the current is enclosed sets how fast the
+    flux accumulates, so $q_{95} = q(\psi_N = 0.95)$ sits at a radius that
+    depends on the current profile.
+
+    Assumptions
+    -----------
+    Large aspect ratio: the poloidal flux through a ribbon of length
+    $2\pi R_0$, the $1/R$ variation of a real torus neglected.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.3.
+    """
+    r = _radial_grid(r)
+    B_theta = np.asarray(B_theta, dtype=float)
+    if B_theta.shape != r.shape:
+        raise ValueError(f"B_theta must have the shape of r, {r.shape}, not {B_theta.shape}")
+    if not (np.isfinite(float(R0)) and float(R0) > 0.0):
+        raise ValueError(f"R0 must be positive and finite, not {R0!r}")
+    return float(R0) * _cumulative_trapezoid(B_theta, r)
+
+
+def cylindrical_internal_inductance(r, B_theta):
+    r"""Normalized internal inductance of a current column of radius $a$.
+
+    $$l_i = \frac{2}{a^2 B_\theta^2(a)}\int_0^a B_\theta^2\,r\,dr$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid from the axis to the boundary $a = $ ``r[-1]`` [m].
+    B_theta : np.ndarray
+        Poloidal field on ``r`` [T].
+
+    Returns
+    -------
+    float
+        $l_i = \langle B_\theta^2\rangle/B_\theta^2(a)$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0, ``B_theta`` differs in shape
+        or vanishes at the boundary.
+
+    Convention
+    ----------
+    The cylindrical $l_i$: the area-averaged $B_\theta^2$ over its boundary
+    value. A uniform current gives exactly $1/2$. On the straight cylinder
+    it equals the IMAS $l_{i,3}$ of ``li_3_from_Bp2_volume_integral`` (with
+    $B_\theta(a) = \mu_0I_p/2\pi a$ and $dV = 2\pi R_0\,2\pi r\,dr$) and the
+    Lao/EFIT ``virial_li_from_volume``; in a shaped torus the three differ.
+
+    Physical interpretation
+    -----------------------
+    Internal poloidal magnetic energy per $I_p^2$: at fixed $I_p$ a current
+    enclosed closer to the axis raises $B_\theta$ inside the column and so
+    $l_i$. It is a property of the whole $I(r)$, not a label of the profile
+    shape -- different profiles can share one $l_i$.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.7.
+    .. [2] J. P. Freidberg, *Ideal MHD*, Cambridge University Press (2014),
+           Ch. 6.
+    """
+    r = _radial_grid(r)
+    B_theta = np.asarray(B_theta, dtype=float)
+    if B_theta.shape != r.shape:
+        raise ValueError(f"B_theta must have the shape of r, {r.shape}, not {B_theta.shape}")
+    if B_theta[-1] == 0.0:
+        raise ValueError("B_theta must not vanish at the boundary")
+    a = r[-1]
+    return float(2.0 * _cumulative_trapezoid(B_theta**2 * r, r)[-1] / (a * a * B_theta[-1] ** 2))
+
+
+def cylindrical_current_diffusion_rate(r, I, eta, j_ni=None):
+    r"""Rate of change of the enclosed current under resistive diffusion of the poloidal field.
+
+    $$\frac{\partial I}{\partial t} = \frac{r}{\mu_0}\frac{\partial}{\partial r}\left[\frac{\eta}{r}\left(\frac{\partial I}{\partial r} - 2\pi r\,j_\mathrm{ni}\right)\right]$$
+
+    Parameters
+    ----------
+    r : np.ndarray
+        Minor-radius grid, starting at the axis and increasing [m].
+    I : np.ndarray
+        Enclosed axial current $I(r)$ on ``r``, zero on the axis [A].
+    eta : np.ndarray
+        Parallel resistivity on ``r``, positive [Ohm m].
+    j_ni : np.ndarray, optional
+        Non-inductive (driven) current density on ``r``; none by default [A/m^2].
+
+    Returns
+    -------
+    np.ndarray
+        $\partial I/\partial t$ on ``r``; zero on the axis, where $I = 0$
+        always, and NaN at the boundary $r = a$, whose current the external
+        circuit sets [A/s].
+
+    Raises
+    ------
+    ValueError
+        ``r`` is not an increasing grid from 0 with at least three points,
+        an array differs in shape from ``r``, ``I`` does not vanish on the
+        axis, or ``eta`` is not positive.
+
+    Convention
+    ----------
+    Faraday $\partial B_\theta/\partial t = \partial E_z/\partial r$, Ampère
+    $\mu_0 I = 2\pi r B_\theta$ and Ohm's law
+    $E_z = \eta\,(j_z - j_\mathrm{ni})$, with $j_z = (\partial I/\partial r)/2\pi r$
+    the total current density. Conservative finite differences: the
+    bracket is evaluated on the cell faces (midpoints of ``r``), with $\eta$
+    and $j_\mathrm{ni}$ averaged there; second order on a uniform grid, first
+    order on a non-uniform one.
+
+    Physical interpretation
+    -----------------------
+    The current density relaxes towards $j_z = j_\mathrm{ni} + E_z/\eta$
+    with one $E_z$ across the radius. A driven source therefore persists
+    while the ohmic part around it readjusts; and with no source the
+    relaxed current is $\propto 1/\eta$ -- flat for uniform resistivity,
+    peaked only because a hotter core conducts better.
+
+    Assumptions
+    -----------
+    Straight cylinder at large aspect ratio; resistivity and driven current
+    are prescribed, with no transport, bootstrap or toroidal geometry.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011)
+           (resistive diffusion of the current).
+    """
+    r = _radial_grid(r)
+    if r.size < 3:
+        raise ValueError("r must hold at least three radii")
+    I = np.asarray(I, dtype=float)
+    eta = np.asarray(eta, dtype=float)
+    j_ni = np.zeros_like(r) if j_ni is None else np.asarray(j_ni, dtype=float)
+    for name, value in (("I", I), ("eta", eta), ("j_ni", j_ni)):
+        if value.shape != r.shape:
+            raise ValueError(f"{name} must have the shape of r, {r.shape}, not {value.shape}")
+    if I[0] != 0.0:
+        raise ValueError(f"I must vanish on the axis (no current is enclosed at r = 0), not I[0] = {I[0]:g}")
+    if np.any(eta <= 0.0):
+        raise ValueError("eta must be positive")
+    face = 0.5 * (r[1:] + r[:-1])
+    flux = (0.5 * (eta[1:] + eta[:-1]) / face) * (
+        np.diff(I) / np.diff(r) - 2.0 * np.pi * face * 0.5 * (j_ni[1:] + j_ni[:-1]))
+    rate = np.empty_like(r)
+    rate[1:-1] = r[1:-1] / MU0 * np.diff(flux) / (face[1:] - face[:-1])
+    rate[0], rate[-1] = 0.0, np.nan
+    return rate
 
 
 def local_slab_from_cylinder(m_pol, n_tor, r_0, R0, q_0, s_hat) -> Tuple[float, float, float]:

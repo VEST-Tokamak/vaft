@@ -12,7 +12,13 @@ from pathlib import Path
 # --------------------------------------------------------------------------- #
 # 0) Configuration file
 # --------------------------------------------------------------------------- #
-configfile: "config.yaml"
+# The workflow's own defaults, located by this Snakefile rather than by the
+# working directory: a bare "config.yaml" resolves against `--directory`, so a
+# run launched with `--directory <run dir> --configfile <run dir>/config.yaml`
+# re-read its own partial config and never loaded this one -- every unset key
+# fell back to a code default (efit.run false, no eddy filament, #1530).
+# Command-line `--configfile` files are deep-merged over these.
+configfile: str(Path(workflow.basedir) / "config.yaml")
 
 
 _ENV_REFERENCE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))")
@@ -42,7 +48,17 @@ config.update(_expand_config_environment(config))
 # --------------------------------------------------------------------------- #
 SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
-from paths import FILEDB, PipelinePaths, select_efit_table, solver_module, stability_product, stage_scope
+from paths import (
+    FILEDB,
+    PipelinePaths,
+    require_run_config_keys,
+    select_efit_table,
+    solver_module,
+    stability_product,
+    stage_scope,
+)
+
+require_run_config_keys(workflow)
 
 from vaft.database.sources import STAGE_REPLICATION, replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot
@@ -177,8 +193,11 @@ if HSDS_CONFIG.get("replicate", False) and PATHS.layout != FILEDB:
 # An optional stage is not part of the baseline target set: its shots are a
 # sparse subset chosen by its own checkpoint, and a shot that never produced it
 # must not read as a missing baseline output (issue #305). Which stages are
-# optional is the registry's answer, not this file's.
-_ALL_REPLICABLE = tuple(replicable_stages()) if REPLICATION_ENABLED else ()
+# optional is the registry's answer, not this file's. Only the routine stages:
+# the corrective ones (Thomson lineage, soft X-ray, camera, ...) have their own
+# producers and no rule here, so asking for their records -- which the IMPA
+# branch did whenever impa.enable and replication were both on -- failed the DAG.
+_ALL_REPLICABLE = tuple(replicable_stages(produced_by="routine")) if REPLICATION_ENABLED else ()
 REPLICATED_STAGES = tuple(
     stage for stage in _ALL_REPLICABLE if not STAGE_REPLICATION[stage].optional
 )
@@ -342,7 +361,11 @@ def impa_pipeline_outputs(wildcards):
     """The optional IMPA branch, kept out of the baseline target set."""
     if not IMPA_ENABLED:
         return []
-    shots = impa_shots(wildcards)
+    return impa_outputs(impa_shots(wildcards))
+
+
+def impa_outputs(shots):
+    """What the IMPA branch builds for ``shots``, once they are selected."""
     outputs = [PATHS.impa_ods(shot) for shot in shots]
     outputs += [PATHS.impa_manifest(shot) for shot in shots]
     outputs += replication_records(shots, OPTIONAL_REPLICATED_STAGES)
@@ -365,7 +388,11 @@ def scoped_gpec_codes():
 
 
 def eligible_pipeline_outputs(wildcards):
-    shots = eligible_shots(wildcards)
+    return pipeline_outputs(eligible_shots(wildcards))
+
+
+def pipeline_outputs(shots):
+    """Every per-shot product `rule all` requests for ``shots``, once they pass preflight."""
     products = {
         "diagnostics": ("diagnostics_ods", "diagnostics_manifest"),
         "eddy": ("eddy_ods", "eddy_manifest"),
@@ -427,6 +454,28 @@ rule all:
         static_validation_plot_products(),
         eligible_pipeline_outputs,
         impa_pipeline_outputs
+
+
+# Every product `rule all` reaches for the configured shots, with the preflight
+# and IMPA-selection checkpoints taken as passed: what the DAG looks like for a
+# shot that is eligible (and, with impa.enable, archives IMPA). A dry run cannot
+# see past a checkpoint, so this is how the documentation's lineage graph
+# (vaft._pipeline_graph, #1647) asks Snakemake for the whole topology. Never the
+# default target, and never run: it skips the gate production relies on. Defined
+# only under `documentation_graph: true`, so a production parse never resolves
+# every product of every configured shot for a target it will not ask for.
+if config.get("documentation_graph", False):
+    rule configured_products:
+        input:
+            [PATHS.raw_dump(shot) for shot in SHOTS],
+            [PATHS.raw_manifest(shot) for shot in SHOTS],
+            [PATHS.static_ods(version) for version in MACHINE_VERSIONS],
+            [PATHS.static_manifest(version) for version in MACHINE_VERSIONS],
+            PATHS.preflight_eligible(),
+            PATHS.preflight_excluded(),
+            static_validation_plot_products(),
+            pipeline_outputs(SHOTS),
+            impa_outputs(SHOTS) if IMPA_ENABLED else []
 
 ############################################################
 # DAQ Raw Data Extraction

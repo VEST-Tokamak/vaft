@@ -71,9 +71,11 @@ import subprocess
 import time
 import uuid
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from typing import IO, Any, Mapping, Optional, Sequence
 
+from . import _process_tree
 from ._executables import ExecutableNotLaunchable
 from .execution import (
     THREAD_ENV_VARIABLES,
@@ -101,6 +103,10 @@ SCRATCH_DIRECTORY = ".vaft-slurm"
 _MODES = ("auto", "step", "batch")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _SCHEDULER_PREFIXES = ("SLURM_", "SBATCH_", "SRUN_")
+#: What ``ExecutionRequest.label`` may look like: it names the scratch
+#: directory (and the remote staging directory), so it is one path component
+#: with no separators, no ``..`` and nothing a shell or sbatch could misread.
+_LABEL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 #: An sbatch error that means the controller was never reached, so the job
 #: cannot have been accepted and resubmitting cannot duplicate it.
 _UNREACHED = ("Unable to contact slurm controller",)
@@ -131,6 +137,22 @@ def exported_environment(overlay: Mapping[str, str], parent: Optional[Mapping[st
         and not str(key).startswith(_SCHEDULER_PREFIXES)
         and parent.get(str(key)) != str(value)
     }
+
+
+def _scratch_name(label: str) -> str:
+    """The directory name for one run: the request's label and a fresh suffix.
+
+    The label is spliced into a path that is created, written and -- by the
+    remote backend -- ``rm -rf``'d, so anything but a single plain component
+    is refused here rather than resolved somewhere else.
+    """
+    label = str(label or "")
+    if label and not _LABEL.match(label):
+        raise ValueError(
+            f"ExecutionRequest.label must be one path component of letters, digits, '.', '_' "
+            f"and '-' starting with a letter or digit, got {label!r}"
+        )
+    return f"{label or 'job'}-{uuid.uuid4().hex[:8]}"
 
 
 def _submission_environment() -> dict[str, str]:
@@ -197,6 +219,181 @@ def _read(path: Path) -> Optional[str]:
         return path.read_text(encoding="utf-8", errors="replace")
     except FileNotFoundError:
         return None
+
+
+def _job_script(
+    request: ExecutionRequest,
+    workdir: Any,
+    stdin: Any,
+    scratch: Any,
+    *,
+    setup_lines: Sequence[str] = (),
+) -> str:
+    """The batch script for one request.
+
+    Shared with :mod:`vaft.code.remote`, which submits the same script on a
+    cluster reached over ssh; the paths it passes are that cluster's, so every
+    path argument is taken as text (``str``, :class:`~pathlib.Path` or
+    :class:`~pathlib.PurePosixPath`) and never resolved locally. ``request``
+    must already carry the command and environment as the executing host sees
+    them. ``setup_lines`` are shell lines (``module load ...``) placed before
+    the first use of the working directory.
+    """
+    quote = shlex.quote
+    status, started = f"{scratch}/returncode", f"{scratch}/started"
+    lines = ["#!/bin/bash", *[str(line) for line in setup_lines]]
+    lines += [
+        f"cd {quote(str(workdir))} || exit 1",
+        f"rm -f {quote(status)}",
+    ]
+    for key, value in sorted(exported_environment(request.env).items()):
+        lines.append(f"export {key}={quote(value)}")
+    threads = request.resources.threads_per_task
+    if threads is not None:
+        # setdefault semantics, as for a local launch.
+        for variable in THREAD_ENV_VARIABLES:
+            lines.append(f'export {variable}="${{{variable}:-{int(threads)}}}"')
+    command = " ".join(quote(str(part)) for part in request.command)
+    source = quote(str(stdin)) if stdin is not None else "/dev/null"
+    lines += [
+        f"date +%s > {quote(started)}",
+        # The termination record carries the node's own clock and, where
+        # Slurm provides it, the job's end time, so a walltime kill can be
+        # told from a cancel without accounting and without comparing
+        # clocks across hosts.
+        f'terminated() {{ echo "{_TERMINATED} $(date +%s) ${{SLURM_JOB_END_TIME:-}}" > {quote(status)}; }}',
+        # Backgrounded so a TERM at the time limit or on scancel runs the
+        # trap now rather than after the program exits.
+        "trap 'terminated; kill -TERM $child 2>/dev/null; wait $child; exit 143' TERM",
+        # A non-interactive shell starts background jobs with INT and QUIT
+        # ignored; restore them so scancel --signal=INT reaches the program.
+        f"( trap - INT QUIT; exec {command} ) < {source} &",
+        "child=$!",
+        "wait $child",
+        "rc=$?",
+        # The program may die of the TERM before this shell handles its own.
+        f'if [ "$rc" -eq 143 ]; then terminated; else echo "$rc" > {quote(status)}; fi',
+        "exit $rc",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _job_outcome(
+    *,
+    cancelled: bool,
+    recorded: Optional[str],
+    state: Optional[str],
+    exit_code: Optional[int],
+    began: bool,
+    walltime_kill: bool,
+) -> tuple[Optional[int], bool, bool, bool]:
+    """How a finished batch job ended, from the records a backend collected.
+
+    Shared with :mod:`vaft.code.remote`. ``recorded`` is the job script's own
+    record (:func:`_job_script`): an exit status, a ``terminated`` line, or
+    ``None``. ``state``/``exit_code`` come from accounting (``None`` without
+    it). ``began`` is whether the program ever started, ``cancelled`` whether
+    the backend's own wait limit cancelled the job, and ``walltime_kill``
+    whether a ``terminated`` record looks like the time limit rather than a
+    cancel.
+
+    Returns ``(returncode, timed_out, never_started, cancelled)``; the last is
+    ``cancelled`` corrected for a program that exited before the cancel landed.
+    """
+    terminated = recorded is not None and recorded.startswith(_TERMINATED)
+    exited = recorded is not None and not terminated
+    if cancelled and exited:
+        cancelled = False  # the program exited before the cancel landed
+    timed_out = cancelled or state in TIMEOUT_STATES
+    never_started = cancelled and not began
+    if not timed_out and state is None and terminated:
+        timed_out = walltime_kill
+    if timed_out:
+        returncode: Optional[int] = None
+    elif exited:
+        returncode = int(recorded)
+    elif state == "COMPLETED":
+        returncode = exit_code or 0
+    else:
+        returncode = exit_code or (143 if terminated else 1)
+    return returncode, timed_out, never_started, cancelled
+
+
+def _job_note(
+    job_id: str,
+    *,
+    max_wait: Optional[float],
+    never_started: bool,
+    cancelled: bool,
+    state: Optional[str],
+    recorded: Optional[str],
+    timed_out: bool,
+) -> str:
+    """The one line a backend appends about a job that did not simply exit.
+
+    Shared with :mod:`vaft.code.remote`. Empty when the program's own exit
+    status tells the whole story.
+    """
+    exited = recorded is not None and not recorded.startswith(_TERMINATED)
+    if never_started:
+        return (
+            f"slurm job {job_id} was cancelled after waiting max_wait={max_wait} s "
+            "in the queue (it never started)"
+        )
+    if cancelled:
+        return f"slurm job {job_id} cancelled after max_wait={max_wait} s"
+    if state not in (None, "COMPLETED", "FAILED"):
+        return f"slurm job {job_id} ended {state}"
+    if state is None and not exited and not timed_out:
+        return f"slurm job {job_id} ended without an exit status of its own (state unknown)"
+    return ""
+
+
+def _parse_accounting(stdout: str) -> Optional[tuple[Optional[str], Optional[int], Optional[float]]]:
+    """``(state, exit code, run_s)`` from one ``sacct -n -P`` line, else ``None``.
+
+    Shared with :mod:`vaft.code.remote`. The fields are
+    ``State,ExitCode[,Start,End]``; ``run_s`` is the scheduler's own measure of
+    how long the job ran and is ``None`` unless both stamps were asked for and
+    both parsed. ``None`` for output that carries no record at all.
+    """
+    line = next((row for row in stdout.splitlines() if row.strip()), "")
+    if "|" not in line:
+        return None
+    fields = line.split("|")
+    state = fields[0].split()[0] if fields[0].strip() else None
+    exit_code = _exit_code(fields[1]) if len(fields) > 1 else None
+    run_s = _stamp_interval(fields[2], fields[3]) if len(fields) > 3 else None
+    return state, exit_code, run_s
+
+
+def _exit_code(text: str) -> Optional[int]:
+    """``ExitCode`` (``<code>:<signal>``) as one number; a signal becomes 128+n."""
+    code, _, signal_number = text.strip().partition(":")
+    try:
+        number = int(code)
+        if number == 0 and signal_number and int(signal_number):
+            number = 128 + int(signal_number)
+        return number
+    except ValueError:
+        return None
+
+
+def _stamp_interval(start: str, end: str) -> Optional[float]:
+    """Seconds between two ``sacct`` stamps, or ``None`` if either is not one.
+
+    ``sacct`` prints ``Unknown`` for a job that never started and ``None`` for
+    one with no end; both are reported as no measurement rather than as zero.
+    """
+    stamps = []
+    for text in (start, end):
+        try:
+            stamps.append(datetime.strptime(text.strip(), "%Y-%m-%dT%H:%M:%S"))
+        except ValueError:
+            return None
+    seconds = (stamps[1] - stamps[0]).total_seconds()
+    return seconds if seconds >= 0 else None
 
 
 class SlurmBackend:
@@ -431,58 +628,17 @@ class SlurmBackend:
 
     # -- batch mode -------------------------------------------------------
 
-    @staticmethod
-    def _script(request: ExecutionRequest, workdir: Path, stdin: Optional[Path], scratch: Path) -> str:
-        quote = shlex.quote
-        status, started = scratch / "returncode", scratch / "started"
-        lines = [
-            "#!/bin/bash",
-            f"cd {quote(str(workdir))} || exit 1",
-            f"rm -f {quote(str(status))}",
-        ]
-        for key, value in sorted(exported_environment(request.env).items()):
-            lines.append(f"export {key}={quote(value)}")
-        threads = request.resources.threads_per_task
-        if threads is not None:
-            # setdefault semantics, as for a local launch.
-            for variable in THREAD_ENV_VARIABLES:
-                lines.append(f'export {variable}="${{{variable}:-{int(threads)}}}"')
-        command = " ".join(quote(str(part)) for part in request.command)
-        source = quote(str(stdin)) if stdin is not None else "/dev/null"
-        lines += [
-            f"date +%s > {quote(str(started))}",
-            # The termination record carries the node's own clock and, where
-            # Slurm provides it, the job's end time, so a walltime kill can be
-            # told from a cancel without accounting and without comparing
-            # clocks across hosts.
-            f'terminated() {{ echo "{_TERMINATED} $(date +%s) ${{SLURM_JOB_END_TIME:-}}" > {quote(str(status))}; }}',
-            # Backgrounded so a TERM at the time limit or on scancel runs the
-            # trap now rather than after the program exits.
-            "trap 'terminated; kill -TERM $child 2>/dev/null; wait $child; exit 143' TERM",
-            # A non-interactive shell starts background jobs with INT and QUIT
-            # ignored; restore them so scancel --signal=INT reaches the program.
-            f"( trap - INT QUIT; exec {command} ) < {source} &",
-            "child=$!",
-            "wait $child",
-            "rc=$?",
-            # The program may die of the TERM before this shell handles its own.
-            f'if [ "$rc" -eq 143 ]; then terminated; else echo "$rc" > {quote(str(status))}; fi',
-            "exit $rc",
-            "",
-        ]
-        return "\n".join(lines)
-
     def _run_batch(self, request: ExecutionRequest) -> ExecutionResult:
         sbatch = self._tool("sbatch")
         workdir = Path(request.workdir).resolve()
-        scratch = workdir / SCRATCH_DIRECTORY / f"{request.label or 'job'}-{uuid.uuid4().hex[:8]}"
+        scratch = workdir / SCRATCH_DIRECTORY / _scratch_name(request.label)
         scratch.mkdir(parents=True)
         stdin = None
         if request.stdin is not None:
             stdin = scratch / "stdin"
             stdin.write_text(request.stdin, encoding="utf-8")
         script = scratch / "job.sh"
-        script.write_text(self._script(request, workdir, stdin, scratch), encoding="utf-8")
+        script.write_text(_job_script(request, workdir, stdin, scratch), encoding="utf-8")
         script.chmod(0o700)
 
         log_path = Path(request.log_path).resolve() if request.log_path is not None else None
@@ -505,9 +661,18 @@ class SlurmBackend:
         clusters = ["-M", cluster] if cluster else []
 
         try:
-            cancelled = self._wait(job_id, clusters, started)
-        except BaseException:
-            self._cancel(job_id, clusters)
+            # A SIGTERM or SIGHUP while the job is queued or running has to
+            # cancel it, like a KeyboardInterrupt; without the guard the
+            # signal's default disposition ends Python and leaves the job on
+            # the cluster.
+            with _process_tree.forward_termination():
+                try:
+                    cancelled = self._wait(job_id, clusters, started)
+                except BaseException:
+                    self._cancel(job_id, clusters)
+                    raise
+        except _process_tree.Terminated as stop:
+            stop.redeliver()
             raise
         # The script stamps ``started`` as the program begins, so a cancelled
         # job without it never left the queue (#1016: "queue_timeout") and can
@@ -520,42 +685,31 @@ class SlurmBackend:
         state, exit_code = self._accounting(job_id, clusters)
 
         terminated = recorded is not None and recorded.startswith(_TERMINATED)
-        exited = recorded is not None and not terminated
-        if cancelled and exited:
-            cancelled = False  # the program exited before the cancel landed
-        timed_out = cancelled or state in TIMEOUT_STATES
-        never_started = cancelled and not begin
-        if not timed_out and state is None and terminated:
-            timed_out = self._walltime_kill(recorded, scratch, request)
+        returncode, timed_out, never_started, cancelled = _job_outcome(
+            cancelled=cancelled,
+            recorded=recorded,
+            state=state,
+            exit_code=exit_code,
+            began=bool(begin),
+            walltime_kill=self._walltime_kill(recorded or "", scratch, request),
+        )
         # The program's own run time, from the node's clock at start and at
         # the TERM that stopped it; ``elapsed_s`` below counts from submission.
         run_s: Optional[float] = None
         if terminated and begin.isdigit():
-            fields = recorded.split()
+            fields = (recorded or "").split()
             if len(fields) >= 2 and fields[1].isdigit():
                 run_s = float(max(int(fields[1]) - int(begin), 0))
 
-        if timed_out:
-            returncode: Optional[int] = None
-        elif exited:
-            returncode = int(recorded)
-        elif state == "COMPLETED":
-            returncode = exit_code or 0
-        else:
-            returncode = exit_code or (143 if terminated else 1)
-
-        note = ""
-        if never_started:
-            note = (
-                f"slurm job {job_id} was cancelled after waiting max_wait={self.max_wait} s "
-                "in the queue (it never started)"
-            )
-        elif cancelled:
-            note = f"slurm job {job_id} cancelled after max_wait={self.max_wait} s"
-        elif state not in (None, "COMPLETED", "FAILED"):
-            note = f"slurm job {job_id} ended {state}"
-        elif state is None and not exited and not timed_out:
-            note = f"slurm job {job_id} ended without an exit status of its own (state unknown)"
+        note = _job_note(
+            job_id,
+            max_wait=self.max_wait,
+            never_started=never_started,
+            cancelled=cancelled,
+            state=state,
+            recorded=recorded,
+            timed_out=timed_out,
+        )
 
         if log_path is not None:
             stdout = stderr = ""
@@ -698,13 +852,12 @@ class SlurmBackend:
         deadline = time.monotonic() + self.accounting_grace
         while True:
             report = self._slurm([sacct, *clusters, "-j", job_id, "-X", "-n", "-P", "-o", "State,ExitCode"])
-            line = next((row for row in report.stdout.splitlines() if row.strip()), "")
-            if report.returncode == 0 and "|" in line:
-                state_text, code_text = line.split("|", 1)
-                state = state_text.split()[0] if state_text.strip() else None
+            parsed = _parse_accounting(report.stdout) if report.returncode == 0 else None
+            if parsed is not None:
+                state, exit_code, _ = parsed
                 # slurmdbd lags the controller; wait for the final state.
                 if state is not None and state not in LIVE_STATES:
-                    return state, self._exit_code(code_text)
+                    return state, exit_code
             elif report.returncode != 0 and not any(
                 marker in report.stderr for marker in _ACCOUNTING_TRANSIENT
             ):
@@ -713,16 +866,6 @@ class SlurmBackend:
                 return None, None
             time.sleep(min(1.0, self.accounting_grace))
 
-    @staticmethod
-    def _exit_code(text: str) -> Optional[int]:
-        code, _, signal_number = text.strip().partition(":")
-        try:
-            number = int(code)
-            if number == 0 and signal_number and int(signal_number):
-                number = 128 + int(signal_number)
-            return number
-        except ValueError:
-            return None
 
 
 __all__ = [

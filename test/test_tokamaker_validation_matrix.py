@@ -1,13 +1,14 @@
 """Small analytic topology and representability checks for the #1608 matrix."""
 from dataclasses import replace
 import json
+from pathlib import Path
 import sys
 import numpy as np
 import pytest
 from vaft.code.tokamaker.profiles import equilibrium_to_tokamaker_profiles
 from vaft.process.equilibrium import derive_boundary_representation, fit_free_boundary_coils
-from validation.fixed_free_1608 import matrix
-from validation.fixed_free_1608.matrix import acceptance_failures, machine_case, target_case
+from vaft.validation.studies.fixed_free_1608 import matrix
+from vaft.validation.studies.fixed_free_1608.matrix import acceptance_failures, machine_case, target_case
 
 
 @pytest.mark.parametrize('family', ['solovev', 'guazzotto_freidberg', 'guazzotto_pedestal'])
@@ -78,3 +79,45 @@ def test_matrix_records_target_failure_for_each_route_and_exits_nonzero(tmp_path
     records = json.loads((out/'summary.json').read_text())
     assert len(records) == 2
     assert all('target construction failed' in row['error'] for row in records)
+
+
+# The README and measured_matrix.json are excluded from the wheel (#1756), so
+# read them from the repository checkout rather than next to the module.
+STUDY_DIR = Path(__file__).resolve().parents[1] / 'vaft' / 'validation' / 'studies' / 'fixed_free_1608'
+
+
+def _study_file(name):
+    path = STUDY_DIR / name
+    if not path.is_file():
+        pytest.skip(f'{name} is not shipped; run from a repository checkout')
+    return path
+
+
+def _measured_matrix():
+    return json.loads(_study_file('measured_matrix.json').read_text(encoding='utf-8'))
+
+
+def test_committed_measured_matrix_reproduces_its_gate_verdicts():
+    """The gates must read the committed record shape, not only a fresh summary.json."""
+    records = _measured_matrix()
+    assert len(records) == 20
+    for record in records:
+        assert record['accepted'] is True
+        assert acceptance_failures(record) == record['acceptance_failures'] == []
+    broken = json.loads(json.dumps(records[0]))
+    broken['verified']['native_topology'] = 'ambiguous'
+    broken['verified']['lcfs_max_m'] = .02
+    assert set(acceptance_failures(broken)) == {'native X-point topology mismatch', 'LCFS max > 12 mm'}
+
+
+def test_readme_states_unrefined_closure_count_and_refinement_current_change():
+    """The README's fit + refinement statement carries the measured numbers."""
+    records = _measured_matrix()
+    converged_initially = [r for r in records if r['initial']['status'] == 'converged']
+    assert len(converged_initially) == 4
+    assert {r['family'] for r in converged_initially} == {'solovev'}
+    largest = max(r['refined']['max_current_change_A'] for r in records)
+    assert largest == pytest.approx(109.45e3, rel=1e-3)
+    readme = _study_file('README.md').read_text(encoding='utf-8')
+    assert 'converges for 4 of the 20 cases' in readme
+    assert 'up to 109 kA' in readme

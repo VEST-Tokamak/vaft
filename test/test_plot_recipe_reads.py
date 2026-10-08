@@ -13,6 +13,7 @@ OMAS-bound under-declaration can slip through; the neutral half is exact.
 from __future__ import annotations
 
 import contextlib
+import copy
 import io
 import warnings
 
@@ -30,6 +31,10 @@ from _read_recorder import accessor_reads, assert_models_equal, ods_reads, undec
 from _synthetic_inputs import OPTIONS, SYNTHETIC
 
 NEUTRAL = frozenset({
+    "gyrokinetics_spectrum_growth_rate", "gyrokinetics_spectrum_frequency",
+    "gyrokinetics_spectrum_energy_flux", "gyrokinetics_spectrum_particle_flux",
+    "gyrokinetics_profile_eigenfunction", "gyrokinetics_overview",
+    "turbulent_transport_profile_energy_flux", "turbulent_transport_profile_particle_flux",
     "nbi_profile_electron_heating", "nbi_profile_ion_heating", "nbi_profile_current_drive",
     "interferometer_spectrogram", "passive_structure_time_current",
     "impa_time_field", "impa_time_voltage", "impa_profile_field",
@@ -45,6 +50,10 @@ NEUTRAL = frozenset({
     "mhd_linear_profile_chirikov", "mhd_linear_field_spectrum",
     "mhd_linear_spectrum_b_field_perturbed", "mhd_linear_geometry_island",
     "coil_3d_profile_current", "coil_3d_spectrum_current",
+    # #1565: accessor reads only; the plasma onset comes from
+    # vaft.omas.plasma_timing, which reads through vaft.ods_access.
+    "core_profiles_profile_zeff", "impurity_profile_composition",
+    "impurity_profile_charge_state_fraction",
     # Built on vaft.omas helpers that read through vaft.ods_access, which
     # dispatches to the registered accessor: native on an IMAS entry too.
     "pf_plasma_geometry_poloidal",
@@ -58,6 +67,12 @@ NEUTRAL = frozenset({
     # issue #1099: the FLARE connection-length map reads plasma_initiation
     # through the accessor only.
     "field_line_topology_field_connection_length",
+    # issue #1180: the fit-quality table reads vaft.omas.efit_quality's metrics.
+    "equilibrium_table_fit_quality",
+    # issue #1583: the edge-q estimates read through vaft.omas.edge_q, which
+    # reads through vaft.ods_access.
+    "summary_time_estimated_q95", "summary_time_q_star_cylindrical",
+    "summary_time_q_star_kink", "summary_time_normalized_current",
 })
 OMAS_BOUND = frozenset({
     "kinetic_overview_profiles",
@@ -66,9 +81,14 @@ OMAS_BOUND = frozenset({
     "passive_structure_field_wall_reduction", "neoclassical_profile_bootstrap_current",
     "equilibrium_field_psi_vacuum", "vacuum_field", "summary_time_power_balance",
     "summary_time_resistive_zeff",
+    "summary_time_romero_balance",
     "camera_visible_image", "camera_visible_image_frame", "camera_visible_image_efit_overlay",
     "camera_visible_image_field_line", "camera_visible_image_fluctuation",
     "camera_visible_image_mhd_power", "equilibrium_overview",
+    # issue #1180: the slice summaries derive what a g-file omits as the overview does.
+    "equilibrium_table_summary", "equilibrium_text_summary",
+    # roadmap #1242 C2: validate_equilibrium deep-copies the ODS for the virial wrapper.
+    "equilibrium_table_validation",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
     # issue #888: the startup views solve vessel currents on a private copy.
     "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",
@@ -253,6 +273,52 @@ def test_the_ignored_reads_are_still_needed(sample, monkeypatch):
             if undeclared(via_ods, recipe.reads, without) == with_all:
                 stale.append(f"{name}: {template} no longer needs ignoring ({reason})")
     assert not stale, stale
+
+
+# ---------------------------------------------------------------------------
+# spectrogram overlays: outside _callables(), so declared and recorded here
+# ---------------------------------------------------------------------------
+
+
+def _spectrogram_reads(recipe: R.SpectrogramRecipe) -> tuple[str, ...]:
+    """The templates a ``SpectrogramRecipe`` reads on its own."""
+    paths = (recipe.signal_path, *recipe.fallback_signal_paths, *recipe.time_paths,
+             recipe.container, recipe.label_path)
+    return tuple(p for p in paths if p)
+
+
+def _with_rotation(ods):
+    """``ods`` with a toroidal-rotation profile over its equilibrium span (no packaged shot stores one)."""
+    times = np.asarray(ods["equilibrium.time"], dtype=float)
+    rho = np.linspace(0.0, 1.0, 21)
+    for k, t in enumerate((times[0], times[-1])):
+        base = f"core_profiles.profiles_1d.{k}"
+        ods[f"{base}.time"] = float(t)
+        ods[f"{base}.grid.rho_tor_norm"] = rho
+        ods[f"{base}.grid.psi"] = np.linspace(0.0, -0.01, rho.size)
+        ods[f"{base}.ion.0.velocity.toroidal"] = np.full(rho.size, 1.0e4)
+    ods["core_profiles.time"] = np.array([times[0], times[-1]], dtype=float)
+    return ods
+
+
+@pytest.mark.parametrize("name", sorted(R.MODE_OVERLAY_PLOTS))
+def test_a_mode_overlay_reads_only_what_its_annotation_declares(name, sample, monkeypatch):
+    recipe = R.RECIPES[name]
+    assert isinstance(recipe, R.SpectrogramRecipe), f"{name} is a {type(recipe).__name__}: declare it as a CallableRecipe"
+    declared = R.mode_overlay_reads(name)
+    assert declared, f"{name} declares no overlay reads"
+    for template in declared:
+        dd.from_template(template)  # raises on a malformed template
+    # The packaged EFIT stores no r_outboard, so the overlay derives it from
+    # the 2-D map: the recording covers that path, not only the stored one.
+    ods = _with_rotation(copy.deepcopy(sample))
+    with accessor_reads(monkeypatch) as via_accessor, ods_reads(monkeypatch) as via_ods:
+        model = _quiet_build(name, ods, mode_overlay=[(3, 1)])
+    assert model.metadata["mode_overlay"]["tracks"], "the overlay did not run, so nothing was recorded"
+    for path in via_accessor.paths:
+        via_ods.add(path)
+    missing = undeclared(via_ods, (*_spectrogram_reads(recipe), *declared))
+    assert not missing, missing[:40]
 
 
 # ---------------------------------------------------------------------------

@@ -951,7 +951,10 @@ def plot_kinetic_overview_profiles(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Four local kinetic profiles with measurement and fit provenance."""
+    """Four local kinetic profiles with measurement and fit provenance.
+
+    Renders with :func:`vaft.plot.kinetic_overview_profiles`.
+    """
     return render("kinetic_overview_profiles", source, ax=ax, show=show, label=label, **options)
 
 
@@ -963,7 +966,12 @@ def plot_machine_geometry_poloidal(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Composed poloidal machine view: wall, coils, passive structure and diagnostic positions in one axes.
+    """Composed machine section: wall, coils, passive structure and diagnostics.
+
+    ``overlay="equilibrium_section"`` draws one same-shot EFIT section with
+    PF active/passive geometry and the mapped EFIT flux-loop/B-pol sites.
+    Select its stored ``time_slice=``; ``section_phi=`` is the toroidal plane
+    projected by the companion camera view (6MR, phi=pi by default).
 
     Renders with :func:`vaft.plot.machine_geometry_poloidal`.
     """
@@ -1020,6 +1028,12 @@ def plot_camera_visible_image(
     ``projection=`` is ``"calibrated"`` (the model packaged for the shot) or a
     :class:`vaft.process.camera_geometry.CameraProjection`.  The
     ``plot_camera_visible_image_*`` functions are presets of this one.
+    ``overlay="equilibrium_section"`` draws a same-shot R-Z section over a
+    real frame at ``section_phi=`` (default 6MR, IMAS phi=pi). PF active/passive
+    and EFIT contours use that plane; probes retain their stored phi. With
+    ``animation=True`` the default selection is the interval containing
+    complete equilibrium sections, and ``.save("movie.mp4")`` writes the
+    movie plus a physical-time/provenance JSON sidecar.
     Renders with :func:`vaft.plot.camera_visible_image` (issue #261).
     """
     return render("camera_visible_image", source, ax=ax, show=show, label=label, **options)

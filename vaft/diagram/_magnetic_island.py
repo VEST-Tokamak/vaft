@@ -38,7 +38,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from functools import cached_property
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import numpy as np
 
@@ -650,7 +650,14 @@ def magnetic_island(
     show_o_points: bool = True,
     show_x_points: bool = True,
     labels: bool = True,
-) -> Diagram:
+    time: Any = None,
+    rotation_frequency: float | None = None,
+    animation: bool = False,
+    fps: float | None = None,
+    duration: float | None = None,
+    dpi: int | None = None,
+    frame_label: bool | None = None,
+) -> Any:
     r"""Schematic of an $m/n$ magnetic island in one of three projections.
 
     All projections are drawn from the same model -- the helical phase
@@ -689,13 +696,62 @@ def magnetic_island(
         helices), so ``show_separatrix=False`` is refused for the other two.
     labels : bool
         Title, leaders and explanatory notes.
+    time, rotation_frequency : array of float [s], float [Hz], optional
+        A rigid rotation (issue #1053): with ``animation=True``, the island at
+        each time of ``time``, its phase advancing as
+        $\phi_0(t) = \phi_0 + 2\pi f\,(t - t_0)$ from ``phase`` at the first
+        time.  ``f`` is a frequency in Hz -- the rotation of #886
+        (:class:`vaft.process.magnetic_island.MagneticIslandSpec`) takes the angular
+        frequency $\omega = 2\pi f$ in rad/s.  A positive ``f`` moves the
+        O-points towards $+\theta^*$ on a section, and towards $-\phi$
+        (clockwise seen from above) at fixed $\theta^*$.  The geometry of
+        every state comes from the same model; the drawing is never rotated
+        as a picture.
+    animation : bool
+        ``True`` draws a trajectory instead of one state (issue #1049): either
+        ``phase`` as an array (a helical-phase scan, driver ``phase`` [rad])
+        or ``time`` with ``rotation_frequency`` (driver ``time`` [s]).  Exactly
+        one trajectory; an array never animates by itself.
+    fps, duration, dpi, frame_label :
+        Presentation of the animation, never physics: ``fps`` *or*
+        ``duration`` (default 10 fps), the frame resolution, and the corner
+        stamp naming each state.
 
     Returns
     -------
     Diagram
         TikZ source immediately; SVG (and inline Jupyter display) when first
         requested, which needs ``latex`` and ``dvisvgm``.
+    Animation
+        With ``animation=True``: the lazy animation result of
+        ``plot_*(..., animation=True)`` -- ``save("island.mp4" | ".webm" |
+        ".gif")``, ``frames()``, ``metadata``, an inline notebook preview.
+        Its frames are a Matplotlib preview of each state's scene, not the
+        canonical SVG; ``.mp4``/``.webm`` need ``vaft[video]``.
     """
+    shape = dict(
+        m=m, n=n, width=width, projection=projection, r_s=r_s, aspect_ratio=aspect_ratio,
+        elongation=elongation, triangularity=triangularity, show_rational_surface=show_rational_surface,
+        show_separatrix=show_separatrix, show_o_points=show_o_points, show_x_points=show_x_points,
+        labels=labels,
+    )
+    if animation:
+        return _animate(
+            shape, phase=phase, time=time, rotation_frequency=rotation_frequency,
+            fps=fps, duration=duration, dpi=dpi, frame_label=True if frame_label is None else bool(frame_label),
+        )
+    if time is not None or rotation_frequency is not None:
+        raise ValueError("time= and rotation_frequency= describe a rotating island; pass animation=True to animate it")
+    if np.ndim(phase) != 0:
+        raise ValueError(
+            "an array of phases is a trajectory, not one state: pass animation=True to animate it (issue #1049)"
+        )
+    given = [
+        name for name, value in (("fps", fps), ("duration", duration), ("dpi", dpi), ("frame_label", frame_label))
+        if value is not None
+    ]
+    if given:
+        raise ValueError(f"{', '.join(f'{name}=' for name in given)} present an animation; pass animation=True")
     model = _validate(m, n, width, phase, projection, r_s, aspect_ratio, elongation, triangularity)
     if projection != "poloidal" and not show_separatrix:
         raise ValueError(f"show_separatrix applies to the poloidal section only; the {projection!r} view draws "
@@ -709,3 +765,77 @@ def magnetic_island(
         show_x_points=show_x_points,
     )
     return Diagram(f"magnetic_island_{projection}", scene, model=model)
+
+
+def _animate(
+    shape: dict, *, phase: Any, time: Any, rotation_frequency: Any,
+    fps: Any, duration: Any, dpi: Any, frame_label: bool,
+) -> Any:
+    r"""``magnetic_island(..., animation=True)``: one model, a trajectory of its phase (issue #1053).
+
+    Each state is the static diagram at that phase -- the same
+    :class:`IslandModel`, the same O/X topology and width -- so the
+    animation never moves a picture: a rigid rotation is the phase relation
+    $\phi_0(t) = \phi_0 + 2\pi f\,(t - t_0)$ evaluated at every time.
+    """
+    from ._animation import animate_states
+
+    def scene(phase_value: float) -> Any:
+        return magnetic_island(phase=float(phase_value), **shape).scene
+
+    scan = np.ndim(phase) != 0
+    if np.ndim(phase) > 1 or np.ndim(time) > 1:
+        raise ValueError("a trajectory is one-dimensional: pass phase= or time= as a 1-D sequence")
+    if time is not None:
+        if scan:
+            raise ValueError(
+                "phase= and time= are two trajectories; animate one -- a phase scan, or time= with "
+                "rotation_frequency= starting from a scalar phase (issue #1049)"
+            )
+        if rotation_frequency is None:
+            raise ValueError("time= animates a rigid rotation and needs rotation_frequency= [Hz]")
+        try:
+            frequency = float(rotation_frequency)
+        except (TypeError, ValueError):
+            raise ValueError(f"rotation_frequency is a frequency in Hz, not {rotation_frequency!r}") from None
+        if not math.isfinite(frequency):
+            raise ValueError(f"rotation_frequency must be finite, not {rotation_frequency!r}")
+        times = np.asarray(time, dtype=float).ravel()
+        _check_trajectory("time", times)
+        start, phase0 = float(times[0]), float(phase)
+
+        def scene_at(t: float) -> Any:
+            # Wrapped to [0, 2pi): the same state, and the subtitle states the
+            # phase a reader can place rather than an accumulated angle.
+            return scene((phase0 + 2.0 * math.pi * frequency * (t - start)) % (2.0 * math.pi))
+
+        driver, coordinate, unit, values = "time", "time", "s", times
+        options = {**shape, "phase": phase0, "rotation_frequency": frequency}
+    else:
+        if rotation_frequency is not None:
+            raise ValueError("rotation_frequency= sets how fast the island turns in time; give time= with it")
+        if not scan:
+            raise ValueError(
+                "animation=True needs a trajectory: phase= as an array, or time= with rotation_frequency=; "
+                "one phase is a static diagram"
+            )
+        values = np.asarray(phase, dtype=float).ravel()
+        _check_trajectory("phase", values)
+        scene_at = scene
+        driver, coordinate, unit = "phase", "phase", "rad"
+        options = dict(shape)
+    scene_at(float(values[0]))  # the static checks, before anything is queued
+    return animate_states(
+        "magnetic_island", scene_at, driver=driver, values=values, coordinate=coordinate, unit=unit,
+        fps=fps, duration=duration, dpi=dpi, frame_label=frame_label, options=options,
+    )
+
+
+def _check_trajectory(name: str, values: np.ndarray) -> None:
+    """One trajectory: at least two finite states (issue #1049)."""
+    if values.size == 0:
+        raise ValueError(f"magnetic_island: the {name} trajectory is empty")
+    if not np.all(np.isfinite(values)):
+        raise ValueError(f"magnetic_island: the {name} trajectory holds a non-finite value")
+    if values.size < 2:
+        raise ValueError(f"magnetic_island: one {name} is a static diagram; drop animation=True")

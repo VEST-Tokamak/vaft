@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import hashlib
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -45,6 +47,62 @@ def _canonical_urls() -> set[str]:
     }
 
 
+# --- front matter ------------------------------------------------------------
+
+
+def _hash_truncates_front_matter_value(line: str) -> bool:
+    """True when an unquoted ``#`` in this ``key: value`` line makes YAML drop part of the value."""
+    pair = re.match(r"^\s*(?:- )?[A-Za-z_][\w-]*:\s+(\S.*?)\s*$", line)
+    if not pair:
+        return False
+    raw = pair.group(1)
+    if not (" #" in raw or raw.startswith("#")) or raw[0] in "\"'":
+        return False
+    parsed = yaml.safe_load(f"key: {raw}")["key"]
+    return parsed is None or len(str(parsed)) < len(raw)
+
+
+@pytest.mark.parametrize(
+    "line, truncated",
+    [
+        ("status: pending (issue #1803)", True),
+        ("status: #1803 pending", True),  # a leading `#` comments the whole value away: None
+        ("status: '#1803 pending'", False),
+        ('status: "pending (issue #1803)"', False),
+        ("status: pending#1803", False),  # `#` without a preceding space is not a comment
+        ("# a comment line", False),
+    ],
+)
+def test_the_front_matter_hash_check_catches_leading_and_trailing_comments(line, truncated):
+    # cold review 0.8.0 delta-absorb-19-docs F4: `#` at the start of a value was skipped
+    assert _hash_truncates_front_matter_value(line) is truncated
+
+
+def test_front_matter_values_are_not_truncated_by_a_hash_comment():
+    """An unquoted `` #`` starts a YAML comment, so ``(issue #156)`` renders as ``(issue``."""
+    truncated = []
+    for page in _pages():
+        match = re.match(r"\A---\s*\n(.*?)\n---", page.read_text(encoding="utf-8"), re.S)
+        if not match:
+            continue
+        yaml.safe_load(match.group(1))  # the whole block must still parse
+        for number, line in enumerate(match.group(1).splitlines(), start=2):
+            if _hash_truncates_front_matter_value(line):
+                truncated.append(f"{page.relative_to(ROOT)}:{number}: {line.strip()}")
+    assert not truncated, "quote these front-matter values; '#' cuts them short:\n" + "\n".join(truncated)
+
+
+# --- stale branch-state claims -----------------------------------------------
+
+
+def test_the_inference_page_does_not_call_the_merged_zeff_chain_unmerged():
+    # cold review 0.8.0 delta-absorb-17 species-docs F5: PR #1659 (resolve_radial_composition with
+    # normalization="resistive_closure") merged before the page landed
+    page = (DOCS / "_guide" / "Plasma_parameter_inference.md").read_text(encoding="utf-8")
+    assert "Not on `develop` yet" not in page and "in progress" not in page.lower()
+    assert 'normalization="resistive_closure"' in page
+
+
 # --- navigation and redirects ------------------------------------------------
 
 
@@ -65,6 +123,33 @@ def test_every_navigation_target_has_a_page():
     }
     missing = sorted(_canonical_urls() - permalinks)
     assert not missing, f"navigation points at URLs no page claims: {missing}"
+
+
+#: Pages a hub page links to rather than the sidebar: the per-package API
+#: pages and the per-module formula and process references.
+HUB_CHILD_PREFIXES = ("/reference/api/", "/reference/formula/", "/reference/process/")
+
+
+def test_every_rendered_guide_page_is_reachable_from_the_navigation():
+    """The converse of the test above: a new page that is not declared is unreachable.
+
+    ``Fluctuation_coherence.md`` shipped with a permalink and a layout but no
+    navigation entry, so the only way to the page was to know its URL (cold
+    review 0.8.0 delta-absorb-16 diagram-docs F3).  Redirect stubs render no
+    body and the hub children are linked from their hub, so both are exempt.
+    """
+    urls = _canonical_urls()
+    undeclared = sorted(
+        f"{page.relative_to(ROOT)} -> {front['permalink']}"
+        for page in sorted(DOCS.glob("_guide/*.md"))
+        if (front := _front_matter(page)).get("permalink")
+        and front.get("layout") != "redirect"
+        and not front["permalink"].startswith(HUB_CHILD_PREFIXES)
+        and front["permalink"] not in urls
+    )
+    assert not undeclared, (
+        "guide pages missing from docs/_data/navigation.yml:\n  " + "\n  ".join(undeclared)
+    )
 
 
 def test_page_migrations_are_unique_and_canonical():
@@ -311,6 +396,26 @@ def test_visual_baselines_still_point_at_canonical_pages():
     stale = sorted(url[len("/vaft"):] for url in referenced
                    if url[len("/vaft"):] not in canonical)
     assert not stale, f"visual specs assert on URLs that are no longer canonical: {stale}"
+
+
+@pytest.mark.parametrize(
+    "spec",
+    sorted((DOCS / "tests/visual").glob("*.spec.js")),
+    ids=lambda spec: spec.name,
+)
+def test_visual_specs_parse(spec):
+    """Every Playwright spec must at least parse.
+
+    Nothing in CI runs the visual suite, so a spec that does not parse (the
+    #1804 merge dropped a closing ``});`` in ``graphs.spec.js``) only surfaces
+    when someone runs ``npm run test:visual`` by hand, and then it takes every
+    test in that file down with it.  ``node --check`` is the cheapest gate.
+    """
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not on PATH")
+    result = subprocess.run([node, "--check", str(spec)], capture_output=True, text=True)
+    assert result.returncode == 0, f"{spec.relative_to(ROOT)} does not parse:\n{result.stderr}"
 
 
 @pytest.mark.parametrize(

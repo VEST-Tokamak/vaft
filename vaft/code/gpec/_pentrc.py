@@ -716,10 +716,12 @@ def run_pentrc(
         record.returncode = None
         record.commands = (str(executable),)
         record.logs = (log_path,) if log_path.is_file() else ()
-        record.reason = (
-            f"pentrc did not finish within {expired.timeout:g} s; its log is "
-            f"{log_path.stat().st_size if log_path.is_file() else 0} bytes"
-        )
+        log_bytes = log_path.stat().st_size if log_path.is_file() else 0
+        if isinstance(expired, rt.GPECLimitStop) and not expired.is_time_limit:
+            # A memory stop or a launch never admitted is not "did not finish within".
+            record.reason = f"{expired.reason}; its log is {log_bytes} bytes"
+        else:
+            record.reason = f"pentrc did not finish within {expired.timeout:g} s; its log is {log_bytes} bytes"
         if policy == "strict":
             raise
         return record

@@ -11,9 +11,20 @@ checksum (:mod:`._fetch`) and are never shipped with VAFT.
 from importlib import import_module
 
 __all__ = [
+    "MHD_STATE_COLUMNS",
+    "PR08_MACHINES",
+    "PROVENANCE_KINDS",
+    "fetch_pr08_population",
+    "mhd_state_coverage",
+    "pr08_inventory",
+    "pr08_mhd_state_table",
+    "pr08_release_inventory",
+    "projection_coverage",
+    "read_pr08_zero_d",
     "CONFINEMENT_COLUMNS",
     "ChecksumError",
     "FetchError",
+    "OPTIONAL_CONFINEMENT_COLUMNS",
     "SOURCES",
     "TRANSITION_COLUMNS",
     "confinement_coverage",
@@ -41,7 +52,18 @@ __all__ = [
 ]
 
 _EXPORT_MAP = {
+    "MHD_STATE_COLUMNS": (".pr08_mhd_state", "MHD_STATE_COLUMNS"),
+    "PR08_MACHINES": (".pr08_mhd_state", "PR08_MACHINES"),
+    "PROVENANCE_KINDS": (".pr08_mhd_state", "PROVENANCE_KINDS"),
+    "fetch_pr08_population": (".pr08_mhd_state", "fetch_pr08_population"),
+    "mhd_state_coverage": (".pr08_mhd_state", "mhd_state_coverage"),
+    "pr08_inventory": (".pr08_mhd_state", "pr08_inventory"),
+    "pr08_mhd_state_table": (".pr08_mhd_state", "pr08_mhd_state_table"),
+    "pr08_release_inventory": (".pr08_mhd_state", "pr08_release_inventory"),
+    "projection_coverage": (".pr08_mhd_state", "projection_coverage"),
+    "read_pr08_zero_d": (".pr08_mhd_state", "read_pr08_zero_d"),
     "CONFINEMENT_COLUMNS": (".schema", "CONFINEMENT_COLUMNS"),
+    "OPTIONAL_CONFINEMENT_COLUMNS": (".schema", "OPTIONAL_CONFINEMENT_COLUMNS"),
     "empty_confinement_table": (".schema", "empty_confinement_table"),
     "validate_confinement_table": (".schema", "validate_confinement_table"),
     "TRANSITION_COLUMNS": (".schema", "TRANSITION_COLUMNS"),

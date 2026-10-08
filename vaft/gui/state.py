@@ -85,6 +85,10 @@ def sample_shots() -> tuple[int, ...]:
     return tuple(available_samples())
 
 
+#: The longest movie the browser export draws (#1400).
+MAX_VIDEO_FRAMES = 600
+
+
 class BrowserSession:
     """The loaded sources, their catalog and the plot on screen.
 
@@ -114,6 +118,9 @@ class BrowserSession:
 
         self.figure_options: Any = FigureOptions()
         self._catalog: Any = None
+        #: Every plot the registry supports for these sources, the unavailable
+        #: ones with the discovery record's reason (#1172).
+        self._everything: Any = None
         #: Database mode: one growing ODS per shot, the IDS it holds, and the
         #: IDS the shot stores at all.
         self._shots: dict[Source, Any] = {}
@@ -155,33 +162,65 @@ class BrowserSession:
         if kinds == {"shot"}:
             import omas
 
-            catalog, stored = self._discover_shots(chosen)
+            everything, stored = self._discover_shots(chosen)
             self.close()
             self._stored = stored
             self._shots = {source: omas.ODS() for source in chosen}
             self._held = {source: set() for source in chosen}
             data = list(self._shots.values())
-            self.sources, self.ods, self._catalog = chosen, data[0] if len(data) == 1 else data, catalog
+            self.sources, self.ods = chosen, data[0] if len(data) == 1 else data
+            self._everything, self._catalog = everything, _available(everything)
             return
         loaded = [load_source(source) for source in chosen]
         data = loaded[0] if len(loaded) == 1 else loaded
-        catalog = self._discover(data)
+        everything = self._discover(data)
         self.close()
-        self.sources, self.ods, self._catalog = chosen, data, catalog
+        self.sources, self.ods = chosen, data
+        self._everything, self._catalog = everything, _available(everything)
 
     def _discover(self, data: Any) -> Any:
+        """Every supported plot for ``data``, unavailable ones with their reason."""
         from vaft.omas import available_plots
 
-        return available_plots(data)
+        return available_plots(data, available_only=False)
 
     def _discover_shots(self, sources: Sequence[Source]) -> tuple[list[Any], dict[Source, set[str]]]:
-        """The plots every shot can draw, and the IDS each one stores."""
+        """Every supported plot for the shots, and the IDS each one stores.
+
+        A plot is available when every shot can draw it; otherwise it keeps
+        the first shot's reason that it cannot, naming the shot.
+        """
+        from dataclasses import replace
+
         from vaft.database import available_plots, stored_ids
 
         stored = {source: set(stored_ids(source.value, source.namespace)) for source in sources}
-        catalogs = [available_plots(source.value, source.namespace) for source in sources]
-        shared = set.intersection(*({c.name for c in catalog} for catalog in catalogs))
-        return [capability for capability in catalogs[0] if capability.name in shared], stored
+        catalogs = [available_plots(source.value, source.namespace, available_only=False) for source in sources]
+        by_shot = [{capability.name: capability for capability in catalog} for catalog in catalogs]
+        combined = []
+        for capability in catalogs[0]:
+            records = [records.get(capability.name) for records in by_shot]
+            blocked = next(
+                (
+                    (source, record) for source, record in zip(sources, records)
+                    if record is None or getattr(record, "available", True) is False
+                ),
+                None,
+            )
+            if blocked is None:
+                combined.append(capability)
+                continue
+            source, record = blocked
+            reason = getattr(record, "reason", "") if record is not None else "not supported"
+            if len(sources) > 1:
+                reason = f"{source.label}: {reason or 'unavailable'}"
+            try:
+                combined.append(replace(capability, available=False, reason=reason))
+            except TypeError:  # not a dataclass (a stub): the name still says it
+                continue
+        if hasattr(catalogs[0], "with_records"):
+            return catalogs[0].with_records(combined), stored
+        return combined, stored
 
     def plot_ids(self, name: str) -> list[str]:
         """The IDS plot ``name`` reads, with the one that labels a shot."""
@@ -238,6 +277,18 @@ class BrowserSession:
         if self.ods is None:
             raise RuntimeError("no source is open")
         return self._catalog
+
+    def full_catalog(self) -> Any:
+        """Every plot the registry supports here, unavailable ones with their reason."""
+        if self.ods is None:
+            raise RuntimeError("no source is open")
+        return self._everything if self._everything is not None else self._catalog
+
+    def capability(self, name: str) -> Any:
+        """The discovery record of plot ``name`` (``None`` when it is not supported here)."""
+        if self.ods is None:
+            return None
+        return next((record for record in self.full_catalog() if record.name == name), None)
 
     def grouped_plots(self) -> dict[str, list[str]]:
         """Available plot names by subject, in catalog order."""
@@ -442,6 +493,122 @@ class BrowserSession:
         save_figure(figure, buffer, format=fmt, dpi=getattr(self.figure_options, "dpi", None) or dpi)
         return buffer.getvalue()
 
+    def sequence_control(self) -> Any:
+        """The plot's slice-group control -- the sequence a video walks -- or ``None``.
+
+        It is the control the player advances (``time_slice``, ``frame_index``
+        or ``time_index``); a plot without one, or a composed figure, has no
+        sequence to export as a movie.
+        """
+        if self.composition is not None or self.state is None:
+            return None
+        return next((c for c in self.state.controls if c.group == "slice"), None)
+
+    def sequence_states(self) -> tuple[Any, ...]:
+        """Every state of :meth:`sequence_control` for the plot as drawn, in order; empty without one.
+
+        Stored slices are the control's usable ones.  A dense index counts
+        the states of what is on screen -- a camera's chosen channel, the
+        magnetics grid -- from :func:`vaft.plot.backend.discovery.sequence_values`,
+        which the animation selects against; the control's own range is
+        the record's default camera.
+        """
+        control = self.sequence_control()
+        if control is None:
+            return ()
+        if control.kind != "range":
+            return tuple(control.options)
+        from vaft.omas.entries import normalize_entries
+        from vaft.plot.backend.discovery import sequence_values
+
+        options = {k: v for k, v in self.call_options().items() if k != control.name}
+        try:
+            _, _, values = sequence_values(self.plot, normalize_entries(self.ods), control.name, **options)
+        except (NotImplementedError, ValueError):
+            low, high, step = (int(v) for v in control.options)
+            return tuple(range(low, high + 1, step))
+        return tuple(range(len(values)))
+
+    def _animation(
+        self, *, fps: float, step: int, dpi: int | None, format: str | None, theme: str | None,
+    ) -> Any:
+        """``plot_*(..., animation=True)`` over the on-screen plot's sequence (#1400).
+
+        Every other option is the reader's, as an image export takes them;
+        the slice control's value is replaced by its states, every
+        ``step``-th one.  Nothing is drawn until the result is saved.
+        """
+        import vaft.omas
+
+        control = self.sequence_control()
+        if self.composition is not None:
+            raise ValueError("a composed figure has no sequence to animate; export one plot as a video")
+        if control is None:
+            raise ValueError(f"{self.plot} offers no sequence for this input (no slice control), so no video")
+        if self.figure_options:
+            # animation=True redraws its own frames and does not apply
+            # figure options yet; dropping them silently would export a
+            # different figure from the one on screen.
+            raise ValueError(
+                "video frames do not apply figure options yet; clear the figure options to export a video"
+            )
+        step = int(step)
+        if step < 1:
+            raise ValueError(f"step must be a positive number of states; got {step}")
+        states = self.sequence_states()[::step]
+        if len(states) > MAX_VIDEO_FRAMES:
+            # The file travels to the browser in one message and is drawn on
+            # the server thread: a five-thousand-frame movie is neither.
+            raise ValueError(
+                f"{len(states)} frames is more than the browser export draws ({MAX_VIDEO_FRAMES}); "
+                f"take every {-(-len(self.sequence_states()) // MAX_VIDEO_FRAMES)}th state or more, "
+                "or write the full movie with plot_*(..., animation=True).save() in Python"
+            )
+        request = self.request(format=format, theme=theme)
+        options = {k: v for k, v in dict(request.options).items() if k != control.name}
+        presentation = {key: value for key, value in (("format", request.format), ("theme", request.theme)) if value}
+        extra = {"dpi": int(dpi)} if dpi else {}
+        return vaft.omas.render_plot(
+            self.plot, self.ods, animation=True, fps=float(fps), **{control.name: list(states)},
+            **options, **presentation, **extra,
+        )
+
+    def export_video(
+        self, fmt: str = "mp4", *, fps: float = 10.0, step: int = 1, dpi: int | None = None,
+        format: str | None = None, theme: str | None = None,
+    ) -> bytes:
+        """The on-screen plot over its sequence as an ``fmt`` movie (#1400).
+
+        The frames are the plot's states, every ``step``-th one, shown at
+        ``fps`` -- presentation only: each frame's physical time is in
+        :meth:`video_metadata`.  ``mp4``/``webm`` need PyAV
+        (``pip install vaft[video]``); ``gif`` does not.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from .figure import VIDEO_FORMATS
+
+        if fmt not in VIDEO_FORMATS:
+            raise ValueError(f"video format must be one of {', '.join(VIDEO_FORMATS)}; got {fmt!r}")
+        movie = self._animation(fps=fps, step=step, dpi=dpi, format=format, theme=theme)
+        with tempfile.TemporaryDirectory() as folder:
+            path = movie.save(Path(folder) / f"export.{fmt}", sidecar=False)
+            data = path.read_bytes()
+        # The provenance of exactly this file -- its states, their times and
+        # the encoder's own facts (a GIF's rounded frame delay) -- kept for
+        # the frame-times download, so the two never describe different runs.
+        self.last_video_metadata = movie.metadata
+        return data
+
+    def video_metadata(self) -> bytes:
+        """The provenance of the last :meth:`export_video` file, as JSON: each frame's state and time."""
+        import json
+
+        if getattr(self, "last_video_metadata", None) is None:
+            raise RuntimeError("no video has been exported yet; download the video first")
+        return (json.dumps(self.last_video_metadata, indent=2) + "\n").encode()
+
     @property
     def state(self) -> Any:
         return None if self.interactive is None else self.interactive.state
@@ -464,11 +631,21 @@ class BrowserSession:
         self.plot, self.renderer, self.interactive = None, None, None
         self.composition, self._composed = None, None
 
+    def release(self) -> None:
+        """Let go of the plot on screen (the sources stay open)."""
+        self._release()
+
     def close(self) -> None:
         """Release the figure and forget the sources."""
         self._release()
-        self.sources, self.ods, self._catalog = (), None, None
+        self.sources, self.ods, self._catalog, self._everything = (), None, None, None
         self._shots, self._held, self._stored = {}, {}, {}
+
+
+def _available(records: Any) -> Any:
+    """The available records, as a catalog when ``records`` is one."""
+    kept = [record for record in records if getattr(record, "available", True) is not False]
+    return records.with_records(kept) if hasattr(records, "with_records") else kept
 
 
 __all__ = ["BrowserSession", "RENDERERS", "SOURCE_KINDS", "Source", "load_source", "sample_shots"]

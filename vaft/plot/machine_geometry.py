@@ -17,7 +17,8 @@ import numpy as np
 from .backend.access import array, count, get, has
 from .models import Geometry3DLayer, Geometry3DLayers, GeometryLayer, GeometryLayers, as_model_array
 
-__all__ = ["MachineGeometry", "MACHINE_GEOMETRY_FAMILIES", "machine_geometry_registry",
+__all__ = ["MachineGeometry", "MACHINE_GEOMETRY_FAMILIES", "CROSS_SHOT_NOTICE",
+           "cross_shot_notice", "machine_geometry_registry",
            "machine_geometry_view", "project_machine_geometry"]
 
 
@@ -83,24 +84,44 @@ _POINTS = {
     "charge_exchange": "charge_exchange.channel",
     "langmuir_probes": "langmuir_probes.embedded",
 }
+# Charge exchange stores each coordinate as a time trace (``position.r.data``);
+# the other point families store a static ``position.r``.
+_DYNAMIC_POSITIONS = {"charge_exchange"}
 _LOS = {"interferometer": "interferometer.channel", "soft_x_rays": "soft_x_rays.channel"}
+# Only the interferometer line of sight has a reflection point in the DD.
+_REFLECTED_LOS = {"interferometer"}
 MACHINE_GEOMETRY_FAMILIES = (*_POINTS, *_LOS, "coils_non_axisymmetric", "ec_launchers", "nbi")
 _FAMILY_LABELS = {
     "thomson_scattering": "Thomson channel sites",
     "charge_exchange": "CX measurement sites",
     "langmuir_probes": "Langmuir sites",
     "interferometer": "Interferometer LOS",
-    "soft_x_rays": "SXR LOS",
+    "soft_x_rays": "Soft X-ray LOS",
     "coils_non_axisymmetric": "3-D coil filament",
     "ec_launchers": "EC provisional CAD",
     "nbi": "NBI model geometry",
 }
 
 
-def _position(data: Any, path: str) -> tuple[float, float, float | None] | None:
+CROSS_SHOT_NOTICE = "Cross-shot composite — not a physical VEST discharge"
+
+
+def cross_shot_notice(reference: Any) -> str:
+    """Two-line notice every view of the cross-shot fixture carries in its title.
+
+    The first line says the picture is not one discharge; the second says whose
+    machine geometry the other shots' diagnostic coordinates are projected onto.
+    The static renderer, the camera view and the shared machine view all take the
+    wording from here so the three cannot drift apart.
+    """
+    return (f"{CROSS_SHOT_NOTICE}\n"
+            f"Other-shot diagnostic coordinates projected onto geometry reference shot {reference}")
+
+
+def _position(data: Any, path: str, *, dynamic: bool = False) -> tuple[float, float, float | None] | None:
     values = []
     for coordinate in ("r", "z", "phi"):
-        value = _static_scalar(data, f"{path}.{coordinate}")
+        value = _static_scalar(data, f"{path}.{coordinate}.data" if dynamic else f"{path}.{coordinate}")
         if value is None:
             if coordinate == "phi":
                 values.append(None)
@@ -116,8 +137,6 @@ def _position(data: Any, path: str) -> tuple[float, float, float | None] | None:
 def _static_scalar(data: Any, path: str) -> float | None:
     """A finite scalar or constant time trace; varying traces need a time choice."""
     value = array(data, path)
-    if value is None:
-        value = array(data, f"{path}.data")
     if value is None or not np.isfinite(value).all():
         return None
     flat = value.ravel()
@@ -174,12 +193,8 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
             container = _POINTS[family]
             for index in range(count(data, container)):
                 base = f"{container}.{index}"
-                # DD lists charge-exchange and probe positions; TS is scalar.
                 position_path = f"{base}.position"
-                position = _position(data, position_path)
-                if position is None:
-                    position_path += ".0"
-                    position = _position(data, position_path)
+                position = _position(data, position_path, dynamic=family in _DYNAMIC_POSITIONS)
                 if position is not None:
                     add(family, position_path, "point", [position], str(get(data, f"{base}.name", f"{family} {index}")))
         elif family in _LOS:
@@ -191,12 +206,12 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
                 if any(position is None for position in positions):
                     continue
                 third_path = f"{path}.third_point"
-                third = _position(data, third_path)
+                third = _position(data, third_path) if family in _REFLECTED_LOS else None
                 phi_complete = third is not None and (third[2] is not None or all(point[2] is None for point in positions))
                 z_complete = third is not None and (np.isfinite(third[1]) or all(not np.isfinite(point[1]) for point in positions))
                 if phi_complete and z_complete:
                     positions.append(third)
-                elif has(data, third_path):
+                elif family in _REFLECTED_LOS and has(data, third_path):
                     # An incomplete reflection point is not an absent point.
                     # Drawing only the first leg would silently change the LOS.
                     continue
@@ -357,7 +372,10 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         return (GeometryLayer(record.r, record.z, kind="points",
                               label=f"{label} (vertices; phi unknown)")
                 if view == "rz" and np.isfinite(record.z).all() else None)
-    if view in {"rz", "3d", "camera"} and not np.isfinite(record.z).all():
+    # A gap row (NaN in r, z and phi) marks a stored discontinuity and is kept
+    # as a polyline break; only a missing height at a known position makes
+    # the record undrawable in a view that needs Z.
+    if view in {"rz", "3d", "camera"} and not np.isfinite(record.z[np.isfinite(record.r)]).all():
         return None
     if record.semantic == "directed_axis":
         if not np.isfinite(axis_length) or axis_length <= 0:
@@ -374,9 +392,13 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         return GeometryLayer(xyz[:, 0], xyz[:, 1], kind=kind, label=label)
     if projection is None:
         raise ValueError("camera view requires a calibrated CameraProjection")
-    uv, valid = projection.project(xyz * 100.0)
-    uv = np.array(uv, dtype=float, copy=True)
-    uv[~np.asarray(valid, dtype=bool)] = np.nan
+    uv = np.full((xyz.shape[0], 2), np.nan)
+    stored = np.isfinite(xyz).all(axis=1)
+    if stored.any():
+        projected, valid = projection.project(xyz[stored] * 100.0)
+        projected = np.array(projected, dtype=float, copy=True)
+        projected[~np.asarray(valid, dtype=bool)] = np.nan
+        uv[stored] = projected
     return GeometryLayer(uv[:, 0], uv[:, 1], kind=kind, label=label)
 
 
@@ -435,7 +457,7 @@ def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | N
     notice = (manifest or {}).get("notice", "")
     if (manifest or {}).get("kind") == "cross-shot-diagnostic-fixture":
         reference = (manifest or {}).get("geometry_reference", {}).get("source_shot")
-        notice = f"Cross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+        notice = cross_shot_notice(reference)
     elif not notice:
         source_comment = get(data, "dataset_description.ids_properties.comment")
         if isinstance(source_comment, str) and "Cross-shot composite fixture" in source_comment:

@@ -26,7 +26,8 @@ Runs go on tdst (`lowpri-short`, GACODE `TDST_GNU`). The branch worktree sits on
 Lane Y ran linear CGYRO on the five #1482 sensitivity states at r/a 0.6/0.7/0.8, k_yρ_s 0.1–6, ES and EM. Both codes read the same resolved state (`state_identity`) and the same local input; TGLF was rerun single-k_y on it. The product is `vestserver:~/runs/campaign/atlas/gyrokinetic_linear/` (`linear.csv`, `linear_summary.csv`, `schema.json`). Only `cgyro_status == "converged"` is a growth rate; `max_time` means marginal and `decayed` means stable.
 
 **What it measures: the accuracy of TGLF's linear growth rate. It does not rank SAT rules.**
-- Every SAT rule saturates the same TGLF linear eigenvalues, so a linear error enters SAT0–3 alike.
+- The SAT rules do **not** share one linear model. TGLF's `USE_PRESETS` (`tglf_startup.f90`) gives SAT0/1 `XNU_MODEL=2`, while SAT2/3 get `XNU_MODEL=3`, `WDIA_TRAPPED=1.0` and `UNITS=CGYRO`, so their eigenvalues differ (Lane Y's correction, #1484, 2026-10-03).
+- The pointwise numbers below compare CGYRO with the **SAT0/1 linear model**.
 - Ranking the rules needs nonlinear CGYRO fluxes. That is Lane Y's next step, on 39916 and 39915 at r/a 0.8, where the SAT spread is largest.
 
 **Result (2026-10-03)**
@@ -35,17 +36,20 @@ Lane Y ran linear CGYRO on the five #1482 sensitivity states at r/a 0.6/0.7/0.8,
 |---|---|
 | CGYRO points (360) | 82 converged, 258 max_time, 14 decayed, 6 failed |
 | both codes unstable (converged CGYRO) | 77 points |
-| TGLF γ / CGYRO γ | median 1.9, IQR 1.5–3.0 |
+| TGLF γ / CGYRO γ (SAT0/1 linear model) | median 1.9, IQR 1.5–3.0 |
 | median ratio by field model | ES 1.9 (38 points), EM 1.9 (39 points) |
 | same branch (sign of ω) | 75/77 |
 | CGYRO damped, TGLF unstable | 5 points, all 40330 |
-| strongly driven surfaces (39915/39916, r/a ≥ 0.7) | same branch, γ_max ratio 1.4–2.4; TGLF peaks at k_yρ_s 1.0, CGYRO at 0.6–0.8 |
+| strongly driven surfaces (39915/39916, r/a ≥ 0.7) | same branch, γ_max ratio 1.4–2.4 (SAT0/1 model); TGLF peaks at k_yρ_s 1.0, CGYRO at 0.6–0.8 |
+| γ_max ratio, SAT2/3 linear model (5 driven surfaces, ES) | 1.2–1.8, against 1.4–2.4 for SAT0/1 |
 | weakly driven states (40330, all of 42962) | no converged CGYRO mode on most surfaces, so the comparison is inconclusive |
 
 Lane Y's summary (#1453/#1484) gives 82 points, a median of 1.8 and 78/82 branch agreement. That count includes the 5 points where CGYRO is damped; the ratio here uses only the points where both codes are unstable.
 
 Consequences for reading the atlas:
-- **Absolute fluxes.** Q/Q_GB is likely high on the driven surfaces under every SAT rule.
+- **Linear drive.** Both TGLF linear models over-predict linear growth on VEST; SAT2/3's is the closer. SAT2/3's larger Q therefore comes from the saturation rule, not from a more inflated linear drive.
+- **Absolute fluxes.** Q/Q_GB is likely high on the driven surfaces. The SAT rules stay unranked: Lane Y's first nonlinear run (39915 r/a 0.7) failed locality QA and is not a benchmark (#1484, 2026-10-05).
 - **Robust quantities.** The mode direction (`omega_dom_sign`, the mode-branch map) and the radial and inter-shot ordering are what the check supports.
 - **Weak surfaces.** Near-marginal surfaces stay near-marginal; their f_neo partition is not affected.
+- **ES low-k_y caveat.** `converged` (`cgyro_qualified`) records CGYRO's converged exit only and screens no mode: electrostatic runs at k_yρ_s ≤ 0.2 can carry the high-frequency electron (ω_H) branch (|ω| ~ 200 c_s/a, worse with finer θ resolution, absent once A_∥ is kept), so an ES row that converges there is not a drift-wave growth rate and would set γ_max on its surface. In the product above those points ended `max_time`; trust the EM (`em-aperp`) rows at low k_y (#1484, #1656).
 - **Conventions.** In `linear_summary.csv`, `gamma_max_ratio` is CGYRO/TGLF, the inverse of the ratio quoted here. The EM field model is named `em-aperp`, which is the atlas's `em-bper`.

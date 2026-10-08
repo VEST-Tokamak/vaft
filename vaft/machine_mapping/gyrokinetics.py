@@ -45,6 +45,7 @@ reproduced here).
 
 from __future__ import annotations
 
+import re
 from typing import Any, Iterable, Mapping, Optional
 from xml.sax.saxutils import escape
 
@@ -131,11 +132,16 @@ MAPPING_AUDIT: Mapping[str, tuple[str, str]] = {
         "unsupported", "quasilinear weight amplitude normalisation not reproduced"),
     "non_linear.fluxes_1d.{particles,energy}_*": (
         "unit", "time-averaged GB flux * RMAJ**2 * b_gs2**2 / (2 sqrt 2), per field"),
+    "non_linear.fluxes_2d_k_x_sum.{particles,energy}_*": (
+        "unit", "the same time average per toroidal mode (ky), on "
+        "non_linear.binormal_wavevector_norm"),
     "non_linear.fluxes_1d.momentum_*": (
         "unsupported", "CGYRO's toroidal momentum flux is not split parallel/perpendicular"),
 }
 
 __all__ = [
+    "TGLF_MAPPING_AUDIT",
+    "gyrokinetics_local_from_tglf",
     "ANOMALOUS_MODEL_INDEX",
     "CGYRO_MODEL_DESCRIPTION",
     "FREQUENCY_SIGN_CONVENTION",
@@ -145,6 +151,7 @@ __all__ = [
     "core_transport_from_cgyro",
     "geometric_angle",
     "gyrokinetics_local_from_cgyro",
+    "merge_linear_scan",
 ]
 
 
@@ -155,9 +162,12 @@ def conversion_factors(local: Any, outputs: Any) -> Optional[dict[str, float]]:
     because it is a flux-surface average of the geometry CGYRO built and recomputing it
     here would be a second, divergent geometry.
     """
-    rmaj = float(local.geometry["RMAJ"])
     equilibrium = getattr(outputs, "equilibrium", None) or {}
-    b_gs2 = equilibrium.get("b_gs2")
+    return _factors(float(local.geometry["RMAJ"]), equilibrium.get("b_gs2"))
+
+
+def _factors(rmaj: float, b_gs2: Any) -> Optional[dict[str, float]]:
+    """The rescalings for ``RMAJ = R0/a`` and ``b_gs2 = B_tor(R0)/B_unit``."""
     if b_gs2 is None or not np.isfinite(b_gs2) or b_gs2 == 0.0 or rmaj <= 0.0:
         return None
     b = abs(float(b_gs2))
@@ -195,12 +205,12 @@ def geometric_angle(theta: Any, local: Any) -> np.ndarray:
     return -(np.arctan2(dz, dr) + 2.0 * np.pi * turns)
 
 
-def _xml_parameters(entries: Mapping[str, Any]) -> str:
+def _xml_parameters(entries: Mapping[str, Any], tag: str = "cgyro") -> str:
     body = "".join(
         f"<{key}>{escape(str(value))}</{key}>" for key, value in entries.items()
         if value is not None
     )
-    return f"<parameters><cgyro>{body}</cgyro></parameters>"
+    return f"<parameters><{tag}>{body}</{tag}></parameters>"
 
 
 def _locality_entries(locality: Optional[Mapping[str, Any]]) -> dict[str, Any]:
@@ -320,6 +330,28 @@ def gyrokinetics_local_from_cgyro(
     else:
         skipped.append("model.collisions_*: only COLLISION_MODEL=4 is classified")
 
+    _write_local_state(local, factors, put, skipped)
+
+    # -- linear -------------------------------------------------------------------
+    if "NONLINEAR_FLAG" in parameters:
+        nonlinear = int(parameters["NONLINEAR_FLAG"]) == 1
+    else:
+        # No staged parameters: judge from the run itself rather than defaulting to linear.
+        nonlinear = bool(getattr(outputs, "nonlinear", False))
+    if not nonlinear:
+        _write_linear(ods, base, local, outputs, factors, parameters, put, skipped)
+    else:
+        _write_nonlinear(ods, base, outputs, factors, n_field, flux_window, put, skipped)
+    return {"written": written, "skipped": skipped}
+
+
+def _write_local_state(local: Any, factors: Mapping[str, float], put, skipped: list) -> None:
+    """Species, flux surface and normalising quantities of one local input (CGYRO form).
+
+    Shared by the CGYRO and TGLF writers: TGLF's local input is renamed into this form
+    (:func:`~vaft.code.gacode.cgyro.inputs.cgyro_input_from_tglf`) without new physics,
+    so both codes' IDS describe the surface with the same numbers.
+    """
     # -- species --------------------------------------------------------------
     species = local.species
     for index in range(local.n_species):
@@ -366,18 +398,6 @@ def gyrokinetics_local_from_cgyro(
         put("normalizing_quantities.n_e", float(norm.electron_density))
     else:
         skipped.append("normalizing_quantities: the local input carries no SI scales")
-
-    # -- linear -------------------------------------------------------------------
-    if "NONLINEAR_FLAG" in parameters:
-        nonlinear = int(parameters["NONLINEAR_FLAG"]) == 1
-    else:
-        # No staged parameters: judge from the run itself rather than defaulting to linear.
-        nonlinear = bool(getattr(outputs, "nonlinear", False))
-    if not nonlinear:
-        _write_linear(ods, base, local, outputs, factors, parameters, put, skipped)
-    else:
-        _write_nonlinear(ods, base, outputs, factors, n_field, flux_window, put, skipped)
-    return {"written": written, "skipped": skipped}
 
 
 def _write_linear(ods, base, local, outputs, factors, parameters, put, skipped) -> None:
@@ -453,6 +473,14 @@ def _write_nonlinear(ods, base, outputs, factors, n_field, window, put, skipped)
             average[:, 0, f] * factors["flux"])
         put(f"non_linear.fluxes_1d.energy_{_FIELD_DD[f]}",
             average[:, 1, f] * factors["flux"])
+    # ky-resolved: the same time average without the sum over toroidal modes,
+    # (species, moment, field, n); n is the binormal axis already written below.
+    per_mode = integrate(outputs.flux[..., mask], t[mask], axis=-1) / (t[mask][-1] - t[mask][0])
+    for f in range(min(n_field, per_mode.shape[2])):
+        put(f"non_linear.fluxes_2d_k_x_sum.particles_{_FIELD_DD[f]}",
+            per_mode[:, 0, f, :] * factors["flux"])
+        put(f"non_linear.fluxes_2d_k_x_sum.energy_{_FIELD_DD[f]}",
+            per_mode[:, 1, f, :] * factors["flux"])
     put("non_linear.time_norm", t * factors["time"])
     put("non_linear.time_interval_norm", np.asarray(window, dtype=float) * factors["time"])
     if outputs.ky is not None:
@@ -460,6 +488,197 @@ def _write_nonlinear(ods, base, outputs, factors, n_field, window, put, skipped)
     put("non_linear.quasi_linear", 0)
     skipped.append("non_linear.fluxes_1d.momentum_*: "
                    + MAPPING_AUDIT["non_linear.fluxes_1d.momentum_*"][1])
+
+
+# -- TGLF -------------------------------------------------------------------------
+
+TGLF_REPOSITORY = CGYRO_REPOSITORY
+
+#: How each TGLF quantity reaches ``gyrokinetics_local``, keyed by DD path. Classes as in
+#: :data:`MAPPING_AUDIT`. TGLF is a *quasilinear* model: the IDS says so
+#: (``non_linear.quasi_linear = 1``), and only quantities whose definition survives that
+#: are written. The local state (species, flux surface, normalisation) is the same as the
+#: CGYRO mapping's -- the TGLF input renamed (:func:`cgyro_input_from_tglf`).
+TGLF_MAPPING_AUDIT: Mapping[str, tuple[str, str]] = {
+    "species[:], species_all, flux_surface, normalizing_quantities": (
+        "unit", "the shared local-state writer on the renamed TGLF input (same numbers "
+        "as a CGYRO run on that surface)"),
+    "normalizing_quantities.b_field_tor / GKDB rescaling": (
+        "derived", "b_gs2 = B_tor(R0)/B_unit from TGLF's own Bt0_out = f/Rmaj "
+        "(scalar_saturation_parameters); identical to CGYRO's b_gs2 on the same input"),
+    "model.include_a_field_parallel / include_b_field_parallel": ("exact", "USE_BPER / USE_BPAR"),
+    "model.adiabatic_electrons": ("exact", "ADIABATIC_ELEC"),
+    "model.collisions_*": (
+        "unsupported", "TGLF's reduced collision model (XNU_MODEL) has no counterpart "
+        "in the DD's operator flags"),
+    "model.include_full_curvature_drift / coriolis / centrifugal": (
+        "unsupported", "TGLF's drift model is a fitted reduced form, not a GK operator choice"),
+    "linear.wavevector[:].binormal_wavevector_norm": ("unit", "KY * sqrt(2) / b_gs2"),
+    "linear.wavevector[:].eigenmode[:].growth_rate_norm": (
+        "unit", "gamma * RMAJ / sqrt(2), every mode TGLF found; a (0, 0) slot is an "
+        "absent mode, not a marginal one"),
+    "linear.wavevector[:].eigenmode[:].frequency_norm": (
+        "convention", "omega * RMAJ / sqrt(2); TGLF already writes the ion diamagnetic "
+        "direction negative"),
+    "linear.wavevector[:].eigenmode[:].initial_value_run": ("exact", "0: TGLF is an eigenvalue solver"),
+    "linear.wavevector[:].eigenmode[:].fields": (
+        "unsupported", "out.tglf.wavefunction is a separate single-ky run, not parsed"),
+    "linear.wavevector[:].eigenmode[:].linear_weights": (
+        "unsupported", "QL weights' amplitude normalisation is not the DD's"),
+    "non_linear.quasi_linear": ("exact", "1"),
+    "non_linear.fluxes_1d.{particles,energy}_<field>": (
+        "unit", "sum over ky of sum_flux_spectrum per field (saturated quasilinear flux), "
+        "GB flux * RMAJ**2 * b_gs2**2 / (2 sqrt 2) -- the same rescaling as CGYRO"),
+    "non_linear.fluxes_2d_k_x_sum.{particles,energy}_<field>": (
+        "derived", "sum_flux_spectrum per ky bin (TGLF's ky-integration weight x flux, so "
+        "the bins sum to the total), on non_linear.binormal_wavevector_norm; the same "
+        "GB rescaling"),
+    "non_linear.fluxes_1d.momentum_*": (
+        "unsupported", "TGLF's toroidal/parallel stresses are not the DD's parallel/"
+        "perpendicular momentum split"),
+    "fluctuation amplitudes, cross phases, field intensities": (
+        "unsupported", "no audited DD home (moments_norm are eigenmode-level complex "
+        "fields); kept native"),
+}
+
+
+def gyrokinetics_local_from_tglf(
+    ods: ODS,
+    local: Any,
+    outputs: Any,
+    *,
+    parameters: Optional[Mapping[str, Any]] = None,
+    provenance: Optional[Mapping[str, Any]] = None,
+    time: Optional[float] = None,
+) -> dict[str, Any]:
+    """Write one TGLF surface into ``ods['gyrokinetics_local']``, per :data:`TGLF_MAPPING_AUDIT`.
+
+    Parameters
+    ----------
+    local
+        The :class:`~vaft.code.gacode.tglf.inputs.TGLFInput` the run was given.
+    outputs
+        Its :class:`~vaft.code.gacode.tglf.outputs.TglfOutputs`. The GKDB rescaling needs
+        ``Bt0_out`` from ``out.tglf.scalar_saturation_parameters``, which TGLF writes
+        only on its transport-model path; a run without it writes nothing and says so.
+    parameters
+        The ``input.tglf`` settings (``TGLFInputs.parameters``): field model, adiabatic
+        electrons, SAT rule.
+    provenance
+        ``TGLFResult.provenance`` (version), recorded in ``code``.
+    """
+    from vaft.code.gacode.cgyro.inputs import cgyro_input_from_tglf
+
+    written: list[str] = []
+    skipped: list[str] = []
+    parameters = dict(parameters or {})
+    provenance = dict(provenance or {})
+    base = IDS
+
+    def put(path: str, value: Any) -> None:
+        ods[f"{base}.{path}"] = value
+        written.append(path)
+
+    saturation = getattr(outputs, "saturation_parameters", None) or {}
+    renamed = cgyro_input_from_tglf(local)
+    factors = _factors(float(renamed.geometry["RMAJ"]), saturation.get("Bt0_out"))
+    if factors is None:
+        return {"written": written, "skipped": [
+            "no Bt0_out in out.tglf.scalar_saturation_parameters (single-ky or NN run): "
+            "the DD normalisation cannot be formed, nothing written"]}
+
+    ods[f"{base}.ids_properties.homogeneous_time"] = 1
+    ods[f"{base}.ids_properties.comment"] = (
+        "TGLF quasilinear local model; normalised per GKDB (L_ref=R0); frequency sign: "
+        + FREQUENCY_SIGN_CONVENTION)
+    if time is not None:
+        ods[f"{base}.time"] = np.asarray([float(time)])
+    version = provenance.get("version") or getattr(outputs, "version", None) or {}
+    ods[f"{base}.code.name"] = "TGLF"
+    ods[f"{base}.code.repository"] = TGLF_REPOSITORY
+    if isinstance(version, Mapping) and version.get("revision"):
+        ods[f"{base}.code.version"] = str(version["revision"]).replace("<", "").replace(">", "")
+    ods[f"{base}.code.parameters"] = _xml_parameters({
+        "sat_rule": saturation.get("SAT_RULE", parameters.get("SAT_RULE")),
+        "units": saturation.get("UNITS"),
+        "xnu_model": saturation.get("XNU_MODEL"),
+        "preset_note": "SAT2/3 presets set XNU_MODEL=3 and WDIA_TRAPPED=1: the linear "
+                       "model differs from SAT0/1 on the same input",
+        "use_bper": parameters.get("USE_BPER"), "use_bpar": parameters.get("USE_BPAR"),
+        "frequency_sign_convention": FREQUENCY_SIGN_CONVENTION,
+        "normalisation": "GKDB: L_ref=R0, B_ref=Btor(R0), v_thref=sqrt(2Te/mD)",
+        "quasi_linear": 1,
+    }, tag="tglf")
+
+    put("model.include_a_field_parallel", int(bool(parameters.get("USE_BPER", False))))
+    put("model.include_b_field_parallel", int(bool(parameters.get("USE_BPAR", False))))
+    put("model.adiabatic_electrons", int(bool(parameters.get("ADIABATIC_ELEC", False))))
+    for key in ("model.collisions_*", "model.include_full_curvature_drift / coriolis / centrifugal"):
+        skipped.append(f"{key}: {TGLF_MAPPING_AUDIT[key][1]}")
+
+    _write_local_state(renamed, factors, put, skipped)
+
+    ky = getattr(outputs, "ky_spectrum", None)
+    gamma = getattr(outputs, "growth_rate", None)
+    omega = getattr(outputs, "frequency", None)
+    if ky is None or gamma is None:
+        skipped.append("linear: no eigenvalue spectrum in the run")
+    else:
+        empty = 0
+        for k in range(ky.size):
+            wave = f"linear.wavevector.{k}"
+            put(f"{wave}.binormal_wavevector_norm", float(ky[k]) * factors["wavenumber"])
+            mode_index = 0
+            for m in range(gamma.shape[1]):
+                if gamma[k, m] == 0.0 and omega[k, m] == 0.0:
+                    empty += 1
+                    continue
+                mode = f"{wave}.eigenmode.{mode_index}"
+                put(f"{mode}.growth_rate_norm", float(gamma[k, m]) * factors["rate"])
+                put(f"{mode}.frequency_norm", float(omega[k, m]) * factors["rate"])
+                put(f"{mode}.initial_value_run", 0)
+                mode_index += 1
+        if empty:
+            skipped.append(f"linear: {empty} (gamma, omega) = (0, 0) slots are absent modes, not written")
+    skipped.append("linear.*.fields: " + TGLF_MAPPING_AUDIT["linear.wavevector[:].eigenmode[:].fields"][1])
+
+    put("non_linear.quasi_linear", 1)
+    spectrum = getattr(outputs, "sum_flux_spectrum", None)
+    if spectrum is None:
+        skipped.append("non_linear.fluxes_1d: no sum_flux_spectrum in the run")
+    else:
+        # (species, field, quantity), TGLF species order (electrons first) moved to the
+        # order species[:] was written in (electrons last), since fluxes_1d is indexed by
+        # gyrokinetics_local.species.
+        zs = np.asarray(local.zs, dtype=float)
+        electron = int(np.flatnonzero(zs < 0)[0])
+        order = [i for i in range(zs.size) if i != electron] + [electron]
+        per_ky = spectrum[order]                       # (species, field, ky, quantity)
+        totals = np.nansum(per_ky, axis=2)
+        # Field slots are named from the run's own flags, not by position: TGLF writes
+        # fields 1..jflds, so with USE_BPAR but not USE_BPER slot 2 is not B_parallel.
+        use_bper = bool(parameters.get("USE_BPER", False))
+        use_bpar = bool(parameters.get("USE_BPAR", False))
+        names = ["phi_potential"] + (["a_field_parallel"] if use_bper else [])
+        if use_bpar and use_bper:
+            names.append("b_field_parallel")
+        elif use_bpar:
+            skipped.append("non_linear.fluxes_1d.*_b_field_parallel: USE_BPAR without "
+                           "USE_BPER, TGLF's field slots are ambiguous; only phi written")
+        for f, name in enumerate(names[: totals.shape[1]]):
+            put(f"non_linear.fluxes_1d.particles_{name}", totals[:, f, 0] * factors["flux"])
+            put(f"non_linear.fluxes_1d.energy_{name}", totals[:, f, 1] * factors["flux"])
+            put(f"non_linear.fluxes_2d_k_x_sum.particles_{name}",
+                per_ky[:, f, :, 0] * factors["flux"])
+            put(f"non_linear.fluxes_2d_k_x_sum.energy_{name}",
+                per_ky[:, f, :, 1] * factors["flux"])
+        if ky is not None:
+            put("non_linear.binormal_wavevector_norm", np.asarray(ky, dtype=float) * factors["wavenumber"])
+        skipped.append("non_linear.fluxes_1d.momentum_*: "
+                       + TGLF_MAPPING_AUDIT["non_linear.fluxes_1d.momentum_*"][1])
+    skipped.append("fluctuation spectra: "
+                   + TGLF_MAPPING_AUDIT["fluctuation amplitudes, cross phases, field intensities"][1])
+    return {"written": written, "skipped": skipped}
 
 
 # -- core_transport ---------------------------------------------------------------
@@ -552,10 +771,111 @@ def core_transport_from_cgyro(
         ods[f"{base}.ion.{ion}.particles.flux"] = particle[:, index]
         ods[f"{base}.ion.{ion}.energy.flux"] = energy[:, index]
         ion += 1
-    ods["core_transport.ids_properties.homogeneous_time"] = 1
+    # An IDS the classical mapper (#1654) made heterogeneous stays so: every slice
+    # here also carries its own profiles_1d time, so 0 remains true.
+    if ods.get("core_transport.ids_properties.homogeneous_time", None) != 0:
+        ods["core_transport.ids_properties.homogeneous_time"] = 1
     try:
         ods.set_time_array("core_transport.time", time_index, float(time))
     except Exception:
         ods["core_transport.time"] = np.asarray([float(time)])
     skipped.append("momentum_tor: CGYRO's momentum moment is not mapped (no rotation)")
     return {"written": [base], "skipped": skipped}
+
+
+# -- linear k_y scans ---------------------------------------------------------------
+
+# Subtrees that differ between the single-k_y runs of one scan by construction.
+_SCAN_FREE = ("linear", "code", "ids_properties")
+
+#: ``code.parameters`` entries (and ``code.name``) that fix how the stored numbers are
+#: to be read; runs that disagree on one are not one scan even when every physics
+#: leaf matches.
+_SCAN_CONVENTIONS = ("normalisation", "frequency_sign_convention")
+
+
+def _code_parameter(ids: Any, key: str) -> Optional[str]:
+    """One ``<key>value</key>`` entry of ``code.parameters``, or ``None``."""
+    text = ids["code.parameters"] if "code.parameters" in ids else None
+    if not text:
+        return None
+    match = re.search(fr"<{key}>(.*?)</{key}>", str(text))
+    return match.group(1) if match else None
+
+
+def _conventions(ids: Any) -> dict[str, Optional[str]]:
+    name = ids["code.name"] if "code.name" in ids else None
+    return {"code.name": None if name is None else str(name),
+            **{key: _code_parameter(ids, key) for key in _SCAN_CONVENTIONS}}
+
+
+def merge_linear_scan(odss: Iterable[ODS], *, rtol: float = 1e-9) -> ODS:
+    """Combine single-``k_y`` linear runs of one local problem into one IDS.
+
+    A linear ``k_y`` scan run as separate initial-value runs (one CGYRO run per
+    ``k_y``) is still one ``gyrokinetics_local`` simulation in the GKDB sense: one
+    plasma, many wavevectors. Every leaf outside ``linear``, ``code`` and
+    ``ids_properties`` -- species, flux surface, model flags -- must agree between
+    the runs (to ``rtol``), or the runs are not one scan and a ``ValueError`` names
+    the first leaf that differs. The conventions the numbers are stored in are
+    compared too: ``code.name`` and the ``normalisation`` and
+    ``frequency_sign_convention`` entries of ``code.parameters`` (the only place the
+    mapping records them) must be the same string in every run, or the merge is
+    refused. Every run must carry at least one ``linear.wavevector`` (a run that
+    produced none is refused by position), and two runs may not carry the same
+    ``binormal_wavevector_norm`` (to ``rtol``). Wavevectors are sorted by
+    ``binormal_wavevector_norm``; ``code`` and ``ids_properties`` come from the first
+    run.
+    """
+    import copy
+
+    odss = list(odss)
+    if not odss:
+        raise ValueError("no runs to merge")
+    first = odss[0][IDS]
+
+    def shared(ids: Any) -> dict[str, Any]:
+        return {path: value for path, value in ids.flat().items()
+                if path.split(".")[0] not in _SCAN_FREE}
+
+    reference = shared(first)
+    conventions = _conventions(first)
+    waves: list[tuple[float, Any]] = []
+    for position, ods in enumerate(odss):
+        ids = ods[IDS]
+        leaves = shared(ids)
+        if set(leaves) != set(reference):
+            extra = sorted(set(leaves) ^ set(reference))[0]
+            raise ValueError(f"run {position} is not part of the scan: {extra} is not in every run")
+        for path, value in leaves.items():
+            other = reference[path]
+            if isinstance(value, str) or isinstance(other, str):
+                same = value == other
+            else:
+                same = np.shape(value) == np.shape(other) and np.allclose(
+                    value, other, rtol=rtol, atol=0.0, equal_nan=True)
+            if not same:
+                raise ValueError(f"run {position} is not part of the scan: {path} differs")
+        for key, value in _conventions(ids).items():
+            if value != conventions[key]:
+                raise ValueError(
+                    f"run {position} is not part of the scan: {key} is "
+                    f"{value!r}, run 0 has {conventions[key]!r}")
+        count = path_count(ods, f"{IDS}.linear.wavevector")
+        if not count:
+            raise ValueError(f"run {position} carries no linear.wavevector")
+        for k in range(count):
+            wave = ids[f"linear.wavevector.{k}"]
+            ky = float(wave["binormal_wavevector_norm"])
+            for seen, _wave in waves:
+                if np.isclose(ky, seen, rtol=rtol, atol=0.0):
+                    raise ValueError(
+                        f"run {position} repeats binormal_wavevector_norm {ky!r} of an earlier run")
+            waves.append((ky, wave))
+
+    merged = ODS()
+    merged[IDS] = copy.deepcopy(first)
+    del merged[f"{IDS}.linear.wavevector"]
+    for k, (_ky, wave) in enumerate(sorted(waves, key=lambda pair: pair[0])):
+        merged[f"{IDS}.linear.wavevector.{k}"] = copy.deepcopy(wave)
+    return merged

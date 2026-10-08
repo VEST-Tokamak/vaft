@@ -63,3 +63,138 @@ def test_a_supplied_axes_is_used():
     figure, ax = plt.subplots()
     out_figure, out_ax = gkplot.plot_flux_ky_spectrum([0.1], {"Q": [1]}, ax=ax)
     assert out_ax is ax and out_figure is figure
+
+
+# --------------------------------------------------------------------------
+# native TGLF views (#1591), on real VEST runs
+# --------------------------------------------------------------------------
+
+from pathlib import Path
+
+from vaft.code.gacode.tglf.outputs import collect_tglf_outputs
+
+_DATA = Path(__file__).parent / "data" / "gacode"
+_SAT0 = _DATA / "tglf_vest_39915_r0.70_sat0-es"
+_SAT2 = _DATA / "tglf_vest_39915_r0.70_sat2-em-bper"
+
+
+def test_tglf_linear_spectrum_names_its_preset_family():
+    spectrum = gkplot.tglf_linear_spectrum(collect_tglf_outputs(_SAT2))
+    assert spectrum["gamma"].shape == (21, 2)
+    assert "XNU_MODEL=3" in spectrum["preset"] and "SAT2" in spectrum["preset"]
+
+
+def test_flux_contributors_show_only_the_fields_tglf_wrote():
+    es = gkplot.tglf_flux_contributors(collect_tglf_outputs(_SAT0))
+    em = gkplot.tglf_flux_contributors(collect_tglf_outputs(_SAT2))
+    assert set(es["series"]["e"]) == {"phi", "total"}
+    assert set(em["series"]["i"]) == {"phi", "a_par", "total"}
+    # the bins sum to TGLF's own total energy flux
+    run = collect_tglf_outputs(_SAT2)
+    assert np.isclose(em["series"]["e"]["total"].sum(), run.energy_flux[0], rtol=1e-3)
+    figure, axes = gkplot.plot_flux_contributors(em)
+    labels = [line.get_label() for line in axes[1].get_lines()]
+    assert "total" in labels and any("A_" in label for label in labels)
+
+
+def test_mixing_length_proxy_states_its_definition():
+    spectrum = gkplot.tglf_linear_spectrum(collect_tglf_outputs(_SAT0))
+    figure, ax = gkplot.plot_mixing_length_proxy(spectrum)
+    assert "k_x=0" in ax.get_ylabel()
+    figure, ax = gkplot.plot_mixing_length_proxy(spectrum, definition="gamma_over_ky")
+    assert "k_y^2" not in ax.get_ylabel()
+    with pytest.raises(ValueError, match="definition"):
+        gkplot.plot_mixing_length_proxy(spectrum, definition="gamma_over_k")
+
+
+def test_fluctuation_model_and_saturation_panels_draw_from_the_native_run():
+    run = collect_tglf_outputs(_SAT2)
+    gkplot.plot_fluctuation_spectra(
+        run.ky_spectrum, {"dn_e/n_e": run.density_spectrum[:, 0],
+                          "dT_e/T_e": run.temperature_spectrum[:, 0]},
+        cross_phase=run.nete_crossphase_spectrum)
+    figure, panels = gkplot.plot_model_details(
+        run.ky_spectrum, {"width": run.width_spectrum, "kx/ky shift": run.spectral_shift_spectrum,
+                          "ave_p0": run.ave_p0_spectrum, "absent": None})
+    assert len(panels) == 3
+    figure, ax = gkplot.plot_saturation_parameters(run.saturation_parameters)
+    assert "XNU_MODEL" in ax.texts[0].get_text()
+
+
+def test_local_state_marks_provenance_kinds():
+    from test_cgyro_adapter import tglf_local
+
+    state = gkplot.tglf_local_state(tglf_local())
+    assert [s["name"] for s in state["species"]] == ["e", "H+", "C6+"]
+    assert state["scalars"]["ExB shear"] is None
+    assert state["provenance"]["ExB shear"] == "unavailable"
+    assert state["provenance"]["q"] is None or state["provenance"]["q"] != "unavailable"
+    figure, axes = gkplot.plot_local_state(state)
+    text = axes[1].texts[0].get_text()
+    exb = [line for line in text.splitlines() if line.startswith("ExB shear")][0]
+    assert "[unavailable]" in exb and "solver default" in exb
+
+
+def test_flux_contributors_refuse_species_that_do_not_exist():
+    run = collect_tglf_outputs(_SAT0)
+    for bad in ((5,), (0,), (-1,)):
+        with pytest.raises(ValueError, match="outside"):
+            gkplot.tglf_flux_contributors(run, species=bad)
+
+
+def test_flux_contributors_keep_the_total_unknown_when_no_field_carries_the_quantity():
+    """A species whose selected quantity is NaN in every field slot (cold review 0.8.0 F6).
+
+    ``sum({}.values())`` is the integer 0; the renderer then paired a (nky,) ky axis with
+    a scalar and raised. The total is unknown, not zero: it keeps the ky shape as NaN
+    and the panel says so.
+    """
+    from vaft.code.gacode.tglf.outputs import FLUX_SPECTRUM_QUANTITIES
+    import types
+
+    nky, nfield, nq = 5, 3, len(FLUX_SPECTRUM_QUANTITIES)
+    spectrum = np.full((2, nfield, nky, nq), np.nan)      # (species, field, ky, quantity)
+    spectrum[:, 0, :, :] = 1.0                            # phi written for every quantity...
+    q = FLUX_SPECTRUM_QUANTITIES.index("toroidal_stress")
+    spectrum[0, :, :, q] = np.nan                         # ...except the electrons' stress
+    run = types.SimpleNamespace(sum_flux_spectrum=spectrum, ky_spectrum=np.linspace(0.1, 1.0, nky))
+    contributors = gkplot.tglf_flux_contributors(run, quantity="toroidal_stress", species=("e", "i"))
+    total = contributors["series"]["e"]["total"]
+    assert isinstance(total, np.ndarray) and total.shape == (nky,) and np.all(np.isnan(total))
+    assert np.allclose(contributors["series"]["i"]["total"], 1.0)
+    figure, axes = gkplot.plot_flux_contributors(contributors)
+    notes = [text.get_text() for text in axes[0].texts]
+    assert any("toroidal_stress" in note and "e" in note for note in notes)
+    assert not axes[1].texts
+    plt.close(figure)
+
+
+def test_turbulent_transport_models_are_paired_by_time_not_by_slice_index():
+    """Two anomalous models whose profiles_1d are ordered differently: without
+    ``time=`` the second model's slice at the first model's instant is drawn, not
+    its slice 0 (cold review 0.8.0 delta-absorb-17 transport F5)."""
+    from vaft.omas.entries import normalize_entries
+    from vaft.plot.backend.recipes import build_model
+
+    from _synthetic_inputs import make_turbulent_transport
+
+    transport = make_turbulent_transport(None)
+    reference = float(transport["core_transport.model.0.profiles_1d.0.time"])
+    first = "core_transport.model.1.profiles_1d.0"
+    second = "core_transport.model.1.profiles_1d.1"
+    rho = transport[f"{first}.grid_flux.rho_tor_norm"]
+    transport[f"{first}.time"] = 0.9
+    transport[f"{second}.time"] = reference
+    transport[f"{second}.grid_flux.rho_tor_norm"] = rho
+    transport[f"{second}.electrons.energy.flux"] = -7.0 * np.ones(rho.shape)
+
+    model = build_model("turbulent_transport_profile_energy_flux", normalize_entries(transport))
+    by_label = {s.label: s for s in model.series}
+    assert float(by_label["CGYRO e"].y[0]) == pytest.approx(-7.0)
+    assert model.metadata["time"] == pytest.approx(reference)
+    assert model.metadata["slice_time"] == {"TGLF": pytest.approx(reference),
+                                            "CGYRO": pytest.approx(reference)}
+    asked = build_model("turbulent_transport_profile_energy_flux", normalize_entries(transport),
+                        time=0.9)
+    assert float({s.label: s for s in asked.series}["CGYRO e"].y[0]) > 0
+    assert asked.metadata["slice_time"]["CGYRO"] == pytest.approx(0.9)

@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
@@ -39,7 +40,10 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         for projection in ("poloidal", "top", "3d")
     },
     # stability and operational-space charts, at their documented defaults
-    **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "troyon")},
+    **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
+    # reduced stability diagnostics (#1635)
+    **{f"{name}.svg": (name, {}) for name in ("stability_diagnostic_taxonomy", "interchange_criteria")},
+    "ballooning_formulation_hierarchy.svg": ("ballooning_formulation_hierarchy", {}),  # #1637
     **{f"li_qa_{r}.svg": ("li_qa", {"reference": r}) for r in ("wesson_1989", "cheng_1987")},
     # single-particle motion
     **{f"{name}.svg": (name, {}) for name in ("exb_drift", "curvature_drift", "magnetization_current",
@@ -60,6 +64,13 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"field_line_geometry_{g}.svg": ("field_line_geometry", {"geometry": g})
        for g in ("toroidal", "cylindrical", "slab")},
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
+    "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings (#1627)
+    "ordering_contract_map.svg": ("ordering_contract_map", {}),
+    "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
+    # reduced physical representations (#1626)
+    "reduced_representation_hierarchy.svg": ("reduced_representation_hierarchy", {}),
+    **{f"reduction_graph_{f}.svg": ("reduction_graph", {"family": f})
+       for f in ("current_q", "pressure_energy", "kinetic_profiles", "dimensionless_similarity")},
     # tokamak geometry and flux coordinates
     **{f"tokamak_torus_{p}.svg": ("tokamak_torus", {"projection": p}) for p in ("3d", "poloidal")},
     **{f"flux_surfaces_{s}.svg": ("flux_surfaces", {"shape": s}) for s in ("circular", "shifted")},
@@ -107,6 +118,17 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     **{f"{name}.svg": (name, {}) for name in ("current_to_q_profile", "cylindrical_rational_surfaces",
                                               "cylindrical_mode_morphology", "internal_external_kink",
                                               "plasma_vacuum_wall", "cylindrical_tearing_outer")},
+    # current-profile and q topology: shapes, l_i, q landmarks, rational surfaces (#1604)
+    "current_profile_shapes.svg": ("current_profile_shapes", {}),
+    "q_profile_topologies.svg": ("q_profile_topologies", {}),
+    **{f"q_profile_landmarks_{p}.svg": ("q_profile_landmarks", {"profile": p})
+       for p in ("monotonic", "reversed_shear")},
+    **{f"rational_surface_topology_{p}.svg": ("rational_surface_topology", {"profile": p})
+       for p in ("monotonic", "reversed_shear")},
+    # current diffusion and current drive (#1605)
+    "current_diffusion.svg": ("current_diffusion", {}),
+    **{f"current_drive_profiles_{d}.svg": ("current_drive_profiles", {"deposition": d})
+       for d in ("off_axis", "on_axis")},
     # canonical field configurations, reconnection topology and ideal-MHD waves (#1063)
     **{f"slab_field_configuration_{k}.svg": ("slab_field_configuration", {"kind": k})
        for k in ("uniform", "sheared", "reversed", "guide")},
@@ -136,6 +158,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # cold-plasma waves from their equations (#1113)
     **{f"{name}.svg": (name, {}) for name in ("o_mode_cutoff", "x_mode_dispersion", "cma_diagram",
                                               "profile_propagation")},
+    # the omega-k, n^2-X and n^2-Y views, perpendicular and at 60 degrees (#1113 section A, E)
+    **{f"{name}.svg": (name, {}) for name in ("wave_dispersion_omega_k", "refractive_index_vs_X",
+                                              "refractive_index_vs_Y")},
+    **{f"{name}_oblique.svg": (name, {"theta": math.radians(60.0)})
+       for name in ("wave_dispersion_omega_k", "refractive_index_vs_X", "refractive_index_vs_Y",
+                    "profile_propagation")},
     # neoclassical and NTV collisionality regimes (#1111)
     "neoclassical_collisionality.svg": ("neoclassical_collisionality", {}),
     "ntv_collisionality.svg": ("ntv_collisionality", {}),
@@ -180,6 +208,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "scientific_workflow.svg": ("scientific_workflow", {}),
     "interoperability_layers.svg": ("interoperability_layers", {}),
     "scientific_provenance_chain.svg": ("scientific_provenance_chain", {}),
+    "plasma_state_provenance.svg": ("plasma_state_provenance", {}),
     "scientific_infrastructure_principles.svg": ("scientific_infrastructure_principles", {}),
     "machine_agnostic_architecture.svg": ("machine_agnostic_architecture", {}),
     "experiment_modeling_theory_data_network.svg": ("experiment_modeling_theory_data_network", {}),
@@ -187,12 +216,33 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
                                                                    {"communication": "point_to_point"}),
     "experiment_modeling_theory_data_network_equilibrium.svg": ("experiment_modeling_theory_data_network",
                                                                 {"communication": "equilibrium"}),
+    # the research modes and their common state inside one integrated framework, serving analysis (#1698)
+    "integrated_scientific_framework.svg": ("integrated_scientific_framework", {}),
+    "integrated_scientific_framework_equilibrium.svg": ("integrated_scientific_framework", {"domain": "equilibrium"}),
     "human_ai_interface.svg": ("human_ai_interface", {}),
     # the machine and research archive since 2012 (#497)
     "machine_research_archive.svg": ("machine_research_archive", {}),
+    # research infrastructure: four fragmented/integrated pairs, community and ownership (#1636-#1645)
+    **{f"{name}{suffix}.svg": (name, kwargs)
+       for name in ("scientific_representation", "experimental_research_infrastructure", "scientific_credibility",
+                    "research_modality_architecture")
+       for suffix, kwargs in (("", {}), ("_fragmented", {"organization": "fragmented"}))},
+    "fusion_research_ecosystem.svg": ("fusion_research_ecosystem", {}),
+    "fusion_research_ecosystem_presentation.svg": ("fusion_research_ecosystem", {"detail": "presentation"}),
+    "scientific_ownership_architecture.svg": ("scientific_ownership_architecture", {}),
     # the VEST data platform: reference view and compact companion (#1550)
     "vest_data_platform.svg": ("vest_data_platform", {}),
     "vest_data_platform_overview.svg": ("vest_data_platform_overview", {}),
+    "software_dependency_ecosystem.svg": ("software_dependency_ecosystem", {}),
+    "external_code_integration.svg": ("external_code_integration", {}),
+    # the physics-workflow spine, level 2 below the platform overview (#1585)
+    **{f"{name}.svg": (name, {}) for name in (
+        "plasma_parameter_inference", "romero_transformer_balance", "resistive_zeff_inference", "magnetic_efit",
+        "kinetic_efit", "analytic_mhd_equilibrium", "chease_coupling", "tokamaker_coupling", "dcon_rdcon_stability",
+        "gpec_plasma_response", "flare_field_line_topology", "neo_neoclassical", "tglf_cgyro_local_transport")},
+    # plasma parameter inference: architecture and provenance (#1601)
+    "parameter_inference_overview.svg": ("parameter_inference_overview", {"references": True}),
+    "parameter_inference_dependency_graph.svg": ("parameter_inference_dependency_graph", {"references": True}),
     "tokamak_top_view.svg": ("tokamak_top_view", {}),
     "cocos_orientation.svg": ("cocos_orientation", {}),
     "cocos_orientation_1_to_8.svg": ("cocos_orientation", {"cocos": tuple(range(1, 9))}),

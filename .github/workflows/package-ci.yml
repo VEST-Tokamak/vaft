@@ -48,7 +48,8 @@ jobs:
           twine check dist/*
 
       - name: Verify data policy and artifact size
-        run: python test/verify_dist.py dist --max-wheel-mib 25
+        # 26 MiB since 2026-10-07: the unified VEST diagnostics fixture (0.93 MiB) ships in the wheel (0.8.0 decision).
+        run: python test/verify_dist.py dist --max-wheel-mib 26
 
       - name: Smoke-test the installed wheel
         run: |
@@ -60,7 +61,8 @@ jobs:
           # in a bare install: nothing heavy is imported before the arguments.
           /tmp/vaft-wheel-test/bin/vaft --help
           /tmp/vaft-wheel-test/bin/vaft plot --help
-          # The GUI's Panel dependency is optional: its help must parse without it.
+          # This install has --no-deps, so Panel is absent: the GUI's help must
+          # still parse, because nothing imports Panel before an app is built.
           /tmp/vaft-wheel-test/bin/vaft gui --help
 
   # The two gates this workflow implements, stated once here (#515):

@@ -79,6 +79,16 @@ def is_public(module_name: str) -> bool:
     return not any(part.startswith("_") for part in module_name.split("."))
 
 
+def is_script(module_name: str, inventory: Mapping) -> bool:
+    """Whether ``module_name`` is under a ``scripts`` prefix of the inventory.
+
+    Issue studies (``vaft.validation.studies``, #1756) are run with
+    ``python -m``, not imported: they load optional solver toolkits at module
+    level, so the catalog must not import them to find out they publish nothing.
+    """
+    return any(covers(prefix, module_name) for prefix in inventory.get("scripts") or [])
+
+
 def load_inventory(root: Path = _ROOT) -> dict:
     import yaml
 
@@ -106,13 +116,19 @@ def page_for(module_name: str, inventory: Mapping) -> str | None:
     return best
 
 
-def public_modules() -> list[tuple[str, Any]]:
-    """Every public ``vaft`` module, imported, in dotted-name order."""
+def public_modules(inventory: Mapping | None = None) -> list[tuple[str, Any]]:
+    """Every public ``vaft`` module, imported, in dotted-name order.
+
+    Script trees the inventory lists under ``scripts`` are skipped without
+    being imported; see :func:`is_script`.
+    """
     import vaft
 
+    if inventory is None:
+        inventory = load_inventory()
     found = [("vaft", vaft)]
     for info in pkgutil.walk_packages(vaft.__path__, "vaft."):
-        if is_public(info.name):
+        if is_public(info.name) and not is_script(info.name, inventory):
             found.append((info.name, importlib.import_module(info.name)))
     return sorted(found, key=lambda item: item[0])
 
@@ -528,7 +544,7 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     inventory = load_inventory()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        modules = public_modules()
+        modules = public_modules(inventory)
         links = _reference_links()
 
     exports: dict[Any, list[tuple[str, str, Any]]] = {}

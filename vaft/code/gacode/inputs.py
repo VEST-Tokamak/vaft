@@ -423,7 +423,15 @@ def impurity_fractions(z_eff: float, z_impurity: float) -> tuple[float, float]:
 
 
 def _ion_species(ods: Any, index: int) -> list[dict[str, Any]]:
-    """Read the ion species table from core_profiles."""
+    """Read the ion species table from core_profiles.
+
+    A bundled ion -- one ``ion[]`` entry for every charge state of an element,
+    as :func:`vaft.process.impurity.populate_radial_impurity_profiles` writes
+    it -- carries its radial charge in ``z_ion_1d`` (<Z>(rho)) and
+    ``z_ion_square_1d`` (<Z^2>(rho)); both are returned as ``z_1d`` /
+    ``z2_1d`` (``None`` for a fixed charge state), and the scalar ``z_ion`` of
+    such an entry is a density-weighted mean, not the charge at any surface.
+    """
     prefix = f"core_profiles.profiles_1d.{index}.ion"
     species: list[dict[str, Any]] = []
     position = 0
@@ -438,6 +446,15 @@ def _ion_species(ods: Any, index: int) -> list[dict[str, Any]]:
         label = str(ods[f"{base}.label"]) if f"{base}.label" in ods else f"ion{position}"
         charge = _scalar(ods, f"{base}.z_ion")
         charge_assumed = False
+        z_1d = _array(ods, f"{base}.z_ion_1d")
+        z2_1d = None if z_1d is None else _array(ods, f"{base}.z_ion_square_1d")
+        density = _array(ods, f"{base}.density_thermal")
+        if density is None:
+            density = _array(ods, f"{base}.density")
+        if charge is None and z_1d is not None and density is not None and z_1d.shape == density.shape:
+            weight = np.where(np.isfinite(density) & (density > 0.0), density, 0.0)
+            if weight.sum() > 0.0 and np.all(np.isfinite(z_1d[weight > 0.0])):
+                charge = float(np.sum(weight * np.where(weight > 0.0, z_1d, 0.0)) / weight.sum())
         if charge is None:
             # No charge state stored. The nuclear charge is the fully-stripped
             # value, which is the convention of this adapter (see IMPURITIES);
@@ -450,14 +467,13 @@ def _ion_species(ods: Any, index: int) -> list[dict[str, Any]]:
                     "its charge is not something the adapter will assume"
                 )
         mass = _scalar(ods, f"{base}.element.0.a")
-        density = _array(ods, f"{base}.density_thermal")
-        if density is None:
-            density = _array(ods, f"{base}.density")
         species.append(
             {
                 "label": label,
                 "z": float(charge),
                 "z_assumed": charge_assumed,
+                "z_1d": z_1d,
+                "z2_1d": z2_1d,
                 "mass": mass,
                 "density": density,
                 "temperature": _array(ods, f"{base}.temperature"),
@@ -719,6 +735,7 @@ def prepare_gacode_profile(
             "adapter does not invent a main ion"
         )
     densities, temperatures, charges, masses, labels, kinds = [], [], [], [], [], []
+    bundled: dict[str, dict[str, Any]] = {}
     for entry in species:
         if entry["density"] is None or entry["temperature"] is None:
             raise ProfileConversionError(
@@ -726,11 +743,41 @@ def prepare_gacode_profile(
             )
         density = _interpolate(profile_rho, entry["density"], rho) / DENSITY_SCALE
         temperature = _interpolate(profile_rho, entry["temperature"], rho) / TEMPERATURE_SCALE
+        charge = entry["z"]
+        if entry["z_1d"] is not None:
+            # A bundled ion: GACODE carries one charge per species, so the entry is
+            # lumped as surface_composition_profile lumps it -- with one Z for the
+            # whole converted grid.  n' Z_lump = n <Z> keeps the charge density (and
+            # quasi-neutrality) at every point; Z_lump = mean(n<Z^2>/n_e) / mean(n<Z>/n_e)
+            # keeps the species' mean contribution to Z_eff, so the list NEO, TGLF
+            # and CGYRO read agrees with a zeff column formed from the same ions.
+            mean = _interpolate(profile_rho, entry["z_1d"], rho)
+            mean2 = mean**2 if entry["z2_1d"] is None else _interpolate(profile_rho, entry["z2_1d"], rho)
+            electron_density = ne / DENSITY_SCALE
+            with np.errstate(invalid="ignore", divide="ignore"):
+                charge_density = density * mean / electron_density
+                z2_density = density * mean2 / electron_density
+                finite = np.isfinite(charge_density) & np.isfinite(z2_density)
+                lumped = float(np.mean(z2_density[finite]) / np.mean(charge_density[finite])) if finite.any() else float("nan")
+            if not np.isfinite(lumped) or lumped <= 0.0:
+                raise ProfileConversionError(
+                    f"bundled ion species {entry['label']!r} carries no charge on the converted "
+                    "grid (z_ion_1d is zero or undefined everywhere); it cannot be lumped"
+                )
+            density = density * mean / lumped
+            charge = lumped
+            bundled[entry["label"].replace(" ", "")] = {
+                "lumped_charge": lumped,
+                "z_ion_stored": entry["z"],
+                "fields": "z_ion_1d" + ("" if entry["z2_1d"] is None else ", z_ion_square_1d"),
+                "reason": "one charge per species in GACODE: Z_lump keeps the charge density "
+                          "at every point and the mean Z_eff contribution over the grid",
+            }
         _require_positive(f"{entry['label']} density", density)
         _require_positive(f"{entry['label']} temperature", temperature)
         densities.append(density)
         temperatures.append(temperature)
-        charges.append(entry["z"])
+        charges.append(charge)
         masses.append(
             entry["mass"] if entry["mass"] is not None
             else _assumed_mass(entry["label"], entry["z"])
@@ -742,6 +789,8 @@ def prepare_gacode_profile(
         "source": f"{profile_prefix}.ion",
         "species": labels,
     }
+    if bundled:
+        provenance["ni"]["bundled_ions"] = bundled
 
     # Toroidal rotation is optional to GACODE and is only written when every
     # species has it: a per-ion array with one species silently zeroed would
@@ -856,7 +905,42 @@ def prepare_gacode_profile(
                 )
     elif effective_charge is not None:
         z_eff_profile = _interpolate(profile_rho, effective_charge, rho)
-        provenance["z_eff"] = {"kind": "measured", "source": f"{profile_prefix}.zeff"}
+        # The record beside the column says how it is known (#1565): a zeff the
+        # composition writer derived or assumed is not a measurement.  Unlabelled
+        # keeps the reading it always had.
+        from vaft.ods_access import path_value
+        from vaft.process.impurity import composition_record_origin
+
+        record = path_value(ods, f"{profile_prefix}.zeff_fit.parameters", None)
+        record = None if record is None else str(record)
+        origin = composition_record_origin(record)
+        provenance["z_eff"] = {
+            "kind": {"assumed": "policy_assumption", "derived": "derived",
+                     "inferred": "derived", "measured": "measured", None: "measured"}.get(origin, "derived"),
+            "source": f"{profile_prefix}.zeff",
+            "origin": origin or "unlabelled",
+            "record": record,
+        }
+        if len(charges) > 1:
+            # Several species: NEO, TGLF and CGYRO read the list, so a column a
+            # composition writer derived or assumed must agree with it -- the #803
+            # contradiction, without impurity=.  A measured (or unlabelled) column
+            # is independent of the list and is only compared, never refused.
+            stacked = np.vstack(densities)
+            species_profile = np.sum(stacked * np.asarray(charges)[:, None] ** 2, axis=0) / (ne / DENSITY_SCALE)
+            common = np.isfinite(z_eff_profile) & np.isfinite(species_profile)
+            species_value = float(np.mean(species_profile[common])) if common.any() else float("nan")
+            column_value = float(np.mean(z_eff_profile[common])) if common.any() else float("nan")
+            provenance["z_eff"]["species_value"] = species_value
+            if origin in ("assumed", "derived", "inferred") and not (
+                common.any() and abs(column_value - species_value) <= 1e-3 * max(1.0, abs(species_value))
+            ):
+                raise ProfileConversionError(
+                    f"{profile_prefix}.zeff ({origin}) averages {column_value:.4g} but the ion "
+                    f"species list gives {species_value:.4g}. Writing both would put a column in "
+                    "input.gacode that contradicts the species NEO, TGLF and CGYRO read; "
+                    "make the zeff profile and the ion list agree."
+                )
     elif z_eff is not None:
         z_eff_profile = np.full(rho.size, float(z_eff))
         provenance["z_eff"] = {"kind": "caller_supplied", "value": float(z_eff)}

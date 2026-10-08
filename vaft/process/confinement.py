@@ -52,7 +52,10 @@ __all__ = [
     "confinement_exclusion_table",
     "ConfinementScalingFit",
     "fit_confinement_scaling",
+    "ObservedConfinement",
+    "resolve_observed_confinement",
     "assess_predictor_identifiability",
+    "predictor_principal_directions",
     "bootstrap_confinement_scaling",
     "leave_one_group_out_scaling",
     "fit_confinement_scaling_odr",
@@ -775,6 +778,120 @@ def fit_confinement_scaling(
     )
 
 
+@dataclass(frozen=True)
+class ObservedConfinement:
+    """The observed confinement time a scaling is compared with, and how it was obtained.
+
+    ``tau`` [s] per row (NaN where unavailable); ``energy_basis_required`` is the
+    scaling's; ``energy_basis_used`` per row (``"thermal"``, ``"global"`` or
+    ``""`` where NaN); ``approximation`` names the assumption when a thermal
+    time stood in for a global one, else ``None``; ``reason`` says why rows are
+    NaN, else ``None``.
+    """
+
+    tau: np.ndarray
+    energy_basis_required: str
+    energy_basis_used: np.ndarray
+    approximation: Optional[str]
+    reason: Optional[str]
+
+
+#: The assumption recorded when a thermal confinement time stands in for a global one.
+THERMAL_AS_GLOBAL = "W_global ~ W_th: negligible non-thermal (fast-ion) stored energy"
+
+
+def resolve_observed_confinement(
+    tau_thermal,
+    energy_basis: str,
+    *,
+    tau_global=None,
+    thermal_as_global: bool = False,
+) -> ObservedConfinement:
+    """Observed confinement time with the energy basis a scaling was fitted on (issue #1713).
+
+    Parameters
+    ----------
+    tau_thermal : array-like
+        Thermal confinement time $W_{th}/P$ per row, NaN where unknown [s].
+    energy_basis : str
+        The scaling's basis, from
+        :func:`vaft.formula.equilibrium.confinement_scaling_basis`:
+        ``"thermal"``, ``"global"`` or ``"unaudited"`` [str].
+    tau_global : array-like, optional
+        Global confinement time $W/P$ per row, fast ions included; default
+        none observed [s].
+    thermal_as_global : bool, optional
+        Use the thermal time where a global (or unaudited) basis has no global
+        observation, recording :data:`THERMAL_AS_GLOBAL`; default False [-].
+
+    Returns
+    -------
+    ObservedConfinement
+        The resolved times and their provenance [any].
+
+    Raises
+    ------
+    ValueError
+        An unknown ``energy_basis``, or arrays of different lengths.
+
+    Processing steps
+    ----------------
+    1. A thermal scaling takes ``tau_thermal``; nothing else stands in for it.
+    2. A global scaling takes ``tau_global`` where it is finite. Elsewhere it
+       is NaN (strict), or the thermal time with :data:`THERMAL_AS_GLOBAL`
+       recorded when ``thermal_as_global`` is set.
+    3. An unaudited scaling has no known basis: NaN unless
+       ``thermal_as_global``, when the thermal time is used and recorded.
+
+    Applicability
+    -------------
+    Machine-independent. The thermal-for-global substitution is defensible for
+    ohmic plasmas without fast ions (VEST Tier A) and wrong for beam- or
+    RF-heated plasmas with a fast-ion population.
+
+    Limitations
+    -----------
+    Resolves which time to use; it does not construct $W_{global}$ or
+    $W_{th}$ from a reconstruction. ``w_mhd_J`` from a magnetics EFIT is total
+    kinetic pressure and is not by itself a thermal energy.
+
+    Provenance
+    ----------
+    .. [1713] Issue #1713: thermal and global energy confinement must not be
+       silently interchanged in scaling comparisons.
+    """
+    if energy_basis not in ("thermal", "global", "unaudited"):
+        raise ValueError(f"energy_basis must be thermal, global or unaudited; got {energy_basis!r}")
+    th = np.asarray(tau_thermal, dtype=float)
+    gl = np.full(th.shape, np.nan) if tau_global is None else np.asarray(tau_global, dtype=float)
+    if gl.shape != th.shape:
+        raise ValueError(f"tau_global has shape {gl.shape}, tau_thermal {th.shape}")
+    used = np.full(th.shape, "", dtype=object)
+    if energy_basis == "thermal":
+        ok = np.isfinite(th)
+        used[ok] = "thermal"
+        return ObservedConfinement(np.where(ok, th, np.nan), energy_basis, used, None,
+                                   None if ok.all() else "no thermal confinement time on some rows")
+    tau = np.full(th.shape, np.nan)
+    direct = np.isfinite(gl) if energy_basis == "global" else np.zeros(th.shape, bool)
+    tau[direct] = gl[direct]
+    used[direct] = "global"
+    approximation = None
+    if thermal_as_global:
+        fill = ~direct & np.isfinite(th)
+        tau[fill] = th[fill]
+        used[fill] = "thermal"
+        if fill.any():
+            approximation = THERMAL_AS_GLOBAL + ("" if energy_basis == "global" else "; scaling basis unaudited")
+    missing = ~np.isfinite(tau)
+    reason = None
+    if missing.any():
+        reason = ("energy basis of the scaling is unaudited" if energy_basis == "unaudited"
+                  else "no global confinement time observed") + (
+            "" if thermal_as_global else " (pass thermal_as_global=True to use the thermal time, recorded)")
+    return ObservedConfinement(tau, energy_basis, used, approximation, reason)
+
+
 def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> dict:
     """Collinearity of log predictors: correlation, VIF, condition number and rank.
 
@@ -859,6 +976,105 @@ def assess_predictor_identifiability(predictors: Mapping[str, np.ndarray]) -> di
         "rank": int(np.linalg.matrix_rank(design)),
         "constant": constant,
     }
+
+
+def predictor_principal_directions(predictors: Mapping[str, np.ndarray], *, groups=None) -> dict:
+    """Principal directions of the log predictors: which exponent combinations the data constrain.
+
+    Parameters
+    ----------
+    predictors : Mapping
+        Predictor arrays keyed by name; rows with any non-finite or
+        non-positive value are dropped [any].
+    groups : array-like, optional
+        Group label per row (e.g. shot); when given, the analysis is repeated
+        on the shot means (between-group) and on the within-group deviations
+        [any].
+
+    Returns
+    -------
+    dict
+        ``names`` [-]; ``n`` rows used [-]; ``scale``, the standard deviation
+        of each log predictor [-]; ``singular_values`` of the centred,
+        standardised log design, largest first [-]; ``directions``, the unit
+        right-singular vectors as rows, one per singular value, in that
+        design's coordinates [-]; ``variance_fraction`` per direction [-];
+        ``effective_rank``, the number of directions whose singular value is
+        at least ``0.1`` of the largest [-]; and, with ``groups``, ``between``
+        and ``within``: the spread of the group means and of the within-group
+        deviations *along the same directions*, in the same standardised
+        units, as root-sum-square projections over the rows, so that
+        ``between**2 + within**2`` is each singular value squared [-] [any].
+
+    Raises
+    ------
+    ValueError
+        No predictor, mismatched lengths (``groups`` included), fewer than
+        three usable rows, or a predictor that does not vary.
+
+    Processing steps
+    ----------------
+    1. Take logs, centre and divide each column by its standard deviation.
+    2. Singular-value decompose; a direction with a small singular value is a
+       combination of predictors the sample barely varies, so the matching
+       combination of exponents is poorly determined (PCR diagnostic). With
+       fewer rows than predictors the missing directions are returned with
+       singular value zero: they are the unconstrained ones.
+    3. With ``groups``, split each direction's spread into the part carried by
+       the group means (each row taking its group's mean) and the part carried
+       by the within-group deviations, both with the pooled centring and scale.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Directions are in standardised log coordinates; a direction mixes
+    exponents in units of each predictor's spread, so convert with ``scale``
+    before reading it as a physical scan. It diagnoses the design, not a fit:
+    it says which scan would add information, not which exponent is right.
+
+    Provenance
+    ----------
+    .. [1621] Issue #1621 Secs. 8 and 12: PCR-style identifiability and the
+       weak singular directions that point to the next scan.
+    .. [BKW] D. A. Belsley, E. Kuh and R. E. Welsch, *Regression Diagnostics*,
+       Wiley (1980), Ch. 3.
+    """
+    names = list(predictors)
+    if not names:
+        raise ValueError("at least one predictor is needed")
+    first = _series(names[0], predictors[names[0]])
+    stack = np.vstack([_series(name, predictors[name], first.size) for name in names])
+    if groups is not None and np.asarray(groups).shape != (first.size,):
+        raise ValueError(f"groups has shape {np.asarray(groups).shape}, expected ({first.size},)")
+    keep = np.all(np.isfinite(stack) & (stack > 0), axis=0)
+    logs = np.log(stack[:, keep]).T
+    if logs.shape[0] < 3:
+        raise ValueError("fewer than three usable rows")
+    centre = logs.mean(axis=0)
+    scale = logs.std(axis=0, ddof=1)
+    if np.any(~(scale > 0)):
+        raise ValueError("a predictor does not vary: " + ", ".join(n for n, s in zip(names, scale) if not s > 0))
+    z = (logs - centre) / scale
+    _, sv, vt = np.linalg.svd(z, full_matrices=True)
+    sv = np.concatenate([sv, np.zeros(len(names) - sv.size)])  # fewer rows than predictors
+    vt = vt * np.sign(vt[np.arange(len(vt)), np.argmax(np.abs(vt), axis=1)])[:, None]
+    out = {"names": names, "n": int(logs.shape[0]), "scale": dict(zip(names, map(float, scale))),
+           "singular_values": sv.tolist(), "directions": vt.tolist(),
+           "variance_fraction": (sv**2 / np.sum(sv**2)).tolist(),
+           "effective_rank": int(np.sum(sv >= 0.1 * sv[0]))}
+    if groups is not None:
+        labels = np.asarray(groups)[keep]
+        uniq, inverse = np.unique(labels, return_inverse=True)
+        means = np.vstack([z[inverse == k].mean(axis=0) for k in range(uniq.size)])
+        within = z - means[inverse]
+        # Each row carries its group's mean, so between^2 + within^2 = singular value^2.
+        out["between"] = {"n": int(uniq.size),
+                          "projected": np.sqrt(((means[inverse] @ vt.T) ** 2).sum(axis=0)).tolist()}
+        out["within"] = {"n": int(z.shape[0]), "projected": np.sqrt(((within @ vt.T) ** 2).sum(axis=0)).tolist()}
+    return out
 
 
 def bootstrap_confinement_scaling(
@@ -1017,7 +1233,7 @@ def fit_confinement_scaling_odr(
     response: np.ndarray,
     predictors: Mapping[str, np.ndarray],
     *,
-    sigma_log_response: float,
+    sigma_log_response,
     sigma_log_predictors: Mapping[str, float],
 ) -> dict:
     """Errors-in-variables (orthogonal distance) power-law fit in log space.
@@ -1029,10 +1245,12 @@ def fit_confinement_scaling_odr(
         $\\tau_E$, so its error is independent of the power's [any].
     predictors : Mapping
         Predictor arrays keyed by name [any].
-    sigma_log_response : float
+    sigma_log_response : float or array-like
         Standard deviation of the *equation* error of $\\ln y$: measurement
         error plus the scaling's intrinsic scatter, not measurement error
-        alone [-].
+        alone. One number for every row, or one per input row (e.g. a
+        reconstruction's model-form spread, #579); a row whose value is not
+        finite and positive is dropped [-].
     sigma_log_predictors : Mapping
         Standard deviation of the measurement error of $\\ln x_j$ per
         predictor; zero marks a predictor as exact [-].
@@ -1043,7 +1261,8 @@ def fit_confinement_scaling_odr(
         ``names`` (``log_C`` first) [-]; ``coef``, the errors-in-variables
         coefficients [-]; ``n`` rows used [-]; ``mask`` of the rows used
         [bool]; ``ols_coef``, the least-squares coefficients of the same data
-        [-] [any].
+        [-]; ``method``, ``"partial_tls"`` for one response error or
+        ``"weighted_odr"`` for per-row errors [-] [any].
 
     Raises
     ------
@@ -1062,6 +1281,13 @@ def fit_confinement_scaling_odr(
        noisy slopes are $b_j = -(v_j/\\sigma_j)/(v_y/\\sigma_y)$.
     4. The exact predictors' slopes and the intercept by least squares of
        $y - \\sum_{j\\in\\mathrm{noisy}} b_j x_j$ on them.
+    5. With per-row response errors steps 2-4 have no closed form: the same
+       linear model is solved as weighted orthogonal distance regression: the
+       maximum-likelihood criterion of a linear model with independent Gaussian
+       errors, $\\sum_i (y_i - \\beta\\cdot x_i)^2 / (\\sigma_{y,i}^2 +
+       \\sum_j \\beta_j^2\\sigma_{x,j}^2)$, minimised from the least-squares
+       start (exact predictors carry $\\sigma = 0$). For a constant per-row
+       error it reproduces steps 2-4.
 
     Applicability
     -------------
@@ -1087,13 +1313,23 @@ def fit_confinement_scaling_odr(
        for a linear model with known error ratios it is the orthogonal
        distance (maximum-likelihood) solution.
     """
+    per_row = np.ndim(sigma_log_response) > 0
+    if per_row:
+        sy_rows = np.asarray(sigma_log_response, dtype=float)
+        if sy_rows.shape != (np.size(response),):
+            raise ValueError(f"sigma_log_response has shape {sy_rows.shape}, expected ({np.size(response)},)")
+        ok_sy = np.isfinite(sy_rows) & (sy_rows > 0)
+        response = np.where(ok_sy, np.asarray(response, dtype=float), np.nan)
     names, log_y, x, _, keep = _log_design(response, predictors, np.zeros(np.size(response)))
     n, k = x.shape
     if n <= k:
         raise ValueError(f"{n} usable rows cannot fit {k} coefficients")
-    sy = float(sigma_log_response)
-    if not (np.isfinite(sy) and sy > 0):
-        raise ValueError(f"sigma_log_response must be finite and > 0, got {sigma_log_response!r}")
+    if per_row:
+        sy = sy_rows[keep]
+    else:
+        sy = float(sigma_log_response)
+        if not (np.isfinite(sy) and sy > 0):
+            raise ValueError(f"sigma_log_response must be finite and > 0, got {sigma_log_response!r}")
     missing = [name for name in names if name not in sigma_log_predictors]
     if missing:
         raise ValueError(f"no log error given for predictor(s) {missing}")
@@ -1105,6 +1341,21 @@ def fit_confinement_scaling_odr(
     if noisy.size == 0:
         raise ValueError("no predictor has an error: use fit_confinement_scaling")
     ols, *_ = np.linalg.lstsq(x, log_y, rcond=None)
+    if per_row:
+        from scipy.optimize import least_squares
+
+        # For a linear model with independent Gaussian errors the orthogonal-distance
+        # (maximum-likelihood) estimate minimises sum_i r_i^2 with the effective
+        # variance sigma_y,i^2 + sum_j b_j^2 sigma_x,j^2 (exact predictors: sigma 0).
+        def residuals(beta):
+            scale = np.sqrt(sy**2 + np.sum((beta[1:] * sx) ** 2))
+            return (log_y - x @ beta) / scale
+
+        fit = least_squares(residuals, ols, method="lm", xtol=1e-12, ftol=1e-12, max_nfev=20000)
+        if not fit.success or not np.all(np.isfinite(fit.x)):
+            raise ValueError(f"weighted ODR did not converge: {fit.message}")
+        return {"names": ("log_C", *names), "coef": np.asarray(fit.x, dtype=float), "n": n, "mask": keep,
+                "ols_coef": ols, "method": "weighted_odr"}
 
     base = np.column_stack([np.ones(n)] + [x[:, 1 + j] for j in exact])
     proj = base @ np.linalg.pinv(base)
@@ -1120,7 +1371,8 @@ def fit_confinement_scaling_odr(
     coef[0] = b_base[0]
     coef[1 + exact] = b_base[1:]
     coef[1 + noisy] = b_noisy
-    return {"names": ("log_C", *names), "coef": coef, "n": n, "mask": keep, "ols_coef": ols}
+    return {"names": ("log_C", *names), "coef": coef, "n": n, "mask": keep, "ols_coef": ols,
+            "method": "partial_tls"}
 
 
 def infer_kadomtsev_size_exponent(

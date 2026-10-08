@@ -10,6 +10,8 @@ the real ones do where the backend depends on it:
   happens: ``TERM_AFTER=<s>`` sends the script ``TERM`` after that many seconds
   (a walltime kill); a terminal state such as ``NODE_FAIL`` or ``PENDING``
   never runs it; ``QUEUE_FOR=<s>`` holds it ``PENDING`` that long first.
+  ``FAKE_SLURM_REJECT`` makes it refuse the job, with ``FAKE_SLURM_REJECT_MESSAGE``
+  as the text it prints.
 * ``scancel`` records ``CANCELLED`` and sends a running job script ``TERM``.
 * ``squeue -j`` keeps listing a finished job with its final state, as a real
   controller does until ``MinJobAge``; ``FAKE_SQUEUE_FLAKY=<n>`` makes the first
@@ -54,7 +56,10 @@ _FAKES = {
     "sbatch": """
         options = dict(a.split("=", 1) for a in sys.argv[1:-1] if a.startswith("--") and "=" in a)
         if os.environ.get("FAKE_SLURM_REJECT"):
-            print("sbatch: error: invalid partition specified", file=sys.stderr)
+            # FAKE_SLURM_REJECT_MESSAGE stands in for a site login banner
+            # sharing stderr with the controller's own message.
+            print(os.environ.get("FAKE_SLURM_REJECT_MESSAGE",
+                                 "sbatch: error: invalid partition specified"), file=sys.stderr)
             sys.exit(1)
         if os.environ.get("FAKE_SLURM_BANNER_ONLY"):
             print("Welcome to the cluster")
@@ -174,6 +179,7 @@ def slurm(tmp_path, monkeypatch):
         "SLURM_JOB_ID", "SLURM_STEP_ID", "FAKE_SLURM_OUTCOME", "FAKE_SLURM_REJECT",
         "FAKE_SLURM_NO_SACCT", "FAKE_SQUEUE_FLAKY", "FAKE_SLURM_CLUSTER", "FAKE_SLURM_BANNER",
         "FAKE_SLURM_BANNER_ONLY", "FAKE_JOB_END_NOW", "FAKE_SACCT_LAG",
+        "FAKE_SLURM_REJECT_MESSAGE",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -255,6 +261,18 @@ def test_batch_job_captures_output_and_exit_status(tmp_path, slurm):
     # A failed job keeps its scratch, script private, for inspection.
     (scratch,) = (work / SCRATCH_DIRECTORY).iterdir()
     assert stat.S_IMODE((scratch / "job.sh").stat().st_mode) == 0o700
+
+
+def test_a_label_that_is_not_one_path_component_is_refused(tmp_path, slurm):
+    # The label names the scratch directory under the working directory;
+    # a separator or ``..`` in it would create (and remove) one elsewhere
+    # (cold review 0.8.0 plot-gui-packaging F2).
+    work = _workdir(tmp_path)
+    with pytest.raises(ValueError, match="label"):
+        _batch().run(_python(work, "pass", label="../../escape"))
+    assert not (work / SCRATCH_DIRECTORY).exists()
+    assert not (tmp_path / SCRATCH_DIRECTORY).exists()
+    assert not (slurm.directory / "calls.jsonl").exists()  # sbatch never ran
 
 
 def test_clean_batch_job_removes_its_scratch(tmp_path, slurm):

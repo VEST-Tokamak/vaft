@@ -23,7 +23,7 @@ V      : plasma volume                              [m³]
 """
 
 import warnings
-from typing import Union, Tuple, Optional
+from typing import NamedTuple, Union, Tuple, Optional
 import numpy as np
 
 from ._exports import public_names
@@ -32,6 +32,7 @@ from .constants import (
     E_ALPHA, SIGMA_V_COEF,
     SPITZER_RESISTIVITY_COEF,
     C_B, K_B_COEF,
+    _SCALING_BASES,
     _SCALING_COEFS
 )
 from scipy.integrate import cumulative_trapezoid
@@ -689,6 +690,14 @@ def shear_from_r_q(r: np.ndarray,
     ``q`` and multiplication by ``r``: the axis value is exactly 0 when ``r``
     starts at 0 and undefined where $q$ crosses zero.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: differential
+    locality: flux_surface_local
+    role: stability_coordinate
+
     References
     ----------
     .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40 (1978)
@@ -701,6 +710,145 @@ def shear_from_r_q(r: np.ndarray,
 
 # Alias for backwards compatibility
 magnetic_shear = shear_from_r_q  # noqa: E305
+
+
+def shear_from_volume(V, dV_dpsi, q, dq_dpsi):
+    r"""Magnetic shear against the volume radius $r_V = \sqrt{V/2\pi^2R_0}$.
+
+    $$\hat s_V = \frac{2V}{q}\,\frac{dq/d\psi}{dV/d\psi} = \frac{d\ln q}{d\ln r_V}$$
+
+    Parameters
+    ----------
+    V : float or np.ndarray
+        Volume enclosed by the surface, positive [m^3].
+    dV_dpsi : float or np.ndarray
+        $dV/d\psi$ on the same surfaces, non-zero [m^3/Wb].
+    q : float or np.ndarray
+        Safety factor, non-zero [-].
+    dq_dpsi : float or np.ndarray
+        $dq/d\psi$ against the same flux label as ``dV_dpsi`` [1/Wb].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\hat s_V$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``V`` is not positive, ``dV_dpsi`` or ``q`` is zero, or an input is
+        not finite.
+
+    Convention
+    ----------
+    The flux label cancels: Wb, Wb/rad or normalised $\psi_N$ give the same
+    number as long as both derivatives use it, and so does its sign. This is
+    the shear GPEC.jl's local ballooning reports as ``s_ref``. The radius is
+    the *volume* radius, $V = 2\pi^2R_0r_V^2$, not a geometric minor radius.
+
+    Physical interpretation
+    -----------------------
+    The $\hat s = (r/q)\,dq/dr$ of the $s$-$\alpha$ model, defined on any
+    equilibrium without choosing a minor radius: for circular surfaces of a
+    large-aspect-ratio torus $r_V = r$ and the two agree exactly.
+
+    Assumptions
+    -----------
+    Nested surfaces; the reference major radius $R_0$ only names $r_V$ and
+    cancels from $\hat s_V$.
+
+    References
+    ----------
+    .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
+           R. E. Waltz, Phys. Plasmas 5 (1998) 973.
+    """
+    V = np.asarray(V, dtype=float)
+    dV_dpsi = np.asarray(dV_dpsi, dtype=float)
+    q = np.asarray(q, dtype=float)
+    dq_dpsi = np.asarray(dq_dpsi, dtype=float)
+    for name, value in (("V", V), ("dV_dpsi", dV_dpsi), ("q", q), ("dq_dpsi", dq_dpsi)):
+        if not np.all(np.isfinite(value)):
+            raise ValueError(f"{name} must be finite")
+    if np.any(V <= 0.0):
+        raise ValueError("V must be positive")
+    if np.any(dV_dpsi == 0.0) or np.any(q == 0.0):
+        raise ValueError("dV_dpsi and q must be non-zero")
+    result = 2.0 * V * dq_dpsi / (q * dV_dpsi)
+    return float(result) if result.ndim == 0 else result
+
+
+def ballooning_alpha_from_volume(V, dV_dpsi, dp_dpsi, R0):
+    r"""Normalised pressure gradient $\alpha$ of local ballooning theory on a general equilibrium.
+
+    $$\alpha = -\frac{2\mu_0}{(2\pi)^2}\,\frac{dV}{d\psi}\,\frac{dp}{d\psi}\,
+      \sqrt{\frac{V}{2\pi^2R_0}}$$
+
+    Parameters
+    ----------
+    V : float or np.ndarray
+        Volume enclosed by the surface, positive [m^3].
+    dV_dpsi : float or np.ndarray
+        $dV/d\psi$ with $\psi$ the poloidal flux **per radian** [m^3 rad/Wb].
+    dp_dpsi : float or np.ndarray
+        $dp/d\psi$ against the same per-radian flux [Pa rad/Wb].
+    R0 : float
+        Reference major radius naming the volume radius, positive; the
+        magnetic axis, as GPEC.jl's local ballooning uses [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\alpha$, positive where the pressure falls outward [-].
+
+    Raises
+    ------
+    ValueError
+        ``V`` or ``R0`` is not positive, or an input is not finite.
+
+    Convention
+    ----------
+    Unlike $\hat s_V$, this depends on the flux label: $\psi$ must be the
+    poloidal flux per radian, $|\nabla\psi| = RB_p$. With the full flux in Wb
+    each derivative carries a $2\pi$ and $\alpha$ comes out $(2\pi)^2$ too
+    small. The sign of $\psi$ cancels (both derivatives flip). In the
+    large-aspect-ratio circular limit, $d\psi/dr = rB_0/q$ and
+    $V = 2\pi^2R_0r^2$, it is exactly the Connor-Hastie-Taylor
+    $\alpha = -2\mu_0R_0q^2p'(r)/B_0^2$ with $r$ the **minor** radius
+    (``ballooning_alpha_from_p_B_R`` differentiates against the major radius
+    instead). $\alpha \propto \sqrt{R_0}$ through $r_V$: Miller et al. use each
+    surface's geometric centre instead of the axis, which at a spherical
+    tokamak's aspect ratio moves $\alpha$ by several per cent, so state which
+    $R_0$ when comparing.
+
+    Physical interpretation
+    -----------------------
+    The pressure-gradient drive of high-$n$ ballooning, measured against the
+    field-line bending it must overcome, without choosing a minor radius or a
+    field strength: both enter through $dV/d\psi$.
+
+    Assumptions
+    -----------
+    Nested surfaces; local (high-$n$) ballooning ordering. It is a
+    normalisation, not a stability criterion: the boundary it is compared
+    with depends on the shaping the reduced $s$-$\alpha$ model drops.
+
+    References
+    ----------
+    .. [1] R. L. Miller, M. S. Chu, J. M. Greene, Y. R. Lin-Liu and
+           R. E. Waltz, Phys. Plasmas 5 (1998) 973.
+    .. [2] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40
+           (1978) 396.
+    """
+    V = np.asarray(V, dtype=float)
+    dV_dpsi = np.asarray(dV_dpsi, dtype=float)
+    dp_dpsi = np.asarray(dp_dpsi, dtype=float)
+    for name, value in (("V", V), ("dV_dpsi", dV_dpsi), ("dp_dpsi", dp_dpsi), ("R0", np.asarray(R0, dtype=float))):
+        if not np.all(np.isfinite(value)):
+            raise ValueError(f"{name} must be finite")
+    if np.any(V <= 0.0) or not float(R0) > 0.0:
+        raise ValueError("V and R0 must be positive")
+    result = -2.0 * MU0 / (2.0 * np.pi) ** 2 * dV_dpsi * dp_dpsi * np.sqrt(V / (2.0 * np.pi ** 2 * float(R0)))
+    return float(result) if result.ndim == 0 else result
 
 
 # ------------------------------------------------------------------
@@ -1854,6 +2002,14 @@ def beta_toroidal_from_p_B0(p_average: float,
     float
         Toroidal beta [-].
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
@@ -1890,6 +2046,14 @@ def beta_poloidal_from_pressure_integral(pressure_integral: float,
     The EFIT/OMFIT circumference form is a different definition; see
     :func:`beta_poloidal_from_circumference`.
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_pol``.
@@ -1923,12 +2087,108 @@ def beta_normal_from_beta_tor(beta_tor: float,
     float
         Normalized beta [% m T/MA].
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: normalization
+    locality: global
+    role: stability_coordinate
+
     References
     ----------
     .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
     .. [2] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.beta_normal``.
     """
     return 100 * float(beta_tor) * float(a) * abs(float(B0)) / abs(float(Ip) / 1e6)
+
+
+def beta_volume_from_p_B2(p_average: float,
+                          B2_average: float) -> float:
+    r"""Volume beta: the volume-averaged pressure over the volume-averaged total magnetic energy density.
+    
+    $$\beta_B = \frac{2\mu_0 \langle p \rangle_V}{\langle B^2 \rangle_V}
+               = \frac{2\mu_0 \int p \, dV}{\int B^2 \, dV}$$
+    
+    Parameters
+    ----------
+    p_average : float
+        Volume-averaged plasma pressure inside the last closed flux surface [Pa].
+    B2_average : float
+        Volume average of the total field squared, $B_R^2 + B_Z^2 + B_\phi^2$, over the
+        same volume [T^2].
+    
+    Returns
+    -------
+    float
+        Volume beta [-].
+    
+    Convention
+    ----------
+    A ratio of volume averages -- the beta Menard et al. attribute to Troyon -- not the average of the local ratio
+    $\langle 2\mu_0 p / B^2 \rangle_V$, and not the toroidal beta
+    (:func:`beta_toroidal_from_p_B0`), which divides by the vacuum field at one radius.
+    The two agree at large aspect ratio and low beta; at low aspect ratio the $1/R$
+    variation of $B_\phi$ and the poloidal field make $\langle B^2 \rangle_V$ differ from
+    $B_0^2$, which is why Menard et al. normalize by it to compare aspect ratios.
+    
+    References
+    ----------
+    .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209
+           (beta as twice the pressure over the magnetic energy integrals).
+    .. [2] J. E. Menard et al., Phys. Plasmas 11 (2004) 639, doi:10.1063/1.1640623
+           (PPPL-3908): definition of the volume-averaged total-field beta.
+    """
+    B2_average = float(B2_average)
+    if not B2_average > 0:
+        raise ValueError(f"B2_average must be positive, got {B2_average!r}")
+    return 2 * MU0 * float(p_average) / B2_average
+
+
+def beta_normal_from_beta_volume(beta_volume: float,
+                                 a: float,
+                                 B0: float,
+                                 Ip: float) -> float:
+    r"""Normalized volume beta: the volume beta normalized like the Troyon beta_N.
+    
+    $$\langle \beta_N \rangle = 100\,\beta_B \frac{a |B_0|}{|I_p[\mathrm{MA}]|}$$
+    
+    Parameters
+    ----------
+    beta_volume : float
+        Volume beta, $2\mu_0\langle p\rangle_V/\langle B^2\rangle_V$
+        (:func:`beta_volume_from_p_B2`) [-].
+    a : float
+        Minor radius [m].
+    B0 : float
+        Vacuum toroidal field at ``r0`` [T].
+    Ip : float
+        Plasma current; converted to MA internally [A].
+    
+    Returns
+    -------
+    float
+        Normalized volume beta [% m T/MA].
+    
+    Convention
+    ----------
+    Menard's $\langle\beta_N\rangle$: the normalization $a B_0 / I_p$ is the
+    conventional one, only the beta differs. Which $B_0$ is the caller's: Menard
+    et al. take the vacuum field at the plasma's geometric centre, VAFT's
+    ``beta_normal`` the one at ``vacuum_toroidal_field.r0``; where the two radii
+    differ, so does the value, by their ratio. It is not the conventional
+    :func:`beta_normal_from_beta_tor`; at low aspect ratio the conventional
+    $\beta_N$ of an optimized no-wall sequence nearly doubles (3.15 at A = 10 to
+    5.85 at A = 1.25) while this one stays at 3.2 within 3 % [2]_, [3]_.
+    
+    References
+    ----------
+    .. [1] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
+    .. [2] J. E. Menard et al., Phys. Plasmas 11 (2004) 639, doi:10.1063/1.1640623.
+    .. [3] J. E. Menard et al., "Unified ideal stability limits for advanced tokamak
+           and spherical torus plasmas", PPPL-3779 (2003), Fig. 3.
+    """
+    return 100 * float(beta_volume) * float(a) * abs(float(B0)) / abs(float(Ip) / 1e6)
 
 
 def li_3_from_Bp2_volume_integral(Bp2_dV: float,
@@ -1954,6 +2214,14 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     float
         Internal inductance, ``li_3`` definition [-].
     
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] IMAS Data Dictionary, ``equilibrium.time_slice[:].global_quantities.li_3``.
@@ -2322,42 +2590,100 @@ def ion_pressure(n_i: Union[float, np.ndarray],
 
 def stored_energy_from_p_V(p: Union[float, np.ndarray],
                           V: float) -> Union[float, np.ndarray]:
-    r"""Stored energy as pressure times volume, $W = pV$.
+    r"""Pressure volume integral $\int p\,dV \approx \langle p\rangle V$ -- not the thermal (stored) energy.
 
-    $$W = \int p\,dV \approx p\,V$$
+    $$\int p\,dV \approx p\,V$$
 
     Parameters
     ----------
     p : float or np.ndarray
-        Pressure; a volume-averaged value gives the total energy [Pa].
+        Pressure; the volume average gives the integral over the plasma [Pa].
     V : float
         Plasma volume [m^3].
 
     Returns
     -------
     float or np.ndarray
-        Energy $pV$ [J].
+        $\int p\,dV$ [J].
 
     Convention
     ----------
-    $pV$ is the *magnetic-like* energy normalisation; the thermal energy of an
-    ideal gas is $W_{th} = \tfrac{3}{2}\int p\,dV$, so multiply by 1.5 for the
-    IMAS ``energy_thermal`` convention.
+    Despite the historical name this is $\int p\,dV$, two thirds of the
+    thermal energy: the stored kinetic energy of an ideal gas is
+    $W_{th} = \tfrac{3}{2}\int p\,dV$ (``thermal_energy_from_p_V``,
+    ``virial.virial_thermal_energy``, ``kinetic_energy_from_beta_p_B_pa_V_p``,
+    and the IMAS ``energy_mhd`` for the total and ``energy_thermal`` for the
+    thermal pressure). It is the
+    quantity $\beta_p$ is normalised by (``beta_poloidal_from_pressure_integral``).
 
     Assumptions
     -----------
     ``p`` is the volume average (or the profile is flat) when ``V`` is the total
     volume.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: integral
+    locality: global
+    role: global_descriptor
     """
     return p * V
+
+
+def thermal_energy_from_p_V(p: Union[float, np.ndarray],
+                            V: float) -> Union[float, np.ndarray]:
+    r"""Thermal (stored kinetic) energy of the plasma, $W_{th} = \tfrac{3}{2}\int p\,dV$.
+
+    $$W_{th} = \frac{3}{2}\int p\,dV \approx \frac{3}{2}\,\langle p\rangle V$$
+
+    Parameters
+    ----------
+    p : float or np.ndarray
+        Pressure; the volume average gives the energy of the whole plasma [Pa].
+    V : float
+        Plasma volume [m^3].
+
+    Returns
+    -------
+    float or np.ndarray
+        $W_{th}$ [J].
+
+    Convention
+    ----------
+    The ideal-gas $\tfrac{3}{2}nT$ per unit volume, summed over species, the
+    same energy as ``virial.virial_thermal_energy`` and
+    ``kinetic_energy_from_beta_p_B_pa_V_p``. With the total pressure (thermal
+    plus fast particles) it is the IMAS
+    ``equilibrium...global_quantities.energy_mhd``; with the thermal pressure
+    only, ``summary.global_quantities.energy_thermal``. ``stored_energy_from_p_V`` is
+    two thirds of it, $\int p\,dV$.
+
+    Physical interpretation
+    -----------------------
+    The energy confinement time divides this by the loss power
+    (``confinement_time_from_P_loss_W_th``).
+
+    Assumptions
+    -----------
+    Isotropic Maxwellian species ($p = nT$ per species); ``p`` is the volume
+    average when ``V`` is the total volume.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.5.
+    """
+    return 1.5 * p * V
 
 
 def stored_energy_from_beta_V(beta: float,
                             B0: float,
                             V: float) -> float:
-    r"""Stored energy from toroidal beta, $W = \beta B_0^2 V/(2\mu_0)$.
+    r"""Pressure volume integral $\langle p\rangle V$ from toroidal beta -- not the thermal energy.
 
-    $$W = \beta\,\frac{B_0^2}{2\mu_0}\,V$$
+    $$\langle p\rangle V = \beta\,\frac{B_0^2}{2\mu_0}\,V$$
 
     Parameters
     ----------
@@ -2377,7 +2703,8 @@ def stored_energy_from_beta_V(beta: float,
     ----------
     Uses the fraction form of $\beta_t$; a percentage input is 100 times too
     large.  As for :func:`stored_energy_from_p_V`, the result is $\langle p\rangle
-    V$, so the thermal energy is 1.5 times it.
+    V = \int p\,dV$ despite the name; the thermal energy is 1.5 times it
+    (``thermal_energy_from_p_V``).
 
     References
     ----------
@@ -2837,6 +3164,14 @@ def peaking_factor(central: float,
     ---------------
     A zero volume average warns and returns ``nan``.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: profile_descriptor
+
     See Also
     --------
     vaft.formula.utils.calculate_peaking_factor
@@ -3055,6 +3390,202 @@ def kink_safety_factor(R: Union[float, np.ndarray],
 
 
 # ------------------------------------------------------------------
+# Edge-q estimates from global shape (#1583)
+# ------------------------------------------------------------------
+#
+# Thin SI-unit fronts over the coordinate functions of `.boundaries` (#1456),
+# which hold the coefficients and the registered sources once: the START scaling
+# (Akers et al. 2000), the ITER guideline (Post et al. 1991), Menard's cylindrical
+# q* and Freidberg's kink q*. Each quantity keeps its own name; none is q_a.
+
+#: Scalings accepted by :func:`estimated_q95`.
+Q95_SCALINGS = ("start", "iter")
+
+
+def estimated_q95(a: Union[float, np.ndarray],
+                  R0: Union[float, np.ndarray],
+                  B0: Union[float, np.ndarray],
+                  kappa: Union[float, np.ndarray],
+                  delta: Union[float, np.ndarray],
+                  I_p: Union[float, np.ndarray],
+                  *,
+                  scaling: str = "start",
+                  configuration: str = "limiter") -> Union[float, np.ndarray]:
+    r"""Estimated $q_{95}$ from global shape, plasma current and toroidal field.
+
+    $$q_{95} \approx \frac{5a^2B_0}{R_0\,I_p[\mathrm{MA}]}\,
+      \frac{1+\kappa^2(1+2\delta^2-1.2\delta^3)}{2}\,f(A), \qquad A = R_0/a$$
+
+    with $f(A) = 1.17\,C\sqrt{A/(A-1)}$ for ``scaling="start"`` (Akers et al. 2000;
+    $C$ = 1.0 limiter, 0.77 double null) and $f(A) = (1.17-0.65/A)/(1-1/A^2)^2$
+    for ``scaling="iter"`` (Post et al. 1991).
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius (geometric centre of the boundary) [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    delta : float or np.ndarray
+        Triangularity (mean of upper and lower) [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [A].
+    scaling : {"start", "iter"}
+        Aspect-ratio function: the START scaling or the ITER guideline [str].
+    configuration : {"limiter", "double_null"}
+        START only: C = 1.0 or 0.77; must stay ``"limiter"`` for ``"iter"`` [str].
+
+    Returns
+    -------
+    float or np.ndarray
+        Estimated $q_{95}$, NaN where an input is NaN, infinite at zero current [-].
+
+    Raises
+    ------
+    ValueError
+        An unknown ``scaling`` or ``configuration``, ``configuration`` other than
+        ``"limiter"`` with ``scaling="iter"``, or the geometry errors of
+        :func:`vaft.formula.boundaries.start_q95_coordinates`.
+
+    Convention
+    ----------
+    An estimate from global parameters, not an equilibrium $q_{95}$: label it so
+    (``"q95 (START estimate)"``). Both fits are written for the 95 % surface shape.
+    On the 133 VEST Tier A EFIT equilibria, fed the boundary $\kappa$ and $\delta$,
+    the START estimate over the equilibrium $q_{95}$ has median 0.99 (IQR 0.95-1.03)
+    and the ITER one 1.35 (#1580), which is why ``"start"`` is the default for a
+    limited spherical tokamak. The machine default is read from the machine
+    description by :func:`vaft.omas.edge_q.edge_q_estimate`, not here.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: closure
+    locality: global
+    role: global_descriptor
+
+    References
+    ----------
+    .. [1] R. J. Akers et al., Nucl. Fusion 40 (2000) 1223, Sec. 2.1, p. 1227.
+    .. [2] D. E. Post et al., *ITER Physics*, ITER Documentation Series No. 21,
+           IAEA (1991), Table 1-2.
+    """
+    from .boundaries import AKERS_2000_C, iter_q95_coordinates, start_q95_coordinates
+
+    if scaling not in Q95_SCALINGS:
+        raise ValueError(f"scaling must be one of {list(Q95_SCALINGS)}, not {scaling!r}")
+    if configuration not in AKERS_2000_C:
+        raise ValueError(f"configuration must be one of {sorted(AKERS_2000_C)}, not {configuration!r}")
+    current_ma = np.asarray(I_p, dtype=float) * 1e-6
+    if scaling == "iter":
+        if configuration != "limiter":
+            raise ValueError("configuration applies to the START scaling only; the ITER guideline has no C")
+        return iter_q95_coordinates(a, R0, B0, kappa, delta, current_ma)
+    return start_q95_coordinates(a, R0, B0, kappa, delta, current_ma, configuration=configuration)
+
+
+def q_star_cylindrical(a: Union[float, np.ndarray],
+                       R0: Union[float, np.ndarray],
+                       B0: Union[float, np.ndarray],
+                       kappa: Union[float, np.ndarray],
+                       I_p: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Menard's cylindrical safety factor $q^* = \pi a^2 B_0(1+\kappa^2)/(\mu_0 R_0 I_p)$.
+
+    $$q^* = \frac{\pi a^2 B_0\,(1+\kappa^2)}{\mu_0 R_0 I_p}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        Cylindrical safety factor $q^*$, NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        The geometry errors of :func:`vaft.formula.boundaries.cylindrical_kink_coordinates`.
+
+    Convention
+    ----------
+    A shape-weighted proxy, not $q_a$ and not $q_{95}$: on the VEST Tier A
+    equilibria it is about 0.41 of the equilibrium $q_{95}$ (#1580). SI current;
+    :func:`vaft.formula.boundaries.cylindrical_kink_coordinates` takes MA.
+
+    References
+    ----------
+    .. [1] J. E. Menard et al., Phys. Plasmas 11 (2004) 639; preprint PPPL-3908, p. 9.
+    """
+    from .boundaries import cylindrical_kink_coordinates
+
+    return cylindrical_kink_coordinates(a, R0, B0, kappa, np.asarray(I_p, dtype=float) * 1e-6)
+
+
+def q_star_kink(a: Union[float, np.ndarray],
+                R0: Union[float, np.ndarray],
+                B0: Union[float, np.ndarray],
+                kappa: Union[float, np.ndarray],
+                I_p: Union[float, np.ndarray]) -> Union[float, np.ndarray]:
+    r"""Freidberg's kink safety factor $q_* = 2\pi a^2\kappa B_0/(\mu_0 R_0 I_p)$.
+
+    $$q_* = \frac{2\pi a^2 \kappa B_0}{\mu_0 R_0 I_p}$$
+
+    Parameters
+    ----------
+    a : float or np.ndarray
+        Minor radius [m].
+    R0 : float or np.ndarray
+        Major radius [m].
+    B0 : float or np.ndarray
+        Vacuum toroidal field at ``R0``; its sign is dropped [T].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [A].
+
+    Returns
+    -------
+    float or np.ndarray
+        Kink safety factor $q_*$ of Eq. (13.160), NaN where an input is NaN [-].
+
+    Raises
+    ------
+    ValueError
+        The geometry errors of :func:`vaft.formula.boundaries.kink_coordinates`.
+
+    Convention
+    ----------
+    The definition with which Freidberg's kink limit $q_* \ge (1+\kappa)/2$ is
+    stated; not $q_a$, not $q_{95}$ (about 0.38 of the VEST equilibrium $q_{95}$,
+    #1580) and not the tuple-returning :func:`kink_safety_factor`. SI current;
+    :func:`vaft.formula.boundaries.kink_coordinates` takes MA.
+
+    References
+    ----------
+    .. [1] J. P. Freidberg, *Plasma Physics and Fusion Energy*, Cambridge University
+           Press (2008), Eq. (13.160), p. 405.
+    """
+    from .boundaries import kink_coordinates
+
+    return kink_coordinates(a, R0, B0, kappa, np.asarray(I_p, dtype=float) * 1e-6)
+
+
+# ------------------------------------------------------------------
 # Plasma beta / energy
 # ------------------------------------------------------------------
 # W_K = (3/2) * (1/(2*mu0) * beta_p * B_pa^2 * V_p)
@@ -3085,6 +3616,14 @@ def kinetic_energy_from_beta_p_B_pa_V_p(beta_p: float,
     $B_{pa}$ is the poloidal field averaged over the boundary contour of length
     $L_p$, the EFIT/Lao normalisation of $\beta_p$; the $3/2$ converts $pV$ to
     the ideal-gas thermal energy.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: normalization
+    locality: global
+    role: global_descriptor
 
     References
     ----------
@@ -4232,6 +4771,14 @@ def rho_star_from_M_T_B_R_epsilon(
     :func:`normalized_larmor_radius_from_M_T_a_Bt` in database units.  Tracked
     with the other $\rho_*$ definitions in #353.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
+
     References
     ----------
     .. [1] G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006, Sec. 2.
@@ -4414,6 +4961,14 @@ def nu_star_from_n_T_B_R_epsilon_kappa_I(
     times larger, so values are comparable only within one convention.  Tracked
     with the other $\nu_*$ definitions in #353.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
+
     References
     ----------
     .. [1] G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006, Sec. 2.
@@ -4482,6 +5037,14 @@ def omega_i_tau_E_from_B_tau_E_M(
     Exact SI angular cyclotron frequency with the proton mass and elementary
     charge from :mod:`vaft.formula.constants`; not a fitted prefactor.  The
     dependent variable of dimensionless confinement scalings.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
 
     References
     ----------
@@ -4710,8 +5273,8 @@ def confinement_time_from_engineering_parameters(
         Elongation [-].
     scaling : str, optional
         Scaling-law name; default ``"ITER89P"`` [str].
-        One of ``"ITER89P"``, ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``,
-        ``"Kurskiev2022"``.
+        One of ``"ITER89P"``, ``"H98y2"``, ``"ITER97L"``, ``"NSTX2006H"``,
+        ``"NSTX2006L"``, ``"Kurskiev2022"``.
     input_density_definition : str, optional
         What ``n_e`` is: ``"line_avg"`` (default) or ``"volume_avg"`` [str].
     line_to_volume_factor : float or None, optional
@@ -4743,9 +5306,9 @@ def confinement_time_from_engineering_parameters(
     Validity
     --------
     Empirical fit.  Multi-machine regressions of the ITER L-mode (ITER89P [1]_)
-    and ELMy H-mode (IPB98(y,2) [2]_) databases, the NSTX H- and L-mode fits of
-    Kaye [3]_, and the spherical-tokamak multi-machine H-mode fit of Kurskiev
-    [4]_; each is valid over its database's parameter range and the ST fits are
+    and ELMy H-mode (IPB98(y,2) [2]_) databases, the ITER97-L thermal L-mode fit
+    [5]_, the NSTX H- and L-mode fits of Kaye [3]_, and the spherical-tokamak
+    multi-machine H-mode fit of Kurskiev [4]_; each is valid over its database's parameter range and the ST fits are
     the only ones that include low-aspect-ratio data.
 
     Limitations
@@ -4754,6 +5317,14 @@ def confinement_time_from_engineering_parameters(
     range except in part the ST fit; the Kurskiev regression's absorbed-power
     dependence is mapped onto ``P_loss`` as supplied.
 
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: empirical_scaling
+    locality: global
+    role: closure_output
+
     References
     ----------
     .. [1] P. N. Yushmanov et al., Nucl. Fusion 30 (1990) 1999 (ITER89P).
@@ -4761,6 +5332,7 @@ def confinement_time_from_engineering_parameters(
            Eq. (20) (IPB98(y,2)).
     .. [3] S. M. Kaye et al., Nucl. Fusion 46 (2006) 848, Table 2.
     .. [4] G. S. Kurskiev et al., Nucl. Fusion 62 (2022) 016011.
+    .. [5] S. M. Kaye et al., Nucl. Fusion 37 (1997) 1303 (ITER97-L).
     """
     def _normalise_density_definition(label: str) -> str:
         mapping = {
@@ -4885,6 +5457,241 @@ def confinement_time_from_engineering_parameters(
     return float(result)
 
 
+def neo_alcator_confinement_time_from_n_a_R_q(
+    n_e: Union[float, np.ndarray],
+    a: Union[float, np.ndarray],
+    R: Union[float, np.ndarray],
+    q: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    r"""Neo-Alcator ohmic energy confinement time.
+
+    $$\tau_{NA} = 7.1\times10^{-22}\, n\, a^{1.04} R^{2.04} q^{1/2}$$
+
+    in the paper's CGS units ($n$ in cm^-3, $a$ and $R$ in cm, $\tau$ in s).
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Line-averaged electron density, converted to cm^-3 internally [m^-3].
+    a : float or np.ndarray
+        Minor radius, converted to cm internally [m].
+    R : float or np.ndarray
+        Major radius, converted to cm internally [m].
+    q : float or np.ndarray
+        Edge safety factor [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Energy confinement time [s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive input.
+
+    Convention
+    ----------
+    Strict SI in; the m^-3 to cm^-3 and m to cm conversions happen inside.  The
+    prefactor is Goldston's eq. (3) [1]_, which carries the neo-Alcator fit to the
+    ohmic database of the time.  Goldston's $q$ is the limiter $q$ of mostly
+    circular plasmas; a cylindrical $q$ (:func:`q_cyl_from_B_R_epsilon_kappa_I`)
+    is the usual stand-in for a shaped one.
+
+    Validity
+    --------
+    Empirical fit.  It describes the linear ohmic confinement (LOC) regime,
+    where $\tau_E$ rises with density.  Above the saturation density (SOC) the measured
+    $\tau_E$ stops rising and this scaling over-predicts it.
+
+    Limitations
+    -----------
+    Single-term power law in density, without a saturation branch; the
+    ohmic-plus-auxiliary combination is
+    :func:`ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux`.
+
+    References
+    ----------
+    .. [1] R. J. Goldston, Plasma Phys. Control. Fusion 26 (1984) 87, Eq. (3).
+    """
+    n_cm3 = _validate_positive("n_e", n_e) * 1e-6
+    a_cm = _validate_positive("a", a) * 100.0
+    R_cm = _validate_positive("R", R) * 100.0
+    q_arr = _validate_positive("q", q)
+    tau = 7.1e-22 * n_cm3 * a_cm ** 1.04 * R_cm ** 2.04 * q_arr ** 0.5
+    return float(tau) if np.ndim(tau) == 0 else tau
+
+
+def goldston_l_mode_confinement_time_from_I_P_R_a_kappa(
+    I_p: Union[float, np.ndarray],
+    P: Union[float, np.ndarray],
+    R: Union[float, np.ndarray],
+    a: Union[float, np.ndarray],
+    kappa: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    r"""Goldston L-mode energy confinement time.
+
+    $$\tau_{L} = 6.4\times10^{-8}\, I_p\, P^{-1/2} R^{1.75} a^{-0.37} \kappa^{1/2}$$
+
+    in the paper's units ($I_p$ in A, $P$ in W, $R$ and $a$ in cm, $\tau$ in s).
+
+    Parameters
+    ----------
+    I_p : float or np.ndarray
+        Plasma current [A].
+    P : float or np.ndarray
+        Total heating (loss) power [W].
+    R : float or np.ndarray
+        Major radius, converted to cm internally [m].
+    a : float or np.ndarray
+        Minor radius, converted to cm internally [m].
+    kappa : float or np.ndarray
+        Elongation [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Energy confinement time [s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive input.
+
+    Convention
+    ----------
+    Strict SI in; only $R$ and $a$ are converted (m to cm), since the paper
+    already uses A and W.  This is Goldston's eq. (6) [1]_ without his isotope
+    factor $(A_i/1.5)^{1/2}$, i.e. evaluated at $A_i = 1.5$.
+
+    Validity
+    --------
+    Empirical fit.  Regressed on the auxiliary-heated L-mode data of 1984
+    (PDX, ISX-B, ASDEX, Doublet III); no density dependence.
+
+    Limitations
+    -----------
+    Pure L-mode; the ohmic phase needs the quadrature of
+    :func:`ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux`.
+
+    References
+    ----------
+    .. [1] R. J. Goldston, Plasma Phys. Control. Fusion 26 (1984) 87, Eq. (6).
+    """
+    I_A = _validate_positive("I_p", I_p)
+    P_W = _validate_positive("P", P)
+    R_cm = _validate_positive("R", R) * 100.0
+    a_cm = _validate_positive("a", a) * 100.0
+    kappa_arr = _validate_positive("kappa", kappa)
+    tau = 6.4e-8 * I_A * P_W ** -0.5 * R_cm ** 1.75 * a_cm ** -0.37 * kappa_arr ** 0.5
+    return float(tau) if np.ndim(tau) == 0 else tau
+
+
+def ohmic_l_mode_confinement_time_from_tau_ohmic_tau_aux(
+    tau_ohmic: Union[float, np.ndarray],
+    tau_aux: Union[float, np.ndarray],
+) -> Union[float, np.ndarray]:
+    r"""Ohmic and auxiliary confinement times combined in quadrature.
+
+    $$\tau_E^{-2} = \tau_{OH}^{-2} + \tau_{AUX}^{-2}$$
+
+    Parameters
+    ----------
+    tau_ohmic : float or np.ndarray
+        Ohmic (e.g. neo-Alcator) confinement time [s].
+    tau_aux : float or np.ndarray
+        Auxiliary-heated (e.g. Goldston L-mode) confinement time [s].
+
+    Returns
+    -------
+    float or np.ndarray
+        Combined energy confinement time [s].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or non-positive input.
+
+    Convention
+    ----------
+    Goldston's eq. (11) [1]_.  He combined eq. (3) with the $\langle nT\rangle$
+    form of $\tau_{AUX}$ (his eq. 8); combining eqs. (3) and (6), as is common,
+    is a usage of the same rule, not his fit.
+
+    Validity
+    --------
+    Interpolation rule: it tends to the smaller of the two times and is
+    $1/\sqrt{2}$ of either where they are equal.
+
+    Limitations
+    -----------
+    No physical model of the transition between the two regimes.
+
+    References
+    ----------
+    .. [1] R. J. Goldston, Plasma Phys. Control. Fusion 26 (1984) 87, Eq. (11).
+    """
+    t_oh = _validate_positive("tau_ohmic", tau_ohmic)
+    t_aux = _validate_positive("tau_aux", tau_aux)
+    tau = (t_oh ** -2 + t_aux ** -2) ** -0.5
+    return float(tau) if np.ndim(tau) == 0 else tau
+
+
+class ConfinementScalingBasis(NamedTuple):
+    """Which confinement time and which power a published scaling predicts (issue #1713)."""
+
+    scaling: str
+    energy_basis: str
+    power_basis: str
+    energy_source: str
+    power_source: str
+
+
+def confinement_scaling_basis(scaling: str) -> ConfinementScalingBasis:
+    r"""Energy and power basis a published confinement scaling was fitted on.
+
+    $$\tau_{E,th} = W_{th}/P,\qquad \tau_{E,global} = W/P,\qquad W = W_{th} + W_{fast}$$
+
+    Parameters
+    ----------
+    scaling : str
+        Scaling name: a key of ``_SCALING_COEFS`` (``"ITER89P"``, ``"ITER97L"``,
+        ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``, ``"Kurskiev2022"``) or
+        one of the ohmic/L-mode forms ``"NeoAlcator"``, ``"Goldston84L"``,
+        ``"Goldston84OhmicL"`` [str].
+
+    Returns
+    -------
+    ConfinementScalingBasis
+        ``energy_basis`` (``"thermal"``, ``"global"`` or ``"unaudited"``),
+        ``power_basis`` (``"p_loss"``, ``"p_abs"``, ``"p_heat"``, ``"none"`` or
+        ``"unaudited"``) and the source of each assignment [-].
+
+    Raises
+    ------
+    KeyError
+        A scaling with no declared basis.
+
+    Convention
+    ----------
+    An H factor is the conventional one only when the observed confinement
+    time has the scaling's energy basis: a thermal scaling against
+    $\tau_{E,th}$, a global one against $\tau_{E,global}$.  ``"unaudited"``
+    means the original paper has not been checked for that definition; the
+    value is never guessed, and a caller must treat it as unknown.
+
+    References
+    ----------
+    .. [1] ITER Physics Expert Groups, Nucl. Fusion 39 (1999) 2175, Ch. 2, Sec. 6.
+    .. [2] S. M. Kaye et al., Nucl. Fusion 46 (2006) 848.
+    """
+    if scaling not in _SCALING_BASES:
+        raise KeyError(f"no energy/power basis declared for scaling {scaling!r}; known: {sorted(_SCALING_BASES)}")
+    entry = _SCALING_BASES[scaling]
+    return ConfinementScalingBasis(scaling, entry["energy_basis"], entry["power_basis"],
+                                   entry["energy_source"], entry["power_source"])
+
+
 def confinement_factor_ITER89P(tau_E_exp: float, tau_E_ITER89P: float) -> float:
 
     r"""Confinement enhancement factor $H_{89}$ relative to ITER89P.
@@ -4989,6 +5796,14 @@ def dimensionless_scaling_coeffs_from_engineering_scaling_coeffs(
     unchanged, so the transformation is a no-op for those two axes.  Before
     #351 the indices came from a different, wrong closed form (IPB98(y,2)
     gave $\mu_\rho = 21.2$).
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: similarity_transform
+    locality: global
+    role: similarity_coordinate
 
     References
     ----------
