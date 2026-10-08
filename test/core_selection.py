@@ -354,6 +354,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
     "test_core_q_context.py",
+    # Ordering summary layer (lane AP, #1627 §2 / #1629): each builder against
+    # its textbook definition; missing inputs stay NaN. Pure NumPy, ~3 s.
+    "test_ordering_state.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

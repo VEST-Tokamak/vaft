@@ -121,6 +121,12 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # ordering_state (#1627 §2): inputs -> v_A, eta -> ratios; gradients -> gyroradii,
+    # collision times -> Knudsen, magnetization, collisionality; columns -> rows
+    "global_ordering_quantities",
+    "time_history_ordering_quantities",
+    "profile_ordering_quantities",
+    "ordering_table",
     # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
     "mode_frequency_tracks",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
@@ -324,6 +330,10 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # #1627 §2: S and tau ratios on a, n_i = n_e, v_t = sqrt(T/m), L_T on r in metres
+    "global_ordering_quantities",
+    "time_history_ordering_quantities",
+    "profile_ordering_quantities",
     # #1608: COCOS source profiles versus full-weber Green response orientation.
     "fit_free_boundary_coils",
     # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
