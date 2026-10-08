@@ -119,15 +119,32 @@ _SUBJECTS = (
     # so the two IDS are indexed by different things and a plot of one is not a
     # plot of the other.
     Subject("ntms", "model", ("tearing", "delta_prime")),
+    # Field-line tracing: connection lengths, Poincare punctures and divertor
+    # footprints.  Its own subject rather than a view of `equilibrium`,
+    # because what it describes is the topology a *perturbed* field makes --
+    # an equilibrium is only one of its inputs -- and rather than of
+    # `mhd_linear`, because a traced line is not one of the toroidal modes
+    # the solver was asked for (issue #1099).
+    Subject("field_line_topology", "model", ("connection_length", "field_lines")),
     # Neoclassical transport: the analytic models and the drift-kinetic solver
     # that answer the same question, which is why the plot compares them.
     Subject("neoclassical", "model", ("bootstrap_current",)),
+    # Turbulence (#1591): one local flux-tube calculation (gyrokinetics_local) and the
+    # radial turbulent fluxes several of them give (core_transport, anomalous) are
+    # different objects, so they are two subjects rather than one "turbulence".
+    Subject("gyrokinetics", "model", ("gyrokinetics_local", "local_gyrokinetics", "linear_spectrum")),
+    Subject("turbulent_transport", "model", ("anomalous_transport", "turbulent_flux")),
+    # Impurity composition: elements spread over charge states by atomic data
+    # from T_e, n_e -- a model of what the plasma holds, not a measurement of it
+    # (#1565).  The stored Z_eff stays a core_profiles quantity.
+    Subject("impurity", "model", ("impurities",)),
     Subject("nbi", "machine", ("neutral_beam", "nubeam")),
     Subject("ec_launchers", "machine", ("ech", "ecrh", "electron_cyclotron")),
     Subject("chease", "code"),
     # Purpose-driven composites
     Subject("current", "composite"),
     Subject("diagnostics", "composite"),
+    Subject("kinetic", "composite"),
     Subject("summary", "composite"),
 )
 

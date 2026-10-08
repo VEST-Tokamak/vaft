@@ -73,6 +73,17 @@ VIEWING_PORT = "9MM10"
 PORT_MAJOR_RADIUS_M = 0.803
 
 
+def laser_chord_positions() -> tuple[tuple[float, float, float], tuple[float, float, float]]:
+    """VEST port-map laser entry and dump in (R [m], Z [m], phi [rad]).
+
+    This is a derived midplane chord using the port-flange radius, not an
+    as-built laser survey. Callers must establish that their channel geometry
+    uses this mapper before attaching the chord to a discharge.
+    """
+    return ((PORT_MAJOR_RADIUS_M, 0.0, port_phi(LASER_ENTRY_PORT)),
+            (PORT_MAJOR_RADIUS_M, 0.0, port_phi(LASER_DUMP_PORT)))
+
+
 def _chord_geometry() -> tuple[float, float]:
     """The chord's bisector angle [rad] and its tangency radius [m]."""
     entry = port_phi(LASER_ENTRY_PORT)
@@ -228,6 +239,20 @@ def thomson_source_rank(filename: str, shotnumber: int) -> tuple[int, int, int] 
         version = int(groups["version"]) if groups.get("version") else 0
         revision = 1 if groups.get("rev") else 0
         return (family, version, revision)
+    return None
+
+
+def thomson_file_shot(filename: str) -> int | None:
+    """The shot a Thomson MAT filename belongs to, or ``None`` if it is not one.
+
+    The same layouts :func:`thomson_source_rank` ranks, so an inventory of a
+    data root and the resolver agree on which files are Thomson files.
+    """
+    name = Path(filename).name
+    for pattern, _family in _THOMSON_NAME_PATTERNS:
+        match = pattern.match(name)
+        if match is not None:
+            return int(match.group("shot"))
     return None
 
 
@@ -613,6 +638,7 @@ def thomson_scattering(
 
 
 __all__ = [
+    "thomson_file_shot",
     "thomson_scattering",
     "thomson_source_rank",
     "vfit_thomson_scattering_dynamic",

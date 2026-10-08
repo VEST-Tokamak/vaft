@@ -82,7 +82,7 @@ def test_log_parser_splits_slices_on_the_iteration_counter(ab_efit_table):
     text = (
         " t= 316 it=  1 chi2= 1.0E+03 ... err= 1.0E-01\n"
         " t= 316 it=  2 chi2= 2.0E+02 ... err= 1.0E-02\n"
-        " ERROR in bound\n"
+        " ERROR in bound at r=  0, t=   316: First and last contour points are too far apart\n"
         " t= 319 it=  1 chi2= 9.0E+01 ... err= 3.0E-02\n"
         " t= 319 it=  2 chi2= 7.4E+01 ... err= 8.5E-03\n"
         " t= 319 it=  3 chi2= 7.4E+01 ... err= 8.5E-03\n"
@@ -91,6 +91,22 @@ def test_log_parser_splits_slices_on_the_iteration_counter(ab_efit_table):
     assert [block["iterations_n"] for block in blocks] == [2, 3]
     assert blocks[0]["bound_error"] is True and blocks[1]["bound_error"] is False
     assert blocks[1]["chi2_log"] == 74.0 and blocks[1]["gs_error_log"] == 8.5e-3
+
+
+def test_log_parser_keeps_a_slice_that_collapsed_before_its_first_step(ab_efit_table):
+    # The blocks are paired with the k-files by position, so a slice that
+    # printed no Picard step must still be a block: charged to the slice
+    # before it, it would shift every later slice's numbers onto the wrong
+    # k-file (#1038 moved this parser onto vaft.code.efit).
+    text = (
+        " t= 316 it=  1 chi2= 1.0E+03 ... err= 1.0E-01\n"
+        " ERROR in bound at r=  0, t=   317: First and last contour points are too far apart\n"
+        " t= 318 it=  1 chi2= 9.0E+01 ... err= 3.0E-02\n"
+    )
+    blocks = ab_efit_table.iterations_from_log(text)
+    assert [block["iterations_n"] for block in blocks] == [1, 0, 1]
+    assert [block["bound_error"] for block in blocks] == [False, True, False]
+    assert blocks[1]["chi2_log"] is None and blocks[2]["chi2_log"] == 90.0
 
 
 def test_reference_rows_read_the_stored_39915_reference(ab_efit_table):

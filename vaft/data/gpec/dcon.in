@@ -46,7 +46,6 @@
     wv_farwall_flag = f  ! Force nowall gpec calculations while calculating mutual inductance with the wall, when set true.
 /
 &DCON_OUTPUT
-    out_ahg2msc=f        ! Output deprecated ahg2msc.out files. This is used to communicate with vacuum, but is now done through memory.
     out_fund=f           ! Output fundamental matrices A,B,C,D,E,H
 
     crit_break=t         ! Color of the crit curve changes when crossing a singular surface

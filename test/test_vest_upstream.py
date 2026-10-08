@@ -34,15 +34,29 @@ from vaft.process.magnetics import VestMagneticsProcessingConfig, vest_equilibri
     ("shot", "expected"),
     [
         (43016, "vest-pre-43017-pf1906"),
-        (43017, "vest-43017-45957-pf1906"),
-        (45957, "vest-43017-45957-pf1906"),
-        (45958, "vest-45958-45966-pf2507"),
-        (45966, "vest-45958-45966-pf2507"),
-        (45967, "vest-45967-plus-pf2507"),
+        (43017, "vest-43017-45967-pf1906"),
+        (45967, "vest-43017-45967-pf1906"),
+        (45968, "vest-45968-plus-pf2507"),
     ],
 )
 def test_machine_era_boundaries_are_explicit(shot, expected):
     assert machine_era_for_shot(shot).name == expected
+
+
+@pytest.mark.parametrize(
+    ("shot", "pf", "wall"),
+    [(43016, "1906", "1512"), (43017, "1906", "2409"), (45967, "1906", "2409"), (45968, "2507", "2409")],
+)
+def test_each_era_names_the_conductors_its_shots_select(shot, pf, wall):
+    """An era's declared geometry is what the mappers pick for its shots (#956)."""
+    from vaft.machine_mapping.pf_active import pf_geometry_version_for_shot
+    from vaft.machine_mapping.pf_passive import wall_geometry_version_for_shot
+
+    era = machine_era_for_shot(shot)
+    assert (era.pf_geometry, era.wall_geometry) == (pf, wall)
+    for probe in {era.reference_shot, shot, era.first_shot or shot, era.last_shot or shot}:
+        assert pf_geometry_version_for_shot(probe) == era.pf_geometry
+        assert wall_geometry_version_for_shot(probe) == era.wall_geometry
 
 
 def test_default_diagnostics_grid_is_half_open_and_25_khz():
@@ -76,7 +90,7 @@ def test_native_mirnov_coordinate_marks_magnetics_heterogeneous():
 
 
 def test_static_product_is_not_a_reference_shot_container():
-    ods, manifest = build_static_ods("vest-45958-45966-pf2507")
+    ods, manifest = build_static_ods("vest-45968-plus-pf2507")
 
     assert set(ods.keys()) == {
         "wall",
@@ -90,7 +104,10 @@ def test_static_product_is_not_a_reference_shot_container():
     assert "pf_active.time" not in ods
     assert "pf_passive.time" not in ods
     assert "pf_passive.loop.0.current" not in ods
-    assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (950, 950)
+    # Wall 2409: the 950 base loops plus fifteen SUS316LN elements (#956).
+    assert np.shape(ods["em_coupling.mutual_passive_passive"]) == (965, 965)
+    assert manifest["machine_era"]["wall_geometry"] == "2409"
+    assert manifest["input"]["wall_additions"]["name"] == "VEST_passive_wall_2409.npz"
     # PF2 left this list in #708: it has an acquisition channel (field 4) and
     # shot 46742 uses it. The four that remain have no channel at all -- the
     # donor gives PF3/PF4 the same code as PF5 and none of the four a gain --
@@ -114,7 +131,7 @@ def test_static_product_marks_time_independent_ids_as_such():
     `wall` and `em_coupling` have no dynamic counterpart at all, so they are
     fixed at the source instead.
     """
-    ods, _ = build_static_ods("vest-45958-45966-pf2507")
+    ods, _ = build_static_ods("vest-45968-plus-pf2507")
 
     for ids_name in ("wall", "em_coupling", "pf_active", "pf_passive", "magnetics", "tf"):
         assert ods[f"{ids_name}.ids_properties.homogeneous_time"] == 2
@@ -128,7 +145,7 @@ def test_static_wall_completeness():
     never populated; the outline is a genuinely closed polygon but the DD's
     `closed` flag was never set to say so.
     """
-    ods, _ = build_static_ods("vest-45958-45966-pf2507")
+    ods, _ = build_static_ods("vest-45968-plus-pf2507")
 
     description = ods["wall.description_2d.0"]
     assert description["type.index"] == 1
@@ -890,3 +907,162 @@ def test_the_diagnostics_product_carries_no_ids_it_does_not_own(tmp_path):
     assert top_level <= set(STAGE_REPLICATION["diagnostics"].ids), sorted(
         top_level - set(STAGE_REPLICATION["diagnostics"].ids)
     )
+
+
+def _built_static(tmp_path, shot):
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+    return static_path
+
+
+def test_a_langmuir_era_gap_leaves_the_rest_of_the_product(tmp_path):
+    """42138-42144 and 42641 have no known mid-assembly bias or tip geometry
+    (#152). Refusing to guess is right; losing magnetics, PF and every other
+    diagnostic of the shot over it is not (#989)."""
+    shot = 42140
+    raw = tmp_path / "raw.json.gz"
+    ramp = np.linspace(1.0, 2.0, 200).tolist()
+    _write_raw_dump(raw, shot, {12: ramp, 99: ramp, 100: ramp})
+
+    ods, manifest = build_diagnostics_ods(
+        shot=shot,
+        raw_source=raw,
+        static_ods=_built_static(tmp_path, shot),
+        tstart=0.0,
+        tend=0.005,
+        dt=4e-5,
+    )
+
+    langmuir = manifest["channel_status"]["langmuir_probes"]
+    assert langmuir["status"] == "unavailable"
+    assert "unresolved era gap" in langmuir["reason"]
+    assert "optional" not in langmuir  # a real gap in the record: the stage is partial
+    assert manifest["status"] == "partial"
+    assert manifest["channel_status"]["barometry"]["status"] == "success"
+    assert "langmuir_probes" not in ods
+    assert "barometry" in ods
+
+
+def test_a_langmuir_configuration_bug_still_fails_the_stage(tmp_path, monkeypatch):
+    """Only the documented gap is a component's absence; an overlap or a
+    missing key is a broken configuration and must stop the run."""
+    from vaft.machine_mapping.langmuir_probes import LangmuirProbeConfigError
+    from vaft.omas import vest_upstream
+
+    shot = 42140
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, shot, {12: np.linspace(1.0, 2.0, 200).tolist()})
+
+    def broken(*args, **kwargs):
+        raise LangmuirProbeConfigError("Overlapping langmuir_probes.mid shot_era_overrides apply to shot 42140")
+
+    monkeypatch.setattr(vest_upstream, "langmuir_probes", broken)
+    with pytest.raises(LangmuirProbeConfigError, match="Overlapping"):
+        build_diagnostics_ods(
+            shot=shot,
+            raw_source=raw,
+            static_ods=_built_static(tmp_path, shot),
+            tstart=0.0,
+            tend=0.005,
+            dt=4e-5,
+        )
+
+
+def test_langmuir_unfiltered_counts_reach_the_manifest(tmp_path, monkeypatch):
+    """#915: the counts of samples left unfiltered are visible in the manifest
+    without opening the ODS."""
+    from vaft.omas import vest_upstream
+
+    shot = 42140
+    raw = tmp_path / "raw.json.gz"
+    _write_raw_dump(raw, shot, {12: np.linspace(1.0, 2.0, 200).tolist()})
+    counts = {"runs_unfiltered": 3, "samples_unfiltered": 40, "target_samples_invalidated": 4}
+
+    def fake_langmuir(component, *args, report=None, **kwargs):
+        report["mid"] = {"n_e": dict(counts), "t_e": dict(counts)}
+
+    monkeypatch.setattr(vest_upstream, "langmuir_probes", fake_langmuir)
+    _, manifest = build_diagnostics_ods(
+        shot=shot,
+        raw_source=raw,
+        static_ods=_built_static(tmp_path, shot),
+        tstart=0.0,
+        tend=0.005,
+        dt=4e-5,
+    )
+
+    langmuir = manifest["channel_status"]["langmuir_probes"]
+    assert langmuir["status"] == "success"
+    assert "#915" in langmuir["anti_alias"]["policy"]
+    assert langmuir["anti_alias"]["unfiltered"] == {"mid": {"n_e": counts, "t_e": counts}}
+    json.dumps(manifest)  # the manifest is written as JSON
+
+
+def test_one_unrecorded_pf_channel_keeps_the_other_circuits(tmp_path):
+    """#1568: PF5's field 5 was not recorded on 48644-48760; PF1/PF2/PF6/PF9/10 were."""
+    shot = 48700
+    raw = tmp_path / "raw.json.gz"
+    samples = (np.sin(np.linspace(0.0, 20.0, 1200)) + np.linspace(0.0, 0.2, 1200)).tolist()
+    _write_raw_dump(raw, shot, {field: samples for field in (4, 59, 62, 65)})
+    static_path = tmp_path / "static.json.gz"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+
+    ods, diagnostics_manifest = build_diagnostics_ods(
+        shot=shot, raw_source=raw, static_ods=static_path, tstart=0.26, tend=0.27, dt=4e-5,
+    )
+
+    pf_status = diagnostics_manifest["channel_status"]["pf_active"]
+    assert pf_status["status"] == "partial"
+    assert pf_status["unacquired_channels"] == ["PF5"]
+    assert "pf_active:PF5" in diagnostics_manifest["quality_summary"]["missing"]
+    assert np.all(np.isnan(ods["pf_active.coil.4.current.data"]))
+    assert np.all(np.isfinite(ods["pf_active.coil.0.current.data"]))
+
+
+def test_eddy_refuses_a_diagnostics_product_with_an_unrecorded_pf_coil(tmp_path):
+    shot = 48700
+    static_path = tmp_path / "static.json"
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    write_stage_product(static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+    diagnostics = ODS(consistency_check=False)
+    time = np.linspace(0.0, 0.01, 50)
+    diagnostics["pf_active"] = copy.deepcopy(static["pf_active"])
+    diagnostics["pf_active.time"] = time
+    for coil_index in range(len(diagnostics["pf_active.coil"])):
+        diagnostics[f"pf_active.coil.{coil_index}.current.time"] = time
+        diagnostics[f"pf_active.coil.{coil_index}.current.data"] = (
+            np.full_like(time, np.nan) if coil_index == 4 else np.zeros_like(time)
+        )
+    diagnostics["magnetics.ip.0.time"] = time
+    diagnostics["magnetics.ip.0.data"] = 1e4 * np.sin(np.linspace(0.0, 1.0, 50))
+    diagnostics_path = tmp_path / "diagnostics.json"
+    save_ods(diagnostics, diagnostics_path)
+
+    with pytest.raises(raw_db.RawSignalUnavailableError, match="PF5 current was not acquired"):
+        build_eddy_ods(
+            shot=shot, diagnostics_ods=diagnostics_path, static_ods=static_path,
+            filament_r=[0.35], filament_z=[0.0], filament_fraction=[1.0], dt_sub=5e-5,
+        )
+
+
+def test_an_eddy_with_no_input_is_a_recorded_result_not_a_failure(tmp_path):
+    """#1568: the routine stage writes no_output and why; build_eddy_ods still raises."""
+    from vaft.database.production_qa import empty_stage_plot_manifest
+    from vaft.omas.vest_upstream import EDDY_INPUT_UNAVAILABLE, eddy_no_output_product
+
+    diagnostics, static = tmp_path / "d.json", tmp_path / "s.json"
+    diagnostics.write_text("{}")
+    static.write_text("{}")
+    product, manifest = eddy_no_output_product(
+        shot=48700, diagnostics_ods=diagnostics, static_ods=static, reason="PF5 current was not acquired"
+    )
+    assert manifest["status"] == "no_output" and manifest["stage"] == "eddy"
+    assert manifest["eddy_status"].startswith(EDDY_INPUT_UNAVAILABLE)
+    assert "PF5" in manifest["eddy_status"]
+    assert "pf_passive" not in product
+
+    plots = empty_stage_plot_manifest("eddy", "PF5 current was not acquired")
+    assert plots["status"] == "empty" and plots["plots"]
+    assert all(row["status"] == "skipped" for row in plots["plots"])

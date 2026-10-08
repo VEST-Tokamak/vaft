@@ -283,3 +283,46 @@ def test_lazy_fetching_still_works_for_leaves_never_written(fake_hsds):
     assert float(ods["equilibrium.time_slice.1.global_quantities.ip"]) == 20.0
     assert datasets["time_slice[]&global_quantities&ip"].reads
     np.testing.assert_array_equal(ods["equilibrium.time"], [0.1, 0.2])
+
+
+def _long_aos_ods():
+    """Twelve coils: enough that string order (0, 1, 10, 11, 2, ...) differs from numeric."""
+    count = 12
+    datasets = {
+        "coil[]&AOS_SHAPE": FakeDataset([count]),
+        "coil[]&name": FakeDataset(np.asarray([f"c{i}".encode() for i in range(count)])),
+        "coil[]&element[]&AOS_SHAPE": FakeDataset([[1]] * count),
+        "coil[]&element[]&turns_with_sign": FakeDataset([[float(i)] for i in range(count)]),
+    }
+    module = FakeH5pyd({"hdf5://main/39915/pf_active.h5": FakeFile("pf_active", FakeGroup(datasets))})
+    store = HSDSStore(39915, ids="pf_active", h5pyd_module=module)
+    return HSDSODS(store=store, consistency_check=False)
+
+
+def test_aos_children_are_listed_in_numeric_order():
+    """#1331: children were sorted as strings, so `flat()` visited coil 10 right
+    after coil 1 and OMAS refused the gap -- `em_coupling`'s static signature
+    raised IndexError on every DB shot with more than ten elements."""
+    ods = _long_aos_ods()
+    assert ods["pf_active.coil"].keys() == list(range(12))
+
+
+def test_prefetch_reads_each_dataset_once_and_serves_every_leaf_from_memory():
+    ods = _long_aos_ods()
+    ods.store._ensure_index("pf_active")
+    turns = ods.store._record_by_template["pf_active"][
+        ("pf_active", "coil", lazy_ods._AOS, "element", lazy_ods._AOS, "turns_with_sign")
+    ].dataset
+    assert ods.prefetch("pf_active.coil") == 4  # two leaves and two AOS shapes
+    assert turns.reads == [Ellipsis]              # the one bulk read
+    flat = ods["pf_active"].flat()
+    assert turns.reads == [Ellipsis]              # nothing more reached the server
+    assert flat["coil.11.element.0.turns_with_sign"] == 11.0
+    assert flat["coil.3.name"] == "c3"
+
+
+def test_flat_walks_every_element_of_a_long_lazy_aos():
+    ods = _long_aos_ods()
+    flat = ods["pf_active"].flat()
+    assert flat["coil.11.element.0.turns_with_sign"] == 11.0
+    assert flat["coil.2.name"] == "c2"

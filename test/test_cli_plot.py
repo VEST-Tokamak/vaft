@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import subprocess
 import sys
 from pathlib import Path
@@ -38,12 +39,25 @@ def _fake_module(name, **attrs):
     return module
 
 
+class _Substituted(contextlib.ExitStack):
+    """The fake lazy store plus the shot's IDS listing; re-enterable, as the tests reuse it."""
+
+    def __init__(self, open_ods, stored):
+        super().__init__()
+        self._open_ods, self._stored = open_ods, stored
+
+    def __enter__(self):
+        stack = super().__enter__()
+        module = _fake_module("vaft.database.lazy_ods", open_ods=self._open_ods, h5pyd=None)
+        stack.enter_context(patch.dict("sys.modules", {"vaft.database.lazy_ods": module}))
+        stack.enter_context(patch("vaft.database.plotting.stored_ids", lambda shot, source=None: self._stored))
+        return stack
+
+
 def _no_hsds(sample_ods):
+    # The adapters list the shot's IDS before opening; the sample's are what it stores.
     open_ods = Mock(return_value=sample_ods)
-    return open_ods, patch.dict(
-        "sys.modules",
-        {"vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods", open_ods=open_ods, h5pyd=None)},
-    )
+    return open_ods, _Substituted(open_ods, tuple(sample_ods.keys()))
 
 
 def test_options_are_typed_python_literals_or_strings():
@@ -124,7 +138,7 @@ def test_the_plot_command_imports_nothing_heavy_before_parsing():
 def test_the_console_script_is_declared():
     import tomllib
 
-    project = tomllib.loads(Path(vaft.__file__).resolve().parents[1].joinpath("pyproject.toml").read_text())["project"]
+    project = tomllib.loads(Path(vaft.__file__).resolve().parents[1].joinpath("pyproject.toml").read_text(encoding="utf-8"))["project"]
     assert project["scripts"]["vaft"] == "vaft.cli._main:main"
 
 

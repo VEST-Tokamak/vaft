@@ -29,13 +29,12 @@ GACODE_PLATFORM_ENV = "GACODE_PLATFORM"
 
 GACODE_COMPATIBILITY_ENVS: tuple[str, ...] = (GACODE_ROOT_ENV,)
 
-#: Suite members that build from this tree.  Only ``neo`` has a VAFT adapter
-#: today; the rest are listed because the runtime resolves any of them and
-#: because issue #553 adds TGLF next.
+#: Suite members that build from this tree.  Each has a VAFT adapter: NEO
+#: (#550), TGLF (#553) and CGYRO (#1354).
 SUITE_CODES: tuple[str, ...] = ("neo", "tglf", "cgyro")
 
 #: Backends VAFT can actually prepare, run and parse.
-SUPPORTED_CODES = frozenset({"neo", "tglf"})
+SUPPORTED_CODES = frozenset({"neo", "tglf", "cgyro"})
 
 
 @dataclass(frozen=True)
@@ -62,15 +61,23 @@ class GACODEConfig(CodeConfig):
         MPI tasks passed to the launcher's ``-n``.
     n_omp : int
         OpenMP threads passed to the launcher's ``-nomp``.
+    memory_mb : int, optional
+        Memory one run reserves [MB], handed to the execution backend as
+        ``ResourceRequest.memory_mb``: Slurm's ``--mem``, and the admission
+        reservation of a memory-watching :class:`~vaft.code.execution.LocalBackend`.
+        ``None`` leaves the backend's own default in place.
     """
 
     home: Optional[str] = None
     platform: Optional[str] = None
     n_mpi: int = 1
     n_omp: int = 1
+    memory_mb: Optional[int] = None
 
     def __post_init__(self) -> None:
         if int(self.n_mpi) < 1:
             raise ValueError(f"n_mpi must be at least 1; got {self.n_mpi!r}")
         if int(self.n_omp) < 1:
             raise ValueError(f"n_omp must be at least 1; got {self.n_omp!r}")
+        if self.memory_mb is not None and int(self.memory_mb) < 1:
+            raise ValueError(f"memory_mb must be at least 1 or None; got {self.memory_mb!r}")

@@ -63,8 +63,11 @@ __all__ = [
 ]
 
 #: Release that introduced the deprecations, and the release that removes them.
+#: The removal was first promised for 0.7.0 and shipped past its date twice;
+#: ``test_plot_migration.py`` now refuses a release whose version has reached
+#: either removal release while the names still resolve.
 INTRODUCED_IN = "0.5.0"
-REMOVAL_RELEASE = "0.7.0"
+REMOVAL_RELEASE = "0.9.0"
 
 #: Legacy renderer name -> canonical ``vaft.plot`` stem.
 DEPRECATED: dict[str, str] = {
@@ -98,7 +101,11 @@ DEPRECATED: dict[str, str] = {
     "time_energy": "summary_time_energy",
     "time_beta": "equilibrium_time_beta",
     "time_power_balance": "summary_time_power_balance",
-    "time_voltage_consumption": "summary_time_voltage_consumption",
+    # The legacy figure split V_loop into V_ind and V_res = V_loop - V_ind;
+    # summary_time_voltage_consumption (I_p + flux-loop voltage) has no such
+    # split, the Romero balance does -- without a given R_p, as the implied
+    # resistive part (#1590).
+    "time_voltage_consumption": "summary_time_romero_balance",
     "time_virial_equilibrium_quantities": "equilibrium_time_virial",
     "time_electromagnetics_current": "current_overview",
     "time_impurity_effect": "spectrometer_uv_time_impurity",
@@ -199,7 +206,7 @@ del _name, _coordinate, _canonical
 #: ``vaft.plot.<old>`` and ``vaft.omas.plot_<old>`` keep working with a
 #: ``DeprecationWarning`` until ``RENAMED_REMOVAL_RELEASE``.
 RENAMED_IN = "0.6.0"
-RENAMED_REMOVAL_RELEASE = "0.8.0"
+RENAMED_REMOVAL_RELEASE = "0.9.0"
 
 RENAMED: dict[str, str] = {
     "magnetics_time_ip": "plasma_current_time",

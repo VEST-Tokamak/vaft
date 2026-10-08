@@ -8,10 +8,11 @@ styling from extraction options -- is the same for every data model.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, Mapping, Sequence
 
 from vaft.plot.backends import renderer_for, resolve_render_backend
-from vaft.plot.registry import get_spec
+from vaft.plot.registry import NON_GRAPHICAL_VIEWS, get_spec
 
 from .options import split_options, validate_options
 from .recipes import (
@@ -20,7 +21,16 @@ from .recipes import (
     missing_required_path,
 )
 
-__all__ = ["refuse_when_unsupported", "render_entries"]
+__all__ = [
+    "STATE_SELECTORS",
+    "frame_renderers",
+    "refuse_when_unsupported",
+    "render_entries",
+    "render_text_view",
+]
+
+#: Keywords that each pick one state of a time-resolved plot (issue #1380).
+STATE_SELECTORS = ("time", "time_slice", "time_index", "frame_index")
 
 
 def render_entries(
@@ -33,6 +43,7 @@ def render_entries(
     namespace: str = "vaft.omas",
     subject: str = "ods",
     interactive: bool = False,
+    animation: bool = False,
     controls: str | Sequence[str] = "auto",
     interaction_backend: str = "auto",
     **options: Any,
@@ -53,22 +64,59 @@ def render_entries(
     rebuilds and redraws the plot; ``interaction_backend`` is one of
     :data:`vaft.plot.renderers.interactive.BACKENDS`.  Every option given
     here is the control's starting value.
+
+    ``animation=True`` (issues #1049/#1050) draws the same plot over a
+    sequence of its states -- the values of its slice control, the one the
+    ``interactive=True`` slider drives -- and returns a lazy
+    :class:`vaft.plot._animation.Animation` with ``save("x.mp4")``;
+    ``fps=``/``duration=`` set the playback, never the physics.
     """
-    backend = resolve_render_backend(backend)
     spec = get_spec(name)
+    if spec.view in NON_GRAPHICAL_VIEWS:
+        return render_text_view(
+            spec, entries, ax=ax, show=show, backend=backend, namespace=namespace,
+            subject=subject, interactive=interactive, animation=animation,
+            controls=controls, interaction_backend=interaction_backend, **options,
+        )
+    backend = resolve_render_backend(backend)
+    if animation:
+        if interactive:
+            raise TypeError(
+                "animation=True and interactive=True are separate presentations of the same "
+                "sequence; choose one"
+            )
+        if controls != "auto" or interaction_backend != "auto":
+            raise TypeError(
+                "controls= and interaction_backend= belong to interactive=True; "
+                "animation=True offers no controls"
+            )
+        from vaft.plot._animation import render_animation
+
+        refuse_when_unsupported(name, entries, namespace=namespace, subject=subject)
+        return render_animation(spec, entries, options, backend=backend, show=show, ax=ax)
     validate_options(name, options)
     refuse_when_unsupported(name, entries, namespace=namespace, subject=subject)
+    from vaft.plot.figure_options import as_figure_options
+
+    figure_options = as_figure_options(options.pop("figure_options", None))
+    if figure_options and (interactive or animation):
+        raise TypeError(
+            "figure_options= applies to a drawn figure; interactive=True and animation=True "
+            "redraw their own and do not take it yet"
+        )
     if interactive:
         return _render_interactive(
             spec, entries, options, backend=backend, controls=controls,
             interaction_backend=interaction_backend, show=show, ax=ax,
         )
-    model = build_model(name, entries, **options)
+    model = _mark_cross_shot(name, build_model(name, entries, **options), entries)
     # A layout other than overlay arranges the same traces into a Panels model;
     # renderer_for hands such a model to the panels renderer, so the return
     # shape follows the layout (issue #260) and no renderer knows about layouts.
     renderer = renderer_for(spec, model, backend)
     _, style = split_options(options)
+    from vaft.plot.figure_options import figure_options_scope
+
     if backend == "plotly":
         if ax is not None:
             raise TypeError(
@@ -76,8 +124,137 @@ def render_entries(
                 "and returns it"
             )
         _refuse_presentation(style, "backend='plotly' does not apply them")
-        return renderer(model, show=show, **style)
-    return renderer(model, ax=ax, show=show, **style)
+        figure = renderer(model, show=False, **style)
+        if figure_options:
+            figure_options.apply_plotly(figure)
+        if show:
+            figure.show()
+        return figure
+    if not figure_options:
+        return renderer(model, ax=ax, show=show, **style)
+    figure_options, model = _panel_marks(figure_options, model)
+    with figure_options_scope(figure_options):
+        result = renderer(model, ax=ax, show=False, **style)
+    # A caller's own canvas keeps its other axes: edit only what was drawn.
+    figure_options.apply(result[0], None if ax is None else result[1])
+    if show:
+        import matplotlib.pyplot as plt
+
+        plt.show()
+    return result
+
+
+def render_text_view(
+    spec: Any,
+    entries: Sequence[tuple[str, Any]],
+    *,
+    ax: Any = None,
+    show: bool = False,
+    backend: str | None = None,
+    namespace: str = "vaft.omas",
+    subject: str = "ods",
+    interactive: bool = False,
+    animation: bool = False,
+    controls: str | Sequence[str] = "auto",
+    interaction_backend: str = "auto",
+    **options: Any,
+) -> Any:
+    """A ``table`` or ``text`` view (issue #1180): the model, presented as text.
+
+    The model is built exactly as for a figure; the renderer returns a
+    :class:`vaft.plot.renderers.tables.TextView` instead of ``(Figure, Axes)``
+    -- printed when ``show=True``.  The keywords that only mean something to
+    a drawn figure are refused by name rather than ignored: ``ax=``,
+    ``format=``, ``theme=``, ``figure_options=``, ``backend="plotly"``, the
+    interaction switches and any renderer style keyword.
+    """
+    kind = f"plot_{spec.stem} is a {spec.view} view and returns text, not a figure"
+    refused = []
+    if ax is not None:
+        refused.append("ax=")
+    if backend not in (None, "matplotlib"):
+        refused.append(f"backend={backend!r}")
+    for key in ("format", "theme", "figure_options"):
+        if options.get(key) not in (None, "", "none"):
+            refused.append(f"{key}=")
+    if interactive:
+        refused.append("interactive=True")
+    if animation:
+        refused.append("animation=True")
+    if controls != "auto" or interaction_backend != "auto":
+        refused.append("controls=/interaction_backend=")
+    options = {k: v for k, v in options.items() if k not in ("format", "theme", "figure_options")}
+    extraction, style = split_options(options)
+    refused += [f"{key}=" for key in sorted(style)]
+    if refused:
+        raise TypeError(
+            f"{kind}; {', '.join(refused)} "
+            f"{'applies' if len(refused) == 1 else 'apply'} to drawn figures only "
+            "(Matplotlib/Plotly presentation). Print it, or export it with "
+            ".text(), .markdown() or .html()."
+        )
+    validate_options(spec.name, extraction)
+    refuse_when_unsupported(spec.name, entries, namespace=namespace, subject=subject)
+    model = _mark_cross_shot(spec.name, build_model(spec.name, entries, **extraction), entries)
+    return spec.renderer(model, show=show)
+
+
+def _panel_marks(figure_options: Any, model: Any) -> tuple[Any, Any]:
+    """Hand ``panel_labels`` to a composite model, which draws its marks itself.
+
+    A ``Panels`` model marks its cells at render time (#1480); setting the
+    model's own flag -- rather than marking afterwards -- draws them in the
+    same place and style and never twice.  Returns the options without the
+    field and the replaced model, or the options unchanged and ``model``.
+    """
+    import dataclasses
+
+    from vaft.plot.models import Panels
+
+    if figure_options.panel_labels is None or not isinstance(model, Panels):
+        return figure_options, model
+    return (
+        dataclasses.replace(figure_options, panel_labels=None),
+        dataclasses.replace(model, panel_labels=figure_options.panel_labels),
+    )
+
+
+def _mark_cross_shot(name: str, model: Any, entries: Sequence[tuple[str, Any]]) -> Any:
+    """Make a cross-shot fixture unmistakable on any static plot it produces."""
+    from vaft.plot.backend.access import get
+    from vaft.plot.models import Panels
+
+    if not any(
+        "Cross-shot composite" in str(get(obj, "dataset_description.ids_properties.comment", ""))
+        for _, obj in entries
+    ):
+        return model
+    field = "suptitle" if isinstance(model, Panels) else "title"
+    if not hasattr(model, field):
+        return model
+    from vaft.plot.machine_geometry import CROSS_SHOT_NOTICE, cross_shot_notice
+
+    title = getattr(model, field)
+    if name == "kinetic_overview_profiles" and CROSS_SHOT_NOTICE in title:
+        # The kinetic overview writes the shared notice itself and names the
+        # equilibrium source and geometry reference from composite_provenance;
+        # the generic context line below would only repeat the reference.
+        return model
+    if name == "machine_geometry_poloidal":
+        # The shared machine view (machine_geometry_view) already writes this
+        # two-line notice into its title; a recipe that bypassed it gets the
+        # same wording here, and one that carried it is left alone.
+        wanted = cross_shot_notice(39915)
+    elif name.startswith("equilibrium_"):
+        wanted = (f"{CROSS_SHOT_NOTICE}\nEquilibrium: source shot 48224, PF era 2507; "
+                  "fixture machine geometry reference: shot 39915")
+    else:
+        wanted = (f"{CROSS_SHOT_NOTICE}\nFixture machine geometry reference: shot 39915; "
+                  "source IDS retains its own coordinates")
+    missing = [line for line in wanted.split("\n") if line not in title]
+    if not missing:
+        return model
+    return replace(model, **{field: "\n".join([title, *missing])})
 
 
 def _render_interactive(
@@ -123,6 +300,14 @@ def _render_interactive(
             )
         offered = tuple(c for c in offered if c.name in wanted)
     extraction, style = split_options(options)
+    # An instant the caller chose with another selector (time= on a plot whose
+    # slider is time_index, time_slice= on a camera frame) pins the state the
+    # same way: the slice control is not offered, since a builder takes one
+    # selector at a time (issue #1380).
+    pinned = [key for key in STATE_SELECTORS if extraction.get(key) is not None]
+    offered = tuple(
+        c for c in offered if not (c.group == "slice" and any(key != c.name for key in pinned))
+    )
     # A starting value the static call accepts but the control's list does not
     # hold (selection=[0, 3], yunit="auto", a slice outside the usable ones)
     # stays what the caller fixed: that one control is not offered, and the
@@ -140,16 +325,52 @@ def _render_interactive(
     fixed = {k: v for k, v in extraction.items() if k not in names}
     fixed_style = {k: v for k, v in style.items() if k not in names}
     state = ControlState(offered, initial)
+    build, draw = frame_renderers(spec, entries, fixed, fixed_style, backend)
+    if style.get("validity") is not None and "validity" not in fixed_style:
+        # The caller stated a validity mode and it became the control's start:
+        # the channels it brings in stay in, whatever the control is set to,
+        # so opening the controls draws what the static call draws.
+        stated = style["validity"]
+        plain_build = build
 
-    def build(chosen: dict[str, Any]) -> Any:
-        return build_model(spec.name, entries, **{**fixed, **chosen})
+        def build(chosen: Mapping[str, Any]) -> Any:
+            return plain_build({"validity": stated, **chosen})
+    return render_controls(
+        build, state, draw=draw, backend=interaction_backend, render_backend=backend, show=show,
+    )
+
+
+def frame_renderers(
+    spec: Any,
+    entries: Sequence[tuple[str, Any]],
+    fixed: Mapping[str, Any],
+    fixed_style: Mapping[str, Any],
+    backend: str,
+) -> tuple[Any, Any]:
+    """``(build, draw)`` for one plot at a chosen state.
+
+    ``build(chosen)`` makes the view model with the chosen control values
+    over the fixed options; ``draw(model, **kwargs)`` renders it.  The
+    interactive controls redraw through this pair and ``animation=True``
+    draws its frames through it, so a frame and a slider position of the
+    same state come from the same builder and renderer (the animation only
+    fixes the scale, limits and resolution across its frames).
+    """
+
+    # validity= is drawn by the renderer, but a mode the caller states also
+    # tells the signal presets to keep condemned channels for that mode to
+    # handle (issue #1380), so the builder sees it as the static call does.
+    hints = {"validity": fixed_style["validity"]} if fixed_style.get("validity") is not None else {}
+
+    def build(chosen: Mapping[str, Any]) -> Any:
+        return _mark_cross_shot(
+            spec.name, build_model(spec.name, entries, **{**fixed, **hints, **chosen}), entries
+        )
 
     def draw(model: Any, **kwargs: Any) -> Any:
         return renderer_for(spec, model, backend)(model, **{**fixed_style, **kwargs})
 
-    return render_controls(
-        build, state, draw=draw, backend=interaction_backend, render_backend=backend, show=show,
-    )
+    return build, draw
 
 
 def _refuse_presentation(

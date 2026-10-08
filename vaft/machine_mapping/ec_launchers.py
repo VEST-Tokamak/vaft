@@ -9,7 +9,10 @@ The data dictionary has no forward/reflected leaves, so the IDS stores the net
 estimate ``forward - reflected`` in ``beam.power_launched``; the separate
 traces are available from :func:`vest_ec_power`.
 
-Launching position, mode and steering are deliberately left unset (issue #266).
+The launch condition -- position, steering angles -- comes from the EC
+officer's CAD through ``vest.yaml`` ``0: ec_launchers`` (issue #266). It is
+provisional until the vertical datum and the installation era are confirmed,
+and the IDS comment says so. Mode, O-mode fraction, spot and phase stay unset.
 """
 
 from __future__ import annotations
@@ -21,10 +24,14 @@ import numpy as np
 from vaft.database import raw as raw_db
 from vaft.process.signal_processing import resample_to_time
 
+from .registry import PortMapError, port_phi
 from .utils import (
     VestConfigurationError,
+    _resolve_info_file_path,
     build_window_time_axis,
     calibrate_vest_signal,
+    load_yaml,
+    resolve_shot_revisions_with_provenance,
     resolve_vest_diagnostic,
     set_path,
 )
@@ -38,6 +45,125 @@ BEAM_NAME = "ECH 6 kW 2.45 GHz"
 BEAM_IDENTIFIER = "5ML10"
 #: Source frequency of the 6 kW magnetron line [Hz].
 BEAM_FREQUENCY_HZ = 2.45e9
+#: Key of the 6 kW line in ``vest.yaml`` ``0: ec_launchers: beams``.
+BEAM_KEY = "ech_6kw"
+
+
+def steering_angles_from_direction(direction: Any) -> tuple[float, float]:
+    """IMAS ``(steering_angle_pol, steering_angle_tor)`` of a propagation direction.
+
+    Parameters
+    ----------
+    direction : array_like, shape (3,)
+        Wave vector ``(k_R, k_phi, k_Z)`` at the launch point, any length [-].
+
+    Returns
+    -------
+    tuple of float
+        ``angle_pol = atan2(-k_Z, -k_R)`` and ``angle_tor = arcsin(k_phi / |k|)``,
+        the definitions of DD 3.41 ``ec_launchers.beam.steering_angle_*`` [rad].
+        A beam aimed at the axis has both zero; aiming downward makes
+        ``angle_pol`` positive, aiming toward ``+phi`` makes ``angle_tor``
+        positive.
+    """
+    k = np.asarray(direction, dtype=float).reshape(-1)
+    if k.shape != (3,) or not np.all(np.isfinite(k)):
+        raise ValueError("direction must be three finite components (k_R, k_phi, k_Z)")
+    norm = float(np.linalg.norm(k))
+    if norm == 0.0:
+        raise ValueError("direction must be non-zero")
+    k_r, k_phi, k_z = k / norm
+    # "+ 0.0" folds atan2(-0.0, 1.0) = -0.0 into a plain zero.
+    return float(np.arctan2(-k_z, -k_r)) + 0.0, float(np.arcsin(np.clip(k_phi, -1.0, 1.0))) + 0.0
+
+
+def _vector3(value: Any, context: str) -> np.ndarray:
+    try:
+        vector = np.asarray(value, dtype=float).reshape(-1)
+    except (TypeError, ValueError) as exc:
+        raise VestConfigurationError(f"{context} must be three numbers") from exc
+    if vector.shape != (3,) or not np.all(np.isfinite(vector)):
+        raise VestConfigurationError(f"{context} must be three finite numbers")
+    norm = float(np.linalg.norm(vector))
+    if not np.isclose(norm, 1.0, atol=1e-6):
+        raise VestConfigurationError(f"{context} must be a unit vector (|v| = {norm:g})")
+    return vector
+
+
+def resolve_ec_launcher_geometry(
+    shot: int,
+    beam: str = BEAM_KEY,
+    *,
+    info_file: str | None = None,
+) -> dict[str, Any] | None:
+    """The launch condition of one EC beam for ``shot``, or ``None`` outside its era.
+
+    Parameters
+    ----------
+    shot : int
+        VEST shot number [-].
+    beam : str, optional
+        Key under ``vest.yaml`` ``0: ec_launchers: beams`` [-].
+    info_file : str or None, optional
+        Alternative ``vest.yaml`` [-].
+
+    Returns
+    -------
+    dict or None
+        ``r``, ``z`` [m], ``phi`` [rad, from the port map], ``direction`` and
+        ``polarization`` (unit ``(R, phi, Z)`` vectors) [-],
+        ``steering_angle_pol``/``steering_angle_tor`` [rad], ``status``,
+        ``source``, ``launch_plane``, ``port`` and the applied revision.
+        ``None`` when no geometry revision covers ``shot``.
+    """
+    content = load_yaml(_resolve_info_file_path(info_file))
+    defaults = content.get("0") or content.get(0) or {}
+    beams = ((defaults.get("ec_launchers") or {}).get("beams") or {}) if isinstance(defaults, Mapping) else {}
+    context = f"vest.yaml ec_launchers.beams.{beam}"
+    if beam not in beams or not isinstance(beams[beam], Mapping):
+        raise VestConfigurationError(f"{context} is not configured")
+    config = beams[beam]
+    base = {key: value for key, value in config.items() if key != "revisions"}
+    resolved, provenance = resolve_shot_revisions_with_provenance(
+        base, config.get("revisions"), int(shot), context=context
+    )
+    if provenance["revision_index"] is None:
+        return None
+
+    position = resolved.get("launching_position") or {}
+    try:
+        r, z = float(position["r"]), float(position["z"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise VestConfigurationError(f"{context}: launching_position needs numeric r and z") from exc
+    if not (np.isfinite(r) and np.isfinite(z) and r > 0.0):
+        raise VestConfigurationError(f"{context}: launching_position must be finite with r > 0")
+    direction = _vector3(resolved.get("direction"), f"{context}: direction")
+    polarization = _vector3(resolved.get("polarization"), f"{context}: polarization")
+    if abs(float(direction @ polarization)) > 1e-6:
+        raise VestConfigurationError(f"{context}: polarization must be transverse to direction")
+    angle_pol, angle_tor = steering_angles_from_direction(direction)
+    # phi always comes from the packaged port map, whatever `info_file` says.
+    port = resolved.get("port")
+    if not isinstance(port, str) or not port:
+        raise VestConfigurationError(f"{context}: port must name a port in the port map")
+    try:
+        phi = port_phi(port)
+    except PortMapError as exc:
+        raise VestConfigurationError(f"{context}: {exc}") from exc
+    return {
+        "r": r,
+        "z": z,
+        "phi": phi,
+        "port": port,
+        "direction": direction,
+        "polarization": polarization,
+        "steering_angle_pol": angle_pol,
+        "steering_angle_tor": angle_tor,
+        "status": str(resolved.get("geometry_status", "unspecified")),
+        "source": str(resolved.get("source", "")),
+        "launch_plane": str(resolved.get("launch_plane", "")),
+        "revision": provenance,
+    }
 
 
 def _safe_vest_load(
@@ -198,7 +324,7 @@ def vest_ec_power(
     return _ec_power_on(int(shot), raw_source, time)
 
 
-def _comment(power: Mapping[str, Any]) -> str:
+def _comment(power: Mapping[str, Any], geometry: Mapping[str, Any] | None) -> str:
     fields = power["fields"]
     low, high = power["valid_input_range"]["forward"]
     calibration = power["calibration"]
@@ -212,8 +338,37 @@ def _comment(power: Mapping[str, Any]) -> str:
         "beam.power_launched is a net launched-power estimate, forward minus "
         "reflected, measured upstream of the vessel and NaN where either is "
         "masked; the calibration is uncertified and values above the 6 kW "
-        "rating occur."
+        "rating occur. "
+        + _geometry_comment(geometry)
     )
+
+
+def _geometry_comment(geometry: Mapping[str, Any] | None) -> str:
+    if geometry is None:
+        return "Launching position and steering are unset: no geometry era covers this shot."
+    return (
+        f"Launching position ({geometry['launch_plane']}) and steering from "
+        f"{geometry['source']}, status {geometry['status']}: z assumes the CAD "
+        "shield centre is the midplane and its +Y is up, phi comes from the "
+        f"port map ({geometry['port']}). Mode, O-mode fraction, spot and phase "
+        "are not mapped."
+    )
+
+
+def ec_launchers_geometry(ods: object, geometry: Mapping[str, Any], time: Any) -> None:
+    """Write one beam's fixed launch condition on ``time`` into ``ec_launchers.beam.0``.
+
+    The launcher does not move, so every sample repeats the configured value;
+    ``beam.time`` is the DD time base of these quantities.
+    """
+    time = np.asarray(time, dtype=float).reshape(-1)
+    constant = lambda value: np.full(time.shape, float(value))  # noqa: E731
+    set_path(ods, "ec_launchers.beam.0.time", time)
+    set_path(ods, "ec_launchers.beam.0.launching_position.r", constant(geometry["r"]))
+    set_path(ods, "ec_launchers.beam.0.launching_position.z", constant(geometry["z"]))
+    set_path(ods, "ec_launchers.beam.0.launching_position.phi", constant(geometry["phi"]))
+    set_path(ods, "ec_launchers.beam.0.steering_angle_pol", constant(geometry["steering_angle_pol"]))
+    set_path(ods, "ec_launchers.beam.0.steering_angle_tor", constant(geometry["steering_angle_tor"]))
 
 
 def ec_launchers_static(ods: object) -> None:
@@ -241,8 +396,11 @@ def ec_launchers_dynamic(
     )
     power = _ec_power_on(int(shot), raw_source, axis)
     time = power["time"]
+    geometry = resolve_ec_launcher_geometry(int(shot))
 
-    set_path(ods, "ec_launchers.ids_properties.comment", _comment(power))
+    set_path(ods, "ec_launchers.ids_properties.comment", _comment(power, geometry))
+    if geometry is not None:
+        ec_launchers_geometry(ods, geometry, time)
     set_path(ods, "ec_launchers.beam.0.power_launched.time", time)
     set_path(ods, "ec_launchers.beam.0.power_launched.data", power["net"])
     set_path(ods, "ec_launchers.beam.0.frequency.time", time)
@@ -259,7 +417,7 @@ def ec_launchers(
     raw_source: raw_db.RawSource | None = None,
     target_time: np.ndarray | None = None,
 ) -> None:
-    """Map the VEST 6 kW 2.45 GHz ECH power into ``ec_launchers``.
+    """Map the VEST 6 kW 2.45 GHz ECH power and launch condition into ``ec_launchers``.
 
     Raises :class:`vaft.database.raw.RawSignalUnavailableError` when field 27
     or 28 is absent; nothing is written as zeros.
@@ -286,6 +444,9 @@ __all__ = [
     "ec_launchers",
     "ec_launchers_dynamic",
     "ec_launchers_from_raw_database",
+    "ec_launchers_geometry",
     "ec_launchers_static",
+    "resolve_ec_launcher_geometry",
+    "steering_angles_from_direction",
     "vest_ec_power",
 ]

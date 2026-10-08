@@ -6,6 +6,7 @@ import inspect
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -56,28 +57,65 @@ def test_the_catalog_counts_the_known_public_surface():
     counts = {doc.name: doc.count for doc in catalog.categories()}
     assert counts == {
         "constants": 0,
-        "utils": 11,   # +gp_fit, the scipy Gaussian process (#426)
+        # +gp_fit, the scipy Gaussian process (#426); +a/L, the normalised
+        # gradient scale length the tutorial's kinetic state reports: 12.
+        "utils": 12,
         # #711 split the virial closures out of equilibrium: 110 = 77 + 33.
         # #365 added the two IMAS extremity triangularities and the sub-vertex
         # extremum helper they share with vaft.process: 77 + 3 = 80.
         # #760 renamed the first-principles bremsstrahlung form to state its
         # real argument order; the deprecated spelling is a distinct function
         # object, so it counts: 80 + 1 = 81.
-        "equilibrium": 81,
+        # The electron and ion thermal pressures p = n T e (#952): 82 + 2 = 84.
+        # #782 added the dimensional internal inductance and its li_3
+        # conversions: 84 + 3 = 87.
+        # +4 psi_N profile kernels and their derivatives (#552): 93 + 4 = 97.
+        # 0.8.0 removed the two deprecated shims promised gone in it (#355, #760):
+        # current_density_from_psi and the Z_eff-first bremsstrahlung spelling, 99 - 2 = 97.
+        # #351 added the dimensionless-to-engineering inverse map: 97 + 1 = 98.
+        # #670 moved neo-Alcator, Goldston L-mode and their quadrature in: 101 + 3 = 104.
+        # #1713 added confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
+        # #1691 added the volume beta and its normalized form: 105 + 2 = 107.
+        "equilibrium": 110,  # +volume-radius shear and Miller alpha (#1637), +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
-        "stability": 21,
+        "stability": 45,  # +ggj_resistive_interchange_index_from_ideal (#939), +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
-        "atomic": 3,
+        "atomic": 11,  # +mean charge and Z_eff (#783 3.10), +single-impurity inversion (#952), +hydrogenic levels and wavelengths (#1046), +mean square charge, transient abundances, coronal relaxation time (#1565)
         "statistics": 22,
         "magnetics": 2,
-        "neoclassical": 12,
+        # #781 child A: Romero's exact transformer identities.
+        "transformer": 8,   # +Romero first-order closure (#781 child C)
+        "neoclassical": 18,  # +orbit scales and regime orderings (#1111)
         # #783 first slice: the prefill -> Townsend -> Lloyd breakdown chain.
         # #783 comment 1 added the post-avalanche equilibrium-field and
         # flux-closure kernels and the limiter-aperture geometry, comment 2
         # the generic Townsend inversion, and #676 the Ejiri mirror proxy:
         # 5 + 7 = 12.  #888 added the Lloyd figure of merit E_phi B_phi / B_p
         # the tutorial's empirical thresholds are stated against: 17 + 1 = 18.
-        "startup": 18,
+        # #783 3.2/3.6-3.8 closed the lumped plasma circuit -- resistivity,
+        # ring resistance, circular inductance, dIp/dt and the L/R time:
+        # 18 + 5 = 23.  #783 3.9, the burn-through barrier of a depleting
+        # fill: 23 + 5 = 28.  The Townsend gas catalogue, coefficients and
+        # the gas-keyed threshold: 28 + 2 = 30.  #782's boundary-voltage and
+        # internal inductive-voltage splits: 30 + 2 = 32.
+        "startup": 32,
+        "particle": 13,  # +gyration_offset (#1145), +mirror (#1070), +invariants and P_phi (#1092)
+        "geometry": 16,  # slab / cylinder / local reduction (#1062), +Ampere and peaked-current q (#1072), +Harris sheet, X-point (#1063), +enclosed current, flux, l_i (#1604), +current diffusion (#1605)
+        "ripple": 6,  # TF ripple field and orbit consequences (#1070)
+        "disruption": 11,  # TQ/CQ, induced field, runaway reference relations (#1041)
+        "nbi": 6,  # beam rate, attenuation, birth density, shine-through, momentum rate (#1136)
+        "waves": 7,  # cold-plasma frequencies, Stix parameters, dielectric tensor, n^2 roots, CMA, regime (#1113)
+        "ntv": 2,  # precession frequency and flux-torque relation (#1111)
+        "sol": 19,  # sound speed, sheath fluxes, Spitzer-Harm, two-point conduction, Eich profile (#951), MARFE (#1209), blobs (#1211)
+        "vde": 6,  # vertical motion, thin-wall time, halo descriptors (#1042)
+        "pwi": 4,  # collision kinematics, reflection/recycling definitions, Bohdansky threshold (#1047)
+        "boundaries": 14,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580), +spherical-tokamak Hugill coordinates (#1602)
+        "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
+        "dimensional": 7,  # dimension matrix, exact null space, Pi groups, basis change, similarity constraints (#1621)
+        "sensitivity": 5,  # finite-difference Jacobian, J Sigma J^T, Monte Carlo, SVD spectrum, linearity ratio (#1642)
+        "ordering": 16,  # asymptotic ordering parameters (#1627), +Debye length, Mach number, pressure anisotropy (#1627 phase C)
+        "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure (#1606)
+        "kinetic": 2,  # electron collision time and electron-ion energy exchange, multi-species (#1606)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
@@ -182,7 +220,8 @@ def test_the_star_import_neither_loads_nor_binds_the_catalog():
 
 def test_touching_describe_loads_the_catalog_and_nothing_physical():
     loaded = _loaded_after("import vaft.formula; vaft.formula.describe")
-    assert loaded == {"vaft.formula.catalog", "vaft.formula._docstring"}
+    # _taxonomy is the Reduction vocabulary (#1626): pure tuples, no physics
+    assert loaded == {"vaft.formula.catalog", "vaft.formula._docstring", "vaft.formula._taxonomy"}
 
 
 def test_describing_one_formula_imports_only_its_category():
@@ -191,6 +230,7 @@ def test_describing_one_formula_imports_only_its_category():
     assert loaded == {
         "vaft.formula.catalog",
         "vaft.formula._docstring",
+        "vaft.formula._taxonomy",
         "vaft.formula.constants",
         "vaft.formula.utils",
         "vaft.formula.stability",
@@ -272,7 +312,8 @@ def test_the_normal_import_path_stays_cheap():
 _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
-    "convention_sensitive", "deprecated", "aliases", "shadowed_by",
+    "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
+    "definitions", "reduction",
 }
 
 
@@ -295,7 +336,22 @@ def test_snapshot_schema():
         assert row["id"] == f"{row['category']}.{row['name']}"
         for section in row["sections"]:
             assert section["title"] in SECTION_VOCABULARY, row["id"]
-        assert ":func:" not in yaml.safe_dump(row), row["id"]
+        # the inline source (#1069) is the code as written, roles and all
+        prose = {**row, "source": {k: v for k, v in row["source"].items() if k != "code"}}
+        assert ":func:" not in yaml.safe_dump(prose), row["id"]
+        assert "Raises" not in [section["title"] for section in row["sections"]], row["id"]
+        assert row["source"]["path"] == f"vaft/formula/{row['category']}.py", row["id"]
+        for item in row["raises"]:
+            assert set(item) == {"type", "description"} and item["type"], row["id"]
+
+
+def test_snapshot_rows_point_at_their_definition():
+    """The site links each entry to ``source.path#L<line>``; that line must be the ``def``."""
+    root = Path(vaft.formula.__file__).resolve().parents[2]
+    for row in catalog.documentation_snapshot()["formulas"]:
+        lines = (root / row["source"]["path"]).read_text(encoding="utf-8").splitlines()
+        start = lines[row["source"]["line"] - 1].lstrip()
+        assert start.startswith(("def ", "@")), (row["id"], start)
 
 
 def test_cli_round_trip(tmp_path):
@@ -311,3 +367,128 @@ def test_cli_can_restrict_to_one_category(tmp_path):
     catalog.main(["--output", str(output), "--category", "atomic"])
     data = yaml.safe_load(output.read_text(encoding="utf-8"))
     assert {row["category"] for row in data["formulas"]} == {"atomic"}
+
+
+# --- definitions and the Markdown card (issue #889) ---------------------------------
+
+
+def test_the_definition_is_the_docstrings_display_equation():
+    spec = catalog.describe("greenwald_density")
+    assert spec.definitions == (
+        r"n_G\,[10^{20}\,\mathrm{m^{-3}}] = \frac{I_p\,[\mathrm{MA}]}{\pi a^2\,[\mathrm{m^2}]}",
+    )
+    assert spec.definition == f"$${spec.definitions[0]}$$"
+    several = catalog.describe("startup.plasma_external_inductance_hirshman_from_R_eps_kappa")
+    assert len(several.definitions) == 3 and several.definition.count("$$") == 6
+    assert catalog.describe("equilibrium.poloidal_field_magnitude").definition == ""
+
+
+@pytest.mark.parametrize("category", catalog.CATEGORIES)
+def test_every_definition_is_read_out_of_the_description(category):
+    for spec in catalog.list_formulas(category):
+        rest = spec.description
+        for equation in spec.definitions:
+            assert equation and "$$" not in equation, spec.qualname
+            assert equation in rest, spec.qualname
+            rest = rest.replace(equation, "", 1)
+        assert re.sub(r"\$\$\s*\$\$", "", rest).count("$$") == 0, spec.qualname  # none left behind
+
+
+def test_the_snapshot_carries_the_same_definitions_the_card_renders():
+    for row in catalog.documentation_snapshot()["formulas"]:
+        spec = catalog.describe(row["id"])
+        assert row["definitions"] == list(spec.definitions), row["id"]
+        for equation in row["definitions"]:
+            assert equation in row["description"], row["id"]  # what the reference page shows
+            assert equation in spec.to_markdown(), row["id"]
+
+
+@pytest.mark.parametrize("category", catalog.CATEGORIES)
+def test_every_formula_renders_a_markdown_card(category):
+    for spec in catalog.list_formulas(category):
+        card = spec.to_markdown()
+        assert card == spec._repr_markdown_()
+        assert card.startswith(f"**`{spec.qualname}")
+        assert ":func:" not in card and ":class:" not in card, spec.qualname
+        for item in spec.parameters:
+            assert f"`{item.name}` : " in card, (spec.qualname, item.name)
+            if item.unit:
+                assert f"[{item.unit}]" in card, (spec.qualname, item.name)
+        for title, _ in spec.sections:
+            if title not in ("Parameters", "Returns", "Yields", "Raises", "References"):
+                assert f"**{title}**" in card, (spec.qualname, title)
+        for ref in spec.references:
+            assert f"- [{ref.label}]" in card, spec.qualname
+
+
+def test_the_card_follows_the_reference_page_order():
+    card = catalog.describe("greenwald_density").to_markdown()
+    marks = ["**`stability.greenwald_density(I_p, a)`**", "Greenwald density limit", "$$n_G",
+             "**Parameters**", "**Returns**", "**Convention**", "**Validity**", "**References**"]
+    positions = [card.index(mark) for mark in marks]
+    assert positions == sorted(positions)
+    assert "*empirical fit · convention-sensitive*" in card
+
+
+def test_selected_parts_render_alone_and_in_the_order_asked():
+    spec = catalog.describe("greenwald_density")
+    assert spec.to_markdown(["definition"]) == spec.definition
+    text = spec.to_markdown(["validity", "definition"])
+    assert text.index("**Validity**") < text.index("$$") and "**Parameters**" not in text
+    assert spec.to_markdown(["Physical_interpretation"]) == spec.to_markdown(["physical interpretation"])
+    # the description shows the equation in its prose already
+    both = spec.to_markdown(["definition", "description"])
+    assert both == spec.to_markdown(["description"])
+
+
+def test_asking_for_what_a_formula_lacks_or_does_not_exist_fails():
+    spec = catalog.describe("equilibrium.poloidal_field_magnitude")
+    with pytest.raises(ValueError, match="documents no definition"):
+        spec.to_markdown(["definition"])
+    with pytest.raises(ValueError, match="documents no validity"):
+        catalog.describe("exb_drift_velocity").to_markdown(["validity"])
+    with pytest.raises(ValueError, match="unknown part"):
+        spec.to_markdown(["equation"])
+    with pytest.raises(TypeError):
+        spec.to_markdown("definition")
+    with pytest.raises(ValueError, match="empty"):
+        spec.to_markdown([])
+
+
+def test_a_part_asked_twice_renders_once():
+    spec = catalog.describe("greenwald_density")
+    assert spec.to_markdown(["definition", "definition"]) == spec.definition
+    assert spec.to_markdown(["description", "definition", "definition"]) == spec.to_markdown(["description"])
+
+
+def test_the_card_carries_the_alias_and_shadowing_notes_the_page_shows():
+    aliased = [spec for spec in catalog.list_formulas() if spec.aliases]
+    shadowed = [spec for spec in catalog.list_formulas() if spec.shadowed_by]
+    assert aliased and shadowed
+    for spec in aliased:
+        assert all(f"`{alias}`" in spec.to_markdown(["signature"]) for alias in spec.aliases), spec.qualname
+    for spec in shadowed:
+        assert f"resolves to the `{spec.shadowed_by}` copy" in spec.to_markdown(), spec.qualname
+
+
+def test_examples_render_as_code():
+    for spec in catalog.list_formulas():
+        if spec.section("Examples"):
+            assert "**Examples**\n\n```python\n" in spec.to_markdown(), spec.qualname
+
+
+def test_the_terminal_text_is_not_markdown():
+    spec = catalog.describe("greenwald_density")
+    assert str(spec) == spec.render()
+    assert spec.render().startswith("stability.greenwald_density(I_p, a)")
+    assert "**" not in spec.render()
+
+
+def test_show_renders_in_jupyter():
+    formatters = pytest.importorskip("IPython.core.formatters")
+    shown = vaft.formula.show("greenwald_density", sections=["definition"])
+    data, _ = formatters.DisplayFormatter().format(shown)
+    assert data["text/markdown"] == catalog.describe("greenwald_density").definition
+    data, _ = formatters.DisplayFormatter().format(vaft.formula.describe("greenwald_density"))
+    assert data["text/markdown"] == catalog.describe("greenwald_density").to_markdown()
+    assert str(vaft.formula.show("greenwald_density")) == data["text/markdown"]

@@ -231,3 +231,231 @@ def test_a_spike_is_masked_before_resampling_not_smeared_into_power(monkeypatch)
 
     assert np.nanmax(power["forward"]) < 10.0
     assert np.isfinite(power["forward"]).mean() > 0.9
+
+
+# --------------------------------------------------------------------------- #
+# Launch condition from the EC officer's CAD (issue #266)
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize(
+    ("direction", "expected_pol", "expected_tor"),
+    [
+        ((-1.0, 0.0, 0.0), 0.0, 0.0),  # straight at the axis
+        ((-1.0, 0.0, -1.0), np.pi / 4, 0.0),  # down: from -R toward -Z is positive
+        ((-1.0, 0.0, 1.0), -np.pi / 4, 0.0),  # up
+        ((-1.0, 1.0, 0.0), 0.0, np.pi / 4),  # toward +phi is positive
+        ((-3.0, 0.0, 0.0), 0.0, 0.0),  # length does not matter
+    ],
+)
+def test_steering_angles_follow_the_dd_definitions(direction, expected_pol, expected_tor):
+    angle_pol, angle_tor = ec_module.steering_angles_from_direction(direction)
+    assert angle_pol == pytest.approx(expected_pol)
+    assert angle_tor == pytest.approx(expected_tor)
+
+
+def test_steering_angles_reject_a_degenerate_direction():
+    with pytest.raises(ValueError):
+        ec_module.steering_angles_from_direction((0.0, 0.0, 0.0))
+    with pytest.raises(ValueError):
+        ec_module.steering_angles_from_direction((1.0, 0.0))
+
+
+def test_6kw_launch_condition_is_the_cad_port_axis_at_the_vessel_wall():
+    from vaft.machine_mapping.registry import port_phi
+
+    geometry = ec_module.resolve_ec_launcher_geometry(39915)
+
+    # Port tube end on the bore axis in the STEP: R = 802.1 mm, z = -360 mm.
+    assert geometry["r"] == pytest.approx(0.8021)
+    assert geometry["z"] == pytest.approx(-0.360)
+    # phi is the port map's, not a number copied into the launcher block.
+    assert geometry["port"] == "5ML10"
+    assert geometry["phi"] == pytest.approx(port_phi("5ML10"))
+    assert np.rad2deg(geometry["phi"]) == pytest.approx(210.0)
+    # Radial, horizontal bore: no steering, and exactly zero rather than -0.0.
+    assert geometry["steering_angle_pol"] == 0.0 and not np.signbit(geometry["steering_angle_pol"])
+    assert geometry["steering_angle_tor"] == 0.0
+    # Vertical TE10 E-field, transverse to the launch direction.
+    np.testing.assert_allclose(geometry["polarization"], [0.0, 0.0, 1.0])
+    assert geometry["status"] == "provisional"
+    assert "a4f7b9dd" in geometry["source"]
+    assert geometry["revision"]["revision_bounds"] == {"from_shot": 29500, "to_shot": None}
+
+
+def test_no_launch_condition_before_the_geometry_era():
+    assert ec_module.resolve_ec_launcher_geometry(29499) is None
+
+
+def _write_launcher_config(tmp_path, **revision):
+    import yaml
+
+    base = {
+        "from_shot": 1,
+        "port": "5ML10",
+        "launching_position": {"r": 0.8, "z": 0.0},
+        "direction": [-1.0, 0.0, 0.0],
+        "polarization": [0.0, 0.0, 1.0],
+    }
+    base.update(revision)
+    path = tmp_path / "vest.yaml"
+    path.write_text(yaml.safe_dump({0: {"ec_launchers": {"beams": {"b": {"revisions": [base]}}}}}))
+    return str(path)
+
+
+@pytest.mark.parametrize(
+    "revision",
+    [
+        {"direction": [-2.0, 0.0, 0.0]},  # not a unit vector
+        {"polarization": [1.0, 0.0, 0.0]},  # parallel to the direction
+        {"launching_position": {"r": -0.8, "z": 0.0}},
+        {"launching_position": {"z": 0.0}},
+    ],
+)
+def test_malformed_launcher_geometry_is_a_configuration_error(tmp_path, revision):
+    from vaft.machine_mapping.utils import VestConfigurationError
+
+    info_file = _write_launcher_config(tmp_path, **revision)
+    with pytest.raises(VestConfigurationError):
+        ec_module.resolve_ec_launcher_geometry(10, "b", info_file=info_file)
+
+
+def test_mapper_writes_the_fixed_launch_condition_on_the_power_grid(monkeypatch, tmp_path):
+    monkeypatch.setattr(ec_module, "_safe_vest_load", _synthetic_loader([1.01745] * 50, [2.13] * 50))
+    ods = ODS()
+
+    ec_launchers(ods, 39915, 0.0, 1.0, SLOW_DT)
+
+    time = np.asarray(ods["ec_launchers.beam.0.power_launched.time"])
+    np.testing.assert_array_equal(ods["ec_launchers.beam.0.time"], time)
+    for path, value in (
+        ("launching_position.r", 0.8021),
+        ("launching_position.z", -0.360),
+        ("launching_position.phi", np.deg2rad(210.0)),
+        ("steering_angle_pol", 0.0),
+        ("steering_angle_tor", 0.0),
+    ):
+        np.testing.assert_allclose(ods[f"ec_launchers.beam.0.{path}"], np.full(time.shape, value))
+    comment = ods["ec_launchers.ids_properties.comment"]
+    assert "provisional" in comment and "midplane" in comment
+    # Nothing the hardware does not establish.
+    for absent in ("mode", "o_mode_fraction", "spot", "phase"):
+        assert absent not in ods["ec_launchers.beam.0"]
+
+    path = tmp_path / "ec.json"
+    ods.save(str(path))
+    reloaded = ODS().load(str(path), consistency_check=True)
+    np.testing.assert_allclose(
+        reloaded["ec_launchers.beam.0.launching_position.r"],
+        ods["ec_launchers.beam.0.launching_position.r"],
+    )
+
+
+def test_mapper_leaves_the_launch_condition_unset_outside_the_geometry_era(monkeypatch):
+    monkeypatch.setattr(ec_module, "_safe_vest_load", _synthetic_loader([1.01745] * 10, [2.13] * 10))
+    ods = ODS()
+
+    ec_launchers(ods, 29000, 0.0, 1.0, SLOW_DT)
+
+    assert "power_launched" in ods["ec_launchers.beam.0"]
+    assert "launching_position" not in ods["ec_launchers.beam.0"]
+    assert "steering_angle_pol" not in ods["ec_launchers.beam.0"]
+    assert "no geometry era" in ods["ec_launchers.ids_properties.comment"]
+
+
+def test_machine_topview_draws_the_launcher_and_its_launch_direction(monkeypatch):
+    from vaft.plot.backend.recipes import _build_machine_topview
+
+    monkeypatch.setattr(ec_module, "_safe_vest_load", _synthetic_loader([1.01745] * 20, [2.13] * 20))
+    ods = ODS()
+    ec_launchers(ods, 39915, 0.0, 1.0, SLOW_DT)
+
+    layers = {layer.label: layer for layer in _build_machine_topview(ods).layers}
+
+    phi = np.deg2rad(210.0)
+    marker = layers["EC launch position (provisional CAD)"]
+    np.testing.assert_allclose([marker.r[0], marker.z[0]], [0.8021 * np.cos(phi), 0.8021 * np.sin(phi)])
+    ray = layers["EC launch axis (provisional CAD)"]
+    # A radial launch heads straight at the machine axis.
+    start = np.array([ray.r[0], ray.z[0]])
+    end = np.array([ray.r[-1], ray.z[-1]])
+    assert np.linalg.norm(end) < np.linalg.norm(start)
+    step = end - start
+    assert abs(start[0] * step[1] - start[1] * step[0]) < 1e-12
+
+
+@pytest.mark.parametrize(
+    ("phi", "angle_tor", "expected"),
+    [
+        (0.0, np.pi / 2, (0.0, 1.0)),  # toward +phi at phi = 0 is +y (counter-clockwise)
+        (np.pi / 2, np.pi / 2, (-1.0, 0.0)),
+        (0.0, 0.0, (-1.0, 0.0)),  # radial at phi = 0 heads to -x
+    ],
+)
+def test_topview_launch_ray_turns_toroidal_steering_the_imas_way(phi, angle_tor, expected):
+    from vaft.plot.machine_geometry import machine_geometry_registry, project_machine_geometry
+
+    ods = ODS()
+    ods["ec_launchers.beam.0.time"] = np.array([0.0])
+    ods["ec_launchers.beam.0.steering_angle_pol"] = np.array([0.0])
+    ods["ec_launchers.beam.0.steering_angle_tor"] = np.array([angle_tor])
+    ods["ec_launchers.beam.0.launching_position.r"] = np.array([0.8])
+    ods["ec_launchers.beam.0.launching_position.z"] = np.array([0.0])
+    ods["ec_launchers.beam.0.launching_position.phi"] = np.array([phi])
+
+    axis, = (record for record in machine_geometry_registry(ods, families=("ec_launchers",))
+             if record.semantic == "directed_axis")
+    ray = project_machine_geometry(axis, "top", axis_length=0.25)
+
+    step = np.array([ray.r[-1] - ray.r[0], ray.z[-1] - ray.z[0]]) / 0.25
+    np.testing.assert_allclose(step, expected, atol=1e-12)
+
+
+def test_topview_reads_lh_antenna_positions_as_dd_signals():
+    from vaft.plot.backend.recipes import _build_machine_topview
+
+    ods = ODS()
+    ods["lh_antennas.antenna.0.position.r.time"] = np.array([0.0, 1.0])
+    ods["lh_antennas.antenna.0.position.r.data"] = np.array([0.9, 0.9])
+    ods["lh_antennas.antenna.0.position.phi.time"] = np.array([0.0, 1.0])
+    ods["lh_antennas.antenna.0.position.phi.data"] = np.array([np.pi / 2, np.pi / 2])
+
+    layers = {layer.label: layer for layer in _build_machine_topview(ods).layers}
+
+    np.testing.assert_allclose([layers["LH antenna 0"].r[0], layers["LH antenna 0"].z[0]], [0.0, 0.9], atol=1e-12)
+
+
+def test_topview_skips_a_launcher_whose_phi_is_never_finite(monkeypatch):
+    from vaft.plot.backend.recipes import _build_machine_topview
+
+    monkeypatch.setattr(ec_module, "_safe_vest_load", _synthetic_loader([1.01745] * 5, [2.13] * 5))
+    ods = ODS()
+    ec_launchers(ods, 39915, 0.0, 1.0, SLOW_DT)
+    ods["ec_launchers.beam.0.launching_position.phi"] = np.full(
+        np.shape(ods["ec_launchers.beam.0.launching_position.r"]), np.nan
+    )
+
+    with pytest.raises(ValueError):  # nothing left to draw, not a launcher at 12 o'clock
+        _build_machine_topview(ods)
+
+
+def test_topview_declines_time_varying_launcher_without_time_selection():
+    from vaft.plot.backend.recipes import _build_machine_topview
+
+    ods = ODS(consistency_check=False)
+    ods["ec_launchers.beam.0.launching_position.r"] = [0.8, 0.8]
+    ods["ec_launchers.beam.0.launching_position.z"] = [0.0, 0.0]
+    ods["ec_launchers.beam.0.launching_position.phi"] = [0.0, 0.1]
+    ods["ec_launchers.beam.0.steering_angle_pol"] = [0.0, 0.0]
+    ods["ec_launchers.beam.0.steering_angle_tor"] = [0.0, 0.0]
+    with pytest.raises(ValueError, match="none of the top-view IDS"):
+        _build_machine_topview(ods)
+
+
+@pytest.mark.parametrize("port", [None, "", "99XX99"])
+def test_launcher_port_must_be_in_the_port_map(tmp_path, port):
+    from vaft.machine_mapping.utils import VestConfigurationError
+
+    info_file = _write_launcher_config(tmp_path, port=port)
+    with pytest.raises(VestConfigurationError):
+        ec_module.resolve_ec_launcher_geometry(10, "b", info_file=info_file)

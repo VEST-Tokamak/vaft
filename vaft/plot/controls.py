@@ -75,6 +75,10 @@ class ControlSpec:
     #: the word is not itself a mode: ``uncertainty="none"`` is one and must be
     #: passed; ``theme="none"`` is the absence of a theme (issue #710).
     absent: Any = None
+    #: ``True`` where the ``"none"`` choice of a builder option is itself a
+    #: value to pass -- ``reference_length="none"``, the dimensional gradient
+    #: (issue #551) -- rather than the absence of the option.
+    keeps_none: bool = False
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "applies_to", dict(self.applies_to))
@@ -137,6 +141,12 @@ def controls_for(
     adds the rendering library, off by
     default because changing it replaces the figure object.
     """
+    from .registry import NON_GRAPHICAL_VIEWS
+
+    if getattr(record, "view", "") in NON_GRAPHICAL_VIEWS:
+        # A table or text view (issue #1180) is presented as text; there is
+        # no figure for a control to redraw, so interactive=True is refused.
+        return ()
     controls: list[ControlSpec] = []
     controls.extend(_member_controls(record))
     controls.extend(_slice_controls(record))
@@ -180,40 +190,40 @@ _DENSE_INDEX_LABELS = {
 
 
 def _slice_controls(record: Any) -> list[ControlSpec]:
-    times: Mapping[str, Any] = getattr(record, "times", None) or {}
-    option = times.get("option")
-    if option in _DENSE_INDEX_LABELS and int(times.get("count", 0)) > 1:
-        # A dense time base is a slider, not a list: thousands of samples
-        # cannot be offered as radio buttons, and the reader wants to sweep
-        # them anyway.  The label carries the span, since the positions
-        # themselves are indices.  A PF programme and a camera's stored
-        # frames are both this shape, so the control is keyed by the keyword
-        # the index is passed as rather than by one plot.
-        count = int(times["count"])
+    """The one control that moves through ``record.sequence`` (issue #1380).
+
+    A dense time base is a slider, not a list: thousands of samples cannot
+    be offered as radio buttons, and the reader wants to sweep them anyway.
+    Its label carries the span, since the positions themselves are indices.
+    A few stored reconstructions are a choice, each labelled with its time.
+    Both read the same sequence facts, so the slider, the GUI player and
+    ``animation=True`` agree on which states exist and where one starts.
+    """
+    sequence = getattr(record, "sequence", None) or {}
+    option = sequence.get("option")
+    if option in _DENSE_INDEX_LABELS:
+        states = sequence["states"]
         return [ControlSpec(
             option, "range",
             f"{_DENSE_INDEX_LABELS[option]} "
-            f"({float(times['start']) * 1e3:.0f}-{float(times['stop']) * 1e3:.0f} ms)",
-            int(times.get("selected") or 0), (0, count - 1, 1), group="slice",
+            f"({float(sequence['start']) * 1e3:.0f}-{float(sequence['stop']) * 1e3:.0f} ms)",
+            int(sequence["selected"]), (states[0], states[-1], 1), group="slice",
         )]
-    slices: Mapping[str, Any] = getattr(record, "slices", None) or {}
-    usable = tuple(int(i) for i in slices.get("usable", ()))
-    if len(usable) < 2:
+    if option != "time_slice":
         return []
+    slices: Mapping[str, Any] = getattr(record, "slices", None) or {}
+    usable = tuple(sequence["states"])
     times = slices.get("times", ())
     labels = tuple(
         f"{i}: {float(times[i]) * 1e3:.1f} ms" if i < len(times) else str(i) for i in usable
     )
-    selected = slices.get("selected", usable[len(usable) // 2])
     # The label names the IDS whose elements are listed, which is the one the
     # plot slices: not always the equilibrium (cold review plot G2).
     container = str(slices.get("container") or "equilibrium.time_slice")
     ids = container.split(".", 1)[0]
     label = "Equilibrium slice" if ids == "equilibrium" else f"{ids} slice"
     return [ControlSpec(
-        "time_slice", "choice", label,
-        int(selected) if selected in usable else usable[len(usable) // 2],
-        usable, labels, group="slice",
+        "time_slice", "choice", label, int(sequence["selected"]), usable, labels, group="slice",
     )]
 
 
@@ -280,6 +290,19 @@ def _model_controls(record: Any) -> list[ControlSpec]:
             "coordinate", "choice", "Radial coordinate", default, options,
             tuple(_plain(COORDINATE_LABELS.get(name, name)) for name in options),
         ))
+    for option, block in (getattr(record, "choices", None) or {}).items():
+        choices = tuple(block.get("options") or ())
+        if len(choices) < 2 and block.get("default") is not None:
+            continue
+        applies_to = dict(block.get("applies_to") or {})
+        if block.get("default") is None:
+            # no default: "none" leaves the option out, as the builder's own default does
+            controls.append(ControlSpec(option, "choice", option.replace("_", " ").capitalize(),
+                                        NONE, (NONE, *choices), applies_to=applies_to))
+        else:
+            controls.append(ControlSpec(option, "choice", option.replace("_", " ").capitalize(),
+                                        block["default"], choices, keeps_none=NONE in choices,
+                                        applies_to=applies_to))
     fields: Mapping[str, Any] = getattr(record, "fields", None) or {}
     options = tuple(fields.get("options") or ())
     flux_only: Mapping[str, tuple[Any, ...]] = {}

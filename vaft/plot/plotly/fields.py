@@ -93,6 +93,18 @@ def add_field_2d(
     if model.region is not None:
         values = np.where(model.region, values, np.nan)
     bar: dict[str, Any] = {"title": {"text": plain_axis_label(model.value_label), "side": "right"}}
+    if model.value_scale == "log":
+        # Plotly contours have no logarithmic colour axis, so the decades are
+        # taken in the data and given back on the colorbar's ticks -- the
+        # reader still reads metres, not their logarithm.
+        finite = values[np.isfinite(values)]
+        values = np.log10(values)
+        if finite.size:
+            low = int(np.floor(np.log10(finite.min())))
+            high = int(np.ceil(np.log10(finite.max())))
+            ticks = list(range(low, high + 1))
+            bar.update(tickmode="array", tickvals=ticks,
+                       ticktext=[f"{10.0 ** t:g}" for t in ticks])
     if cell:
         # The colorbar sits beside its own cell, not beside the whole figure.
         subplot = figure.get_subplot(row, col)

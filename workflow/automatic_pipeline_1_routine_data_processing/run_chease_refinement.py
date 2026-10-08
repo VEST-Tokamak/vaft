@@ -110,8 +110,18 @@ def main() -> int:
     parser.add_argument("--timeout", default="", help="Optional per-gfile timeout in seconds.")
     parser.add_argument("--target-psin", default=0.993, type=float, help="Boundary contour psin for EXPEQ.")
     parser.add_argument("--relax", default=0.5, type=float, help="CHEASE RELAX value.")
-    parser.add_argument("--nideal", default=6, type=int, help="CHEASE NIDEAL value.")
-    parser.add_argument("--nw", default=513, type=int, help="CHEASE NRBOX/NZBOX value.")
+    parser.add_argument(
+        "--nideal",
+        default=None,
+        type=int,
+        help=(
+            "Deprecated raw CHEASE NIDEAL, only for a CHEASE fork with its own "
+            "numbering; upstream CHEASE takes the adapter's GEQDSK default (#516)."
+        ),
+    )
+    parser.add_argument("--nw", default=513, type=int, help="CHEASE output box NRBOX/NZBOX value.")
+    parser.add_argument("--ns", default=None, type=int, help="CHEASE radial solver mesh NS (default: the adapter's).")
+    parser.add_argument("--nt", default=None, type=int, help="CHEASE poloidal solver mesh NT (default: the adapter's).")
     parser.add_argument("--auto-cocos", default="true", help="Normalize signs to CHEASE COCOS-02 input convention.")
     parser.add_argument("--output-cocos", default="input", help="CHEASE output sign convention handling.")
     parser.add_argument("--preserve-boundary-limiter", default="true", help="Restore EFIT boundary/limiter in staged output.")
@@ -180,6 +190,8 @@ def main() -> int:
             relax=args.relax,
             nideal=args.nideal,
             nw=args.nw,
+            ns=args.ns,
+            nt=args.nt,
             auto_cocos=_bool(args.auto_cocos),
             output_cocos=args.output_cocos,
             preserve_boundary_limiter=_bool(args.preserve_boundary_limiter),
@@ -200,6 +212,16 @@ def main() -> int:
                 "input_sha256": _sha256(gfile),
                 "workdir": str(run_workdir),
                 "returncode": result.returncode,
+                # What CHEASE was run with. The solver mesh sets the local force
+                # balance of the result (#885), so products made with different
+                # settings must be told apart from the product alone.
+                "solver": {
+                    "nideal": config.resolved_nideal,
+                    "mesh": config.resolved_mesh,
+                    "nw": int(config.nw),
+                    "target_psin": float(config.target_psin),
+                    "relax": float(config.relax),
+                },
                 "refined_geqdsk": str(result.refined_geqdsk) if result.refined_geqdsk else "",
                 "comparison": dict(result.comparison),
             }
@@ -240,7 +262,17 @@ def main() -> int:
     else:
         status_text = f"failed: refined_gfiles=0; failed={len(failed)}"
     _write_outputs(args.output, args.status, tuple(refined), status_text)
-    return 0 if refined else 1
+    # A run in which every slice was a solver verdict -- non-convergence or a
+    # timeout, which run_chease returns as `returncode=None` (#1299) -- is a
+    # recorded result: the outputs stay, `generate_chease_ods` writes a
+    # `no_output` manifest, and the worker reads the shot as partial. A
+    # non-zero exit would make Snakemake remove the outputs, and the worker
+    # would re-run every slice until it gave up on a verdict that does not
+    # change. Only an exception or a g-file the manifest names but the tree
+    # lacks is a run that did not happen and is worth a retry.
+    if refined or all(record.get("status") == "failed" for record in records):
+        return 0
+    return 1
 
 
 if __name__ == "__main__":

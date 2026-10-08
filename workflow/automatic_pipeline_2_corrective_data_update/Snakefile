@@ -12,17 +12,27 @@
 # Pipeline 1's products (`efit`, its constraints) are passed as **params, not
 # inputs**. Declaring them as inputs would make Snakemake raise for a shot
 # pipeline 1 never reconstructed, which is exactly the case the stages are
-# written to record instead.
+# written to record instead. Each such param is declared once, in
+# paths.SCIENTIFIC_REFERENCES, and built from that declaration, so the lineage
+# graph (#1647) shows exactly what these rules consult.
 
 import sys
 from pathlib import Path
 
-configfile: "config.yaml"
+# The workflow's own defaults, located by this Snakefile rather than by the
+# working directory: a bare "config.yaml" resolves against `--directory`, so a
+# run launched with `--directory <run dir> --configfile <run dir>/config.yaml`
+# re-read its own partial config and never loaded this one -- every unset key
+# fell back to a code default (efit.run false, no eddy filament, #1530).
+# Command-line `--configfile` files are deep-merged over these.
+configfile: str(Path(workflow.basedir) / "config.yaml")
 
 SCRIPT_DIR = Path(workflow.basedir)
 PIPELINE1_DIR = SCRIPT_DIR.parent / "automatic_pipeline_1_routine_data_processing"
 sys.path.insert(0, str(PIPELINE1_DIR))
-from paths import FILEDB, PipelinePaths
+from paths import FILEDB, PipelinePaths, require_run_config_keys, scientific_reference
+
+require_run_config_keys(workflow)
 
 from vaft.database.sources import replicable_stages
 
@@ -45,6 +55,12 @@ CES_OPTIONS = EXTERNAL.get("ces_options", "ces")
 KINETIC_CONFIG = config.get("kinetic", {})
 KINETIC_ENCODING = KINETIC_CONFIG.get("encoding", "raw6")
 KINETIC_EXECUTABLE = KINETIC_CONFIG.get("executable", "")
+# Named EFIT configuration for the base magnetic kfile (vaft.code.efit.PRESETS);
+# empty is the library default (statistical_891), `routine` the legacy one. Checked here so a typo fails the DAG.
+KINETIC_EFIT_PRESET = KINETIC_CONFIG.get("efit_preset") or ""
+if KINETIC_EFIT_PRESET:
+    from vaft.code.efit import efit_preset as _efit_preset
+    _efit_preset(KINETIC_EFIT_PRESET)
 
 HSDS_CONFIG = config.get("hsds", {}) or {}
 REPLICATION_ENABLED = bool(HSDS_CONFIG.get("replicate", False))
@@ -78,22 +94,6 @@ if _UNREGISTERED:
 
 STAGES = THOMSON_LINEAGE
 REPLICATE_SCRIPT = PIPELINE1_DIR / "replicate_to_hsds.py"
-
-
-def constraints_for(wildcards):
-    """Pipeline 1's EFIT constraints for this shot.
-
-    A callable rather than a `{shot}`-bearing pattern string: Snakemake does
-    expand braces inside a plain param, but silently, and a path carrying a
-    brace that is not a wildcard would be mangled rather than rejected. Pipeline
-    1 passes its equivalent the same way.
-    """
-    return PATHS.constraints_ods(wildcards.shot)
-
-
-def efit_for(wildcards):
-    """Pipeline 1's magnetic EFIT solution for this shot."""
-    return PATHS.efit_ods(wildcards.shot)
 
 
 def stage_products(shots):
@@ -175,7 +175,7 @@ rule generate_core_profiles_ods:
     params:
         # Pipeline 1's product. A param, not an input: a shot it never
         # reconstructed must be recorded, not raised (see the header).
-        efit=efit_for
+        efit=scientific_reference(PATHS, "generate_core_profiles_ods", "efit")
     conda:
         CONDA if CONDA else None
     shell:
@@ -210,10 +210,11 @@ for _stage in ("electron_efit", "kinetic_efit"):
             PATHS.shot_pattern("log", "generate_" + _stage + "_ods")
         params:
             stage=_stage,
-            constraints=constraints_for,
-            efit=efit_for,
+            constraints=scientific_reference(PATHS, "generate_" + _stage + "_ods", "constraints"),
+            efit=scientific_reference(PATHS, "generate_" + _stage + "_ods", "efit"),
             encoding=KINETIC_ENCODING,
-            executable=KINETIC_EXECUTABLE
+            executable=KINETIC_EXECUTABLE,
+            efit_preset=KINETIC_EFIT_PRESET
         conda:
             CONDA if CONDA else None
         shell:
@@ -227,6 +228,7 @@ for _stage in ("electron_efit", "kinetic_efit"):
                 --efit-product {params.efit} \
                 --encoding {params.encoding} \
                 --executable "{params.executable}" \
+                --efit-preset "{params.efit_preset}" \
                 --output {output.ods} \
                 --metadata {output.manifest} \
                 > {log} 2>&1

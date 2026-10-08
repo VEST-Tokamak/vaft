@@ -71,6 +71,12 @@ from .constants import COLLISIONALITY_COEF
 
 __all__ = [
     "BootstrapCoefficients",
+    "banana_width",
+    "collisions_per_transit",
+    "deeply_trapped_bounce_frequency",
+    "neoclassical_regime_boundaries",
+    "transit_frequency",
+    "trapped_particle_effective_collision_frequency",
     "coulomb_logarithm_electron_sauter",
     "coulomb_logarithm_ion_sauter",
     "electron_collisionality_sauter",
@@ -397,6 +403,14 @@ def electron_collisionality_sauter(
     The prefactor bundles physical constants evaluated for the Sauter unit
     choice; it is not dimensionally reusable with temperatures in keV.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: dimensionless_normalization
+    locality: flux_surface_local
+    role: regime_coordinate
+
     References
     ----------
     .. [1] O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999)
@@ -483,6 +497,14 @@ def ion_collisionality_sauter(
     Validity
     --------
     Positive $\epsilon$, as for the electron expression.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: dimensionless_normalization
+    locality: flux_surface_local
+    role: regime_coordinate
 
     References
     ----------
@@ -1262,3 +1284,349 @@ def redl_bootstrap_current(
     return _assemble_bootstrap_current(
         coefficients, I_psi, p_e, p_i, dp_dpsi, dln_Te_dpsi, dln_Ti_dpsi
     )
+
+
+def _validate_epsilon(epsilon: Numeric) -> np.ndarray:
+    array = np.asarray(epsilon, dtype=float)
+    if np.any(~np.isfinite(array)) or np.any(array <= 0.0) or np.any(array >= 1.0):
+        raise ValueError(f"epsilon must lie in (0, 1). Got {epsilon!r}")
+    return array
+
+
+def transit_frequency(v: Numeric, q: Numeric, R0: Numeric) -> Numeric:
+    r"""Poloidal transit frequency of a passing particle on a large-aspect-ratio circular surface.
+
+    $$\omega_t = \frac{v}{qR_0}$$
+
+    Parameters
+    ----------
+    v : float or np.ndarray
+        Speed along the field line of the particle considered, positive; the
+        caller chooses which speed (a thermal speed is a convention of its
+        own) [m/s].
+    q : float or np.ndarray
+        Safety factor, positive [-].
+    R0 : float or np.ndarray
+        Major radius, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        Rate at which the particle advances in poloidal angle [rad/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive or non-finite input.
+
+    Convention
+    ----------
+    One poloidal circuit is a parallel path of length $2\pi qR_0$, so
+    $\omega_t$ is per radian of poloidal angle; the transit *time* is
+    $2\pi/\omega_t$. The speed is the parallel speed of the orbit, not a
+    thermal-speed convention (#353 tracks those).
+
+    Physical interpretation
+    -----------------------
+    The reference rate of the neoclassical orderings: a collision frequency
+    compared with $\omega_t$ says how many collisions a particle suffers in
+    one connection length (``collisions_per_transit``).
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular concentric surfaces, $B$ nearly uniform along
+    the path.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    """
+    v = _validate_positive("v", v)
+    q = _validate_positive("q", q)
+    R0 = _validate_positive("R0", R0)
+    return _maybe_scalar(v / (q * R0))
+
+
+def deeply_trapped_bounce_frequency(v_perp: Numeric, q: Numeric, R0: Numeric, epsilon: Numeric) -> Numeric:
+    r"""Bounce frequency of a deeply trapped particle, the small-amplitude limit of the banana orbit.
+
+    $$\omega_b = \sqrt{\frac{\epsilon}{2}}\,\frac{v_\perp}{qR_0}$$
+
+    Parameters
+    ----------
+    v_perp : float or np.ndarray
+        Perpendicular speed at the outboard midplane, positive [m/s].
+    q : float or np.ndarray
+        Safety factor, positive [-].
+    R0 : float or np.ndarray
+        Major radius, positive [m].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface, in (0, 1) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Angular frequency of the harmonic bounce motion [rad/s].
+
+    Raises
+    ------
+    ValueError
+        A non-positive input or ``epsilon`` outside (0, 1).
+
+    Convention
+    ----------
+    With $B = B_0(1 - \epsilon\cos\theta)$ and $s = qR_0\theta$ along the
+    field, the mirror force $-\mu\,\partial B/\partial s$ is harmonic about
+    the outboard midplane for small excursions, with this frequency exactly.
+    Barely trapped particles bounce more slowly (the period diverges
+    logarithmically at the trapped-passing boundary). The textbook ordering
+    $\omega_b \sim \sqrt\epsilon\,v/(qR_0)$ drops the $1/\sqrt 2$; this is
+    the exact limit it estimates.
+
+    Physical interpretation
+    -----------------------
+    $\omega_b/\omega_t = \sqrt{\epsilon/2}$ at $v_\perp = v$: trapped particles
+    are slower than passing ones by $\sqrt\epsilon$, which is why the banana
+    regime needs a collision frequency below $\epsilon^{3/2}\omega_t$, not
+    below $\omega_t$.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular surface, deeply trapped
+    ($v_\parallel \ll \sqrt\epsilon\,v_\perp$ at the midplane), drifts
+    neglected in the parallel motion.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.12.
+    """
+    v_perp = _validate_positive("v_perp", v_perp)
+    q = _validate_positive("q", q)
+    R0 = _validate_positive("R0", R0)
+    epsilon = _validate_epsilon(epsilon)
+    return _maybe_scalar(np.sqrt(epsilon / 2.0) * v_perp / (q * R0))
+
+
+def trapped_particle_effective_collision_frequency(nu_deflection: Numeric, epsilon: Numeric) -> Numeric:
+    r"""Rate at which pitch-angle scattering detraps a trapped particle.
+
+    $$\nu_\mathrm{eff} = \frac{\nu_D}{\epsilon}$$
+
+    Parameters
+    ----------
+    nu_deflection : float or np.ndarray
+        Pitch-angle-scattering (deflection) frequency $\nu_D$, non-negative
+        [1/s].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface, in (0, 1) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Effective collision frequency of the trapped population [1/s].
+
+    Raises
+    ------
+    ValueError
+        A negative ``nu_deflection`` or ``epsilon`` outside (0, 1).
+
+    Convention
+    ----------
+    The input is the *deflection* frequency, not a momentum-loss or
+    energy-exchange frequency; the trapped region is $\sim\sqrt\epsilon$ wide
+    in pitch, and diffusion across it takes $\sim\epsilon/\nu_D$. This is the
+    conventional definition, with the order-unity factor set to one.
+
+    Physical interpretation
+    -----------------------
+    Trapped particles are detrapped $1/\epsilon$ times faster than a
+    particle is deflected through a radian. The banana regime needs
+    $\nu_\mathrm{eff} < \omega_b$, and the ratio of the two is the
+    trapped-particle collisionality, the quantity every $\nu_*$ convention
+    estimates.
+
+    Assumptions
+    -----------
+    Large aspect ratio, a diffusive (small-angle) scattering operator.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    """
+    nu_deflection = _validate_non_negative("nu_deflection", nu_deflection)
+    epsilon = _validate_epsilon(epsilon)
+    return _maybe_scalar(nu_deflection / epsilon)
+
+
+def banana_width(rho: Numeric, q: Numeric, epsilon: Numeric) -> Numeric:
+    r"""Radial width of a thermal banana orbit, the conventional estimate.
+
+    $$\Delta_b = \frac{q\rho}{\sqrt\epsilon}$$
+
+    Parameters
+    ----------
+    rho : float or np.ndarray
+        Larmor radius in the toroidal field, positive [m].
+    q : float or np.ndarray
+        Safety factor, positive [-].
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface, in (0, 1) [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Banana width [m].
+
+    Raises
+    ------
+    ValueError
+        A non-positive input or ``epsilon`` outside (0, 1).
+
+    Convention
+    ----------
+    Conservation of $P_\phi$ gives the excursion
+    $\Delta r = q\rho\,(v_\parallel/v)/\epsilon$ for the midplane parallel
+    speed of the orbit; a thermal trapped particle has
+    $v_\parallel/v \sim \sqrt\epsilon$, hence this estimate, with the
+    pitch-dependent order-unity factor set to one. The Larmor radius is
+    $mv/(|Z|eB_\phi)$ at whatever speed the caller chooses.
+
+    Physical interpretation
+    -----------------------
+    The step of the banana-regime random walk: larger than the Larmor radius
+    by $q/\sqrt\epsilon$, which is why neoclassical transport exceeds
+    classical. It is also the finite-orbit width that makes a local
+    transport description break down near steep gradients.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular surface, banana width small compared with
+    the minor radius (not a potato orbit near the axis).
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.12.
+    .. [2] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    """
+    rho = _validate_positive("rho", rho)
+    q = _validate_positive("q", q)
+    epsilon = _validate_epsilon(epsilon)
+    return _maybe_scalar(q * rho / np.sqrt(epsilon))
+
+
+def collisions_per_transit(nu: Numeric, v: Numeric, q: Numeric, R0: Numeric) -> Numeric:
+    r"""Collision frequency in units of the transit frequency, $\hat\nu = qR_0\nu/v$.
+
+    $$\hat\nu = \frac{\nu}{\omega_t} = \frac{qR_0\,\nu}{v}$$
+
+    Parameters
+    ----------
+    nu : float or np.ndarray
+        Collision frequency, non-negative; the caller states which one (a
+        deflection frequency for the trapped-particle orderings) [1/s].
+    v : float or np.ndarray
+        Particle speed, positive [m/s].
+    q : float or np.ndarray
+        Safety factor, positive [-].
+    R0 : float or np.ndarray
+        Major radius, positive [m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\hat\nu$: connection length over mean free path, per radian [-].
+
+    Raises
+    ------
+    ValueError
+        A negative ``nu`` or a non-positive ``v``, ``q`` or ``R0``.
+
+    Convention
+    ----------
+    Not a $\nu_*$. The trapped-particle collisionality is
+    $\nu_\mathrm{eff}/\omega_b \sim \hat\nu/\epsilon^{3/2}$, and VAFT's
+    existing $\nu_*$ functions (Sauter's among them, #353) each fix their own
+    prefactors and thermal-speed conventions; they share the symbol but not
+    the value. $\hat\nu$ is kept explicit so its regime boundaries,
+    ``neoclassical_regime_boundaries``, carry the $\epsilon$ dependence in
+    the open.
+
+    Physical interpretation
+    -----------------------
+    Below $\epsilon^{3/2}$ a trapped particle completes its banana before it
+    is scattered out; above one, a particle collides before it has seen the
+    poloidal variation of $B$ at all.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular surfaces.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 7.
+    """
+    nu = _validate_non_negative("nu", nu)
+    v = _validate_positive("v", v)
+    q = _validate_positive("q", q)
+    R0 = _validate_positive("R0", R0)
+    return _maybe_scalar(q * R0 * nu / v)
+
+
+def neoclassical_regime_boundaries(epsilon: Numeric):
+    r"""Banana--plateau and plateau--Pfirsch--Schl\"uter orderings in $\hat\nu$.
+
+    $$\hat\nu_\mathrm{b|p} = \epsilon^{3/2},\qquad \hat\nu_\mathrm{p|PS} = 1$$
+
+    Parameters
+    ----------
+    epsilon : float or np.ndarray
+        Inverse aspect ratio $r/R_0$ of the surface, in (0, 1) [-].
+
+    Returns
+    -------
+    tuple of float or np.ndarray
+        ``(banana_plateau, plateau_pfirsch_schlueter)`` in units of
+        ``collisions_per_transit`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``epsilon`` outside (0, 1).
+
+    Convention
+    ----------
+    Asymptotic orderings, not transitions: $\hat\nu \ll \epsilon^{3/2}$ is
+    the banana regime ($\nu_\mathrm{eff} \ll \omega_b$),
+    $\epsilon^{3/2} \ll \hat\nu \ll 1$ the plateau, $\hat\nu \gg 1$
+    Pfirsch--Schl\"uter. The coefficients are set to one; real transport
+    coefficients cross over smoothly across a decade around each value
+    (Sauter's fits interpolate across them), so there is deliberately no
+    regime classifier.
+
+    Physical interpretation
+    -----------------------
+    The plateau exists only because trapped particles are slow: its width,
+    $\epsilon^{-3/2}$ in $\hat\nu$, shrinks as the aspect ratio falls, and
+    at spherical-tokamak $\epsilon$ the plateau nearly disappears.
+
+    Assumptions
+    -----------
+    Large aspect ratio, circular surfaces.
+
+    References
+    ----------
+    .. [1] P. Helander and D. J. Sigmar, *Collisional Transport in Magnetized
+           Plasmas*, Cambridge University Press (2002), Ch. 8.
+    .. [2] F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239.
+    """
+    epsilon = _validate_epsilon(epsilon)
+    return _maybe_scalar(epsilon**1.5), _maybe_scalar(np.ones_like(epsilon))
+

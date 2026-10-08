@@ -164,7 +164,7 @@ def test_the_psi_alias_draws_exactly_the_same_map(entries):
 # ---------------------------------------------------------------------------
 
 def test_the_default_overlays_are_the_machine_plus_the_fields_own(entries):
-    assert POLOIDAL_OVERLAYS == ("coils", "passive", "wall", "boundary", "axis")
+    assert POLOIDAL_OVERLAYS == ("coils", "passive", "wall", "boundary", "axis", "x_points")
     assert DEFAULT_POLOIDAL_OVERLAYS == ("coils", "wall")
     assert _labels(_map(entries)) == {"PF coils", "Boundary", "Magnetic axis"}
 
@@ -186,7 +186,12 @@ def test_a_style_that_needs_the_region_keeps_the_boundary(entries):
 
 
 def test_the_machine_view_takes_the_same_names(entries):
-    assert MACHINE_OVERLAYS == ("coils", "passive", "wall", "diagnostics")
+    assert MACHINE_OVERLAYS == (
+        "coils", "passive", "wall", "diagnostics", "magnetics",
+        "thomson_scattering", "charge_exchange", "soft_x_rays",
+        "interferometer", "langmuir_probes", "coils_non_axisymmetric",
+        "ec_launchers", "nbi", "equilibrium_section",
+    )
     everything = build_model("machine_geometry_poloidal", entries)
     wall_only = build_model("machine_geometry_poloidal", entries, overlay=("wall",))
     assert len(wall_only.layers) < len(everything.layers)

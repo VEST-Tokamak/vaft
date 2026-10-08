@@ -170,6 +170,18 @@ class TestRegistration:
             "mirnov_spectrum",
             "soft_x_rays_spectrum",
             "interferometer_spectrum",
+            # issue #1005: two channels' coherence and phase, a Panels model
+            "diagnostics_spectrum_coherence",
+            # issue #886: toroidal/poloidal mode spectra share the view, not
+            # the PowerSpectrum model
+            "coil_3d_spectrum_current",
+            "mhd_linear_spectrum_b_field_perturbed",
+            # issue #1591: gyrokinetics_local linear spectra against k_y, a
+            # Profile1D model (one abscissa, several entries), not PowerSpectrum
+            "gyrokinetics_spectrum_growth_rate",
+            "gyrokinetics_spectrum_frequency",
+            "gyrokinetics_spectrum_energy_flux",
+            "gyrokinetics_spectrum_particle_flux",
         }
 
     def test_every_spectrum_renderer_is_exported(self):

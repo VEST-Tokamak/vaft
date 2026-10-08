@@ -21,9 +21,14 @@ from vaft.process.magnetics import (
     toroidal_mode_analysis,
 )
 
+#: Two phase-reference channels that are distinct acquisitions.  The second
+#: entry used to be ``MagneticFieldProbe_C2-05_Bz:phase_reference`` -- field
+#: 171, which the equilibrium probes already read, so it is no longer published
+#: as a phase reference (issues #724, #825).  Like every phase reference these
+#: exist only up to shot 35520.
 _DEFAULT_TOROIDAL_REFERENCE_PAIR = (
     "OutMirnov_530_Bz:phase_reference",
-    "MagneticFieldProbe_C2-05_Bz:phase_reference",
+    "OutMirnov_730_Bz:phase_reference",
 )
 
 

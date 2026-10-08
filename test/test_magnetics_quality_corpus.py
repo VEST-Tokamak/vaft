@@ -129,18 +129,20 @@ def test_h3_08_is_condemned_on_every_packaged_shot(table):
     assert condemned[h3_08[0]] == len(PACKAGED)
 
 
-def test_the_products_carry_no_projected_validity_for_efit_channels(table):
+def test_the_products_now_carry_the_diagnostics_stage_projection(table):
     """"All valid" and "never looked at" are the same bytes in a product.
 
-    This is why the sweep assesses and gates into a copy instead of reading
-    what it is handed; if a future product does carry a projection, this test
-    is the place that notices.
+    Until the packaged samples were regenerated on the current pipeline
+    (5dfcc64a) no EFIT-facing channel carried a projected validity; now every
+    one with a waveform does -- all but the missing H1-01 placeholder.  The
+    sweep still assesses and gates into a copy: a stored projection is the
+    verdict of the detectors that ran when the product was made, and the
+    array review (#977) postdates these products.
     """
     for row in table["rows"]:
         projection = row["decisions"]["projection_in_product"]
         assert projection["efit_facing"] == row["decisions"]["channels"]
-        assert projection["efit_facing_with_projected_validity"] == 0
-        assert projection["with_projected_validity"] > 0  # the IMPA channels do carry one
+        assert projection["efit_facing_with_projected_validity"] == projection["efit_facing"] - 1
 
 
 def test_the_flux_loops_agree_with_the_vacuum_model_everywhere(table):
@@ -200,3 +202,26 @@ def test_the_report_renders_from_the_committed_table(module, table):
     for shot in PACKAGED:
         assert f"## {shot}" in text
     assert "Policy: " in text
+
+
+def test_a_shot_the_source_does_not_hold_is_an_absent_row_not_a_crash(module, monkeypatch):
+    """#1331: a lazy source opens without contacting the server; the 404 for a
+    missing shot surfaces at the first `in` test, which was outside the guard."""
+
+    class Unreachable:
+        def __contains__(self, key):
+            raise OSError(404, "Not Found")
+
+    monkeypatch.setattr(module, "load_shot", lambda shot, **kwargs: Unreachable())
+    row = module.scan_shot(22027, source="main", packaged=False, policy=module.FitnessPolicy(), tstep=0.001)
+    assert row["status"] == "absent" and "404" in row["reason"]
+
+
+def test_the_report_renders_a_model_that_was_consulted_without_a_residual(module, table):
+    payload = json.loads(json.dumps(table))
+    row = next(r for r in payload["rows"] if r.get("verdict"))
+    row["model"] = {**row["model"], "available": False,
+                    "normalized_residual": {"median": None, "max": None, "n": 11},
+                    "coupling": "could not re-map: IndexError: ..."}
+    text = module.markdown(payload)
+    assert "no residual (" in text and "could not re-map" in text

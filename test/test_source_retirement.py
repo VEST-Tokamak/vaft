@@ -193,7 +193,7 @@ def test_a_partial_shot_list_never_yields_a_delete_command(holdings):
     assert report.shots[0].deletable
     assert report.unexamined == (2, 3)
     assert not report.deletable
-    with pytest.raises(RetirementError, match="never\s+examined"):
+    with pytest.raises(RetirementError, match=r"never\s+examined"):
         delete_retired_source(report, apply=True)
 
 
@@ -301,6 +301,26 @@ def test_copying_a_refinement_verifies_the_destination_before_reporting_success(
 
     assert report["applied"] and report["verified"]
     assert written == [(39915, "main/chease")]
+
+
+def test_the_copy_and_its_read_back_bypass_the_hsds_cache(monkeypatch):
+    """One-shot internal reads must not fill ~/.cache/vaft/hsds (#1758)."""
+    from omas import ODS
+
+    caches: list = []
+
+    def fake_load(shot, *, source=None, paths=None, cache="auto", **kwargs):
+        caches.append(cache)
+        ods = ODS(consistency_check=False)
+        ods["equilibrium.ids_properties.comment"] = "refinement"
+        return ods
+
+    monkeypatch.setattr("vaft.database.load", fake_load)
+    monkeypatch.setattr("vaft.database.save", lambda *a, **k: None)
+
+    retirement.copy_refinement(39915, apply=True)
+
+    assert caches == ["off", "off"]
 
 
 def test_a_copy_that_does_not_arrive_raises_rather_than_reporting_success(monkeypatch):

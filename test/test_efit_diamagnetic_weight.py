@@ -333,6 +333,14 @@ def test_an_electron_pressure_below_the_fit_decides_nothing(thomson):
     assert "says nothing either way" in thomson.verdict(summary)
 
 
+def test_the_upper_side_is_reported_beside_the_lower_side_verdict(thomson):
+    """p > 2 p_e is the criteria-v2 ceiling: counted and named, never part of the decision."""
+    summary = thomson.summarize(_thomson_rows(0.3, 0.4, 0.6))  # p = 3.3, 2.5, 1.7 p_e
+    assert summary["upper_side_slices"] == 2 and summary["decisive_slices"] == 0
+    text = thomson.verdict(summary)
+    assert "says nothing either way" in text and "exceeds 2x the electron pressure on 2 of 3" in text
+
+
 def test_slices_with_no_comparable_thomson_sample_are_counted_not_averaged(
     thomson,
 ):

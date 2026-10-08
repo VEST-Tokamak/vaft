@@ -68,8 +68,11 @@ def parse_stats_sidecar(path: Path) -> dict[str, Any]:
     for key in _STATS_KEYS:
         if key in stats:
             scalars[key] = stats[key]
-    for key in ("converged", "coil_currents_A", "targets", "f0", "cocos",
-                "o_point", "diverted", "error", "shot", "time_s"):
+    for key in ("converged", "free_boundary", "profile_mode", "source_profiles", "shape_refinement", "shape_constraints_cleared", "coil_currents_A", "targets", "f0", "cocos",
+                "o_point", "diverted", "lim_point", "active_x_point", "native_active_x_points_m",
+                "native_x_flux_tolerance_fraction", "native_x_points_reason", "native_all_x_points",
+                "lcfs_inside_wall", "lcfs_wall_excursion_m",
+                "vessel_currents_A", "vessel_current_total_A", "error", "shot", "time_s"):
         if key in payload:
             scalars[key] = payload[key]
     return scalars
@@ -255,3 +258,14 @@ def collect_tokamaker_stability_outputs(
         gfile=gfile,
         scalars=scalars,
     )
+
+
+__all__ = [
+    "EVOLUTION_SIDECAR_NAME",
+    "SIDECAR_NAME",
+    "STABILITY_SIDECAR_NAME",
+    "parse_stats_sidecar",
+    "collect_tokamaker_outputs",
+    "collect_tokamaker_evolution_outputs",
+    "collect_tokamaker_stability_outputs",
+]

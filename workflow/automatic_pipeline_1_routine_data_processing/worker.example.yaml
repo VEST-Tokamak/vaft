@@ -1,0 +1,77 @@
+# New-shot pipeline worker (issue #58) -- example server configuration.
+#
+# Copy it OUTSIDE the repository (e.g. /srv/vaft/worker.yaml), edit, and run
+#   vaft pipeline-worker run --config /srv/vaft/worker.yaml
+# Relative paths resolve against the directory holding this file.
+# See DEPLOYMENT.md, "Running the new-shot worker".
+
+# Durable state: watermark, per-shot and per-stage status, runs, events.
+state_db: ${VAFT_FILEDB_DIR}/pipeline/worker/worker.sqlite
+# One directory per run: the exact config handed to Snakemake and its log.
+log_dir: ${VAFT_FILEDB_DIR}/pipeline/worker/logs
+
+# The checkout whose Snakefile runs, and the pipeline configuration it runs
+# with. Snakemake merges this file over the workflow's own config.yaml, and so
+# does the worker. `shots:` is replaced per run; `raw.mode` must be `sql`.
+# An unset variable anywhere in a path is an error, not a literal directory.
+workflow_dir: ${VAFT_CHECKOUT}/workflow/automatic_pipeline_1_routine_data_processing
+pipeline_config: ${VAFT_CHECKOUT}/workflow/automatic_pipeline_1_routine_data_processing/config.yaml
+# A deployed pipeline_config inherits every key it omits from that config.yaml,
+# `efit.run: true` included (#1687): a deployment that does not run EFIT must say
+#   efit:
+#     run: false
+# in its own copy. Leave `vest: {}` as well; a `vest.magnetics.processing` block
+# is a parameter-scan override on top of the shot's acquisition era (#1541/#1731).
+
+# The worker owns shots from here on; older shots belong to batch regeneration.
+first_shot: 48900
+
+# Seconds between SQL polls.
+poll_interval: 60
+# A shot runs as soon as its field inventory contains every field the previous
+# shot had (on VEST ~2-3 min after the shot). If a field is still missing (the
+# slow Pressure / Plasma Current / ECH group), it runs once no field has been
+# uploaded for this long. Measured gaps inside one upload reach 261 s.
+quiet_seconds: 600
+# Processed shots are re-checked this long for fields that arrive late (VEST
+# has backfilled Plasma Current a day later); new fields trigger a reprocess.
+recheck_seconds: 259200
+max_reprocess: 3
+
+cores: 8
+snakemake_cmd: [snakemake]
+extra_args: []
+max_shots_per_run: 20
+# A shot whose products are still missing after this many runs is given up
+# and waits for `vaft pipeline-worker retry`.
+max_attempts: 3
+# Seconds before a run is terminated (SIGTERM, then SIGKILL). null = no limit.
+run_timeout: 86400
+
+# Environment for Snakemake. A non-interactive service shell excludes
+# ~/.local/bin, where hsload/hsget live (DEPLOYMENT.md, section 4).
+env:
+  PATH: ${HOME}/.local/bin:${PATH}
+
+# Which per-shot stages to run and judge. Omitted: the whole pipeline (rule all).
+# A list narrows rule all and the worker's verdict to those stages; raw is always
+# included, and a stage needs its upstream (diagnostics -> eddy -> efit -> chease ->
+# mhd_linear / gpec_ideal). With [raw, diagnostics, eddy] nothing from EFIT on is
+# scheduled or judged; with EFIT in scope a vacuum shot records EFIT as not
+# applicable and ends partial (#205).
+# stages: [raw, diagnostics, eddy]
+
+# Disk guard: no new batch starts while a guarded filesystem has less than
+# min_free_gb GB free; the worker keeps detecting and queueing shots, records a
+# disk_paused event (shown by `vaft pipeline-worker status`) and resumes at
+# resume_free_gb (default: min_free_gb * 1.05, so free space hovering at the
+# limit does not flip the pause every poll). disk_paths defaults to the
+# pipeline's base_dir, log_dir and the state database's directory. null = no guard.
+min_free_gb: 200
+# resume_free_gb: 220
+# disk_paths: [/srv/vest.filedb]
+
+# module:callable returning a classifier; empty = raw-field classifier.
+classifier: null
+# Record vaft.omas.shot_class from the diagnostics product (reference only).
+record_shot_class: false

@@ -54,7 +54,7 @@ def test_no_adapter_is_defined_twice():
     for module in (omas_plotting, imas_plotting):
         names = [
             node.name
-            for node in ast.parse(Path(module.__file__).read_text()).body
+            for node in ast.parse(Path(module.__file__).read_text(encoding="utf-8")).body
             if isinstance(node, ast.FunctionDef) and node.name.startswith("plot_")
         ]
         repeated = sorted({name for name in names if names.count(name) > 1})
@@ -75,7 +75,12 @@ def test_every_offered_plot_actually_renders(sample_ods):
     failures = []
     for row in vomas.available_plots(sample_ods):
         try:
-            figure, _ = getattr(vomas, f"plot_{row['name']}")(sample_ods)
+            result = getattr(vomas, f"plot_{row['name']}")(sample_ods)
+            if row["view"] in ("table", "text"):
+                # A table or text view returns text, not a figure (issue #1180).
+                assert result.text(), row["name"]
+                continue
+            figure, _ = result
             plt.close(figure)
         except Exception as exc:  # pragma: no cover - reported below
             failures.append(f"{row['name']}: {type(exc).__name__}: {exc}")

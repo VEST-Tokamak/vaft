@@ -1,11 +1,17 @@
-"""Session 03 executes offline and teaches at the public API level.
+"""Contract for Tutorial 03: equilibrium and kinetic profiles (issue #952).
 
-Modelled on ``test_tutorial_session_01.py``. Session 03 is an analysis session,
-so it keeps the eight-heading structure sessions 02-06 share rather than
-session 01's bespoke one, and its code cells are allowed to do more than one
-call each -- but they must still be VAFT calls, not reimplementations.
+The tutorial runs offline from the packaged VEST samples, while teaching the
+same public workflow on any database shot.  The tests pin the narrative spine
+(representation -> analytic geometry and equilibria -> solver taxonomy ->
+experimental constraints -> kinetic mapping and fitting -> single-discharge
+EFIT analysis -> flux coordinates -> kinetic state -> Grad-Shafranov residual
+-> multi-time and multi-shot comparison) and the data-honesty rules: slices
+found from the data rather than typed, no literal discharge times, the EFIT
+weighting stated as it is, and every lab-mode line a real, parseable call.
 """
 
+import ast
+import os
 import re
 from pathlib import Path
 
@@ -16,36 +22,41 @@ from nbclient import NotebookClient
 pytestmark = pytest.mark.slow
 
 ROOT = Path(__file__).resolve().parents[1]
-TUTORIAL = ROOT / "tutorial"
-NOTEBOOK = TUTORIAL / "03_equilibrium_and_kinetic_profiles.ipynb"
+NOTEBOOK = ROOT / "tutorial" / "03_equilibrium_and_kinetic_profiles.ipynb"
 
 MAX_OUTPUT_BYTES = 200_000
 MAX_IMAGE_BYTES = 2_000_000
 IMAGE_MIME_TYPES = ("image/png", "image/jpeg", "image/svg+xml")
 
+#: The two lab-mode lines, commented in the committed notebook, and the offline
+#: lines each one replaces when uncommented.
+DATABASE_SWAPS = {
+    "s03-load-sample": (
+        "ods = vaft.omas.sample_ods(SHOT)",
+        "# ods = vaft.database.load(SHOT)",
+    ),
+    "s03-multi-load": (
+        "ods_list = [vaft.omas.sample_ods(shot) for shot in shots]",
+        "# ods_list = vaft.database.load(shots)",
+    ),
+}
 
-@pytest.fixture(scope="module")
-def book():
-    return nbformat.read(NOTEBOOK, as_version=4)
+#: Keywords that select an equilibrium slice or a camera frame: never a literal.
+SLICE_KEYWORDS = ("time_slice", "frame_index", "time_index")
 
 
-@pytest.fixture(scope="module")
-def executed(tmp_path_factory):
-    """Run the notebook once, offline, and share the result across tests."""
-    import os
-
+def _execute(notebook):
     previous = {key: os.environ.get(key) for key in ("MPLBACKEND", "VAFT_TUTORIAL_MODE")}
     os.environ["MPLBACKEND"] = "inline"
     os.environ.pop("VAFT_TUTORIAL_MODE", None)
     try:
-        executed_book = nbformat.from_dict(nbformat.read(NOTEBOOK, as_version=4))
         NotebookClient(
-            executed_book,
+            notebook,
             timeout=900,
             kernel_name="python3",
             resources={"metadata": {"path": str(ROOT)}},
         ).execute()
-        return executed_book
+        return notebook
     finally:
         for key, value in previous.items():
             if value is None:
@@ -54,23 +65,78 @@ def executed(tmp_path_factory):
                 os.environ[key] = value
 
 
+@pytest.fixture(scope="module")
+def book():
+    return nbformat.read(NOTEBOOK, as_version=4)
+
+
+@pytest.fixture(scope="module")
+def executed():
+    return _execute(nbformat.from_dict(nbformat.read(NOTEBOOK, as_version=4)))
+
+
 def _code_cells(book):
     return [cell for cell in book.cells if cell.cell_type == "code"]
 
 
 def _source(cell):
-    return cell.source if isinstance(cell.source, str) else "".join(cell.source)
+    source = cell.get("source", "")
+    return source if isinstance(source, str) else "".join(source)
+
+
+def _strip_comments(source):
+    return re.sub(r"(?m)^\s*#.*$", "", source)
+
+
+def _code(book):
+    return "\n".join(_source(cell) for cell in _code_cells(book))
 
 
 def _executable(book):
-    """Every code line that is not commented out."""
-    joined = "\n".join(_source(cell) for cell in _code_cells(book))
-    return re.sub(r"(?m)^\s*#.*$", "", joined)
+    return _strip_comments(_code(book))
+
+
+def _markdown(book):
+    """All markdown, whitespace collapsed so a pinned phrase may wrap across lines."""
+    return " ".join(
+        " ".join(_source(cell).split()) for cell in book.cells if cell.cell_type == "markdown"
+    )
+
+
+def _printed(executed):
+    return "\n".join(
+        "".join(output.get("text", ""))
+        for cell in _code_cells(executed)
+        for output in cell.get("outputs", [])
+        if output.get("output_type") == "stream"
+    )
+
+
+def _cell(book, cell_id):
+    return next(cell for cell in book.cells if cell.id == cell_id)
+
+
+def _first_code_index(book, token):
+    """Index (in cell order) of the first code cell *executing* ``token``."""
+    for index, cell in enumerate(book.cells):
+        if cell.cell_type == "code" and token in _strip_comments(_source(cell)):
+            return index
+    raise AssertionError(f"no executable code cell uses {token!r}")
+
+
+def _uncomment_database_lines(source):
+    """Uncomment exactly the lab-mode ``vaft.database.load`` assignments."""
+    return re.sub(
+        r"(?m)^(\s*)#\s*((?:ods|ods_list) = vaft\.database\.load\()",
+        r"\1\2",
+        source,
+    )
 
 
 # ---------------------------------------------------------------------------
-# Runs offline
+# Runs offline, but teaches the database path
 # ---------------------------------------------------------------------------
+
 
 def test_the_notebook_runs_top_to_bottom(executed):
     assert _code_cells(executed)
@@ -82,35 +148,87 @@ def test_every_analysis_step_produces_a_figure(executed):
         for cell in _code_cells(executed)
         if any(output.get("output_type") == "display_data" for output in cell.get("outputs", []))
     ]
-    assert len(drawn) >= 10, [cell.id for cell in drawn]
+    assert len(drawn) >= 27, [cell.id for cell in drawn]
 
 
 def test_no_cell_dumps_a_data_object(executed):
     for cell in _code_cells(executed):
         for output in cell.get("outputs", []):
-            data = output.get("data", {})
-            for mime, payload in data.items():
+            for mime, payload in output.get("data", {}).items():
                 if mime in IMAGE_MIME_TYPES:
                     assert len(payload) < MAX_IMAGE_BYTES, (cell.id, mime)
                 else:
                     text = payload if isinstance(payload, str) else "".join(payload)
                     assert len(text) < MAX_OUTPUT_BYTES, (cell.id, mime)
-            text = output.get("text", "")
-            assert len("".join(text)) < MAX_OUTPUT_BYTES, cell.id
+            assert len("".join(output.get("text", ""))) < MAX_OUTPUT_BYTES, cell.id
 
 
-def test_the_notebook_needs_no_credentials_and_no_external_code(book):
-    """Offline mode must not reach the database, and must not run CHEASE.
+#: the one cell that may solve with CHEASE, and only behind the lab-mode gate
+CHEASE_LAB_CELL = "s03-chease-lab"
 
-    The CHEASE workflow is taught, but only in the commented exercise, so a
-    reader without it installed still executes every cell.
+
+def test_the_default_path_needs_no_credentials_and_no_external_code(book):
+    """Offline mode reaches neither the database nor CHEASE.
+
+    CHEASE solves are taught in one lab cell, gated on the tutorial mode and on
+    the executable, so a reader without it installed still executes every cell.
     """
     executable = _executable(book)
-    assert "vaft.omas.sample_ods()" in executable
+    assert "ods = vaft.omas.sample_ods(SHOT)" in executable
+    assert "vaft.omas.sample_ods(shot) for shot in shots" in executable
     assert "vaft.database" not in executable
-    assert "scan_chease" not in executable
-    assert "run_chease" not in executable
-    assert "refine_equilibrium" not in executable
+    offline = "\n".join(_strip_comments(_source(cell)) for cell in _code_cells(book) if cell.id != CHEASE_LAB_CELL)
+    for token in ("scan_chease", "run_chease", "refine_equilibrium", "run_kinetic_efit"):
+        assert token not in offline, token
+    lab = _strip_comments(_source(_cell(book, CHEASE_LAB_CELL)))
+    assert 'os.environ.get("VAFT_TUTORIAL_MODE", "offline") == "lab"' in lab
+    assert "find_chease_executable() is not None" in lab
+    gate = lab.index("if chease_ready:")
+    assert lab.index("scan_chease(") > gate  # the solve is inside the gate
+
+
+def test_database_loading_is_taught_where_the_data_is_loaded(book):
+    for cell_id, (offline, lab) in DATABASE_SWAPS.items():
+        source = _source(_cell(book, cell_id))
+        assert offline in source, cell_id
+        assert lab in source, cell_id
+
+
+def test_uncommented_database_lines_are_valid_python(book):
+    for cell_id, (offline, lab) in DATABASE_SWAPS.items():
+        source = _source(_cell(book, cell_id))
+        uncommented = _uncomment_database_lines(source)
+        assert lab.lstrip("# ") in _strip_comments(uncommented), cell_id
+        ast.parse(uncommented)
+    # Nothing else in the notebook is uncommented by the swap.
+    touched = [
+        cell.id
+        for cell in _code_cells(book)
+        if _uncomment_database_lines(_source(cell)) != _source(cell)
+    ]
+    assert sorted(touched) == sorted(DATABASE_SWAPS), touched
+
+
+@pytest.mark.integration
+def test_the_notebook_runs_on_database_shots(book):
+    """Opt-in: the same notebook with the lab-mode lines swapped in.
+
+    Needs HSDS credentials (``~/.hscfg``) and ``VAFT_DATABASE_TESTS=1``.
+    """
+    if not (Path.home() / ".hscfg").is_file():
+        pytest.skip("no ~/.hscfg: HSDS credentials are not configured")
+    if not os.environ.get("VAFT_DATABASE_TESTS"):
+        pytest.skip("set VAFT_DATABASE_TESTS=1 to execute the tutorial against the database")
+    lab = nbformat.from_dict(nbformat.read(NOTEBOOK, as_version=4))
+    for cell_id, (offline, lab_line) in DATABASE_SWAPS.items():
+        cell = _cell(lab, cell_id)
+        source = _source(cell)
+        assert offline in source, cell_id
+        # The offline line becomes the lab-mode call; the commented original stays a comment.
+        cell.source = source.replace(offline, lab_line.lstrip("# "), 1)
+    assert "vaft.database.load(SHOT)" in _executable(lab)
+    assert "vaft.database.load(shots)" in _executable(lab)
+    _execute(lab)
 
 
 def test_the_committed_notebook_stores_no_outputs(book):
@@ -120,53 +238,265 @@ def test_the_committed_notebook_stores_no_outputs(book):
 
 
 # ---------------------------------------------------------------------------
-# Stays at the public API level
+# Stays at the public API level, and works for any shot
 # ---------------------------------------------------------------------------
+
 
 def test_no_notebook_local_helper_functions(book):
     for cell in _code_cells(book):
-        source = _source(cell)
-        assert not re.search(r"(?m)^\s*def\s", source), cell.id
-        assert not re.search(r"(?m)^\s*class\s", source), cell.id
+        tree = ast.parse(_source(cell))
+        for node in ast.walk(tree):
+            assert not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)), cell.id
 
 
 def test_no_tutorial_specific_machinery(book):
     banned = ("BLANK", "require(", "check_values", "exercise_support",
-              "find_repository_root", "savefig", "getattr(vaft")
+              "find_repository_root", "savefig", "getattr(vaft", "data_path(")
     executable = _executable(book)
     for token in banned:
         assert token not in executable, token
 
 
-def test_the_derivation_step_is_taught_rather_than_assumed(book, executed):
-    """The session's most transferable habit: a refused plot is often underived.
+def test_no_literal_discharge_times(book):
+    """Times come from the data: no float literal where VEST discharge times live."""
+    for cell in _code_cells(book):
+        for node in ast.walk(ast.parse(_source(cell))):
+            if isinstance(node, ast.Constant) and isinstance(node.value, float):
+                assert not 0.2 <= node.value <= 0.4, (cell.id, node.value)
 
-    Both halves have to be present -- the before, where the plots are refused,
-    and the call that makes them available.
+
+def test_no_literal_equilibrium_slice_or_frame(book):
+    """Slices and frames are found from the data, never typed.
+
+    No ``time_slice=3`` / ``frame_index=10``, no ``[8]`` on an equilibrium
+    slice array, and no ``equilibrium.time_slice.3`` path.
     """
+    for cell in _code_cells(book):
+        source = _source(cell)
+        assert not re.search(r"time_slice\.\d", _strip_comments(source)), cell.id
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, ast.keyword) and node.arg in SLICE_KEYWORDS:
+                assert not isinstance(node.value, ast.Constant), (cell.id, node.arg)
+            # an index straight into the slice array: ods["equilibrium.time_slice"][8]
+            if isinstance(node, ast.Subscript) and re.search(r"time_slice['\"]\]$", ast.unparse(node.value)):
+                index = node.slice
+                if isinstance(index, ast.UnaryOp):
+                    index = index.operand
+                assert not (isinstance(index, ast.Constant) and isinstance(index.value, int)), cell.id
+
+
+def test_every_shot_number_is_written_once_in_the_load_cell(book):
+    """#1714: one cell selects every shot, so new reference samples (#1712) are a one-cell change."""
     executable = _executable(book)
-    assert "update_equilibrium_derived_profiles" in executable
-
-    printed = "\n".join(
-        "".join(output.get("text", ""))
-        for cell in _code_cells(executed)
-        for output in cell.get("outputs", [])
-        if output.get("output_type") == "stream"
-    )
-    assert "beta_n available?  False" in printed
-    assert "beta_n available?  True" in printed
+    load = _strip_comments(_source(_cell(book, "s03-load-sample")))
+    for assignment in ("SHOT = 39915", "KINETIC_SHOT = 48224", "COMPARISON_SHOTS = [39915, 41524, 41672]"):
+        assert executable.count(assignment) == 1 and assignment in load, assignment
+    for cell in _code_cells(book):
+        if cell.id == "s03-load-sample":
+            continue
+        for shot in ("39915", "48224", "41524", "41672"):
+            assert shot not in _strip_comments(_source(cell)), (cell.id, shot)
 
 
-def test_the_residual_is_measured_on_both_equilibria(executed):
-    """The integrated analysis rests on these two numbers being real."""
-    printed = "\n".join(
-        "".join(output.get("text", ""))
-        for cell in _code_cells(executed)
-        for output in cell.get("outputs", [])
-        if output.get("output_type") == "stream"
-    )
-    assert "EFIT   median relative residual" in printed
-    assert "CHEASE median relative residual" in printed
+def test_the_slices_are_found_once_and_reused(book):
+    executable = _executable(book)
+    assert executable.count("i_rep = ") == 1
+    assert "usable = np.isfinite(ip) & (ip != 0)" in executable
+    found = _first_code_index(book, "i_rep = ")
+    for index, cell in enumerate(book.cells):
+        if cell.cell_type == "code" and "i_rep" in _strip_comments(_source(cell)):
+            assert index >= found, cell.id
+
+
+# ---------------------------------------------------------------------------
+# The session's order
+# ---------------------------------------------------------------------------
+
+
+ORDER = (
+    "vaft.omas.sample_ods(SHOT)",
+    "usable_slices = ",
+    "vaft.omas.sample_ods(KINETIC_SHOT)",
+    # step 1: the representation, on the target
+    "plot_equilibrium_field_2d",
+    "plot_equilibrium_overview_profiles",
+    # step 2: shape
+    "vaft.diagram.shaping_family()",
+    "fit_miller_surface",
+    "plot_miller_surfaces",
+    # step 3: force balance, then inputs against responses
+    "vaft.diagram.analytic_mhd_equilibrium()",
+    "solovev_example",
+    "solve_guazzotto_freidberg",
+    "guazzotto_freidberg_to_equilibrium",
+    "scan_values = ",
+    # step 4: the reconstruction
+    "vaft.diagram.equilibrium_problem_taxonomy()",
+    "vaft.diagram.magnetic_efit()",
+    "update_equilibrium_derived_profiles(ods)",
+    "plot_equilibrium_overview_histories",
+    "plot_equilibrium_time_shape(ods)",
+    "same_shape = ",
+    # step 5: its validation
+    "vaft.diagram.plasma_state_provenance()",
+    "plot_equilibrium_overview_constraints",
+    "plot_equilibrium_overview_residuals",
+    "fit_quality_metrics(ods",
+    "sigma_unit_factor(table)",
+    "plot_equilibrium_overview_constraint_weights",
+    "plot_camera_visible_image_efit_overlay",
+    # step 6: flux coordinates and profiles
+    "vaft.diagram.physical_to_flux_mapping()",
+    'plot_equilibrium_profile_q(ods, time_slice=i_rep, coordinate="psi_norm")',
+    'plot_equilibrium_profile_q(ods, time_slice=i_rep, coordinate="r_major")',
+    "compare_flux_mapping",
+    "plot_thomson_scattering_profile_fit",
+    "profile_fit_report_thomson_scattering",
+    "plot_charge_exchange_profile_fit",
+    # step 7: kinetic EFIT
+    "vaft.diagram.kinetic_efit()",
+    "electron_pressure",
+    # step 8: the derived state
+    "normalized_gradient_scale_length",
+    # step 9: self-consistency and controlled perturbations
+    "compute_grad_shafranov_residual",
+    "apply_equilibrium_variation(source_geqdsk",
+    # deep dives
+    "vaft.formula.green_psi_exact(",
+    "find_stationary_points(vaft.data.EquilibriumData(",
+    "grad_shafranov_operator(total",
+    "z_eff_from_n_s_Z_s",
+    # Part II
+    "vaft.omas.sample_ods(shot) for shot in shots",
+    "plot_equilibrium_time_shape(ods_list)",
+)
+
+
+def test_the_analysis_runs_in_the_session_order(book):
+    positions = [_first_code_index(book, token) for token in ORDER]
+    assert positions == sorted(positions), dict(zip(ORDER, positions))
+
+
+def test_the_reconstruction_is_seen_before_it_is_validated(book):
+    """#1714: the analytic intuition comes first, then the real equilibrium, then its validation."""
+    derive = _first_code_index(book, "update_equilibrium_derived_profiles(ods)")
+    assert _first_code_index(book, "solve_guazzotto_freidberg") < derive
+    for token in ("plot_equilibrium_overview_constraints", "compare_flux_mapping",
+                  "profile_fit_report_charge_exchange"):
+        assert derive < _first_code_index(book, token), token
+    # the deep dives are optional: the main path does not depend on them
+    deep = next(index for index, cell in enumerate(book.cells) if cell.id == "s03-deep-dives")
+    checkpoints = next(index for index, cell in enumerate(book.cells) if cell.id == "s03-checkpoints")
+    assert _first_code_index(book, "compute_grad_shafranov_residual") < deep < checkpoints
+    assert deep < _first_code_index(book, "vaft.formula.green_psi_exact(") < checkpoints
+
+
+STEPS = tuple(range(1, 10))
+
+
+def test_every_step_ends_with_a_check_for_the_students(book):
+    """Each guided step closes with its own short questions, before the next step starts."""
+    starts = {}
+    for index, cell in enumerate(book.cells):
+        if cell.cell_type == "markdown":
+            for line in _source(cell).splitlines():
+                match = re.match(r"### Step (\d+) — ", line)
+                if match:
+                    starts[int(match.group(1))] = index
+    assert sorted(starts) == list(STEPS), starts
+    bounds = [starts[step] for step in STEPS] + [
+        next(index for index, cell in enumerate(book.cells) if cell.id == "s03-deep-dives")]
+    for step, (start, end) in zip(STEPS, zip(bounds, bounds[1:])):
+        checks = [cell for cell in book.cells[start:end]
+                  if cell.cell_type == "markdown" and _source(cell).startswith("#### Check yourself")]
+        assert len(checks) == 1 and checks[0].id == f"s03-step{step}-check", step
+        assert len(re.findall(r"(?m)^\d+\. ", _source(checks[0]))) >= 2, step
+
+
+def test_the_fixed_headings_wrap_every_subsection(book):
+    """The eight ``##`` headings are the only second-level ones; everything else nests."""
+    for cell in book.cells:
+        if cell.cell_type != "markdown":
+            continue
+        for line in _source(cell).splitlines():
+            if line.startswith("#") and not line.startswith("# 03."):
+                assert re.match(r"#{2,4} ", line), (cell.id, line)
+
+
+# ---------------------------------------------------------------------------
+# Every new API is used
+# ---------------------------------------------------------------------------
+
+
+def test_the_analytic_equilibrium_is_force_balanced_and_scanned(book):
+    """#1714: a Guazzotto-Freidberg model at the discharge's shape, and kappa, delta, nu scans."""
+    executable = _executable(book)
+    for api in ("vaft.process.equilibrium.solve_guazzotto_freidberg",
+                "vaft.process.equilibrium.guazzotto_freidberg_to_equilibrium",
+                '"elongation": vest.kappa', '"triangularity": vest.delta'):
+        assert api in executable, api
+    scans = _strip_comments(_source(_cell(book, "s03-gf-scans")))
+    knobs = re.findall(r'^\s+"(\w+)": np\.linspace', scans, re.M)
+    assert knobs == ["elongation", "triangularity", "nu"], knobs  # li is a response, never a knob
+
+
+def test_the_scan_responses_are_printed(executed):
+    printed = _printed(executed)
+    for knob in ("elongation", "triangularity", "nu"):
+        rows = re.findall(rf"(?m)^ {knob}\s+-?\d\.\d\d\s+\d\.\d{{3}}\s+-?\d\.\d{{3}}", printed)  # the scan table only
+        assert len(rows) == 5, knob
+    assert "nu_max for eps" in printed
+    assert re.search(r"R_axis \[m\]\s+\d\.\d{3}\s+\d\.\d{3}\s+response", printed)
+
+
+def test_li_is_taught_as_a_response(book):
+    markdown = _markdown(book)
+    for phrase in ("derived responses", "There is no $\\ell_i$ knob", "Shafranov shift",
+                   "A magnetics-only $\\beta_p$ is not a measured plasma pressure",
+                   "Sensitivity and identifiability are different questions"):
+        assert phrase in markdown, phrase
+
+
+def test_the_analytic_apis_are_used(book):
+    executable = _executable(book)
+    for api in ("fit_miller_surface", "miller_surfaces(", "plot_miller_surfaces",
+                "solovev_example", "plot_solovev_equilibrium", "derive_boundary_representation",
+                "as_equilibrium", '"x_points"'):
+        assert api in executable, api
+    for topology in ('"limited"', '"single_null"', '"double_null"'):
+        assert topology in executable, topology
+
+
+def test_the_constraint_apis_are_used(book):
+    executable = _executable(book)
+    for api in ("plot_equilibrium_overview_constraints", "plot_equilibrium_overview_constraint_coverage",
+                "plot_equilibrium_overview_residuals", "plot_equilibrium_overview_fit_quality",
+                "plot_equilibrium_overview_constraint_weights", "fit_quality_metrics",
+                "constraint_table", "sigma_unit_factor"):
+        assert api in executable, api
+
+
+def test_the_kinetic_apis_are_used(book):
+    executable = _executable(book)
+    for api in ("sample_equilibria(KINETIC_SHOT)", "compare_flux_mapping",
+                "equilibrium_mapping_thomson_scattering", "equilibrium_mapping_charge_exchange",
+                "profile_fit_report_thomson_scattering", "profile_fit_report_charge_exchange",
+                'fitting_function="gp"', 'fitting_function="free_polynomial"',
+                'field="te"', 'field="ne"', 'field="ti"', 'field="vphi"',
+                ".summary()", "plot_electron_temperature_profile", "plot_electron_density_profile"):
+        assert api in executable, api
+    for key in ('"efit_magnetic"', '"efit_kinetic"', '"chease"'):
+        assert key in executable, key
+
+
+def test_the_derived_state_formulas_are_used(book):
+    executable = _executable(book)
+    for api in ("vaft.formula.electron_pressure", "vaft.formula.ion_pressure",
+                "vaft.formula.z_eff_from_n_s_Z_s", "vaft.formula.impurity_fraction_from_effective_charge",
+                "vaft.formula.normalized_gradient_scale_length",
+                "vaft.formula.electron_collisionality_sauter",
+                "vaft.formula.rho_star_from_M_T_B_R_epsilon"):
+        assert api in executable, api
 
 
 def test_each_supported_coordinate_is_actually_demonstrated(book):
@@ -176,15 +506,162 @@ def test_each_supported_coordinate_is_actually_demonstrated(book):
         assert f'coordinate="{coordinate}"' in executable, coordinate
 
 
+def test_the_interactive_cells_run_headless(book):
+    """`interaction_backend="auto"` resolves to ipywidgets under nbclient."""
+    for cell in _code_cells(book):
+        source = _source(cell)
+        if "interactive=True" in source:
+            assert 'interaction_backend="none"' in source, cell.id
+
+
+def test_the_camera_overlay_is_guarded_and_uses_the_shot(book):
+    executable = _executable(book)
+    assert "shot=SHOT" in executable
+    assert "except FileNotFoundError" in _source(_cell(book, "s03-camera-load"))
+    assert "else:" in _source(_cell(book, "s03-camera-overlay"))
+
+
+def test_multi_shot_comparison_uses_lists(book):
+    executable = _executable(book)
+    assert "shots = COMPARISON_SHOTS" in executable
+    assert "plot_equilibrium_time_shape(ods_list)" in executable
+
+
+# ---------------------------------------------------------------------------
+# What the notebook prints
+# ---------------------------------------------------------------------------
+
+
+def test_the_usable_window_is_found_from_the_data(executed):
+    printed = _printed(executed)
+    assert "usable slices: 8 of 9" in printed
+    assert "representative slice:" in printed
+    assert "every stored slice is usable" not in printed
+
+
+def test_the_derivation_step_is_taught_rather_than_assumed(book, executed):
+    """The session's most transferable habit: a refused plot is often underived."""
+    assert "update_equilibrium_derived_profiles" in _executable(book)
+    printed = _printed(executed)
+    assert "beta_n available?  False" in printed
+    assert "beta_n available?  True" in printed
+
+
+def test_the_rho_proxy_is_checked_before_and_after_derivation(executed):
+    printed = _printed(executed)
+    assert "stored rho_tor_norm is sqrt(psi_N): True" in printed
+    assert "derived rho_tor_norm vs sqrt(psi_N)" in printed
+
+
+def test_the_efit_weighting_is_shown_as_it_is(executed):
+    printed = _printed(executed)
+    assert "total chi-square" in printed
+    assert "Ip chi-square as EFIT reported it" in printed
+    assert "vessel accounting term" in printed
+    assert "Ip chi-square, plasma-only residual" in printed
+    assert "sigma EFIT used" in printed
+    assert "diamagnetic flux: measured +" in printed  # paramagnetic (#1196)
+
+
+def test_the_topologies_are_classified(executed):
+    printed = _printed(executed)
+    assert re.search(r"limited\s+-> topology limited", printed)
+    assert re.search(r"single_null\s+-> topology \w*single_null", printed)
+    assert re.search(r"double_null\s+-> topology double_null", printed)
+
+
+def test_the_flux_mapping_and_fits_are_quantified(executed):
+    printed = _printed(executed)
+    assert "largest rho_N shift between the two equilibria" in printed
+    for quantity in ("t_e [polynomial", "t_e [gp", "t_i [polynomial", "velocity_tor [polynomial",
+                     "velocity_tor [free_polynomial"):
+        assert quantity in printed, quantity
+    assert "chi2/nu=" in printed
+
+
+def test_the_derived_state_is_reported(executed):
+    printed = _printed(executed)
+    assert "p_th =" in printed
+    assert "Z_eff =" in printed
+    assert "nu_e* =" in printed
+
+
+def test_the_residual_is_measured_on_both_equilibria(executed):
+    """Step 8 rests on these two numbers being real."""
+    printed = _printed(executed)
+    assert "EFIT   median relative residual" in printed
+    assert "CHEASE median relative residual" in printed
+
+
+def test_the_multi_shot_table_is_printed(executed):
+    printed = _printed(executed)
+    for shot in ("39915", "41524", "41672"):
+        assert shot in printed
+    assert "beta_N" in printed and "q95" in printed
+
+
+# ---------------------------------------------------------------------------
+# Physics and data honesty in the prose
+# ---------------------------------------------------------------------------
+
+
+def test_the_grad_shafranov_assumptions_are_stated(book):
+    markdown = _markdown(book).lower()
+    for token in ("axisymmetry", "isotropic scalar pressure", "static equilibrium", "session 05"):
+        assert token in markdown, token
+
+
+def test_shape_is_not_equilibrium(book):
+    markdown = _markdown(book)
+    assert "shape parameterisation" in markdown
+    assert "force-balanced solution" in markdown
+    assert "Solov'ev" in markdown and "Miller" in markdown
+
+
+def test_the_solver_taxonomy_names_what_vaft_runs(book):
+    markdown = _markdown(book)
+    for token in ("vaft.code.chease", "vaft.code.tes", "vaft.code.tokamaker", "vaft.code.efit",
+                  "fixed boundary", "free boundary"):
+        assert token in markdown, token
+
+
+def test_the_efit_weighting_facts_are_stated(book):
+    markdown = _markdown(book)
+    assert "#918" in markdown
+    assert "1000 T" in markdown
+    assert "SERROR" in markdown
+    assert "the weights, not the diagnostics, set this fit" in markdown
+    assert "did not constrain the fit" in markdown
+
+
+def test_zeff_is_not_presented_as_a_reconstructed_profile(book):
+    markdown = _markdown(book)
+    assert "quasi-neutrality" in markdown
+    assert "no visible-bremsstrahlung" in markdown
+
+
+def test_the_layers_are_named(book):
+    markdown = _markdown(book)
+    for token in ("thomson_scattering", "charge_exchange", "core_profiles", "Measured", "Derived"):
+        assert token in markdown, token
+    assert "not a plotting option" in markdown
+
+
 def test_the_exercise_executes_nothing_on_its_own(book):
-    exercise = next(cell for cell in _code_cells(book) if cell.id == "s03-exercise-cell")
+    exercise = _cell(book, "s03-exercise-cell")
     for line in _source(exercise).splitlines():
         assert not line.strip() or line.lstrip().startswith("#"), line
+    markdown = _markdown(book).lower()
+    for token in ("measured", "reconstructed", "assumed", "derived"):
+        assert token in markdown, token
 
 
-# ---------------------------------------------------------------------------
-# Structure
-# ---------------------------------------------------------------------------
+def test_the_unsupported_coordinate_is_named_rather_than_quietly_skipped(book):
+    """Straight-field-line coordinates are what a reader will ask for next."""
+    markdown = _markdown(book)
+    assert "traight-field-line" in markdown
+    assert "#472" in markdown
+
 
 def test_the_session_declares_itself_complete_in_both_modes(book):
     metadata = book.metadata.get("vaft_tutorial", {})
@@ -193,14 +670,98 @@ def test_the_session_declares_itself_complete_in_both_modes(book):
     assert list(metadata.get("modes", [])) == ["offline", "lab"]
 
 
-def test_the_unsupported_coordinate_is_named_rather_than_quietly_skipped(book):
-    """Straight-field-line coordinates are what a reader will ask for next.
+# ---------------------------------------------------------------------------
+# #1052: one flux function, three regions, and the boundary as an output
+# ---------------------------------------------------------------------------
 
-    Session 03 does not teach them because VAFT does not compute them, and
-    saying so is better than leaving the reader to discover the gap.
-    """
-    markdown = "\n".join(
-        _source(cell) for cell in book.cells if cell.cell_type == "markdown"
-    )
-    assert "traight-field-line" in markdown
-    assert "#472" in markdown
+
+def test_the_region_equations_and_boundary_problem_are_taught(book):
+    markdown = _markdown(book)
+    for token in ("One flux function, three regions", "homogeneous", "boundary is part of the solution",
+                  "scrape-off layer", "private-flux region", "Free-boundary and inverse are not synonyms",
+                  "#1258"):
+        assert token in markdown, token
+
+
+def test_the_source_decomposition_shows_the_topology_change(executed):
+    """Topology is a flux ordering: diverted only when the separatrix lies inside the limiter level."""
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s03-source-maps").outputs)
+    lines = printed.splitlines()
+    verdicts = [line.strip() for line in lines if line.strip().startswith("->")]
+    assert verdicts == ["-> limited", "-> diverted"], verdicts
+    shaped = printed[printed.index("shaping pair at 0.5 Ip:"):]
+    limiter = float(re.search(r"highest psi on the limiter ([0-9.e+-]+) Wb", shaped).group(1))
+    separatrix = float(re.search(r"\) ([0-9.e+-]+) Wb\n", shaped).group(1))
+    assert separatrix > limiter
+
+
+def test_the_region_equations_are_checked_on_the_computed_flux(executed):
+    printed = "".join(output.get("text", "") for output in _cell(executed, "s03-region-check").outputs)
+    ratio = float(re.search(r"recovered J / imposed J = ([0-9.]+)", printed).group(1))
+    vacuum = float(re.search(r"max \|Delta\* psi\| = ([0-9.e+-]+) of its plasma value", printed).group(1))
+    assert abs(ratio - 1.0) < 0.05
+    assert vacuum < 0.02
+
+
+GS_DIAGRAMS = ("equilibrium_problem_taxonomy", "fixed_vs_free_boundary_equilibrium",
+               "grad_shafranov_domain_decomposition", "poloidal_flux_source_decomposition",
+               "limiter_and_diverted_topologies")
+
+
+def test_the_grad_shafranov_concept_diagrams_are_shown_canonically(book):
+    """#1236: the five concept diagrams, called with their canonical arguments so they
+    render from the committed assets on a machine without TeX."""
+    executable = _executable(book)
+    for name in GS_DIAGRAMS:
+        assert f"vaft.diagram.{name}()" in executable, name
+    calls = re.findall(r"vaft\.diagram\.(\w+)\(([^)]*)\)", executable)
+    assert calls and all(arguments.strip() == "" for _name, arguments in calls), calls
+
+
+def test_the_concepts_precede_the_computation_and_the_schematics_follow_it(book):
+    order = [_first_code_index(book, f"vaft.diagram.{name}()") for name in GS_DIAGRAMS[:3]]
+    sources = _first_code_index(book, "vaft.formula.green_psi_exact(")
+    maps = _first_code_index(book, "find_stationary_points(vaft.data.EquilibriumData(")
+    after = [_first_code_index(book, f"vaft.diagram.{name}()") for name in GS_DIAGRAMS[3:]]
+    assert order == sorted(order) and max(order) < sources
+    assert min(after) > maps
+    # the region check follows the schematics, and its intro sits right before it
+    check = _first_code_index(book, "grad_shafranov_operator(total")
+    assert max(after) < check
+    assert book.cells[check - 1].id == "s03-region-check-intro"
+
+
+def test_every_grad_shafranov_diagram_is_drawn(executed):
+    for cell_id in ("s03-taxonomy-diagram", "s03-fixed-free-diagram", "s03-domain-diagram",
+                    "s03-source-diagram", "s03-topology-diagram"):
+        outputs = _cell(executed, cell_id).outputs
+        assert any("image/svg+xml" in output.get("data", {}) for output in outputs), cell_id
+
+
+#: #1714: the diagrams that carry the main teaching path, in the order the session uses them
+MAIN_PATH_DIAGRAMS = (
+    ("s03-shaping-diagram", "shaping_family"),
+    ("s03-analytic-diagram", "analytic_mhd_equilibrium"),
+    ("s03-taxonomy-diagram", "equilibrium_problem_taxonomy"),
+    ("s03-magnetic-efit-diagram", "magnetic_efit"),
+    ("s03-provenance-diagram", "plasma_state_provenance"),
+    ("s03-flux-mapping-diagram", "physical_to_flux_mapping"),
+    ("s03-kinetic-efit-diagram", "kinetic_efit"),
+)
+
+
+def test_the_main_path_diagrams_lead_their_steps_in_order(book):
+    positions = [_first_code_index(book, f"vaft.diagram.{name}()") for _cell_id, name in MAIN_PATH_DIAGRAMS]
+    assert positions == sorted(positions)
+    # each concept is drawn before the analysis it introduces
+    assert positions[1] < _first_code_index(book, "solovev_example")
+    assert positions[3] < _first_code_index(book, "update_equilibrium_derived_profiles(ods)")
+    assert positions[4] < _first_code_index(book, "plot_equilibrium_overview_constraints")
+    assert positions[5] < _first_code_index(book, "compare_flux_mapping")
+    assert positions[6] < _first_code_index(book, "plot_equilibrium_profile_q([eq_magnetic, eq_kinetic]")
+
+
+def test_every_main_path_diagram_is_drawn(executed):
+    for cell_id, _name in MAIN_PATH_DIAGRAMS:
+        outputs = _cell(executed, cell_id).outputs
+        assert any("image/svg+xml" in output.get("data", {}) for output in outputs), cell_id

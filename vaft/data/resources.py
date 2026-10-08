@@ -7,6 +7,16 @@ from pathlib import Path
 
 import yaml
 
+__all__ = [
+    "available_samples",
+    "data_path",
+    "require_repository_sample",
+    "sample",
+    "sample_camera_visible_frame_paths",
+    "sample_geqdsk",
+    "sample_manifest",
+]
+
 
 def data_path(name: str = "") -> Path:
     """Return an absolute path inside the packaged ``vaft/data`` directory."""
@@ -138,11 +148,122 @@ def sample(shot: int, representation: str = "omas") -> Path:
     if not path.is_file():
         if record.get("package") == "repository-only":
             raise FileNotFoundError(
-                f"VAFT sample shot {int(shot)} is a repository-only {storage_name} "
-                "artifact. Clone the VAFT GitHub repository to access it."
+                _repository_only_message(int(shot), storage_name, path, representations)
             )
         raise FileNotFoundError(f"Registered VAFT sample artifact is missing: {path}")
     return path
+
+
+def _repository_only_message(
+    shot: int, storage_name: str, path: Path, representations: dict
+) -> str:
+    """Explain a repository-only sample representation that an install lacks.
+
+    Names the missing file and, when another representation of the same shot
+    is installed (the OMAS form of 39915 ships in the wheel while its IMAS
+    netCDF twin is repository-only since 0.8.0), says which adapter to use.
+    """
+    media = {
+        "imas": "IMAS netCDF",
+        "omas": "OMAS JSON",
+    }.get(storage_name, storage_name)
+    message = (
+        f"VAFT sample shot {shot} is a repository-only {storage_name} artifact: "
+        f"{path.name} ({media} form) is not included in the PyPI distribution. "
+        "Clone the VAFT GitHub repository to access it."
+    )
+    shipped = sorted(
+        name
+        for name, other in representations.items()
+        if name != storage_name and (path.parent / other["path"]).is_file()
+    )
+    if shipped:
+        message += " The shipped form of this shot loads with " + " or ".join(
+            f'representation="{name}" ({representations[name]["path"]})'
+            for name in shipped
+        ) + "."
+    return message
+
+
+def _require_shipped_fixture(path: Path) -> Path:
+    """Return ``path`` or raise a FileNotFoundError that names the unified fixture.
+
+    The unified VEST diagnostics fixture ships in the wheel since 0.8.0, so a
+    missing file means an incomplete installation, not a repository-only sample.
+    """
+    if path.is_file():
+        return path
+    raise FileNotFoundError(
+        f"{path} is missing: the unified VEST diagnostics fixture ships with vaft "
+        "(vaft/data/unified/vest_diagnostics); reinstall the package or check the "
+        "checkout, it is not a repository-only sample."
+    )
+
+
+def unified_diagnostics_manifest() -> dict:
+    """Validate and return the provenance contract for the VEST cross-shot fixture."""
+    import hashlib
+
+    root = data_path("unified/vest_diagnostics")
+    with _require_shipped_fixture(root / "manifest.yaml").open("r", encoding="utf-8") as handle:
+        manifest = yaml.safe_load(handle)
+    if (
+        manifest.get("schema_version") != 1
+        or manifest.get("kind") != "cross-shot-diagnostic-fixture"
+        or manifest.get("physical_discharge") is not False
+        or manifest.get("machine") != "VEST"
+        or manifest.get("geometry_reference", {}).get("source_shot") != 39915
+        or "shot" in manifest
+    ):
+        raise ValueError("Invalid cross-shot diagnostic fixture contract")
+    for name, source in manifest.get("sources", {}).items():
+        if not isinstance(source.get("source_shot"), int) or not all(
+            source.get(key) for key in (
+                "source_artifact", "source_sha256", "ids", "source_time",
+                "processing", "value_kind", "geometry_compatibility",
+            )
+        ):
+            raise ValueError(f"Incomplete provenance for {name}")
+    for name, source in manifest.get("geometry_sources", {}).items():
+        if "source_shot" in source or not (
+            isinstance(source.get("model_reference_shot", source.get("source_model_key")), int)
+            and all(source.get(key) for key in (
+                "source_artifact", "source_sha256", "ids", "source_time",
+                "processing", "value_kind", "geometry_compatibility",
+            ))
+        ):
+            raise ValueError(f"Incomplete model geometry provenance for {name}")
+    source_keys = set(manifest.get("sources", {})) | set(manifest.get("geometry_sources", {}))
+    for index, record in enumerate(manifest.get("geometry_records", ())):
+        if (
+            "source_shot" in record
+            or not set(record.get("source_keys", ())) <= source_keys
+            or not record.get("source_keys")
+            or not all(record.get(key) for key in (
+                "family", "semantic", "label", "r_m", "z_m", "phi_rad",
+                "value_kind", "derivation",
+            ))
+        ):
+            raise ValueError(f"Invalid derived geometry record {index}")
+    for calibration in manifest.get("camera_calibration_reference", {}).get("assets", ()):
+        file_path = data_path(calibration["path"])
+        if hashlib.sha256(file_path.read_bytes()).hexdigest() != calibration["sha256"]:
+            raise ValueError("Camera calibration reference checksum mismatch")
+    record = manifest["artifact"]
+    artifact = root / record["path"]
+    if artifact.stat().st_size != record["size"]:
+        raise ValueError("Cross-shot diagnostic fixture size mismatch")
+    if hashlib.sha256(artifact.read_bytes()).hexdigest() != record["sha256"]:
+        raise ValueError("Cross-shot diagnostic fixture checksum mismatch")
+    return manifest
+
+
+def unified_diagnostics_fixture():
+    """Load the offline VEST cross-shot fixture as an OMAS ODS."""
+    from vaft.omas import load
+
+    manifest = unified_diagnostics_manifest()
+    return load(_require_shipped_fixture(data_path("unified/vest_diagnostics") / manifest["artifact"]["path"]))
 
 
 def sample_geqdsk(name: str = "efit/g039915.00319"):

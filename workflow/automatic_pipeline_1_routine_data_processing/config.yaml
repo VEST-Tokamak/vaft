@@ -35,36 +35,18 @@ diagnostics:
 impa:
   enable: false
   run: 1
-vest:
-  magnetics:
-    processing:
-      time_start: 0.0
-      time_end: 0.99996
-      sample_count: 25000
-      fast_sample_rate: 250000.0
-      lowpass_cutoff: 2500.0
-      lowpass_taps: 251
-      default_index_start: 6000
-      default_index_end: 8500
-      default_probe_baseline_end: 8500
-      late_shot_min: 41660
-      transient_shot_min: 41446
-      transient_shot_max: 41451
-      late_index_start: 6500
-      late_index_end: 9000
-      late_probe_baseline_end: 5000
-      flux_baseline_first_start: 3499
-      flux_baseline_first_end: 5000
-      flux_baseline_second_start: 11999
-      flux_baseline_second_end: 15000
-      flux_baseline_late_start: 5999
-      flux_baseline_late_end: 7000
-      flux_baseline_late_loop_numbers:
-      - 9
-      - 10
-      - 11
-      calibration_mode: divide
-      flux_output_per_radian: true
+# Equilibrium-magnetics processing comes from the shot's acquisition era in
+# vaft/machine_mapping/vest.yaml. A `vest.magnetics.processing` mapping here is an
+# override applied on top of that era policy, for parameter scans only: the
+# legacy defaults that used to sit here ran every native-DAQ shot (46404 on)
+# through the slow-DAQ path once this file was loaded (#1541). Keys the era
+# decides (the legacy window ladder and per-sample flux baselines) are refused
+# when set off their defaults, and so are `time_start`/`time_end`/`sample_count`
+# unless `window_override` is named with them: the era window is indices into
+# that grid. The filter and calibration keys (`fast_sample_rate`,
+# `lowpass_cutoff`, `lowpass_taps`, `calibration_mode`, `flux_output_per_radian`)
+# apply on every shot. See DEPLOYMENT.md, "What a run config may override".
+vest: {}
 eddy:
   filament:
     r:
@@ -96,8 +78,9 @@ constraints:
   # Recovery backend: 0 none, 1 refit rejected probes from their family's
   # Gaussian profile, 2 refit every probe.
   gaussian_fit_option: 1
-  npprime: 2
-  nffprime: 2
+  # npprime/nffprime: the basis recorded in the constraints product
+  # (code.parameters). Unset, it follows the EFIT configuration (efit.preset
+  # below), which is also what the k-files use.
   uncertainty:
   - 1.0e-4
   - 1.0e-4
@@ -118,18 +101,40 @@ constraints:
   - 0.01
   - 0.01
 efit:
+  # A run config merged over this file inherits `true` when it omits the key
+  # (#1687); a deployment that does not run EFIT sets `efit: {run: false}` itself.
   run: true
+  # Named EFIT configuration from vaft.code.efit.PRESETS. Empty is the default,
+  # statistical_891: the #891 working setting (statistical sigma, diamagnetic
+  # flux fitted, (2,1) basis, psi-only exit), the production configuration
+  # since 2026-10-01. `routine` is the legacy configuration (legacy weights,
+  # (2,2), EFIT's own termination), whose beta_p sits near zero (#386).
+  # Every EFIT product names the configuration in code.parameters.
+  preset: ""
   executable: ${EFIT}
+  # The base Green table. A Green table is valid for one machine era only
+  # (#805); a shot of the base table's era uses this directory as is, and a
+  # shot of any other era uses a table built once per era by rule
+  # generate_efit_table (EFUND, ~3 min and ~170 MB at 129x129, under
+  # <base_dir>/pipeline/efit_tables/, or <base_dir>/efit_tables/ with
+  # layout: shot_first) with this table's grid and flags. Replacing this
+  # table rebuilds them; moving it, efund or efund_timeout does not.
+  # `era_tables: false` turns that off; such shots are then refused.
   table_dir: ${VAFT_DATA_DIR}/efit/
+  era_tables: true
+  # EFUND for those builds: empty means $EFITHOME/bin/efund.
+  efund: ""
+  efund_timeout: 1800
   args: "129"
-  timeout: 600
+  # statistical_891 iterates up to 514 times per slice (routine 100), and a
+  # shot's slices run in one EFIT call: 600 s timed out 26 of 33 shots (#1331).
+  timeout: 3600
 chease:
   run: true
   executable: ${CHEASE}
   timeout: 600
   target_psin: 0.993
   relax: 0.5
-  nideal: 6
   nw: 513
   auto_cocos: true
   output_cocos: input

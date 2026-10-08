@@ -26,6 +26,31 @@ from vaft.formula._docstring import (
 
 #: Identities and bookkeeping: no literature source adds anything.
 DEFINITIONAL = frozenset({
+    # The share of a finite response a Jacobian misses (#1642): a ratio of norms.
+    "linearity_ratio",
+    # The operational-boundary data model (#1067): evaluation and registry
+    # plumbing. The physics and its sources live on each registered entry.
+    "boundary_value",
+    "evaluate_boundary",
+    "evaluate_window",
+    "boundary_curve",
+    "threshold_curve",
+    "same_quantity",
+    "get_boundary",
+    "list_boundaries",
+    # A change of coordinates onto the Hugill plane (#1068); q_cyl carries its own source.
+    "hugill_coordinates",
+    # Freidberg's q* of an elongated tokamak, Eq. (13.160): a coordinate, its source is in the docstring.
+    "kink_coordinates",
+    # Menard's cylindrical q* and the ITER guideline q95 estimate: coordinates whose sources are in the docstrings.
+    "cylindrical_kink_coordinates",
+    "iter_q95_coordinates",
+    "start_q95_coordinates",
+    # The spherical-tokamak Hugill coordinates of Sykes et al. (2000), #1602; the source is in the docstring.
+    "hugill_coordinates_st",
+    # A parameterization with no physics of its own (#552).
+    "generalized_parabolic_profile",
+    "generalized_parabolic_profile_derivative",
     "aspect_ratio_from_a_R",
     "inverse_aspect_ratio_from_a_R",
     "calc_inverse_aspect_ratio",
@@ -67,22 +92,104 @@ DEFINITIONAL = frozenset({
 
 #: Sign, normalisation, COCOS or engineering-unit choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # positive-when-holds criteria vs GGJ's negative-when-stable indices; toroidal-flux well (#1635)
+    "suydam_criterion",
+    "mercier_criterion_circular",
+    "ggj_ideal_interchange_index",
+    "ggj_resistive_interchange_index",
+    "magnetic_well_from_specific_volume",
+    "bussac_internal_kink_energy",
+    # moves by (2 pi)^2 with the flux label: psi must be per radian (#1637)
+    "ballooning_alpha_from_volume",
+    # the growth rate is in Alfven units v_A/(qR); Dirichlet ends on the extended angle (#1075)
+    "s_alpha_ballooning_eigenmode",
+    "ballooning_radial_wavenumber",
+    # toroidal shift of the generalized SFL family: signed q, paired with the PEST angle (#1074)
+    "sfl_toroidal_angle_shift",
+    # SOL blobs (#1211): one paper's Gaussian size convention; prefactors differ between papers
+    "blob_reference_size",
+    "blob_reference_velocity",
+    "blob_collisionality",
+    "sheath_connected_blob_velocity",
+    "inertial_blob_velocity",
+    "interpolated_blob_velocity",
+    "blob_regime_velocities",
+    "blob_density_perturbation",
+    "blob_crossover_size",
+    # NBI: per-component energy in eV, path density not volumetric, signed tangency radius (#1136)
+    "beam_particle_rate_from_power_energy",
+    "neutral_beam_optical_depth",
+    "beam_birth_probability_density",
+    "shine_through_fraction",
+    "injected_toroidal_angular_momentum_rate",
+    # cold-plasma waves: signed Omega_s, Stix sign convention, +-roots are not mode names (#1113)
+    "plasma_frequency",
+    "stix_parameters",
+    "dielectric_tensor",
+    "cold_plasma_refractive_index_squared",
+    "perpendicular_refractive_index_squared",
+    "cma_coordinates",
+    "propagation_regime",
+    # orbit scales on explicit speeds and collision frequencies, not a nu_* convention (#1111)
+    "transit_frequency",
+    "deeply_trapped_bounce_frequency",
+    "trapped_particle_effective_collision_frequency",
+    "banana_width",
+    "collisions_per_transit",
+    "neoclassical_regime_boundaries",
+    # NTV: toroidal omega_E (not omega_tor) and psi = R A_phi sign (#1111)
+    "ntv_precession_frequency",
+    "nonambipolar_torque_density",
+    # scrape-off layer (#951): closure, sheath-edge vs upstream density, kappa_0, midplane vs target widths
+    "ion_sound_speed",
+    "sheath_particle_flux",
+    "ion_saturation_current_density",
+    "sheath_heat_flux",
+    "spitzer_harm_parallel_heat_flux",
+    "two_point_upstream_temperature",
+    "eich_target_heat_flux_profile",
+    "eich_integral_width",
+    "radiative_condensation_growth_rate",
+    "radiative_thermal_instability_growth_rate",
+    # normalized-flux profile kernels: which psi_N, and df/dpsi_N not df/dpsi (#552)
+    "generalized_parabolic_profile",
+    "generalized_parabolic_profile_derivative",
+    "modified_tanh_profile",
+    "modified_tanh_profile_derivative",
     # psi / B / j / q / flux
     "poloidal_field_factor",
     "radial_magnetic_field_from_psi",
     "vertical_magnetic_field_from_psi",
-    "current_density_from_psi",
     "current_density_from_B",
+    "mean_reflected_energy_fraction",
+    "recycling_coefficient",
+    "sputtering_threshold_bohdansky",
+    "inductive_parallel_electric_field",
+    "dreicer_field",
+    "vde_growth_rate",
+    "thin_wall_time",
+    "halo_current_fraction",
+    "toroidal_peaking_factor",
+    "hydrogenic_transition_wavelength",
+    "flux_perturbation_from_normal_displacement",
+    "grad_shafranov_source",
+    "toroidal_current_density_from_p_prime_ff_prime",
     "psi_from_RBtheta",
     "phi_from_Bphi",
     "rhoN_from_phi",
     "rho_tor_from_phi",
     "toroidal_flux_from_q_psi",
+    # li_3 vs li_1, and the radius li_3 was normalised by (#782)
+    "internal_inductance_from_li_3_R0",
+    "li_3_from_internal_inductance_R0",
     "q_from_phi",
     "q_from_rhoN",
     "rhoN_from_qpsiN",
     "shear_from_r_q",
     "surface_poloidal_flux_from_psi_boundary",
+    "straight_field_line_angle",
+    "miller_surface",
+    "vacuum_toroidal_field",
     "loop_voltage_from_total_flux",
     "calculate_poloidal_flux",
     "calculate_toroidal_flux",
@@ -97,6 +204,60 @@ CONVENTION_SENSITIVE = frozenset({
     "greenwald_density",
     "greenwald_fraction",
     "confinement_time_from_engineering_parameters",
+    # local island topology: helicity sign and full-vs-half width
+    "helical_phase",
+    "helical_harmonic",
+    "island_pendulum_hamiltonian",
+    "island_separatrix_half_width",
+    "delta_prime_from_outer_derivatives",
+    # GGJ: D_I > 0 / D_R > 0 unstable, as RDCON and DCON write them
+    "ggj_resistive_interchange_index_from_ideal",
+    "s_alpha_ballooning_stable",
+    "s_alpha_marginal_alpha",
+    "slab_perturbed_flux",
+    "field_line_label",
+    "s_alpha_curvature_drive",
+    "s_alpha_ballooning_solution",
+    "shafranov_shift_from_r_a_R0_beta_p_li",
+    "generalized_straight_field_line_angle",
+    # TF ripple: amplitude normalisation, GWB rho / q' conventions, pitch reference point
+    "toroidal_ripple_field",
+    "ripple_amplitude",
+    "ripple_well_parameter",
+    "ripple_trapping_pitch",
+    "gwb_stochastic_threshold",
+    "gwb_stochasticity_parameter",
+    "parallel_speed_from_mu",
+    "magnetic_moment",
+    "canonical_toroidal_momentum",
+    "guiding_center_toroidal_momentum",
+    "psi_per_radian_from_cocos",
+    "bounce_harmonic_detuning",
+    # geometric approximations: Fourier sign, slab orientation, signed shear length
+    "slab_parallel_wavenumber",
+    "sheared_slab_field",
+    "harris_sheet_current_density",
+    "x_point_flux",
+    "sheared_slab_parallel_wavenumber",
+    "shear_length_from_q_R0_s",
+    "cylindrical_safety_factor_from_r_B",
+    "cylindrical_parallel_wavenumber",
+    "local_slab_from_cylinder",
+    "cylindrical_poloidal_field",
+    "peaked_current_safety_factor",
+    "cylindrical_enclosed_current",
+    "cylindrical_poloidal_flux",
+    "cylindrical_internal_inductance",
+    "cylindrical_current_diffusion_rate",
+    "resistive_diffusion_time",
+    # single-particle motion: charge signs, vector orientation, half-step velocities
+    "gyrofrequency",
+    "larmor_radius",
+    "gyration_offset",
+    "exb_drift_velocity",
+    "grad_b_drift_velocity",
+    "curvature_drift_velocity",
+    "boris_orbit",
     # nu* and rho* families
     "collisionality_from_n_T_B_R",
     "normalized_collisionality_from_nu_ii_T_i_M_i_R_a_q",
@@ -119,6 +280,16 @@ CONVENTION_SENSITIVE = frozenset({
     "green_psi_exact",
     "green_br_bz_exact",
     "green_r",
+    # Romero's transformer (#781): full-weber flux, V = -dpsi/dt, and the
+    # sign of psi_C - psi_B.
+    "resistive_voltage_from_R_p_I_p_I_ni",
+    "internal_inductance_rate_from_I_p_V_R_V_C",
+    "plasma_current_rate_from_L_i_V_B_V_C_V_R",
+    "equilibrium_surface_voltage_from_I_p_dL_i_V_R",
+    "equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R",
+    "current_weighted_flux_from_psi_j_dS",
+    "internal_inductance_from_psi_C_psi_B_I_p",
+    "romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau",
     # atomic: ADF11 table units
     "interpolate_adf11",
     "fractional_abundances",
@@ -144,15 +315,37 @@ CONVENTION_SENSITIVE = frozenset({
     "atomic_inventory_from_molecular_gas",
     "townsend_ionization_coefficient",
     "lloyd_breakdown_field",
+    "townsend_coefficients_for_gas",
+    "townsend_breakdown_field_for_gas",
     "electron_cyclotron_resonance_radius",
     "breakdown_margin",
     "lloyd_figure_of_merit",
+    # the lumped circuit (#783 3.6-3.8): transverse vs parallel resistivity,
+    # the resistivity the ring resistance must be fed, the li normalisation,
+    # and the sign of the loop voltage against the current.
+    "resistivity_from_n_e_nu_e",
+    "plasma_resistance_uniform_ellipse_from_eta_R0_a_kappa",
+    "plasma_inductance_circular_from_R0_a_li",
+    "plasma_current_derivative_lumped_from_V_loop_R_p_I_p_L_p",
+    # burn-through (#783 3.9): atoms not molecules, and plasma-local densities
+    # rather than vessel averages.
+    "neutral_density_after_ionization_from_n_0_n_e_V_p_V_V",
+    "ionization_fraction_from_n_e_n_D0",
+    # #782: Romero's full-weber V_B = -dpsi_B/dt, and the one-half on dL_i/dt.
+    "boundary_loop_voltage_terms_from_L_e_I_p_M_pj_I_j",
+    "internal_inductive_voltage_terms_from_L_i_I_p",
+    # cylindrical q, not q95, on the Hugill y axis (#1068)
+    "hugill_coordinates",
 })
 
 #: Fitted coefficients or scalings: the source dataset must be named.
 EMPIRICAL = frozenset({
+    # Makowski 2012 fit of the Eich profile integral (#951)
+    "eich_integral_width",
     "greenwald_density",
     "confinement_time_from_engineering_parameters",
+    "neo_alcator_confinement_time_from_n_a_R_q",
+    "goldston_l_mode_confinement_time_from_I_P_R_a_kappa",
     "empirical_li_qa",
     "li_from_qa_empirical",
     "kink_stability_criterion",
@@ -174,6 +367,9 @@ EMPIRICAL = frozenset({
     "sauter_bootstrap_current",
     "redl_bootstrap_current",
     "lloyd_breakdown_field",
+    "townsend_coefficients_for_gas",
+    "townsend_breakdown_field_for_gas",
+    "romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau",
 })
 
 SPECS = catalog.list_formulas()

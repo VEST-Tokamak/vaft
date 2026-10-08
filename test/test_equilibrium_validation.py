@@ -137,8 +137,15 @@ def test_aggregation_never_collapses_the_undecided_into_a_pass():
 
 
 def test_not_available_is_distinct_from_pass_and_from_fail(report):
-    # The sample fits nothing (every family prescribed) and carries no kinetic data.
+    # The sample carries EFIT's reconstructed values (m-file replay, #952), but
+    # the k-files recorded no uncertainty model: residuals normalised by the
+    # legacy sigma (weight * 1e4, 1000 T on a probe) are not graded (#891), so
+    # every fitted family is not available rather than a pass. No kinetic data.
     assert report["summary"]["diagnostic_fit"] == NOT_AVAILABLE
+    fit = report["diagnostic_fit"]
+    for family in ("ip", "bpol_probe", "flux_loop", "pf_current"):
+        assert fit[family]["status"] == NOT_AVAILABLE, family
+        assert "uncertainty model" in fit[family]["slices"][0]["reason"], family
     kinetic = report["independent_validation"]["kinetic_pressure"]
     assert kinetic["status"] == NOT_AVAILABLE
     assert "core_profiles" in kinetic["slices"][0]["reason"]
@@ -236,6 +243,12 @@ def test_an_undeclared_convention_is_indeterminate_not_a_pass(sample):
 def test_diagnostic_fit_is_efit_quality_family_by_family(efit):
     from vaft.omas.efit_quality import fit_quality_metrics
 
+    # Grading needs a statistical uncertainty model on record (#891); the
+    # fixture's Ip is made ten sigma off in its plasma-only residual, which is
+    # what the recomputed Ip chi-square measures.
+    efit = copy.deepcopy(efit)
+    efit["equilibrium.code.parameters.uncertainty_model"] = "standard_deviation"
+    efit["equilibrium.time_slice.0.constraints.ip.measured_error_upper"] = 10.0
     metrics = fit_quality_metrics(efit, time_slice=0)
     fit = validate_magnetic_fit(efit, time_slice=0)
     for family in ("bpol_probe", "flux_loop"):
@@ -244,11 +257,24 @@ def test_diagnostic_fit_is_efit_quality_family_by_family(efit):
         assert fit[family]["chi_squared_sum"] == metrics["families"][family]["chi_squared_sum"]
     assert fit["pf_current"]["status"] == NOT_AVAILABLE and fit["pf_current"]["fit_role"] == "prescribed"
     # The fixture's Ip constraint is ten sigma off, beyond the registered fail tolerance.
-    assert fit["ip"]["z"] == metrics["scalars"]["ip"]["z"] == 10.0
+    assert fit["ip"]["z"] == metrics["scalars"]["ip"]["z"] == pytest.approx(10.0)
     assert fit["ip"]["status"] == FAIL and describe("diagnostic_fit.ip").tolerance[1] < 10.0
-    assert fit["diamagnetic_flux"]["status"] == NOT_AVAILABLE
+    # The fixture leaves the diamagnetic loop as the sample stores it, which
+    # since the m-file replay (#952) is EFIT's own reconstruction: weighted out
+    # (fit weight 1e-4), so its chi-square is ~1e-16 and it passes.
+    assert fit["diamagnetic_flux"]["status"] == PASS
     assert fit["global"]["chi_squared_reduced"] == metrics["chi_squared_reduced"]
     assert fit["global"]["status"] == PASS
+
+
+def test_diagnostic_fit_is_not_graded_without_a_statistical_sigma(efit):
+    # The same fixture with no uncertainty model on record: every sigma-normalized
+    # grade is not available, and the physical residual is still there.
+    fit = validate_magnetic_fit(efit, time_slice=0)
+    for check in ("bpol_probe", "flux_loop", "ip", "global"):
+        assert fit[check]["status"] == NOT_AVAILABLE, check
+        assert fit[check]["uncertainty_model"] == "unknown"
+    assert fit["ip"]["residual"] == pytest.approx(100.0)
 
 
 def test_convergence_is_kept_apart_from_fit_and_from_validity(sample, efit):
@@ -293,37 +319,36 @@ def test_pressure_consistency_names_both_definitions(report):
     assert _slice(report, "physical_validity", "pressure_consistency", DEAD)["status"] == NOT_AVAILABLE
 
 
-def test_the_reconstructed_diamagnetic_flux_disagrees_with_the_measurement_in_sign(report):
-    """A finding on shot 39915 the report surfaces: the reconstructed flux is
-    paramagnetic where the loop measures diamagnetic.
+def test_the_reconstructed_diamagnetic_flux_agrees_with_the_measurement_in_sign(report):
+    """Shot 39915: the loop and the reconstruction are both paramagnetic.
 
-    This test has twice asserted that the measured flux nearly closes the
-    virial energy balance -- to half a percent, then to ~8%. Both were
-    artifacts of sign errors, and both are gone:
+    This test used to pin the opposite -- a paramagnetic reconstruction
+    against a loop "measuring diamagnetic", and W_diamagnetic tens of times
+    W_kin.  The loop's sign came from an extra minus in the mapper port that
+    the donor never had (#1196).  Corrected, the fluxes agree in sign and to
+    ~19 %, so ``diamagnetic_flux`` passes.
 
-    * the Lao ``beta_p`` carried a spurious ``+r*S2`` (#546, fixed in #566), and
-    * ``mu_i`` was handed to the closures on the flux convention, which is the
-      negative of the volume definition the three virial relations use.
-
-    With both corrected the two sides say what the data says. ``W_kin`` comes
-    from a reconstruction whose virial ``beta_p`` is 0.034 -- almost no poloidal
-    beta, the pressure-profile defect #386 -- while ``W_diamagnetic`` comes from
-    a loop implying ``beta_p`` above 1. They differ by a factor of tens, so the
-    check **fails**, alongside ``diamagnetic_flux``. Two checks, one story.
+    ``diamagnetic_energy`` still fails, and by a smaller, now credible margin:
+    the loop implies beta_p ~ 0.17 (W ~ 180 J) where the reconstruction's
+    virial beta_p is 0.034 (W_kin ~ 35 J) -- a factor of ~5, the
+    pressure-profile defect #386 without the sign error on top.
     """
     flux = _slice(report, "physical_validity", "diamagnetic_flux", LIVE)
-    assert flux["status"] == FAIL
-    assert flux["sign_agreement"] is False
-    assert flux["measured"] < 0 < flux["computed"]
+    assert flux["status"] == PASS
+    assert flux["sign_agreement"] is True
+    assert 0 < flux["measured"] < flux["computed"]
+    assert flux["relative_error"] == pytest.approx(0.193, abs=0.005)
 
     energy = _slice(report, "independent_validation", "diamagnetic_energy", LIVE)
     assert energy["status"] == FAIL
     assert abs(energy["log_ratio"]) > describe(
         "independent_validation.diamagnetic_energy"
     ).tolerance[1]
-    # The reconstruction is paramagnetic; the loop is not.
+    assert energy["beta_p_diamagnetic"] == pytest.approx(0.174, abs=0.005)
+    assert energy["W_diamagnetic"] / energy["W_kin_virial"] == pytest.approx(5.1, abs=0.2)
+    # Both paramagnetic: the volume-convention mu_i is negative on either side.
     virial = _slice(report, "physical_validity", "virial_parameter_plausibility", LIVE)
-    assert virial["mui"] < 0 < energy["W_diamagnetic"]
+    assert virial["mui"] < 0 and energy["mui_measured"] < 0
 
 
 def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):
@@ -333,7 +358,7 @@ def test_measurements_can_arrive_on_a_separate_diagnostics_ods(sample):
     assert alone["diamagnetic_flux"]["status"] == NOT_AVAILABLE
     assert validate_independent(equilibrium_only, time_slice=LIVE)["diamagnetic_energy"]["status"] == NOT_AVAILABLE
     with_measurement = validate_physical(equilibrium_only, time_slice=LIVE, diagnostics=sample)
-    assert with_measurement["diamagnetic_flux"]["status"] == FAIL
+    assert with_measurement["diamagnetic_flux"]["status"] == PASS
     assert "magnetics" not in equilibrium_only  # the graft happened on the working copy
 
 

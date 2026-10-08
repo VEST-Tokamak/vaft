@@ -43,3 +43,25 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if Path(str(item.fspath)).resolve() in core:
             item.add_marker(pytest.mark.core)
+
+
+@pytest.fixture(autouse=True)
+def _local_execution_backend(monkeypatch):
+    """Keep every test on the local backend whatever the developer's shell says.
+
+    ``VAFT_EXECUTION_BACKEND=slurm`` routes every adapter call without an
+    explicit ``backend=`` through Slurm (#1017); a suite run from such a shell
+    would otherwise submit its stub programs as cluster jobs.
+
+    The memory-budget variables (#1146) go too: a suite run inside a Slurm
+    allocation, or with ``VAFT_MEMORY_BUDGET_MB`` exported, would otherwise
+    give every ``memory_budget()`` call that job's limit instead of the one a
+    test sets.
+    """
+    for name in (
+        "VAFT_EXECUTION_BACKEND", "VAFT_SLURM_PARTITION", "VAFT_SLURM_ACCOUNT",
+        "VAFT_SLURM_QOS", "VAFT_SLURM_MODE", "VAFT_SLURM_MAX_WAIT",
+        "VAFT_MEMORY_BUDGET_MB", "SLURM_MEM_PER_NODE", "SLURM_MEM_PER_CPU",
+        "SLURM_CPUS_ON_NODE",
+    ):
+        monkeypatch.delenv(name, raising=False)

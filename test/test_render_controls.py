@@ -68,6 +68,30 @@ def test_as_options_leaves_out_none_and_style_and_lets_channels_replace_the_pres
     assert state.as_options() == {"time_slice": 2, "layout": "overlay", "synthetic": "equilibrium", "dark": False}
 
 
+def test_an_empty_multi_choice_is_passed_but_empty_channels_mean_the_preset():
+    specs = _specs() + (ControlSpec("overlay", "multi", "Overlays", ("wall",), ("wall", "coils")),)
+    state = ControlState(specs)
+    state.set("overlay", ())
+    options = state.as_options()
+    assert options["overlay"] == (), "no overlays, not the builder's default ones"
+    assert "channels" not in options and "selection" not in options
+
+
+def test_choosing_a_preset_clears_the_individual_channels_that_replaced_it():
+    specs = _specs() + (ControlSpec("selection", "choice", "Channels", "active", ("active", "inboard"), group="selection"),)
+    state = ControlState(specs, {"channels": [2], "selection": "active"})
+    assert state["channels"] == (2,), "given together, the explicit channels stay"
+    seen = []
+    state.subscribe(lambda s: seen.append(s.values["channels"]))
+    assert state.set("selection", "inboard") is True
+    assert state["channels"] == () and state.as_options()["selection"] == "inboard" and seen == [()]
+    state.set("channels", [0, 1])
+    # the preset shown is still "inboard": picking it again still means it
+    assert state.set("selection", "inboard") is True and state["channels"] == ()
+    state.update(channels=[1], selection="active")
+    assert state.as_options()["selection"] == [1]
+
+
 def test_a_slice_control_and_a_navigator_follow_each_other():
     state = ControlState(_specs())
     navigator = SliceNavigator([0.1, 0.2, 0.3, 0.4, 0.5], usable=[0, 2, 4], initial=2)
@@ -143,7 +167,7 @@ def test_the_matplotlib_strip_drives_the_state_and_follows_it(sample):
         result = render_controls(build, ControlState(controls_for(record)), draw=draw, backend="matplotlib")
     widgets = result.widget
     names = [c.name for c in result.controls]
-    assert [type(w).__name__ for w in widgets] == ["RadioButtons", "CheckButtons"] + ["RadioButtons"] * 6
+    assert [type(w).__name__ for w in widgets] == ["RadioButtons", "CheckButtons"] + ["RadioButtons"] * 7
     layout = widgets[names.index("layout")]
     layout.set_active(1)
     assert result.state["layout"] == "subplots" and calls[-1]["layout"] == "subplots"
@@ -151,6 +175,16 @@ def test_the_matplotlib_strip_drives_the_state_and_follows_it(sample):
     channels.set_active(0)
     assert result.state["channels"] == (0,) and calls[-1]["selection"] == [0]
     assert result.figure.get_axes() and len(result.figure.subfigs) == 2
+    # a preset clears the channels in the state; the check boxes follow, so
+    # the next tick does not send the stale one back
+    preset = widgets[names.index("selection")]
+    preset.set_active(1)
+    assert result.state["channels"] == () and not any(channels.get_status())
+    channels.set_active(1)
+    assert result.state["channels"] == (1,)
+    # a change made from code moves the buttons without firing them
+    result.state.set("layout", "overlay")
+    assert layout.value_selected == "overlay"
 
 
 def test_plotly_figures_are_rebuilt_and_a_window_strip_is_refused(sample):
@@ -199,7 +233,7 @@ def test_the_ipywidgets_box_redraws_matplotlib_and_redisplays_plotly(sample):
 def test_interactive_true_on_a_plot_adapter_returns_the_controls_of_its_record(sample):
     result = vaft.omas.plot_flux_loop_time_flux(sample, interactive=True, interaction_backend="none", layout="subplots", legend=False)
     assert isinstance(result, Interactive)
-    assert [c.name for c in result.controls] == ["selection", "channels", "layout", "yunit", "x", "orientation", "validity", "theme"]
+    assert [c.name for c in result.controls] == ["selection", "channels", "layout", "yunit", "x", "synthetic", "orientation", "validity", "theme"]
     assert result.state["layout"] == "subplots"  # the option given is the starting value
     result.state.set("selection", "outboard")
     assert result.axes.shape == (4,)
@@ -250,7 +284,7 @@ def test_discovery_names_the_controls_and_the_entry_point(sample):
     record = next(r for r in vaft.omas.available_plots(sample) if r.name == "flux_loop_time_flux")
     assert "controls" in record.interaction
     assert record.interaction_entry_points["controls"] == "plot_flux_loop_time_flux(..., interactive=True)"
-    assert record.controls == ("selection", "channels", "layout", "yunit", "x", "orientation", "validity", "theme")
+    assert record.controls == ("selection", "channels", "layout", "yunit", "x", "synthetic", "orientation", "validity", "theme")
     assert "controls: selection, channels" in str(vaft.omas.available_plots(sample, query="flux loop"))
 
 
@@ -289,7 +323,7 @@ def test_controls_accepts_a_list_and_the_imas_adapter_offers_the_same(sample):
     assert subset.axes.shape == (11,)
     with vaft.imas.load(vaft.data.sample(39915, representation="imas"), imas_version="3.41.0") as handle:
         result = vaft.imas.plot_flux_loop_time_flux(handle, interactive=True, interaction_backend="none")
-        assert [c.name for c in result.controls] == ["selection", "channels", "layout", "yunit", "x", "orientation", "validity", "theme"]
+        assert [c.name for c in result.controls] == ["selection", "channels", "layout", "yunit", "x", "synthetic", "orientation", "validity", "theme"]
         result.state.set("selection", "outboard")
         assert result.axes is not None
 

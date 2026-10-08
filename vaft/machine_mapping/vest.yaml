@@ -30,6 +30,10 @@
     # second -- and `test/test_magnetics_geometry_join.py` asserts they name the
     # same probe at every index.
     #
+    # MD.yaml is the 2409 wiring. Where a shot's wiring differs, the entries it
+    # changes are revised per shot in `diagnostics.equilibrium_magnetics.
+    # processing.wiring` below (issue #956); positions never move.
+    #
     # A 64-entry `b_field_pol_probe.channels` block used to sit here carrying a
     # third description: same probes, same values, but ordered differently, so
     # it disagreed with the live pair at 11 of 64 positions. Nothing read it --
@@ -252,6 +256,10 @@
         field: 12
         raw_unit: V
         daq_type: slow
+      gauge:
+        name: PKR-251 Main Gauge
+        type_name: Penning
+        description: Pfeiffer PKR 251 full-range (Pirani + cold cathode) main-chamber gauge
       calibration:
         type: exponential_pressure
         scale: 2.4
@@ -264,6 +272,29 @@
         unit_conversion:
           factor: 133.3223684211
           output_unit: Pa
+      # The main-chamber gauge was replaced by a Pfeiffer IKR 251 at 46993
+      # (2025-10-29; confirmed by VEST operations, issue #1543). The IKR
+      # formula below is the one VEST operations supplied for this DAQ input
+      # (2026-10-05); it is not the bare datasheet law, so it includes the
+      # signal chain as installed. Field 12 is
+      # unchanged, but the output characteristic is not: the PKR formula on the
+      # new gauge read every pressure ~40-120x low (pre-puff 3e-8 Torr). With
+      # this formula the pre-puff base (2.1e-6 -> 1.3e-6 Torr) and the
+      # pre-discharge fill at 0.25-0.29 s (3.2e-5 -> 1.4e-5 Torr) stay
+      # continuous across the change (medians, every 10th shot 44000-48960).
+      revisions:
+        - from_shot: 46993
+          gauge:
+            name: IKR-251 Main Gauge
+            type_name: Penning
+            description: Pfeiffer IKR 251 cold-cathode (inverted magnetron) main-chamber gauge
+          calibration:
+            type: exponential_pressure
+            scale: 2.4
+            slope: 2.0
+            offset: -10.625
+            base: 10.0
+            output_unit: Torr
 
     # 6 kW 2.45 GHz ECH (port 5ML10) forward/reflected power detectors, issue
     # #165. Same legacy log-detector transfer function as the VFIT donor
@@ -328,22 +359,70 @@
         taps: 26
         baseline_samples: 1000
         smoothing_window: 50
+        # Acquisition excursions of the TF current (issue #1543): the trace
+        # leaves its 12 kA plateau by -15/+25 kA from plasma termination to
+        # ~0.326 s on 48238-48269, 46250, 46500 -- impossible for a circuit
+        # with an L/R of seconds -- and drags BTOR with it. A core departure
+        # of the 1 ms median from the 60 ms trend must exceed BOTH 15 % of
+        # the plateau and 8 sigma of that median's own noise (measured in the
+        # quiet 0.20-0.25 s before the PF swing) for 2 ms: the raw noise is a
+        # fixed size, so the plateau fraction alone flagged healthy low-field
+        # shots. Real excursions depart 50-200 % of the plateau for 20+ ms.
+        excursion_repair:
+          enabled: true
+          window: [0.25, 0.40]
+          noise_window: [0.20, 0.25]
+          trend_window_s: 0.060
+          detect_window_s: 0.001
+          core_fraction: 0.15
+          core_sigma: 8.0
+          min_core_s: 0.002
+          extend_fraction: 0.05
+          extend_sigma: 3.0
+          margin_s: 0.002
+          merge_gap_s: 0.005
+          min_plateau: 2000.0
+          # Second-pass reference and replacement: a straight line through the
+          # good samples from fit_start to the excursion onset (the post-event
+          # record can stay offset: 46525 sits ~4 kA low after its excursion).
+          fit_start: 0.20
       output:
         turns: 24
         reference_radius: 0.4
 
     # Diamagnetic-flux Rogowski coil (issue #285). This block is the home for
     # the shot-era field code and the TF-circuit constants that used to sit as
-    # Python literals inside `vest_diamagnetic_flux`; the values below
-    # reproduce that code exactly, they are not a recalibration.
+    # Python literals inside `vest_diamagnetic_flux`. The TF-circuit constants
+    # still reproduce that code exactly; the field history does not -- it was
+    # re-derived in #993, below.
     #
-    # TODO(#285): the field codes here are the ones the mapper has always
-    # used, but `vaft/data/legacy/sql_table.txt` names 246 "Flux Loop - #15"
-    # and 4 "PF2 and 3 Current", and reserves the name "Diamagnetic Flux" for
-    # field 236 (257 has no entry at all). Either the name tables are stale or
-    # the era selector is; field 236 is absent from every packaged sample dump
-    # so it cannot be checked offline. Behaviour is preserved until that is
-    # resolved with the diagnostic owner.
+    # The "diamagnetic flux" is the TF-circuit Rogowski coil (T.K. Kim), not a
+    # diamagnetic loop. Its channel history was re-derived from the raw
+    # archive in #993 (the #285 TODO): VFIT's 246 -> 4 -> 257 selector, which
+    # this file used to copy, reads a flux loop for every shot before 37505.
+    #
+    #   < 37505       no Rogowski. Field 246 is "Flux Loop - #15" (DB name) and
+    #                 tracks its up-down mirror loop 244 at |r| = 1.00 in every
+    #                 era 2020-2026; it is also an equilibrium flux loop in
+    #                 MD.yaml. Recorded as not acquired, never as saturated.
+    #   37505-38569   field 4 (the DB's "PF2 and 3 Current" channel carries
+    #                 the Rogowski here; 257 does not exist before 38570).
+    #   38570-        field 257, except the 2023 days on which 257 was not
+    #                 archived and the Rogowski is on field 4 (listed below,
+    #                 every shot with 257 absent and 4 live in 38452-41813),
+    #                 and 41814-42668 (2024-01-15 .. 06-11), where 257 sits at
+    #                 the ADC rail for the whole record: a sensor/DAQ fault.
+    #   42669-        field 257 only. From here field 4 is PF2 and is live on
+    #                 nearly every shot whether or not 257 was archived (218
+    #                 shots in 42669-48864 have 257 absent and 4 live), so a
+    #                 missing 257 means "not archived", never "on field 4".
+    #                 257 is pinned on some shots 48828-48856 (2026-08-25 ..
+    #                 09-01); those are left out per shot, not listed here.
+    #
+    # A raw field feeds one signal: where the Rogowski is on field 4, PF2 does
+    # not read field 4 (`pf_active.coil_field_code_by_index`).
+    # Field 236 ("Diamagnetic Flux" in the DB table) is absent from every
+    # shot sampled between 29350 and 48802.
     diamagnetic_flux:
       source:
         field: 257
@@ -364,14 +443,27 @@
         saturation_repair:
           values: [-5.0, 4.999847412109375]
           tolerance: 3.0e-4
+      # `source: null` means no usable sensor for the shot; the mapper leaves
+      # the diamagnetic flux out with `unavailable_reason` (#993).
       revisions:
         - to_shot: 37504
-          source: {field: 246, raw_unit: V, daq_type: 0}
+          source: null
+          unavailable_reason: "no TF-circuit Rogowski before shot 37505 (field 246 is flux loop #15)"
         - from_shot: 37505
-          to_shot: 38451
+          to_shot: 38569
           source: {field: 4, raw_unit: V, daq_type: 0}
-        - from_shot: 38452
-          source: {field: 257, raw_unit: V, daq_type: 0}
+        - {from_shot: 38871, to_shot: 38876, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 38882, to_shot: 38891, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 40533, to_shot: 40553, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 40676, to_shot: 40676, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 40728, to_shot: 40735, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 40738, to_shot: 40738, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 41749, to_shot: 41752, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - {from_shot: 41790, to_shot: 41813, source: {field: 4, raw_unit: V, daq_type: 0}}
+        - from_shot: 41814
+          to_shot: 42668
+          source: null
+          unavailable_reason: "field 257 pinned at the ADC rail for the whole record, 2024-01-15 .. 06-11 (sensor or DAQ fault)"
 
     pf_active:
       processing:
@@ -459,28 +551,42 @@
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
         - from_shot: 38401
-          to_shot: 38451
+          to_shot: 38569
           processing:
             coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
         # Same gains; the boundary is PF2's, not theirs. See the note below.
-        - from_shot: 38452
-          to_shot: 45964
+        - from_shot: 38570
+          to_shot: 45895
           processing:
             coil_field_codes: {1: 4}
             coil_gains: {0: -5.0e4, 4: -1.0e4, 5: -1.0e3, 8: -5.0e2, 9: -5.0e2}
             saturation_repair:
               5: {value: -5000.0, tolerance: 10.0}
         # PF2 enters here and not earlier. The donor gives it field 4 for
-        # every shot from 19284, but this file records field 4 as the
-        # *diamagnetic loop* for 37505-38451, and the two cannot both be
-        # right. Declaring PF2 only from 38452 -- where the loop moved to 257
-        # and the conflict ends -- refuses to read a channel that provably
-        # belonged to another diagnostic. Verified on 46742: field 4 carries
+        # every shot from 19284, but field 4 carried the diamagnetic TF
+        # Rogowski for 37505-38569 (field 257 does not exist before 38570;
+        # #993 re-derived this from the raw archive -- it used to say 38451).
+        # Declaring PF2 only from 38570 refuses to read a channel that
+        # provably belonged to another diagnostic. Verified on 46742: field 4 carries
         # 25000 samples there and is empty on 39915, so the channel is real
         # and per-shot.
-        - from_shot: 45965
+        # The Rogowski also returned to field 4 on some 2023 days (listed in
+        # `diamagnetic_flux.revisions`); on those shots PF2 does not read
+        # field 4 either (`coil_field_code_by_index` drops any circuit whose
+        # field is the shot's diamagnetic field).
+        #
+        # PF1's gain -5e4 -> -1e4 starts at 45896, not at the donor's 45965
+        # (`VEST_PFwaveform.m`, `shotcode < 45965`), issue #956. The field-59
+        # raw scale changed fivefold across the 2025-06-17 -> 06-23 access:
+        # 45895 reads 0.34 V and 45929 (the first energised shot after it)
+        # 1.83 V, while the inboard flux loop (field 25), PF5, PF6 and PF9/10
+        # read the same before and after, so only the DAQ scale moved. On
+        # 45960/45964 the -5e4 gain makes PF1 five times larger than field
+        # 25 allows (fit multiplier 0.20); -1e4 fits (1.01), as it does on
+        # 45965/45974. 45896-45928 are commissioning shots with PF1 idle.
+        - from_shot: 45896
           to_shot: 48371
           processing:
             coil_field_codes: {1: 4}
@@ -569,6 +675,138 @@
               flux_baseline_window: null
               flux_baseline_samples: 1750
               daq_mode: native_daq
+        # Which raw DAQ field (and calibration sign) feeds each probe position
+        # (issue #956). The base is the shipped MD.yaml, the VFIT ver_2409
+        # layout; a revision replaces only the listed probe indices (the
+        # MD.yaml / geometry list position, pinned by r and z so a reordered
+        # asset fails loudly instead of rewiring the wrong probe).
+        #
+        # Shots <= 39437 (last shot 2023-05-29) carry the older outboard
+        # layout that VFIT ver_2302/2305 record: Z=+0.06 on field 170 and
+        # Z=-0.42 on field 225 (negative), the reverse of 2409. The swap
+        # happened overnight to 39438 (2023-05-30). Established from the raw
+        # signals by `workflow/magnetics_geometry/verify_wiring.py`, which
+        # scores each VFIT layout against the linear prediction of the
+        # untouched neighbours in the same R = 0.796 m column (250+ shots,
+        # 2022-05..2026; 39437 prefers 2302 by 4.5x, 39438 prefers 2409).
+        # Only these two positions are revised: the other rows in which the
+        # 2302/2305 files differ (inboard field 197 sign, fields 179/180
+        # calibration) are NOT supported by the same test -- field 197 keeps
+        # the 2409 sign on pre-39438 shots (gain +1.08 on 37000) -- and are
+        # left at 2409. VFIT's `shot == 39204 -> ver_2310` override is
+        # contradicted by the data (39204 fits this layout 2.5x better).
+        wiring:
+          layout: "2409"
+          probe_overrides: []
+          revisions:
+            - to_shot: 39437
+              layout: "pre-39438"
+              probe_overrides:
+                - {index: 35, r: 0.796, z: 0.06, field_code: 170, calibration: 0.004539265}
+                - {index: 47, r: 0.796, z: -0.42, field_code: 225, calibration: -0.00452284}
+        # Probe positions whose acquisition is known to be broken for a range
+        # of shots (issue #956). The magnetics validation marks the whole
+        # record invalid with this reason; data is kept, not dropped, and EFIT
+        # rejects a condemned channel through the ordinary validity path.
+        # Z=+0.06 (field 170 in the pre-39438 layout), from a scan of its
+        # mean voltage and its gain against the field 169/171 neighbours:
+        #   <= 36480  DC offset -140..-190 mV to 2022-01 (neighbours +-1 mV),
+        #             gain -46..+21; then -2..-9 mV with gain 0..2.6. The
+        #             offset disappears at 36481 (2022-06-23 11:26), after
+        #             which gain is 0.98, residual 0.02. Raw data start at
+        #             29350, already in this state.
+        #   36822..36905  pinned at the -5 V rail, then -2.5 V (2022-07-28 ..
+        #             08-11). The shots on either side carry no field 170;
+        #             36617 before and 36943 after are good.
+        #
+        # C4-04 (index 45, R=0.796, Z=-0.34, field 224), on every shot (issue
+        # #977). Over the plasma-free window it reads a field its two
+        # neighbours 4 cm above and below do not see (+10 mT on PF1 against
+        # -1 mT on 39915) and is anticorrelated with the PF-only wall model on
+        # all three reference shots: correlation -0.44 / -0.63 / -0.84,
+        # array-contradiction fraction 0.75 / 0.39 / 1.00 (39915 / 41524 /
+        # 41672). In EFIT it misses by 42-270% on every reference slice, and
+        # under a statistical sigma it carries 70% of the probe chi-square
+        # (#924). The waveform check cannot condemn it (amplitude 0.7-2.2x its
+        # family median, the hard rule is 4x), so it is recorded here. Whether
+        # it is polarity, orientation or calibration -- and so whether the
+        # range can narrow or the channel be repaired -- is #977's diagnosis.
+        # Revisions replace `probes` rather than extend it, so the entry is
+        # repeated in each.
+        known_faults:
+          probes:
+            - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+          revisions:
+            - to_shot: 36480
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition broken: DC offset and gain unrelated to its neighbours (field 170)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - from_shot: 36822
+              to_shot: 36905
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition saturated at the DAQ rail (field 170)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            # Flux-loop acquisition faults (issue #1543), from a per-shot scan of
+            # every loop's integrated amplitude against its siblings. A dead loop
+            # reads 1e-5..2e-3 Wb/rad where the others read ~1e-2; the waveform
+            # check does not condemn it (a small, live-looking signal), so it
+            # would reach EFIT at full weight without this record. `index`
+            # counts within flux_loop; r/z pin it.
+            - from_shot: 44394
+              to_shot: 44922
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loop #12 (field 243) dead: ~1e-3 of its siblings' amplitude from 44394 (44393 is the last good shot) to 44922 (44923 good again)"}
+            - from_shot: 44928
+              to_shot: 45027
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {index: 8, r: 0.106, z: 0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loops #12-#15 (fields 243-246) dead together 44928-45027 (44927 and 45028 good)"}
+            # Lower-inboard loops #14/#15 (issue #1793): an up-down mirror scan of
+            # every plasma shot (loop 9 vs 7, 10 vs 8, minus the Z=+-0.805 pair)
+            # finds them off during plasma only; and #12, #13, #15 flat zero from
+            # 48816. Segments are contiguous because a revision replaces the lists.
+            - from_shot: 46749
+              to_shot: 47985
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
+                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loop #15 (field 246) off its up-down mirror #13 during plasma: -15 to -45 mWb per 100 kA, 46976-48038 (46748 last clean, no plasma shot 46749-46975; 48224 clean again); plasma-free baseline agrees (issue #1793)"}
+            - from_shot: 47986
+              to_shot: 48038
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
+                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loop #15 (field 246) off its up-down mirror #13 during plasma: -15 to -45 mWb per 100 kA, 46976-48038 (46748 last clean, no plasma shot 46749-46975; 48224 clean again); plasma-free baseline agrees (issue #1793)"}
+            - from_shot: 48039
+              to_shot: 48392
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {index: 9, r: 0.13, z: -0.696, reason: "Flux loop #14 (field 245) off its up-down mirror #12 during plasma: -8 to -37 mWb per 100 kA beyond the Z=+-0.805 control pair, 46976-48392 (46748 last clean, no plasma shot 46749-46975; 48435 clean again); plasma-free baseline agrees, so a local current at the lower inboard limiter corner or a pickup, not a dead sensor (issue #1793)"}
+            - from_shot: 48393
+              to_shot: 48815
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+            - from_shot: 48816
+              probes:
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+              flux_loops:
+                - {index: 3, r: 0.592, z: -0.685, reason: "Flux loop #6 (field 21) dead from 47986 (47985 is the last good shot): reads ~2e-4 Wb/rad, measured/vacuum-model slope -0.006 on 48224 where its siblings give 0.93-1.10"}
+                - {index: 7, r: 0.13, z: 0.696, reason: "Flux loop #12 (field 243) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
+                - {index: 8, r: 0.106, z: 0.62, reason: "Flux loop #13 (field 244) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
+                - {index: 10, r: 0.106, z: -0.62, reason: "Flux loop #15 (field 246) reads flat zero (|flux| < 0.3 mWb at the Ip peak while #9 and the Z=+-0.805 pair swing 10-46 mWb) from 48866 on; 48815 is the last live shot, 48816-48865 drove no PF current (issue #1793)"}
 
     # Kinetic-profile construction policy (issue #420): the VEST decisions a
     # pipeline hands to the machine-independent vaft.process.profile and
@@ -580,36 +818,76 @@
       # Radial coordinate the kinetic profiles are fitted in. rho_tor_norm is
       # the IMAS convention; psi_norm is what every fit used before #420.
       coordinate: rho_tor_norm
-      # Statistical Ti/Te coefficient for Thomson-only slices (no
-      # IDS/charge_exchange). Fitted on the 9 kinetic slices that carry both
-      # diagnostics, then applied to shots that do not: `inferred`.
+      # Ti/Te coefficient for Thomson-only slices (no IDS/charge_exchange).
+      # Assumed Ti = Te (total pressure ~ 2 p_e), the common estimate, until
+      # enough shots carry both diagnostics to infer it (2026-09-30, #1331).
+      # The earlier inference (0.17) rested on 9 slices of 3 shots within
+      # 3 ms; applied to the #1331 Tier A shots it held the kinetic pressure at
+      # 1.1 p_e while the magnetics-only fits needed ~2.4 p_e (kinetic chi2
+      # ~345). It is kept below as the record, not as the value.
+      # Known limitation: the kinetic pressure built from this ratio assumes
+      # n_i = n_e, p = p_e (1 + Ti/Te). With impurities p = p_e (1 + f_i Ti/Te),
+      # f_i = n_i,tot/n_e ~0.83-0.9 at Z_eff ~1.7-2, so the ion-dilution
+      # uncertainty is folded into this ratio. 1.0 +/- 0.5 is the canonical value
+      # for now; 0.5 +/- 0.25 and others are sensitivity variants, not chosen to
+      # fit a pressure band (2026-10-02).
       ti_te_ratio:
-        value: 0.17
-        sigma: 0.08                       # slice-to-slice std of the fitted-profile coefficient
-        status: inferred
-        shots: [48224, 48226, 48233]
-        time_window_ms: [299, 301]
-        estimator: >-
-          pressure-matching coefficient a = sum(ne^2 Te Ti) / sum(ne^2 Te^2) on
-          psi_N <= 1, per slice, on the FITTED 129-point core_profiles curves
-          (the profiles the spline pressure encoding consumes); the alpha that
-          preserves the kinetic pressure when Ti is replaced by a*Te
-        slice_statistics: {mean: 0.190, median: 0.155}
-        cross_check: >-
-          0.170 +/- 0.010 from an independent raw-point pairing (measured
-          Thomson Te against the weighted charge-exchange Ti fit,
-          effective-variance through-origin regression:
-          vaft.process.profile.fit_ti_te_ratio); 0.163-0.171 across mapping
-          gfile, fit degree and pairing direction
-        known_trend: the early 299 ms slices sit high (~0.28) against the 300/301 ms cluster (~0.14)
-        derivation_script: ids_test/fit_ti_te_ratio.py   # cited by the original derivation; not in the repository
-      # Impurity content for line-radiation estimates when the ODS carries no
-      # ion density profile. Assumed, not measured; no derivation recorded.
-      impurities:
-        species: [C, O]
-        fractions:
-          C: {value: 1.0e-2, status: assumed}
-          O: {value: 1.0e-2, status: assumed}
+        value: 1.0
+        sigma: 0.5                        # Ti between 0.5 and 1.5 Te at one sigma
+        status: assumed
+        rationale: >-
+          Ti = Te, i.e. total thermal pressure about twice the Thomson electron
+          pressure, the common estimate for an ohmic plasma without an ion
+          diagnostic; revisit when the CES/IDS series (482xx) is ingested
+        decided: 2026-09-30 (#1331)
+        superseded_inference:
+          value: 0.17
+          sigma: 0.08
+          status: inferred
+          shots: [48224, 48226, 48233]
+          time_window_ms: [299, 301]
+          estimator: >-
+            pressure-matching coefficient a = sum(ne^2 Te Ti) / sum(ne^2 Te^2) on
+            psi_N <= 1, per slice, on the FITTED 129-point core_profiles curves
+            (the profiles the spline pressure encoding consumes); the alpha that
+            preserves the kinetic pressure when Ti is replaced by a*Te
+          slice_statistics: {mean: 0.190, median: 0.155}
+          cross_check: >-
+            0.170 +/- 0.010 from an independent raw-point pairing (measured
+            Thomson Te against the weighted charge-exchange Ti fit,
+            effective-variance through-origin regression:
+            vaft.process.profile.fit_ti_te_ratio); 0.163-0.171 across mapping
+            gfile, fit degree and pairing direction
+          known_trend: the early 299 ms slices sit high (~0.28) against the 300/301 ms cluster (~0.14)
+          derivation_script: ids_test/fit_ti_te_ratio.py   # cited by the original derivation; not in the repository
+      # Impurity composition (#1565): an explicit VEST modelling preset, not a
+      # global VAFT default. Element, ionic charge state, mass and relative
+      # density are separate fields; the charge state is the ion's, never the
+      # atomic number. The quasi-neutral closure at the target Z_eff gives
+      # n_C/n_e = n_O/n_e = 1/86 (S1 = 7, S2 = 50); the reduced pseudo-impurity
+      # is Z_I,eff = 50/7, n_I,eff/n_e = 49/2150, A_I,eff ~ 14.3. The C and O
+      # fractions line radiation uses (when the ODS carries no ion density
+      # profile) are DERIVED from this block, not configured beside it.
+      impurity_model:
+        status: assumed
+        main_ion: H
+        species:
+          - {element: C, charge_state: 6, relative_density: 0.5}
+          - {element: O, charge_state: 8, relative_density: 0.5}
+        target_zeff: 2.0
+        reduction: preserve_charge_z2_mass
+        rationale: >-
+          equal carbon (graphite limiter and walls) and oxygen (water, residual
+          gas) densities at Z_eff = 2, fully stripped; the radial charge-state
+          distribution from T_e(rho), n_e(rho) is a separate, derived model
+        decided: 2026-10-03 (#1565)
+        superseded_assumption:
+          fractions: {C: 1.0e-2, O: 1.0e-2}
+          status: assumed
+          note: >-
+            line-radiation fractions configured directly until 2026-10-03, no
+            derivation recorded; they implied Z_eff ~ 1.86 against the Z_eff = 2
+            assumed elsewhere
 
     # Triple Langmuir probes (issue #152). Deliberately no unconditional
     # default block below `revisions:` -- a shot that matches no era has no
@@ -753,13 +1031,20 @@
     # array's first_operational_shot, this is a gate the caller applies, not a
     # per-channel field.
     #
-    # Field 171 is DISPUTED and is left in place pending issue #825. The same
-    # machine logs classify it as `Bz C2 05` / group `OutBz` -- an outboard
-    # *equilibrium* probe at z = +0.02, filling that array's uniform 0.04 m
-    # ladder -- so it is very likely not a toroidal reference at all, and VAFT
-    # currently publishes it twice at two different toroidal angles. Its clock
-    # position here was inferred in issue #718 from a layout figure and is the
-    # inference #825 disputes; resolving it needs the VEST channel list.
+    # Field 171 is DISPUTED and its entry is kept as the record of the claim
+    # pending issue #825. The same machine logs classify it as `Bz C2 05` /
+    # group `OutBz` -- an outboard *equilibrium* probe at z = +0.02, filling
+    # that array's uniform 0.04 m ladder -- so it is very likely not a toroidal
+    # reference at all. Its clock position here was inferred in issue #718 from
+    # a layout figure and is the inference #825 disputes; resolving it needs
+    # the VEST channel list.
+    #
+    # It is NOT published from here. The mapper publishes a reference channel
+    # only when the shot's equilibrium wiring does not already read its field
+    # (toroidal_mirnov_reference_channels), so field 171 appears once, as
+    # equilibrium probe 36 at the outboard family's 5:30 -- the position the
+    # evidence supports. Publishing both put one waveform at two toroidal
+    # angles and let a mode fit measure it against itself (#724, #825).
     toroidal_mirnov_reference:
       source: {raw_unit: V, daq_type: slow}
       role: phase_reference
@@ -1091,6 +1376,57 @@
         # that enter through the `profiles` file, not machine description, and
         # writing them as static machine metadata is exactly the conflation
         # issue #490 section 5 warns against.
+
+  # EC launcher geometry (issue #266), consumed by
+  # vaft.machine_mapping.ec_launchers. Power stays in `diagnostics:` (#165).
+  #
+  # Source: the EC officer's `MID 6KW ECH ASSY.stp` (Inventor 2026 AP214
+  # export, 2026-09-21, sha256 a4f7b9dd...711c), reduced by
+  # vaft/validation/studies/ec_launcher_cad_266/extract_launcher_geometry.py. The assembly
+  # carries the vessel section (`MIDDLE SHIELD PART`: an r = 800 mm cylinder,
+  # z = +-587 mm, radial r = 82.6 mm port holes at z = -360 / 0 / +360 mm), so
+  # the machine axis is recovered from the CAD rather than assumed.
+  #
+  # The line has no horn or mirror: WR340 -> WR284 -> quartz window -> open
+  # CF10 tube of bore 158.4 mm. The launch plane is the tube's plasma-facing
+  # end, whose centre on the port axis is R = 0.8021 m (the tube's end cut is
+  # recessed ~2 mm behind the r = 800 mm wall there). The bore axis is
+  # radial to 0.005 mm and normal to the machine axis to 1e-5, so k = -e_R and
+  # both IMAS steering angles are zero.
+  #
+  # PROVISIONAL, pending the EC officer (issue #266 comment 2026-09-27):
+  #   - z: the shield's local +Y (which is the CAD machine axis) is taken as
+  #     up and the shield centre as the midplane; either being wrong changes
+  #     z, and the first flips its sign. Lower tier agrees with the port name
+  #     5ML10.
+  #   - phi: the CAD has no toroidal datum; it comes from the port map.
+  #   - era: this installation is assumed for every shot with ECH power
+  #     recorded (fields 27/28 from ~29500); an earlier launcher is not known.
+  # Mode, O-mode fraction, spot and phase are deliberately absent. The TE10
+  # E-field is vertical (WR340 broad wall toroidal, 86.4 mm), recorded below as
+  # hardware polarization only: the O/X split depends on the local field pitch.
+  ec_launchers:
+    beams:
+      ech_6kw:
+        # Name, identifier and the 2.45 GHz magnetron frequency (MKS
+        # TM066/SM1280) live in the module beside the power mapping.
+        port: 5ML10
+        revisions:
+          - from_shot: 29500
+            geometry_status: provisional
+            source: MID 6KW ECH ASSY.stp (sha256 a4f7b9ddcafa987eb958c46ce374633cf5501c28792eb3b42db1cb86b693711c)
+            launch_plane: port tube plasma-facing end
+            launching_position: {r: 0.8021, z: -0.360}   # m; phi from `port`
+            # Unit propagation direction (k_R, k_phi, k_Z) at the launch point.
+            direction: [-1.0, 0.0, 0.0]
+            # TE10 E-field direction (e_R, e_phi, e_Z); provenance only, no
+            # IMAS node carries it.
+            polarization: [0.0, 0.0, 1.0]
+            # Upstream stations on the same axis (on-axis R), provenance only.
+            stations:
+              quartz_window_r: [0.873, 0.883]
+              wr284_end_r: 0.893
+              waveguide: WR340 (86.36 x 43.18 mm) -> WR284
   langmuir_probes:
     mid:
       source:
@@ -1436,6 +1772,44 @@ impa:
     pitch_tolerance: 0.015
 
 
+# Recorded faults of diagnostics that have no IMAS validity node (issue #1543),
+# read by vaft.machine_mapping.diagnostic_faults.known_diagnostic_faults. A
+# record documents; it does not alter a mapped value. Each entry is pinned by
+# IDS node, label and raw field against the mapper's own channel table.
+# from_shot/to_shot are inclusive. Boundaries come from raw-signal scans:
+# where the shots between the last good and the first bad one carry no plasma
+# (nothing to judge), the record starts at the first shot after the last good.
+diagnostic_faults:
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.2
+    label: H-gamma_4340
+    field: 138
+    from_shot: 46993
+    kind: railed
+    reason: "Raw input pinned at -5 V (stored +5 V) for the whole record from 46993 (2025-10-29; 46991 last good, 46992 not recorded); still railed on the 2026 class shots"
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.1
+    label: H-beta_4861
+    field: 141
+    from_shot: 46677
+    to_shot: 47414
+    kind: no_signal
+    reason: "No light: field 141 correlates ~0.99 with field 143 and ~0 with every other line, std ~0.01 V (common pickup on an unconnected input). 46676 last good, 46685 first confirmed; 47382 last confirmed, 47415 good again"
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.1
+    label: H-beta_4861
+    field: 141
+    from_shot: 47616
+    kind: no_signal
+    reason: "No light again after the 47415-47615 window (47615 last good, 47618 first confirmed); same signature as 46677-47414"
+  - ids: spectrometer_uv
+    node: channel.2.processed_line.6
+    label: OV_629
+    field: 143
+    from_shot: 46677
+    kind: no_signal
+    reason: "No light: field 143 correlates ~0.99 with field 141 and ~0 with every other line from 46685 on (46676 last good); the label itself is also questioned in #569"
+
 diagnostics_time_policies:
   default: analysis
   windows:
@@ -1548,6 +1922,38 @@ equilibrium_regime:
       values are listed because EFIT can write them, not because VEST has
       been observed to produce one -- shot 46742 was checked and its eight
       converged slices are all IN. Nothing here claims VEST diverts.
+
+# How an edge safety factor is estimated for a shot with no equilibrium
+# (#1583). Pipeline policy like `equilibrium_regime`, outside the `0:` / shot
+# overrides: read by vaft.machine_mapping.edge_q_estimate.
+edge_q_estimate:
+  # vaft.formula.equilibrium.estimated_q95's `scaling` and `configuration`.
+  scaling: start
+  configuration: limiter
+  status: measured
+  provenance: >-
+    #1580 evaluated each analytic edge-q proxy on the boundary shape of the
+    133 Tier A EFIT equilibria and divided by the equilibrium q95 (median,
+    IQR): START scaling of Akers et al. NF 40 (2000) 1223 0.99 (0.95-1.03),
+    ITER guideline of Post et al. (1991) 1.35, Menard q* 0.41, Freidberg q*
+    0.38. VEST is limited (equilibrium_regime.topology: every reference
+    reconstruction is IN), so C = 1.0.
+
+  # The shape used when a shot has no equilibrium and the caller gives none.
+  # Every estimate made with it says so in its provenance.
+  default_shape:
+    minor_radius: 0.274
+    major_radius: 0.379
+    elongation: 1.51
+    triangularity: 0.30
+    # assumed: for the shot it stands in for, nothing measured this shape.
+    status: assumed
+    provenance: >-
+      Mean last-closed-surface shape of the Tier A magnetics equilibria
+      (notebooks/conference_operational_space_atlas.ipynb, #1580): a = 0.274
+      m, R_geo = 0.379 m (A = 1.38), kappa = 1.51, delta = 0.30. A cohort
+      mean: a single shot's shape can differ, so an estimate made with it
+      carries the shape's spread on top of the scaling's.
 
 # Like `diagnostics_time_policies` and `plasma_timing` this is pipeline policy,
 # outside the `0:` / shot overrides.
@@ -1797,9 +2203,9 @@ plasma_features:
       sigma: 5.0
       level_fraction: 0.5
       min_width_s: 1.0e-3
-  # Diamagnetic flux: the signed sample at the largest |deviation| (VEST's
-  # stored flux is negative-going; a paramagnetic shot would come back
-  # positive). Value and time only -- no window of its own.
+  # Diamagnetic flux: the signed sample at the largest |deviation| (the
+  # stored flux is positive for a paramagnetic plasma, #1196; a diamagnetic
+  # shot would come back negative). Value and time only -- no window of its own.
   diamagnetic:
     polarity: absolute
     prefilter_samples: 5
@@ -1941,6 +2347,8 @@ port_map:
 
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.
+# `subject` (optional) names the vaft.plot.taxonomy subject a record is: the
+# scientific ontology (#1702) identifies them by it, never by spelling.
 diagnostic_registry:
   dataset_description:
     name: Data description
@@ -1957,6 +2365,7 @@ diagnostic_registry:
     quantities: {static: [machine], measured: [date, shot_remark, label, wall_condition, trigger_timing], derived: [shot_summary]}
   pf_active:
     name: PF coils
+    subject: pf_coil
     family: machine_systems
     category: Information and control
     ids: pf_active
@@ -1970,6 +2379,7 @@ diagnostic_registry:
     quantities: {static: [geometry, circuit], measured: [current, charging_voltage], derived: []}
   coils_non_axisymmetric:
     name: Non-axisymmetric 3D coils
+    subject: coil_3d
     family: machine_systems
     category: Information and control
     ids: coils_non_axisymmetric
@@ -1983,6 +2393,7 @@ diagnostic_registry:
     quantities: {static: [geometry, turns], measured: [], derived: [current]}
   tf:
     name: TF coils
+    subject: tf_coil
     family: machine_systems
     category: Information and control
     ids: tf
@@ -2006,6 +2417,22 @@ diagnostic_registry:
     lifecycle: in_maintenance
     mapping_status: not_implemented
     quantities: {static: [duct], measured: [flow_rate], derived: []}
+  pulse_schedule:
+    name: Pulse schedule (ShotLog)
+    family: information
+    category: Information and control
+    ids: pulse_schedule
+    ids_path: pulse_schedule
+    responsible: [{name: Joint}]
+    # Operator-logged planned triggers, read from the per-shot ShotLog record
+    # FileDB keeps under legacy/shotlog (#995). Structured cards exist from
+    # 2023; earlier shots have a record but no trigger to map.
+    source: {type: file, formats: [json], patterns: ["{shot}/metadata/shotlog.json"]}
+    availability: If-requested
+    lifecycle: available
+    mapping_status: implemented
+    mapping: {module: vaft.machine_mapping.pulse_schedule, entrypoint: pulse_schedule}
+    quantities: {static: [], measured: [], derived: [diagnostic_trigger, ec_window, nbi_trigger, helicity_injection_trigger, gas_valve_window]}
   gas_injection:
     name: Gas injection
     family: machine_systems
@@ -2020,6 +2447,7 @@ diagnostic_registry:
     quantities: {static: [pipe_position], measured: [gas_puffing_timing, duration, flow_rate, species], derived: []}
   ech:
     name: Electron cyclotron heating
+    subject: ec_launchers
     family: heating_current_drive
     category: Heating and current drive
     ids: ec_launchers
@@ -2028,13 +2456,15 @@ diagnostic_registry:
     source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
     availability: If-requested
     lifecycle: in_maintenance
-    # 6 kW 2.45 GHz line only (fields 27/28, issue #165); launching position,
-    # mode and steering remain unmapped (issue #266).
+    # 6 kW 2.45 GHz line only (fields 27/28, issue #165). Launching position
+    # and steering are mapped from the EC officer's CAD, provisionally (see
+    # `0: ec_launchers`, issue #266); mode stays unmapped.
     mapping_status: implemented
     mapping: {module: vaft.machine_mapping.ec_launchers, entrypoint: ec_launchers}
-    quantities: {static: [frequency, launching_position, mode], measured: [forward_power, reversed_power], derived: []}
+    quantities: {static: [frequency, launching_position, steering_angle, mode], measured: [forward_power, reflected_power], derived: []}
   nbi:
     name: Neutral beam injection
+    subject: nbi
     family: heating_current_drive
     category: Heating and current drive
     ids: nbi
@@ -2059,6 +2489,7 @@ diagnostic_registry:
     quantities: {static: [gun_position], measured: [injection_voltage, injection_current, arc_voltage, arc_current, limit_voltage], derived: []}
   magnetics.ip:
     name: Plasma current
+    subject: magnetics
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2074,6 +2505,7 @@ diagnostic_registry:
     quantities: {static: [], measured: [], derived: [plasma_current]}
   magnetics.flux_loop:
     name: Flux loops
+    subject: flux_loop
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2092,6 +2524,7 @@ diagnostic_registry:
   # by inventing an IDS sub-path that IMAS does not define.
   magnetics.b_field_pol_probe:
     name: Magnetic probes (Mirnov coils)
+    subject: b_field_probe
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2105,6 +2538,7 @@ diagnostic_registry:
     quantities: {static: [position, poloidal_angle, toroidal_angle], measured: [voltage], derived: [poloidal_magnetic_field, toroidal_mode_number]}
   magnetics.diamagnetic_flux:
     name: Diamagnetic flux
+    subject: magnetics
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2120,6 +2554,7 @@ diagnostic_registry:
     quantities: {static: [], measured: [], derived: [diamagnetic_flux]}
   magnetics.rogowski_coil:
     name: Rogowski coils
+    subject: rogowski_coil
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2136,6 +2571,7 @@ diagnostic_registry:
     quantities: {static: [], measured: [rogowski_current], derived: []}
   magnetics.internal_probe:
     name: Internal magnetic probes
+    subject: magnetics
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2154,6 +2590,7 @@ diagnostic_registry:
     quantities: {static: [type, position, angle], measured: [voltage], derived: [poloidal_magnetic_field, toroidal_mode_number]}
   camera_visible:
     name: FAST camera
+    subject: camera_visible
     family: imaging
     category: Diagnostics
     ids: camera_visible
@@ -2187,6 +2624,7 @@ diagnostic_registry:
     quantities: {static: [geometry_matrix, filter, lens], measured: [image, resolution, timeframe], derived: []}
   spectrometer_uv:
     name: Filterscope spectroscopy
+    subject: spectrometer_uv
     family: spectroscopy_radiation
     category: Diagnostics
     ids: spectrometer_uv
@@ -2216,6 +2654,7 @@ diagnostic_registry:
     quantities: {static: [vertical_position, surface_area], measured: [], derived: [electron_density, electron_temperature, radial_position]}
   interferometer:
     name: Interferometer
+    subject: interferometer
     family: edge_diagnostics
     category: Diagnostics
     ids: interferometer
@@ -2253,6 +2692,7 @@ diagnostic_registry:
     quantities: {static: [filter_wavelength, line_of_sight], measured: [channel_intensity], derived: [z_effective]}
   barometry.gauge:
     name: Vacuum gauges
+    subject: barometry
     family: edge_diagnostics
     category: Diagnostics
     ids: barometry
@@ -2266,6 +2706,7 @@ diagnostic_registry:
     quantities: {static: [position, gauge_type], measured: [pressure], derived: []}
   charge_exchange.ces:
     name: Charge-exchange / beam-emission spectroscopy
+    subject: charge_exchange
     family: kinetic_diagnostics
     category: Diagnostics
     ids: charge_exchange
@@ -2279,6 +2720,7 @@ diagnostic_registry:
     quantities: {static: [line_of_sight, position], measured: [intensity, ion_temperature, toroidal_velocity], derived: []}
   charge_exchange.ion_doppler:
     name: Ion Doppler spectroscopy
+    subject: charge_exchange
     family: kinetic_diagnostics
     category: Diagnostics
     ids: charge_exchange
@@ -2298,16 +2740,19 @@ diagnostic_registry:
     ids_path: hard_x_rays
     responsible: [{name: 임수빈}]
     # Written by the same acquisition program as soft_x_rays, with an extra
-    # `hxr_{variant}` segment: `raw` is the digitizer trace, `Eflux` the
-    # energy-flux product derived from it. Archived under
-    # `unmapped/hard_x_rays/{shot}/` pending a mapping.
-    source: {type: file, formats: [csv], patterns: ["digitizer_hxr_{variant}_{daq_label}_{shot}.csv"]}
+    # `hxr_{variant}` segment: `raw` is the digitizer trace (kept for 40140 and
+    # 40142 only), `Eflux` the neural-network unfolded energy flux derived from
+    # it. Archived under `legacy/hard_x_rays/{shot}/`. Partial: only Eflux maps,
+    # as relative intensity with nominal energies and no line of sight.
+    source: {type: file, formats: [csv], patterns: ["digitizer_hxr_{variant}_{daq_label}_{shot}.csv", "{shot}/digitizer_hxr_{variant}_{daq_label}_{shot}.csv"]}
     availability: If-requested
     lifecycle: in_maintenance
-    mapping_status: not_implemented
+    mapping_status: partial
+    mapping: {module: vaft.machine_mapping.hard_x_rays, entrypoint: hard_x_rays}
     quantities: {static: [channel, line_of_sight, energy_band], measured: [radiance], derived: []}
   soft_x_rays:
     name: Soft X-ray detector
+    subject: soft_x_rays
     family: spectroscopy_radiation
     category: Diagnostics
     ids: soft_x_rays
@@ -2325,6 +2770,7 @@ diagnostic_registry:
     quantities: {static: [channel, line_of_sight, energy_band, filter_window], measured: [digitizer_voltage], derived: [brightness_proxy, power_proxy, electron_temperature_proxy]}
   thomson_scattering:
     name: Thomson scattering spectroscopy
+    subject: thomson_scattering
     family: kinetic_diagnostics
     category: Diagnostics
     ids: thomson_scattering
@@ -2338,6 +2784,7 @@ diagnostic_registry:
     quantities: {static: [radial_position, vertical_position, toroidal_angle], measured: [electron_density, electron_temperature], derived: []}
   wall:
     name: First wall and limiter geometry
+    subject: wall
     family: machine_models
     category: Device and model
     ids: wall
@@ -2351,6 +2798,7 @@ diagnostic_registry:
     quantities: {static: [limiter_position, material, vessel_volume], measured: [], derived: [wall_inventory, recycling_particles_coefficient, pumping_speed, particle_flux]}
   pf_passive:
     name: Passive structures
+    subject: passive_structure
     family: machine_models
     category: Device and model
     ids: pf_passive

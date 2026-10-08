@@ -83,6 +83,52 @@ def test_one_overlay_alone_and_a_string_spelling(shot):
     assert "Wall" not in _labels(only_eq) and "LCFS" in _labels(only_eq)
 
 
+def test_cross_shot_machine_family_overlay_uses_shared_projection(shot):
+    from vaft.data import unified_diagnostics_fixture, unified_diagnostics_manifest
+    from vaft.plot.machine_geometry import machine_geometry_view
+
+    geometry_data = unified_diagnostics_fixture()
+    manifest = unified_diagnostics_manifest()
+    families = ("thomson_scattering", "interferometer", "coils_non_axisymmetric")
+    actual = build_model(
+        "camera_visible_image", normalize_entries(shot),
+        overlay="machine_geometry", geometry_data=geometry_data,
+        geometry_manifest=manifest, geometry_families=families,
+    )
+    expected = machine_geometry_view(
+        geometry_data, "camera", manifest=manifest, families=families,
+        projection=camera_projection_for(39915),
+    )
+    assert "Cross-shot composite" in actual.title
+    assert len(actual.overlays) == len(expected.layers)
+    for a, b in zip(actual.overlays, expected.layers):
+        np.testing.assert_array_equal(a.r, b.r)
+        np.testing.assert_array_equal(a.z, b.z)
+    direct = build_model(
+        "camera_visible_image", normalize_entries(shot),
+        overlay=families, geometry_data=geometry_data, geometry_manifest=manifest,
+    )
+    assert "Cross-shot composite" in direct.title
+    assert len(direct.overlays) == len(actual.overlays)
+    for a, b in zip(direct.overlays, actual.overlays):
+        np.testing.assert_array_equal(a.r, b.r)
+        np.testing.assert_array_equal(a.z, b.z)
+    with pytest.raises(ValueError, match="requires geometry_data"):
+        build_model("camera_visible_image", normalize_entries(shot),
+                    overlay="machine_geometry", geometry_manifest=manifest)
+    with pytest.raises(ValueError, match="requires geometry_manifest"):
+        build_model("camera_visible_image", normalize_entries(shot),
+                    overlay=families, geometry_data=geometry_data)
+    figure, axes = vaft.omas.plot_camera_visible_image(
+        shot, overlay="machine_geometry", geometry_data=geometry_data,
+        geometry_manifest=manifest, geometry_families=families,
+    )
+    try:
+        assert "Cross-shot composite" in axes.get_title()
+    finally:
+        plt.close(figure)
+
+
 def test_a_field_line_is_traced_by_the_process_layer_and_only_projected_here(shot):
     model = build_model(
         "camera_visible_image", normalize_entries(shot), overlay="field_line", field_line_start=(0.4, 0.0)
@@ -96,7 +142,8 @@ def test_a_field_line_is_traced_by_the_process_layer_and_only_projected_here(sho
 def test_unknown_overlays_are_refused_by_name(shot):
     with pytest.raises(ValueError, match="unknown overlay 'lcfs'"):
         build_model("camera_visible_image", normalize_entries(shot), overlay="lcfs")
-    assert CAMERA_OVERLAYS == ("wall", "equilibrium", "field_line", "vacuum_field_line")
+    from vaft.plot.machine_geometry import MACHINE_GEOMETRY_FAMILIES
+    assert CAMERA_OVERLAYS == ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry", "equilibrium_section") + MACHINE_GEOMETRY_FAMILIES
 
 
 # ---------------------------------------------------------------------------
@@ -149,10 +196,10 @@ def test_the_old_functions_are_presets_of_the_image_api(shot):
 def test_discovery_states_overlays_and_projection_availability(shot, unposed):
     registry = vaft.omas.available_plots(query="camera_visible")
     image = registry.find("camera_visible_image")
-    assert image.overlays == ("wall", "equilibrium", "field_line", "vacuum_field_line")
+    assert image.overlays == CAMERA_OVERLAYS
     assert image.projection == {"methods": ("calibrated",)}
     text = str(registry)
-    assert "image  plot_camera_visible_image()" in text and "overlays: wall | equilibrium | field_line | vacuum_field_line" in text
+    assert "image  plot_camera_visible_image()" in text and "overlays: wall | equilibrium | field_line | vacuum_field_line | machine_geometry" in text
     with_pose = vaft.omas.available_plots(shot, query="camera_visible").find("camera_visible_image")
     assert with_pose.projection["available"] is True
     assert "projection: calibrated — available" in str(vaft.omas.available_plots(shot, query="camera_visible"))

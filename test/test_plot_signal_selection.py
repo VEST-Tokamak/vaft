@@ -93,10 +93,15 @@ def test_the_sample_probes_and_coils_lose_their_dead_channels_by_default(sample)
 
 def test_a_scalar_family_does_not_repeat_its_own_waveform_as_a_constraint(sample):
     entries = normalize_entries(sample)
-    model = build_model("diamagnetic_flux_time", entries, synthetic="both")
-    assert [trace.role for trace in model.series] == [""]
-    model = build_model("plasma_current_time", entries, synthetic="both")
-    assert "constraint" not in {trace.role for trace in model.series}
+    # `synthetic="both"` adds what EFIT reconstructed at its slices (the sample
+    # carries constraints.*.reconstructed since #952) -- a different quantity,
+    # drawn as a reconstruction.  What must not appear is the measured waveform
+    # a second time, re-sampled at the slices as a "constraint".
+    for name in ("diamagnetic_flux_time", "plasma_current_time"):
+        model = build_model(name, entries, synthetic="both")
+        assert [trace.role for trace in model.series] == ["", "reconstruction"], name
+        measured, reconstructed = model.series
+        assert reconstructed.x.size == len(sample["equilibrium.time_slice"]) < measured.x.size, name
 
 
 def test_a_channel_indexed_profile_applies_the_same_presets():

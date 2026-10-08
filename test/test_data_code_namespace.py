@@ -115,6 +115,29 @@ def test_collect_efit_outputs_prefers_fresh_copy_on_workflow_rerun(tmp_path):
     assert len(result.geqdsk) == 1
 
 
+def test_collect_efit_outputs_keeps_only_the_cases_of_this_runs_kfiles(tmp_path):
+    """A g-file an earlier run left for another instant is not this run's reconstruction (#1786)."""
+    from vaft.code.efit import EFITConfig, collect_efit_outputs
+    from vaft.data.resources import data_path
+
+    for name in ("gfile", "kfile"):
+        (tmp_path / name).mkdir()
+    contents = data_path("efit/g039915.00319").read_text(encoding="utf-8")
+    (tmp_path / "gfile" / "g039915.00319").write_text(contents, encoding="utf-8")
+    (tmp_path / "gfile" / "g039915.00001").write_text(contents, encoding="utf-8")  # an earlier run's
+    (tmp_path / "kfile" / "k039915.00001").write_text("dummy", encoding="utf-8")
+    current = tmp_path / "kfile" / "k039915.00319"
+    current.write_text("dummy", encoding="utf-8")
+
+    result = collect_efit_outputs(tmp_path, EFITConfig(shot=39915), expected_kfiles=[current])
+    assert [path.name for path in result.gfiles] == ["g039915.00319"]
+    assert [path.name for path in result.kfiles] == ["k039915.00319"]
+    assert len(result.geqdsk) == 1
+    assert any("g039915.00001" in message for message in result.diagnostic_errors)
+    # Without a k-file list the collection stays as it was: everything present.
+    assert len(collect_efit_outputs(tmp_path, EFITConfig(shot=39915)).gfiles) == 2
+
+
 def test_no_omfit_runtime_import_for_geqdsk():
     import sys
     from vaft.data import read_geqdsk

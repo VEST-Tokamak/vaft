@@ -37,7 +37,15 @@ __all__ = [
     "ReferenceSlope",
     "Series",
     "Spectrogram",
+    "SpectrogramTrack",
+    "STATUSES",
+    "Table",
+    "TableCell",
+    "TableColumn",
+    "TextItem",
     "TextPanel",
+    "TextSection",
+    "TextSummary",
     "ViewModel",
     "as_model_array",
 ]
@@ -283,11 +291,17 @@ class Profile1D(ViewModel):
     display: "DisplaySpec | None" = None
     #: Vertical markers in the abscissa's coordinate (issue #479).
     reference_lines: tuple["ReferenceLine", ...] = ()
+    #: How a derived profile was formed, as plain JSON-serialisable values: a
+    #: profile gradient carries the resolved record of
+    #: :func:`vaft.process.profile_gradients.profile_gradient` here (issue
+    #: #551).  ``to_xarray`` writes it to the ``metadata`` attribute.
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(
             self, "series", _as_series_tuple(self.series, where="Profile1D.series")
         )
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
         if self.x_limits is not None:
             object.__setattr__(
                 self, "x_limits", (float(self.x_limits[0]), float(self.x_limits[1]))
@@ -335,6 +349,13 @@ class Field2D(ViewModel):
     #: The display policy's resolution of the value unit, when the builder
     #: applied one; ``value_label`` already carries the unit it names.
     display: "DisplaySpec | None" = None
+    #: ``"linear"`` or ``"log"``: how the value axis and its colours are
+    #: spaced.  A field whose interest is spread over decades -- a connection
+    #: length running from a metre to the tracing limit -- is unreadable on a
+    #: linear ramp, where every value below the top decade shares one colour.
+    #: ``"log"`` requires strictly positive values, so a caller masks the
+    #: zeros first; ``value_label`` should say the axis is logarithmic.
+    value_scale: str = "linear"
     #: What happens to values outside ``contour_levels``: ``"neither"`` leaves
     #: them blank, ``"min"``/``"max"``/``"both"`` saturate them at the end
     #: colours.  Levels chosen from a percentile need this -- otherwise the
@@ -346,8 +367,14 @@ class Field2D(ViewModel):
     #: grid; ``None`` draws them everywhere.  A flux map confines its plasma
     #: levels to the plasma, since the same psi values recur beside the coils.
     region: np.ndarray | None = None
+    #: How a derived annotation of the map was formed, as plain
+    #: JSON-serialisable values: the rational-surface overlay records the
+    #: resolved surfaces and the slice they came from here (issue #506).
+    #: ``to_xarray`` writes it to the ``metadata`` attribute.
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
         r = as_model_array(self.r, where="Field2D.r")
         z = as_model_array(self.z, where="Field2D.z")
         values = as_model_array(self.values, where="Field2D.values")
@@ -377,6 +404,21 @@ class Field2D(ViewModel):
                 "contour_levels",
                 as_model_array(self.contour_levels, where="Field2D.contour_levels"),
             )
+        if self.value_scale not in ("linear", "log"):
+            raise ValueError(
+                'Field2D.value_scale must be "linear" or "log"; got '
+                f"{self.value_scale!r}"
+            )
+        if self.value_scale == "log":
+            positive = values[np.isfinite(values)]
+            if positive.size and positive.min() <= 0.0:
+                raise ValueError(
+                    "Field2D.value_scale='log' needs strictly positive "
+                    f"values; the smallest finite one is {positive.min()!r}. "
+                    "Mask the non-positive cells rather than clipping them, "
+                    "so the map shows where there is no value instead of "
+                    "inventing the smallest one."
+                )
         if self.extend not in ("neither", "min", "max", "both"):
             raise ValueError(
                 'Field2D.extend must be one of "neither", "min", "max", "both"; '
@@ -495,7 +537,22 @@ class GeometryLayers(ViewModel):
 
 @dataclass(frozen=True)
 class Geometry3DLayer(ViewModel):
-    """One polyline or point cloud drawn in machine Cartesian coordinates."""
+    """One polyline or point cloud drawn in machine Cartesian coordinates.
+
+    ``x``/``y``/``z`` are metres on the right-handed axes of
+    :func:`vaft.machine_mapping.conventions.cylindrical_to_cartesian` (IMAS
+    ``phi`` counter-clockwise from above).  ``label`` is the legend entry --
+    usually set on one layer of a set only -- while ``group`` names the
+    subsystem the layer belongs to as a ``/``-separated path
+    (``"coils_non_axisymmetric/RMP/sector 3"``): the Plotly legend group, the
+    block tree of a VTK multiblock export and the K3D object name.
+
+    This model is the *lightweight* 3-D contract: points and polylines --
+    filaments, rings, diagnostic positions, sight lines, trajectories.
+    Surfaces, structured or unstructured grids and fields on them are not
+    layers; they belong to the scientific mesh representation (#909, #1100),
+    and are not to be faked by stacking polylines into a surface.
+    """
 
     x: np.ndarray
     y: np.ndarray
@@ -503,6 +560,7 @@ class Geometry3DLayer(ViewModel):
     kind: str = "polyline"
     label: str = ""
     style: Mapping[str, Any] = field(default_factory=dict)
+    group: str = ""
 
     KINDS = ("polyline", "points")
 
@@ -524,6 +582,7 @@ class Geometry3DLayer(ViewModel):
         object.__setattr__(self, "z", z)
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
+        object.__setattr__(self, "group", str(self.group).strip("/"))
 
     def to_xarray(self, **attrs: Any) -> Any:
         """This layer as a one-layer :class:`xarray.Dataset`; see :mod:`vaft.plot._xarray`.
@@ -538,7 +597,13 @@ class Geometry3DLayer(ViewModel):
 
 @dataclass(frozen=True)
 class Geometry3DLayers(ViewModel):
-    """A stack of 3D geometry layers drawn into one machine-coordinate view."""
+    """A stack of 3D geometry layers drawn into one machine-coordinate view.
+
+    Rendered by Matplotlib and Plotly through ``backend=``; converted to
+    PyVista/VTK (and so ParaView) by :mod:`vaft.plot.pyvista` and to K3D by
+    :mod:`vaft.plot.k3d`, which keep each layer's ``group`` as its
+    block/object identity.
+    """
 
     layers: tuple[Geometry3DLayer, ...]
     x_label: str = "x [m]"
@@ -694,6 +759,32 @@ class ImageSequence(ViewModel):
 
 
 @dataclass(frozen=True)
+class SpectrogramTrack:
+    """A frequency-versus-time line drawn over a spectrogram (issue #460).
+
+    ``frequency`` is NaN where the line is undefined, so the renderer leaves a
+    gap there instead of joining the valid stretches across it.
+    """
+
+    time: np.ndarray
+    frequency: np.ndarray
+    label: str = ""
+    style: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        time = np.asarray(self.time, dtype=float).reshape(-1)
+        frequency = np.asarray(self.frequency, dtype=float).reshape(-1)
+        if time.shape != frequency.shape:
+            raise ValueError(
+                "SpectrogramTrack.time and frequency must have equal length; "
+                f"got {time.size} and {frequency.size}"
+            )
+        object.__setattr__(self, "time", time)
+        object.__setattr__(self, "frequency", frequency)
+        object.__setattr__(self, "style", dict(self.style or {}))
+
+
+@dataclass(frozen=True)
 class Spectrogram(ViewModel):
     """Time-frequency magnitude map on a ``(frequency, time)`` grid."""
 
@@ -706,8 +797,36 @@ class Spectrogram(ViewModel):
     title: str = ""
     max_frequency: float | None = None
     cmap: str = "hot_r"
+    #: A tracked spectral ridge drawn over the map (issue #1005): one frequency
+    #: per ``ridge_time``, NaN where no ridge was found.  ``None`` draws none.
+    ridge_time: np.ndarray | None = None
+    ridge_frequency: np.ndarray | None = None
+    ridge_label: str = ""
+    #: Predicted frequency tracks drawn over the map (issue #460), e.g. the
+    #: ``mode_overlay=`` lines; ``tracks_title`` heads their legend and names
+    #: the model that drew them.
+    tracks: tuple[SpectrogramTrack, ...] = ()
+    tracks_title: str = ""
+    #: How a derived annotation was formed, as plain JSON-serialisable values
+    #: (the ``mode_overlay`` request, model, provenance and tracks).
+    #: ``to_xarray`` writes it to the ``metadata`` attribute.
+    metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "tracks", tuple(self.tracks or ()))
+        object.__setattr__(self, "metadata", dict(self.metadata or {}))
+        if (self.ridge_time is None) != (self.ridge_frequency is None):
+            raise ValueError("Spectrogram.ridge_time and ridge_frequency are given together or not at all")
+        if self.ridge_time is not None:
+            ridge_time = np.asarray(self.ridge_time, dtype=float).reshape(-1)
+            ridge_frequency = np.asarray(self.ridge_frequency, dtype=float).reshape(-1)
+            if ridge_time.shape != ridge_frequency.shape:
+                raise ValueError(
+                    "Spectrogram.ridge_time and ridge_frequency must have equal length; "
+                    f"got {ridge_time.size} and {ridge_frequency.size}"
+                )
+            object.__setattr__(self, "ridge_time", ridge_time)
+            object.__setattr__(self, "ridge_frequency", ridge_frequency)
         time = as_model_array(self.time, where="Spectrogram.time")
         frequency = as_model_array(self.frequency, where="Spectrogram.frequency")
         magnitude = as_model_array(self.magnitude, where="Spectrogram.magnitude")
@@ -933,6 +1052,15 @@ class Panels(ViewModel):
     #: entries come from the first panel, so the panels must agree; a figure
     #: whose panels show different quantities wants its per-panel legends.
     share_legend: bool = False
+    #: Axis links between panels, as ``(axis, slots)`` with ``axis`` ``"x"`` or
+    #: ``"y"`` and ``slots`` the panel indices that zoom and pan together
+    #: (issue #1467).  Unlike ``share_x``, which ties a whole regular grid, a
+    #: link names exactly the panels that share a coordinate -- the stacked
+    #: time traces of a composed figure, not the R-Z map beside them.
+    links: tuple[tuple[str, tuple[int, ...]], ...] = ()
+    #: Mark the panels ``(a)``, ``(b)``, ... in slot order, the way a
+    #: publication figure refers to them.
+    panel_labels: bool = False
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")
@@ -975,6 +1103,20 @@ class Panels(ViewModel):
                         f"{nrows}x{ncols} grid"
                     )
             object.__setattr__(self, "spans", spans)
+        links = []
+        for link in self.links:
+            axis, slots = link
+            slots = tuple(int(slot) for slot in slots)
+            if axis not in ("x", "y"):
+                raise ValueError(f"Panels.links axis must be 'x' or 'y'; got {axis!r}")
+            if len(set(slots)) < 2:
+                raise ValueError(f"Panels.links entry {link!r} links fewer than two panels")
+            if any(slot < 0 or slot >= occupied for slot in slots):
+                raise ValueError(f"Panels.links entry {link!r} names a panel outside 0..{occupied - 1}")
+            if any(isinstance(models[slot], Geometry3DLayers) for slot in slots):
+                raise ValueError("Panels.links cannot link a 3-D scene, which has no x/y axes")
+            links.append((axis, slots))
+        object.__setattr__(self, "links", tuple(links))
         object.__setattr__(self, "nrows", nrows)
         object.__setattr__(self, "ncols", ncols)
 
@@ -987,3 +1129,281 @@ class Panels(ViewModel):
         from ._xarray import panels_datatree
 
         return panels_datatree(self, **attrs)
+
+
+# ---------------------------------------------------------------------------
+# Non-graphical views: tables and text summaries (issue #1180)
+# ---------------------------------------------------------------------------
+
+#: The classification a table cell or a summary item may carry.  A status is
+#: what the builder concluded -- never a colour; a renderer that draws colour
+#: maps it through the intent vocabulary, and the plain-text forms print it.
+#: ``""`` is "no classification".  ``indeterminate`` and ``not_available``
+#: are the two undecided verdicts of :class:`vaft.validation.ValidationStatus`
+#: (evidence produced but not deciding; evidence never produced), so a
+#: validation verdict is carried as itself rather than folded into a pass or
+#: an ``info`` (roadmap #1242 C2).
+STATUSES = ("", "pass", "warn", "fail", "info", "indeterminate", "not_available")
+
+#: What a :class:`TableColumn` holds: ``text`` (a label or a word, shown as
+#: stored), ``value`` (a number with a unit, formatted by the renderer through
+#: the display policy) or ``status`` (the cell's :data:`STATUSES` entry).
+COLUMN_KINDS = ("text", "value", "status")
+
+#: Where a ``value`` column states its unit: ``inline`` beside each number,
+#: ``column`` in a separate ``Unit`` column next to it, ``header`` once in the
+#: header (only when every cell of the column shows the same unit; otherwise
+#: the renderer falls back to ``inline``).
+UNIT_PLACEMENTS = ("inline", "column", "header")
+
+
+def _cell_scalar(value: Any, *, where: str) -> Any:
+    """A cell value as a plain Python scalar: number, bool, str or ``None``."""
+    _reject_data_objects(value, where=where)
+    if value is None or isinstance(value, (bool, str)):
+        return value
+    if isinstance(value, np.generic):
+        value = value.item()
+    if isinstance(value, np.ndarray):
+        if value.size != 1:
+            raise ValueError(f"{where} holds one value; got an array of shape {value.shape}")
+        value = value.ravel()[0].item()
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        return int(value)
+    if isinstance(value, float):
+        return float(value)
+    raise TypeError(
+        f"{where} must be a number, a bool, a string or None; got {type(value).__name__}"
+    )
+
+
+def _check_status(status: Any, *, where: str) -> str:
+    status = str(status or "")
+    if status not in STATUSES:
+        raise ValueError(f"{where} must be one of {STATUSES}; got {status!r}")
+    return status
+
+
+@dataclass(frozen=True)
+class TableCell:
+    """One structured value: what it is, in which unit, and how it is judged.
+
+    ``value`` stays a number (or a bool, a word, or ``None`` for "not
+    available") -- nothing is formatted here.  ``unit`` is the *stored*
+    (canonical IMAS) unit; the renderer converts it to the display unit the
+    policy of :mod:`vaft.plot.display` chooses for ``subject``/``quantity``
+    (``A`` -> ``kA``; a beta's convention by its taxonomy ``quantity``), or to
+    ``display_unit`` when the builder fixed one.  ``format`` is a Python
+    format specification for the displayed number (``".4g"`` when empty).
+    ``status`` is a :data:`STATUSES` classification; ``note`` an annotation
+    the plain-text forms list beneath the table.
+    """
+
+    value: Any = None
+    unit: str = ""
+    subject: str = ""
+    quantity: str = ""
+    display_unit: str | None = None
+    format: str = ""
+    status: str = ""
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "value", _cell_scalar(self.value, where="TableCell.value"))
+        for name in ("unit", "subject", "quantity", "format", "note"):
+            object.__setattr__(self, name, str(getattr(self, name) or ""))
+        if self.display_unit is not None:
+            object.__setattr__(self, "display_unit", str(self.display_unit))
+        object.__setattr__(self, "status", _check_status(self.status, where="TableCell.status"))
+
+    @property
+    def missing(self) -> bool:
+        """Whether there is no value to show: ``None`` or NaN.
+
+        An infinite value is a value -- it is shown as ``inf``/``-inf`` --
+        not an absent one.
+        """
+        value = self.value
+        return value is None or (isinstance(value, float) and np.isnan(value))
+
+
+def _as_cell(value: Any, *, where: str) -> TableCell:
+    return value if isinstance(value, TableCell) else TableCell(value)
+
+
+@dataclass(frozen=True)
+class TableColumn:
+    """One column of a :class:`Table`: its header, its kind and its alignment.
+
+    ``align`` is ``"left"``, ``"right"`` or ``"center"``; empty means right
+    for numbers and left otherwise.  ``units`` places a ``value`` column's
+    unit (:data:`UNIT_PLACEMENTS`).
+    """
+
+    name: str
+    kind: str = "text"
+    align: str = ""
+    units: str = "inline"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "name", str(self.name))
+        if self.kind not in COLUMN_KINDS:
+            raise ValueError(f"TableColumn.kind must be one of {COLUMN_KINDS}; got {self.kind!r}")
+        if self.align not in ("", "left", "right", "center"):
+            raise ValueError(f"TableColumn.align must be left, right or center; got {self.align!r}")
+        if self.units not in UNIT_PLACEMENTS:
+            raise ValueError(f"TableColumn.units must be one of {UNIT_PLACEMENTS}; got {self.units!r}")
+
+
+@dataclass(frozen=True)
+class Table(ViewModel):
+    """A table of structured values -- a scientific view, not a serialisation.
+
+    ``rows`` are tuples of :class:`TableCell`, one per column, in the order
+    they are shown (a bare value is wrapped into a cell).  ``missing`` is what
+    a cell without a value reads as.  ``caption`` follows the table;
+    ``notes`` are statements about the whole table, listed after the cells'
+    own notes.  The model holds no formatted text: see
+    :func:`vaft.plot.render_table`.
+    """
+
+    columns: tuple[TableColumn, ...]
+    rows: tuple[tuple[TableCell, ...], ...]
+    title: str = ""
+    caption: str = ""
+    notes: tuple[str, ...] = ()
+    missing: str = "—"
+
+    def __post_init__(self) -> None:
+        _reject_data_objects(self.rows, where="Table.rows")
+        columns = tuple(
+            column if isinstance(column, TableColumn) else TableColumn(str(column))
+            for column in self.columns
+        )
+        if not columns:
+            raise ValueError("Table.columns must name at least one column")
+        rows = []
+        for number, row in enumerate(self.rows):
+            if isinstance(row, (str, bytes)) or not isinstance(row, Sequence):
+                raise TypeError(f"Table.rows[{number}] must be a sequence of cells")
+            cells = tuple(_as_cell(cell, where=f"Table.rows[{number}]") for cell in row)
+            if len(cells) != len(columns):
+                raise ValueError(
+                    f"Table.rows[{number}] has {len(cells)} cells for {len(columns)} columns"
+                )
+            rows.append(cells)
+        object.__setattr__(self, "columns", columns)
+        object.__setattr__(self, "rows", tuple(rows))
+        object.__setattr__(self, "title", str(self.title))
+        object.__setattr__(self, "caption", str(self.caption))
+        object.__setattr__(self, "notes", tuple(str(note) for note in self.notes))
+        object.__setattr__(self, "missing", str(self.missing))
+
+    def column(self, name: str) -> tuple[TableCell, ...]:
+        """The cells of the column headed ``name``, in row order."""
+        for index, column in enumerate(self.columns):
+            if column.name == name:
+                return tuple(row[index] for row in self.rows)
+        raise KeyError(f"no column named {name!r}; columns: {[c.name for c in self.columns]}")
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """One variable per column on a ``row`` dimension, raw values and stored units; see :mod:`vaft.plot._xarray`."""
+        from ._xarray import table_dataset
+
+        return table_dataset(self, **attrs)
+
+
+@dataclass(frozen=True)
+class TextItem:
+    """One line of a :class:`TextSection`: a labelled value, or a statement.
+
+    With a ``label`` it is a key-value quantity, ``value``/``unit``/
+    ``subject``/``quantity``/``display_unit``/``format`` meaning what they
+    mean on :class:`TableCell`.  Without one, ``value`` is a short statement
+    shown as written.
+    """
+
+    label: str = ""
+    value: Any = None
+    unit: str = ""
+    subject: str = ""
+    quantity: str = ""
+    display_unit: str | None = None
+    format: str = ""
+    status: str = ""
+    note: str = ""
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "value", _cell_scalar(self.value, where="TextItem.value"))
+        for name in ("label", "unit", "subject", "quantity", "format", "note"):
+            object.__setattr__(self, name, str(getattr(self, name) or ""))
+        if self.display_unit is not None:
+            object.__setattr__(self, "display_unit", str(self.display_unit))
+        object.__setattr__(self, "status", _check_status(self.status, where="TextItem.status"))
+
+    @property
+    def missing(self) -> bool:
+        """``None`` or NaN; an infinite value is shown as ``inf``/``-inf``."""
+        value = self.value
+        return value is None or (isinstance(value, float) and np.isnan(value))
+
+    @property
+    def is_statement(self) -> bool:
+        return not self.label
+
+
+@dataclass(frozen=True)
+class TextSection:
+    """A named group of :class:`TextItem` lines; a bare string is a statement."""
+
+    title: str
+    items: tuple[TextItem, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "title", str(self.title))
+        items = tuple(
+            item if isinstance(item, TextItem) else TextItem(value=str(item))
+            for item in self.items
+        )
+        object.__setattr__(self, "items", items)
+
+
+@dataclass(frozen=True)
+class TextSummary(ViewModel):
+    """A standalone text summary in named sections (issue #1180).
+
+    Distinct from :class:`TextPanel`, which is text placed inside a figure:
+    a summary is the whole presentation, printed in a terminal, shown in a
+    notebook or written to a report by :func:`vaft.plot.render_text_summary`.
+    ``missing`` is what an item without a value reads as.
+    """
+
+    sections: tuple[TextSection, ...]
+    title: str = ""
+    caption: str = ""
+    missing: str = "not stored"
+
+    def __post_init__(self) -> None:
+        _reject_data_objects(self.sections, where="TextSummary.sections")
+        sections = tuple(self.sections)
+        if not all(isinstance(section, TextSection) for section in sections):
+            raise TypeError("TextSummary.sections must be TextSection instances")
+        object.__setattr__(self, "sections", sections)
+        object.__setattr__(self, "title", str(self.title))
+        object.__setattr__(self, "caption", str(self.caption))
+        object.__setattr__(self, "missing", str(self.missing))
+
+    def section(self, title: str) -> TextSection:
+        """The section titled ``title``."""
+        for section in self.sections:
+            if section.title == title:
+                return section
+        raise KeyError(f"no section titled {title!r}; sections: {[s.title for s in self.sections]}")
+
+    def to_xarray(self, **attrs: Any) -> Any:
+        """One ``item`` dimension: section, label, raw value and stored unit; see :mod:`vaft.plot._xarray`."""
+        from ._xarray import text_summary_dataset
+
+        return text_summary_dataset(self, **attrs)

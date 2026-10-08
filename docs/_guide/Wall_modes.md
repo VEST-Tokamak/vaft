@@ -97,4 +97,4 @@ shipped; `to_npz` / `from_npz` exist for export.
 `wall_time_constants` in the plasma-free benchmark now reads the same pencil
 at full rank, so the QA and the basis cannot report two different walls.
 TokaMaker's `eig_wall` (#232) remains an independent global reference on its
-own mesh (6.88 ms vs 7.19 ms here; W11 excluded there).
+own mesh (6.88 ms vs 7.19 ms here; meshing W11 since #965 moves it by 1 µs).

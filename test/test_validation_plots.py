@@ -36,7 +36,7 @@ from paths import FILEDB, SHOT_FIRST, PipelinePaths  # noqa: E402
 BASE_DIR = "/srv/vest.filedb/public"
 FAMILY = "magnetic"
 SHOT = 41234
-MACHINE_VERSION = "vest-45967-plus-pf2507"
+MACHINE_VERSION = "vest-45968-plus-pf2507"
 REQUIRED_RAW_FIELDS = (1, 12, 25, 59, 109)
 
 
@@ -498,3 +498,89 @@ def test_a_companion_the_composer_cannot_express_is_refused_by_name(monkeypatch)
     with pytest.raises(SystemExit) as caught:
         module.main()
     assert "diagnostics + eddy" in str(caught.value)
+
+
+
+def _script_env():
+    # Keep an existing PYTHONPATH first: a worktree's import shim lives there.
+    path = os.pathsep.join(p for p in (os.environ.get("PYTHONPATH", ""), str(REPO_ROOT)) if p)
+    return {**os.environ, "PYTHONPATH": path, "MPLBACKEND": "Agg"}
+
+
+def _eddy_inputs(tmp_path, *, nan_coil=None, with_pf_time=True):
+    """A diagnostics and a static product good enough for generate_eddy_ods."""
+    import copy
+
+    from omas import ODS
+
+    from vaft.omas import save as save_ods
+    from vaft.omas.vest_upstream import build_static_ods, machine_era_for_shot, write_stage_product
+
+    shot = 48700
+    static, manifest = build_static_ods(machine_era_for_shot(shot).name)
+    static_path = tmp_path / "static.json"
+    write_stage_product(static, manifest, output=static_path, metadata=tmp_path / "static-manifest.json")
+    diagnostics = ODS(consistency_check=False)
+    time = np.linspace(0.0, 0.01, 50)
+    diagnostics["pf_active"] = copy.deepcopy(static["pf_active"])
+    if with_pf_time:
+        diagnostics["pf_active.time"] = time
+    for index in range(len(diagnostics["pf_active.coil"])):
+        diagnostics[f"pf_active.coil.{index}.current.time"] = time
+        diagnostics[f"pf_active.coil.{index}.current.data"] = (
+            np.full_like(time, np.nan) if index == nan_coil else np.zeros_like(time)
+        )
+    diagnostics["magnetics.ip.0.time"] = time
+    diagnostics["magnetics.ip.0.data"] = 1e4 * np.sin(np.linspace(0.0, 1.0, 50))
+    diagnostics_path = tmp_path / "diagnostics.json"
+    save_ods(diagnostics, diagnostics_path)
+    return shot, diagnostics_path, static_path
+
+
+def _run_eddy(tmp_path, shot, diagnostics, static):
+    return subprocess.run(
+        [sys.executable, str(WORKFLOW_DIR / "generate_eddy_ods.py"), "--shot", str(shot),
+         "--diagnostics-ods", str(diagnostics), "--static-ods", str(static),
+         "--output", str(tmp_path / "eddy.json"), "--metadata", str(tmp_path / "eddy-manifest.json"),
+         "--filament-r", "0.35", "--filament-z", "0.0", "--filament-fraction", "1.0"],
+        capture_output=True, text=True, env=_script_env(),
+    )
+
+
+def test_an_unrecorded_pf_circuit_is_an_eddy_result_and_its_plots_are_empty(tmp_path):
+    """#1568 end to end: generate_eddy_ods exits 0 with no_output; the plot rule writes `empty`."""
+    shot, diagnostics, static = _eddy_inputs(tmp_path, nan_coil=4)
+
+    result = _run_eddy(tmp_path, shot, diagnostics, static)
+    assert result.returncode == 0, result.stderr[-2000:]
+    manifest = json.loads((tmp_path / "eddy-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "no_output"
+    assert manifest["eddy_status"] == (
+        "skipped: required input unavailable: PF5 current was not acquired (NaN in pf_active); "
+        "the eddy-current solve needs every driven PF circuit"
+    )
+
+    metadata = tmp_path / "plot" / "plot_manifest.json"
+    plots = subprocess.run(
+        [sys.executable, str(WORKFLOW_DIR / "generate_stage_plots.py"), "--stage", "eddy",
+         "--shot", str(shot), "--input", str(tmp_path / "eddy.json"),
+         "--compose-with", f"diagnostics={diagnostics}",
+         "--stage-manifest", str(tmp_path / "eddy-manifest.json"),
+         "--output-dir", str(tmp_path / "plot"), "--metadata", str(metadata)],
+        capture_output=True, text=True, env=_script_env(),
+    )
+    assert plots.returncode == 0, plots.stderr[-2000:]
+    payload = json.loads(metadata.read_text(encoding="utf-8"))
+    assert payload["status"] == "empty" and "PF5" in payload["reason"]
+    assert payload["shot"] == shot and len(payload["input"]["sha256"]) == 64
+    assert payload["plots"] and all(row["status"] == "skipped" for row in payload["plots"])
+
+
+def test_any_other_missing_eddy_input_still_fails_the_rule(tmp_path):
+    """A whole diagnostics component missing can be a configuration fault: still loud."""
+    shot, diagnostics, static = _eddy_inputs(tmp_path, with_pf_time=False)
+
+    result = _run_eddy(tmp_path, shot, diagnostics, static)
+    assert result.returncode != 0
+    assert "missing pf_active.time" in result.stderr
+    assert not (tmp_path / "eddy-manifest.json").exists()

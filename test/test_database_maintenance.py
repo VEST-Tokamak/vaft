@@ -167,7 +167,16 @@ class _FakeRemote:
         monkeypatch.setattr(
             replication, "_remote_entries", replication._require_remote_entries
         )
+        def hsget(uri, target):
+            # #1470: the audit downloads each unlinked file to tell data from a
+            # stub before relinking it. The fake remote's files hold data.
+            self.events.append("hsget")
+            with h5py.File(target, "w") as handle:
+                handle["profiles_1d.0.electrons.temperature"] = [10.0, 20.0]
+            return target
+
         monkeypatch.setattr("vaft.database.transport.run_hsload", hsload)
+        monkeypatch.setattr("vaft.database.transport.run_hsget", hsget)
         monkeypatch.setattr(
             "vaft.database.transport.verify_uploaded_image", lambda *a, **k: None
         )
@@ -197,6 +206,21 @@ class _FakeRemote:
 
 _UNION = ["equilibrium", "magnetics", "pf_active"]
 _UNION_FILES = [f"{name}.h5" for name in _UNION]
+
+
+def test_the_strip_reads_the_server_without_filling_the_hsds_cache(monkeypatch):
+    """A load-modify-save maintenance read must not fill ~/.cache/vaft/hsds (#1758)."""
+    caches: list = []
+
+    def fake_load(shot, *, cache="auto", **kwargs):
+        caches.append(cache)
+        return _published()
+
+    monkeypatch.setattr("vaft.database.load", fake_load)
+
+    strip_impa_from_source(39915, apply=False)
+
+    assert caches == ["off"]
 
 
 def test_the_master_is_merged_before_it_lands_so_a_failed_net_costs_nothing(

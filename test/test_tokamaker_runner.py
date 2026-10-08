@@ -8,8 +8,10 @@ error mapping, and the g-file/sidecar outputs.
 
 import json
 import sys
+import types
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from tokamaker_fakes import make_fake_oft, make_inputs
@@ -37,6 +39,9 @@ def test_run_lifecycle_order_and_outputs(tmp_path, monkeypatch):
     assert Path(save_name).name == "g039915.00325"
     assert save_kwargs["cocos"] == config.eqdsk_cocos
     assert save_kwargs["run_info"] == "# 39915 325ms"
+    # RBBBS/ZBBBS must be the LCFS itself, not the 1 - lcfs_pad surface (#882, #1469)
+    assert save_kwargs["truncate_eq"] is False
+    assert save_kwargs["lcfs_pad"] == config.eqdsk_lcfs_pad
 
     assert result.ok
     assert result.returncode == 0
@@ -44,6 +49,8 @@ def test_run_lifecycle_order_and_outputs(tmp_path, monkeypatch):
     assert result.scalars["converged"] is True
     assert result.scalars["q_95"] == pytest.approx(5.0)
     assert result.scalars["coil_currents_A"]["PF1"] == pytest.approx(-640.0)
+    assert result.scalars["diverted"] is False
+    assert result.scalars["lim_point"] == pytest.approx([0.105, 0.0])
     # the fake g-file is not parseable; that stays best-effort
     assert "_geqdsk_error" in result.scalars
 
@@ -151,3 +158,195 @@ def test_reused_workdir_never_yields_a_stale_gfile(tmp_path, monkeypatch):
     assert failed.gfile is None
     assert failed.geqdsk == ()
     assert failed.ods is None
+
+
+def test_limiter_search_excludes_the_vest_chambers_by_default(tmp_path, monkeypatch):
+    # The chamber corners at |Z| = 1.185 m carry the most-interior wall flux but
+    # are not connected to the core; with them as limiter candidates the
+    # 39915 @ 325 ms "LCFS" floated 6 cm off the inboard limiter (#1469).
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+
+    run_tokamaker(make_inputs(tmp_path), TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path))
+    assert fake.settings_at_setup["lim_zmax"] == pytest.approx(0.6)
+
+    run_tokamaker(
+        make_inputs(tmp_path),
+        TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path, lim_zmax=None),
+    )
+    assert fake.settings_at_setup["lim_zmax"] == pytest.approx(1.0e99)
+
+
+VEST_LIMITER = [
+    [0.105, 0.575], [0.1337, 0.7279], [0.1337, 1.185], [0.6, 1.185], [0.6, 0.6],
+    [0.7, 0.6], [0.7, 0.585], [0.761, 0.585], [0.761, -0.585], [0.7, -0.585],
+    [0.7, -0.6], [0.6, -0.6], [0.6, -1.185], [0.1337, -1.185], [0.1337, -0.7279],
+    [0.105, -0.575], [0.105, 0.575],
+]
+
+
+def test_neck_faces_above_lim_zmax_stay_limiter_points():
+    from vaft.code.tokamaker.runner import neck_limiter_points
+
+    config = TokaMakerConfig()
+    points = neck_limiter_points(VEST_LIMITER, config)
+
+    z = np.abs(points[:, 1])
+    one_cell = max(config.dx_plasma, config.dx_conductor)
+    assert np.all((z > config.lim_zmax - one_cell) & (z <= config.neck_limiter_zmax))
+    # the outboard step (0.7-0.761, |Z| = 0.585-0.6) sits within one cell of
+    # lim_zmax and is covered explicitly, both halves
+    step = points[(points[:, 0] >= 0.7) & (points[:, 0] <= 0.761)]
+    assert np.any(np.isclose(step[:, 1], 0.585)) and np.any(np.isclose(step[:, 1], -0.585))
+    # the inboard slant (0.105, 0.575) -> (0.1337, 0.7279), both halves
+    slant = points[(points[:, 0] > 0.105) & (points[:, 0] < 0.1337)]
+    assert slant[:, 1].max() > 0.7 and slant[:, 1].min() < -0.7
+    # nothing from the chamber interior far above the neck
+    assert z.max() <= 0.73
+    assert len(neck_limiter_points(VEST_LIMITER, TokaMakerConfig(neck_limiter_zmax=None))) == 0
+
+
+def test_the_cell_just_below_lim_zmax_is_covered_by_explicit_points():
+    """OFT's lim_zmax cut is per cell (grad_shaf.F90: a cell with any node
+    above it is skipped), so a wall face within one cell height below
+    lim_zmax can lose every mesh limiter node it has. Pinned on a synthetic
+    box: a step at lim_zmax - dx/2 gets explicit points, one at
+    lim_zmax - 2 dx does not (cold review 0.8.0 delta-absorb-13-physics F2)."""
+    from vaft.code.tokamaker.runner import neck_limiter_points
+
+    config = TokaMakerConfig(lim_zmax=0.6, neck_limiter_zmax=0.73, dx_plasma=0.015,
+                             dx_conductor=0.015)
+    dx = config.dx_plasma
+    z_in, z_out = config.lim_zmax - 0.5 * dx, config.lim_zmax - 2.0 * dx
+    box = [
+        [0.1, -1.0], [0.1, 1.0], [0.4, 1.0], [0.4, z_in], [0.5, z_in], [0.5, -1.0],
+        [0.1, -1.0],
+    ]
+    points = neck_limiter_points(box, config)
+    covered = points[np.isclose(points[:, 1], z_in)]
+    assert covered[:, 0].min() == pytest.approx(0.4) and covered[:, 0].max() == pytest.approx(0.5)
+    assert np.all(np.abs(points[:, 1]) > config.lim_zmax - dx)
+
+    box_low = [[r, (z_out if z == z_in else z)] for r, z in box]
+    far = neck_limiter_points(box_low, config)
+    assert not np.any(np.isclose(far[:, 1], z_out))
+
+
+def test_neck_points_reach_tokamaker_as_a_limiter_file(tmp_path, monkeypatch):
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+
+    run_tokamaker(
+        make_inputs(tmp_path, {"limiter": VEST_LIMITER}),
+        TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path),
+    )
+
+    path = Path(fake.settings_at_setup["limiter_file"])
+    lines = path.read_text().split("\n")
+    assert path.parent == tmp_path
+    assert int(lines[0]) == len([ln for ln in lines[1:] if ln.strip()]) > 0
+
+
+def test_lcfs_leaving_the_wall_is_flagged(tmp_path, monkeypatch):
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+    config = TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path)
+
+    inside = run_tokamaker(make_inputs(tmp_path, {"limiter": VEST_LIMITER}), config)
+    assert inside.scalars["lcfs_inside_wall"] is True
+
+    # an LCFS pushed 2 cm through the center stack
+    original = fake.trace_surf
+    monkeypatch.setattr(fake, "trace_surf", lambda self, psi: original(self, psi) - [0.165, 0.0])
+    crossed = run_tokamaker(make_inputs(tmp_path, {"limiter": VEST_LIMITER}), config)
+    assert crossed.scalars["lcfs_inside_wall"] is False
+    assert crossed.scalars["lcfs_wall_excursion_m"] == pytest.approx(0.02, abs=2e-3)
+
+
+def test_failed_lcfs_trace_reports_the_wall_check_as_unknown(tmp_path, monkeypatch):
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+    monkeypatch.setattr(fake, "trace_surf", lambda self, psi: None)
+
+    result = run_tokamaker(
+        make_inputs(tmp_path, {"limiter": VEST_LIMITER}),
+        TokaMakerConfig(shot=39915, time=0.325, workdir=tmp_path),
+    )
+
+    assert "lcfs_inside_wall" in result.scalars
+    assert result.scalars["lcfs_inside_wall"] is None
+
+
+def test_long_workdir_falls_back_to_a_short_limiter_file(tmp_path, monkeypatch):
+    make_fake_oft(monkeypatch)
+    fake = sys.modules["OpenFUSIONToolkit.TokaMaker"].TokaMaker
+    original_init = fake.__init__
+
+    def init(self, env):
+        original_init(self, env)
+
+        def path2c(path):
+            if len(path) > 200:   # OFT_PATH_SLEN
+                raise ValueError("path too long")
+            return path
+
+        self._oft_env = types.SimpleNamespace(path2c=path2c)
+
+    monkeypatch.setattr(fake, "__init__", init)
+    deep = tmp_path / ("d" * 120) / ("e" * 120)
+    deep.mkdir(parents=True)
+    mesh = deep / "mesh.h5"
+    mesh.write_bytes(b"")
+
+    run_tokamaker(
+        make_inputs(deep, {"limiter": VEST_LIMITER}, mesh_file=mesh),
+        TokaMakerConfig(shot=39915, time=0.325, workdir=deep),
+    )
+
+    limiter_file = fake.settings_at_setup["limiter_file"]
+    assert len(limiter_file) <= 200
+    assert Path(limiter_file).read_text().split("\n")[0].isdigit()
+
+
+def test_vessel_distribution_carries_the_summed_loop_currents(monkeypatch):
+    # OFT spreads a coil's current as I * dist / area; at I = 1 A the region
+    # must carry the sum of its loop currents, mixed signs included (#1534)
+    from vaft.code.tokamaker import runner
+
+    # a 0.02 x 0.40 m strip, region id 7, cut into a grid of triangles
+    rs, zs = np.linspace(0.80, 0.82, 3), np.linspace(-0.2, 0.2, 21)
+    nodes = np.array([[r, z, 0.0] for z in zs for r in rs])
+    cells = []
+    for j in range(len(zs) - 1):
+        for i in range(len(rs) - 1):
+            a, b = j * len(rs) + i, j * len(rs) + i + 1
+            c, d = a + len(rs), b + len(rs)
+            cells += [[a, b, d], [a, d, c]]
+    cells = np.array(cells)
+    captured = {}
+    mygs = types.SimpleNamespace(
+        r=nodes, lc=cells, reg=np.full(len(cells), 7),
+        set_coil_current_dist=lambda name, dist: captured.setdefault(name, dist),
+    )
+    meshing = types.SimpleNamespace(load_gs_mesh=lambda path: (None, None, None, {"W1": {"reg_id": 7}}, {}))
+    monkeypatch.setattr(runner, "import_oft", lambda: types.SimpleNamespace(meshing=meshing))
+    loops = [{"index": k, "r": 0.81, "z": z} for k, z in enumerate((-0.15, -0.05, 0.05, 0.15))]
+    amps = {0: 300.0, 1: -100.0, 2: 250.0, 3: -50.0}
+    inputs = types.SimpleNamespace(
+        vessel_loop_currents={"W1": amps},
+        geometry={"vessel": {"W1": {"loops": loops}}},
+        mesh_file="mesh.h5",
+    )
+
+    totals = runner._apply_vessel_currents(mygs, inputs)
+
+    assert totals == {"W1": pytest.approx(400.0)}
+    dist = captured["W1"]
+    tri = nodes[cells][:, :, :2]
+    area = 0.5 * np.abs((tri[:, 1, 0] - tri[:, 0, 0]) * (tri[:, 2, 1] - tri[:, 0, 1])
+                        - (tri[:, 2, 0] - tri[:, 0, 0]) * (tri[:, 1, 1] - tri[:, 0, 1]))
+    carried = float(np.sum(dist[cells].mean(axis=1) * area)) / float(area.sum())   # I = 1 A
+    assert carried == pytest.approx(400.0, rel=0.05)
+    # the distribution follows the loops: negative where the negative loops sit
+    lower = nodes[:, 1] < -0.1
+    assert dist[lower].mean() > 0 and dist[(nodes[:, 1] > -0.1) & (nodes[:, 1] < 0.0)].mean() < 0

@@ -138,7 +138,7 @@ def test_thomson_only_writes_statistical_kinetic_slice():
     )
     # the policy that produced the ion temperature is recorded beside it
     record = str(ods[f"{cp}.ion.0.temperature_fit.parameters"])
-    assert "status=inferred" in record and "vest.yaml" in record
+    assert f"status={vest_core_profiles_policy(SHOT).ti_te_ratio_status}" in record and "vest.yaml" in record
 
 
 def test_default_pipeline_fits_in_rho_tor_norm_and_says_so(kinetic_ods):

@@ -10,7 +10,7 @@ authors = [
 description = "Versatile Analysis Framework for Tokamak"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10,<3.15"
 dynamic = ["version"]
 keywords = ["tokamak", "imas", "omas", "fusion", "vest"]
 classifiers = [
@@ -22,41 +22,62 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Scientific/Engineering :: Physics",
 ]
 
 dependencies = [
-  "astropy==6.1.7",
-  "cryptography>=42.0.0",
-  "fortranformat",
+  # Every direct dependency is here because VAFT imports it (or omas needs it
+  # outside what its sdist declares -- xmltodict below). Pin policy (#1012):
+  #   exact pins only where a version is required for reproducibility or
+  #   compatibility, with the reason next to them; otherwise a floor that is the
+  #   oldest version known to work and a ceiling at the next major release.
+  #   Older interpreters may resolve older releases (see #1009).
+  "cryptography>=42.0.0",               # vaft.database.raw (credential file)
   "f90nml>=1.4.4",
-  "h5py==3.16.0",
-  "h5pyd==0.20.0",
-  "imageio>=2.34.0",
+  # The floor is issue #50: older h5py builds break against NumPy 2.
+  "h5py>=3.16,<4",
+  # Exact: the HSDS client (#969). 0.24.0 was qualified live against the VEST
+  # HSDS server (0.9.0.alpha0): reads bit-identical to 0.20.0; publication,
+  # master merge, attribute writes and the hs* tools verified. 1.0.0 is NOT
+  # usable with that server -- it trusts the consolidated `getobjs` metadata,
+  # which this server returns without attributes, so every HDF5 attribute reads
+  # back empty without an error (hsget'd IMAS files lose HDF5_BACKEND_VERSION).
+  # Moving to 1.x waits for a server upgrade; see #1271.
+  "h5pyd==0.24.0",
   "ipykernel>=6.29.4",
   "ipython",
   "ipywidgets",
   "matplotlib>=3.7.3,<4",
   "plotly>=5.24,<7",
+  # The browser GUI (`vaft gui`, vaft.gui; #1086, roadmap #1359). A core
+  # dependency so that `pip install vaft` alone gives the team the GUI, which is
+  # also served from the VEST server; it used to be the optional [gui] extra.
+  # It costs about 150 MB of install (Panel and Bokeh, mostly bundled
+  # JavaScript); Plotly, which the interactive plots use, was already here.
+  # `import vaft` still never imports it: vaft.gui imports Panel only when an
+  # app is built. The rest of the HoloViz stack (HoloViews, hvPlot, Datashader)
+  # stays out until a concrete view needs it.
+  "panel>=1.9,<2",
   "mysql-connector-python>=8.4.0",
-  "numba",
   "numpy>=2.0.0,<3",
-  "omas==0.94.2",
+  # Exact: VAFT reads and writes through omas internals (DD tables up to
+  # 3.41.0, code.parameters serialisation, path materialisation), so an omas
+  # release is adopted deliberately, never by resolution. 0.95.2 (2026-03) was
+  # adopted after a full-suite A/B against 0.94.2 on Python 3.14 gave the
+  # identical pass/fail list; its default IMAS DD version is still 3.41.0.
+  "omas==0.95.2",
   "openpyxl",
   "opencv-python>=4.9.0.80",
   "pandas>=2.2.2",
-  "pyjwt",
-  "PyYAML==6.0.2",
-  "requests-unixsocket==0.4.1",
+  "PyYAML>=6.0.2,<7",
   "scikit-image",
   "scipy>=1.13.0,<2",
   "seaborn",
-  "setuptools>=64.0.0,<81.0.0",
   "snakemake",
-  "statsmodels==0.14.6",
+  "statsmodels>=0.14.6,<0.16",
   "tqdm>=4.67.3",
-  "uncertainties==3.2.2",
-  "urllib3==1.26.13",
+  "uncertainties>=3.2.2,<4",
   "wexpect; sys_platform == 'win32'",
   "xarray>=2024.4.0",
   # omas needs it to serialize equilibrium.code.parameters (the EFIT
@@ -86,6 +107,49 @@ surrogate = ["onnxruntime"]
 # the wheel carries compiled libraries, and every other workflow works without
 # it. vaft.code.tokamaker raises an actionable ImportError when it is absent.
 tokamaker = ["openfusiontoolkit"]
+# The framework backends of vaft.process.ml (#669). Importing vaft.process.ml
+# needs none of it: the dataset, split, artifact and registry contract and the
+# "numpy" backend run on NumPy, and each framework is imported only when a
+# ModelSpec names its backend. torch: the "torch" backend; onnx is what its
+# exporter writes with. scikit-learn + skl2onnx: the "sklearn" backend, which
+# stores its estimators as ONNX so a published model never unpickles anything.
+# onnxruntime checks every exported graph and runs the sklearn models.
+# Kept out of [dev]: the default Linux torch wheel pulls CUDA, so CI installs
+# the CPU wheel explicitly instead (package-ci.yml).
+ml = ["torch", "onnx", "onnxruntime", "scikit-learn", "skl2onnx"]
+# 3-D scenes beyond Matplotlib and Plotly (#1087). vaft.plot.pyvista converts
+# Geometry3DLayers to PyVista/VTK and writes .vtm/.vtp files ParaView opens
+# (ParaView itself is never a dependency); vaft.plot.k3d draws them in Jupyter.
+# Both are imported only when a function asks for them: VTK is a large wheel
+# most 1-D/2-D workflows never need, and K3D matters only in a notebook.
+vtk = ["pyvista>=0.44"]
+jupyter3d = ["k3d>=2.16"]
+# Video files of an animated plot (#1050): `plot_*(..., animation=True).save("x.mp4")`
+# encodes through PyAV, which carries its own FFmpeg. It is imported only when an
+# .mp4/.webm is written or previewed; static plots, interactive sliders and .gif
+# export (Pillow, already a Matplotlib dependency) never need it.
+video = ["av>=13"]
+# Numba is reserved for measured acceleration work (#1013) and is not a runtime
+# dependency: no VAFT module imports it yet. It used to be required, but
+# electromagnetics.py only checked whether it imported and printed a warning when
+# it did not. Keeping it required would cost every install a compiled
+# dependency, and on Python 3.15 its missing wheels would block installation
+# entirely. A kernel that later adopts it must keep a NumPy fallback that
+# produces the same result, and must import numba lazily inside that kernel.
+accel = ["numba"]
+# The local, read-only MCP server (`python -m vaft.mcp`, `vaft mcp`; #1423).
+# Only vaft.mcp.server imports the SDK, inside build_server(): `import vaft` and
+# `import vaft.mcp` never need it. In [dev] too, so CI runs the stdio round trip.
+mcp = ["mcp>=1.26,<2"]
+# Empty: Panel is a core dependency now (see `dependencies`). Kept so that the
+# `pip install 'vaft[gui]'` already written in scripts and notes still works.
+gui = []
+# The observed import graph on /reference/dependency-graph/ (`python -m
+# vaft._dependency_graph`; #1646). Grimp builds it; it is documentation and
+# architecture tooling, never imported by `import vaft`, and the generator stops
+# with an install hint rather than fall back to another analyser. In [dev] too,
+# so the docs-site tests that run every generator can run this one.
+architecture = ["grimp>=3.17,<4"]
 dev = [
   "pytest",
   # so the surrogate's arithmetic check actually runs on the gate. CI installs
@@ -94,6 +158,9 @@ dev = [
   "onnxruntime",
   # for test_fit_profile_gp_backends.py, which compares the two GP backends
   "scikit-learn",
+  # so test_plot_video_pyav.py encodes and decodes a real video on the gate
+  # instead of skipping; the animation contract tests themselves need no PyAV.
+  "av>=13",
   # The suite is 4800+ largely independent tests; running them on one core is
   # what made the required CI check a 20-minute gate (issue #413).
   "pytest-xdist",
@@ -106,8 +173,12 @@ dev = [
   # (issue #753).
   "ruff",
   "ipykernel>=7.2.0",
+  # the MCP SDK, so test_mcp_server.py's stdio round trip runs on the gate
+  "mcp>=1.26,<2",
   "nbclient>=0.10",
   "nbformat>=5.10",
+  # so the dependency-graph generator (#1646) runs on the gate; see [architecture]
+  "grimp>=3.17,<4",
 ]
 
 [project.urls]
@@ -123,7 +194,14 @@ include = ["vaft*"]
 # keeps it out, since it is not a `vaft*` package, but the exclusion belongs in
 # the file a packaging change is reviewed in rather than resting on an omission
 # -- MANIFEST.in prunes it from the sdist for the same reason.
-exclude = ["docs*"]
+exclude = [
+  "docs*",
+  # Issue studies that do not ship (#1756): the EC launcher CAD extraction
+  # needs cadquery-ocp and a STEP file that is not in the repository; the NICE
+  # #666 folders are notes and dated run records.  fixed_free_1608 ships.
+  "vaft.validation.studies.ec_launcher_cad_266*",
+  "vaft.validation.studies.nice_issue_666*",
+]
 
 [tool.setuptools]
 # Ship only the package data explicitly listed below.  Repository samples stay
@@ -134,10 +212,13 @@ include-package-data = false
 vaft = [
   ".hscfg.example",
   "machine_mapping/vest.yaml",
+  "code/nice/*.xml",
+  "code/nice/*.h",
   "data/geometry/Coil_info.mat",
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat",
   "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat",
   "data/geometry/VEST_em_coupling_pf_versions.npz",
+  "data/geometry/VEST_passive_wall_2409.npz",
   "data/geometry/VEST_static_geometry.json.gz",
   "data/geometry/*.yaml",
   "data/geometry/*.csv",
@@ -150,9 +231,25 @@ vaft = [
   # Read by machine_mapping.langmuir_probes() on every call; without it a wheel
   # install leaves position.r unset where a source checkout fills it.
   "data/legacy/langmuir_probe_positions.csv",
+  # ShotLog era schemas read by vaft.database.shotlog (#995).
+  "data/shotlog/schemas/*.yaml",
+  "data/unified/vest_diagnostics/manifest.yaml",
+  "data/unified/vest_diagnostics/omas.json.gz",
   "data/samples/*/manifest.yaml",
+  # Only the OMAS form of 39915 ships (release 0.8.0): its IMAS netCDF twin,
+  # samples/39915/imas.nc, is the same product and stays repository-only so
+  # the wheel keeps under the size budget test/verify_dist.py enforces.
   "data/samples/39915/omas.json.gz",
-  "data/samples/39915/imas.nc",
+  # The authored TikZ template vaft.diagram renders every scene into.
+  "diagram/templates/*.tex",
+  # packaged pictures a diagram embeds (the VEST machine render, #1550)
+  "diagram/images/*.jpg",
+  "diagram/images/*.png",
+  # The hosted-GUI deployment templates (`vaft gui --hosted`, #1755): the
+  # systemd unit, its environment file, the nginx site and proxy snippet.
+  "deploy/gui/*.service",
+  "deploy/gui/*.example",
+  "deploy/gui/*.conf",
 ]
 
 [tool.uv.sources]

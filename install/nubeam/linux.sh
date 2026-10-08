@@ -464,7 +464,7 @@ backfill_shared_archives() {
 # libpspline.a through. Build each program by naming its target directly and
 # assert the binary afterwards.
 build_aux_executables() {
-  local preact_root preact_build generator_build src source_file
+  local preact_root preact_build generator_build src
 
   note "building update_state"
   make -C "$ROOT_DIR/update_state" exec "OBJ=$BUILD_DIR/nubeam"
@@ -479,38 +479,35 @@ build_aux_executables() {
   [[ -x "$preact_build/test/preact_init" ]] ||
     die "preact_init was not created; see $LOG_FILE"
 
-  # The Plasma State generator. The NTCC archive ships no main program for it;
-  # plasma_state_test.f90 in the vendored 2021 server tree is the complete
-  # source. Its own Makefile is unusable (absolute paths, MDSplus, termcap) and
-  # a top-level directory here would be swept into the main tree's MEXEC list,
-  # so compile and link it directly.
-  src="$ROOT_DIR/vendor/server-ntcc-2021/plasma_state_test"
+  # The Plasma State generator. The public NTCC archive ships the Plasma State
+  # library but no program that creates a state, so VAFT carries its own,
+  # plasma_state/vaft_plasma_state.f90 beside this script. It contains no NTCC
+  # source and is compiled here against the libraries just built.
+  src="$SCRIPT_DIR/plasma_state"
   generator_build="$BUILD_DIR/generator"
-  [[ -f "$src/plasma_state_test.f90" ]] ||
-    die "Plasma State generator source not found: $src/plasma_state_test.f90"
-  note "building plasma_state_test"
+  [[ -f "$src/vaft_plasma_state.f90" ]] ||
+    die "Plasma State generator source not found: $src/vaft_plasma_state.f90"
+  note "building vaft_plasma_state"
   mkdir -p "$generator_build"
   ( cd "$generator_build"
     IFS=' '
-    for source_file in ps_momtest.F90 plasma_state_test.f90; do
-      # shellcheck disable=SC2086  # deliberate word split: a flag list
-      "$FC_WRAPPER" -c -O -m64 -cpp -I"$PREFIX/mod" -I"$PREFIX/include" \
-        -I"$NETCDF_FORTRAN_INC" \
-        -o "${source_file%.*}.o" "$src/$source_file"
-    done
-    "$FC_WRAPPER" -o plasma_state_test plasma_state_test.o ps_momtest.o \
+    "$FC_WRAPPER" -c -O -m64 -cpp -I"$PREFIX/mod" -I"$PREFIX/include" \
+      -I"$NETCDF_FORTRAN_INC" \
+      -o vaft_plasma_state.o "$src/vaft_plasma_state.f90"
+    # shellcheck disable=SC2086  # deliberate word split: a flag list
+    "$FC_WRAPPER" -o vaft_plasma_state vaft_plasma_state.o \
       -L"$PREFIX/lib" -lplasma_state -lps_xplasma2 -lplasma_state_kernel \
       -lxplasma2 -lgeqdsk_mds -lmdstransp -lvaxonly -lnscrunch -lfluxav \
       -lr8bloat -lpspline -lezcdf -llsode -llsode_linpack -lsmlib -lcomput \
       -lportlib \
       -L"$NETCDF_FORTRAN_LIB" -lnetcdff -L"$NETCDF_C_HOME/lib" -lnetcdf \
       -L"$LAPACK_LIB_DIR" $LAPACK_FLAGS -lstdc++ )
-  [[ -x "$generator_build/plasma_state_test" ]] ||
-    die "plasma_state_test was not created; see $LOG_FILE"
+  [[ -x "$generator_build/vaft_plasma_state" ]] ||
+    die "vaft_plasma_state was not created; see $LOG_FILE"
 
   cp "$BUILD_DIR/nubeam/test/update_state" "$PREFIX/bin/update_state"
   cp "$preact_build/test/preact_init" "$PREFIX/bin/preact_init"
-  cp "$generator_build/plasma_state_test" "$PREFIX/bin/plasma_state_test"
+  cp "$generator_build/vaft_plasma_state" "$PREFIX/bin/vaft_plasma_state"
 }
 
 # nubeam_comp_exec requires both PREACTDIR and ADASDIR and calls bad_exit when
@@ -568,57 +565,64 @@ fi
 # PSPLINE in this tree provides. There are three generations of that API:
 #
 #   2021 nubeam.cpp       czspline_init1(&n1, bcs1, &ier)            no handle
-#   2018 server tree      F77NAME(czspline_init1_r8)(handle, ...)    handle, typed
+#   older PSPLINE         F77NAME(czspline_init1_r8)(handle, ...)    handle, typed
 #   current PPPL PSPLINE  F77NAME(czspline_init1)(handle, ...)       handle, untyped
 #
-# The in-tree 2021 file matches neither, and it is a signature mismatch rather
-# than a name-mangling one -- forcing identity mangling still leaves four
-# parameters against three arguments -- so no preprocessor setting reconciles
-# it. The vendored 2021 server tree ships the same file already written against
-# the handle-based API, differing only in these five calls.
+# The in-tree file matches neither, and it is a signature mismatch rather than
+# a name-mangling one -- forcing identity mangling still leaves four parameters
+# against three arguments -- so no preprocessor setting reconciles it.
 #
-# Bridging the last step is mechanical and numerically exact: upstream removed
-# the r4 variants outright, so the surviving untyped entry point *is* the r8
-# one. `nm` on the built archive confirms it -- ezspline_init1_ is present and
-# no _r4 symbol exists anywhere in it. Stripping the suffix therefore selects
-# the same double-precision routine the server tree asked for by name.
+# The fix is mechanical and confined to Nubeam::interp1d: declare an opaque
+# handle and pass it first to each of its five czspline_* calls, through the
+# header's F77NAME macro, with the _r8 suffix only when the installed header
+# still carries the typed entry points. Upstream removed the r4 variants
+# outright, so the untyped entry point *is* the double-precision one; `nm` on
+# the built archive confirms it -- no _r4 symbol exists anywhere in it.
 #
 # Upstream's source is not edited: the adapted copy is staged in the build
 # directory, compiled there, and inserted into the archive before `make` runs,
 # so make finds the member newer than the .cpp and leaves it alone.
 stage_nubeam_cpp_replacement() {
   local original="$ROOT_DIR/nubeam/nubeam.cpp"
-  local adapted="$ROOT_DIR/vendor/server-ntcc-2021/nubeam/nubeam.cpp"
   local staged="$BUILD_DIR/src/nubeam.cpp"
   local objdir="$BUILD_DIR/nubeam/obj/nubeam"
   local libdir="$BUILD_DIR/nubeam/lib"
   local header="$PREFIX/include/czspline_capi.h"
+  local suffix=''
 
   [[ -f "$original" ]] || die "NUBEAM source not found: $original"
   # If upstream ever ships a nubeam.cpp already written against the installed
-  # API, this substitution is unnecessary and must not happen silently.
+  # API, this adaptation is unnecessary and must not happen silently.
   if ! grep -q 'czspline_init1(&n1' "$original"; then
-    note "nubeam.cpp already matches the installed PSPLINE API; no substitution"
+    note "nubeam.cpp already matches the installed PSPLINE API; no adaptation"
     NUBEAM_CPP_SOURCE="$original"
     return 0
   fi
-  [[ -f "$adapted" ]] ||
-    die "nubeam.cpp calls a PSPLINE API this PSPLINE does not provide, and the adapted copy is not in this tree at $adapted. Supply a nubeam.cpp matching the installed PSPLINE, or a PSPLINE matching this one."
   [[ -f "$header" ]] || die "PSPLINE C header not installed: $header"
 
   mkdir -p "$BUILD_DIR/src" "$objdir" "$libdir"
   if grep -q 'czspline_init1_r8' "$header"; then
-    # The installed PSPLINE still carries the typed entry points, so the
-    # server tree's file applies unchanged.
-    note "substituting the vendored server-tree nubeam.cpp (typed PSPLINE API)"
-    cp -f "$adapted" "$staged"
+    suffix='_r8'
+    note "adapting nubeam.cpp to the handle-based PSPLINE API (typed entry points)"
   else
-    note "substituting the vendored server-tree nubeam.cpp, with the r4/r8 suffixes upstream removed"
-    sed -E 's/F77NAME\((czspline_[a-z0-9_]+)_r8\)/F77NAME(\1)/g' "$adapted" > "$staged"
-    ! grep -q 'czspline_[a-z0-9_]*_r8' "$staged" ||
-      die "some typed PSPLINE calls survived the rewrite in $staged"
+    note "adapting nubeam.cpp to the handle-based PSPLINE API"
   fi
-  NUBEAM_CPP_SOURCE="$adapted"
+  # 1. a handle beside the boundary-condition array the calls already use;
+  # 2. every bare czspline_<name>( call becomes F77NAME(czspline_<name>)(handle, .
+  sed -E \
+    -e 's/^([[:space:]]*)int bcs1\[2\];/&\
+\1int handle[_ARRSZ];/' \
+    -e "s/(^|[^_A-Za-z0-9(])czspline_([a-z0-9_]+)\(/\1F77NAME(czspline_\2${suffix})(handle, /g" \
+    "$original" > "$staged"
+  [[ "$(grep -c 'int handle\[_ARRSZ\];' "$staged")" == 1 ]] ||
+    die "could not place the PSPLINE handle declaration in $staged"
+  [[ "$(grep -c 'F77NAME(czspline_' "$staged")" == 5 ]] ||
+    die "expected to adapt exactly five PSPLINE calls in $staged"
+  # The include line names the header, not a call; it must survive untouched.
+  grep -q 'czspline_capi.h' "$staged" ||
+    die "the PSPLINE header include was rewritten in $staged"
+  # The record digests the file actually compiled.
+  NUBEAM_CPP_SOURCE="$staged"
 
   # The same command Make.flags' cxx_proc builds, run from the source directory
   # so that -I./ and -I../include resolve as they do under make.
@@ -643,7 +647,10 @@ stage_nubeam_cpp_replacement() {
       die "the substituted nubeam.cpp needs $symbol, which the installed PSPLINE does not define"
   done
 
-  ar r "$libdir/libnubeam.a" "$objdir/nubeam.o"
+  # -U, as windows.sh does: Ubuntu's binutils writes deterministic archives,
+  # which stamp every member 1970, so make would find nubeam.o older than the
+  # in-tree .cpp and recompile the one file that cannot compile.
+  ar rU "$libdir/libnubeam.a" "$objdir/nubeam.o"
   ranlib "$libdir/libnubeam.a"
   # Make compares the archive member against the .cpp, so the member has to be
   # the newer of the two for make to accept it.

@@ -1,0 +1,42 @@
+# VEST ShotLog schema `ps_v2` (ported from VEST_ShotLog docs/schemas, #995).
+schema_id: ps_v2
+version: 1.0.0
+status: supported
+detection:
+  required_headers:
+  - P/S
+  - Charging Voltage
+  - 'ECH Line #1'
+  - Gas Injection
+  minimum_score: 1.0
+fields:
+- path: shots[].planned_configuration.magnetic.tf
+  type: value_record
+  required: false
+  meaning_ko: TF 설정값
+  aliases:
+  - TF
+  unit: null
+  parsing: scalar_or_expression
+  validation:
+    allow_expression: true
+- path: shots[].planned_configuration.heating_and_current_drive.ech_line_1
+  type: value_record
+  required: false
+  meaning_ko: 'ECH Line #1 설정값'
+  aliases:
+  - 'ECH Line #1'
+  unit: null
+  parsing: scalar_or_expression
+  validation:
+    allow_expression: true
+- path: shots[].planned_configuration.gas_injection.program
+  type: value_record
+  required: false
+  meaning_ko: 가스 주입 조건
+  aliases:
+  - Gas Injection
+  unit: null
+  parsing: trigger_range
+  validation:
+    allow_range: true

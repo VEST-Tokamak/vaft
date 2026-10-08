@@ -1,0 +1,1330 @@
+{
+  "generator": "python -m vaft.plot.docs_thumbnails",
+  "note": "Freshness is judged on the recipe (sample, renderer source, view model), not on PNG bytes; see the module docstring.",
+  "plots": {
+    "b_field_probe_spatial_field": {
+      "call": "vaft.omas.plot_b_field_probe_spatial_field(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "cee98980cbf596a4de4322647aee7ead145de6eb8d51c3d4ffb9982028152156",
+      "png_sha256": "96a44c884c7a9db554f7d3c1c79e88459593921c6781a183eea9e96afa9b0064",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "b_field_probe_time_field": {
+      "call": "vaft.omas.plot_b_field_probe_time_field(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "6fb55ffa7e9b84a8b8911fd1a8df2b31405bb5d952f5298f01c86aeafe588e03",
+      "png_sha256": "d0655599ac60b7802e99bca5a8ae191a43e0f48708e253e88ab91ce451dcdf4f",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "barometry_time_pressure": {
+      "call": "vaft.omas.plot_barometry_time_pressure(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "2d783100aaf8bbc1f750a0bc10e36a74919e7315611992d33b3dc987ac54a876",
+      "png_sha256": "99ddb6fb19b1e79e37855cedfffcf15cf46633739f39e7af2afc20ed7b02148b",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "camera_visible_animation_frames": {
+      "call": "vaft.omas.plot_camera_visible_animation_frames(vaft.omas.load(vaft.data.sample(40600)))",
+      "model_sha256": "27094e71baed8a53f5575abeaa83782b380549e0713875744bebd83f386ffb9b",
+      "png_sha256": "d4c9e28a983f88d33565f3ae7e1ceefa9fdb31c2f3bafaae00e8329c62ff4059",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "7c8c863e39839bb99333a0fad66dad3bc4518c8f7ab70582111eb53f7c292418",
+      "shot": 40600,
+      "status": "rendered"
+    },
+    "camera_visible_image": {
+      "call": "vaft.omas.plot_camera_visible_image(vaft.omas.load(vaft.data.sample(40600)))",
+      "model_sha256": "75bcaa9e5fb3ddb8e573168ce8eddd6119349b9c9587f8f597f633d901ed5fed",
+      "png_sha256": "fe3ecca9c6b013a390767b10141a49ed149f4433978a6776006af35770528c78",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "7c8c863e39839bb99333a0fad66dad3bc4518c8f7ab70582111eb53f7c292418",
+      "shot": 40600,
+      "status": "rendered"
+    },
+    "camera_visible_image_efit_overlay": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "camera_visible_image_field_line": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "camera_visible_image_fluctuation": {
+      "call": "vaft.omas.plot_camera_visible_image_fluctuation(vaft.omas.load(vaft.data.sample(40600)))",
+      "model_sha256": "e07ba9ac42229063838c68a27deff991c1be3b32be16ffb9e58dc8a2df25cdb7",
+      "png_sha256": "d6c2cbb068a75a39ec4dde0451a2fbf24ba3e1f32e9c8a00590e12815aa4c0d5",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "7c8c863e39839bb99333a0fad66dad3bc4518c8f7ab70582111eb53f7c292418",
+      "shot": 40600,
+      "status": "rendered"
+    },
+    "camera_visible_image_frame": {
+      "call": "vaft.omas.plot_camera_visible_image_frame(vaft.omas.load(vaft.data.sample(40600)))",
+      "model_sha256": "75bcaa9e5fb3ddb8e573168ce8eddd6119349b9c9587f8f597f633d901ed5fed",
+      "png_sha256": "fe3ecca9c6b013a390767b10141a49ed149f4433978a6776006af35770528c78",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "7c8c863e39839bb99333a0fad66dad3bc4518c8f7ab70582111eb53f7c292418",
+      "shot": 40600,
+      "status": "rendered"
+    },
+    "camera_visible_image_mhd_power": {
+      "call": "vaft.omas.plot_camera_visible_image_mhd_power(vaft.omas.load(vaft.data.sample(40600)))",
+      "model_sha256": "8e8f6d0d10aa07558276e199d0f9763af9e58b656d07106fab90b1ade92b9640",
+      "png_sha256": "31ba0d5382989f5f7dab94049cd411a248aff1dac25ff1223658029ce140a7f3",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "7c8c863e39839bb99333a0fad66dad3bc4518c8f7ab70582111eb53f7c292418",
+      "shot": 40600,
+      "status": "rendered"
+    },
+    "camera_visible_image_vacuum_field_line": {
+      "reason": "shot 40600: ValueError: no calibrated camera projection is available for shot 40600: No calibrated FAST-camera pose is packaged for shot 40600. Calibrated shots: (34764, 39915, 47518). Provide pose_path to use an external pose file.",
+      "status": "failed"
+    },
+    "camera_visible_spectrogram": {
+      "call": "vaft.omas.plot_camera_visible_spectrogram(vaft.omas.load(vaft.data.sample(40600)))",
+      "model_sha256": "129668eb00b2e60ad5d0d35f4ec866b625af11558928dbd018ae91ffc4dbd0e3",
+      "png_sha256": "54e2209c8aa3d0d084cfe3ac565ee044112addc8888663375625b0afb69e5c99",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "7c8c863e39839bb99333a0fad66dad3bc4518c8f7ab70582111eb53f7c292418",
+      "shot": 40600,
+      "status": "rendered"
+    },
+    "charge_exchange_geometry_poloidal": {
+      "call": "vaft.omas.plot_charge_exchange_geometry_poloidal(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "0288b236e5fae68ca9d63ffc7df7c460a9e9dedef83fd9286ffd4a304a618c8a",
+      "png_sha256": "371f02aa7a19442f87302a001b7c425deee59b826d2c2bb38545e570a544ff0d",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "charge_exchange_profile_fit": {
+      "call": "vaft.omas.plot_charge_exchange_profile_fit(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "e4220d87d034e6c8dfe668143fd700104ede823d878632524ba3a104abf63536",
+      "png_sha256": "0556807d0087fa33904e4ce38322afaf01448cb14ecf293789414ecad416f2a2",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "charge_exchange_profile_ion_temperature": {
+      "call": "vaft.omas.plot_charge_exchange_profile_ion_temperature(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "6385a923a012fa128c83f6235f888e4b2e2f5ef5da1613f76d5e2d61e6d8fdf3",
+      "png_sha256": "4b23195ef98d920526c7842f5758cf832d974e8976f55b1b06ab5cf937b3d85d",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "charge_exchange_profile_velocity_tor": {
+      "call": "vaft.omas.plot_charge_exchange_profile_velocity_tor(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "97784fb0fe61725b28ace1983f243a1c362120597ff7657b18ed4473d133fca7",
+      "png_sha256": "a2f8dc9a8da4f0836acc2dfa4116460c0e0314033f329716fee3ada5ab3f7bf2",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "charge_exchange_time_ion_temperature": {
+      "call": "vaft.omas.plot_charge_exchange_time_ion_temperature(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "8e39f20b534fad6ad467882262aaa14c07c4b41e337ece278935e98f0e6f68c6",
+      "png_sha256": "bccd2c15cfcabe26d19f5082c1f333803c49700a03d52560e69664df5e3e4b3f",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "charge_exchange_time_velocity_tor": {
+      "call": "vaft.omas.plot_charge_exchange_time_velocity_tor(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "59d6cf2902c8440d33fc6f3cc51066999a24b9054ad1a1f8550191249b666748",
+      "png_sha256": "2c69c57417abc536f9f6ec6f38d2c4f8d1b5007c49adc2ec61f33c5e93d3e1e2",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "chease_overview_profile_validity": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "chease_overview_refinement_summary": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "coil_3d_geometry3d": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "coil_3d_geometry_topview": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "coil_3d_profile_current": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "coil_3d_spectrum_current": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "core_profiles_profile_zeff": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "core_profiles_time_volume_averaged": {
+      "call": "vaft.omas.plot_core_profiles_time_volume_averaged(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "5ca025a1d585dd2d224cbe775d00f42a6f6e74aef8eda2661044a318dd15dfad",
+      "png_sha256": "b6080231c07d9e02b8232acdc4922ff46d9fb3fdc04abb7a6ad10622be451b48",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "current_overview": {
+      "call": "vaft.omas.plot_current_overview(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "947b5609006d9856d0be641c4d704ffc1001712b28654164c802363a518a153b",
+      "png_sha256": "ac3b1e3bd0f17240787adb4d30b31773bb80f3261828ee9cc86fabd78da63c55",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "diagnostics_overview": {
+      "call": "vaft.omas.plot_diagnostics_overview(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "1725bba37c8f2a8d1c34865fc4990be2e9200cace4890c2db45e55126d9e032c",
+      "png_sha256": "fa0965f10267519563f6ed1db8b2c1d6f74e5a42502b8b48b6ea0fc7ab5ef266",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "diagnostics_spectrum_coherence": {
+      "call": "vaft.omas.plot_diagnostics_spectrum_coherence(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "27b2f58c5a6da09740e9329e4a7114898e13ba36183090250bdb5888407a8766",
+      "png_sha256": "8f54d4301e14a7f0975bcabd06e040149c47ce29f2f311443d2ce0520a7587c2",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "diamagnetic_flux_time": {
+      "call": "vaft.omas.plot_diamagnetic_flux_time(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "7a49b7f9e251b5d59a85b340f0b06e96700ca490cd56525592009f9ac11abbac",
+      "png_sha256": "849f993d7551376e801faa957a659dd684034fb4f9c49a480595d2871b93a60b",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "ec_launchers_time_power": {
+      "call": "vaft.omas.plot_ec_launchers_time_power(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "25ded7f0b391cae691ceae857f39760dc6637485de43ad73c441f97b55691def",
+      "png_sha256": "3f352f32aeb9572bfce651c2b6e137b4172adf296114ef5cd0bda88089909b2d",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "electron_density_field": {
+      "call": "vaft.omas.plot_electron_density_field(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "c2887d088582fd37809cbfd2e47066f643fef10f97e3cb9c35c211534d13cb9f",
+      "png_sha256": "d640b565e144c96dae226a8686f63062bc9b094f3e14142dab4658e5b655a2bd",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "electron_density_profile": {
+      "call": "vaft.omas.plot_electron_density_profile(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "4a28f98fd4126d238e1514387c93c8514d64c5eadabdf923bdbe0cdd386ee002",
+      "png_sha256": "11acc569e78ce309eb839d488ec4395fa5500b63d86625b5443a6a817ee2a27d",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "electron_density_profile_gradient": {
+      "call": "vaft.omas.plot_electron_density_profile_gradient(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "b4beef3d6f2904f5c6f98986145833c67e7b93a33e3dd4676f6675c8e699e50a",
+      "png_sha256": "2ec74ff124bb6361baf8f44e74ce4113c227296044f13f5c2db0654dcb5d2e0a",
+      "renderer_sha256": "b090a77113c1ec6788ecd41703018c2b7e3cb4337cfa732c1cfd341589784831",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "electron_density_time": {
+      "call": "vaft.omas.plot_electron_density_time(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "0ee47892e2e1aec6ec7de25010e51f1bbdd0ada0532ccc67e5fb4140c7c594dc",
+      "png_sha256": "8caa4bcb4d26b7db93a9325001f8757ec056b23ae59186f5267b7786b89675b4",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "electron_temperature_field": {
+      "call": "vaft.omas.plot_electron_temperature_field(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "581f009ad527ca60777f8c17c27d519ab9e5c464ab70b8b43bc2fe8a350b3abe",
+      "png_sha256": "b49fb6d9c81b8aca5b904c0c3b643eaac66cac4723cd618dd13bceec7106525c",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "electron_temperature_profile": {
+      "call": "vaft.omas.plot_electron_temperature_profile(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "fa9446a1633708f233dfb6cbfcd9d01cbf39237c2b28e0eeb3f26f5f7e014941",
+      "png_sha256": "0e93fb626b836808e1772a2975ea0ee3003d4a9b4c264545ff366b07c117a8a0",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "electron_temperature_profile_gradient": {
+      "call": "vaft.omas.plot_electron_temperature_profile_gradient(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "e447f27c3ee4ee27f95930425be1643a1322c1bd5644e6f3304bfc6cc99eebaa",
+      "png_sha256": "4f4064d21a4b3cea5684b32a28204cdc990559a41f27486f0bbf300dcae305d6",
+      "renderer_sha256": "b090a77113c1ec6788ecd41703018c2b7e3cb4337cfa732c1cfd341589784831",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "electron_temperature_time": {
+      "call": "vaft.omas.plot_electron_temperature_time(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "48cd68078e179e1522acaf33efad8cb32cbb2f2fba8dfccd026fa842b53baaab",
+      "png_sha256": "194281ce1d2c4767043025b79db27ef1ff4c45585493863cbf69361b65d1d552",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "equilibrium_field_2d": {
+      "call": "vaft.omas.plot_equilibrium_field_2d(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "6b2a8ee599a8d4edf387c95f6126c4bd4eaf0fd554a3db66ca5f6a304daac4b5",
+      "png_sha256": "aabf83fb82a1ca4f186acc4de15817d1987228c9b4464f5be2d3d56ce93c6d12",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_field_psi": {
+      "call": "vaft.omas.plot_equilibrium_field_psi(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "6b2a8ee599a8d4edf387c95f6126c4bd4eaf0fd554a3db66ca5f6a304daac4b5",
+      "png_sha256": "aabf83fb82a1ca4f186acc4de15817d1987228c9b4464f5be2d3d56ce93c6d12",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_field_psi_vacuum": {
+      "call": "vaft.omas.plot_equilibrium_field_psi_vacuum(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "1f5887b92b8e06981c18862af013df62e21cd1ed8fc118dd54b2cfdda952d47f",
+      "png_sha256": "50e37908b6512536d5d0d89abda83298a861c20cdcbbe268dd337815e8277f36",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_geometry_boundary": {
+      "call": "vaft.omas.plot_equilibrium_geometry_boundary(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "c1d4fbb745d0474d7cf631baed3e5f62ad48d54e92a5f23d1d42b8b6e586bfca",
+      "png_sha256": "ec501600b256f94e3bcd17a04fc5b8094e4f63c036dfd0e3abb59e1211c4d71c",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_geometry_topview": {
+      "call": "vaft.omas.plot_equilibrium_geometry_topview(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "46ce0a622a918170408396b47bfff31faef0c4862a1512a2ed4db814c7f6d34a",
+      "png_sha256": "4d0683881a74fbff72537ef51d63be3fedce1916f9f38d1f302e0ecb21c6cbb4",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview": {
+      "call": "vaft.omas.plot_equilibrium_overview(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "434a766b7052a2f35646c630d57ff0b6a37eec188ed47bd37b189be412192d87",
+      "png_sha256": "a090b4de1ea5f1b57b7e3822aa2eaa956fe09b271f374fd4643977ccd8b21705",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_constraint_coverage": {
+      "call": "vaft.omas.plot_equilibrium_overview_constraint_coverage(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "0ff609efc781dd47b2581ea83cee8d2db621eaf2819071635d5404a2e9c227a5",
+      "png_sha256": "ec819e465b43e4c9a583c67a2045c7a601e1120e0e99e424a06873bda87302c7",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_constraint_weights": {
+      "call": "vaft.omas.plot_equilibrium_overview_constraint_weights(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "c98924c705c603b247234cf83eafbf724b98568ff3cb8dd055be54fb1e2c0f6c",
+      "png_sha256": "9ea6d828703ee3acc4f62811712b623da17beefe274594a9d4bd49f99543be58",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_constraints": {
+      "call": "vaft.omas.plot_equilibrium_overview_constraints(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "1975aa4f6e53cfabc0a9a6e37a8f348eaf7e6b098c8af721e5232a3fc6a16e21",
+      "png_sha256": "e4a017129f8e4071920fedd6249742cd04e204c145eed289bd4a624a036687f4",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_convergence": {
+      "call": "vaft.omas.plot_equilibrium_overview_convergence(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "4fa12fdbbf1f86cb763ac58d7b196509a11667fdddc7dcb465097dc1d4cf51a4",
+      "png_sha256": "2bcdd9b7867f8752205734b57bc06c407576e75558f9a7e2383813d56c695725",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_fit_quality": {
+      "call": "vaft.omas.plot_equilibrium_overview_fit_quality(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "ebd60670469affd4bbdbfd4b5e363c252b629997a9cad574edb547d4d7441e0b",
+      "png_sha256": "069294330023200e55ca429220ef727d72ffcfc75cca6c965e8bd02b3cd6a2b2",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_histories": {
+      "call": "vaft.omas.plot_equilibrium_overview_histories(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "7383f12bc785c60d9e2595807fe0ae701d27b85d0af112b08b142cfeafa86a67",
+      "png_sha256": "7fb99a8df234c7ad6e7ae6e4733bb6a1a3648d8176e34f888747964831ac759f",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_pressure_weight_scan": {
+      "call": "vaft.omas.plot_equilibrium_overview_pressure_weight_scan(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "9038c306670764af086252469d8cfcf8de1cb1c1711bf48aaeda6a5db19051ef",
+      "png_sha256": "574b3dfb629c1d4def00376485a828da4f60b766da95007519870395cde9915f",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_profiles": {
+      "call": "vaft.omas.plot_equilibrium_overview_profiles(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "fbc94baed2a41a6d5942484a882cd700004c8f81139b1e0edc324561111fb973",
+      "png_sha256": "1e3de137029567ad1815962ab916e4fb503e4cd9d8f8ae346ddf5f687a883b26",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_residuals": {
+      "call": "vaft.omas.plot_equilibrium_overview_residuals(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "df166e53f79ec727b88518f32d59c34d4604152f5d20962e03a71d197edc64e4",
+      "png_sha256": "6680fe15a1ea875eed3f26db104dc5a1d47b7bff50f61eaf0d8096a352a277d1",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_overview_verification": {
+      "call": "vaft.omas.plot_equilibrium_overview_verification(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "9fefe107971cd6667ecfc542cd55a99990b7783a433edbead772a0edc7de5c92",
+      "png_sha256": "f00a8acc9704965bb6f4c9efa25c68b660f8637d2ad5406a5c7c57e3fe633867",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_profile_f": {
+      "call": "vaft.omas.plot_equilibrium_profile_f(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "57dc548e5e11c81053bbcd314405c7b9008ca989a04c89a3275d0abd267b366c",
+      "png_sha256": "18ff8e07aa6d0c31f3b01b56a9978b611ba891409ccc902838e29922c5f5d95e",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_profile_ffprime": {
+      "call": "vaft.omas.plot_equilibrium_profile_ffprime(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "647d21061ca5a104fb0beae535250dc1bdc2a1052725107d054e1e9050862275",
+      "png_sha256": "b40d8886f4ac51dcb9baacda9eaa0489f17a82a52508799e40fb31cc6406c7ef",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_profile_j_tor": {
+      "call": "vaft.omas.plot_equilibrium_profile_j_tor(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "3aab8a802674e2f79f77e6dd0fb27c206eb59d211f63dcac0262371d142d5869",
+      "png_sha256": "4349a92f8b1829dd8aa57752f795929b7918e485e5b64a0d821bd6782c12242a",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "equilibrium_profile_pprime": {
+      "call": "vaft.omas.plot_equilibrium_profile_pprime(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "0ac3b1827ca79d31c10bc57bbf7693cc0519900c4b7a92a318ee09c551b465c2",
+      "png_sha256": "b59a884c0fb24cb5a5cc478ca64de87247af2e6f39f104df8f72eb257b28dbb6",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_profile_pressure": {
+      "call": "vaft.omas.plot_equilibrium_profile_pressure(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "35e8b3399fd32478b0e4c93c96aec36bf538bb7f6be515397e078293f4924438",
+      "png_sha256": "14fe517aa5d09754515af5bdb161d052a72bed15611b0efdb33c6fbf153d9ad8",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_profile_q": {
+      "call": "vaft.omas.plot_equilibrium_profile_q(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "e9eb4a26051e6f219458beebdfc65bf9a6c99f7d64731573c72b2516812001e0",
+      "png_sha256": "ec896f62e142388faf3059816c97033d699bac78f44204135d90b7396b6b26e7",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_table_fit_quality": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
+    "equilibrium_table_summary": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
+    "equilibrium_table_validation": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
+    "equilibrium_text_summary": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
+    "equilibrium_time_beta": {
+      "call": "vaft.omas.plot_equilibrium_time_beta(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "4c72519dce977c685fd3de48fc16f45fc1f62ce2e6bc40bc90b76693b273cccf",
+      "png_sha256": "366c3dcc436d3a957b24b9c558b26985a4f284c9df2dc8e7fe7c88aec65bf793",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "equilibrium_time_beta_n": {
+      "call": "vaft.omas.plot_equilibrium_time_beta_n(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "97a0130a217e2f8974102d56e7ee5a95e4259241adce85310d08038154ec47ca",
+      "png_sha256": "fbbf51f307a3e7bff1c3cdf31a5bb2ae7f396b22115333952cf304cb32e455bf",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "equilibrium_time_beta_p": {
+      "call": "vaft.omas.plot_equilibrium_time_beta_p(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "1c2f8132f7d43320928c4901fd8130f31edd0bc137d53f7d8ac6cc3ea5209781",
+      "png_sha256": "a4377c1f7b8720cb46785e6e0532deea75e3410165e817bcb3b0bc540da69c67",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "equilibrium_time_beta_t": {
+      "call": "vaft.omas.plot_equilibrium_time_beta_t(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "51f180bc5b72b9f161e563c1d1d664f06979bade001c945d00ebcc16dcd84d91",
+      "png_sha256": "4ca7c3f026129ee245d73251d59a521e6f60ab6a96991f15593ae3c6d430dc89",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "equilibrium_time_diamagnetic_flux": {
+      "call": "vaft.omas.plot_equilibrium_time_diamagnetic_flux(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "39287349eb87743b0832075f8c916bb688c14888784567791d9a05181f6c9959",
+      "png_sha256": "6801fcc58d7474e72ab61e8eba23342833b65c68990e242046cfba1d4208e955",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_time_elongation": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_li": {
+      "call": "vaft.omas.plot_equilibrium_time_li(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "be2cf879b64315ba22970f7f5adcd8af832c94cd05766b505fd5777ffaf5fed1",
+      "png_sha256": "b343e6845d078c8e66e9abb159049fce01d66182a37845c97b04926ff057b483",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "equilibrium_time_major_radius": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_minor_radius": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_plasma_current": {
+      "call": "vaft.omas.plot_equilibrium_time_plasma_current(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "73d8e5131bc307115f1baa5e8cc6584669c59467cde04097bf98adde729f3bf6",
+      "png_sha256": "a5958616b3f83563f16b558135cb15fa0ef1874e8151f3e8c65d00d9d42feea4",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_time_q0": {
+      "call": "vaft.omas.plot_equilibrium_time_q0(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "aad4fdc7776ddacd59428b6d1e65ce8708d35d4e4197a3a25388237138eb9f1a",
+      "png_sha256": "023be4314d25cc1e2ca20633ab04ab2d1f07d56c22becee610be8bdbc117d934",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_time_q95": {
+      "call": "vaft.omas.plot_equilibrium_time_q95(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "cc70b8dc6aab98076ece4f9d16a0ff092610b304b9cec9805ec097ae81f44e47",
+      "png_sha256": "b1895cb4fc782f12f226e2deaa773e908945a8c2470ea9e6f1cb8e79b46809e5",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "equilibrium_time_qa": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_shape": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_triangularity": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_triangularity_lower": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_triangularity_upper": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_virial": {
+      "call": "vaft.omas.plot_equilibrium_time_virial(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "bf6fac9c0b3044988202b5bc2ee6e48fa388b32105a93821df5b1b604c5c8e90",
+      "png_sha256": "53a6a031eb3b30f052a15cb6b79d6f2fceadec460f76db1d071e01001d820690",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "equilibrium_time_w_mag": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_w_mhd": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "equilibrium_time_w_tot": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "field_line_topology_field_connection_length": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "flux_loop_spatial_flux": {
+      "call": "vaft.omas.plot_flux_loop_spatial_flux(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "3db3cf07bd78db6e505d013389b2a415e48e31857f478fa5e73b57a21281e647",
+      "png_sha256": "f1e8e337a1a173d7a92fae59ddb3ffa5e58465ec1885cd7a53ec015809e50a17",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "flux_loop_time_flux": {
+      "call": "vaft.omas.plot_flux_loop_time_flux(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "ffeca3481713d5ccaf4e09245e832defaa3b4bdc3a0d472a456e1a46d240c618",
+      "png_sha256": "821ac17236e0d6854472c4aafca972ee466bf6fcdf61fb7129964e55a4b28f30",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "flux_loop_time_voltage": {
+      "call": "vaft.omas.plot_flux_loop_time_voltage(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "3468556e2531c7dce1e4eed7e1559317a09225bf68ba2cfeb1f3ce4d01d55e8d",
+      "png_sha256": "49a00214168b25b08a6aeb309adcd06d91a31da3210bf53d72df553c71c3827a",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "gyrokinetics_overview": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_profile_eigenfunction": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_spectrum_energy_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_spectrum_frequency": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_spectrum_growth_rate": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "gyrokinetics_spectrum_particle_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "impa_overview": {
+      "call": "vaft.omas.plot_impa_overview(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "be7102a877951bc94313d0b15f074df98c7cf7e317755a2eee2f9355d01b8e65",
+      "png_sha256": "3ace1e50cdf65fdaeb3ec442f668d595dafe200f1f2b75abc9220e7583f39347",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "impa_profile_field": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "impa_time_field": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "impa_time_voltage": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "impurity_profile_charge_state_fraction": {
+      "call": "vaft.omas.plot_impurity_profile_charge_state_fraction(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "b5b1fd8cc156198dbb80a18cf1a9dd528342ed7bde844e06e70c16d0f73b950a",
+      "png_sha256": "049926623fcd113348e89294fb1457786512180c8c6ff3dbc2605a0222573be4",
+      "renderer_sha256": "5f208b3690285daf278e2181950a6e5945e881158c18bfcb1d427756ad8635a1",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "impurity_profile_composition": {
+      "call": "vaft.omas.plot_impurity_profile_composition(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "42ec5436659d6a7b6a1fafe5e60a3ea5d16a99ebed00357d5189e1649c5e74a2",
+      "png_sha256": "c5824bef1c209da4a140b0736ed418ce7d19a92aaff712a248b43387ae5a115f",
+      "renderer_sha256": "5f208b3690285daf278e2181950a6e5945e881158c18bfcb1d427756ad8635a1",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "interferometer_overview": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "interferometer_spectrogram": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "interferometer_spectrum": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "interferometer_time_n_e_line": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "ion_temperature_profile": {
+      "call": "vaft.omas.plot_ion_temperature_profile(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "0b6383d51d81463e86ed4e55599c0d86ad6e78e1db738134968ae9d013e3af34",
+      "png_sha256": "7291482769397344eb9efd2b4f2ce42b1c4a02e334884e299c9c7181881769cf",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "ion_temperature_profile_gradient": {
+      "call": "vaft.omas.plot_ion_temperature_profile_gradient(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "24cdc3b51c8e40342198fb777c00a91ac82e27d489c6b2399c680005015d71ca",
+      "png_sha256": "421eab393adea964d2ab8888870cfc559a04eed90fb49f3591300319f1e53e8e",
+      "renderer_sha256": "b090a77113c1ec6788ecd41703018c2b7e3cb4337cfa732c1cfd341589784831",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "kinetic_overview_profiles": {
+      "status": "no_sample",
+      "reason": "cross-shot repository fixture is intentionally not assigned a packaged sample shot"
+    },
+    "limiter_current_time": {
+      "call": "vaft.omas.plot_limiter_current_time(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "d71797921d0d1cafd89ceef94e692c28f762510ccf53acb637b7356158df37a9",
+      "png_sha256": "0de8719f79b9f80ef396031275676ab4dcd8f7e6c0b6a6cd0bfbf2db82b7f136",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "machine_geometry3d": {
+      "call": "vaft.omas.plot_machine_geometry3d(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "58003df7bcb713abf944c4dd9cdfec17a19f57e61e681ae174441aa0cbb8e50c",
+      "png_sha256": "cf4e82356541916006379d18774e6d3f47466b4fe6606282e306a25ca360969f",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "machine_geometry_poloidal": {
+      "call": "vaft.omas.plot_machine_geometry_poloidal(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "b2c7a759cc856eeaa03e521b779ddd0d9cccc15c589c7065921171e4c1627aeb",
+      "png_sha256": "97cf5cdb1612d5bf4fdc31abed149e14ba7ad81a48fae14393d7e5d6c59d4b55",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "machine_geometry_topview": {
+      "call": "vaft.omas.plot_machine_geometry_topview(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "d52ccf804b3b79a1932a7103d3951b16f08c182c3229401509e5160088754be5",
+      "png_sha256": "52a2828d2d1f7c1488f5dce3f440a2b8370250149d641f461ab39c7230b03744",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "magnetics_geometry_poloidal": {
+      "call": "vaft.omas.plot_magnetics_geometry_poloidal(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "40a35a8aa4ffb181cd36a9757797dfffd7f0aeb95f152377d01992c13aa63052",
+      "png_sha256": "25acdfa6807fe2a52713e76b30af15720287fce856513d51aad765c0ab889c86",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "magnetics_overview": {
+      "call": "vaft.omas.plot_magnetics_overview(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "6631854c9de126ab2b0bad234f967ffe4263677ce21848c5d12559f858956fa5",
+      "png_sha256": "2468b88813f75f8ccb09f50522a7be00583de1236bdab89413837965c1a57528",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "magnetics_overview_plasma_residual": {
+      "call": "vaft.omas.plot_magnetics_overview_plasma_residual(vaft.omas.load(vaft.data.sample(41524)))",
+      "model_sha256": "ab5a67e724df5f402804bc654943c181d62fefd342964db5df3e6ad96000b4ea",
+      "png_sha256": "cdd2e2359d9931d003d820687e8596381be3d1f09be9e61a8fc9784eb3329124",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "d560035e42292cf120ee30845da8c332f94da87fbed4c80bd8dd4d7e44af8e33",
+      "shot": 41524,
+      "status": "rendered"
+    },
+    "magnetics_overview_vacuum": {
+      "call": "vaft.omas.plot_magnetics_overview_vacuum(vaft.omas.load(vaft.data.sample(41524)))",
+      "model_sha256": "5afaf00f39aa3ece46d8887aefc73b451752df9518b92877b675a85e0e8693d7",
+      "png_sha256": "3f343b1d8a6912da5069927993e9997a567b6bbd1a8685deeeff86182ad72df6",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "d560035e42292cf120ee30845da8c332f94da87fbed4c80bd8dd4d7e44af8e33",
+      "shot": 41524,
+      "status": "rendered"
+    },
+    "mhd_linear_field_spectrum": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mhd_linear_geometry_island": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mhd_linear_overview_eigenfunction": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mhd_linear_profile_b_field_perturbed": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mhd_linear_profile_chirikov": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mhd_linear_profile_displacement": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mhd_linear_profile_island_width": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mhd_linear_profile_resonant_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mhd_linear_spectrum_b_field_perturbed": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mhd_linear_time_energy_perturbed": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "mirnov_spatial_phase": {
+      "call": "vaft.omas.plot_mirnov_spatial_phase(vaft.omas.load(vaft.data.sample(45531)))",
+      "model_sha256": "b816cef30b3e5b0e2a026bd1c789b61c532ef89c1efb0379c6eab1e22db0e834",
+      "png_sha256": "69ea840e2fe6f0813c303917e11ac654957ceefea5731454a822e402d1c04b90",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f",
+      "shot": 45531,
+      "status": "rendered"
+    },
+    "mirnov_spectrogram": {
+      "call": "vaft.omas.plot_mirnov_spectrogram(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "7aa422166222c96a410c3008f40705537fe69b07d279bc039da40f8d66d86cbc",
+      "png_sha256": "7077bb3a5334d3938472e0f15b2b8b7d5ab3ab83956f9836bd7efa9e674f9266",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "mirnov_spectrum": {
+      "call": "vaft.omas.plot_mirnov_spectrum(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "bce5a9fdada27d33a613a456ca17ab3a09978f26a7f0bfe7a38910b93357ed83",
+      "png_sha256": "523a530bfa172599446259f58711841e77c49ebda3f54513038a2f1d1160d840",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "mirnov_time_voltage": {
+      "call": "vaft.omas.plot_mirnov_time_voltage(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "da26cf4bc015abc68b68c222f9246c822c7235730b6283ef7be515a1bffbf205",
+      "png_sha256": "b4c262394af5a02e9e488f62445cd24d3d59f4a9550f2985098e367b3b3b207c",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "nbi_profile_current_drive": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "nbi_profile_electron_heating": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "nbi_profile_ion_heating": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "neoclassical_profile_bootstrap_current": {
+      "reason": "shot 48224: ValueError: core_profiles slice 0 carries no zeff and no z_eff was supplied; the coefficients depend on it and this layer does not hold a machine default (CONTRIBUTING.md sends that to vest.yaml with a status)",
+      "status": "failed"
+    },
+    "ntms_time_delta_prime": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "passive_structure_field_wall_reduction": {
+      "call": "vaft.omas.plot_passive_structure_field_wall_reduction(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "4863d21259703fac2b2f2dc019f5db09788dd50c127d774ecdf96c238a9380fd",
+      "png_sha256": "84dda605d7719fcb36ff76c28b9d9f145687220731f8789e1372bac098919241",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "passive_structure_geometry_poloidal": {
+      "call": "vaft.omas.plot_passive_structure_geometry_poloidal(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "1c0bc18196696d275b8cc4302e511a8f22e2d781eb28adce16cd34c9acee48a2",
+      "png_sha256": "ea178a981b3efba604d569d227e954eec079f3760729707542d373bbf2a22d44",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "passive_structure_geometry_wall_mode": {
+      "call": "vaft.omas.plot_passive_structure_geometry_wall_mode(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "1338bcb578a8c075d3a2ef12faf13ff6fc8e96301334fc6359061c9393484551",
+      "png_sha256": "889d4174710f47ccbfcdad025787d61f4229a38cc62fcb00cb31d800b3a76e57",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "passive_structure_overview_wall_reduction": {
+      "call": "vaft.omas.plot_passive_structure_overview_wall_reduction(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "2f6ea11fddf4f4dd9cc64a6f580f618cf55aa5ff882659202a2a9ba1ed95fc5f",
+      "png_sha256": "0172ad02f6249a4e0dcea51829f34ff078b65f713f1f9742f43cfc5fd065f87c",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "passive_structure_overview_wall_time": {
+      "call": "vaft.omas.plot_passive_structure_overview_wall_time(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "8d74e66e55e13bf60a9ad41eff52f4bcef7a9e8fe2b52d53f7052c3bb07d8e9f",
+      "png_sha256": "a9f77b3cf1b87e3d08b5541f5be50134a0273eba885aca87ee8771c44e74a2a6",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "passive_structure_time_current": {
+      "call": "vaft.omas.plot_passive_structure_time_current(vaft.omas.load(vaft.data.sample(41524)))",
+      "model_sha256": "e25fc543196d1b5811403345fe44088c0ed68ca3e9ed2d39bf472d77621386dc",
+      "png_sha256": "c335e59781b337accdbd29e42e23c39ca970c5806330d4d132f9522a387bee56",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "d560035e42292cf120ee30845da8c332f94da87fbed4c80bd8dd4d7e44af8e33",
+      "shot": 41524,
+      "status": "rendered"
+    },
+    "pf_coil_geometry_poloidal": {
+      "call": "vaft.omas.plot_pf_coil_geometry_poloidal(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "3d3f760e9bb90a318cc738cd71aeb0dc7dba6c2e884e06f61d8ebf9265a6a3fb",
+      "png_sha256": "1856106bf95c524695f007b85323459b4c4b24646507d6c2256395704fd55f53",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "pf_coil_time_current": {
+      "call": "vaft.omas.plot_pf_coil_time_current(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "60b0aacf1d0717cd1d6e56ed0f4f156b0b9076c56e27168375938ec8d765cc9a",
+      "png_sha256": "915bcd40f122e9f9703a3550397e4263ce9586510faaab53a9f62c717055c725",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "pf_coil_time_current_turns": {
+      "call": "vaft.omas.plot_pf_coil_time_current_turns(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "ee6ed5dfc77dacf908fc1e6fcc393e9ae056042b34a69ebe962c08d9610ebc82",
+      "png_sha256": "67df413841a10f88cf0afc4039ebf71075180f2ccc6a41085299d42f0284638f",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "pf_plasma_geometry_poloidal": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "plasma_current_time": {
+      "call": "vaft.omas.plot_plasma_current_time(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "1691c02ee098ca78947cf3fe01eea58540fe99c21bacc11e22e77bb68c1a0d97",
+      "png_sha256": "8720cef33996b58020c3af69330fbd965bb72d968e6868afec2407c24f01a36d",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "rogowski_coil_time_current": {
+      "call": "vaft.omas.plot_rogowski_coil_time_current(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "13b5c7987b09b556ab8b65053bc707c61bc6abf0213c035c5bceb9a79a2969cd",
+      "png_sha256": "27da2e5df0be35209ddd717075d863a57ff12166cff68bc484b7c9ab0c95c901",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "soft_x_rays_geometry_lines_of_sight": {
+      "call": "vaft.omas.plot_soft_x_rays_geometry_lines_of_sight(vaft.omas.load(vaft.data.sample(45531)))",
+      "model_sha256": "ad614b948318b8dd0ab31529231c81f79bcdd48da1a2089b4e666646643ad422",
+      "png_sha256": "0921baf858d2a58d3941d82e83f0c0302ac597fe4cc175d4bdfd1149c04107bc",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f",
+      "shot": 45531,
+      "status": "rendered"
+    },
+    "soft_x_rays_overview": {
+      "call": "vaft.omas.plot_soft_x_rays_overview(vaft.omas.load(vaft.data.sample(45531)))",
+      "model_sha256": "9a17634589c8fd0c89b58b31e881603aee66a3342fef9c566e637de66a00a59c",
+      "png_sha256": "594c75124fd498cd8b62adf41c128d879847a8d221d95303e56dcc2479eff9b7",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f",
+      "shot": 45531,
+      "status": "rendered"
+    },
+    "soft_x_rays_spectrogram": {
+      "call": "vaft.omas.plot_soft_x_rays_spectrogram(vaft.omas.load(vaft.data.sample(45531)))",
+      "model_sha256": "81caaece04d007dd9e525802a61f292e2cd10cfa58ff1f5e99bc874cf00cdd90",
+      "png_sha256": "8ec10020f2c9fd67f59a3a6f2e0f8a50d09d5d2eb7cef7d8a90ab906f40fef34",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f",
+      "shot": 45531,
+      "status": "rendered"
+    },
+    "soft_x_rays_spectrum": {
+      "call": "vaft.omas.plot_soft_x_rays_spectrum(vaft.omas.load(vaft.data.sample(45531)))",
+      "model_sha256": "4ffc0f461c1820ffc7781a057b2d827dd10f4ba40146a2fa14e1f1f376f07fe0",
+      "png_sha256": "4864bf2a6c8cd6bc2b2aa6e96c17446e4773482ba68cf1be29bc043d264e0eca",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f",
+      "shot": 45531,
+      "status": "rendered"
+    },
+    "soft_x_rays_time_power": {
+      "call": "vaft.omas.plot_soft_x_rays_time_power(vaft.omas.load(vaft.data.sample(45531)))",
+      "model_sha256": "bb20d624045aed2b4e9afd415b4ca9d294bd8811a2c9ee4f35710cd67fd12310",
+      "png_sha256": "1f8352dd3a4e71660e54859505107ee3a6f75647c5901570508358e5b9ac9403",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "41b62e19c41da83d62d9f3d4b0bb5359641ef67b28bbcaeb5dee3c872878f21f",
+      "shot": 45531,
+      "status": "rendered"
+    },
+    "spectrometer_uv_time_impurity": {
+      "call": "vaft.omas.plot_spectrometer_uv_time_impurity(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "1cd5d12051d657149e91849992266f3e362dc4ad8d445eda0050735521a0e3ad",
+      "png_sha256": "978699b54cc8e72014d99796009e560136a1c543b9388ba6d9d1d1eef260b5bc",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "spectrometer_uv_time_intensity": {
+      "call": "vaft.omas.plot_spectrometer_uv_time_intensity(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "e498600831f6f12c259570161a6cab178f75db0f0bfc068bc31066b28ae07e65",
+      "png_sha256": "a7eed9d4094fc368f387f9b9b858b275dcc728f61f65ed0261f959d8b146cdd4",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "startup_proxies_time": {
+      "call": "vaft.omas.plot_startup_proxies_time(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "a00b9c18eabe0ade55e690455b0e7cb133a97231bd71cfe5febe835579508ac8",
+      "png_sha256": "0513e2214a3d77171668aae0dd76e29e2bbcbee25cd360057c81d41a56c9ae5b",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "summary_time_energy": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "summary_time_estimated_q95": {
+      "call": "vaft.omas.plot_summary_time_estimated_q95(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "840896727c4df5dfb553ab73eb7fa1d453edcd6f236f1202d2b21d137e155a5a",
+      "png_sha256": "a4772f0104fe1600f3bb6af83ae8cd76a5e634bba30de3136c9fec1afec3da8e",
+      "renderer_sha256": "2fbc1da8abd142a7207fabe520c2f54895bfc56733cb3e343a18828d9a277e02",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "summary_time_normalized_current": {
+      "call": "vaft.omas.plot_summary_time_normalized_current(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "bb5c473dd2703420003c8250d661fd5b701e11d0c50ed7c24f26e4ffd9c44305",
+      "png_sha256": "add40b30f2ba1946e1c5f40eb5a3b32cb13b2bf95e9f55c65a0032450d9f09e4",
+      "renderer_sha256": "2fbc1da8abd142a7207fabe520c2f54895bfc56733cb3e343a18828d9a277e02",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "summary_time_power_balance": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "summary_time_q_star_cylindrical": {
+      "call": "vaft.omas.plot_summary_time_q_star_cylindrical(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "b117b62b3014e9b0073c9d09310af806801cd8cbb361ba4d6afaab4f75494d68",
+      "png_sha256": "e4e69a0b0ad6de3b1761a4091799bd748ad9d08837310768762091589c4bab01",
+      "renderer_sha256": "2fbc1da8abd142a7207fabe520c2f54895bfc56733cb3e343a18828d9a277e02",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "summary_time_q_star_kink": {
+      "call": "vaft.omas.plot_summary_time_q_star_kink(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "66c3b4503eb4f2e882c1bb08631d6946d9134131b8d45fc31d06b6d8c1698b3b",
+      "png_sha256": "6a9df77190adfdab0133e473b709914e5b23a535807fa558d4fe3b577531ca59",
+      "renderer_sha256": "2fbc1da8abd142a7207fabe520c2f54895bfc56733cb3e343a18828d9a277e02",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "summary_time_resistive_zeff": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "summary_time_romero_balance": {
+      "call": "vaft.omas.plot_summary_time_romero_balance(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "f57a0fcd790099c8c4118a20242969f804765bc60cd0efe2ef97ef8b49ef6096",
+      "png_sha256": "3359874bcbe90d0cde2d575faafbefe7cfa4d4cc1a1c86db91effb237324e12e",
+      "renderer_sha256": "efd8162a198df1c5e4cf2369946425bd3b326230723575235330473e1b5ccd47",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "summary_time_voltage_consumption": {
+      "call": "vaft.omas.plot_summary_time_voltage_consumption(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "c9b33312abd5afce7860ec000220dc3ce6b701c080c30547abe97dfdd16da811",
+      "png_sha256": "fae9943b7064bcde963d7caa546a53b392e8df24874f8ddaeda8cb775135e135",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "tf_coil_time_b_t": {
+      "call": "vaft.omas.plot_tf_coil_time_b_t(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "9d33bb96906f7a7031ec34f8dff7d29fd3ac9c17680a9c9efa5703ac2c443b70",
+      "png_sha256": "c88959fb23d53ee2aa3577e7d7f2afb894bb4348b4b5c9c6658e8386f9e85d1f",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "tf_coil_time_b_t_vacuum_r": {
+      "call": "vaft.omas.plot_tf_coil_time_b_t_vacuum_r(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "c58d83b4426653b47e51726727f206b51a598389aaa1a1a2b29db46c54a64e74",
+      "png_sha256": "678abc2063fe46f161fda155a2b33c1cba86d7af24abf3018674cfae3e23f33d",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "tf_coil_time_current": {
+      "call": "vaft.omas.plot_tf_coil_time_current(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "1f9330219fb46d486c2b167023f44ac105a651aac4af734a5612a0ac95d47714",
+      "png_sha256": "15ff098f181aa4f2271f566a9eca0ade7880a5767dcfa622c874beaaf459e511",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "thermal_pressure_profile": {
+      "call": "vaft.omas.plot_thermal_pressure_profile(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "f7c956b36debd40812a2689b369687f6427a65a465e1c2356f787e3de2933680",
+      "png_sha256": "50ce80f11389a0b1e45d25d51b350570f03d2e022507a915626a06a59752d4dd",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "thomson_scattering_geometry_poloidal": {
+      "call": "vaft.omas.plot_thomson_scattering_geometry_poloidal(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "c8472f77dd4f4ec99c79acb7b778e3a806a58696a401417bbeca3a412a84ab27",
+      "png_sha256": "51fba08897ef72d0c488f5589d1f0d9c7401d58d25edb9a5bc635cc5fbf15268",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "thomson_scattering_profile_electron_density": {
+      "call": "vaft.omas.plot_thomson_scattering_profile_electron_density(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "e83fd320438c3225df9056e9943b09e127aa861824d52470cfa6129ea48c69f4",
+      "png_sha256": "79e3f2e65b647489ee341c6fa743c920d35e27a3cd469f6413538d6c2900edd5",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "thomson_scattering_profile_electron_temperature": {
+      "call": "vaft.omas.plot_thomson_scattering_profile_electron_temperature(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "9035ff0bada4d6fe1e27020fb30605b86ae5e6f936e0f837232a19f3e4cb432b",
+      "png_sha256": "98d54ed0c258ec536072997493cf14bbd884984ac039fd42d7451eba4ad0a7a0",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "thomson_scattering_profile_fit": {
+      "call": "vaft.omas.plot_thomson_scattering_profile_fit(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "504273449c7ac14a125e171710a79088116451723e2977b7f07d386f02b91158",
+      "png_sha256": "a06f1b624033c5bf9fe052a3fce9fe5ab89232a8d1b2b5d419d372c8182efdef",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "thomson_scattering_time_electron_density": {
+      "call": "vaft.omas.plot_thomson_scattering_time_electron_density(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "827154b47cd1f08a44fc53732e3a6e2bfd541cd79f8181b83162297d943d6375",
+      "png_sha256": "cb55f7471506a320a328dfe4b7d71c1e8dcda022f75480621b75311d8e91c251",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "thomson_scattering_time_electron_temperature": {
+      "call": "vaft.omas.plot_thomson_scattering_time_electron_temperature(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "df9dbe4652b48f023ed982cf16206f8dd0a1b2bfbe98fed0eb055db137e4415c",
+      "png_sha256": "5b5196382afdb15fcb2f38b3eedea6ee66acb85e7408d6db3631a412058fbf18",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
+    "turbulent_transport_overview": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "turbulent_transport_profile_energy_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "turbulent_transport_profile_particle_flux": {
+      "reason": "no packaged sample carries the data this plot needs",
+      "status": "no_sample"
+    },
+    "vacuum_field": {
+      "call": "vaft.omas.plot_vacuum_field(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "b53b5130591d606bbfd30fd7ef9d1d639bea13b5538fcb3c5f01981fb58dd88b",
+      "png_sha256": "9b9613a991146575823e6caffae5fd96f09f7fd8d0bf3c667e1b7720f95c512a",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "vacuum_field_midplane": {
+      "call": "vaft.omas.plot_vacuum_field_midplane(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "ce2805d87da9848831260519a7b3f0002625e105e513620a4e1534e53db85024",
+      "png_sha256": "e6c9583d849ec1781c661b9a281084a3e61b944b477ce744b52ca8ce3571d565",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "wall_geometry_poloidal": {
+      "call": "vaft.omas.plot_wall_geometry_poloidal(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "d76b76f4b9be943d9a5c1618c8a7a5d23e2d20d914889b5dbcde916c2c18dc3c",
+      "png_sha256": "8339ab63dd5576b937e40b3c4cac152dbfa0b8fea203936b361d0e35d7f66498",
+      "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    }
+  },
+  "toolchain": {
+    "matplotlib": "3.10.8",
+    "numpy": "2.4.3",
+    "pillow": "12.1.1"
+  }
+}

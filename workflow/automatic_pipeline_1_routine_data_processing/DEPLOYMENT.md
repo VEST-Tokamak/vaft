@@ -633,21 +633,26 @@ PY
 | Provenance | `"source": "main"`, `"remote_uri": "hdf5://main/39915/"`, a `product_sha256` |
 | Manifest | unchanged — it describes production, not replication |
 
-> **Per-shot folders must be provisioned. This is settled, not open.** HSDS does
-> not auto-create them: `hsload` fails with
-> `Domain: hdf5://main/39915/dataset_description.h5 not found` until the folder
-> exists. Provision one shot with `hstouch -o "$OWNER" /main/39915/`, or a whole
-> range with the script below. It is idempotent — `hstouch` opens with `mode='x'`
-> and refuses an existing folder, which the script counts rather than treats as
-> an error.
+> **Per-shot folders are created by the writer.** `hsload` does not create a
+> missing folder -- it fails with
+> `Domain: hdf5://main/39915/dataset_description.h5 not found` -- so every
+> write path (`save_ods`, the native IDS writer, replication) now creates
+> `/<source>/<shot>/` itself under the shot's master lock, right before its
+> first upload (`vaft.database.utils.ensure_shot_folder`). An existing folder
+> costs one GET and is never touched; a second host losing the create race
+> (409) counts as success. Checked against this deployment on 2026-10-01 as
+> `admin` with h5pyd 0.24.0: the folder is created, a repeat is a no-op, and
+> `hsload` into it succeeds.
+>
+> The folder is owned by the writing account, so that account needs create
+> permission in the source folder -- `admin`, the production writer, has it.
+> A writer without it gets an error naming the `hstouch` that provisions the
+> shot. `provision_hsds_shots.sh` still does that for a range, and is now only
+> needed for a writer without create permission:
 >
 > ```bash
 > ./provision_hsds_shots.sh main 39000 45000
-> ./provision_hsds_shots.sh chease-mhd-stability 39000 45000
 > ```
->
-> A shot needs a folder in **every** source it replicates into, so a full
-> backfill is one call per source.
 
 ### Then prove the merge preserves what was already there
 
@@ -707,6 +712,35 @@ HS_ENDPOINT=http://127.0.0.1:1 python replicate_to_hsds.py \
 ```
 
 Expect two logged attempts, a `state: "failed"` record, and a non-zero exit.
+
+### Regenerating products after a machine-history change
+
+A release that moves a machine-era boundary changes what the mapper builds for
+the shots on the moved side, and nothing re-runs them on its own. 0.8.0 is such
+a release (#956/#961): the wall-2409 loops now start at shot 43017
+(`WALL_GEOMETRY_2409_FIRST_SHOT`) and the PF-2507 geometry at 45968 rather than
+45958 (`PF_GEOMETRY_2507_FIRST_SHOT`), so every diagnostics, eddy, EFIT and
+downstream product for a shot **>= 43017** built before 0.8.0 differs from what
+the release mapper produces: 43017–45957 gain the 15 wall loops, 45958–45967
+additionally change PF geometry (2507 → 1906), and >= 45968 change the wall.
+Shots below 43017 are unaffected.
+
+Nothing has to be deleted. A shot's static input path is derived from its era
+name, so a shot on the moved side now resolves to a static product that did not
+exist before; Snakemake 7.32 reruns a job whose input set changed (`input` is in
+its rerun triggers) and everything downstream follows, replication included.
+But only for shots that are in a run: the worker processes new shots, so list
+the affected shots explicitly (`shots:` in the config, in batches) after
+deploying.
+
+A stale product is identifiable from its manifest without reading the data: the
+diagnostics and eddy manifests record `machine_version` (the era name the
+product was built under -- the retired names `vest-43017-45957-pf1906`,
+`vest-45958-45966-pf2507` and `vest-45967-plus-pf2507` no longer resolve, and
+`machine_era()` refuses them) and `input.static_sha256` (the hash of the static
+product it was built from). A product whose `machine_version` is not one of
+`VEST_MACHINE_ERAS`, or whose `static_sha256` differs from the current static
+product's, is one the release will rebuild.
 
 ---
 
@@ -790,5 +824,274 @@ the corrective updaters' one-time bootstrap of their shot registry, which opens
 - [ ] Every canonical product is under its declared container — `migrate-products` reports `pending: 0` and `--verify-shape` reports no failures
 - [ ] A second stage did not hide the first — `external_h5_links` lists both
 - [ ] A rerun reused the record — no upload
-- [ ] Per-shot folder behaviour recorded — auto-created, or `hstouch` needed
+- [ ] A new shot's folder was created by its first write — no `hstouch`
 - [ ] `/public/` unchanged throughout — entry count and modified timestamp
+
+---
+
+## 10. Running the new-shot worker
+
+`vaft pipeline-worker` watches the VEST SQL `shot` table and runs this pipeline on each new shot
+(issue #58). It only calls Snakemake, so everything above still applies, including section 7's
+requirement that one shot is replicated before replication is enabled for all of them.
+
+### Configure
+
+```bash
+cp worker.example.yaml /srv/vaft/worker.yaml   # outside the repository
+$EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout, paths
+```
+
+- **SQL credentials must already be provisioned** for the account the worker runs as. They live in
+  `~/.vest/database_raw_info.yaml` together with `~/.vest/encryption_key.key`. If they are missing, the
+  worker refuses to start. It does not fall back to `raw.setup_raw_db()`, because that prompt would
+  block forever under a service with no terminal.
+- **`pipeline_config` must set `raw.mode: sql`.** For each run the worker replaces `shots:` and forces
+  `conda: null`, and it keeps that run's config next to the run log under
+  `log_dir/runs/<run_id>/`.
+- **Paths may use environment variables**, e.g. `${VAFT_CHECKOUT}` in the example. An unset variable
+  stops the worker instead of silently creating a new state file under a literal `${...}` directory.
+- **The worker reproduces Snakemake's config merge.** Snakemake merges `pipeline_config` over the
+  workflow's own `config.yaml`, and the worker checks and harvests against that same merged result.
+  The Snakefile locates that `config.yaml` by its own path, so the merge holds for any `--directory`.
+  Before #1530 it resolved against `--directory`, and a run directory with a partial config silently
+  ran on code defaults: EFIT off, `args 65`, no eddy plasma filament.
+- **A run config that omits `efit.run` inherits `true`.** That is the other side of the merge: the
+  workflow's `config.yaml` sets `efit: {run: true}`, so since #1687 a `pipeline_config` that leaves
+  the key out submits EFIT, where the code default `false` used to apply. With `EFIT` unset the parse
+  fails loudly (the path is expanded at load); with it set, EFIT simply starts running. Set `efit.run`
+  explicitly in every deployed run config -- the worker redeployed on 10-06 pins `efit: {run: false}`
+  in its `pipeline.yaml` for that reason.
+- **What a run config may override in the equilibrium magnetics.** The shot's acquisition era in
+  `vaft/machine_mapping/vest.yaml` decides the processing: `daq_mode`, the analysis window and probe
+  baseline (as indices into the output grid) and the flux-loop baseline rule. A
+  `vest.magnetics.processing` block in a run config is applied on top of that era, key by key
+  (`vaft.omas.vest_upstream.magnetics_processing_for_shot`), and the diagnostics manifest records what
+  was actually used under `configuration.vest_magnetics_processing_effective`. Keys the era already
+  decides are refused when set off their defaults: the legacy window ladder (`default_*`, `late_*`,
+  `transient_*`), the per-sample flux baselines (`flux_baseline_first/second/late_*`), and the output
+  grid `time_start`, `time_end`, `sample_count` unless `window_override` is named alongside them (the
+  era window is indices into that grid; moving the grid alone moved the native-DAQ window to
+  0.325-0.45 s). The remaining keys apply on every shot, by design, for parameter scans: the probe
+  filter `fast_sample_rate`, `lowpass_cutoff`, `lowpass_taps`, the conventions `calibration_mode`,
+  `flux_output_per_radian`, and the named era keys `window_override`, `flux_baseline_window`,
+  `flux_baseline_samples`, `allow_zero_fallback` (`daq_mode` is accepted and then checked against the
+  flux rule downstream). History: until #1541 the workflow's own `config.yaml` carried the full legacy
+  block and it *replaced* the era, running every shot from 46404 on through the slow-DAQ path; a legacy
+  block left in a deployed run config forced the same from 10-02 to 10-06 (#1731). Leave `vest: {}`
+  unless you are scanning, and check `vest_magnetics_processing_effective` when a product looks wrong.
+- **`stages` narrows what the worker runs and judges.** Omitted, every run requests `rule all`, the
+  whole pipeline. `stages: [raw, diagnostics, eddy]` requests only those stages' products, plots and
+  replication records, and the shot's verdict is taken from those alone: the constraint and k-file
+  steps, EFIT, CHEASE and stability are never scheduled. A vacuum shot (below the constraint stage's
+  15 kA) then ends `completed` instead of failing every run until `gave_up`. `raw` is always in;
+  a stage whose upstream is left out is refused at start-up. The worker writes the list into each
+  run's config as `stages`, so a manual run can use the same key. This is a decision made before the
+  run; a stage that runs and declines a shot is #205's skip semantics.
+- **EFIT on a vacuum shot is a result (#205).** When the plasma current stays below the 15 kA cut
+  over the whole diagnostics window (the product stores `magnetics.ip.0` on the plasma-analysis
+  grid, 0.26-0.36 s on the routine configuration, not the whole shot), the constraint step writes
+  an `EFIT not applicable` product instead of failing; the reason quotes the `vaft.omas.shot_class` label, which does not decide (it reads
+  48927's 3.3 kA pickup as a `Plasma` pulse). The k-file, EFIT and EFIT-ODS steps pass it on, EFIT's status reads
+  `skipped: not applicable: <reason>`, the EFIT stage ends `no_output`, its replication is
+  `skipped`, and CHEASE and stability skip for lack of g-files. With EFIT in scope such a shot is
+  `partial`, not retried. A shot whose current reaches 15 kA somewhere but at no selected
+  instant still fails: the constraint window missed the discharge. So does one whose H-alpha saw a
+  window while the current stayed low (possibly a dead Ip channel), and one whose plasma-current
+  Rogowski the diagnostics stage condemned (`magnetics.rogowski_coil.0.current.validity`, #1373):
+  a dead sensor reads below the cut on every shot. Vacuum shots the worker gave up
+  on before this change stay `gave_up`; `vaft pipeline-worker retry --shot N` runs them again.
+  - Optional branches outside the stage chain (IMPA with `impa.enable: true`) are not scoped; they
+    depend only on raw and are never part of the shot's verdict.
+  - Set the scope only here, not as `--config stages=...` in `extra_args`: Snakemake would see it
+    and the harvester would not.
+  - Widening `stages` later does not revisit shots already concluded under the narrower scope;
+    `vaft pipeline-worker retry --shot N` (or a batch run) brings them up to the new scope.
+- **`first_shot` is where the worker's responsibility starts.** Shots below it belong to batch
+  regeneration and the worker never looks at them.
+
+### What a cycle does
+
+1. **Detect.** Every shot in SQL above the watermark is inserted into the state file. Inserting a
+   shot that is already there does nothing, so polling the same shot twice changes nothing.
+2. **Wait for the upload.** The DAQ writes one complete field per SQL row. A shot goes ahead as soon
+   as either condition holds:
+   - its inventory contains every field the previous shot had, and no new field has arrived for
+     30 s (fields within one core upload arrive at most ~10 s apart); or
+   - no field has been uploaded for `quiet_seconds` (default 600).
+
+   On VEST (shots 48800–48916) the 177 core fields arrive 126–196 s after the shot record, so a
+   routine shot starts about 2–3 minutes after it is fired, before the next one. Pressure, Plasma
+   Current and the 6 kW ECH powers form a separate group. It lands up to 261 s after the core
+   fields, or a day later, or never. While it is missing, the quiet limit decides.
+3. **Classify.** The classifier runs before anything is scheduled:
+   - no waveform fields → `excluded`, and Snakemake never sees the shot;
+   - required raw fields missing → only the raw dump is archived;
+   - otherwise → the whole pipeline runs.
+
+   Fields that arrive after a shot was processed are handled by the re-check below, so none of these
+   verdicts is final.
+
+4. **Run.** One `snakemake` process runs in this directory with `--keep-going --rerun-incomplete
+   --scheduler greedy`. HSDS concurrency is the pipeline config's `hsds.concurrency`; replications of
+     one shot no longer race for its `master.h5` (#913, section 11).
+   - A manual run holding the directory lock makes the worker **busy**: it tries again next cycle
+     and does not count an attempt.
+   - The worker runs `--unlock` only when no live Snakemake process is working in the workflow
+     directory. It checks by command line and cwd, via psutil or `/proc`, not by a recorded pid,
+     which a reboot can hand to an unrelated process. A lock whose holder cannot be ruled out is
+     left alone.
+5. **Harvest.** Each shot's state comes from the products on disk, not from Snakemake's exit code.
+   The worker reads every declared stage manifest's `status`, every replication record's `state`, and
+   the raw preflight's exclusion list. It also checks that each required validation plot exists.
+
+   | Shot state | Meaning |
+   | --- | --- |
+   | `completed` | Every declared product succeeded. |
+   | `partial` | Every product exists, but some are intentionally incomplete (a vacuum shot's EFIT, a no-output stability cell, …). Snakemake will not rebuild them, so they are not retried. A solver stage that finished `no_output` by design -- EFIT ran and no slice survived, CHEASE had nothing to refine or every slice failed, or the stage is switched off -- has its replication recorded `skipped`, so the shot's other stages stay published and the shot is not retried. `no_output` because the executable is missing, an input is missing or the stage errored still fails, and so does `no_output` over IDS an earlier run already published to the shot (retire those first). An eddy stage whose shot has a PF circuit that was never recorded (#1568) records `no_output` the same way, with its validation-plot manifest `empty`; inside `stages: [raw, diagnostics, eddy]` the shot is `partial`, and an unscoped run carries it through the constraint step as `EFIT not applicable: eddy produced no output: ...` (#205's carrier), so the shot is `partial` there too instead of being retried to `gave_up`. |
+   | `excluded` | The classifier, the raw preflight or an operator ruled the shot out. |
+   | `failed` | A declared product is missing. The shot is retried on the next cycle, and Snakemake rebuilds only what is missing. |
+   | `gave_up` | The shot has used `max_attempts` runs and waits for an operator. |
+
+6. **Re-check for late fields.** For `recheck_seconds` (3 days) after processing, the worker compares
+   each shot's SQL inventory with a baseline. The baseline is the fields SQL listed when the shot
+   settled plus the fields in the dump manifest's `inventory`. A field the dump failed to load is
+   therefore not mistaken for a late arrival. When new fields have arrived, the worker reprocesses
+   the shot:
+   - It moves the shot's raw dump and manifest to `log_dir/superseded/<shot>/<time>/`. They are
+     moved, never deleted.
+   - The EFIT k-file stage, re-run on the regenerated constraints, moves the shot's earlier
+     k/g/a/m-files to `<shot's efit dir>/{kfile,gfile,afile,mfile}/superseded/<UTC stamp>/` (and
+     what EFIT left in the run directory itself to `superseded/<stamp>/`) so they are never run or
+     collected as this run's (#1786). That record is bounded: only the newest superseded
+     generation is kept per shot (`generate_kfile.py --keep-superseded N`, default 1, which never
+     deletes the tree just moved aside); older stamps are deleted and listed in the stage's log
+     (`Pruned ... superseded generation(s)`). A generation is 22-28 MB per shot, ~100 GB over a
+     full regeneration pass, which is why they are not kept indefinitely. The sha256 of every
+     executed k-file stays in the EFIT execution record. The disk guard below counts the kept
+     trees, since they live under `base_dir`.
+   - It returns the shot to `detected`, so it is classified and run again.
+   - Snakemake then re-exports the raw dump and reruns every product downstream of it, because
+     that input is newer. **This includes HSDS replication, which replaces what was published.**
+
+   Reprocessing happens at most `max_reprocess` times per shot (3 by default). Later arrivals are
+   recorded as a `late_fields_ignored` event. An operator-excluded shot is never reprocessed.
+
+7. **Disk guard.** With `min_free_gb` set (200 on vestserver), no new batch starts while any guarded
+   filesystem has less than that many GB free. By default the guarded paths are the pipeline's
+   `base_dir`, `log_dir` and the state database's directory; `disk_paths` replaces them. Detection,
+   settling and the late-field re-check go on, so shots keep queueing. Entering the pause logs a
+   warning and records a `disk_paused` event, and `vaft pipeline-worker status` prints
+   `PAUSED for disk space`. The worker resumes by itself once every guarded filesystem has
+   `resume_free_gb` free (default `min_free_gb * 1.05`, a margin so free space hovering at the
+   limit does not pause and resume every poll) and records `disk_resumed`. A filesystem whose
+   free space cannot be read counts as short. The figure `status` prints is the one measured when
+   the pause began. The guard is checked between batches only; a batch that has started runs to
+   its end.
+
+### Run as a service
+
+```ini
+# /etc/systemd/system/vaft-pipeline-worker.service
+[Unit]
+Description=VAFT new-shot pipeline worker
+After=network-online.target
+
+[Service]
+User=vaft
+Environment=VAFT_FILEDB_DIR=/srv/vest.filedb
+Environment=VAFT_CHECKOUT=/home/vaft/git/vaft
+Environment=VAFT_WORKER_CONFIG=/srv/vaft/worker.yaml
+ExecStart=/opt/conda/envs/vaft/bin/vaft pipeline-worker run
+KillSignal=SIGTERM
+TimeoutStopSec=300
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+- **Stopping.** SIGTERM lets the running Snakemake finish its bookkeeping and release the lock.
+- **A run that has to be SIGKILLed** leaves the directory lock behind. The worker removes it at once,
+  because that lock is provably its own.
+- **Restarting after a crash or a reboot.** The worker puts every shot left `running` back into the
+  queue and removes a lock that no live Snakemake holds.
+- **One worker per state file.** A second worker exits immediately.
+
+### Operate
+
+```bash
+vaft pipeline-worker status                  # watermark, counts, failed/gave_up shots
+vaft pipeline-worker status --shot 48950     # one shot: stages and event log
+vaft pipeline-worker retry --shot 48950      # fresh attempt budget
+vaft pipeline-worker exclude --shot 48950 --reason "calibration shot"
+vaft pipeline-worker run --once              # a single cycle, e.g. to test a config
+```
+
+- **`retry` on a shot the classifier excluded or limited to the raw dump** sends it back to be
+  classified again, because SQL may have finished writing it since. For a raw-only shot, delete its
+  raw dump and manifest first. They are Snakemake outputs, so otherwise the truncated dump would be
+  reused as is.
+- **The watermark assumes VEST numbers shots in acquisition order.** A row inserted later below the
+  watermark is not detected.
+- **Monitoring.** Monitoring code (#1347) reads the same file through
+  `vaft.database.worker.read_worker_state`.
+
+---
+
+## 11. One writer per shot master (#913)
+
+Every HSDS write of a shot replaces its `master.h5` with the stored master plus the write's own IDS.
+Before #913 two overlapping writes of one shot both read the old master, and whichever replaced it
+last dropped the other's links. On 2026-09-17 this hid six IDS of shots 39241 and 39620 behind
+replication records that said `passed: true`.
+
+The write path now does two things:
+
+- **Holds a per-shot lock** across the read, merge and replace. Replication holds it from the
+  capture of the previous master through its safety-net merge. Every VAFT writer on this host is
+  covered: the routine pipeline, the corrective updaters, the new-shot worker and the maintenance
+  repairs. Different shots never wait for each other. The lock files live in `$VAFT_HSDS_LOCK_DIR`,
+  default `/tmp/vaft-hsds-locks`. The location is deliberately fixed rather than `$TMPDIR`, so that
+  two writers always meet at the same lock. If that directory exists but this account cannot create
+  files in it (made by another account without `chmod 1777`), the writer locks in a per-user
+  directory under the temp root instead and warns once, naming both directories: its writes are then
+  serialized only against this account's. Fix the mode, or point `$VAFT_HSDS_LOCK_DIR` at a shared
+  directory for every writer. Do not give the worker's service unit `PrivateTmp=yes` without doing
+  the same: a private `/tmp` is a lock no manual updater on the host shares.
+- **Re-reads the stored master immediately before replacing it**, so a link added in the meantime is
+  kept. This also applies to a plain `vaft.database.save`, which used to replace the master with one
+  naming only its own IDS.
+
+What it does **not** cover:
+
+- writers on another host;
+- `hsload` run by hand;
+- Windows, where the lock is a no-op; the first write of a process warns (`RuntimeWarning`) that it is not enforced there.
+
+The re-read narrows those windows; it cannot close them.
+
+With the race gone, `hsds.concurrency` can go back above 1. The new-shot worker no longer forces
+`--resources hsds=1`.
+
+### Audit and repair
+
+```bash
+vaft maintenance audit-masters --shots 39000-48916 --report audit.json          # read-only
+vaft maintenance audit-masters --shots 39241 39620 43245 44148 --apply          # relink
+```
+
+Each unlinked file is downloaded and read before it is judged. Each shot is reported as one of:
+
+| Status | Meaning |
+| --- | --- |
+| `complete` | The master links every stored IDS file. |
+| `links_missing` | Files are stored that the master does not link. `--apply` relinks them, under the shot's lock. |
+| `stubs_unlinked` | The only files the master does not link hold no value at all -- every leaf an IMAS fill, every array of structures empty. Nothing is hidden, and `--apply` leaves them unlinked. 39240, 43245, 44148, 44453 and 44604 are like this: an empty `equilibrium.h5`. |
+| `nan_only_unlinked` | The only files the master does not link carry no value but are not empty: their arrays are shaped and hold NaN throughout (a fit that failed, stored as computed). They are listed under `nan_only`; `--apply` leaves them unlinked, so look at the stage that wrote them. |
+| `no_master` | Files are stored but there is no master. Nothing can be copied from it, so re-replicate the shot. |
+| `absent` | No such shot folder, or one holding only derived images. |
+| `unreadable` | Listing or reading failed. The error is in the report. |
+
+The command exits non-zero while any shot is `links_missing`, `no_master` or `unreadable`; `stubs_unlinked` and `nan_only_unlinked` are not failures (`--apply` has nothing to do for them). A `links_missing` shot can carry stubs too -- the report lists them under `stubs`, and `--apply` links only the files under `missing`.
+

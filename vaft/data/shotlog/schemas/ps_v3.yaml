@@ -1,0 +1,27 @@
+# VEST ShotLog schema `ps_v3` (#995): the 2019-2023 power-supply sheets with
+# split SW(+)/SW(-) columns and no ECH Line / Gas Injection header, which no
+# ported schema recognised (most of the 390 unclassified sheets).
+schema_id: ps_v3
+version: 1.0.0
+status: supported
+detection:
+  required_headers:
+  - P/S
+  - SW(+)
+  - SW(-)
+  - Charging Volt
+  minimum_score: 1.0
+  # Loses ties: an integrated_v3 or ps_v2 sheet that also splits SW(+)/SW(-)
+  # is the more specific template.
+  priority: -1
+fields:
+- path: shots[].planned_configuration.magnetic.tf
+  type: value_record
+  required: false
+  meaning_ko: TF 설정값
+  aliases:
+  - TF
+  unit: null
+  parsing: scalar_or_expression
+  validation:
+    allow_expression: true

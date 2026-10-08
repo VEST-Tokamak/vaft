@@ -40,6 +40,8 @@ def build_tokamaker_mesh(
         _log.info("Reusing cached TokaMaker mesh %s", mesh_file)
         return mesh_file
     vessel = geometry.get("vessel", {})
+    if config.vessel_currents and not config.include_vessel:
+        raise ValueError("vessel_currents=True requires include_vessel=True")
     if config.include_vessel and not vessel:
         raise ValueError(
             "include_vessel=True but the geometry has no 'vessel' regions; "
@@ -61,13 +63,18 @@ def build_tokamaker_mesh(
             coil_set=coil["coil_set"],
         )
     for name, cond in vessel.items():
-        gs_mesh.define_region(
-            name,
-            cond["dx"],
-            "conductor",
-            eta=cond["eta"],
-            noncontinuous=cond["noncontinuous"] or None,
-        )
+        if config.vessel_currents:
+            # imposed wall currents (#1534): a one-turn coil per region, its
+            # loop-by-loop distribution set at solve time
+            gs_mesh.define_region(name, cond["dx"], "coil", nTurns=1.0, coil_set=name)
+        else:
+            gs_mesh.define_region(
+                name,
+                cond["dx"],
+                "conductor",
+                eta=cond["eta"],
+                noncontinuous=cond["noncontinuous"] or None,
+            )
 
     gs_mesh.add_polygon(limiter, "plasma", parent_name="air")
     for name, coil in geometry["coils"].items():
@@ -90,3 +97,8 @@ def build_tokamaker_mesh(
         mesh_file, len(mesh_pts), len(mesh_lc), len(coil_dict) + len(cond_dict) + 1,
     )
     return mesh_file
+
+
+__all__ = [
+    "build_tokamaker_mesh",
+]

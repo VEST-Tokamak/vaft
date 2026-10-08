@@ -19,12 +19,18 @@ from scipy.spatial import cKDTree
 
 from vaft.data.cocos import VAFT_INTERNAL_COCOS, cocos_spec
 from vaft.data.equilibrium import (
+    SOLOVEV_BASIS_SIZES,
+    SOLOVEV_CONSTRAINT_KINDS,
     BoundaryRepresentation,
     Contour,
     DerivationProvenance,
     DerivedValue,
     EquilibriumConvention,
     EquilibriumData,
+    FourierFitResult,
+    FourierSequenceResult,
+    GradShafranovResidualModes,
+    FourierSurface,
     Gap,
     GlobalEquilibriumDescriptors,
     MillerFitResult,
@@ -32,6 +38,7 @@ from vaft.data.equilibrium import (
     MillerSurface,
     SolovevConstraint,
     SolovevEquilibrium,
+    _resolve_solovev_f_sign,
     StationaryPoint,
     StrikePoint,
     Topology,
@@ -975,7 +982,7 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     ----------
     surface : MillerSurface
         The shape parameters.  ``r``, ``r0`` and ``z0`` in metres, ``kappa``,
-        ``delta`` and ``zeta`` dimensionless [-].
+        ``delta``, ``zeta`` and ``indentation`` dimensionless [-].
     theta : array_like
         Poloidal angles at which to evaluate [rad].
 
@@ -988,18 +995,22 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     ------
     ValueError
         The geometry is degenerate: minor radius or elongation not positive,
-        triangularity of magnitude one or more, or squareness of magnitude one
-        half or more.
+        triangularity of magnitude one or more, squareness of magnitude one
+        half or more, or an indentation at or below ``-sqrt(1 - delta**2)``.
 
     Convention
     ----------
-    ``R = r0 + r*cos(theta + arcsin(delta)*sin(theta))`` and
-    ``Z = z0 + kappa*r*sin(theta + zeta*sin(2*theta))``.  *theta* is the parameter
+    ``R = r0 + r*(cos(theta + arcsin(delta)*sin(theta)) + b*sin(theta)**2*cos(theta))``
+    and ``Z = z0 + kappa*r*sin(theta + zeta*sin(2*theta))``, with ``b`` the
+    indentation.  *theta* is the parameter
     of the parameterization, not a geometric poloidal angle about the centre, and
     the two differ once the surface is shaped.  Positive ``delta`` shifts the
     extremum of ``Z`` inboard.  Positive ``zeta`` squares the surface off,
     negative rounds it.  ``zeta = 0`` is the five-parameter surface exactly, to
-    the bit, so nothing that does not ask for squareness moves.  The surface is
+    the bit, so nothing that does not ask for squareness moves; the same holds
+    for ``indentation = 0``.  The indentation term vanishes at the four
+    cardinal points, and with ``alpha = arcsin(delta)`` the inboard side turns
+    concave -- a bean -- once ``b > (1 - alpha)**2/2``.  The surface is
     up-down symmetric by construction, squareness included.
 
     Applicability
@@ -1014,7 +1025,11 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     by one half because ``d(theta + zeta*sin(2*theta))/dtheta = 1 +
     2*zeta*cos(2*theta)`` changes sign beyond it: the parameterization then
     doubles back and the "surface" crosses itself, so a larger magnitude does not
-    describe a squarer plasma but a curve that is not one.
+    describe a squarer plasma but a curve that is not one.  The indentation is
+    bounded below for the same reason: at equal height the two sides are
+    ``2 r cos(theta) (cos(alpha sin(theta)) + b sin(theta)**2)`` apart, which
+    stays positive for every ``theta`` exactly when ``b > -cos(alpha) =
+    -sqrt(1 - delta**2)``.
 
     Provenance
     ----------
@@ -1024,6 +1039,8 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
     .. [2] The squareness term follows the extended form used for shape
        comparison, e.g. Barr, Boyer, Humphreys *et al.*, *ShapeFIT*, Nucl.
        Fusion 58, 076011 (2018), App. A.
+    .. [3] The inboard-indentation term for bean-shaped plasmas (PBX/PBX-M)
+       is VAFT's, specified with its bean-onset criterion in issue #941.
     """
 
     theta = np.asarray(theta, dtype=float)
@@ -1031,9 +1048,10 @@ def evaluate_miller(surface: MillerSurface, theta: Any) -> tuple[np.ndarray, np.
         raise ValueError("Miller geometry requires r>0, kappa>0, and abs(delta)<1")
     if abs(surface.zeta) >= 0.5:
         raise ValueError("Miller geometry requires abs(zeta)<0.5; beyond that the parameterization doubles back on itself")
-    angle = theta + np.arcsin(surface.delta) * np.sin(theta)
-    vertical = theta + surface.zeta * np.sin(2.0 * theta)
-    return surface.r0 + surface.r * np.cos(angle), surface.z0 + surface.kappa * surface.r * np.sin(vertical)
+    from vaft.formula.equilibrium import miller_surface
+
+    return miller_surface(surface.r, theta, surface.r0, surface.kappa, surface.delta,
+                          squareness=surface.zeta, Z0=surface.z0, indentation=surface.indentation)
 
 
 def _resample_contour(contour: Contour, count: int = 256) -> Contour:
@@ -1048,7 +1066,7 @@ def _resample_contour(contour: Contour, count: int = 256) -> Contour:
 def fit_miller_surface(
     contour: Contour | tuple[Any, Any], *, radial_value: float | None = None,
     radial_coordinate: str = "psi_n", max_normalized_rms: float = 0.02,
-    near_xpoint: bool = False, squareness: bool = False,
+    near_xpoint: bool = False, squareness: bool = False, indentation: bool = False,
 ) -> MillerFitResult:
     """Fit the Miller shape parameters to one closed flux-surface contour.
 
@@ -1074,6 +1092,9 @@ def fit_miller_surface(
     squareness : bool, optional
         Fit the sixth parameter, ``zeta``, as well.  Off by default: adding a
         free parameter changes the answer of a fit that did not ask for it [-].
+    indentation : bool, optional
+        Fit the inboard indentation as well, for bean-shaped surfaces.  Off by
+        default for the same reason as *squareness* [-].
 
     Returns
     -------
@@ -1097,7 +1118,8 @@ def fit_miller_surface(
     4. Score with a symmetric distance: contour-to-model and model-to-contour,
        giving a root-mean-square, a maximum, and a Hausdorff distance.
     5. Reject, in order, a surface too near the boundary, a surface near an
-       X-point, a residual over the threshold, or a solve that did not converge.
+       X-point, a fitted indentation that makes the surface cross itself, a
+       residual over the threshold, or a solve that did not converge.
 
     Defaults
     --------
@@ -1105,7 +1127,9 @@ def fit_miller_surface(
     physical constant: two percent of the minor radius is where a fitted surface
     stops being a useful stand-in for the traced one.  The parameter bounds,
     elongation in 0.05 to 10 and triangularity within 0.999, are numerical
-    conveniences that keep the solve inside the parameterization's own domain.
+    conveniences that keep the solve inside the parameterization's own domain;
+    so is the indentation box of -0.95 to 2, whose delta-dependent lower limit
+    is enforced after the solve instead.
 
     Convention
     ----------
@@ -1150,27 +1174,37 @@ def fit_miller_surface(
     initial = np.array([0.5 * (rmin + rmax), 0.5 * (zmin + zmax), minor, (zmax-zmin)/(2*minor), 0.0])
     if squareness:
         initial = np.r_[initial, 0.0]
+    if indentation:
+        initial = np.r_[initial, 0.0]
+    zeta_index = 5 if squareness else None
+    indentation_index = (6 if squareness else 5) if indentation else None
     theta = np.linspace(0, 2*np.pi, observed.r.size, endpoint=False)
     observed_points = observed.points
 
     def _surface(params: np.ndarray) -> MillerSurface:
         # Without squareness the parameter vector is the five it always was, so
         # the optimiser sees the identical problem and returns the identical fit.
-        zeta = float(params[5]) if params.size > 5 else 0.0
-        return MillerSurface(params[2], params[0], params[1], params[3], params[4], zeta)
+        zeta = float(params[zeta_index]) if zeta_index is not None else 0.0
+        bean = float(params[indentation_index]) if indentation_index is not None else 0.0
+        return MillerSurface(params[2], params[0], params[1], params[3], params[4], zeta, indentation=bean)
 
-    def model(params: np.ndarray) -> np.ndarray:
-        rr, zz = evaluate_miller(_surface(params), theta)
-        return np.column_stack((rr, zz))
+    def points_on(surface: MillerSurface, angles: np.ndarray) -> np.ndarray:
+        # Unvalidated: a trial step may cross the self-intersection bound on
+        # its way, and the final surface is validated after the solve.
+        from vaft.formula.equilibrium import _miller_rz
+
+        return np.column_stack(_miller_rz(surface.r, angles, surface.r0, surface.z0, surface.kappa,
+                                          surface.delta, surface.zeta, surface.indentation))
 
     def nearest_model_points(params: np.ndarray) -> np.ndarray:
         dense_theta = np.linspace(0, 2*np.pi, 8*observed.r.size, endpoint=False)
         surface = _surface(params)
-        dense_points = np.column_stack(evaluate_miller(surface, dense_theta))
+        dense_points = points_on(surface, dense_theta)
         nearest = cKDTree(dense_points).query(observed_points)[1]
         local_theta = dense_theta[nearest]
         asin_delta = np.arcsin(params[4])
         zeta = surface.zeta
+        bean = surface.indentation
         for _ in range(5):
             angle = local_theta + asin_delta*np.sin(local_theta)
             angle_prime = 1 + asin_delta*np.cos(local_theta)
@@ -1182,18 +1216,27 @@ def fit_miller_surface(
             vertical = local_theta + zeta*np.sin(2*local_theta)
             vertical_prime = 1 + 2*zeta*np.cos(2*local_theta)
             vertical_second = -4*zeta*np.sin(2*local_theta)
+            # The indentation g = sin^2 cos enters R, with g' = sin (3 cos^2 - 1)
+            # and g'' = cos (9 cos^2 - 7); leaving it out of R' and R'' would
+            # break the orthogonal projection the same way as for squareness.
             points = np.column_stack((params[0]+params[2]*np.cos(angle), params[1]+params[3]*params[2]*np.sin(vertical)))
             first = np.column_stack((-params[2]*np.sin(angle)*angle_prime, params[3]*params[2]*np.cos(vertical)*vertical_prime))
             second = np.column_stack((
                 -params[2]*(np.cos(angle)*angle_prime**2+np.sin(angle)*angle_second),
                 params[3]*params[2]*(np.cos(vertical)*vertical_second-np.sin(vertical)*vertical_prime**2),
             ))
+            if bean != 0.0:
+                # Added separately so a fit without indentation is the old fit to the bit.
+                sin_t, cos_t = np.sin(local_theta), np.cos(local_theta)
+                points[:, 0] += params[2]*bean*sin_t**2*cos_t
+                first[:, 0] += params[2]*bean*sin_t*(3*cos_t**2-1)
+                second[:, 0] += params[2]*bean*cos_t*(9*cos_t**2-7)
             delta_points = points-observed_points
             numerator = np.sum(delta_points*first, axis=1)
             denominator = np.sum(first*first+delta_points*second, axis=1)
             step = np.divide(numerator, denominator, out=np.zeros_like(numerator), where=np.abs(denominator)>1e-14)
             local_theta = np.mod(local_theta-step, 2*np.pi)
-        return np.column_stack(evaluate_miller(surface, local_theta))
+        return points_on(surface, local_theta)
 
     def residual(params: np.ndarray) -> np.ndarray:
         return (nearest_model_points(params)-observed_points).reshape(-1)
@@ -1205,6 +1248,11 @@ def fit_miller_surface(
         # Short of the 0.5 where the parameterization doubles back.
         lower.append(-0.499)
         upper.append(0.499)
+    if indentation:
+        # The self-intersection bound depends on delta, so the box only keeps
+        # the solve sane; a result past the bound is rejected below.
+        lower.append(-0.95)
+        upper.append(2.0)
     result = least_squares(
         residual, initial, bounds=(lower, upper),
         xtol=1e-11, ftol=1e-11, gtol=1e-11, max_nfev=1000,
@@ -1215,7 +1263,9 @@ def fit_miller_surface(
         float(best.r), float(best.r0), float(best.z0), float(best.kappa),
         float(best.delta), float(best.zeta),
         radial_value=radial_value, radial_coordinate=radial_coordinate,
+        indentation=float(best.indentation),
     )
+    self_intersecting = fitted.indentation <= -np.sqrt(1.0 - fitted.delta**2)
     predicted = Contour(nearest_points[:, 0], nearest_points[:, 1], True)
     d1 = np.linalg.norm(nearest_points-observed_points, axis=1)
     d2 = cKDTree(observed_points).query(predicted.points)[0]
@@ -1227,6 +1277,8 @@ def fit_miller_surface(
         reason = "surface is at psi_n>=0.995, where X-point/separatrix geometry is not locally Miller-like"
     elif near_xpoint:
         reason = "surface lies within 0.05 minor radii of an X-point"
+    elif self_intersecting:
+        reason = "fitted indentation makes the surface cross itself (indentation <= -sqrt(1 - delta**2))"
     elif nrms > max_normalized_rms:
         reason = f"normalized RMS {nrms:.4g} exceeds {max_normalized_rms:.4g}"
     elif not result.success:
@@ -1403,10 +1455,78 @@ def fit_miller_sequence(
     return MillerSequenceResult(tuple(fits), reason, provenance)
 
 
+#: The original five-term Solov'ev basis as ``(terms, length_power)``: each
+#: term list is ``c * x**p * y**q * ln(x)**k`` in ``x = R/rref``, ``y = Z/rref``
+#: (the notation of :data:`_CF_BASIS`), and the function in metres is that
+#: polynomial times ``rref**length_power``.  So the third entry is
+#: ``R**2 ln(R/rref) - Z**2`` and the last ``R**6 - 12 R**4 Z**2 + 8 R**2 Z**4``.
+_CLASSIC_SOLOVEV_BASIS: tuple[tuple[tuple[tuple[float, int, int, int], ...], int], ...] = (
+    (((1.0, 0, 0, 0),), 0),
+    (((1.0, 2, 0, 0),), 2),
+    (((1.0, 2, 0, 1), (-1.0, 0, 2, 0)), 2),
+    (((1.0, 4, 0, 0), (-4.0, 2, 2, 0)), 4),
+    (((1.0, 6, 0, 0), (-12.0, 4, 2, 0), (8.0, 2, 4, 0)), 6),
+)
+
+#: Derivative order ``(d/dR, d/dZ)`` of each constraint kind.
+_SOLOVEV_DERIVATIVE_ORDER: Mapping[str, tuple[int, int]] = {
+    "psi": (0, 0), "dpsi_dr": (1, 0), "dpsi_dz": (0, 1),
+    "d2psi_dr2": (2, 0), "d2psi_dz2": (0, 2), "d2psi_drdz": (1, 1),
+}
+
+
+def _solovev_basis_terms(basis: str) -> tuple[tuple[tuple[tuple[float, int, int, int], ...], int], ...]:
+    if basis == "classic":
+        return _CLASSIC_SOLOVEV_BASIS
+    # The Cerfon-Freidberg polynomials are used in their normalized form, so a
+    # coefficient carries the unit of psi directly.
+    return tuple((terms, 0) for terms in _CF_BASIS[: SOLOVEV_BASIS_SIZES[basis]])
+
+
+def _solovev_basis_derivative(basis: str, rref: float, r: Any, z: Any, kind: str) -> np.ndarray:
+    """Every basis function's ``kind`` derivative at (r, z), stacked on axis 0."""
+    n_r, n_z = _SOLOVEV_DERIVATIVE_ORDER[kind]
+    x = np.asarray(r, dtype=float) / rref; y = np.asarray(z, dtype=float) / rref
+    rows = []
+    for terms, power in _solovev_basis_terms(basis):
+        for _ in range(n_r):
+            terms = _cf_dx(terms)
+        for _ in range(n_z):
+            terms = _cf_dy(terms)
+        rows.append(rref ** (power - n_r - n_z) * _cf_eval(terms, x, y))
+    return np.array(rows)
+
+
+def _solovev_particular_derivative(model: SolovevEquilibrium, r: Any, z: Any, kind: str) -> np.ndarray:
+    """The ``kind`` derivative of the particular integral, which depends on R only."""
+    r = np.asarray(r, dtype=float); z = np.asarray(z, dtype=float)
+    shape = np.broadcast(r, z).shape
+    a, b = MU0 * model.pprime, model.ffprime
+    log = np.log(r / model.rref)
+    if kind == "psi":
+        value = -a * r**4 / 8 - b * r**2 * log / 2
+    elif kind == "dpsi_dr":
+        value = -a * r**3 / 2 - b * r * (2 * log + 1) / 2
+    elif kind == "d2psi_dr2":
+        value = -3 * a * r**2 / 2 - b * (2 * log + 3) / 2
+    else:
+        value = np.zeros(shape)
+    return np.broadcast_to(value, shape).astype(float)
+
+
 def _solovev_components(model: SolovevEquilibrium, r: Any, z: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     r = np.asarray(r, dtype=float); z = np.asarray(z, dtype=float)
     if np.any(r <= 0):
         raise ValueError("Solovev evaluation requires R>0")
+    if model.basis != "classic":
+        basis = _solovev_basis_derivative(model.basis, model.rref, r, z, "psi")
+        values = []
+        for kind in ("psi", "dpsi_dr", "dpsi_dz"):
+            rows = basis if kind == "psi" else _solovev_basis_derivative(model.basis, model.rref, r, z, kind)
+            values.append(_solovev_particular_derivative(model, r, z, kind) + np.tensordot(model.coefficients, rows, axes=(0, 0)))
+        return values[0], values[1], values[2], basis
+    # The classic basis keeps its hand-written form, so its results are
+    # unchanged by the generalization above.
     log = np.log(r/model.rref)
     basis = np.array([np.ones_like(r), r**2, r**2*log-z**2, r**4-4*r**2*z**2, r**6-12*r**4*z**2+8*r**2*z**4])
     dr = np.array([np.zeros_like(r), 2*r, r*(2*log+1), 4*r**3-8*r*z**2, 6*r**5-48*r**3*z**2+16*r*z**4])
@@ -1417,6 +1537,14 @@ def _solovev_components(model: SolovevEquilibrium, r: Any, z: Any) -> tuple[np.n
     dpsi_dr = particular_dr + np.tensordot(model.coefficients, dr, axes=(0, 0))
     dpsi_dz = np.tensordot(model.coefficients, dz, axes=(0, 0))
     return psi, dpsi_dr, dpsi_dz, basis
+
+
+def _solovev_second_derivatives(model: SolovevEquilibrium, r: Any, z: Any) -> dict[str, np.ndarray]:
+    return {
+        kind: _solovev_particular_derivative(model, r, z, kind)
+        + np.tensordot(model.coefficients, _solovev_basis_derivative(model.basis, model.rref, r, z, kind), axes=(0, 0))
+        for kind in ("d2psi_dr2", "d2psi_dz2", "d2psi_drdz")
+    }
 
 
 def evaluate_solovev(
@@ -1437,7 +1565,8 @@ def evaluate_solovev(
     Parameters
     ----------
     model : SolovevEquilibrium
-        The five basis coefficients and the two linear source slopes [-].
+        The homogeneous basis coefficients, the basis they expand in, and the
+        two linear source slopes [-].
     r : array_like
         Major radius, strictly positive [m].
     z : array_like
@@ -1452,10 +1581,12 @@ def evaluate_solovev(
     Returns
     -------
     Mapping of str to np.ndarray
-        ``psi`` [Wb/rad] with its two derivatives [Wb/(rad m)]; ``b_r``, ``b_z``
-        and ``b_phi`` [T]; ``pressure`` [Pa]; ``f`` [T m]; ``j_phi`` [A/m^2]; and
-        ``grad_shafranov_source``, the right-hand side the solution satisfies
-        [T/m] [-].
+        ``psi`` [Wb/rad] with its two first derivatives [Wb/(rad m)] and its
+        three second derivatives ``d2psi_dr2``, ``d2psi_dz2``, ``d2psi_drdz``
+        [Wb/(rad m^2)], whose Hessian determinant separates an O-point from
+        an X-point; ``b_r``, ``b_z`` and ``b_phi`` [T]; ``pressure`` [Pa];
+        ``f`` [T m]; ``j_phi`` [A/m^2]; and ``grad_shafranov_source``, the
+        right-hand side the solution satisfies [T/m] [-].
 
     Raises
     ------
@@ -1471,6 +1602,13 @@ def evaluate_solovev(
     is :data:`~vaft.data.cocos.VAFT_INTERNAL_COCOS` (11), which has ``sigma = +1``;
     passing ``cocos=None`` retains the historical fallback ``sigma = -1``
     (the COCOS 2/3/6/7 orientation family).
+
+    ``j_phi`` is the component along the convention's own toroidal unit
+    vector, ``-sigma_Bp (R dp/dpsi + F dF/dpsi / (mu0 R))`` per Sauter Eq. 12,
+    which is what Ampere's law gives on the returned field; the historical
+    fallback takes the right-handed member of its family (COCOS 3/7,
+    ``sigma_Bp = -1``). Before #966 the sign was dropped, so a COCOS 11
+    model reported the current opposite to its own field.
     :func:`solovev_to_equilibrium` is where this is reconciled with a declared
     convention, scaling the flux by 2*pi for full-weber conventions and
     transforming signs appropriately. Pressure and the squared poloidal
@@ -1494,6 +1632,9 @@ def evaluate_solovev(
        (1968), for the linear-source closed form.
     .. [2] The five-term homogeneous basis and the particular integral follow the
        standard polynomial construction for that solution.
+    .. [3] A. J. Cerfon and J. P. Freidberg, Phys. Plasmas 17, 032502 (2010),
+       for the seven- and twelve-term bases of ``basis="cerfon_freidberg_even"``
+       and ``"cerfon_freidberg"``.
     """
     if convention is not None:
         if cocos != VAFT_INTERNAL_COCOS and cocos != convention:
@@ -1504,11 +1645,15 @@ def evaluate_solovev(
 
     if resolved_cocos is None:
         k_sign = -1.0
+        # The historical orientation: k = -1 with (R, phi, Z) right-handed,
+        # the COCOS 3/7 member of the family, so sigma_Bp = -1.
+        sigma_bp = -1.0
     else:
         if resolved_cocos not in range(1, 19) or resolved_cocos in (9, 10):
             raise ValueError(f"cocos must be a valid COCOS index in 1..8 or 11..18, got {resolved_cocos}")
         spec = cocos_spec(int(resolved_cocos))
         k_sign = float(spec.sigma_rpz * spec.sigma_bp)
+        sigma_bp = float(spec.sigma_bp)
 
     psi, dpsi_dr, dpsi_dz, _ = _solovev_components(model, r, z)
     rr = np.asarray(r, dtype=float)
@@ -1518,9 +1663,12 @@ def evaluate_solovev(
     f = model.f_sign*np.sqrt(np.clip(f_squared, 0, None))
     return {
         "psi": psi, "dpsi_dr": dpsi_dr, "dpsi_dz": dpsi_dz,
+        **_solovev_second_derivatives(model, r, z),
         "b_r": k_sign*dpsi_dz/rr, "b_z": -k_sign*dpsi_dr/rr, "b_phi": f/rr,
         "pressure": pressure, "f": f,
-        "j_phi": rr*model.pprime + model.ffprime/(MU0*rr),
+        # Ampere on the field above: mu0 j_phi = sigma_RphiZ (dB_R/dZ - dB_Z/dR)
+        # = sigma_Bp Delta*psi / R, i.e. Sauter Eq. 12 per radian.
+        "j_phi": -sigma_bp*(rr*model.pprime + model.ffprime/(MU0*rr)),
         "grad_shafranov_source": -MU0*rr**2*model.pprime-model.ffprime,
     }
 
@@ -1528,19 +1676,22 @@ def evaluate_solovev(
 def solve_solovev_constraints(
     constraints: Sequence[SolovevConstraint], *, pprime: float, ffprime: float,
     rref: float, psi_boundary: float = 0.0, pressure_boundary: float = 0.0,
-    f_boundary: float = 1.0, f_sign: int = 1,
+    f_boundary: float = 1.0, f_sign: int | None = None, basis: str = "classic",
+    max_condition_number: float = 1.0e12,
 ) -> SolovevEquilibrium:
     """Solve for the Solov'ev coefficients that satisfy a set of geometric constraints.
 
     The inverse of :func:`evaluate_solovev`: given where the flux surface should
-    pass and where it should be flat, recover the five basis coefficients that put
-    it there.  This is how a Solov'ev model is shaped to a wanted boundary.
+    pass, where it should be flat and how it should curve, recover the basis
+    coefficients that put it there.  This is how a Solov'ev model is shaped to a
+    wanted boundary, and, with the richer bases, how an X-point is prescribed.
 
     Parameters
     ----------
     constraints : sequence of SolovevConstraint
-        At least five, each pinning the flux or one of its two first derivatives
-        at a point.  Flux in Wb/rad, derivatives in Wb/(rad m) [-].
+        At least as many as the basis has terms, each pinning the flux, one of
+        its first or second derivatives, or a weighted combination of them at a
+        point.  Flux in Wb/rad, derivatives in Wb/(rad m^n) [-].
     pprime : float
         The pressure gradient against flux, constant by construction
         [Pa rad/Wb].
@@ -1548,53 +1699,79 @@ def solve_solovev_constraints(
         The poloidal-current term's gradient against flux, likewise constant
         [T^2 m^2 rad/Wb].
     rref : float
-        Reference major radius that sets the logarithm's origin in the basis [m].
+        Reference major radius that sets the logarithm's origin in the basis
+        and, for the Cerfon-Freidberg bases, the normalization length [m].
     psi_boundary : float, optional
         Flux value taken as the boundary, the zero point of the linear sources
         [Wb/rad].
     pressure_boundary : float, optional
         Pressure at that boundary [Pa].
     f_boundary : float, optional
-        Poloidal current function at that boundary [T m].
-    f_sign : int, optional
-        Sign given to the poloidal current when the square root is taken [-].
+        Poloidal current function at that boundary, signed: its sign is the
+        direction of B_phi, both in F(psi) and in ``bt0 = f_boundary/rref``.
+        Must be non-zero [T m].
+    f_sign : int or None, optional
+        Sign given to the poloidal current when the square root is taken.
+        ``None`` takes ``sign(f_boundary)``; an explicit +1 or -1 must agree
+        with it.  Breaking change in 0.8.0: through 0.7.x this defaulted to
+        +1 and overrode the sign of *f_boundary*, so ``f_sign=-1`` with a
+        positive *f_boundary* was accepted (and gave an F(psi) whose sign
+        disagreed with ``bt0``); it is now refused -- pass a signed
+        *f_boundary* instead (#1307) [-].
+    basis : str, optional
+        ``"classic"`` (five up-down symmetric terms), ``"cerfon_freidberg_even"``
+        (seven symmetric terms, enough for a double null) or
+        ``"cerfon_freidberg"`` (twelve terms including odd-Z ones, needed for an
+        asymmetric single null) [-].
+    max_condition_number : float, optional
+        Largest condition number of the column-normalized constraint matrix
+        accepted before the system is refused as ill-conditioned [-].
 
     Returns
     -------
     SolovevEquilibrium
-        The five coefficients, the inputs echoed, the numerical rank of the solve,
-        the residual norm, and the constraint count [-].
+        The coefficients in *basis*, the inputs echoed, the numerical rank of
+        the solve, the residual norm, and ``metadata`` with the constraint count
+        and the condition number [-].
 
     Raises
     ------
     ValueError
-        Fewer than five constraints, an unrecognized constraint kind, or a
-        constraint set of rank below five.
+        A zero *f_boundary*, an *f_sign* that contradicts the sign of
+        *f_boundary* (#1307), an unknown basis, fewer constraints than basis
+        terms, an unrecognized constraint kind, a constraint set whose rank is
+        below the basis size, or one whose condition number exceeds
+        *max_condition_number*.
 
     Processing steps
     ----------------
-    1. Evaluate the basis and the particular integral of a zero-coefficient model
-       at each constraint point.
-    2. Build one row per constraint: the basis itself for a flux constraint, or a
-       central difference of it for a derivative constraint.
-    3. Move the particular integral to the right-hand side, so the unknowns are
+    1. For each constraint, evaluate the analytic derivative the constraint
+       names of every basis function, and of the particular integral of the
+       two sources, at its point; a combination sums them with its weights.
+    2. Move the particular integral to the right-hand side, so the unknowns are
        the homogeneous coefficients alone.
-    4. Solve by least squares and refuse a rank-deficient system rather than
-       returning an underdetermined answer.
+    3. Normalize each column, since the basis functions differ by powers of
+       the radius, and solve by least squares.
+    4. Refuse a rank-deficient or ill-conditioned system rather than
+       returning an answer that is underdetermined in some direction.
 
     Defaults
     --------
     The boundary values default to a zero-flux, zero-pressure, unit-current
-    reference, which is the natural normalization for a shape-only model.  The
-    central-difference step is a numerical convenience scaled to the reference
-    radius.
+    reference, which is the natural normalization for a shape-only model.
+    ``f_sign=None`` makes *f_boundary* the single source of the B_phi sign, so
+    reversing the toroidal field is a matter of negating *f_boundary* alone.
+    ``basis="classic"`` keeps the original five-term model.  The condition
+    limit of 1e12 is a numerical convenience: about four digits short of
+    double precision, below which the least-squares answer still means
+    something.
 
     Convention
     ----------
     Same per-radian flux and same orientation as :func:`evaluate_solovev`, whose
-    basis this inverts.  Five is not a tolerance but the dimension of the
-    homogeneous solution space; anything less leaves the surface unpinned in some
-    direction.
+    basis this inverts.  The basis size is not a tolerance but the dimension of
+    the homogeneous solution space kept; anything less leaves the surface
+    unpinned in some direction.
 
     Applicability
     -------------
@@ -1602,44 +1779,261 @@ def solve_solovev_constraints(
 
     Limitations
     -----------
-    Constraints that are geometrically distinct can still be linearly dependent in
-    this basis, in which case the rank check rejects them and the caller must move
-    or add points.  With more than five constraints the solve is a least squares
-    and the result satisfies none exactly; the residual norm reports how far off.
+    Constraints that are geometrically distinct can still be linearly dependent
+    in the basis -- an up-down symmetric basis gives an all-zero row for a
+    vertical derivative on the midplane, for instance -- in which case the rank
+    check rejects them and the caller must move or add points.  With more
+    constraints than terms the solve is a least squares and the result
+    satisfies none exactly; the residual norm reports how far off.  A
+    derivative-free point is not by itself an X-point: check the sign of the
+    Hessian determinant from :func:`evaluate_solovev`.
 
     Provenance
     ----------
     .. [1] Solov'ev (1968); see :func:`evaluate_solovev` for the basis being
        solved.
+    .. [2] A. J. Cerfon and J. P. Freidberg, Phys. Plasmas 17, 032502 (2010),
+       for the extended bases and the point, slope and curvature constraints.
     """
 
-    if len(constraints) < 5:
-        raise ValueError("at least five independent Solovev constraints are required")
-    zero = SolovevEquilibrium(np.zeros(5), pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign)
+    if basis not in SOLOVEV_BASIS_SIZES:
+        raise ValueError(f"basis must be one of {tuple(SOLOVEV_BASIS_SIZES)}, got {basis!r}")
+    f_sign = _resolve_solovev_f_sign(f_boundary, f_sign)
+    size = SOLOVEV_BASIS_SIZES[basis]
+    if len(constraints) < size:
+        count = {5: "five", 7: "seven", 12: "twelve"}[size]
+        raise ValueError(f"at least {count} independent Solovev constraints are required for the {basis!r} basis")
+    zero = SolovevEquilibrium(np.zeros(size), pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign, basis=basis)
     rows, rhs = [], []
     for constraint in constraints:
-        psi, d_r, d_z, basis = _solovev_components(zero, constraint.r, constraint.z)
-        if constraint.kind == "psi":
-            row, particular = basis, psi
-        elif constraint.kind == "dpsi_dr":
-            eps = max(1e-6*rref, 1e-8)
-            basis_plus = _solovev_components(zero, constraint.r+eps, constraint.z)[3]
-            basis_minus = _solovev_components(zero, constraint.r-eps, constraint.z)[3]
-            row, particular = (basis_plus-basis_minus)/(2*eps), d_r
-        elif constraint.kind == "dpsi_dz":
-            eps = max(1e-6*rref, 1e-8)
-            basis_plus = _solovev_components(zero, constraint.r, constraint.z+eps)[3]
-            basis_minus = _solovev_components(zero, constraint.r, constraint.z-eps)[3]
-            row, particular = (basis_plus-basis_minus)/(2*eps), d_z
+        if constraint.kind == "combination":
+            pairs = constraint.combination
+        elif constraint.kind in SOLOVEV_CONSTRAINT_KINDS:
+            pairs = ((constraint.kind, 1.0),)
         else:
-            raise ValueError("Solovev constraint kind must be psi, dpsi_dr, or dpsi_dz")
-        rows.append(np.asarray(row, dtype=float).reshape(5)); rhs.append(float(constraint.value-np.asarray(particular)))
+            raise ValueError(f"Solovev constraint kind must be one of {SOLOVEV_CONSTRAINT_KINDS} or 'combination'")
+        if constraint.r <= 0:
+            raise ValueError("Solovev constraints require R>0")
+        row = sum(weight*_solovev_basis_derivative(basis, rref, constraint.r, constraint.z, kind) for kind, weight in pairs)
+        particular = sum(weight*_solovev_particular_derivative(zero, constraint.r, constraint.z, kind) for kind, weight in pairs)
+        rows.append(np.asarray(row, dtype=float).reshape(size)); rhs.append(float(constraint.value-np.asarray(particular)))
     matrix = np.asarray(rows); vector = np.asarray(rhs)
-    coefficients, residuals, rank, _ = np.linalg.lstsq(matrix, vector, rcond=None)
-    if rank < 5:
-        raise ValueError(f"Solovev constraints are rank deficient ({rank}/5)")
+    scale = np.linalg.norm(matrix, axis=0)
+    scale[scale == 0] = 1.0
+    scaled, _, rank, singular = np.linalg.lstsq(matrix/scale, vector, rcond=None)
+    if rank < size:
+        raise ValueError(f"Solovev constraints are rank deficient ({rank}/{size})")
+    condition = float(singular[0]/singular[-1])
+    if condition > max_condition_number:
+        raise ValueError(
+            f"Solovev constraints are ill-conditioned (condition number {condition:.3g} > "
+            f"{max_condition_number:.3g}); move or replace nearly dependent constraints"
+        )
+    coefficients = scaled/scale
     residual_norm = float(np.linalg.norm(matrix@coefficients-vector))
-    return SolovevEquilibrium(coefficients, pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign, int(rank), residual_norm, {"constraint_count": len(constraints)})
+    return SolovevEquilibrium(
+        coefficients, pprime, ffprime, rref, psi_boundary, pressure_boundary, f_boundary, f_sign,
+        int(rank), residual_norm, {"constraint_count": len(constraints), "condition_number": condition},
+        basis=basis,
+    )
+
+
+def solovev_xpoint_constraints(r: float, z: float, *, psi: float = 0.0) -> tuple[SolovevConstraint, ...]:
+    """The three conditions that make a point an X-point on the boundary flux surface.
+
+    A prescribed magnetic null is not a new kind of equilibrium, only three
+    linear conditions on the flux: it takes the boundary value there and both
+    of its first derivatives vanish.  This expands one X-point into those
+    conditions for :func:`solve_solovev_constraints`.
+
+    Parameters
+    ----------
+    r : float
+        Major radius of the X-point, strictly positive [m].
+    z : float
+        Height of the X-point [m].
+    psi : float, optional
+        Flux the separatrix carries, normally the model's boundary flux
+        [Wb/rad].
+
+    Returns
+    -------
+    tuple of SolovevConstraint
+        The flux, radial-slope and vertical-slope conditions at the point [-].
+
+    Raises
+    ------
+    ValueError
+        *r* is not positive.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A vanishing gradient is necessary, not sufficient: the solved point can
+    still be an extremum.  Confirm the saddle from the sign of the Hessian
+    determinant returned by :func:`evaluate_solovev`.
+
+    Provenance
+    ----------
+    .. [1] A. J. Cerfon and J. P. Freidberg, Phys. Plasmas 17, 032502 (2010),
+       Sec. IV, for imposing the X-point as a flux and two slope conditions.
+    """
+    if r <= 0:
+        raise ValueError("the X-point radius must be positive")
+    return (
+        SolovevConstraint(float(r), float(z), "psi", float(psi)),
+        SolovevConstraint(float(r), float(z), "dpsi_dr", 0.0),
+        SolovevConstraint(float(r), float(z), "dpsi_dz", 0.0),
+    )
+
+
+_SOLOVEV_SHAPE_TOPOLOGIES = ("smooth", "double_null", "lower_single_null", "upper_single_null")
+
+
+def solovev_shape_constraints(
+    *,
+    major_radius: float,
+    minor_radius: float,
+    elongation: float,
+    triangularity: float,
+    topology: str = "smooth",
+    x_point: tuple[float, float] | None = None,
+    psi_boundary: float = 0.0,
+) -> tuple[SolovevConstraint, ...]:
+    """The Cerfon-Freidberg boundary conditions for a shaped, possibly diverted, plasma.
+
+    Turns an elongation, triangularity and minor radius into the point, slope
+    and curvature conditions that make an analytic Solov'ev boundary have that
+    shape, with the X-points the topology asks for.  Solving them with
+    :func:`solve_solovev_constraints` gives the equilibrium.
+
+    Parameters
+    ----------
+    major_radius : float
+        Geometric major radius R0 of the boundary, positive [m].
+    minor_radius : float
+        Minor radius a, positive and below *major_radius* [m].
+    elongation : float
+        Boundary elongation kappa, positive [-].
+    triangularity : float
+        Boundary triangularity delta, of magnitude below one [-].
+    topology : str, optional
+        ``"smooth"`` (a closed boundary with no X-point), ``"double_null"``,
+        ``"lower_single_null"`` or ``"upper_single_null"`` [-].
+    x_point : tuple of float, optional
+        ``(R, Z)`` of the X-point, the upper one for a double null; refused for
+        ``"smooth"``.  Defaults to Cerfon and Freidberg's
+        ``(R0 - 1.1 delta a, +-1.1 kappa a)`` [m].
+    psi_boundary : float, optional
+        Flux the boundary and the separatrix carry [Wb/rad].
+
+    Returns
+    -------
+    tuple of SolovevConstraint
+        Seven conditions for ``"smooth"`` and ``"double_null"``, to be solved
+        in the ``"cerfon_freidberg_even"`` basis, or twelve for a single null,
+        to be solved in ``"cerfon_freidberg"`` [-].
+
+    Raises
+    ------
+    ValueError
+        An unknown topology, a non-physical shape, an X-point given for a
+        smooth boundary, or one on the wrong side of the midplane for the
+        topology.
+
+    Convention
+    ----------
+    The outboard, inboard and top points of the boundary are
+    ``(R0 +- a, 0)`` and ``(R0 - delta a, kappa a)``.  The curvature
+    conditions are Cerfon and Freidberg's in metres: ``psi_ZZ + N1 psi_R = 0``
+    outboard with ``N1 = -(1 + alpha)**2 / (a kappa**2)``, ``N2 = (1 -
+    alpha)**2 / (a kappa**2)`` inboard, and ``psi_RR + N3 psi_Z = 0`` at the
+    top with ``N3 = -kappa / (a cos(alpha)**2)``, where ``alpha =
+    arcsin(delta)``.  An upper single null is the lower one mirrored in Z.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The shape is imposed at three or four points only; elsewhere the boundary
+    is what the basis gives, so a measured elongation or triangularity differs
+    slightly from the request, and on an X-point side the boundary follows the
+    X-point instead.  The conditions are exact for the basis sizes above; with
+    the classic five-term basis they are only met in a least-squares sense.
+
+    Provenance
+    ----------
+    .. [1] A. J. Cerfon and J. P. Freidberg, *"One size fits all" analytic
+       solutions to the Grad-Shafranov equation*, Phys. Plasmas 17, 032502
+       (2010), Secs. III and IV: the point, slope and curvature conditions and
+       the X-point placement at 1.1 times the nominal height and triangularity.
+    """
+    if topology not in _SOLOVEV_SHAPE_TOPOLOGIES:
+        raise ValueError(f"topology must be one of {_SOLOVEV_SHAPE_TOPOLOGIES}, got {topology!r}")
+    r0, a = float(major_radius), float(minor_radius)
+    kappa, delta = float(elongation), float(triangularity)
+    if r0 <= 0 or not 0 < a < r0 or kappa <= 0 or abs(delta) >= 1:
+        raise ValueError("requires major_radius>0, 0<minor_radius<major_radius, elongation>0 and abs(triangularity)<1")
+    alpha = np.arcsin(delta)
+    n1 = -(1.0 + alpha)**2/(a*kappa**2)
+    n2 = (1.0 - alpha)**2/(a*kappa**2)
+    n3 = -kappa/(a*np.cos(alpha)**2)
+    outer, inner, high = (r0 + a, 0.0), (r0 - a, 0.0), (r0 - delta*a, kappa*a)
+    if x_point is None:
+        x_point = (r0 - 1.1*delta*a, (1.0 if topology in ("double_null", "upper_single_null") else -1.0)*1.1*kappa*a)
+    elif topology == "smooth":
+        raise ValueError("a smooth boundary has no X-point; x_point applies to the diverted topologies only")
+    xr, xz = map(float, x_point)
+    if topology != "smooth":
+        if xr <= 0:
+            raise ValueError("the X-point radius must be positive")
+        wanted = -1.0 if topology == "lower_single_null" else 1.0
+        if xz*wanted <= 0:
+            side = "below" if wanted < 0 else "above"
+            raise ValueError(f"a {topology} X-point must lie {side} the midplane")
+
+    def point(p: tuple[float, float], kind: str, value: float = 0.0) -> SolovevConstraint:
+        return SolovevConstraint(p[0], p[1], kind, value)
+
+    def curvature(p: tuple[float, float], pairs: tuple[tuple[str, float], ...]) -> SolovevConstraint:
+        return SolovevConstraint(p[0], p[1], "combination", 0.0, pairs)
+
+    outer_curve = curvature(outer, (("d2psi_dz2", 1.0), ("dpsi_dr", n1)))
+    inner_curve = curvature(inner, (("d2psi_dz2", 1.0), ("dpsi_dr", n2)))
+    high_curve = curvature(high, (("d2psi_dr2", 1.0), ("dpsi_dz", n3)))
+    edges = (point(outer, "psi", psi_boundary), point(inner, "psi", psi_boundary))
+    if topology == "smooth":
+        return edges + (point(high, "psi", psi_boundary), point(high, "dpsi_dr"), outer_curve, inner_curve, high_curve)
+    if topology == "double_null":
+        return edges + solovev_xpoint_constraints(xr, xz, psi=psi_boundary) + (outer_curve, inner_curve)
+    # A single null: shaped on one side, the X-point on the other.  Build the
+    # lower one and mirror it in Z for the upper.
+    lower = (xr, -abs(xz))
+    constraints = edges + (
+        point(high, "psi", psi_boundary), point(lower, "psi", psi_boundary),
+        point(outer, "dpsi_dz"), point(inner, "dpsi_dz"),
+        point(high, "dpsi_dr"), point(lower, "dpsi_dr"), point(lower, "dpsi_dz"),
+        outer_curve, inner_curve, high_curve,
+    )
+    if topology == "lower_single_null":
+        return constraints
+
+    def odd_in_z(kind: str) -> bool:
+        return _SOLOVEV_DERIVATIVE_ORDER[kind][1] % 2 == 1
+
+    mirrored = []
+    for c in constraints:
+        if c.kind == "combination":
+            pairs = tuple((k, -w if odd_in_z(k) else w) for k, w in c.combination)
+            mirrored.append(SolovevConstraint(c.r, -c.z, "combination", c.value, pairs))
+        else:
+            mirrored.append(SolovevConstraint(c.r, -c.z, c.kind, -c.value if odd_in_z(c.kind) else c.value))
+    return tuple(mirrored)
 
 
 def _locate_solovev_axis(
@@ -1769,6 +2163,15 @@ def solovev_to_equilibrium(
     2*pi normalisation and the orientation sign across all COCOS conventions.
     Pressure and the magnetic axis are invariant under convention transforms.
 
+    The 2*pi factor multiplies psi, its axis and boundary values and ``psi_1d``,
+    and divides the two d/dpsi sources ``pprime`` and ``ffprime``.  Nothing else
+    is rescaled, deliberately: ``ip`` is integrated from the analytic ``j_phi``,
+    a current density that no flux-storage choice changes, and ``f``, ``bt0``
+    and ``pressure`` are physical fields too.  Any orientation sign they carry
+    under another *convention* is applied by :func:`convert_cocos`.  That says
+    nothing about whether the sign of :func:`evaluate_solovev`'s ``j_phi`` is
+    consistent with its poloidal field; that is a separate question (#966).
+
     Applicability
     -------------
     Machine-independent.
@@ -1822,11 +2225,411 @@ def solovev_to_equilibrium(
         ip=ip, bt0=float(model.f_boundary/model.rref), r0=model.rref,
         time=None, convention=conv_11,
         metadata={"source_type": "solovev", "model": model, "lcfs_psi_n": lcfs_level,
-                  "topology_assumptions": "axisymmetric limited or upper/lower-null"},
+                  "basis": model.basis,
+                  "topology_assumptions": (
+                      "axisymmetric; up-down asymmetry allowed (odd-Z basis terms)"
+                      if model.basis == "cerfon_freidberg"
+                      else "axisymmetric, up-down symmetric (smooth or double-null)")},
     )
     if convention == 11:
         return eq_11
     return convert_cocos(eq_11, convention)
+
+
+# --- Cerfon-Freidberg analytic equilibria (teaching examples) ------------------
+#
+# Each basis function is a list of terms ``(c, p, q, k)`` meaning
+# ``c * x**p * y**q * ln(x)**k`` in the normalized coordinates x = R/R0,
+# y = Z/R0.  Keeping them as data rather than hand-written derivatives lets every
+# derivative be generated by the same two rules, and lets the tests check each
+# function against Delta* directly.
+_CF_BASIS: tuple[tuple[tuple[float, int, int, int], ...], ...] = (
+    ((1.0, 0, 0, 0),),
+    ((1.0, 2, 0, 0),),
+    ((1.0, 0, 2, 0), (-1.0, 2, 0, 1)),
+    ((1.0, 4, 0, 0), (-4.0, 2, 2, 0)),
+    ((2.0, 0, 4, 0), (-9.0, 2, 2, 0), (3.0, 4, 0, 1), (-12.0, 2, 2, 1)),
+    ((1.0, 6, 0, 0), (-12.0, 4, 2, 0), (8.0, 2, 4, 0)),
+    ((8.0, 0, 6, 0), (-140.0, 2, 4, 0), (75.0, 4, 2, 0), (-15.0, 6, 0, 1),
+     (180.0, 4, 2, 1), (-120.0, 2, 4, 1)),
+    ((1.0, 0, 1, 0),),
+    ((1.0, 2, 1, 0),),
+    ((1.0, 0, 3, 0), (-3.0, 2, 1, 1)),
+    ((3.0, 4, 1, 0), (-4.0, 2, 3, 0)),
+    ((8.0, 0, 5, 0), (-45.0, 4, 1, 0), (-80.0, 2, 3, 1), (60.0, 4, 1, 1)),
+)
+_CF_TOPOLOGIES = ("limited", "single_null", "double_null")
+
+
+def _cf_dx(terms: Sequence[tuple[float, int, int, int]]) -> tuple[tuple[float, int, int, int], ...]:
+    out = []
+    for c, p, q, k in terms:
+        if p:
+            out.append((c * p, p - 1, q, k))
+        if k:
+            out.append((c * k, p - 1, q, k - 1))
+    return tuple(out)
+
+
+def _cf_dy(terms: Sequence[tuple[float, int, int, int]]) -> tuple[tuple[float, int, int, int], ...]:
+    return tuple((c * q, p, q - 1, k) for c, p, q, k in terms if q)
+
+
+def _cf_eval(terms: Sequence[tuple[float, int, int, int]], x: Any, y: Any) -> np.ndarray:
+    x = np.asarray(x, dtype=float); y = np.asarray(y, dtype=float)
+    log = np.log(x)
+    total = np.zeros(np.broadcast(x, y).shape)
+    for c, p, q, k in terms:
+        total = total + c * x**p * y**q * log**k
+    return total
+
+
+def _cf_particular(a: float) -> tuple[tuple[float, int, int, int], ...]:
+    """x**4/8 + A*(x**2 ln(x)/2 - x**4/8): Delta* of it is (1-A) x**2 + A."""
+    return ((0.125 * (1.0 - a), 4, 0, 0), (0.5 * a, 2, 0, 1))
+
+
+def _cf_terms(coefficients: np.ndarray, a: float) -> tuple[tuple[float, int, int, int], ...]:
+    terms = list(_cf_particular(a))
+    for c, basis in zip(coefficients, _CF_BASIS):
+        if c:
+            terms.extend((c * t[0], t[1], t[2], t[3]) for t in basis)
+    return tuple(terms)
+
+
+def _cf_solve(topology: str, epsilon: float, kappa: float, delta: float, a: float) -> np.ndarray:
+    """Cerfon-Freidberg coefficients for one of the three standard constraint sets.
+
+    Solved through the general constraint path in normalized units (R0 = 1,
+    psi0 = 1), where the particular integral of the sources is exactly
+    Cerfon and Freidberg's ``(1-A) x**4/8 + A x**2 ln(x)/2``.
+    """
+    shape_topology = {"limited": "smooth", "double_null": "double_null", "single_null": "lower_single_null"}[topology]
+    basis = "cerfon_freidberg" if topology == "single_null" else "cerfon_freidberg_even"
+    constraints = solovev_shape_constraints(
+        major_radius=1.0, minor_radius=epsilon, elongation=kappa, triangularity=delta, topology=shape_topology,
+    )
+    try:
+        # No condition limit: this square system was always solved outright, and
+        # a very large aspect ratio is legitimately ill-conditioned here.
+        model = solve_solovev_constraints(constraints, pprime=-(1.0 - a)/MU0, ffprime=-a, rref=1.0, basis=basis,
+                                          max_condition_number=np.inf)
+    except ValueError as error:
+        raise ValueError(f"the {topology} constraint set is singular for this shape") from error
+    coefficients = np.zeros(len(_CF_BASIS))
+    coefficients[: model.coefficients.size] = model.coefficients
+    return coefficients
+
+
+def solovev_example(
+    topology: str = "limited",
+    *,
+    major_radius: float = 0.4,
+    aspect_ratio: float = 1.7,
+    elongation: float = 1.7,
+    triangularity: float = 0.35,
+    plasma_current: float = 1.0e5,
+    toroidal_field: float = 0.1,
+    a_parameter: float = 0.9,
+    resolution: int = 129,
+    convention: int = 11,
+) -> EquilibriumData:
+    """Build a shaped analytic Solov'ev equilibrium in a chosen boundary topology.
+
+    A teaching example: the same exactly-known kind of equilibrium as
+    :func:`solovev_to_equilibrium`, but with a basis rich enough to put an
+    X-point on the boundary, so that a limited, a lower single-null and a
+    double-null plasma can be compared on otherwise equal footing.  The shape
+    is prescribed and the flux map is the exact solution that has it.
+
+    Parameters
+    ----------
+    topology : str, optional
+        ``"limited"``, ``"single_null"`` (lower) or ``"double_null"`` [-].
+    major_radius : float, optional
+        Geometric major radius R0 of the boundary [m].
+    aspect_ratio : float, optional
+        R0 over the minor radius, greater than one [-].
+    elongation : float, optional
+        Boundary elongation kappa, positive [-].
+    triangularity : float, optional
+        Boundary triangularity delta, of magnitude below one [-].
+    plasma_current : float, optional
+        Toroidal plasma current the flux is scaled to; its sign is the current direction [A].
+    toroidal_field : float, optional
+        Vacuum toroidal field at R0, sets F at the boundary [T].
+    a_parameter : float, optional
+        Cerfon-Freidberg A: the normalized source is ``(1-A) x**2 + A``, so A
+        near one puts the current in F dF/dpsi and lowers beta, A = 0 is a
+        pure-pressure equilibrium [-].
+    resolution : int, optional
+        Grid points across the major radius; the height axis gets the same spacing [-].
+    convention : int, optional
+        COCOS index to export in, 1 to 18 [-].
+
+    Returns
+    -------
+    EquilibriumData
+        A gridded record with psi, the magnetic axis, the last closed flux
+        surface, a limiter (touching the boundary for ``"limited"``, a clear
+        rectangular wall for the diverted cases), linear-in-flux pressure and
+        F**2, the constant sources, the plasma current and vacuum field, and
+        ``metadata`` carrying the requested shape, the requested X-points and
+        the basis coefficients [-].
+
+    Raises
+    ------
+    ValueError
+        An unknown topology, a non-physical shape, a non-positive radius or
+        resolution, an invalid COCOS index, a constraint set that is singular for
+        the shape, or a boundary that does not close around the axis on the grid.
+
+    Processing steps
+    ----------------
+    1. Solve the Cerfon-Freidberg constraint set for the topology in normalized
+       coordinates ``x = R/R0``, ``y = Z/R0``: seven up-down symmetric terms
+       for limited and double-null, twelve for the asymmetric single-null.
+    2. Evaluate the normalized flux on a grid framing the plasma and the X-points,
+       and locate the magnetic axis as the O-point of the analytic field.
+    3. Extract the closed boundary surface, stepping a hair inside the
+       separatrix when it passes through an X-point.
+    4. Scale the flux so the toroidal current integrated over the boundary
+       interior equals *plasma_current*, which fixes both sources.
+
+    Defaults
+    --------
+    The shape defaults are an assumed value chosen to look like a small
+    spherical tokamak such as VEST: R0 = 0.4 m, aspect ratio 1.7 (a = 0.235 m),
+    elongation 1.7, triangularity 0.35, 100 kA and 0.1 T.  ``a_parameter =
+    0.9`` is likewise an assumed value that keeps the central toroidal beta
+    near five percent at those settings (about 0.2 kPa on axis);
+    ``resolution = 129`` is a numerical convenience.
+
+    Convention
+    ----------
+    Built in COCOS 11 -- flux in full weber, psi increasing outward for a
+    positive current, ``B_Z = -(1/R) dpsi/dR`` per radian -- and converted by
+    :func:`convert_cocos` when another *convention* is asked for.  In per-radian
+    units ``Psi = psi0 * psi(x, y)`` solves ``Delta* Psi = -mu0 R**2 p' - F F'``
+    with ``p' = -psi0 (1 - A)/(mu0 R0**4)`` and ``F F' = -psi0 A / R0**2``;
+    ``psi_boundary = 0``, ``p = p' Psi`` and ``F**2 = (B0 R0)**2 + 2 F F' Psi``.
+    The toroidal current density is ``Delta* Psi / (mu0 R)``, the sign
+    consistent with this convention's poloidal field.  The requested X-points are
+    at ``(R0 - 1.1 delta a, -+1.1 kappa a)``.
+
+    Applicability
+    -------------
+    Machine-independent.  The defaults merely resemble VEST; nothing here reads
+    VEST data.
+
+    Limitations
+    -----------
+    Linear sources only, so profiles are not realistic, and beta, current and
+    shape are not independent: *a_parameter* trades pressure against poloidal
+    current at fixed shape.  The shape parameters are imposed on the boundary at
+    its outboard, inboard and top points; elsewhere the boundary is whatever the
+    basis gives.  On an X-point side the separatrix follows Cerfon and Freidberg
+    in putting the X-point at 1.1 times the nominal height and triangularity, so
+    a double-null boundary measures about 1.1 kappa and 1.1 delta, and a lower
+    single-null one is 1.1 times the request below the midplane only.  The limiter is a
+    construction to make the topology classifiable, not a machine wall.
+
+    Provenance
+    ----------
+    .. [1] A. J. Cerfon and J. P. Freidberg, *"One size fits all" analytic
+       solutions to the Grad-Shafranov equation*, Phys. Plasmas 17, 032502
+       (2010): the particular solution, the twelve homogeneous polynomials and
+       the limited, double-null and single-null constraint sets used here.
+    .. [2] Solov'ev (1968), for the linear-source closed form.
+    """
+    if topology not in _CF_TOPOLOGIES:
+        raise ValueError(f"topology must be one of {_CF_TOPOLOGIES}, got {topology!r}")
+    if major_radius <= 0 or aspect_ratio <= 1 or elongation <= 0 or abs(triangularity) >= 1:
+        raise ValueError("requires major_radius>0, aspect_ratio>1, elongation>0 and abs(triangularity)<1")
+    if int(resolution) < 33:
+        raise ValueError("resolution must be at least 33 grid points")
+    if convention not in range(1, 19) or convention in (9, 10):
+        raise ValueError("convention must be a COCOS index in the range 1..18 (excluding 9 and 10)")
+    if plasma_current == 0:
+        raise ValueError("plasma_current must be non-zero")
+    r0 = float(major_radius); epsilon = 1.0 / float(aspect_ratio); minor = r0 * epsilon
+    kappa = float(elongation); delta = float(triangularity); a = float(a_parameter)
+    coefficients = _cf_solve(topology, epsilon, kappa, delta, a)
+    terms = _cf_terms(coefficients, a)
+
+    # Grid: frame the boundary and, when diverted, the X-points and their legs.
+    diverted = topology != "limited"
+    x_point_height = 1.1 * kappa * minor
+    half_height = (x_point_height if diverted else kappa * minor) + 0.35 * minor
+    r_min = max(r0 - 1.3 * minor, 0.5 * (r0 - minor))
+    r_max = r0 + 1.3 * minor
+    nr = int(resolution)
+    nz = int(np.ceil(nr * 2.0 * half_height / (r_max - r_min))) | 1
+    r = np.linspace(r_min, r_max, nr); z = np.linspace(-half_height, half_height, nz)
+    rm, zm = np.meshgrid(r, z, indexing="ij")
+    psi_norm = _cf_eval(terms, rm / r0, zm / r0)
+
+    # Axis: O-point of the analytic field, seeded at the grid minimum inside the
+    # requested shape's bounding box (psi is negative inside, zero on the boundary).
+    inside = (np.abs(rm - r0) < minor) & (np.abs(zm) < kappa * minor)
+    seed = np.unravel_index(np.argmin(np.where(inside, psi_norm, np.inf)), psi_norm.shape)
+    gradient_terms = (_cf_dx(terms), _cf_dy(terms))
+    solved = root(lambda p: [float(_cf_eval(t, p[0], p[1])) for t in gradient_terms],
+                  (rm[seed] / r0, zm[seed] / r0))
+    axis_x, axis_y = map(float, solved.x)
+    hessian = (float(_cf_eval(_cf_dx(gradient_terms[0]), axis_x, axis_y)),
+               float(_cf_eval(_cf_dy(gradient_terms[1]), axis_x, axis_y)),
+               float(_cf_eval(_cf_dy(gradient_terms[0]), axis_x, axis_y)))
+    if not solved.success or hessian[0] * hessian[1] - hessian[2] ** 2 <= 0 or hessian[0] <= 0:
+        raise ValueError("no magnetic axis (flux minimum) was found inside the requested boundary")
+    axis = (axis_x * r0, axis_y * r0)
+    psi_axis_norm = float(_cf_eval(terms, axis_x, axis_y))
+
+    temp = EquilibriumData(r=r, z=z, psi=psi_norm, psi_axis=psi_axis_norm, psi_boundary=0.0, magnetic_axis=axis)
+    levels = (0.9999, 0.9995, 0.999, 0.995) if diverted else (1.0, 0.9995, 0.999, 0.995, 0.99)
+    lcfs, lcfs_level = _closed_boundary_contour(temp, axis, levels)
+    if lcfs is None:
+        raise ValueError("the boundary does not close around the magnetic axis on this grid; raise resolution")
+
+    # Scale: toroidal current density per unit psi0 is ((1-A) x**2 + A)/(mu0 R0**2 R).
+    mask = _mpl_path(lcfs.points).contains_points(np.column_stack((rm.ravel(), zm.ravel()))).reshape(rm.shape)
+    x = rm / r0
+    j_unit = ((1.0 - a) * x**2 + a) / (MU0 * r0**2 * rm)
+    current_unit = float(np.sum(j_unit * np.gradient(r)[:, None] * np.gradient(z)[None, :] * mask))
+    psi0 = float(plasma_current) / current_unit
+    ip = psi0 * current_unit
+    pprime = -psi0 * (1.0 - a) / (MU0 * r0**4)
+    ffprime = -psi0 * a / r0**2
+    f_boundary = float(toroidal_field) * r0
+
+    psi = psi0 * psi_norm; psi_axis = psi0 * psi_axis_norm
+    psi_1d = np.linspace(psi_axis, 0.0, max(65, min(r.size, z.size)))
+    pressure = pprime * psi_1d
+    f_squared = f_boundary**2 + 2.0 * ffprime * psi_1d
+    if np.any(f_squared <= 0):
+        raise ValueError("F**2 turns negative inside the plasma; raise toroidal_field or lower a_parameter")
+    f = np.sign(f_boundary or 1.0) * np.sqrt(f_squared)
+    if np.any(pressure < -1e-12 * np.max(np.abs(pressure), initial=1.0)):
+        raise ValueError("pressure turns negative inside the plasma; choose a_parameter below one")
+
+    # Wall: touching the outboard midplane when limited, a clear box when diverted.
+    if diverted:
+        wr = (r0 - 1.15 * minor, r0 + 1.15 * minor); wz = x_point_height + 0.2 * minor
+        limiter = Contour(np.array([wr[0], wr[1], wr[1], wr[0]]), np.array([-wz, -wz, wz, wz]))
+        requested = ((r0 - 1.1 * delta * minor, -x_point_height),)
+        if topology == "double_null":
+            requested = ((r0 - 1.1 * delta * minor, x_point_height),) + requested
+    else:
+        touch = (r0 + minor, 0.0)
+        limiter = Contour(touch[0] + 1.15 * (lcfs.r - touch[0]), 1.15 * lcfs.z)
+        requested = ()
+
+    two_pi = 2.0 * np.pi
+    bt0 = float(toroidal_field)
+    conv_11 = _detect_convention(explicit=11, bt0=bt0, ip=ip, q=None, psi_1d=psi_1d * two_pi,
+                                 source="analytic Solovev (Cerfon-Freidberg)")
+    eq_11 = EquilibriumData(
+        r=r, z=z, psi=psi * two_pi, psi_axis=psi_axis * two_pi, psi_boundary=0.0,
+        magnetic_axis=axis, lcfs=lcfs, limiter=limiter,
+        psi_1d=psi_1d * two_pi, pressure=pressure, f=f, q=None,
+        pprime=np.full(psi_1d.size, pprime / two_pi),
+        ffprime=np.full(psi_1d.size, ffprime / two_pi),
+        ip=ip, bt0=bt0, r0=r0, time=None, convention=conv_11,
+        metadata={
+            "source_type": "solovev",
+            "basis": "cerfon_freidberg_2010",
+            "topology_requested": topology,
+            "shape": {"major_radius": r0, "minor_radius": minor, "aspect_ratio": float(aspect_ratio),
+                      "elongation": kappa, "triangularity": delta},
+            "x_points_requested": requested,
+            "plasma_current_requested": float(plasma_current),
+            "a_parameter": a,
+            "psi0": psi0,
+            "coefficients": coefficients,
+            "lcfs_psi_n": lcfs_level,
+        },
+    )
+    if convention == 11:
+        return eq_11
+    return convert_cocos(eq_11, convention)
+
+
+def miller_surfaces(
+    r_minor: Any,
+    *,
+    r0: Any,
+    z0: Any = 0.0,
+    kappa: Any = 1.0,
+    delta: Any = 0.0,
+    zeta: Any = 0.0,
+) -> tuple[MillerSurface, ...]:
+    """A family of Miller surfaces for a shape scan.
+
+    A teaching helper: scan the minor radius at fixed shape, or vary any shape
+    parameter along the family, and feed the result to :func:`evaluate_miller`.
+
+    Parameters
+    ----------
+    r_minor : float or sequence of float
+        Minor radius of each surface, positive [m].
+    r0 : float or sequence of float
+        Major radius of each surface's centre [m].
+    z0 : float or sequence of float, optional
+        Height of each surface's centre [m].
+    kappa : float or sequence of float, optional
+        Elongation, positive [-].
+    delta : float or sequence of float, optional
+        Triangularity, of magnitude below one [-].
+    zeta : float or sequence of float, optional
+        Squareness, of magnitude below one half [-].
+
+    Returns
+    -------
+    tuple of MillerSurface
+        One surface per entry after broadcasting the arguments against each
+        other, in order [-].
+
+    Raises
+    ------
+    ValueError
+        Sequences of unequal length (other than length one), or a surface that
+        :func:`evaluate_miller` would reject.
+
+    Convention
+    ----------
+    The parameters mean what :func:`evaluate_miller` means by them:
+    ``R = r0 + r cos(theta + arcsin(delta) sin(theta))``, ``Z = z0 + kappa r
+    sin(theta + zeta sin(2 theta))``, so the elongation is height over width and
+    the triangularity is ``(r0 - R at Z max) / r`` exactly.  Scalars broadcast
+    against sequences.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Only the shape is filled in; the radial label and the local-equilibrium
+    fields of :class:`MillerSurface` (q, shear, alpha, radial derivatives) are
+    left empty, so these surfaces are geometry, not an equilibrium.
+
+    Provenance
+    ----------
+    .. [1] Miller, Chu, Greene, Lin-Liu and Waltz, Phys. Plasmas 5, 973 (1998),
+       through :func:`evaluate_miller`.
+    """
+    arrays = [np.atleast_1d(np.asarray(value, dtype=float)).reshape(-1) for value in (r_minor, r0, z0, kappa, delta, zeta)]
+    lengths = {array.size for array in arrays if array.size != 1}
+    if len(lengths) > 1:
+        raise ValueError(f"sequence arguments must share one length, got lengths {sorted(lengths)}")
+    count = lengths.pop() if lengths else 1
+    arrays = [np.broadcast_to(array, (count,)) for array in arrays]
+    surfaces = []
+    for r, rc, zc, k, d, s in zip(*arrays):
+        surface = MillerSurface(r=float(r), r0=float(rc), z0=float(zc), kappa=float(k), delta=float(d), zeta=float(s))
+        evaluate_miller(surface, 0.0)  # the same validity rules, raised here
+        surfaces.append(surface)
+    return tuple(surfaces)
 
 
 def _grid_spacing(eq: EquilibriumData) -> float:
@@ -1924,6 +2727,83 @@ def _stationary_points(eq: EquilibriumData) -> tuple[StationaryPoint, ...]:
             psi_n = float("nan")
         points.append(StationaryPoint(pr, pz, psi, float(psi_n), "o" if determinant > 0 else "x", determinant, curvature))
     return tuple(points)
+
+
+def find_stationary_points(equilibrium: Any, *, kind: str | None = None) -> tuple[StationaryPoint, ...]:
+    """Locate the O-points and saddles of psi to sub-grid accuracy.
+
+    Every point where grad(psi) vanishes inside the grid is found by root finding
+    on a bicubic spline of psi, seeded from the local minima of |grad psi| on the
+    grid, and classified by the sign of its Hessian determinant.  This is the
+    search :func:`derive_boundary_representation` runs before it decides the
+    topology, exposed on its own for a consumer that needs the magnetic axis or
+    the saddles without the rest of the boundary analysis.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`; needs a psi map on an R-Z grid of
+        at least four points each way [-].
+    kind : {"o", "x"}, optional
+        Keep only extrema (``"o"``) or only saddles (``"x"``); both when not
+        given [-].
+
+    Returns
+    -------
+    tuple of StationaryPoint
+        Position, psi, normalized psi, kind, Hessian determinant and flattest
+        curvature of each point.  O-points come first, nearest the axis flux
+        first; then saddles, nearest the boundary flux first; points without a
+        normalized flux last within their kind.  Empty when the record has no
+        usable psi map.  Positions in metres; psi in the record's flux unit;
+        the determinant in that unit squared per m^4 and the curvature in that
+        unit per m^2, so both scale with the record's flux normalization [-].
+
+    Raises
+    ------
+    ValueError
+        *kind* is neither ``None``, ``"o"`` nor ``"x"``.
+
+    Convention
+    ----------
+    Classification uses the sign of the Hessian determinant, which no COCOS
+    transform changes: a sign flip of psi negates both second derivatives and
+    leaves the determinant alone.  An O-point may therefore be a maximum or a
+    minimum of psi.  ``psi_n`` is ``(psi - psi_axis) / (psi_boundary - psi_axis)``
+    in the record's own convention, and NaN when the record lacks those two
+    values.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A saddle is only a candidate X-point: numerical saddles far from the plasma
+    are common on reconstructed maps.  Whether one bounds the plasma is decided
+    by :func:`derive_boundary_representation`.  Searches start only from
+    interior grid nodes and keep only roots strictly inside the grid, so a point
+    in the outermost cell may be missed; two closer than half a cell are
+    reported once.
+
+    Provenance
+    ----------
+    .. [1] The Hessian classification of stationary points of psi is the standard
+       O-point and X-point test.
+    """
+    if kind not in (None, "o", "x"):
+        raise ValueError(f"kind must be None, 'o' or 'x'; got {kind!r}")
+    points = _stationary_points(as_equilibrium(equilibrium))
+    if kind is not None:
+        points = tuple(point for point in points if point.kind == kind)
+
+    def order(point: StationaryPoint) -> tuple[int, int, float]:
+        target = 0.0 if point.kind == "o" else 1.0
+        known = bool(np.isfinite(point.psi_n))
+        return (0 if point.kind == "o" else 1, 0 if known else 1,
+                abs(point.psi_n - target) if known else 0.0)
+
+    return tuple(sorted(points, key=order))
 
 
 def _confined_contour(eq: EquilibriumData, level: float) -> tuple[Contour | None, str | None]:
@@ -2094,25 +2974,462 @@ def _outboard_midplane_radius(eq: EquilibriumData, psi_value: float, r_axis: flo
     return float(samples[index] + weight * (samples[index + 1] - samples[index]))
 
 
-def _fourier_boundary(contour: Contour, modes: int) -> tuple[dict[str, np.ndarray], float]:
-    sampled = _resample_contour(contour, max(256, 8*modes))
-    start = int(np.argmax(sampled.r)); r = np.roll(sampled.r, -start); z = np.roll(sampled.z, -start)
-    # Ensure a deterministic CCW traversal.
-    area = 0.5*np.sum(r*np.roll(z,-1)-np.roll(r,-1)*z)
+def _arc_length_fourier(contour: Contour, modes: int, samples: int | None = None) -> tuple[dict[str, np.ndarray], float, Contour, float]:
+    """The one Fourier definition of a closed contour (#945), shared with the LCFS.
+
+    Returns the coefficients in the canonical arc-length convention of
+    :class:`FourierSurface`, the RMS residual at the fitted samples, and the
+    resampled, oriented contour those samples came from, and the phase ``phi``
+    the coefficients were rotated by (sample ``k`` sits at ``2 pi k/N - phi``).
+    """
+    if modes < 1:
+        raise ValueError("modes must be at least 1")
+    count = max(256, 8*modes) if samples is None else int(samples)
+    sampled = _resample_contour(contour, count)
+    r, z = sampled.r, sampled.z
+    # Counter-clockwise in (R, Z), so the angle runs outboard -> top -> inboard.
+    area = 0.5*np.sum(r*np.roll(z, -1)-np.roll(r, -1)*z)
     if area < 0:
         r = np.r_[r[0], r[:0:-1]]; z = np.r_[z[0], z[:0:-1]]
-    theta = np.linspace(0, 2*np.pi, r.size, endpoint=False)
-    matrix = [np.ones_like(theta)]
-    for n in range(1, modes+1): matrix.extend((np.cos(n*theta), np.sin(n*theta)))
-    design = np.column_stack(matrix)
+    start = int(np.argmax(r)); r = np.roll(r, -start); z = np.roll(z, -start)
+    theta = np.linspace(0, 2*np.pi, count, endpoint=False)
+    harmonics = np.arange(1, modes+1)
+    design = np.column_stack([np.ones_like(theta), *(f(m*theta) for m in harmonics for f in (np.cos, np.sin))])
     cr = np.linalg.lstsq(design, r, rcond=None)[0]; cz = np.linalg.lstsq(design, z, rcond=None)[0]
-    reconstructed = np.column_stack((design@cr, design@cz))
-    error = float(np.sqrt(np.mean(np.sum((reconstructed-np.column_stack((r,z)))**2, axis=1))))
+    error = float(np.sqrt(np.mean(np.sum((np.column_stack((design@cr, design@cz))-np.column_stack((r, z)))**2, axis=1))))
+
     def split(c: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        a = np.r_[c[0], c[1::2]]; b = np.r_[0.0, c[2::2]]
-        return a, b
+        return np.r_[c[0], c[1::2]], np.r_[0.0, c[2::2]]
+
     ar, br = split(cr); az, bz = split(cz)
-    return {"r_cos": ar, "r_sin": br, "z_cos": az, "z_sin": bz}, error
+    # Fix the phase on the fitted first harmonic of R: rotate so that
+    # r_sin[1] = 0 and r_cos[1] > 0.  Closed-form and independent of where the
+    # contour starts or how it is sampled -- a maximum of R is not, on a flat
+    # outboard side -- and for an up-down symmetric surface it is exactly the
+    # outboard midplane.
+    phi = float(np.arctan2(br[1], ar[1]))
+    c, sn = np.cos(harmonics*phi), np.sin(harmonics*phi)
+    ar[1:], br[1:] = ar[1:]*c + br[1:]*sn, br[1:]*c - ar[1:]*sn
+    az[1:], bz[1:] = az[1:]*c + bz[1:]*sn, bz[1:]*c - az[1:]*sn
+    return {"r_cos": ar, "r_sin": br, "z_cos": az, "z_sin": bz}, error, Contour(r, z, True), phi
+
+
+def _fourier_boundary(contour: Contour, modes: int) -> tuple[dict[str, np.ndarray], float]:
+    coefficients, error, _, _ = _arc_length_fourier(contour, modes)
+    return coefficients, error
+
+
+def evaluate_fourier_surface(surface: FourierSurface, theta: Any) -> tuple[np.ndarray, np.ndarray]:
+    """Points on a Fourier-represented flux surface at given arc-length angles.
+
+    The forward evaluation of the spectral surface representation;
+    :func:`fit_fourier_surface` is its inverse.
+
+    Parameters
+    ----------
+    surface : FourierSurface
+        The cosine and sine coefficients of each harmonic of R and Z [m].
+    theta : array_like
+        Arc-length angles ``2 pi s / L`` at which to evaluate [rad].
+
+    Returns
+    -------
+    tuple of np.ndarray
+        ``(R, Z)`` on the surface, same shape as *theta* [m].
+
+    Convention
+    ----------
+    ``R = sum_m r_cos[m] cos(m theta) + r_sin[m] sin(m theta)`` and likewise
+    ``Z``, with ``theta`` increasing counter-clockwise in (R, Z) from the
+    phase origin of :class:`~vaft.data.equilibrium.FourierSurface`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Truncated Fourier series of a closed curve; the arc-length angle
+       and phase are VAFT's convention (#945).
+    """
+    theta = np.asarray(theta, dtype=float)
+    m = np.arange(surface.modes+1).reshape((-1,)+(1,)*theta.ndim)
+    cos, sin = np.cos(m*theta), np.sin(m*theta)
+    r = np.tensordot(surface.r_cos, cos, axes=(0, 0)) + np.tensordot(surface.r_sin, sin, axes=(0, 0))
+    z = np.tensordot(surface.z_cos, cos, axes=(0, 0)) + np.tensordot(surface.z_sin, sin, axes=(0, 0))
+    return r, z
+
+
+def fit_fourier_surface(
+    contour: Contour | tuple[Any, Any], *, modes: int = 6, radial_value: float | None = None,
+    radial_coordinate: str = "psi_n", max_normalized_rms: float = 0.02,
+) -> FourierFitResult:
+    """Represent one closed flux-surface contour as a truncated Fourier series.
+
+    The general counterpart of :func:`fit_miller_surface`: where Miller holds a
+    surface in a few interpretable, up-down symmetric numbers, this keeps every
+    harmonic up to *modes* in both R and Z, sine and cosine, so up-down
+    asymmetry and higher-order shaping are represented rather than left in the
+    residual.  The truncation error it reports answers how many harmonics the
+    surface needs.
+
+    Parameters
+    ----------
+    contour : Contour or tuple of array_like
+        The closed surface, as a contour record or an ``(R, Z)`` pair [m].
+    modes : int, optional
+        Highest poloidal harmonic kept, at least one [-].
+    radial_value : float, optional
+        The surface's radial coordinate, carried onto the result for the
+        caller's bookkeeping [-].
+    radial_coordinate : str, optional
+        Which coordinate *radial_value* is in [-].
+    max_normalized_rms : float, optional
+        Largest geometric RMS error, divided by the contour's half radial
+        extent, that still counts as accepted [-].
+
+    Returns
+    -------
+    FourierFitResult
+        The surface, the resampled observed contour, the reconstruction on the
+        same angles, the symmetric geometric RMS, its normalized form, the
+        maximum and Hausdorff distances, acceptance with a reason, and the
+        derivation record [-].
+
+    Raises
+    ------
+    ValueError
+        *modes* is below one, or the contour has zero arc length or zero radial
+        extent.
+
+    Processing steps
+    ----------------
+    1. Resample the contour to ``max(256, 8*modes)`` points uniform in arc length.
+    2. Orient it counter-clockwise and start at its largest R.
+    3. Solve the cosine and sine coefficients of R and Z by least squares.
+    4. Rotate the angle origin so the first harmonic of R is a pure cosine
+       (``r_sin[1] = 0``, ``r_cos[1] > 0``), which fixes the phase
+       independently of the contour's sampling and starting point.
+    5. Score the reconstruction geometrically: contour-to-model and
+       model-to-contour nearest distances on a dense evaluation.
+
+    Defaults
+    --------
+    ``modes = 6`` and ``max_normalized_rms = 0.02`` are numerical conveniences:
+    six harmonics resolve the shaped surfaces of a tokamak to well under a
+    percent, and the two-percent threshold is the one the Miller fit uses, so
+    the two acceptances are comparable.
+
+    Convention
+    ----------
+    The angle is ``theta = 2 pi s / L``, arc length counter-clockwise over the
+    perimeter, with its origin where the first harmonic of R peaks (so
+    ``r_sin[1] = 0``); the ``m = 0`` terms are the perimeter centroid.  An up-down symmetric surface therefore has ``r_sin = 0`` and
+    ``z_cos[1:] = 0``, and a translation changes the ``m = 0`` terms only.
+    This is the same definition :func:`derive_boundary_representation` uses
+    for the LCFS, so there is one Fourier convention for a contour, not two.
+    Purely geometric: no flux, field or COCOS enters.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The phase origin is undefined only for a contour with no first harmonic in
+    R, which no closed plasma surface is.  ``max_error`` and
+    ``hausdorff_distance`` are the same number, the larger of the two directed
+    maxima, kept separately to parallel :class:`MillerFitResult`.  Arc length is not a flux-coordinate angle, so the
+    coefficients describe shape, not straight-field-line harmonics.
+
+    Provenance
+    ----------
+    .. [1] Least-squares Fourier series of a closed curve; the convention is
+       VAFT's (#945), shared with the LCFS representation.
+    """
+    if not isinstance(contour, Contour):
+        contour = Contour(contour[0], contour[1], True)
+    modes = int(modes)
+    coefficients, _, observed, _ = _arc_length_fourier(contour, modes)
+    minor = 0.5*float(np.ptp(observed.r))
+    if minor <= 0:
+        raise ValueError("contour must have nonzero radial extent")
+    surface = FourierSurface(**coefficients, radial_value=radial_value, radial_coordinate=radial_coordinate)
+    theta = np.linspace(0, 2*np.pi, observed.r.size, endpoint=False)
+    reconstructed = Contour(*evaluate_fourier_surface(surface, theta), True)
+    dense = np.column_stack(evaluate_fourier_surface(surface, np.linspace(0, 2*np.pi, 16*observed.r.size, endpoint=False)))
+    # Both directions against a dense copy of the other curve: measured to
+    # the other set's sample points instead, the distance would be up to half
+    # a sample spacing whatever the fit, about one percent of the radius here.
+    d1 = cKDTree(dense).query(observed.points)[0]
+    d2 = cKDTree(_resample_contour(observed, 16*observed.r.size).points).query(reconstructed.points)[0]
+    distances = np.r_[d1, d2]
+    rms = float(np.sqrt(np.mean(distances**2))); nrms = rms/minor
+    reason = None if nrms <= max_normalized_rms else f"normalized RMS {nrms:.4g} exceeds {max_normalized_rms:.4g} with {modes} modes"
+    provenance = DerivationProvenance(
+        "arc-length least-squares Fourier series", radial_coordinate=radial_coordinate,
+        fit_range=(radial_value, radial_value) if radial_value is not None else None,
+        tolerances={"max_normalized_rms": max_normalized_rms, "modes": modes},
+    )
+    return FourierFitResult(surface, observed, reconstructed, rms, nrms, float(np.max(distances)),
+                            float(max(np.max(d1), np.max(d2))), reason is None, reason, provenance)
+
+
+def fit_fourier_surface_sequence(
+    equilibrium: Any, levels: Sequence[float], *, radial_coordinate: str = "psi_n",
+    modes: int = 6, max_normalized_rms: float = 0.02,
+) -> FourierSequenceResult:
+    """Represent a sequence of internal flux surfaces as Fourier series.
+
+    Traces each requested surface and fits it with :func:`fit_fourier_surface`,
+    so each harmonic becomes a radial profile such as ``R_2^c(rho)`` that can
+    be compared between equilibria independently of their grids.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`; needs a psi map and the axis
+        and boundary flux [-].
+    levels : sequence of float
+        Radial positions to represent, in *radial_coordinate* [-].
+    radial_coordinate : str, optional
+        Coordinate of *levels*; anything other than normalized poloidal flux
+        is converted through :func:`derive_radial_coordinates` [-].
+    modes : int, optional
+        Highest harmonic kept on every surface [-].
+    max_normalized_rms : float, optional
+        Passed to :func:`fit_fourier_surface` as the acceptance threshold [-].
+
+    Returns
+    -------
+    FourierSequenceResult
+        The fits sorted by radial value, the levels that gave no closed
+        surface, and the derivation record [-].
+
+    Raises
+    ------
+    ValueError
+        *radial_coordinate* is not available for this equilibrium.
+
+    Processing steps
+    ----------------
+    1. Convert the levels to normalized poloidal flux when needed.
+    2. Trace the closed surface at each level; a level outside the
+       coordinate's range, or whose surface is open or missing, is recorded
+       as skipped rather than dropped or clamped silently.
+    3. Fit each traced surface and sort the fits by radial value.
+
+    Convention
+    ----------
+    Every surface uses the arc-length convention of :func:`fit_fourier_surface`,
+    so coefficients of one harmonic are comparable across the sequence.  The
+    radial coordinate follows :func:`derive_radial_coordinates`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Near an X-point the arc-length series needs many harmonics to follow the
+    corner, which the acceptance threshold reports rather than hides.
+    Radial derivatives of the coefficients are not computed yet.
+
+    Provenance
+    ----------
+    .. [1] See :func:`fit_fourier_surface`; the surface tracing is the one
+       :func:`fit_miller_sequence` uses.
+    """
+    eq = as_equilibrium(equilibrium)
+    levels = [float(level) for level in levels]
+    if radial_coordinate != "psi_n":
+        coordinates = derive_radial_coordinates(eq)
+        radial = coordinates.get(radial_coordinate)
+        if radial is None or not radial.available:
+            raise ValueError(f"{radial_coordinate} is unavailable")
+        coordinate = np.asarray(radial.value, dtype=float); psi_n = np.asarray(coordinates["psi_n"].value, dtype=float)
+        order = np.argsort(coordinate)
+        coordinate, psi_n = coordinate[order], psi_n[order]
+        # Outside the coordinate's range np.interp would clamp to the end, and
+        # label the boundary surface with a level it does not have.
+        psi_levels = np.where((np.asarray(levels) < coordinate[0]) | (np.asarray(levels) > coordinate[-1]),
+                              np.nan, np.interp(levels, coordinate, psi_n))
+    else:
+        psi_levels = np.asarray(levels, dtype=float)
+    fits: list[FourierFitResult] = []
+    skipped: list[float] = []
+    for requested, psi_level in zip(levels, psi_levels):
+        if not np.isfinite(psi_level):
+            skipped.append(requested)
+            continue
+        contour = _contour_at_level(eq, float(psi_level))
+        if contour is None or not contour.closed:
+            skipped.append(requested)
+            continue
+        fits.append(fit_fourier_surface(contour, modes=modes, radial_value=requested,
+                                        radial_coordinate=radial_coordinate, max_normalized_rms=max_normalized_rms))
+    fits.sort(key=lambda item: item.surface.radial_value)
+    provenance = _provenance(eq, "flux-contour extraction plus arc-length Fourier series", ("psi",),
+                             radial_coordinate=radial_coordinate,
+                             fit_range=(float(min(levels)), float(max(levels))) if levels else None)
+    return FourierSequenceResult(tuple(fits), tuple(skipped), provenance)
+
+
+def grad_shafranov_residual_modes(
+    equilibrium: Any, levels: Sequence[float], *, max_mode: int = 8, radial_coordinate: str = "psi_n",
+    residual_map: Any = None,
+) -> GradShafranovResidualModes:
+    """Project the Grad-Shafranov residual onto poloidal harmonics on nested flux surfaces.
+
+    A pointwise or surface-RMS residual says that force balance fails; the
+    harmonics say *how*: a large ``m = 0`` term is a radial offset of the
+    whole surface's balance, while ``m >= 1`` terms follow the shaping.  The
+    angle is the arc-length angle of :func:`fit_fourier_surface`, so residual
+    and shape harmonics of the same surface are directly comparable.
+
+    Parameters
+    ----------
+    equilibrium : EquilibriumData, ODS, GEQDSK or path
+        Adapted through :func:`as_equilibrium`; needs psi, p' and FF' and a
+        declared flux convention [-].
+    levels : sequence of float
+        Surfaces to analyse, in *radial_coordinate* [-].
+    max_mode : int, optional
+        Highest harmonic kept, at least zero [-].
+    radial_coordinate : str, optional
+        Coordinate of *levels*, converted through
+        :func:`derive_radial_coordinates` when it is not ``psi_n`` [-].
+    residual_map : array_like, optional
+        A residual on the record's grid, indexed ``(R, Z)``, to project instead
+        of the computed one -- for comparing residual definitions or testing
+        the projection [T/m].
+
+    Returns
+    -------
+    GradShafranovResidualModes
+        Per surface: the radial value, the cosine and sine coefficients of the
+        residual for ``m = 0 .. max_mode``, and its RMS on the surface; the
+        global source scale for normalization; levels without a closed surface;
+        and the derivation record [-].
+
+    Raises
+    ------
+    ValueError
+        A negative *max_mode*, a record without the profiles or without a
+        known flux unit, an unavailable radial coordinate, or a residual map
+        of the wrong shape.
+
+    Processing steps
+    ----------------
+    1. Evaluate ``G = Delta* psi - (-mu0 R^2 p' - FF')`` on the grid with
+       :func:`grad_shafranov_residual`, in per-radian flux.
+    2. Trace each requested surface and resample it uniformly in arc length
+       from its outboard side, as :func:`fit_fourier_surface` does.
+    3. Interpolate ``G`` onto the samples and take its discrete Fourier
+       coefficients, then rotate them by the surface's canonical phase.
+
+    Defaults
+    --------
+    ``max_mode = 8`` is a numerical convenience; the surface is sampled at
+    ``max(256, 8*max_mode)`` points, at least four per wavelength of the
+    highest harmonic, so the kept modes do not alias.
+
+    Convention
+    ----------
+    The residual is :func:`grad_shafranov_residual`'s ``delta_star - source``
+    in per-radian flux (T/m); a full-weber record is converted by its declared
+    convention.  Coefficients are raw, in T/m: ``G(theta) = sum_m a_m cos(m
+    theta) + b_m sin(m theta)`` with the arc-length angle and phase of
+    :class:`~vaft.data.equilibrium.FourierSurface`.  Divide by ``scale`` for a
+    normalized form.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The angle is geometric (arc length), not a straight-field-line angle; a
+    PEST projection waits on the flux-coordinate framework (#472).  The
+    residual is a finite-difference quantity, so near a sharp boundary or on a
+    coarse grid its harmonics carry discretization error of the grid scale.
+
+    Provenance
+    ----------
+    .. [1] The projection of a force-balance residual onto poloidal harmonics
+       follows the moment step of variational-moment equilibrium methods
+       (VMOMS); here it is a diagnostic of an existing equilibrium (#948).
+    """
+    from scipy.interpolate import RectBivariateSpline
+
+    from vaft.process.equilibrium import grad_shafranov_residual
+
+    max_mode = int(max_mode)
+    if max_mode < 0:
+        raise ValueError("max_mode must be non-negative")
+    eq = as_equilibrium(equilibrium)
+    if eq.psi is None or eq.pprime is None or eq.ffprime is None or eq.psi_1d is None:
+        raise ValueError("the equilibrium needs psi, psi_1d, pprime and ffprime")
+    r = np.asarray(eq.r, dtype=float); z = np.asarray(eq.z, dtype=float)
+    if residual_map is None:
+        per_radian = None if eq.convention is None else eq.convention.psi_per_radian
+        if per_radian is None:
+            raise ValueError("the record's flux unit (Wb or Wb/rad) is not identified; pass residual_map or declare the convention")
+        factor = 1.0 if per_radian else 2*np.pi
+        residual = grad_shafranov_residual(
+            np.asarray(eq.psi)/factor, r, z, psi_1d=np.asarray(eq.psi_1d)/factor,
+            pprime=np.asarray(eq.pprime)*factor, ffprime=np.asarray(eq.ffprime)*factor,
+            psi_axis=eq.psi_axis/factor, psi_boundary=eq.psi_boundary/factor,
+            boundary_r=None if eq.lcfs is None else eq.lcfs.r, boundary_z=None if eq.lcfs is None else eq.lcfs.z,
+        )
+        field_map = np.where(np.isfinite(residual.delta_star), residual.delta_star - residual.source, 0.0)
+        scale = float(residual.scale)
+        definition = "delta_star - (-mu0 R^2 p' - FF'), per-radian flux (grad_shafranov_residual)"
+    else:
+        field_map = np.asarray(residual_map, dtype=float)
+        if field_map.shape != (r.size, z.size):
+            raise ValueError(f"residual_map must have the grid shape {(r.size, z.size)}")
+        scale = float("nan")
+        definition = "supplied residual map"
+    spline = RectBivariateSpline(r, z, field_map, kx=3, ky=3)
+    levels = [float(level) for level in levels]
+    if radial_coordinate != "psi_n":
+        coordinates = derive_radial_coordinates(eq)
+        radial = coordinates.get(radial_coordinate)
+        if radial is None or not radial.available:
+            raise ValueError(f"{radial_coordinate} is unavailable")
+        coordinate = np.asarray(radial.value, dtype=float); psi_n_grid = np.asarray(coordinates["psi_n"].value, dtype=float)
+        order = np.argsort(coordinate)
+        psi_levels = np.interp(levels, coordinate[order], psi_n_grid[order], left=np.nan, right=np.nan)
+    else:
+        psi_levels = np.asarray(levels, dtype=float)
+    samples = max(256, 8*max_mode)
+    harmonics = np.arange(max_mode + 1)
+    rows, cos_rows, sin_rows, rms, skipped = [], [], [], [], []
+    for requested, psi_level in zip(levels, psi_levels):
+        contour = _contour_at_level(eq, float(psi_level)) if np.isfinite(psi_level) else None
+        if contour is None or not contour.closed:
+            skipped.append(requested)
+            continue
+        _, _, sampled, phi = _arc_length_fourier(contour, max(max_mode, 1), samples)
+        values = spline.ev(sampled.r, sampled.z)
+        theta = np.linspace(0, 2*np.pi, values.size, endpoint=False)
+        a = 2*np.array([np.mean(values*np.cos(m*theta)) for m in harmonics]); a[0] /= 2
+        b = 2*np.array([np.mean(values*np.sin(m*theta)) for m in harmonics]); b[0] = 0.0
+        c, s_ = np.cos(harmonics*phi), np.sin(harmonics*phi)
+        a, b = a*c + b*s_, b*c - a*s_
+        rows.append(requested); cos_rows.append(a); sin_rows.append(b)
+        rms.append(float(np.sqrt(np.mean(values**2))))
+    order = np.argsort(rows)
+    provenance = _provenance(eq, "arc-length Fourier projection of the Grad-Shafranov residual", ("psi", "pprime", "ffprime"),
+                             radial_coordinate=radial_coordinate, notes=(definition, f"max_mode={max_mode}", f"samples={samples}"))
+    return GradShafranovResidualModes(
+        radial_values=np.asarray(rows, dtype=float)[order],
+        cos=np.asarray(cos_rows, dtype=float).reshape(-1, max_mode + 1)[order],
+        sin=np.asarray(sin_rows, dtype=float).reshape(-1, max_mode + 1)[order],
+        rms=np.asarray(rms, dtype=float)[order], scale=scale, radial_coordinate=radial_coordinate,
+        skipped=tuple(skipped), provenance=provenance,
+    )
 
 
 def _segment_intersections(first: Contour, second: Contour) -> list[tuple[float, float, int]]:
@@ -2182,6 +3499,11 @@ def derive_boundary_representation(
     A single global tolerance cannot be right for saddles of different sharpness.
     ``fourier_modes = 16`` is likewise a numerical convenience, enough harmonics
     to represent a tokamak boundary without fitting the contour's own sampling.
+    The coefficients are :func:`fit_fourier_surface`'s, one convention for
+    every contour (#945).  Before #945 the phase origin was the sampled point
+    of largest R; it is now the phase of R's first harmonic, so individual
+    cosine and sine values differ from older results while the per-harmonic
+    amplitudes and the reconstruction error do not.
 
     Applicability
     -------------
@@ -2338,7 +3660,10 @@ def derive_boundary_representation(
 __all__ = [
     "as_equilibrium", "convert_cocos", "derive_boundary_representation",
     "derive_global_descriptors", "derive_radial_coordinates", "evaluate_miller",
-    "evaluate_solovev", "fit_miller_sequence", "fit_miller_surface",
+    "evaluate_solovev", "find_stationary_points", "fit_miller_sequence", "fit_miller_surface",
     "solovev_to_equilibrium", "solve_solovev_constraints",
     "check_equilibrium_requirements", "validate_equilibrium",
+    "miller_surfaces", "solovev_example",
+    "evaluate_fourier_surface", "fit_fourier_surface", "fit_fourier_surface_sequence",
+    "grad_shafranov_residual_modes", "solovev_shape_constraints", "solovev_xpoint_constraints",
 ]

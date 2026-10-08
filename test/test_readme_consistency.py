@@ -1,12 +1,4 @@
-"""Keep the two READMEs, and the identity they state, from drifting apart.
-
-`README.ko.md` was a faithful translation that fell four sections and one dead
-API behind its English counterpart. Nothing caught that, because nothing
-compared them. These tests pin the parts of #330's and #529's reframing that a reader
-would notice if they rotted: the core message, the positioning statement, the
-four framework concepts, the order they appear in, and the promise that
-long-term ambitions are not presented as shipped features.
-"""
+"""Keep both README landing pages short, aligned, and linked to the manual."""
 
 from __future__ import annotations
 
@@ -22,20 +14,10 @@ KOREAN = ROOT / "README.ko.md"
 NOTICES = ROOT / "THIRD_PARTY_NOTICES.md"
 NOTICES_KO = ROOT / "THIRD_PARTY_NOTICES.ko.md"
 
-#: The identity narrative #330 prescribes, in order. Each README states it in
-#: its own language, so they are matched by position rather than by text.
-IDENTITY_SECTIONS = 3
-
-#: The top-level message #529 organises the landing page around. Each README
-#: states it in its own language; the English is pinned verbatim because it is
-#: the sentence the rest of the page is written to support.
-CORE_MESSAGE = "Integrate fusion science knowledge so it can be discovered, verified, compared, and studied."
-
-#: What the four #529 verbs are called in each README, so a translation that
-#: quietly drops one of them fails here rather than in a reader's head.
-CORE_VERBS = {
-    ENGLISH: ("discovered", "verified", "compared", "studied"),
-    KOREAN: ("찾고", "검증하고", "비교하고", "연구"),
+#: The approved #1763 brand message leads both language versions.
+CORE_MESSAGES = {
+    ENGLISH: "Connecting nuclear fusion knowledge across disciplines for integrated tokamak research",
+    KOREAN: "여러 분야의 핵융합 지식을 연결해 통합적인 토카막 연구를 돕습니다",
 }
 
 #: Capabilities that must not be described as current functionality (#330 §4).
@@ -74,8 +56,8 @@ def test_the_positioning_statement_leads(path):
     """A reader must learn what VAFT is before anything else (#330 acceptance)."""
     text = path.read_text(encoding="utf-8")
     opening = text[: text.index("\n## ")]
-    for phrase in ("VAFT", "VEST"):
-        assert phrase in opening
+    assert "VAFT" in opening
+    assert "VEST" in text
     # The claim that distinguishes the framing from "a Python library". The
     # project settled on "framework" rather than "infrastructure"; both READMEs,
     # CONTRIBUTING.md and the repository's About text say the same word.
@@ -88,30 +70,30 @@ def test_the_positioning_statement_leads(path):
 
 
 @pytest.mark.parametrize("path", [ENGLISH, KOREAN], ids=["en", "ko"])
-def test_the_core_message_opens_the_page_with_all_four_verbs(path):
-    """#529: one statement of what the four concepts are ultimately *for*."""
+def test_the_approved_message_opens_the_page(path):
+    """The first highlighted statement is the approved brand line, without a period."""
     text = path.read_text(encoding="utf-8")
     opening = text[: text.index("\n## ")]
     first_quote = next(line for line in opening.splitlines() if line.startswith("> **"))
-    for verb in CORE_VERBS[path]:
-        assert verb in first_quote, (
-            f"{path.name}: the core message has lost {verb!r}: {first_quote!r}"
-        )
-    if path is ENGLISH:
-        assert CORE_MESSAGE in first_quote
+    assert first_quote == f"> **{CORE_MESSAGES[path]}**"
+
+
+def test_the_approved_message_matches_the_homepage():
+    homepage = (ROOT / "docs" / "index.markdown").read_text(encoding="utf-8")
+    assert f'<p class="vaft-hero-tagline">{CORE_MESSAGES[ENGLISH]}</p>' in homepage
+    brand = (ROOT / "docs" / "assets" / "brand")
+    assert f'TAGLINE = "{CORE_MESSAGES[ENGLISH]}"' in (
+        brand / "make_brand_assets.py"
+    ).read_text(encoding="utf-8")
+    assert CORE_MESSAGES[ENGLISH] in (brand / "vaft-social-preview.svg").read_text(encoding="utf-8")
 
 
 def test_the_overview_says_what_vaft_is_then_enables_then_where_it_runs():
     """#529: what VAFT is -> what it enables -> VEST as the reference implementation."""
     text = ENGLISH.read_text(encoding="utf-8")
-    opening = text[: text.index("\n## ")]
-    # The core message above repeats the four verbs, so each step is searched
-    # for *after* the one before it; a plain index() would match the quote.
-    is_ = opening.index("scientific framework")
-    enables = opening.find("can be discovered, verified, compared, and studied", is_)
-    reference = opening.find("reference\nimplementation", enables)
-    if reference == -1:
-        reference = opening.find("reference implementation", enables)
+    is_ = text.index("scientific framework")
+    enables = text.index("It connects experimental data", is_)
+    reference = text.index("reference implementation", enables)
     assert is_ < enables < reference, (
         "the overview must say what VAFT is, then what it enables, then name VEST "
         "as the reference implementation"
@@ -121,44 +103,50 @@ def test_the_overview_says_what_vaft_is_then_enables_then_where_it_runs():
 def test_traceable_and_verifiable_are_not_used_as_synonyms():
     """#529: traceable and reproducible workflows *enable* verifiable results."""
     text = ENGLISH.read_text(encoding="utf-8")
-    pipeline = text[text.index("### Version-Controlled Data Pipeline"):
-                    text.index("### IMAS-FAIR Database")]
-    assert "traceable" in pipeline.lower() and "reproducible" in pipeline.lower()
-    assert "verifiable" in pipeline.lower(), (
-        "the pipeline section must say what traceability and reproducibility enable"
-    )
+    credibility = next(line for line in text.splitlines() if line.startswith("- **Credibility:**"))
+    assert all(word in credibility for word in ("traceable", "reproducible", "verifiable"))
 
 
 @pytest.mark.parametrize("path", [ENGLISH, KOREAN], ids=["en", "ko"])
-def test_the_four_framework_concepts_are_present_and_ordered(path):
-    """All four, in #330's order. They are the shared conceptual vocabulary."""
+def test_the_four_perspectives_are_present_and_ordered(path):
+    """The concise viewpoints follow #330's conceptual order."""
     text = path.read_text(encoding="utf-8")
-    positions = []
-    for concept in (
-        "Integrated Standardized Interface",
-        "Version-Controlled Data Pipeline",
-        "IMAS-FAIR Database",
-        "Machine & Research Archive",
-    ):
-        assert concept in text, f"{path.name}: missing concept {concept!r}"
-        positions.append(text.index(concept))
+    labels = (
+        ("Representation", "Research infrastructure", "Credibility", "Research practice and portability")
+        if path == ENGLISH else ("표현", "연구 인프라", "신뢰성", "연구 방식과 이식성")
+    )
+    positions = [text.index(f"- **{label}:**") for label in labels]
     assert positions == sorted(positions), f"{path.name}: concepts are out of order"
 
 
-def test_both_readmes_open_with_the_same_identity_sections():
-    """The landing narrative must stay aligned even though the prose differs.
-
-    Only the leading identity sections are compared. The English file carries a
-    Reference tail the Korean has never had, and forcing that to match would
-    mean translating material that is itself scheduled to move to the site.
-    """
-    english = headings(ENGLISH)[:IDENTITY_SECTIONS]
-    korean = headings(KOREAN)[:IDENTITY_SECTIONS]
-    assert len(english) == len(korean) == IDENTITY_SECTIONS
-    # Same shape: "what it is", "what you can do", "the research".
-    assert "VAFT" in english[0] and "VAFT" in korean[0]
-    assert english[1].endswith("?") and korean[1].endswith("?")
-    assert "VEST" in english[2] and "VEST" in korean[2]
+def test_both_readmes_have_the_same_short_landing_structure():
+    sections = (
+        ("What VAFT connects", "Four enabling perspectives", "How results are produced", "Research with VAFT",
+         "Architecture across devices", "VEST reference implementation", "Quick start", "Learn more"),
+        ("VAFT가 연결하는 것", "이를 가능하게 하는 네 관점", "결과가 만들어지는 과정", "VAFT로 할 수 있는 연구",
+         "여러 장치에 적용하는 구조", "VEST 참조 구현", "빠른 시작", "자세한 문서"),
+    )
+    diagrams = (
+        "fusion_research_ecosystem_presentation.svg",
+        "vaft_four_pillars.svg",
+        "scientific_workflow.svg",
+        "machine_agnostic_architecture.svg",
+        "vest_data_platform_overview.svg",
+    )
+    for path, expected in zip((ENGLISH, KOREAN), sections):
+        text = path.read_text(encoding="utf-8")
+        assert headings(path) == list(expected)
+        assert len(text.splitlines()) <= 100
+        images = re.findall(r"!\[([^]]+)\]\(([^)]+)\)", text)
+        assert len(images) == len(diagrams)
+        assert all(alt.strip() for alt, _ in images)
+        assert tuple(url.rsplit("/", 1)[-1] for _, url in images) == diagrams
+        assert all(
+            url.startswith("https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/")
+            for _, url in images
+        )
+        assert "fusion_science_knowledge_lifecycle.svg" not in text
+        assert "vaft.omas.sample_ods()" in text
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +201,18 @@ def test_the_readme_routes_to_the_deeper_surfaces():
     for target in ("tutorial/README.md", "notebooks/README.md",
                    "install/README.md", "vest-tokamak.github.io/vaft"):
         assert target in text, f"README.md does not link {target}"
+
+
+def test_details_removed_from_readme_are_available_in_the_documentation():
+    destinations = {
+        "docs/_guide/Database.md": ("Source namespaces and data products", "derived_cache"),
+        "docs/_guide/Profiles.md": ("result.slice_statuses", "efit_configuration.json"),
+        "docs/_guide/Equilibrium_representations.md": ("Hausdorff", "AMBIGUOUS"),
+    }
+    for file, details in destinations.items():
+        content = (ROOT / file).read_text(encoding="utf-8")
+        for detail in details:
+            assert detail in content, f"{file}: missing migrated technical detail {detail}"
 
 
 def test_no_relative_link_is_broken():

@@ -19,7 +19,14 @@ related:
 
 This page is the map of the `vaft` package: what each subpackage is for, the entry points you are
 expected to call, and where the detailed guide for each area lives. The signatures shown here are the
-real ones — copy them.
+real ones — copy them. How `vaft.formula`, `vaft.process` and `vaft.code` divide the computation, and
+when an optional Actor contract would group their realizations, is set out on
+[Computational layers]({{ '/reference/computational-layers/' | relative_url }}).
+
+The complete list of what each subpackage publishes -- every object in a module's `__all__`, with its
+signature, summary, deprecation status and source -- is generated from the code on every publish:
+follow the **API** link of a subpackage in the table below. `docs/api_inventory.yml` groups the
+modules into those pages and lists the modules that publish nothing yet.
 
 ```python
 import vaft
@@ -50,17 +57,33 @@ flowchart TD
     ODS --> IMASP["vaft.imas<br/>OMAS to IMAS Access Layer"]
 ```
 
-| Subpackage | Purpose | Deep dive |
-| --- | --- | --- |
-| `vaft.database` | Load/save VEST shots (ODS, native IDS) and reach the raw SQL DAQ archive | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |
-| `vaft.omas` | The ODS-aware API: `find_*`, `compute_*`, `update_*`, sample data | this page |
-| `vaft.process` | Array-in / array-out signal processing, EM response, magnetics chains | [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) |
-| `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) |
-| `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page |
-| `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page |
-| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP) | this page |
-| `vaft.data` | GEQDSK read/write and packaged sample files | this page |
-| `vaft.imas` | OMAS to IMAS Access Layer bridge | [Data structures]({{ site.baseurl }}/guide/Data_structures/) |
+| Subpackage | Purpose | Deep dive | Generated reference |
+| --- | --- | --- | --- |
+| `vaft.database` | Load/save VEST shots (ODS, native IDS) and reach the raw SQL DAQ archive | [Data structures]({{ site.baseurl }}/guide/Data_structures/) | [API]({{ site.baseurl }}/reference/api/database/) |
+| `vaft.omas` | The ODS-aware API: `find_*`, `compute_*`, `update_*`, sample data | this page | [API]({{ site.baseurl }}/reference/api/omas/) |
+| `vaft.process` | Array-in / array-out signal processing, EM response, magnetics chains | [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) | [API]({{ site.baseurl }}/reference/api/process/) |
+| `vaft.formula` | Pure physics functions: equilibrium, stability, Green's functions, constants | [Formula reference]({{ site.baseurl }}/reference/formula/) | [API]({{ site.baseurl }}/reference/api/formula/) |
+| `vaft.machine_mapping` | Raw VEST DAQ to IMAS IDS mapping, plus uncertainty defaults | this page | [API]({{ site.baseurl }}/reference/api/machine-mapping/) |
+| `vaft.plot` | Matplotlib figures straight from an ODS/ODC | this page | [API]({{ site.baseurl }}/reference/api/plot/) |
+| `vaft.diagram` | Explanatory schematics (magnetic-island topology, ...) drawn from `vaft.formula` and rendered to SVG | [Scientific diagrams]({{ site.baseurl }}/reference/diagrams/) | [API]({{ site.baseurl }}/reference/api/diagram/) |
+| `vaft.code` | Adapters for external codes (EFIT, CHEASE, GPEC, TES, NUBEAM, TRANSP) | this page | [API]({{ site.baseurl }}/reference/api/code/) |
+| `vaft.data` | GEQDSK read/write, packaged sample files, and atomic and spectral-line identity (`vaft.data.atomic`, `vaft.data.spectroscopy`) | this page | [API]({{ site.baseurl }}/reference/api/data/) |
+| `vaft.imas` | OMAS to IMAS Access Layer bridge | [Data structures]({{ site.baseurl }}/guide/Data_structures/) | [API]({{ site.baseurl }}/reference/api/imas/) |
+| `vaft.validation` | Scientific assessment: benchmarks, comparisons, regression evidence | | [API]({{ site.baseurl }}/reference/api/validation/) |
+| `vaft.cli` | Command-line workflows over the library APIs | | [API]({{ site.baseurl }}/reference/api/cli/) |
+| `vaft.mcp` | Local, read-only MCP server over the discovery APIs, for agent clients (`vaft[mcp]`) | [MCP server]({{ site.baseurl }}/reference/mcp/) | [API]({{ site.baseurl }}/reference/api/mcp/) |
+| `vaft.gui` | Browser GUI over the plot catalog and interactive controls | [Browser GUI]({{ site.baseurl }}/workflows/gui/) | [API]({{ site.baseurl }}/reference/api/gui/) |
+| `vaft`, `vaft.compat`, `vaft.ods_access`, `vaft.spectroscopy` (deprecated alias of `vaft.data.atomic`/`vaft.data.spectroscopy`, removed in 0.10.0) | Top level and small utilities | | [API]({{ site.baseurl }}/reference/api/core/) |
+
+Atomic and spectroscopic concerns follow the same layering as the rest of the package (#1711).
+Identity is data: `vaft.data.atomic` owns elements, isotopes, charge states and species notation
+(`AtomicSpecies`, `parse_species`), and `vaft.data.spectroscopy` owns spectral-line identity and the
+IMAS `processed_line.label` codec (`SpectralLineIdentity`, `parse_line_label`, `parse_emission_term`).
+Atomic equations are `vaft.formula.atomic`, and ODS-aware radiation and composition processing is
+`vaft.process.atomic` / `vaft.process.impurity`. The labels a diagnostic writes belong to
+`vaft.machine_mapping`, and selecting and presenting lines belongs to `vaft.plot`. An `AtomicSpecies`
+carries identity only. Densities and populations belong to the composition and multi-species state
+models built on it.
 
 Everything in an ODS is in **IMAS SI units**: seconds, amperes, tesla, weber, m$^{-3}$, and eV or J
 where the Data Dictionary says so. The plotting layer is the only place that rescales (for example A
@@ -228,7 +251,7 @@ vaft.omas.compute_null_ods(ods, time)
 # Equilibrium, profiles, energy
 vaft.omas.compute_core_profile_psi(ods, option="n_e", time_slice=None)
 vaft.omas.compute_core_profile_2d(ods, option="n_e", time_slice=None)
-vaft.omas.compute_magnetic_energy(ods, time_slice=None)
+vaft.omas.compute_magnetic_energy(ods, time_slice=None, components="total", write_fields=False)
 vaft.omas.compute_virial_equilibrium_quantities_ods(ods, time_slice=None)
 vaft.omas.compute_volume_averaged_pressure(ods, time_slice=None, option="equilibrium")
 vaft.omas.compute_reconstructed_diamagnetic_flux(ods, time_index=0)
@@ -280,22 +303,10 @@ vaft.omas.update_core_profiles_global_quantities_volume_average(ods, time_slice=
 `vaft.process` is the numerical layer (NumPy in, NumPy out) and `vaft.formula` is the closed-form
 physics layer. Neither one touches an ODS. Modules at a glance:
 
-| Module | Contents |
-| --- | --- |
-| `vaft.process.signal_processing` | `smooth`, `define_baseline`, `subtract_baseline`, `signal_on_offset`, `is_signal_active`, `process_signal` |
-| `vaft.process.numerical` | `time_derivative(time, data)` on a non-uniform grid |
-| `vaft.process.electromagnetics` | `compute_br_bz_phi`, `calc_grid`, `compute_response_matrix`, `compute_impedance_matrices`, `solve_eddy_currents`, `compute_vacuum_fields_1d` |
-| `vaft.process.magnetics` | `rogowski_coil_ip`, `flux_loop_flux`, `b_field_pol_probe_field`, `mirnov_spectrogram`, `toroidal_mode_analysis`, `toroidal_phase_fit_at_time` |
-| `vaft.process.equilibrium` | `psi_to_rz`, `psi_to_rho`, `volume_average`, `shafranov_integrals`, `efit_virial_volume_integrals`, `calculate_diamagnetism` |
-| `vaft.process.profile` | Thomson and charge-exchange mapping/fitting, `core_profiles`, `core_profiles_from_eq` |
-| `vaft.process.statistical_analysis` | `generate_core_profiles_history_dataframe`, `perform_ols_regression`, `compute_metrics` |
-| `vaft.formula.equilibrium` | flux, `q` and shear; geometry from an $(R,Z)$ boundary; virial (Shafranov) relations; power balance; confinement scalings |
-| `vaft.formula.stability` | `beta_N_from_beta_a_B0_Ip`, `greenwald_density`, `greenwald_fraction`, ballooning/kink/sawtooth criteria |
-| `vaft.formula.green` | `greens_function_2d`, `green_br_bz`, complete elliptic integrals |
-| `vaft.formula.utils` | `gradient`, `trapz_integral`, `fit_profile`, `make_fit_function` |
-| `vaft.formula.atomic` | `interpolate_adf11`, `fractional_abundances`, `line_cooling_coefficient` on OPEN-ADAS ADF11 tables |
-| `vaft.formula.statistics` | residual, goodness-of-fit and convergence statistics (`rms`, `chi_squared`, `runs_test_z`, `log10_decay_rate`, ...) |
-| `vaft.formula.constants` | Physical constants used by the formula layer |
+Every function of both layers has its own entry in the [process reference]({{ site.baseurl }}/reference/process/)
+and the [formula reference]({{ site.baseurl }}/reference/formula/), grouped by submodule, and the
+[`vaft.process` API]({{ site.baseurl }}/reference/api/process/) and
+[`vaft.formula` API]({{ site.baseurl }}/reference/api/formula/) pages list the classes and constants beside them.
 
 Both are documented in full on the
 [Signal processing and EM modeling]({{ site.baseurl }}/guide/Processing/) and
@@ -418,18 +429,11 @@ vaft.omas.plot_barometry_time_pressure(ods)
 vaft.omas.plot_spectrometer_uv_time_intensity(ods, emission='CIII')
 ```
 
-| Group | Functions |
-| --- | --- |
-| Time traces | `plasma_current_time`, `diamagnetic_flux_time`, `flux_loop_time_flux`, `flux_loop_time_voltage`, `b_field_probe_time_field`, `pf_coil_time_current`, `pf_coil_time_current_turns`, `tf_coil_time_current`, `tf_coil_time_b_t`, `tf_coil_time_b_t_vacuum_r`, `barometry_time_pressure`, `spectrometer_uv_time_intensity`, `spectrometer_uv_time_impurity`, `current_overview` |
-| Equilibrium scalars vs. time | `equilibrium_time_plasma_current`, `equilibrium_time_li`, `equilibrium_time_beta_p`, `equilibrium_time_beta_t`, `equilibrium_time_beta_n`, `equilibrium_time_w_mhd`, `equilibrium_time_w_mag`, `equilibrium_time_w_tot`, `equilibrium_time_q0`, `equilibrium_time_q95`, `equilibrium_time_qa`, `equilibrium_time_major_radius` |
-| Energy and power | `summary_time_energy`, `equilibrium_time_beta`, `summary_time_power_balance`, `summary_time_voltage_consumption`, `equilibrium_time_virial` |
-| Profiles (1-D) | `equilibrium_profile_pressure` |
-| Geometry and 2-D | `machine_geometry_poloidal`, `passive_structure_geometry_poloidal`, `equilibrium_field_psi_vacuum`, `equilibrium_field_2d` |
-| Kinetic diagnostics | `thomson_scattering_profile_electron_temperature`, `thomson_scattering_time_electron_temperature`, `charge_exchange_profile_ion_temperature`, `charge_exchange_time_ion_temperature`, `electron_temperature_profile`, `electron_temperature_field` |
-| Fluctuations | `mirnov_time_voltage`, `mirnov_spectrogram`, `mirnov_spatial_phase` |
-| Soft X-rays | `soft_x_rays_geometry_lines_of_sight`, `soft_x_rays_time_power`, `soft_x_rays_spectrogram`, `soft_x_rays_overview` |
-| Overviews | `magnetics_overview`, `current_overview`, `equilibrium_overview_histories` |
-| Multi-shot history | `plot_scaling_fit`, `plot_correlation_heatmap`, `plot_regression_summary`, `plot_tauE_exp_vs_scaling_loglog`, `plot_H_factor_distribution`, `plot_H_factor_vs_greenwald_fraction`, `confinement_time_exp_vs_scaling` |
+Every plot the registry holds -- its subject, view and quantity, the adapter that draws it, and the IDS
+paths it needs -- is listed in the generated [plot reference]({{ site.baseurl }}/reference/plot/){% if site.data.plot_catalog %}
+({{ site.data.plot_catalog.plots.size }} plots){% endif %}, together with the plotting functions outside the
+registry: the analytic figures and the multi-shot history and scaling plots (`plot_scaling_fit`,
+`plot_H_factor_distribution`, ...). The page is rebuilt from `vaft.plot` on every publish.
 
 The [Magnetics]({{ site.baseurl }}/guide/Magnetics/) page shows several of these traces rendered from
 real shots.
@@ -456,15 +460,9 @@ result  = run_efit(inputs, cfg)              # EFITResult
 outputs = collect_efit_outputs(workdir, cfg)
 ```
 
-| Code | Entry points |
-| --- | --- |
-| EFIT (equilibrium reconstruction) | `EFITConfig`, `EFITInputs`, `EFITResult`, `prepare_efit_inputs`, `run_efit`, `collect_efit_outputs`, `generate_kfile`, `generate_constraints_ods`, `apply_channel_decisions`, `gaussian_probe_recovery`, `probe_families`, `gfile_to_omas` |
-| CHEASE (fixed-boundary refinement) | `CHEASEConfig`, `CHEASEInputs`, `CHEASEResult`, `find_chease_executable`, `prepare_chease_inputs`, `run_chease`, `refine_equilibrium` |
-| GPEC (perturbed equilibrium, 3-D response) | `GPECSuiteConfig`, `GPECCaseInputs`, `GPECModuleRun`, `GPECSuiteResult`, `prepare_gpec_suite_case`, `run_gpec_suite_case`, `run_gpec`, `collect_gpec_suite_outputs`, `format_gfile_header_for_gpec` |
-| TES (forward equilibrium) | `TESConfig`, `TESInputs`, `TESResult`, `prepare_tes_inputs`, `run_tes`, `collect_tes_outputs`, `scan_tes`, `parse_result_scalars`, `parse_result_coils` |
-| NUBEAM (neutral-beam Monte Carlo) | `NUBEAMConfig`, `NUBEAMInputs`, `NUBEAMResult`, `find_nubeam_executable`, `prepare_nubeam_inputs`, `run_nubeam`, `run_nubeam_case`, `collect_nubeam_outputs` |
-| TRANSP (transport, **read-only**) | `TranspOutput`, `TranspSlice`, `TranspVariable`, `TRANSPResult`, `read_transp_output`, `collect_transp_outputs`, `enclosed_torque`, `input_torque_density`, `zone_volume` |
-| Base classes | `CodeConfig`, `CodeInputs`, `CodeResult`, `CodeRunner` |
+The configuration, input, result and runner types of every adapter -- EFIT, CHEASE, GPEC, TES,
+NUBEAM, TRANSP and the others -- are listed with their signatures on the generated
+[`vaft.code` API]({{ site.baseurl }}/reference/api/code/) page, one section per module.
 
 `run_nubeam_case(input_dir, gfile=..., workdir=...)` is the NUBEAM equivalent: it stages a case,
 builds its Plasma State, and runs INIT then STEP. Results come back as a native container, and
@@ -521,6 +519,277 @@ converting one to SI and not the other is a factor of a million.
 refined equilibrium out. `scan_tes(ods, base_config, values, param="ip0_kA")` sweeps a single TES
 parameter and collects every result. Snakemake rules should start with
 `vaft.code.init_snakemake_logger(snakemake)` so that stdout and stderr land in the rule's log file.
+
+## Execution backends
+
+A `run_*` builds the command line; an execution backend launches it. A configuration that has moved
+onto the shared layer accepts `backend=` (default `None`, meaning a local child process), so the same
+adapter call can later run through a scheduler without its scientific API changing.
+
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
+```python
+from vaft.code import LocalBackend, TESConfig, run_tes
+
+result = run_tes(inputs, TESConfig(timeout=600, backend=LocalBackend()))
+```
+
+| Name | Role |
+| --- | --- |
+| `ExecutionRequest` | command, working directory, environment overlay, stdin, timeout, optional merged log file, resources |
+| `ExecutionResult` | return code (`None` on timeout), captured output, `timed_out`, `runtime_status` (`completed`, `timeout`, `queue_timeout`), elapsed time, `launcher` (the argv actually run), `log_path`, `job_id` (scheduler backends) |
+| `ResourceRequest` | `ntasks`, `threads_per_task`, `memory_mb`; the local backend applies only the thread count |
+| `ExecutionBackend`, `LocalBackend`, `SlurmBackend`, `RemoteHost`, `RemoteSlurmBackend`, `resolve_backend` | the protocol, the local, Slurm and ssh+Slurm implementations, and the config lookup (falls back to `$VAFT_EXECUTION_BACKEND`: `local`, `slurm` or `remote`) |
+| `ExecutableNotLaunchable` | raised when the operating system refuses to start the program |
+
+A timeout is returned (`timed_out=True`), not raised. A program the operating system refuses to
+start raises `ExecutableNotLaunchable`; a missing working directory stays a `FileNotFoundError`.
+A timeout, a `KeyboardInterrupt` or a `SIGTERM`/`SIGHUP` stops the program's whole process tree
+(#1016); the interrupt and the signal are then raised again rather than turned into a result.
+
+**Timeout results (#1016).** Every adapter below returns its own result object on a timeout; none
+raises. The result says:
+
+| Field | On a timeout |
+| --- | --- |
+| `status` | `"failed"` (a property: `"completed"` when `ok`, else `"failed"`) |
+| `runtime_status` | `"timeout"`: the program ran past its limit and was stopped. `"queue_timeout"`: a scheduler job cancelled by `max_wait` before it started |
+| `returncode` | `None` |
+| `elapsed_s` | wall time from launch to stop [s] (set on every run, not only a timeout); for a Slurm batch job, from submission, queue wait included |
+| `timed_out` | `True` for either timeout kind (a property) |
+
+A stop well short of `timeout` (a scheduler's `max_wait` cancelling a running job) reports the time
+actually run: a batch job's own start and termination stamps (`ExecutionResult.run_s`), so a long
+queue wait is not reported as running time. The reason is the last line of `stderr`, or of the log for codes that write one, worded
+`"<code> timed out after N s of running"` or `"<code> was cancelled after waiting N s in the scheduler
+queue (it never started)"`.
+
+| Adapter | Timeout result | Notes |
+| --- | --- | --- |
+| CHEASE `run_chease`, `refine_equilibrium` | `CHEASEResult` | nothing is collected; `chease.log` holds the partial output and the reason |
+| `scan_chease` | the case keeps its `CHEASEResult` | `case.error` names the limit; the scan goes on (`keep_going`) |
+| `synthesize_equilibrium_from_0d` | `SyntheticEquilibriumResult` | `status="timeout"` with the reason, rather than `non_converged` |
+| `synthesize_equilibrium_to_targets` | `MultiTargetSynthesisResult` | `status="chease_failed"`; the reason names the solve and its `timeout`, and that solve's `history` record keeps `status="timeout"` |
+| GACODE `run_gacode` | `GACODERun` | unpacks as `(returncode, log)` as before, with `returncode=None`; `.runtime_status`, `.elapsed_s` |
+| NEO `run_neo`, TGLF `run_tglf` | `NEOResult`, `TGLFResult` | `check=True` (the default) raises `NEOExecutionError`/`TGLFExecutionError` naming the limit, as for any failure; `check=False` returns it |
+| NUBEAM `run_nubeam`, `run_nubeam_case` | `NUBEAMResult` | a stopped INIT, STEP or Plasma State stage; `generate_plasma_state` returns a path, so there it raises `NUBEAMExecutionError` |
+| FLARE `run_flare` | `FlareResult` | |
+| TES `run_tes`, `scan_tes` | `TESResult` | outputs are still collected, as before |
+| NICE `run_nice` | `NiceResult` | `termination_reason` is the reason; the manifest records `process_runtime_status` |
+| GENRAY `run_genray` | `GENRAYResult` | |
+| EFIT, EFUND, GPEC suite | unchanged for now | see "Previous behaviour"; they move after 2026-10-06 |
+
+Previous behaviour (0.7.x), kept for reference:
+
+| Adapter | What a timeout produced |
+| --- | --- |
+| TES | `returncode=124` |
+| EFIT | `status="failed"`, `runtime_status="timeout"` |
+| EFUND | `failed`, `returncode=None` |
+| GPEC suite | `GPECModuleRun`: `completed` if its core outputs verify, else `failed`/`None` |
+| `scan_chease` | an error string per case (`"TimeoutExpired: ..."`, `result=None`) |
+| NICE, GENRAY | `returncode=124` |
+| CHEASE, GACODE (NEO, TGLF), NUBEAM, FLARE | raised `subprocess.TimeoutExpired` |
+
+Every adapter that runs a subprocess goes through the backend, and each has a `backend` field:
+EFIT and EFUND, CHEASE, TES, the GPEC suite, GACODE (NEO and TGLF), NUBEAM, FLARE and NICE. `CodeConfig`
+carries the field too. EFIT and EFUND declare one thread per task (`threads_per_task=1`), which sets
+`OMP_NUM_THREADS`, `MKL_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `VECLIB_MAXIMUM_THREADS` and
+`NUMEXPR_NUM_THREADS` to 1 unless the environment already sets them. GACODE
+declares `n_mpi` and FLARE declares `processes` as `ntasks` for scheduler backends, while their
+launchers still start the ranks themselves. TokaMaker runs in-process and has no backend.
+
+### Running under Slurm
+
+`SlurmBackend` (#1017) runs the same adapter call as a cluster job. Only the `backend=` argument
+changes:
+
+<!-- docs-snippet: skip needs-external-code (runs an external code or pipeline stage) -->
+```python
+from vaft.code import EFITConfig, SlurmBackend, run_efit
+
+config = EFITConfig(timeout=1800, backend=SlurmBackend(partition="short", account="vest"))
+result = run_efit(inputs, config)          # same EFITResult as a local run
+```
+
+**Modes.** The backend picks one of two automatically. Pass `mode="step"` or `mode="batch"` to force it.
+
+- **Step** (inside an allocation, i.e. `SLURM_JOB_ID` is set). The command runs as a job step with
+  `srun`. The timeout is enforced twice: as `srun --time`, and as a local deadline after which `srun`
+  is interrupted so that it cancels the step. If `srun` still does not exit, it is killed and its
+  step is cancelled by its unique name. The local deadline starts at launch, so time spent waiting
+  for step resources counts against it. The backend adds `--overlap` when the caller is itself
+  running in a step. It also leaves out the step defaults the caller inherited from an enclosing
+  step or job: CPU and memory binding, distribution, per-task CPUs and GPUs, and, when `--mem` is
+  requested, the per-CPU memory setting. Values that you set in the request's `env`, or pass
+  through `extra_args` (for example `--cpu-bind=none`), are kept.
+- **Batch** (everywhere else). The backend writes a job script with mode 0700 under
+  `<workdir>/.vaft-slurm/`, submits it with `sbatch --parsable --no-requeue`, and polls `squeue` until
+  the job is no longer live. The script records the program's exit status itself, so the backend
+  does not need `sacct`. When `sacct` is available, the backend uses it to refine the job state.
+
+**Resources.** Both modes request `--nodes=1 --ntasks=1 --cpus-per-task=<ntasks x threads>`.
+`ResourceRequest.ntasks` counts the ranks that a self-launching program (GACODE, FLARE) starts
+itself, and those ranks have to fit inside that single task. Each MPI launcher integrates with
+Slurm differently, so test each such code on a real cluster before relying on it.
+
+**Timeouts.**
+
+- `timeout` becomes the walltime (`--time`), rounded up to whole minutes.
+- `timeout=None` sends no `--time`, so the partition's default walltime applies.
+- A job that Slurm ends as `TIMEOUT` returns `timed_out=True`. Without `sacct`, the backend infers
+  this on the node: from `SLURM_JOB_END_TIME` where Slurm sets it, otherwise from the runtime
+  compared with the requested walltime, less one minute for the prolog.
+- `max_wait` caps the total time the backend blocks, including time in the queue. After that the
+  job is cancelled, and the reason is written to `stderr` or appended to the log. A job cancelled
+  before its program started reports `runtime_status="queue_timeout"`; one cancelled while running,
+  `"timeout"`.
+
+**Other outcomes.**
+
+- If `sbatch` or `srun` is missing, or Slurm rejects the submission, the backend raises
+  `ExecutableNotLaunchable`.
+- A job that ends without the program finishing (cancelled, node failure, preemption, out of memory)
+  gets a non-zero `returncode`, and its Slurm state is appended to `stderr` or to the log.
+- An executable that exists on the login node but not on the compute node shows up as exit status 127.
+- `KeyboardInterrupt` while waiting cancels the job.
+
+**Environment.** The job script exports only the environment entries that differ from the
+submitting process; `--export=ALL` carries everything else. The backend never exports `SLURM_*`,
+`SBATCH_*` or `SRUN_*` variables, and never exports names that are not valid shell identifiers.
+
+**Shared filesystem.** The working directory and the executables must be on a filesystem that the
+compute nodes share. The backend does not check this.
+
+**Switching everything at once.** Setting `VAFT_EXECUTION_BACKEND=slurm` moves every adapter that
+names no backend onto Slurm. Placement comes from `VAFT_SLURM_PARTITION`, `VAFT_SLURM_ACCOUNT`,
+`VAFT_SLURM_QOS`, `VAFT_SLURM_MODE` and `VAFT_SLURM_MAX_WAIT`. This setting also queues short runs
+such as EFUND or a single EFIT slice, so prefer an explicit `backend=` for those.
+
+### Running on a cluster over ssh
+
+`SlurmBackend` submits from a host that can run `sbatch` itself. When the machine that prepares a
+case is not the machine that can run it -- a laptop holding the inputs, a cluster holding the build
+-- `RemoteSlurmBackend` does the same job over ssh:
+
+<!-- docs-snippet: skip needs-external-code (runs an external code on a remote cluster) -->
+```python
+from vaft.code import RemoteHost, RemoteSlurmBackend
+from vaft.code.gpec import GPECSuiteConfig
+
+host = RemoteHost(
+    host="login.example.org",
+    user="me",
+    work_root="/scratch/me/vaft",
+    # Ordered local -> remote prefix pairs; the first match at a path boundary wins.
+    path_maps=(("/opt/gpec", "/apps/gpec/1.4"),),
+    setup_lines=("module purge", "module load gpec/1.4"),
+    fetch=("*.nc", "*.out"),          # "all" (default), "none", or glob patterns
+)
+config = GPECSuiteConfig(
+    timeout=7200,
+    backend=RemoteSlurmBackend(host, partition="short", account="fusion", max_wait=43200),
+)
+```
+
+One `run` rsyncs the working directory up, writes the same job script `SlurmBackend` writes (with
+`setup_lines` in front), submits it with `ssh … sbatch --parsable --no-requeue`, polls `squeue` and
+then `sacct` over ssh with a growing interval, and rsyncs back what the fetch policy names. The
+result is the one a local run returns: the same timeout and `queue_timeout` statuses, the same
+`ExecutableNotLaunchable` for a refused submission, and `run_s` taken from the scheduler's start and
+end stamps. `KeyboardInterrupt`, `SIGTERM` and `SIGHUP` `scancel` the job and are then raised again.
+
+**Paths.** The two machines share no filesystem, so the working directory, `log_path`, every
+`command` argument (`--home=/opt/gpec` included) and every path-valued `env` entry go through
+`path_maps`. A working directory that no pair covers is staged into a fresh directory under
+`work_root`. A prefix matches only at a path boundary, so `/data/runs2` is not under `/data/runs`.
+
+**Environment.** `--export=ALL` carries the *host's* ssh environment, not the laptop's, which is the
+point: the job's search paths come from the host's login environment and from `setup_lines`. Only
+the request's own entries travel, path-translated, and the ones whose value describes the submitting
+machine never do -- `PATH`, `LD_LIBRARY_PATH`, `DYLD_*`, `PYTHONPATH`, `HOME`, `TMPDIR`, the locale
+and the loaded-module state (`vaft.code.remote.UNFORWARDED_ENVIRONMENT`). A macOS `PATH` on a Linux
+compute node would shadow exactly what the modules just set up.
+
+**What comes back, and what stays.** The job log and the scratch directory always come back; the
+fetch policy governs the rest of the working directory, so a run with tens of GB of output can
+leave it on the cluster and bring back an extract. The host's copy is kept by default
+(`keep_remote=True`) because it is usually the only full copy; `keep_remote=False` removes it after
+the fetch, and only ever a directory the backend staged under `work_root`.
+
+**Credentials.** None are handled here. `ssh` always runs with `BatchMode=yes`, so a host that would
+prompt fails at once instead of blocking a batch; keys and agents are yours to arrange. Pass extra
+ssh arguments through `ssh_options`, and a key file through `identity_file`.
+
+**Switching everything at once.** `VAFT_EXECUTION_BACKEND=remote` builds the backend from
+`VAFT_REMOTE_HOST`, `VAFT_REMOTE_WORK_ROOT` (both required), `VAFT_REMOTE_USER`,
+`VAFT_REMOTE_PORT`, `VAFT_REMOTE_IDENTITY`, `VAFT_REMOTE_SSH_OPTIONS`, `VAFT_REMOTE_PATH_MAPS`
+(`local=remote` pairs, comma separated), `VAFT_REMOTE_SETUP` (`;` separated), `VAFT_REMOTE_FETCH`
+and `VAFT_REMOTE_KEEP`, plus the same `VAFT_SLURM_PARTITION`, `VAFT_SLURM_ACCOUNT`,
+`VAFT_SLURM_QOS` and `VAFT_SLURM_MAX_WAIT` a local submission reads. Every call then costs at least
+two ssh round trips and two rsyncs, so keep short runs (EFUND, one EFIT slice) on an explicit local
+`backend=`.
+
+### In-process memory guard
+
+`ResourceRequest.memory_mb` only asks a scheduler for memory, and `LocalBackend` ignores it. When a
+long Python loop outgrows its allocation, the kernel's or Slurm's OOM killer ends the process with no
+traceback and no status record. `vaft.code.resources` (#1146) lets the loop notice first and stop at a
+point of its own choosing:
+
+```python
+from vaft.code import MemoryBudget, MemoryBudgetExceeded, memory_budget, peak_rss_mb, rss_mb
+
+budget = memory_budget()                    # MemoryBudgetInfo(limit_mb, source, candidates, ...)
+with MemoryBudget(budget, fraction=0.9, interval_s=0.5) as guard:   # or limit_mb=None to resolve on entry
+    for item in range(3):
+        try:
+            guard.check(label=item)         # raises above 0.9 x limit_mb
+        except MemoryBudgetExceeded as error:
+            print(f"stopping at {error.label}: {error.rss_mb:.0f} MiB")
+            break
+print(guard.peak_mb, rss_mb(), peak_rss_mb())
+```
+
+| Name | Role |
+| --- | --- |
+| `rss_mb()`, `peak_rss_mb()` | current and process-lifetime peak resident set size, MiB |
+| `memory_budget(environ=None)` | the effective limit: the **minimum** of the sources below, with the one that set it |
+| `MemoryBudgetInfo` | `limit_mb` (`None` when nothing reports a limit), `source`, every `candidates` value; `as_dict()` for status files |
+| `MemoryBudget(limit_mb=None, fraction=0.9, *, on_exceed="raise", interval_s=None)` | context manager; `limit_mb` is MiB or a `MemoryBudgetInfo`; `check(label)`, `peak_mb`, `start_interval()` and `interval_peak_mb` (the peak of one loop item), `exceeded`, `as_dict()` |
+| `MemoryBudgetExceeded` | a `MemoryError` (so an `except RuntimeError` around one item does not swallow it; code that catches `MemoryError` to fall back to a chunked path will, so re-raise it there); picklable across a process pool; `rss_mb` (the memory in use observed), `threshold_mb`, `limit_mb`, `label`, `source`, `peak_mb` |
+| `cgroup_usage_mb(directory, kind)` | a cgroup's non-reclaimable usage (`anon` + `shmem`; v1 `total_rss` + `total_shmem`), MiB |
+
+**Sources**, all in MiB (2**20 bytes, which is what Slurm means by MB):
+
+| `source` | Value |
+| --- | --- |
+| `slurm_mem_per_node` | `SLURM_MEM_PER_NODE` |
+| `slurm_mem_per_cpu` | `SLURM_MEM_PER_CPU` × `SLURM_CPUS_ON_NODE` |
+| `cgroup_v2` | `memory.max`, the smallest from the process's cgroup up to the root, since Slurm puts the limit on the job cgroup and runs the process in a step below it |
+| `cgroup_v1` | `memory/…/memory.limit_in_bytes`, likewise; the unlimited sentinel is ignored |
+| `env` | `VAFT_MEMORY_BUDGET_MB`; it can lower the budget, never raise it past another source |
+| `mem_available` | this process's RSS plus `MemAvailable` at call time (psutil, or `vm_stat` on macOS, off Linux): what the process could grow to; other processes may take it first |
+
+`RLIMIT_AS` is not a source: it limits address space, which numpy reserves far ahead of what it
+touches, so `MemoryError` arrives at that limit with RSS far below it and no RSS guard can see it.
+
+**The guard.** `limit_mb=None` resolves the budget with `memory_budget()` on entry. When nothing
+reports a limit, the guard only records `peak_mb`. `check()` compares the memory in use with
+`fraction × limit_mb`: this process's RSS, or, when a cgroup set the limit, the larger of that and the
+cgroup's non-reclaimable usage, because the cgroup's limit also counts child processes, sibling tasks
+and tmpfs (page cache is left out: the kernel drops it before the OOM killer runs). Entering a guard
+again starts afresh. With `interval_s`, a daemon thread also samples RSS; a crossing it sees sets a
+flag, and the next `check()` raises even if RSS has fallen since, so a single large numpy call between
+two checks is still caught. The thread never raises into the caller. Leaving the block never raises
+either: a crossing that no `check()` reported stays in `exceeded`. `on_exceed="warn"` issues one
+`ResourceWarning` and records the event instead of raising. `peak_mb` is the largest RSS the guard
+saw, a lower bound on the true peak inside the block; `peak_rss_mb()` is the process's lifetime peak.
+
+**Platforms.** Linux reads `VmRSS`/`VmHWM` from `/proc/self/status`. macOS reads the current RSS with
+`task_info` and the peak with `getrusage`, whose `ru_maxrss` is in bytes there and in KiB on Linux.
+Windows reads `GetProcessMemoryInfo`. `psutil` is used when it is installed and no native reading is
+available, and `ps -o rss=` is the last resort; psutil is never required. The guard stops the Python
+process only; it does not limit `LocalBackend` children (see #1016).
 
 # `vaft.data`
 
@@ -594,3 +863,5 @@ Browse the package on GitHub: [`vaft/`](https://github.com/VEST-Tokamak/vaft/tre
 * [Formula reference]({{ site.baseurl }}/reference/formula/) — every `vaft.formula` function with definition, units, conventions and references.
 * [Magnetics]({{ site.baseurl }}/guide/Magnetics/) — plotting the magnetics IDS.
 * [Examples]({{ site.baseurl }}/guide/examples/) — the notebook index.
+
+What these objects mean scientifically -- which concept a plot draws, which diagnostic measures it, which Data Dictionary path represents it -- is generated in the [scientific ontology explorer]({{ site.baseurl }}/reference/ontology/).

@@ -39,10 +39,18 @@ from vaft.process.cocos import (
     identify_flux_exponent,
 )
 
+from .base import RunOutcome
 from ._executables import (
     ExecutableNotLaunchable,
     executable_from_home,
     missing_home_message,
+)
+from .execution import (
+    ExecutionBackend,
+    ExecutionRequest,
+    ResourceRequest,
+    resolve_backend,
+    timeout_reason,
 )
 
 __all__ = [
@@ -192,7 +200,8 @@ def flare_equilibrium_scales(
             if len(families) > 1:
                 missing.append(
                     "whether psi is in weber or weber per radian, which needs "
-                    "an LCFS to measure the Ampere ratio against"
+                    "either an LCFS and ip, for the Ampere ratio, or a q "
+                    "profile its own psi map reproduces"
                 )
             raise ValueError(
                 f"the equilibrium identifies as COCOS {list(candidates)}, and "
@@ -238,10 +247,13 @@ class FlareConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     args: Sequence[str] = ()
     timeout: Optional[float] = None
+    #: How the driver is launched; ``None`` runs it locally
+    #: (:mod:`vaft.code.execution`).
+    backend: Optional["ExecutionBackend"] = None
 
 
 @dataclass
-class FlareResult:
+class FlareResult(RunOutcome):
     """One FLARE invocation: what it was asked, and what came back."""
 
     returncode: Optional[int]
@@ -250,6 +262,11 @@ class FlareResult:
     command: tuple[str, ...] = ()
     stdout: str = ""
     stderr: str = ""
+
+    #: ``"completed"``, ``"timeout"`` or ``"queue_timeout"`` (#1016).
+    runtime_status: str = "completed"
+    #: Wall time from launch to exit or stop [s].
+    elapsed_s: Optional[float] = None
 
     @property
     def ok(self) -> bool:
@@ -335,7 +352,10 @@ def run_flare(
     Returns
     -------
     FlareResult
-        The return code, the command as run, and the captured streams.
+        The return code, the command as run, and the captured streams. A run
+        that outlived ``config.timeout`` comes back with ``returncode=None``,
+        ``runtime_status="timeout"`` and the reason at the end of ``stderr``
+        (#1016; it used to raise ``subprocess.TimeoutExpired``).
 
     Raises
     ------
@@ -348,9 +368,6 @@ def run_flare(
     ExecutableNotLaunchable
         The operating system refused to start the driver for any other reason
         (a file that is not a program for this platform, say).
-    subprocess.TimeoutExpired
-        The run outlived ``config.timeout``. It is not turned into a failed
-        :class:`FlareResult`: a killed run has no return code to report.
 
     Notes
     -----
@@ -387,34 +404,40 @@ def run_flare(
     command += [str(argument) for argument in (*config.args, *extra_args)]
 
     workdir = Path(config.workdir)
-    environment = {**os.environ, **{k: str(v) for k, v in config.env.items()}}
+    # FLARE's and MPI's bytes are a foreign program's; the backend decodes them
+    # as UTF-8 with replacement so one byte outside the host locale cannot lose
+    # a finished run to a UnicodeDecodeError.
     try:
-        completed = subprocess.run(
-            command,
-            cwd=str(workdir),
-            env=environment,
-            capture_output=True,
-            text=True,
-            # FLARE's and MPI's bytes are a foreign program's. Decoded strictly
-            # at the host locale, one byte outside it raises UnicodeDecodeError
-            # inside subprocess.run after the run has finished, and the result
-            # is lost.
-            encoding="utf-8",
-            errors="replace",
-            timeout=config.timeout,
-            check=False,
+        completed = resolve_backend(config).run(
+            ExecutionRequest(
+                command=tuple(command),
+                workdir=workdir,
+                env={k: str(v) for k, v in config.env.items()},
+                timeout=config.timeout,
+                # The driver starts its own ranks from -n; declared for a scheduler.
+                resources=ResourceRequest(ntasks=int(config.processes or 1)),
+                label=f"flare-{task}",
+            )
         )
-    except (FileNotFoundError, PermissionError):
+    except ExecutableNotLaunchable as error:
+        # An absent or non-program explicit executable keeps its own type.
+        if isinstance(error.__cause__, (FileNotFoundError, PermissionError)):
+            raise error.__cause__ from None
         raise
-    except OSError as error:
-        raise ExecutableNotLaunchable(f"cannot launch {executable}: {error}") from error
+    stderr = completed.stderr
+    if completed.timed_out:
+        # A result with returncode=None, not an exception (#1016).
+        reason = timeout_reason(f"FLARE {task}", completed, config.timeout)
+        stderr = f"{stderr}\n{reason}" if stderr else reason
     return FlareResult(
         returncode=completed.returncode,
         workdir=workdir,
         task=task,
         command=tuple(command),
         stdout=completed.stdout,
-        stderr=completed.stderr,
+        stderr=stderr,
+        runtime_status=completed.runtime_status,
+        elapsed_s=completed.elapsed_s,
     )
 
 

@@ -1,0 +1,835 @@
+"""
+Single-particle motion in magnetic and electric fields.
+
+This module provides the gyration and guiding-centre drift relations of a
+charged particle, and a Boris integrator of the full Lorentz-force orbit
+against which the drift relations can be checked.
+
+Notation
+--------
+q      : particle charge, signed                         [C]
+m      : particle mass                                   [kg]
+B      : magnetic field (vector or magnitude)            [T]
+E      : electric field                                  [V/m]
+v_perp : speed perpendicular to B                        [m/s]
+v_par  : speed parallel to B                             [m/s]
+omega_c: signed gyrofrequency qB/m                       [rad/s]
+rho    : Larmor radius                                   [m]
+R_c    : radius-of-curvature vector of the field line    [m]
+"""
+
+from typing import Callable, Tuple
+
+import numpy as np
+
+__all__ = [
+    "gyrofrequency",
+    "larmor_radius",
+    "gyration_offset",
+    "exb_drift_velocity",
+    "grad_b_drift_velocity",
+    "curvature_drift_velocity",
+    "parallel_speed_from_mu",
+    "magnetic_moment",
+    "canonical_toroidal_momentum",
+    "guiding_center_toroidal_momentum",
+    "psi_per_radian_from_cocos",
+    "bounce_harmonic_detuning",
+    "boris_orbit",
+]
+
+
+def _vector(value, name: str) -> np.ndarray:
+    arr = np.asarray(value, dtype=float)
+    if arr.shape[-1:] != (3,):
+        raise ValueError(f"{name} must be a 3-vector (last axis of length 3), not shape {arr.shape}")
+    return arr
+
+
+def gyrofrequency(q, m, B):
+    r"""Signed gyrofrequency of a charged particle.
+
+    $$\omega_c = \frac{qB}{m}$$
+
+    Parameters
+    ----------
+    q : float or np.ndarray
+        Particle charge, signed [C].
+    m : float or np.ndarray
+        Particle mass [kg].
+    B : float or np.ndarray
+        Magnetic-field magnitude [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        Gyrofrequency, positive for positive charge [rad/s].
+
+    Raises
+    ------
+    ValueError
+        ``m`` is not positive.
+
+    Convention
+    ----------
+    Signed: $\omega_c > 0$ for an ion, $< 0$ for an electron. An ion gyrates
+    in the left-handed sense about $\mathbf{B}$ (clockwise seen with
+    $\mathbf{B}$ pointing at the viewer), an electron in the right-handed
+    sense; the sign carries that. Use ``abs`` for the frequency alone.
+
+    Physical interpretation
+    -----------------------
+    The rate at which the Lorentz force turns the perpendicular velocity:
+    the fastest time scale of magnetised motion, and the reason drifts are
+    slow by comparison.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled
+           Fusion*, 3rd ed., Springer (2016), Sec. 2.2.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 2.2.
+    """
+    m = np.asarray(m, dtype=float)
+    if np.any(m <= 0.0):
+        raise ValueError("m must be positive")
+    return np.asarray(q, dtype=float) * np.asarray(B, dtype=float) / m
+
+
+def larmor_radius(q, m, v_perp, B):
+    r"""Larmor (gyro) radius of a charged particle.
+
+    $$\rho = \frac{m\,v_\perp}{|q|\,B}$$
+
+    Parameters
+    ----------
+    q : float or np.ndarray
+        Particle charge; only its magnitude enters [C].
+    m : float or np.ndarray
+        Particle mass [kg].
+    v_perp : float or np.ndarray
+        Speed perpendicular to the magnetic field [m/s].
+    B : float or np.ndarray
+        Magnetic-field magnitude [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        Radius of the gyro-orbit [m].
+
+    Raises
+    ------
+    ValueError
+        ``q`` or ``B`` is zero.
+
+    Convention
+    ----------
+    Always positive: the gyration sense is in ``gyrofrequency``. $v_\perp$ is
+    the speed in the guiding-centre frame, i.e. after removing any drift.
+
+    Physical interpretation
+    -----------------------
+    The scale below which a particle does not follow field lines; drift
+    approximations need it small against the field's gradient length.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled
+           Fusion*, 3rd ed., Springer (2016), Sec. 2.2.
+    """
+    q = np.abs(np.asarray(q, dtype=float))
+    B = np.abs(np.asarray(B, dtype=float))
+    if np.any(q == 0.0) or np.any(B == 0.0):
+        raise ValueError("q and B must be non-zero")
+    return np.asarray(m, dtype=float) * np.abs(np.asarray(v_perp, dtype=float)) / (q * B)
+
+
+def gyration_offset(q, m, B, v):
+    r"""Position of a gyrating particle relative to its guiding centre.
+
+    $$\boldsymbol{\rho} = \frac{m}{qB^{2}}\,\mathbf{B}\times\mathbf{v}_\perp$$
+
+    Parameters
+    ----------
+    q : float
+        Particle charge, signed [C].
+    m : float
+        Particle mass [kg].
+    B : array_like
+        Magnetic field, last axis the three Cartesian components [T].
+    v : array_like
+        Velocity in the guiding-centre frame; only its part perpendicular to
+        ``B`` enters [m/s].
+
+    Returns
+    -------
+    np.ndarray
+        Vector from the guiding centre to the particle [m].
+
+    Raises
+    ------
+    ValueError
+        An input is not a 3-vector, ``q`` is zero, ``m`` is not positive, or
+        ``B`` vanishes.
+
+    Convention
+    ----------
+    Guiding centre = position minus this vector. Its magnitude is
+    ``larmor_radius`` and its sense follows the charge: for $\mathbf{B} =
+    \hat z$ and $\mathbf{v} = \hat x$, an ion sits a Larmor radius along
+    $+\hat y$ from its guiding centre, an electron along $-\hat y$.
+
+    Physical interpretation
+    -----------------------
+    The Lorentz force $q\mathbf{v}\times\mathbf{B}$ points from the particle
+    to the centre of its orbit; this is minus that direction times the
+    Larmor radius.
+
+    Assumptions
+    -----------
+    Uniform field over the orbit; ``v`` measured in the frame moving with any
+    drift.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled
+           Fusion*, 3rd ed., Springer (2016), Sec. 2.2.
+    """
+    B = _vector(B, "B")
+    v = _vector(v, "v")
+    q = float(q)
+    if q == 0.0 or not float(m) > 0.0:
+        raise ValueError("q must be non-zero and m positive")
+    B2 = np.sum(B * B, axis=-1, keepdims=True)
+    if np.any(B2 == 0.0):
+        raise ValueError("B must be non-zero")
+    return float(m) / (q * B2) * np.cross(B, v)
+
+
+def exb_drift_velocity(E, B):
+    r"""E-cross-B drift velocity of the guiding centre.
+
+    $$\mathbf{v}_E = \frac{\mathbf{E}\times\mathbf{B}}{B^{2}}$$
+
+    Parameters
+    ----------
+    E : array_like
+        Electric field, last axis the three Cartesian components [V/m].
+    B : array_like
+        Magnetic field, last axis the three Cartesian components [T].
+
+    Returns
+    -------
+    np.ndarray
+        Drift velocity, same shape as the broadcast inputs [m/s].
+
+    Raises
+    ------
+    ValueError
+        An input is not a 3-vector, or ``B`` vanishes.
+
+    Convention
+    ----------
+    Right-handed Cartesian components. The drift is independent of charge
+    and mass, so ions and electrons move together and no current flows.
+
+    Physical interpretation
+    -----------------------
+    Over each gyration the particle gains energy on one side of its orbit
+    and loses it on the other, so its radius changes around the orbit and
+    the guiding centre steps sideways -- perpendicular to both fields.
+
+    Assumptions
+    -----------
+    $E_\perp \ll cB$ (non-relativistic drift); uniform fields over a Larmor
+    radius and slow in time compared with the gyroperiod.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled
+           Fusion*, 3rd ed., Springer (2016), Sec. 2.2.2.
+    """
+    E = _vector(E, "E")
+    B = _vector(B, "B")
+    B2 = np.sum(B * B, axis=-1, keepdims=True)
+    if np.any(B2 == 0.0):
+        raise ValueError("B must be non-zero")
+    return np.cross(E, B) / B2
+
+
+def grad_b_drift_velocity(q, m, v_perp, B, grad_B):
+    r"""Grad-B drift velocity of the guiding centre.
+
+    $$\mathbf{v}_{\nabla B} = \frac{m v_\perp^{2}}{2qB}\,
+    \frac{\mathbf{B}\times\nabla B}{B^{2}}$$
+
+    Parameters
+    ----------
+    q : float
+        Particle charge, signed [C].
+    m : float
+        Particle mass [kg].
+    v_perp : float or np.ndarray
+        Speed perpendicular to the magnetic field [m/s].
+    B : array_like
+        Magnetic field, last axis the three Cartesian components [T].
+    grad_B : array_like
+        Gradient of the field magnitude $|\mathbf{B}|$ [T/m].
+
+    Returns
+    -------
+    np.ndarray
+        Drift velocity [m/s].
+
+    Raises
+    ------
+    ValueError
+        An input is not a 3-vector, ``q`` is zero, or ``B`` vanishes.
+
+    Convention
+    ----------
+    Charge-signed: ions and electrons drift in opposite directions, which is
+    what makes this drift carry current.
+
+    Physical interpretation
+    -----------------------
+    The orbit is tighter where the field is stronger, so the guiding centre
+    walks perpendicular to both $\mathbf{B}$ and its gradient.
+
+    Assumptions
+    -----------
+    $\rho \ll B/|\nabla B|$; the drift is the first-order average over a
+    gyration.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled
+           Fusion*, 3rd ed., Springer (2016), Sec. 2.3.1.
+    """
+    B = _vector(B, "B")
+    grad_B = _vector(grad_B, "grad_B")
+    q = float(q)
+    if q == 0.0:
+        raise ValueError("q must be non-zero")
+    Bmag = np.linalg.norm(B, axis=-1, keepdims=True)
+    if np.any(Bmag == 0.0):
+        raise ValueError("B must be non-zero")
+    v_perp = np.asarray(v_perp, dtype=float)[..., None] if np.ndim(v_perp) else float(v_perp)
+    return float(m) * v_perp ** 2 / (2.0 * q * Bmag) * np.cross(B, grad_B) / Bmag ** 2
+
+
+def curvature_drift_velocity(q, m, v_par, B, R_c):
+    r"""Curvature drift velocity of the guiding centre.
+
+    $$\mathbf{v}_R = \frac{m v_\parallel^{2}}{qB^{2}}\,
+    \frac{\mathbf{R}_c\times\mathbf{B}}{R_c^{2}}$$
+
+    Parameters
+    ----------
+    q : float
+        Particle charge, signed [C].
+    m : float
+        Particle mass [kg].
+    v_par : float or np.ndarray
+        Speed along the magnetic field [m/s].
+    B : array_like
+        Magnetic field, last axis the three Cartesian components [T].
+    R_c : array_like
+        Radius-of-curvature vector, from the centre of curvature to the
+        field line [m].
+
+    Returns
+    -------
+    np.ndarray
+        Drift velocity [m/s].
+
+    Raises
+    ------
+    ValueError
+        An input is not a 3-vector, ``q`` is zero, or ``B`` or ``R_c``
+        vanishes.
+
+    Convention
+    ----------
+    $\mathbf{R}_c$ points *outward*, from the centre of curvature to the
+    line, as in Chen. Charge-signed like the grad-B drift. In a vacuum field
+    $\nabla\times\mathbf{B} = 0$ the two drifts add in the same direction.
+
+    Physical interpretation
+    -----------------------
+    The centrifugal force of streaming along a curved line, $m v_\parallel^2
+    / R_c$, acts like any other perpendicular force $\mathbf{F}$ and drives
+    $\mathbf{F}\times\mathbf{B}/(qB^2)$.
+
+    Assumptions
+    -----------
+    $\rho \ll R_c$.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled
+           Fusion*, 3rd ed., Springer (2016), Sec. 2.3.2.
+    """
+    B = _vector(B, "B")
+    R_c = _vector(R_c, "R_c")
+    q = float(q)
+    if q == 0.0:
+        raise ValueError("q must be non-zero")
+    B2 = np.sum(B * B, axis=-1, keepdims=True)
+    R2 = np.sum(R_c * R_c, axis=-1, keepdims=True)
+    if np.any(B2 == 0.0) or np.any(R2 == 0.0):
+        raise ValueError("B and R_c must be non-zero")
+    v_par = np.asarray(v_par, dtype=float)[..., None] if np.ndim(v_par) else float(v_par)
+    return float(m) * v_par ** 2 / (q * B2) * np.cross(R_c, B) / R2
+
+
+def parallel_speed_from_mu(v, pitch_ref, B_ref, B):
+    r"""Parallel speed where the field is $B$, from energy and magnetic-moment conservation.
+
+    $$\frac{v_\parallel}{v} = \pm\sqrt{1 - \left(1 - \xi_\mathrm{ref}^2\right)\frac{B}{B_\mathrm{ref}}}$$
+
+    Parameters
+    ----------
+    v : float
+        Speed, conserved [m/s].
+    pitch_ref : float
+        Pitch $\xi = v_\parallel/v$ where the field is ``B_ref``, in $[-1, 1]$ [-].
+    B_ref : float
+        Field strength at the reference point [T].
+    B : float or np.ndarray
+        Field strength along the orbit [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        $|v_\parallel|$, NaN where the particle cannot reach (it is reflected
+        before $B$) [m/s].
+
+    Raises
+    ------
+    ValueError
+        ``pitch_ref`` lies outside $[-1, 1]$ or a field is not positive.
+
+    Convention
+    ----------
+    Magnitude only: the sign is the direction of travel, which the caller
+    tracks. $\mu = mv_\perp^2/(2B)$ and $E = mv^2/2$ are the invariants;
+    a static field, no electric potential.
+
+    Physical interpretation
+    -----------------------
+    The magnetic mirror: $v_\parallel$ falls as the particle moves into
+    stronger field and vanishes where $B = B_\mathrm{ref}/(1 - \xi_\mathrm{ref}^2)$,
+    the bounce point of a trapped particle.
+
+    Assumptions
+    -----------
+    Adiabatic motion: $\mu$ conserved, field varying slowly over a gyro-orbit.
+
+    See Also
+    --------
+    vaft.diagram.trapped_and_passing_orbits : the canonical diagram of this relation.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled Fusion*,
+           3rd ed., Springer (2016), Sec. 2.3.3.
+    """
+    xi = float(pitch_ref)
+    B_ref = float(B_ref)
+    B = np.asarray(B, dtype=float)
+    if not -1.0 <= xi <= 1.0:
+        raise ValueError(f"pitch_ref must lie in [-1, 1], not {pitch_ref!r}")
+    if B_ref <= 0.0 or np.any(B <= 0.0):
+        raise ValueError("fields must be positive")
+    arg = 1.0 - (1.0 - xi * xi) * B / B_ref
+    # a bounce point computed from its own mirror ratio lands within round-off of zero
+    arg = np.where(np.abs(arg) < 1e-12, 0.0, arg)
+    result = float(v) * np.sqrt(np.where(arg >= 0.0, arg, np.nan))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def magnetic_moment(m, v_perp, B):
+    r"""Magnetic moment of a gyrating particle, the first adiabatic invariant.
+
+    $$\mu = \frac{m v_\perp^2}{2B}$$
+
+    Parameters
+    ----------
+    m : float
+        Particle mass [kg].
+    v_perp : float or np.ndarray
+        Speed perpendicular to $\mathbf B$ [m/s].
+    B : float or np.ndarray
+        Field strength at the guiding centre [T].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\mu$, non-negative [J/T].
+
+    Raises
+    ------
+    ValueError
+        ``m`` or ``B`` is not positive.
+
+    Convention
+    ----------
+    Independent of the charge sign; ``v_perp`` enters squared, so its sign is
+    irrelevant. With $E = \tfrac12 mv_\parallel^2 + \mu B$ in a static field it
+    gives the mirror relation of ``parallel_speed_from_mu``.
+
+    Physical interpretation
+    -----------------------
+    The gyro-orbit's magnetic dipole moment, equivalently its gyro-action
+    $J_\perp = (2m/|q|)\mu$ up to a constant: the invariant of the fastest
+    motion, which is why $v_\perp^2$ tracks $B$ along a field line.
+
+    Assumptions
+    -----------
+    Conserved only under the adiabatic ordering: the field changes little over
+    a gyro-period and a Larmor radius. It is defined for any inputs; its
+    conservation is not implied.
+
+    References
+    ----------
+    .. [1] F. F. Chen, *Introduction to Plasma Physics and Controlled Fusion*,
+           3rd ed., Springer (2016), Sec. 2.3.3.
+    """
+    m = float(m)
+    B = np.asarray(B, dtype=float)
+    if m <= 0.0 or np.any(B <= 0.0):
+        raise ValueError("m and B must be positive")
+    result = 0.5 * m * np.asarray(v_perp, dtype=float) ** 2 / B
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def canonical_toroidal_momentum(q, m, R, v_phi, A_phi):
+    r"""Canonical toroidal angular momentum of a particle in an axisymmetric field.
+
+    $$P_\phi = m R v_\phi + q R A_\phi$$
+
+    Parameters
+    ----------
+    q : float
+        Signed particle charge [C].
+    m : float
+        Particle mass [kg].
+    R : float or np.ndarray
+        Major radius of the particle [m].
+    v_phi : float or np.ndarray
+        Physical toroidal velocity component $\hat{\boldsymbol\phi}\cdot\mathbf v$ [m/s].
+    A_phi : float or np.ndarray
+        Physical toroidal component of the vector potential [T m].
+
+    Returns
+    -------
+    float or np.ndarray
+        $P_\phi = \partial\mathcal L/\partial\dot\phi$ [kg m^2/s].
+
+    Raises
+    ------
+    ValueError
+        ``m`` is not positive or ``R`` is negative.
+
+    Convention
+    ----------
+    Cylindrical $(R, \phi, Z)$ right-handed, $\phi$ counter-clockwise seen
+    from above (the IMAS $\phi$). ``v_phi`` and ``A_phi`` are *physical*
+    components; $RA_\phi$ is the covariant one, which equals the poloidal flux
+    per radian $\psi$ (see ``guiding_center_toroidal_momentum``). The full
+    particle form: it includes the gyration in $v_\phi$.
+
+    Physical interpretation
+    -----------------------
+    The momentum conjugate to $\phi$. Where $\partial\mathcal L/\partial\phi = 0$
+    (axisymmetry) it is exactly conserved, which ties the particle's toroidal
+    velocity to its flux-surface position.
+
+    Assumptions
+    -----------
+    The Lagrangian $\mathcal L = \tfrac12 mv^2 + q\mathbf A\cdot\mathbf v - q\Phi$;
+    conservation needs axisymmetry, $\partial\mathcal L/\partial\phi = 0$.
+
+    References
+    ----------
+    .. [1] R. B. White, *The Theory of Toroidally Confined Plasmas*, 3rd ed.,
+           Imperial College Press (2014), Ch. 3.
+    """
+    m = float(m)
+    R = np.asarray(R, dtype=float)
+    if m <= 0.0 or np.any(R < 0.0):
+        raise ValueError("m must be positive and R non-negative")
+    result = m * R * np.asarray(v_phi, dtype=float) + float(q) * R * np.asarray(A_phi, dtype=float)
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def guiding_center_toroidal_momentum(q, m, v_par, R, b_phi, psi_per_radian):
+    r"""Canonical toroidal momentum of a guiding centre, flux plus mechanical parts.
+
+    $$P_{\phi,\mathrm{gc}} = q\psi + m v_\parallel R\, b_\phi$$
+
+    Parameters
+    ----------
+    q : float
+        Signed particle charge [C].
+    m : float
+        Particle mass [kg].
+    v_par : float or np.ndarray
+        Signed parallel velocity, positive along $\mathbf B$ [m/s].
+    R : float or np.ndarray
+        Major radius of the guiding centre [m].
+    b_phi : float or np.ndarray
+        Toroidal component of the unit vector $\mathbf b = \mathbf B/B$ [-].
+    psi_per_radian : float or np.ndarray
+        Poloidal flux per radian at the guiding centre, $\psi = RA_\phi$ [Wb/rad].
+
+    Returns
+    -------
+    float or np.ndarray
+        $P_{\phi,\mathrm{gc}}$ [kg m^2/s].
+
+    Raises
+    ------
+    ValueError
+        ``m`` is not positive or ``R`` is negative.
+
+    Convention
+    ----------
+    $\psi$ is **per radian** and is the covariant $RA_\phi$ with the IMAS
+    $\phi$: its sign follows the plasma current's direction in $\phi$, largest
+    on the axis for a current along $+\phi$. A stored COCOS flux is converted
+    by ``psi_per_radian_from_cocos`` -- $-\psi/(2\pi)$ for COCOS 11 (IMAS DD3),
+    $+\psi/(2\pi)$ for COCOS 17; used as stored it gives the flux term the
+    wrong sign or a $2\pi$ error. $b_\phi v_\parallel$ is
+    the toroidal velocity of the guiding centre; $mRb_\phi v_\parallel = mIv_\parallel/B$
+    with $I = RB_\phi$.
+
+    Physical interpretation
+    -----------------------
+    Conserved in axisymmetry, so a change of $v_\parallel$ along the orbit is paid
+    for by a change of $\psi$: $\Delta\psi = -(m/q)\Delta(v_\parallel Rb_\phi)$.
+    That is the finite orbit width -- the global view of what the grad-B and
+    curvature drifts do locally.
+
+    Assumptions
+    -----------
+    Lowest-order guiding-centre theory: the gyration averaged out, drift
+    velocity small against $v_\parallel$ in the mechanical term.
+
+    References
+    ----------
+    .. [1] R. B. White, *The Theory of Toroidally Confined Plasmas*, 3rd ed.,
+           Imperial College Press (2014), Ch. 3.
+    .. [2] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 3.12.
+    """
+    m = float(m)
+    R = np.asarray(R, dtype=float)
+    if m <= 0.0 or np.any(R < 0.0):
+        raise ValueError("m must be positive and R non-negative")
+    result = (float(q) * np.asarray(psi_per_radian, dtype=float)
+              + m * np.asarray(v_par, dtype=float) * R * np.asarray(b_phi, dtype=float))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def psi_per_radian_from_cocos(psi, cocos):
+    r"""The guiding-centre $\psi = RA_\phi$ from a flux stored in a COCOS convention.
+
+    $$\psi_{RA_\phi} = -\,\sigma_{Bp}\,\sigma_{R\phi Z}\,\frac{\psi_\mathrm{COCOS}}{(2\pi)^{e_{Bp}}}$$
+
+    Parameters
+    ----------
+    psi : float or np.ndarray
+        Poloidal flux as the COCOS convention stores it [Wb or Wb/rad].
+    cocos : int
+        The COCOS index, 1-8 or 11-18 [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $RA_\phi$ with the IMAS $\phi$, the flux per radian that
+        ``guiding_center_toroidal_momentum`` takes [Wb/rad].
+
+    Raises
+    ------
+    ValueError
+        ``cocos`` is not one of the sixteen indices.
+
+    Convention
+    ----------
+    $\mathbf B_\mathrm{pol} = \nabla(RA_\phi)\times\nabla\phi$ with $\phi$
+    counter-clockwise from above, so $RA_\phi$ is largest on the axis for a
+    current along $+\phi$. Sauter's COCOS flux has $d\psi/d\rho$ of sign
+    $\sigma_{Ip}\sigma_{Bp}$ and its own $\phi$ orientation $\sigma_{R\phi Z}$,
+    hence the factor: $-1/(2\pi)$ for COCOS 11 (IMAS DD3), $+1/(2\pi)$ for
+    COCOS 17 (DD4), $-1$ for COCOS 1. $e_{Bp} = 1$ for 11-18 (whole-turn flux in Wb).
+
+    Physical interpretation
+    -----------------------
+    Only this signed, per-radian flux makes $q\psi + mv_\parallel Rb_\phi$ a
+    conserved quantity; a COCOS flux used as stored gives the flux term the
+    wrong sign or a $2\pi$ error.
+
+    References
+    ----------
+    .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013)
+           293, Eq. 8 and Table I.
+    """
+    if isinstance(cocos, bool) or int(cocos) != cocos or int(cocos) not in (*range(1, 9), *range(11, 19)):
+        raise ValueError(f"cocos must be one of 1-8 or 11-18, not {cocos!r}")
+    c = int(cocos)
+    base = c % 10
+    sigma_bp = 1 if base in (1, 2, 5, 6) else -1
+    sigma_rphiz = 1 if base % 2 == 1 else -1
+    exponent = 1 if c >= 11 else 0
+    result = -sigma_bp * sigma_rphiz * np.asarray(psi, dtype=float) / (2.0 * np.pi) ** exponent
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def bounce_harmonic_detuning(omega_b, omega_exb, omega_magnetic=0.0, *, l=1, n=1):
+    r"""Frequency mismatch of a trapped orbit with a toroidal-$n$ perturbation at bounce harmonic $\ell$.
+
+    $$\Delta\omega_\mathrm{BH} = \ell\,\omega_b - n\,\omega_E - n\,\omega_B$$
+
+    Parameters
+    ----------
+    omega_b : float or np.ndarray
+        Bounce frequency of the trapped orbit [rad/s].
+    omega_exb : float or np.ndarray
+        Toroidal $E\times B$ precession frequency [rad/s].
+    omega_magnetic : float or np.ndarray
+        Toroidal magnetic (grad-B and curvature) precession frequency [rad/s].
+    l : int
+        Bounce harmonic, any integer including 0 [-].
+    n : int
+        Toroidal mode number of the perturbation [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta\omega_\mathrm{BH}$; zero at the resonance [rad/s].
+
+    Raises
+    ------
+    ValueError
+        ``l`` or ``n`` is not an integer.
+
+    Convention
+    ----------
+    The temporal resonance of Park, Boozer and Menard: a static perturbation
+    $\propto e^{in\phi}$ seen by an orbit precessing toroidally at
+    $\omega_E + \omega_B$ and bouncing at $\omega_b$. $\ell = 0$ is the
+    precession resonance. It is not the *spatial* resonance $m = nq$ of a
+    field line; the two are separate conditions.
+
+    Physical interpretation
+    -----------------------
+    Where it vanishes the orbit sees a stationary phase of the perturbation
+    each bounce, so the change of $P_\phi$ adds up secularly instead of
+    averaging out -- the orbit-level origin of non-resonant transport and NTV,
+    which themselves need the kinetic response of the whole distribution.
+
+    References
+    ----------
+    .. [1] J.-K. Park, A. H. Boozer and J. E. Menard, Phys. Rev. Lett. 102
+           (2009) 065002.
+    """
+    for name, value in (("l", l), ("n", n)):
+        if isinstance(value, bool) or int(value) != value:
+            raise ValueError(f"{name} must be an integer, not {value!r}")
+    result = (int(l) * np.asarray(omega_b, dtype=float) - int(n) * np.asarray(omega_exb, dtype=float)
+              - int(n) * np.asarray(omega_magnetic, dtype=float))
+    return float(result) if np.ndim(result) == 0 else result
+
+
+def boris_orbit(q, m, x0, v0, E_field: Callable, B_field: Callable, dt, n_steps) -> Tuple[np.ndarray, np.ndarray]:
+    r"""Charged-particle orbit from the Lorentz force, by the Boris scheme.
+
+    $$m\,\frac{\mathrm{d}\mathbf{v}}{\mathrm{d}t} = q\,(\mathbf{E} + \mathbf{v}\times\mathbf{B}),
+    \qquad \frac{\mathrm{d}\mathbf{x}}{\mathrm{d}t} = \mathbf{v}$$
+
+    Parameters
+    ----------
+    q : float
+        Particle charge, signed [C].
+    m : float
+        Particle mass [kg].
+    x0 : array_like
+        Initial position [m].
+    v0 : array_like
+        Initial velocity [m/s].
+    E_field : callable
+        ``E_field(x)`` returning the electric field at position ``x`` [V/m].
+    B_field : callable
+        ``B_field(x)`` returning the magnetic field at position ``x`` [T].
+    dt : float
+        Time step [s].
+    n_steps : int
+        Number of steps [-].
+
+    Returns
+    -------
+    positions : np.ndarray
+        Positions, shape ``(n_steps + 1, 3)``, the first being ``x0`` [m].
+    velocities : np.ndarray
+        ``velocities[i + 1]`` is the velocity over the step from
+        ``positions[i]`` to ``positions[i + 1]``; ``velocities[0]`` is
+        ``v0``. Shape ``(n_steps + 1, 3)`` [m/s].
+
+    Raises
+    ------
+    ValueError
+        ``m``, ``dt`` or ``n_steps`` is not positive, or a vector is not a
+        3-vector.
+
+    Convention
+    ----------
+    Non-relativistic leapfrog: velocities live at the half steps between
+    positions (half electric kick, magnetic rotation, half kick, then the
+    position advance). ``v0`` is taken as the velocity half a step before
+    ``x0``. Right-handed Cartesian components.
+
+    Physical interpretation
+    -----------------------
+    The full orbit the drift formulas average: integrated in a uniform or
+    slowly varying field, its guiding centre moves at ``exb_drift_velocity``,
+    ``grad_b_drift_velocity`` and ``curvature_drift_velocity``.
+
+    Numerical notes
+    ---------------
+    The magnetic rotation is exact in angle up to the $\tan(\omega_c\Delta t
+    /2)$ phase error, so with $E = 0$ the kinetic energy is conserved to
+    round-off for any step; the scheme is volume-preserving and has no
+    secular energy drift. Keep $|\omega_c|\Delta t \lesssim 0.1$ for an
+    accurate gyrophase. Fixed step, so the output is deterministic.
+
+    References
+    ----------
+    .. [1] J. P. Boris, Proc. 4th Conf. Numer. Sim. Plasmas, NRL (1970), 3.
+    .. [2] C. K. Birdsall and A. B. Langdon, *Plasma Physics via Computer
+           Simulation*, McGraw-Hill (1985), Sec. 4-4.
+    .. [3] H. Qin et al., Phys. Plasmas 20, 084503 (2013).
+    """
+    m = float(m)
+    dt = float(dt)
+    n_steps = int(n_steps)
+    if not m > 0.0 or not dt > 0.0 or n_steps <= 0:
+        raise ValueError("m, dt and n_steps must be positive")
+    x = _vector(x0, "x0").copy()
+    v = _vector(v0, "v0").copy()
+    positions = np.empty((n_steps + 1, 3))
+    velocities = np.empty((n_steps + 1, 3))
+    positions[0], velocities[0] = x, v
+    k = float(q) * dt / (2.0 * m)
+    for i in range(n_steps):
+        e = _vector(E_field(x), "E_field(x)")
+        b = _vector(B_field(x), "B_field(x)")
+        v_minus = v + k * e
+        t = k * b
+        s = 2.0 * t / (1.0 + t @ t)
+        v_prime = v_minus + np.cross(v_minus, t)
+        v = v_minus + np.cross(v_prime, s) + k * e
+        x = x + dt * v
+        positions[i + 1], velocities[i + 1] = x, v
+    return positions, velocities

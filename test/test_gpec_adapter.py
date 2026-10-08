@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 from vaft.code import gpec
+from vaft.compat import IS_WINDOWS
 
 from external_code_stubs import write_launchable_stub
 
@@ -184,7 +185,15 @@ def test_prepare_writes_stride_without_a_gpec_installation(no_gpec_env, case):
 
 
 def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path, case):
-    """FileDB stores ideal-GPEC and DCON under distinct code/mode roots."""
+    """FileDB stores ideal-GPEC and DCON under distinct code/mode roots.
+
+    That layout is unchanged, and ``dcon_workdir`` still says where DCON's
+    products come from.  What ``gpec.in`` names is no longer that tree but the
+    GPEC cell itself: GPEC writes its vacuum handshake files into its working
+    directory and reads them back from ``dcon_dir``, so the two have to be one
+    directory, and the products are brought over by ``stage_dcon_products``
+    once DCON has made them (``test_gpec_dcon_staging.py``).
+    """
     coil = tmp_path / "coil.in"
     coil.write_text("&coil /\n", encoding="utf-8")
     case.dcon_workdir = tmp_path / "dcon-work"
@@ -196,9 +205,15 @@ def test_prepare_ideal_gpec_uses_a_separate_dcon_work_tree(no_gpec_env, tmp_path
     )
 
     assert result.ok
-    gpec_in = case.workdir / "00325" / "gpec" / "nn=1" / "gpec.in"
+    run_dir = case.workdir / "00325" / "gpec" / "nn=1"
+    text = (run_dir / "gpec.in").read_text(encoding="utf-8")
+    assert str(run_dir.resolve()) in text
+
+    # The separate tree is still where the suite looks for DCON, which is what
+    # the layout claim is about.
     expected_dcon = case.dcon_workdir / "00325" / "dcon" / "nn=1"
-    assert str(expected_dcon.resolve()) in gpec_in.read_text(encoding="utf-8")
+    assert gpec._dcon_run_dir(case, 1, case.geqdsk) == expected_dcon
+    assert str(expected_dcon.resolve()) not in text
 
 
 def test_run_if_available_chains_rmatch_after_a_successful_rdcon(monkeypatch, tmp_path, case):
@@ -320,6 +335,12 @@ def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, 
     dcon_dir.mkdir(parents=True, exist_ok=True)
     (dcon_dir / "euler.bin").write_bytes(b"")
     (dcon_dir / "psi_in.bin").write_bytes(b"")
+    # Staged into the GPEC cell with them: GPEC opens `equil.in` in its own
+    # working directory (see test_gpec_dcon_staging.py).
+    (dcon_dir / "equil.in").write_text(
+        f'&EQUIL_CONTROL\n    eq_filename="{case.geqdsk.name}"\n/\n', encoding="utf-8"
+    )
+    (dcon_dir / case.geqdsk.name).write_text(GFILE_TEXT, encoding="utf-8")
     _write_valid_dcon_netcdf(dcon_dir, n=1)
 
     # The three core outputs exist but hold no readable physics content.
@@ -340,6 +361,51 @@ def test_timeout_with_truncated_outputs_is_not_reported_as_success(monkeypatch, 
     assert record.status == "failed"
     assert record.returncode is None
     assert "failed verification" in record.reason
+
+
+@pytest.mark.parametrize(
+    ("runtime_status", "expected_status", "expected_reason"),
+    [
+        # Never admitted: the core files are an earlier run's, never a success.
+        ("queue_timeout", "failed", "it never started"),
+        # Stopped by memory after writing them: verified, they still count.
+        ("memory_limit", "completed", "its outputs had already materialized"),
+    ],
+)
+def test_the_outputs_materialized_carve_out_and_limit_stops(
+    monkeypatch, tmp_path, case, runtime_status, expected_status, expected_reason
+):
+    from vaft.code.execution import ExecutionResult, timeout_reason
+
+    write_launchable_stub(tmp_path / "gpec/bin/gpec")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    config = gpec.GPECSuiteConfig(modules=("gpec",), modes=(1,), run_mode="auto")
+    gpec.prepare_gpec_suite_case(case, config)
+    run_dir = gpec._module_dir(case.workdir, case.time_ms, "gpec", 1, geqdsk=case.geqdsk)
+    dcon_dir = gpec._module_dir(case.workdir, case.time_ms, "dcon", 1, geqdsk=case.geqdsk)
+    dcon_dir.mkdir(parents=True, exist_ok=True)
+    (dcon_dir / "euler.bin").write_bytes(b"")
+    (dcon_dir / "psi_in.bin").write_bytes(b"")
+    (dcon_dir / "equil.in").write_text(
+        f'&EQUIL_CONTROL\n    eq_filename="{case.geqdsk.name}"\n/\n', encoding="utf-8"
+    )
+    (dcon_dir / case.geqdsk.name).write_text(GFILE_TEXT, encoding="utf-8")
+    _write_valid_dcon_netcdf(dcon_dir, n=1)
+    for name in ("gpec_control_output_n1.nc", "gpec_profile_output_n1.nc", "gpec_cylindrical_output_n1.nc"):
+        (run_dir / name).write_bytes(b"present")
+    # Outputs that pass verification, so only the stop kind decides.
+    monkeypatch.setattr(type(gpec.SOLVERS["gpec"]), "check_success", lambda self, run_dir, mode: (True, ""))
+    execution = ExecutionResult(returncode=None, timed_out=True, runtime_status=runtime_status,
+                                waited_for="memory" if runtime_status == "queue_timeout" else "",
+                                peak_rss_mb=5000.0 if runtime_status == "memory_limit" else None, elapsed_s=30.0)
+
+    def _stop(*args, **kwargs):
+        raise gpec.rt.GPECLimitStop(["gpec"], 30.0, execution, timeout_reason("gpec", execution, None))
+
+    monkeypatch.setattr(gpec.rt, "run_subprocess", _stop)
+    (record,) = gpec.run_gpec_suite_case(case, config).records
+    assert record.status == expected_status
+    assert expected_reason in record.reason
 
 
 def _write_valid_dcon_netcdf(path, *, n):
@@ -897,3 +963,130 @@ def test_a_reused_stable_cell_reports_the_same_status_as_a_fresh_one(
     (record,) = gpec.run_gpec_suite_case(case, config).records
     assert record.status == "stable"
     assert "reused existing solver outputs" in record.reason
+
+
+def test_gpec_modules_launch_through_the_configured_backend(monkeypatch, tmp_path, case):
+    """#671: the suite builds the launch; the backend decides how to run it."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    dcon = write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    backend = RecordingBackend(ExecutionResult(returncode=0))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto", backend=backend),
+    )
+
+    (record,) = result.records
+    assert record.returncode == 0
+    (request,) = [r for r in backend.requests if Path(r.command[0]).name == dcon.name]
+    assert request.env[gpec.GPEC_HOME_ENV] == str(tmp_path / "gpec")
+    assert request.log_path.name == "dcon.log"
+    assert request.timeout == 1200.0
+
+
+def test_a_backend_timeout_still_reaches_the_suite_timeout_carve_out(monkeypatch, tmp_path, case):
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(
+            modules=("dcon",), modes=(1,), run_mode="auto", timeout=7.0, backend=backend
+        ),
+    )
+
+    (record,) = result.records
+    assert record.status == "failed"
+    assert record.returncode is None
+    assert "timeout after 7.0 seconds" in record.reason
+
+
+@pytest.mark.parametrize(
+    ("execution_fields", "expected", "absent"),
+    [
+        (dict(runtime_status="memory_limit", peak_rss_mb=24600.0, elapsed_s=812.0),
+         "stopped by the memory limit at 24600 MiB resident", "timeout after"),
+        (dict(runtime_status="queue_timeout", waited_for="memory", elapsed_s=600.0),
+         "waiting 600 s for memory to become available (it never started)", "timeout after"),
+    ],
+)
+def test_a_memory_stop_is_not_reported_as_a_timeout(monkeypatch, tmp_path, case, execution_fields, expected, absent):
+    """#1460: the record says what stopped the solver, via timeout_reason()."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    write_launchable_stub(tmp_path / "gpec/bin/dcon")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+    backend = RecordingBackend(ExecutionResult(returncode=None, timed_out=True, **execution_fields))
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), run_mode="auto", timeout=7.0, backend=backend),
+    )
+
+    (record,) = result.records
+    assert record.status == "failed" and record.returncode is None
+    assert expected in record.reason and absent not in record.reason
+    assert record.reason.startswith("dcon ")
+
+
+@pytest.mark.parametrize("filename", ["dcon.exe", "dcon.cmd"])
+def test_a_limit_stop_names_the_solver_without_its_windows_launch_suffix(monkeypatch, filename):
+    """The gate's Windows leg read "dcon.cmd was stopped ..." (#1689 tests, PR #1533 stubs)."""
+    from vaft import compat
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.gpec import _runtime as rt
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", True)
+    assert rt.program_name(Path("gpec") / "bin" / filename) == "dcon"
+    assert rt.program_name(Path("gpec") / "bin" / "dcon.x") == "dcon.x"
+    execution = ExecutionResult(returncode=None, timed_out=True, runtime_status="memory_limit",
+                                peak_rss_mb=100.0, elapsed_s=3.0)
+    monkeypatch.setattr(rt, "resolve_backend", lambda config: type("B", (), {"run": lambda self, request: execution})())
+    with pytest.raises(rt.GPECLimitStop) as caught:
+        rt.run_subprocess(Path("gpec") / "bin" / filename, Path("."), Path("dcon.log"),
+                          config=gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), timeout=7.0))
+    assert caught.value.reason.startswith("dcon was stopped by the memory limit")
+
+
+def test_a_limit_stop_keeps_a_posix_program_name_whole(monkeypatch):
+    from vaft import compat
+    from vaft.code.gpec import _runtime as rt
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", False)
+    assert rt.program_name(Path("gpec") / "bin" / "dcon") == "dcon"
+    assert rt.program_name(Path("gpec") / "bin" / "dcon.exe") == "dcon.exe"
+
+
+def test_find_gpec_executable_is_none_without_an_installation(no_gpec_env):
+    assert gpec.find_gpec_executable("dcon") is None
+
+
+def test_find_gpec_executable_resolves_a_built_program_and_not_a_missing_one(tmp_path, monkeypatch):
+    """A notebook preflights each solver separately: a home where only DCON
+    was built answers for DCON and says nothing is there for GPEC."""
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path))
+    built = write_launchable_stub(tmp_path / "bin" / "dcon")
+
+    assert gpec.find_gpec_executable("dcon") == built
+    assert gpec.find_gpec_executable("gpec") is None
+
+
+def test_find_gpec_executable_is_none_for_a_program_without_an_execute_bit(tmp_path, monkeypatch):
+    """A preflight must answer, not raise: the offline tutorial path calls it."""
+    if IS_WINDOWS:
+        pytest.skip("the execute bit is a POSIX notion")
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path))
+    program = tmp_path / "bin" / "dcon"
+    program.parent.mkdir(parents=True)
+    program.write_text("#!/bin/sh\n", encoding="utf-8")
+    program.chmod(0o644)
+
+    assert gpec.find_gpec_executable("dcon") is None

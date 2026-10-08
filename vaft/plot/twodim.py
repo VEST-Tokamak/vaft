@@ -330,6 +330,7 @@ def equilibrium_2d_profiles(ods, time_slice=None, figsize=(10, 6)):
     Bottom row: B_r, B_z, B_phi
     """
     from vaft.omas.process_wrapper import compute_magnetic_energy
+    from vaft.omas.update import update_equilibrium_profiles_2d_b_field
     from vaft.process.equilibrium import psi_to_rz
 
     if 'equilibrium.time_slice' not in ods or not len(ods['equilibrium.time_slice']):
@@ -393,13 +394,19 @@ def equilibrium_2d_profiles(ods, time_slice=None, figsize=(10, 6)):
         except Exception as e:
             logger.warning(f"Could not build 2D j_tor map: {e}")
 
-    # B fields: prefer existing EFIT-derived fields, else compute from psi + (B0,R0)
+    # B fields: prefer existing EFIT-derived fields, else write them into the
+    # ODS from psi and the real F(psi); only without profiles_1d.f fall back to
+    # the constant-F vacuum toroidal field.  Both write into ``ods`` -- this
+    # plot fills in the fields it shows, explicitly now rather than as a side
+    # effect of an energy integral.
     b_r = eq_ts.get('profiles_2d.0.b_field_r', None)
     b_z = eq_ts.get('profiles_2d.0.b_field_z', None)
     b_phi = eq_ts.get('profiles_2d.0.b_field_tor', None)
     if b_r is None or b_z is None or b_phi is None:
         try:
-            _ = compute_magnetic_energy(ods, time_slice=eq_idx)
+            update_equilibrium_profiles_2d_b_field(ods, time_slice=[eq_idx])
+            if 'profiles_2d.0.b_field_tor' not in eq_ts:
+                compute_magnetic_energy(ods, time_slice=eq_idx, write_fields=True)
             b_r = eq_ts.get('profiles_2d.0.b_field_r', None)
             b_z = eq_ts.get('profiles_2d.0.b_field_z', None)
             b_phi = eq_ts.get('profiles_2d.0.b_field_tor', None)

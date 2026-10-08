@@ -2183,8 +2183,8 @@ def robust_peak(
     ----------
     ``polarity`` decides the sign of the answer: with ``negative`` or
     ``absolute`` the reported ``value`` is still the record's own signed sample,
-    not the score, so a VEST diamagnetic flux -- stored negative-going -- comes
-    back negative.  ``value`` is the *smoothed* sample; the raw one is in the
+    not the score, so a VEST diamagnetic flux keeps its stored sign (positive
+    for a paramagnetic plasma, #1196).  ``value`` is the *smoothed* sample; the raw one is in the
     evidence.
 
     Applicability

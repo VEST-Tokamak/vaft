@@ -17,7 +17,8 @@ related:
   outputs: [external-readiness, equilibrium-inputs]
 ---
 
-`vaft.process` is the **computation layer** of VAFT. Almost every function in it takes plain NumPy
+`vaft.process` is the **computation layer** of VAFT (its boundary with `vaft.formula` and `vaft.code`
+is on [Computational layers]({{ '/reference/computational-layers/' | relative_url }})). Almost every function in it takes plain NumPy
 arrays and scalars and returns arrays, tuples or dataclasses — it does not read or write ODS. The
 ODS-aware layer lives in `vaft.omas` (mainly `vaft.omas.process_wrapper`), which pulls geometry and
 signals out of an ODS, calls into `vaft.process`, and writes the results back.
@@ -593,6 +594,12 @@ Processing returns arrays, and drawing them is `vaft.plot`'s job -- `plot_flux_l
 
 ## Mirnov fluctuations and toroidal mode numbers
 
+For time-resolved coherence across Mirnov, soft X-ray, camera, interferometer,
+and emission-line records, see [cross-diagnostic fluctuation coherence]({{ '/workflows/fluctuation-coherence/' | relative_url }}).
+That workflow keeps one explicitly selected scalar representative per diagnostic,
+retains the raw units and alignment provenance, and separates a coherent spectral
+component from a physical MHD mode identification.
+
 <!-- docs-snippet: skip fragment (placeholder name data is never defined on the page) -->
 ```python
 from vaft.process.magnetics import (
@@ -644,7 +651,11 @@ import vaft
 vaft.omas.plot_mirnov_time_voltage(ods, selection=[14, 37], time_range=(0.304, 0.330), preprocess=False)
 vaft.omas.plot_mirnov_spectrogram(ods, selection=[14], time_range=(0.304, 0.330))
 
-fig, ax = vaft.omas.plot_mirnov_spatial_phase(ods, time=0.3215)
+# The wrapped-phase fit needs probes at distinct toroidal angles. Shot 39915 has none (no toroidal
+# array recorded between 35521 and 44155), so it uses the repository-only sample 45531, whose
+# outboard array sits at three angles. It loads from a Git checkout, not from an installed wheel.
+array = vaft.omas.sample_ods(45531)
+fig, ax = vaft.omas.plot_mirnov_spatial_phase(array, time=0.300)
 ```
 
 ---
@@ -710,8 +721,8 @@ dependency, so install it before calling.
    `logging` instead.
 5. **Importing `vaft.process` pulls in `matplotlib` and `ipywidgets`** — both are module-level imports
    in `magnetics.py`.
-6. The `electromagnetics` module prints a Numba warning on import when Numba is absent. **Numba is never
-   actually used**, so installing it changes nothing.
+6. **Numba is optional.** No module uses it yet. It is the `vaft[accel]` extra, reserved for
+   acceleration work that measurements justify (#1013).
 
 ---
 

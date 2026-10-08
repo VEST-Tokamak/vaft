@@ -266,6 +266,68 @@ def test_a_transient_failure_is_retried(staged, monkeypatch):
     assert record.validated
 
 
+def _tree(root: Path) -> list[tuple[str, int]]:
+    if not root.exists():
+        return []
+    return sorted(
+        (str(path.relative_to(root)), path.stat().st_size)
+        for path in root.rglob("*")
+        if path.is_file()
+    )
+
+
+def test_a_validated_replication_leaves_the_hsds_cache_untouched(
+    staged, monkeypatch, tmp_path
+):
+    """The round trip reads the server, not a cache it fills (#1758).
+
+    With the default ``cache="auto"`` every validated replica was copied into
+    ``~/.cache/vaft/hsds``; on vestserver that copy reached 539 GiB. The fake
+    read builds the real ``HSDSDomainCache`` for whatever ``cache`` it is
+    handed, so an ``"auto"`` read would create the cache tree under ``$HOME``.
+    """
+    from vaft.database import staging
+
+    home = tmp_path / "home"
+    cache_root = home / ".cache" / "vaft" / "hsds"
+    cache_root.mkdir(parents=True)
+    (cache_root / "existing.h5").write_bytes(b"entry from an earlier read")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setattr(
+        staging.HSDSDomainCache, "_endpoint", staticmethod(lambda: "test-endpoint")
+    )
+    before = _tree(cache_root)
+
+    monkeypatch.setattr(replication, "_fetch_remote_master", lambda *a, **k: None)
+    monkeypatch.setattr(replication, "merge_remote_master", lambda *a, **k: ())
+    monkeypatch.setattr(
+        "vaft.database.utils.require_source_exists", lambda source: None
+    )
+    stored = {}
+
+    def fake_save(ods, shot, *, source=None, occurrence=None, **kwargs):
+        stored["ods"] = ods
+        return f"hdf5://{source}/{shot}/"
+
+    reads = []
+
+    def fake_load(shot, source=None, *, paths=None, occurrence=None, cache="auto", **kwargs):
+        reads.append(cache)
+        cache_store = staging.HSDSDomainCache(source, shot, cache)
+        if cache_store.enabled:
+            (cache_store.root / "magnetics.h5").write_bytes(b"replica copy")
+        return stored["ods"]
+
+    monkeypatch.setattr("vaft.database.save", fake_save)
+    monkeypatch.setattr("vaft.database.load", fake_load)
+
+    record = replicate_stage("diagnostics", 39915, filedb=staged)
+
+    assert record.validated
+    assert reads == ["off"]
+    assert _tree(cache_root) == before
+
+
 # --------------------------------------------------------------------------- #
 # the master merge: one stage must not hide another
 # --------------------------------------------------------------------------- #
@@ -1062,6 +1124,152 @@ def test_a_missing_namespace_is_not_retried(staged, monkeypatch):
     assert len(calls) == 1
     # The probe comes first: an unprovisioned namespace never costs a fetch.
     assert fetches == []
+
+
+#: What the solver stages write as `<stage>_status` when they finish `no_output`.
+_NOTHING_BY_DESIGN = [
+    ("efit", "completed_no_gfiles: returncode=0; gfiles=0"),
+    ("efit", "skipped: efit.run=false; kfiles=6"),
+    ("chease", "skipped: no EFIT gfiles; input_gfiles=0"),
+    ("chease", "skipped: chease.run=false; input_gfiles=3"),
+    ("chease", "failed: refined_gfiles=0; failed=3"),
+    # The shot's data lacks an eddy input: an unrecorded PF circuit (#1568).
+    ("eddy", "skipped: required input unavailable: PF5 current was not acquired (NaN in pf_active)"),
+]
+_FAULTS = [
+    ("efit", "skipped: EFIT executable unavailable: /opt/efit; kfiles=6"),
+    ("chease", "skipped: CHEASE executable unavailable: ; input_gfiles=3"),
+    ("chease", "missing_input"),
+    ("efit", ""),
+    # EFIT wrote g-files; `no_output` then means every one was unreadable or
+    # the conversion raised -- a VAFT fault, not a solver verdict (cold review
+    # 0.8.0 delta-absorb-14 infra F1).
+    ("efit", "completed: returncode=0; gfiles=3; parse_errors=3"),
+    ("efit", "completed: returncode=0; gfiles=3"),
+]
+
+
+def _no_output(db, stage, reason, shot=48940):
+    extra = {f"{stage}_status": reason} if reason else {}
+    _stage_product(db, stage, shot, ODS(consistency_check=False), status="no_output", manifest_extra=extra)
+
+
+@pytest.mark.parametrize(("stage", "reason"), _NOTHING_BY_DESIGN)
+def test_a_stage_that_produced_nothing_is_recorded_skipped_not_raised(tmp_path, monkeypatch, stage, reason):
+    """EFIT whose every slice failed is ``no_output``, and so is the CHEASE after it.
+
+    Raising left the replication record missing, so a new-shot worker counted
+    the shot failed and retried the same replication until it gave up, while
+    the shot's diagnostics and eddy were already published (48940, 2026-10-02).
+    """
+    db = FileDB(tmp_path)
+    _no_output(db, stage, reason)
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    monkeypatch.setattr(replication, "_remote_entries", lambda source, shot: ("magnetics.h5", "master.h5"))
+
+    record = replicate_stage(stage, 48940, filedb=db)
+
+    assert record.state == "skipped"
+    assert not record.replicated and not record.validated
+    assert "no_output" in record.error and reason.split(";")[0] in record.error
+    assert sent == []
+    stored = replication.read_record(db.omas_replication_record(stage, shot=48940, **_lineage(stage)))
+    assert stored.state == "skipped"
+
+
+@pytest.mark.parametrize(("stage", "reason"), _FAULTS)
+def test_a_stage_that_could_not_run_still_fails(tmp_path, monkeypatch, stage, reason):
+    """A missing executable also ends ``no_output``; that is a fault, not a result.
+
+    Recording it skipped would leave every shot of a misconfigured host
+    ``partial``, never retried and never given up -- invisible.
+    """
+    db = FileDB(tmp_path)
+    _no_output(db, stage, reason)
+    _patch_remote(monkeypatch, sent=[])
+    monkeypatch.setattr(replication, "_remote_entries", lambda source, shot: ())
+    with pytest.raises(ProductNotEligibleError, match="fault, not a result"):
+        replicate_stage(stage, 48940, filedb=db)
+    assert not db.omas_replication_record(stage, shot=48940, **_lineage(stage)).exists()
+
+
+def test_nothing_to_publish_over_an_earlier_publication_fails(tmp_path, monkeypatch):
+    """A rerun that converges nothing must not hide the equilibrium already on main."""
+    db = FileDB(tmp_path)
+    _no_output(db, "efit", "completed_no_gfiles: returncode=0; gfiles=0")
+    _patch_remote(monkeypatch, sent=[])
+    monkeypatch.setattr(replication, "_remote_entries", lambda source, shot: ("equilibrium.h5", "master.h5"))
+    with pytest.raises(ProductNotEligibleError, match="still holds equilibrium.h5"):
+        replicate_stage("efit", 48940, filedb=db)
+
+
+def test_a_listing_that_keeps_failing_on_the_skipped_path_is_recorded_failed(tmp_path, monkeypatch):
+    """cold review 0.8.0 delta-absorb-14 infra F4: the stale check lists the
+    shot folder before any retry loop, so a 503 escaped as a raw OSError with
+    no record written. It is a transient remote failure like any other: retried
+    `attempts` times, then recorded ``failed`` and raised as ReplicationError."""
+    db = FileDB(tmp_path)
+    _no_output(db, "efit", "completed_no_gfiles: returncode=0; gfiles=0")
+    _patch_remote(monkeypatch, sent=[])
+    listings = []
+
+    def busy(path):
+        listings.append(path)
+        raise OSError(503, "Service Unavailable")
+
+    _fake_folder(monkeypatch, busy)
+    with pytest.raises(replication.ReplicationError, match="503"):
+        replicate_stage("efit", 48940, filedb=db, attempts=3, retry_delay=0)
+    assert listings == ["/main/48940/"] * 3
+    stored = replication.read_record(db.omas_replication_record("efit", shot=48940, **_lineage("efit")))
+    assert stored.state == "failed" and stored.attempts == 3
+    assert "503" in stored.error
+
+
+def test_a_listing_that_recovers_on_the_skipped_path_records_skipped(tmp_path, monkeypatch):
+    db = FileDB(tmp_path)
+    _no_output(db, "efit", "completed_no_gfiles: returncode=0; gfiles=0")
+    _patch_remote(monkeypatch, sent=[])
+    answers = [OSError(503, "Service Unavailable"), OSError(503, "Service Unavailable"), ("magnetics.h5", "master.h5")]
+
+    def flaky(path):
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    _fake_folder(monkeypatch, flaky)
+    record = replicate_stage("efit", 48940, filedb=db, attempts=3, retry_delay=0)
+    assert record.state == "skipped" and answers == []
+
+
+def test_a_stage_that_later_succeeds_is_replicated_over_its_skipped_record(tmp_path, monkeypatch):
+    db = FileDB(tmp_path)
+    _no_output(db, "efit", "completed_no_gfiles: returncode=0; gfiles=0")
+    sent = []
+    _patch_remote(monkeypatch, sent=sent)
+    monkeypatch.setattr(replication, "_remote_entries", lambda source, shot: ())
+    assert replicate_stage("efit", 48940, filedb=db).state == "skipped"
+
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = [0.3]
+    _stage_product(db, "efit", 48940, ods, status="success")
+    record = replicate_stage("efit", 48940, filedb=db, validate=False)
+
+    assert record.state != "skipped"
+    assert [ids for call in sent for ids in call["ids"]] == ["equilibrium"]
+
+
+@pytest.mark.parametrize("status", ["failed", "blocked", "skipped"])
+def test_only_no_output_is_recorded_for_a_required_stage(tmp_path, monkeypatch, status):
+    """A failed or blocked stage is still an error a person should see."""
+    db = FileDB(tmp_path)
+    _stage_product(db, "efit", 48940, ODS(consistency_check=False), status=status,
+                   manifest_extra={"efit_status": "completed_no_gfiles: returncode=0; gfiles=0"})
+    _patch_remote(monkeypatch, sent=[])
+    with pytest.raises(ProductNotEligibleError, match="nothing to replicate"):
+        replicate_stage("efit", 48940, filedb=db)
 
 
 # --------------------------------------------------------------------------- #

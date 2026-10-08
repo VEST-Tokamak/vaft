@@ -12,6 +12,8 @@ import matplotlib
 
 matplotlib.use("Agg")
 
+import contourpy  # noqa: F401 -- imported before any patch.dict("sys.modules"): a pybind11
+# module the patch drops on exit cannot be imported again ("FillType is already registered").
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -36,6 +38,27 @@ def sample_ods():
     with contextlib.redirect_stderr(io.StringIO()), warnings.catch_warnings():
         warnings.simplefilter("ignore")
         return vaft.omas.load(str(vaft.data.data_path("samples/39915/omas.json.gz")))
+
+
+@pytest.fixture(autouse=True)
+def _every_ids_stored(monkeypatch):
+    """A shot that stores every declared IDS, unless a test installs a fake h5pyd.
+
+    The adapters list the shot's domains before opening (optional IDS such as
+    an overlay's wall are opened only where stored); the forwarding tests mock
+    the store, so the listing must not reach a server.  A test that patches
+    ``lazy_ods.h5pyd`` gets the real listing over its fake.
+    """
+    from vaft.database import lazy_ods, plotting
+
+    listed = plotting.stored_ids
+    everything = ("dataset_description", *{root for name in canonical_names() for root in required_ids(name)})
+
+    def stored_ids(shot, source=None):
+        fake = getattr(lazy_ods, "h5pyd", None)
+        return listed(shot, source) if hasattr(fake, "folder_calls") else everything
+
+    monkeypatch.setattr(plotting, "stored_ids", stored_ids)
 
 
 # ---------------------------------------------------------------------------
@@ -131,7 +154,9 @@ def test_end_to_end_over_a_fake_hsds_store(monkeypatch):
     monkeypatch.setattr(lazy_ods, "h5pyd", module)
     figure, axes = database.plot_plasma_current_time(39915)
     assert [line.get_label() for line in axes.lines] == ["39915"]
-    assert module.folder_calls == []  # ids were given: no folder listing
+    # One listing picks the declared IDS the shot stores; the store opened
+    # with those ids lists nothing again.
+    assert module.folder_calls == ["/main/39915/"]
     opened = {uri.rsplit("/", 1)[-1] for uri in module.opened}
     assert opened <= {"magnetics.h5", "dataset_description.h5"}
     assert all(file.closed for uri, file in module.files.items() if uri in module.opened)
@@ -152,6 +177,17 @@ def test_available_plots_answers_from_the_domain_list_without_opening(monkeypatc
     assert psi.available is False and "requires IDS thomson_scattering" in psi.reason
     assert str(catalog).startswith("Available plots — #39915 (main)")
     assert "channels:" not in str(catalog)  # leaf-level facts need a loaded ODS
+
+
+def test_stored_ids_lists_the_domains_without_opening(monkeypatch):
+    fx = _fake_store_module()
+    module = fx.FakeH5pyd(_shot_files(fx))
+    from vaft.database import lazy_ods
+    monkeypatch.setattr(lazy_ods, "h5pyd", module)
+    stored = database.stored_ids(39915)
+    assert module.opened == [] and module.folder_calls == ["/main/39915/"]
+    assert "magnetics" in stored and "master" not in stored
+    assert "stored_ids" in dir(database)
 
 
 def test_available_plots_takes_a_loaded_object_or_nothing(sample_ods):
@@ -306,3 +342,107 @@ def test_interactive_loads_eagerly_over_the_lazy_path(sample_ods):
     assert "dd" not in dir(database) and "render" not in dir(database) and "dd_plasma_current_time" in dir(database)
     result.state.set("yunit", "MA")  # rebuilds from the loaded ODS, long after the call returned
     assert result.axes.get_ylabel().endswith("[MA]")
+
+
+# ---------------------------------------------------------------------------
+# optional IDS the shot does not store (an overlay's wall)
+# ---------------------------------------------------------------------------
+
+def _stores(monkeypatch, *ids):
+    from vaft.database import plotting
+    monkeypatch.setattr(plotting, "stored_ids", lambda shot, source=None: ids)
+
+
+def test_an_optional_ids_the_shot_lacks_is_not_opened(monkeypatch, sample_ods):
+    """equilibrium_field_psi declares wall for an overlay; a shot without it still draws."""
+    assert "wall" in required_ids("equilibrium_field_psi")
+    _stores(monkeypatch, "dataset_description", "equilibrium", "magnetics", "pf_active", "pf_passive")
+    open_ods = Mock(return_value=sample_ods)
+    load_ods = Mock(return_value=sample_ods)
+    modules = {
+        "vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods", open_ods=open_ods, h5pyd=None),
+        "vaft.database.ods": _fake_module("vaft.database.ods", load_ods=load_ods),
+    }
+    expected = ["dataset_description", "equilibrium", "pf_active", "pf_passive"]
+    with patch.dict("sys.modules", modules):
+        figure, _ = database.plot_equilibrium_field_psi(39915)
+        plt.close(figure)
+        assert open_ods.call_args.kwargs["ids"] == expected
+        figure, _ = database.plot_equilibrium_field_psi(39915, lazy=False)
+        plt.close(figure)
+        assert load_ods.call_args.kwargs["paths"] == expected
+        database.extract_equilibrium_field_psi(39915)
+        assert open_ods.call_args.kwargs["ids"] == expected
+    # The catalog agrees: the plot is available on this shot.
+    assert database.available_plots(39915).find("equilibrium_field_psi").available is True
+
+
+def test_a_required_ids_the_shot_lacks_is_refused_by_name_before_io(monkeypatch):
+    _stores(monkeypatch, "dataset_description", "wall", "pf_active")
+    open_ods, load_ods = Mock(), Mock()
+    modules = {
+        "vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods", open_ods=open_ods, h5pyd=None),
+        "vaft.database.ods": _fake_module("vaft.database.ods", load_ods=load_ods),
+    }
+    message = r"plot 'equilibrium_field_psi' needs IDS equilibrium, which shot 39915 does not store in 'main'.*Stored IDS: dataset_description, pf_active, wall"
+    with patch.dict("sys.modules", modules):
+        for call in (
+            lambda: database.plot_equilibrium_field_psi(39915),
+            lambda: database.plot_equilibrium_field_psi(39915, lazy=False),
+            lambda: database.extract_equilibrium_field_psi(39915),
+        ):
+            with pytest.raises(FileNotFoundError, match=message):
+                call()
+    assert not open_ods.called and not load_ods.called
+
+
+def test_the_explorers_load_only_what_the_shot_stores(monkeypatch, sample_ods):
+    from vaft.database import plotting
+    from vaft.omas.interactive import equilibrium_explorer_ids
+
+    assert "wall" in equilibrium_explorer_ids()
+    _stores(monkeypatch, "dataset_description", "equilibrium", "magnetics")
+    load = Mock(return_value=sample_ods)
+    monkeypatch.setattr(database, "load", load)
+    ods = plotting._load_for_interaction(39915, None, equilibrium_explorer_ids(), "equilibrium_overview")
+    assert ods is sample_ods
+    assert load.call_args.kwargs["paths"] == [i for i in equilibrium_explorer_ids() if i in ("dataset_description", "equilibrium", "magnetics")]
+    _stores(monkeypatch, "dataset_description", "magnetics")
+    with pytest.raises(FileNotFoundError, match="needs IDS equilibrium"):
+        plotting._load_for_interaction(39915, None, equilibrium_explorer_ids(), "equilibrium_overview")
+
+
+def _psi_shot_files(fx, shot=39915):
+    psi = np.add.outer(np.linspace(0.0, 1.0, 4), np.linspace(0.0, 0.5, 3))  # (dim1, dim2)
+    equilibrium = {
+        "ids_properties&homogeneous_time": fx.FakeDataset(1),
+        "time": fx.FakeDataset([0.1]),
+        "time_slice[]&AOS_SHAPE": fx.FakeDataset([1]),
+        "time_slice[]&time": fx.FakeDataset([0.1]),
+        "time_slice[]&profiles_2d[]&AOS_SHAPE": fx.FakeDataset([[1]]),
+        "time_slice[]&profiles_2d[]&grid&dim1": fx.FakeDataset([[[0.2, 0.4, 0.6, 0.8]]]),
+        "time_slice[]&profiles_2d[]&grid&dim1_SHAPE": fx.FakeDataset([[[4]]]),
+        "time_slice[]&profiles_2d[]&grid&dim2": fx.FakeDataset([[[-0.5, 0.0, 0.5]]]),
+        "time_slice[]&profiles_2d[]&grid&dim2_SHAPE": fx.FakeDataset([[[3]]]),
+        # IMAS HDF5 stores the two trailing leaf dimensions in reverse order.
+        "time_slice[]&profiles_2d[]&psi": fx.FakeDataset(psi.T[None, None]),
+        "time_slice[]&profiles_2d[]&psi_SHAPE": fx.FakeDataset([[[3, 4]]]),
+    }
+    description = {"data_entry&pulse": fx.FakeDataset(shot)}
+    return {
+        f"hdf5://main/{shot}/equilibrium.h5": fx.FakeFile("equilibrium", fx.FakeGroup(equilibrium)),
+        f"hdf5://main/{shot}/dataset_description.h5": fx.FakeFile("dataset_description", fx.FakeGroup(description)),
+    }
+
+
+def test_a_shot_without_wall_draws_end_to_end_over_a_fake_hsds_store(monkeypatch):
+    """The lazy path used to 404 on the declared-but-absent wall domain."""
+    fx = _fake_store_module()
+    module = fx.FakeH5pyd(_psi_shot_files(fx))
+    from vaft.database import lazy_ods
+    monkeypatch.setattr(lazy_ods, "h5pyd", module)
+    model = database.extract_equilibrium_field_psi(39915)
+    assert module.folder_calls == ["/main/39915/"]
+    assert {uri.rsplit("/", 1)[-1] for uri in module.opened} <= {"equilibrium.h5", "dataset_description.h5"}
+    assert all(file.closed for uri, file in module.files.items() if uri in module.opened)
+    assert model is not None

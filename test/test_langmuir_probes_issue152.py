@@ -523,6 +523,99 @@ def test_a_solve_finite_over_a_filter_boundary_run_completes(run_length):
     np.testing.assert_allclose(stretch, 5.0)
 
 
+def test_samples_from_an_unfiltered_run_are_flagged_and_counted():
+    """#915: a finite run shorter than filtfilt accepts is decimated unfiltered.
+    Every target sample it contributes to must be invalid, the filtered run
+    must stay valid, and the counts must be reported for the manifest."""
+    omas = pytest.importorskip("omas")
+
+    shot = 39137
+    source_dt = 4e-6
+    time = 0.24 + source_dt * np.arange(25_000)
+    finite = np.zeros(time.size, dtype=bool)
+    finite[2_000:5_000] = True  # filtered
+    finite[10_000:10_500] = True  # too short: left unfiltered
+    finite[20_000] = True  # a stray single sample
+    solved = {
+        "time": time,
+        "vd2": np.zeros(time.size),
+        "current": np.zeros(time.size),
+        "te": np.where(finite, 5.0, np.nan),
+        "n_e": np.where(finite, 1.0e18, np.nan),
+        "solver_ok": finite,
+    }
+    fake_load = _make_fake_loader(99, 100, n=time.size)
+    report = {}
+
+    with patch.object(lp.raw_db, "vest_load", side_effect=fake_load), patch.object(
+        lp, "process_triple_probe", return_value=solved
+    ), pytest.warns(RuntimeWarning, match="shorter than"):
+        ods = omas.ODS()
+        lp.vfit_langmuir_probes_dynamic(ods, shot, 0.24, 0.34, 4e-5, report=report)
+
+    target = np.asarray(ods["langmuir_probes.embedded.0.time"], dtype=float)
+    long_run = (target > time[2_000 + 10]) & (target < time[4_999 - 10])
+    short_run = (target >= time[10_000]) & (target <= time[10_499])
+    assert long_run.any() and short_run.any()
+    for key in ("n_e", "t_e"):
+        validity = np.asarray(ods[f"langmuir_probes.embedded.0.{key}.validity_timed"])
+        assert (validity[long_run] == 0).all()
+        assert (validity[short_run] == -1).all()
+        counts = report["mid"][key]
+        assert counts["runs_unfiltered"] == 2
+        assert counts["samples_unfiltered"] == 501
+        # Only the samples the solve alone would have passed are newly
+        # invalid: the short run's interior, not the stray sample, whose
+        # neighbours already fail the solve.
+        filtered = np.zeros(time.size)
+        filtered[2_000:5_000] = 1.0
+        solver_valid = np.interp(target, time, finite.astype(float)) >= 1.0
+        newly = solver_valid & (np.interp(target, time, filtered) < 1.0)
+        assert newly.any() and not newly[~short_run].any()
+        assert counts["target_samples_invalidated"] == int(newly.sum())
+
+
+def test_n_e_and_t_e_are_flagged_by_their_own_filtered_runs():
+    """#915: n_e can be undefined where t_e is not, splitting a run t_e keeps
+    whole. Each quantity is flagged by its own unfiltered runs."""
+    omas = pytest.importorskip("omas")
+
+    shot = 39137
+    time = 0.24 + 4e-6 * np.arange(25_000)
+    te_finite = np.zeros(time.size, dtype=bool)
+    te_finite[2_000:6_000] = True
+    ne_finite = te_finite.copy()
+    ne_finite[2_500] = False  # n_e splits into a 500-sample run and a long one
+    solved = {
+        "time": time,
+        "vd2": np.zeros(time.size),
+        "current": np.zeros(time.size),
+        "te": np.where(te_finite, 5.0, np.nan),
+        "n_e": np.where(ne_finite, 1.0e18, np.nan),
+        "solver_ok": ne_finite,
+    }
+    report = {}
+    with patch.object(lp.raw_db, "vest_load", side_effect=_make_fake_loader(99, 100, n=time.size)), patch.object(
+        lp, "process_triple_probe", return_value=solved
+    ), pytest.warns(RuntimeWarning, match="shorter than"):
+        ods = omas.ODS()
+        lp.vfit_langmuir_probes_dynamic(ods, shot, 0.24, 0.34, 4e-5, report=report)
+
+    target = np.asarray(ods["langmuir_probes.embedded.0.time"], dtype=float)
+    short = (target > time[2_000 + 10]) & (target < time[2_500 - 10])
+    assert short.any()
+    te_validity = np.asarray(ods["langmuir_probes.embedded.0.t_e.validity_timed"])
+    ne_validity = np.asarray(ods["langmuir_probes.embedded.0.n_e.validity_timed"])
+    assert (te_validity[short] == 0).all()
+    assert (ne_validity[short] == -1).all()
+    assert report["mid"]["t_e"]["runs_unfiltered"] == 0
+    assert report["mid"]["n_e"] == {
+        "runs_unfiltered": 1,
+        "samples_unfiltered": 500,
+        "target_samples_invalidated": int(np.count_nonzero(ne_validity != te_validity)),
+    }
+
+
 # --- the measured-position table must ship, and its absence must be audible ----
 # (cold review docs F7)
 
@@ -570,3 +663,57 @@ def test_the_default_position_table_is_shipped_by_every_packaging_rule():
     assert f"vaft/{relative}" in verify_dist.REQUIRED_FILES, (
         "test/verify_dist.py would not notice a distribution that lacks the table"
     )
+
+
+@pytest.mark.parametrize("shot", [42138, 42144, 42641])
+def test_an_era_gap_is_its_own_error_type(shot):
+    """The diagnostics stage isolates exactly this condition (#989), so it has
+    to be distinguishable from every other configuration failure."""
+    config = lp.resolve_langmuir_probe_config("mid", shot)
+    with pytest.raises(lp.LangmuirProbeEraGapError, match="unresolved era gap"):
+        lp._resolve_era(config, shot, assembly_key="mid")
+    assert issubclass(lp.LangmuirProbeEraGapError, lp.LangmuirProbeConfigError)
+
+
+def _era_gaps(config):
+    """Closed shot intervals no era of *config* covers (open ends at +-inf)."""
+    eras = sorted(
+        (
+            float("-inf") if era.get("min_shot") is None else int(era["min_shot"]),
+            float("inf") if era.get("max_shot") is None else int(era["max_shot"]),
+        )
+        for era in config.get("shot_era_overrides") or ()
+    )
+    gaps, covered = [], float("-inf")
+    for low, high in eras:
+        if low > covered + 1:
+            gaps.append((covered + 1, low - 1))
+        covered = max(covered, high)
+    if covered < float("inf"):
+        gaps.append((covered + 1, float("inf")))
+    return gaps
+
+
+def test_no_langmuir_era_gap_falls_where_another_assembly_is_installed():
+    """An era gap drops the whole Langmuir component (#989), so a gap in one
+    assembly must never coincide with another assembly producing data --
+    otherwise filling or editing the table could silently discard it."""
+    shot = 50000  # any shot: the era tables live in the default block
+    configs = {a["key"]: lp.resolve_langmuir_probe_config(a["key"], shot) for a in lp.ASSEMBLIES}
+    installed_from = {
+        key: float("-inf") if config.get("first_shot") is None else int(config["first_shot"])
+        for key, config in configs.items()
+    }
+    for key, config in configs.items():
+        for low, high in _era_gaps(config):
+            # Only the part of the gap where this assembly itself is installed
+            # can raise (before first_shot it is skipped).
+            low = max(low, installed_from[key])
+            if low > high:
+                continue
+            for other, start in installed_from.items():
+                if other != key:
+                    assert high < start, (
+                        f"langmuir_probes.{key} has an era gap {low}-{high} while "
+                        f"langmuir_probes.{other} is installed (from {start})"
+                    )

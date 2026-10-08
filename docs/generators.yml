@@ -12,3 +12,17 @@ generators:
     output: _data/formula_catalog.yml
   - module: vaft.process.catalog
     output: _data/process_catalog.yml
+  - module: vaft.plot.docs_catalog
+    output: _data/plot_catalog.yml
+  - module: vaft.diagram.docs_catalog
+    output: _data/diagram_catalog.yml
+  - module: vaft._api_catalog
+    output: _data/api_catalog.yml
+  - module: vaft._dependency_graph
+    output: _data/dependency_graph.yml
+  - module: vaft._pipeline_graph
+    output: _data/pipeline_graph.yml
+  - module: vaft._ecosystem_catalog
+    output: _data/ecosystem.yml
+  - module: vaft._ontology_graph
+    output: _data/ontology_graph.yml

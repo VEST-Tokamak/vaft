@@ -47,7 +47,7 @@ The layer is being brought under the contract one submodule at a time
 ([#252](https://github.com/VEST-Tokamak/vaft/issues/252)).  A category gets a reference page when
 every function in it conforms; until then its count is shown and its page is absent.
 
-<table class="formula-table">
+<table class="ref-table">
   <thead><tr><th>Category</th><th>Module</th><th>Functions</th><th>Under contract</th><th>Contents</th></tr></thead>
   <tbody>
   {% for category in site.data.process_catalog.categories %}<tr>
@@ -90,3 +90,5 @@ The snapshot records the SHA-256 of every `vaft/process/*.py` source file, the p
 `VAFT_REGISTRY_SOURCE` points to the corresponding source checkout.  The same text is available
 offline as `vaft.process.describe("<name>")`, `vaft.process.search("<text>")` and
 `vaft.process.list_processes(category="<category>")`.
+
+What these objects mean scientifically -- which concept a plot draws, which diagnostic measures it, which Data Dictionary path represents it -- is generated in the [scientific ontology explorer]({{ site.baseurl }}/reference/ontology/).

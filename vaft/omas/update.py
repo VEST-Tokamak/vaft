@@ -2,14 +2,41 @@
 Update derived quantities for the ods data structure.
 """
 
+from collections.abc import Mapping
+
 import numpy as np
 from scipy.interpolate import interp1d
 import logging
 from vaft.formula import normalize_psi
+from vaft.formula.equilibrium import thermal_energy_from_p_V
 from vaft.formula.constants import MU0
 from vaft.process.equilibrium import psi_to_rz, volume_average
 from omas import *
 from vaft.compat import trapz_compat
+
+# The names defined here.  What this module imports (``omas``, NumPy, other
+# VAFT modules) is not re-exported through it (#1382).
+__all__ = [
+    "resolve_reference_major_radius",
+    "update_core_profiles_global_quantities_volume_average",
+    "update_equilibrium_boundary",
+    "update_equilibrium_constraints_diamagnetic_flux",
+    "update_equilibrium_coordinates",
+    "update_equilibrium_derived_profiles",
+    "update_equilibrium_global_quantities_area",
+    "update_equilibrium_global_quantities_beta_li",
+    "update_equilibrium_global_quantities_q_min",
+    "update_equilibrium_global_quantities_volume",
+    "update_equilibrium_profiles_1d_geometry",
+    "update_equilibrium_profiles_1d_j_tor",
+    "update_equilibrium_profiles_1d_normalized_psi",
+    "update_equilibrium_profiles_1d_radial_coordinates",
+    "update_equilibrium_profiles_1d_toroidal_flux",
+    "update_equilibrium_profiles_2d_b_field",
+    "update_equilibrium_profiles_2d_j_tor",
+    "update_equilibrium_profiles_2d_sfl_coordinates",
+    "update_equilibrium_stored_energy",
+]
 
 # update_diagnostics_file(ods, filename)
 
@@ -180,6 +207,26 @@ def update_equilibrium_boundary(ods, time_slice=None):
 
         return float(r0), float(z0)
 
+    def _no_plasma(ts):
+        """Whether the slice is a vacuum/terminated one: zero current or no flux excursion."""
+        psi_axis = _safe_float(ts["global_quantities.psi_axis"]) if "global_quantities.psi_axis" in ts else np.nan
+        psi_boundary = _safe_float(ts["global_quantities.psi_boundary"]) if "global_quantities.psi_boundary" in ts else np.nan
+        ip = _safe_float(ts["global_quantities.ip"]) if "global_quantities.ip" in ts else np.nan
+        degenerate_flux = np.isfinite(psi_axis) and np.isfinite(psi_boundary) and psi_axis == psi_boundary
+        return bool(degenerate_flux or (np.isfinite(ip) and ip == 0.0))
+
+    def _write_no_axis(ts):
+        """A no-plasma slice has no geometric axis: store NaN, not the fallback.
+
+        The fallback would write the grid centre or a stale axis as if it were
+        one, and every shape history would plot it (#952).  NaN rather than
+        leaving the leaf absent keeps colon reads across slices rectangular
+        (``ods['equilibrium.time_slice.:.boundary.geometric_axis.r']``) and
+        makes ``float(...)`` of the leaf a NaN instead of a LookupError.
+        """
+        ts['boundary.geometric_axis.r'] = np.nan
+        ts['boundary.geometric_axis.z'] = np.nan
+
     if 'equilibrium.time_slice' not in ods or len(ods['equilibrium.time_slice']) == 0:
         logger.warning("No equilibrium.time_slice found while updating boundary.")
         return
@@ -199,6 +246,9 @@ def update_equilibrium_boundary(ods, time_slice=None):
         ts = ods['equilibrium']['time_slice'][idx]
         if 'boundary.outline.r' not in ts or 'boundary.outline.z' not in ts:
             logger.warning("boundary.outline not found for time slice %s", idx)
+            if _no_plasma(ts):
+                _write_no_axis(ts)
+                continue
             r0, z0 = _fallback_axis(ts)
             ts['boundary.geometric_axis.r'] = r0
             ts['boundary.geometric_axis.z'] = z0
@@ -211,6 +261,9 @@ def update_equilibrium_boundary(ods, time_slice=None):
         z_outline = z_outline[finite]
         if r_outline.size < 3:
             logger.warning("boundary.outline has fewer than 3 valid points for time slice %s", idx)
+            if _no_plasma(ts):
+                _write_no_axis(ts)
+                continue
             r0, z0 = _fallback_axis(ts)
             ts['boundary.geometric_axis.r'] = r0
             ts['boundary.geometric_axis.z'] = z0
@@ -413,7 +466,7 @@ def update_equilibrium_profiles_2d_b_field(ods, time_slice=None):
         try:
             b_r, b_z, b_tor = equilibrium_field_on_grid(
                 frame["r_grid"], frame["z_grid"], frame["psi_2d_radian"],
-                psi_1d, f_1d, cocos=per_radian,
+                psi_1d, f_1d, cocos=per_radian, psi_per_radian=True,
             )
         except Exception as error:  # noqa: BLE001 - a degenerate grid is skipped, not fatal
             logger.warning("2-D field failed for time slice %s (%s); skipping.", idx, error)
@@ -1327,7 +1380,9 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
             continue
         pressure_equil = ts['profiles_1d.pressure']
         volume_equil = ts['profiles_1d.volume']
-        ts['global_quantities.energy_mhd'] = 3.0 / 2.0 * trapz_compat(pressure_equil, x=volume_equil)
+        # W = 3/2 int p dV: the integral already carries the volume, so the
+        # formula's V is 1 -- one definition for every VAFT energy (#1768)
+        ts['global_quantities.energy_mhd'] = thermal_energy_from_p_V(trapz_compat(pressure_equil, x=volume_equil), 1.0)
 
 
 def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
@@ -1491,8 +1546,23 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                                   bounds_error=False,
                                   fill_value=(profile_1d_rho[0], profile_1d_rho[-1]))
             profile_1d = interp_func(rho_tor_norm_at_psiN)
-            profile_RZ, psiN_RZ = psi_to_rz(psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs)
+            profile_RZ, psiN_RZ = psi_to_rz(
+                psiN_1d, profile_1d, psi_RZ, psi_axis, psi_lcfs, fill_outside="edge"
+            )
             return profile_RZ, psiN_RZ
+
+        # Plasma mask of THIS slice, built once from the first psi_N map
+        # either branch produces (psi_N is the same for every profile of the
+        # slice) so an ion-only slice never inherits the previous slice's mask.
+        plasma_weights = None
+
+        def weights_for(psiN_RZ_slice):
+            nonlocal plasma_weights
+            if plasma_weights is None:
+                from vaft.omas.process_wrapper import _slice_plasma_weights
+
+                plasma_weights = _slice_plasma_weights(eq_ts, R_grid, Z_grid, psiN_RZ_slice)
+            return plasma_weights
 
         # Step 2: Process electron profiles
         psiN_RZ = None
@@ -1504,12 +1574,17 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                 # Process n_e
                 n_e_1d_rho = np.asarray(cp_ts['electrons.density'], float)
                 n_e_RZ, psiN_RZ = convert_to_2d(n_e_1d_rho)
-                n_e_vol, _ = volume_average(n_e_RZ, psiN_RZ, R_grid, Z_grid)
+                plasma_weights = weights_for(psiN_RZ)
+                n_e_vol, _ = volume_average(
+                    n_e_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                )
                 
                 # Process T_e
                 T_e_1d_rho = np.asarray(cp_ts['electrons.temperature'], float)
                 T_e_RZ, _ = convert_to_2d(T_e_1d_rho)
-                T_e_vol, _ = volume_average(T_e_RZ, psiN_RZ, R_grid, Z_grid)
+                T_e_vol, _ = volume_average(
+                    T_e_RZ, psiN_RZ, R_grid, Z_grid, weights=plasma_weights
+                )
             except Exception as e:
                 print(f"Warning: Error processing electron profiles for core_profiles[{cp_idx}]: {e}")
         else:
@@ -1518,14 +1593,20 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
         n_e_vol_list.append(n_e_vol)
         T_e_vol_list.append(T_e_vol)
 
-        # Step 2: Process ion profiles (each ion individually)
-        if 'ion' in cp_ts and cp_ts['ion']:
+        # Step 2: Process ion profiles (each ion individually). The container
+        # is an ODS struct array on a real core_profiles (a plain dict or list
+        # only on hand-built inputs); all three are indexed by position.
+        if 'ion' in cp_ts and len(cp_ts['ion']):
             # Get list of ion indices
-            ion_indices = []
             if isinstance(cp_ts['ion'], dict):
                 ion_indices = list(cp_ts['ion'].keys())
-            elif isinstance(cp_ts['ion'], (list, tuple)):
+            else:
                 ion_indices = list(range(len(cp_ts['ion'])))
+            # Ions seen on earlier slices but absent here keep their lists aligned.
+            for ion_idx in ion_vol_dict.keys():
+                if ion_idx not in ion_indices:
+                    ion_vol_dict[ion_idx]['n_i'].append(np.nan)
+                    ion_vol_dict[ion_idx]['T_i'].append(np.nan)
             
             for ion_idx in ion_indices:
                 # Initialize ion result lists if not exists
@@ -1536,14 +1617,11 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                         ion_vol_dict[ion_idx]['n_i'].append(np.nan)
                         ion_vol_dict[ion_idx]['T_i'].append(np.nan)
                 
-                # Get ion data
-                if isinstance(cp_ts['ion'], dict):
-                    ion_ts = cp_ts['ion'][ion_idx]
-                else:
-                    ion_ts = cp_ts['ion'][ion_idx]
+                # Get ion data (an ODS, or a dict on hand-built inputs)
+                ion_ts = cp_ts['ion'][ion_idx]
                 
                 # Check if ion_ts is valid and has required keys
-                if not isinstance(ion_ts, dict) or ion_ts is None:
+                if not isinstance(ion_ts, Mapping):
                     ion_vol_dict[ion_idx]['n_i'].append(np.nan)
                     ion_vol_dict[ion_idx]['T_i'].append(np.nan)
                     continue
@@ -1568,12 +1646,18 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
                         ion_vol_dict[ion_idx]['T_i'].append(np.nan)
                         continue
                     
-                    # Convert to 2D RZ and compute volume average
-                    n_i_RZ, _ = convert_to_2d(n_i_1d_rho)
+                    # Convert to 2D RZ and compute volume average with this
+                    # slice's own mask (an ion-only slice has no electron psi_N).
+                    n_i_RZ, psiN_RZ_ion = convert_to_2d(n_i_1d_rho)
                     T_i_RZ, _ = convert_to_2d(T_i_1d_rho)
+                    ion_weights = weights_for(psiN_RZ_ion)
                     
-                    n_i_vol, _ = volume_average(n_i_RZ, psiN_RZ, R_grid, Z_grid)
-                    T_i_vol, _ = volume_average(T_i_RZ, psiN_RZ, R_grid, Z_grid)
+                    n_i_vol, _ = volume_average(
+                        n_i_RZ, psiN_RZ_ion, R_grid, Z_grid, weights=ion_weights
+                    )
+                    T_i_vol, _ = volume_average(
+                        T_i_RZ, psiN_RZ_ion, R_grid, Z_grid, weights=ion_weights
+                    )
                     
                     ion_vol_dict[ion_idx]['n_i'].append(n_i_vol)
                     ion_vol_dict[ion_idx]['T_i'].append(T_i_vol)
@@ -1596,20 +1680,12 @@ def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):
     gq['n_e_volume_average'] = n_e_vol_list
     gq['t_e_volume_average'] = T_e_vol_list
     
-    # Store ion results only if ion data exists
-    if ion_vol_dict:
-        # Store ion results
-        if 'ion' not in gq:
-            gq['ion'] = []
-        
-        # Ensure ion array has enough elements
-        max_ion_idx = max(ion_vol_dict.keys())
-        while len(gq['ion']) <= max_ion_idx:
-            gq['ion'].append(ODS())
-        
-        for ion_idx, results in ion_vol_dict.items():
-            gq['ion'][ion_idx]['n_i_volume_average'] = results['n_i']
-            gq['ion'][ion_idx]['t_i_volume_average'] = results['T_i']
+    # Store ion results only if ion data exists, on the DD nodes
+    # core_profiles.global_quantities.ion[:].{n_i,t_i}_volume_average (writing
+    # the struct array as an empty list fails OMAS's coordinate check).
+    for ion_idx, results in ion_vol_dict.items():
+        gq[f'ion.{int(ion_idx)}.n_i_volume_average'] = np.asarray(results['n_i'], float)
+        gq[f'ion.{int(ion_idx)}.t_i_volume_average'] = np.asarray(results['T_i'], float)
 
 
 def update_equilibrium_constraints_diamagnetic_flux(ods, time_slice=None):
@@ -1700,18 +1776,18 @@ def _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1
     from vaft.plot import Profile1D, Panels, Series, render_panels
 
     axis_r = ts["global_quantities.magnetic_axis.r"]
-    axis_style = {"marker": ".", "linestyle": "none", "color": "k"}
+    axis_style = {"marker": ".", "linestyle": "none", "color": "feature:axis"}
 
     psi_panel = Profile1D(
         series=(
-            Series(x=r_in, y=psi_in, label="2D Inboard", style={"color": "r"}),
+            Series(x=r_in, y=psi_in, label="2D Inboard", style={"color": "palette:1"}),
             Series(x=ts["profiles_1d.r_inboard"], y=psi_1d, label="Inboard",
-                   style={"color": "b", "linestyle": "--"}),
+                   style={"color": "palette:0", "linestyle": "--"}),
             Series(x=[axis_r], y=[ts["global_quantities.psi_axis"]],
                    label="Magnetic Axis", style=axis_style),
-            Series(x=r_out, y=psi_out, label="2D Outboard", style={"color": "g"}),
+            Series(x=r_out, y=psi_out, label="2D Outboard", style={"color": "palette:3"}),
             Series(x=ts["profiles_1d.r_outboard"], y=psi_1d, label="Outboard",
-                   style={"color": "m", "linestyle": "--"}),
+                   style={"color": "palette:2", "linestyle": "--"}),
         ),
         coordinate_label="R [m]", y_label="Psi",
     )
@@ -1719,9 +1795,9 @@ def _plot_radial_mapping_validation(ts, idx, r_in, psi_in, r_out, psi_out, psi_1
     def _inboard_outboard(quantity, label, unit="", axis_value=None):
         series = [
             Series(x=ts["profiles_1d.r_inboard"], y=ts[f"profiles_1d.{quantity}"],
-                   label="Inboard", style={"color": "r"}),
+                   label="Inboard", style={"color": "palette:1"}),
             Series(x=ts["profiles_1d.r_outboard"], y=ts[f"profiles_1d.{quantity}"],
-                   label="Outboard", style={"color": "g"}),
+                   label="Outboard", style={"color": "palette:3"}),
         ]
         if axis_value is not None:
             series.insert(
@@ -1765,7 +1841,7 @@ def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
     psi_theta = LineSeries(
         series=tuple(
             Series(x=theta, y=np.full_like(theta, prof2d["psi"][i_surf, 0]),
-                   style={"color": "k", "lw": 0.5})
+                   style={"color": "palette:0", "lw": 0.5})
             for i_surf in range(nr)
         ),
         x_label=r"$\theta_{\rm SFL}$", x_unit="rad",
@@ -1781,13 +1857,13 @@ def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
     layers = [
         GeometryLayer(r=prof2d["r"][i_surf, :], z=prof2d["z"][i_surf, :],
                       label="Flux Surface" if i_surf == 0 else "",
-                      style={"color": "b", "lw": 0.7}, role=EQUILIBRIUM_ROLE)
+                      style={"color": "palette:0", "lw": 0.7}, role=EQUILIBRIUM_ROLE)
         for i_surf in range(nr)
     ]
     layers += [
         GeometryLayer(r=prof2d["r"][:, j_theta], z=prof2d["z"][:, j_theta],
                       label="SFL theta line" if j_theta == 0 else "",
-                      style={"color": "r", "linestyle": "--", "lw": 0.5}, role=EQUILIBRIUM_ROLE)
+                      style={"color": "palette:1", "linestyle": "--", "lw": 0.5}, role=EQUILIBRIUM_ROLE)
         for j_theta in range(0, nt, max(1, nt // 16))
     ]
     global_quantities = ts.get("global_quantities", {})
@@ -1797,7 +1873,7 @@ def _plot_sfl_grid(prof2d, ts, nr, nt, time_val, profiles_2d_idx, convention,
                 r=[global_quantities["magnetic_axis.r"]],
                 z=[global_quantities["magnetic_axis.z"]],
                 kind="points", label="Mag. Axis",
-                style={"marker": "x", "color": "k", "markersize": 10, "mew": 2},
+                style={"marker": "x", "color": "feature:axis", "markersize": 10, "mew": 2},
                 role=EQUILIBRIUM_ROLE,
             )
         )

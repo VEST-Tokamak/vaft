@@ -159,6 +159,24 @@ def test_spline_has_129_points_and_negative_rpress():
     assert all(0.0 < w <= 1.0 for w in pts.fwtpre)
 
 
+@pytest.mark.parametrize("record, fraction", [
+    ("ti_te_ratio=1; sigma=0.5; status=assumed; source=vest.yaml:diagnostics.core_profiles; base", 0.25),
+    ("ti_te_ratio=0.17; sigma=0.08; status=inferred; source=test", None),       # 6.8 % < 15 %: floor holds
+    ("ti_te_ratio=1; status=assumed; source=legacy Ti=Te fallback", None),      # no sigma stated
+    (None, None),                                                               # measured Ti: no record
+])
+def test_spline_sigma_carries_an_assumed_ti_te_ratio(record, fraction):
+    """#1414: the raw encodings propagate the ratio's sigma into SIGPRE; the
+    spline encoding held a fixed 15 % of p(axis) whatever Ti was assumed."""
+    ods = _make_spline_ods()
+    if record is not None:
+        ods["core_profiles"]["profiles_1d"][0]["ion"] = [FakeNode(temperature_fit=FakeNode(parameters=record))]
+    pts = km.kinetic_pressure_points(ods, 300.0, encoding="spline")
+    expected = max(km.SPLINE_SIG_FRAC, fraction or 0.0)
+    assert np.isclose(pts.sigpre[0], expected * pts.pressr[0])
+    assert all(sigma == pts.sigpre[0] for sigma in pts.sigpre)
+
+
 # --------------------------------------------------------------------------- #
 # inject_pressure_constraint
 # --------------------------------------------------------------------------- #

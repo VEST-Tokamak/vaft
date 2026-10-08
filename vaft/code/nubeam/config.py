@@ -14,9 +14,11 @@ NUBEAM_HOME_ENV = "NUBEAMHOME"
 #: Serial NUBEAM, relative to ``$NUBEAMHOME``.
 NUBEAM_HOME_EXECUTABLE = Path("bin/nubeam_comp_exec")
 
-#: The Plasma State generator. The NTCC archive ships no main program for it;
-#: this is built from ``plasma_state_test.f90`` by ``install/nubeam/macos.sh``.
-NUBEAM_GENERATOR_EXECUTABLE = Path("bin/plasma_state_test")
+#: The Plasma State generator. The public NTCC archive ships the Plasma State
+#: library but no program that creates a state, so this is VAFT's own,
+#: ``install/nubeam/plasma_state/vaft_plasma_state.f90``, compiled by the
+#: installers against the NTCC build (see :mod:`vaft.code.nubeam.plasma_state`).
+NUBEAM_GENERATOR_EXECUTABLE = Path("bin/vaft_plasma_state")
 
 #: Merges NUBEAM's own state-change output into a full Plasma State.
 NUBEAM_UPDATE_STATE_EXECUTABLE = Path("bin/update_state")
@@ -111,3 +113,15 @@ class NUBEAMConfig(CodeConfig):
     def workdir_budget(self) -> int:
         """Longest permissible work-directory path for this configuration."""
         return workdir_budget(self.runid, buffer_chars=self.path_buffer_chars)
+
+
+__all__ = [
+    "NUBEAM_GENERATOR_EXECUTABLE",
+    "NUBEAM_HOME_ENV",
+    "NUBEAM_HOME_EXECUTABLE",
+    "NUBEAM_LONGEST_OUTPUT_SUFFIX",
+    "NUBEAM_PATH_BUFFER_CHARS",
+    "NUBEAM_UPDATE_STATE_EXECUTABLE",
+    "workdir_budget",
+    "NUBEAMConfig",
+]

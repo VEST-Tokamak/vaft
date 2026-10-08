@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import pytest
 import yaml
 
 try:
@@ -57,6 +58,7 @@ def test_runtime_configuration_is_declared_as_package_data():
         "data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat" in package_data
     )
     assert "data/geometry/VEST_em_coupling_pf_versions.npz" in package_data
+    assert "data/geometry/VEST_passive_wall_2409.npz" in package_data
     assert "data/efit/*" not in package_data
     assert "data/imas/*.nc" not in package_data
     assert "data/legacy/*.csv" not in package_data
@@ -68,10 +70,15 @@ def test_runtime_configuration_is_declared_as_package_data():
     assert "data/omas/*.json" not in package_data
     assert "data/samples/*/manifest.yaml" in package_data
     assert "data/samples/39915/omas.json.gz" in package_data
-    assert "data/samples/39915/imas.nc" in package_data
+    # the IMAS netCDF twin of the same product is repository-only (0.8.0)
+    assert "data/samples/39915/imas.nc" not in package_data
     assert "data/samples/39915/source/*" not in package_data
     assert "data/samples/41524/imas.nc" not in package_data
     assert "data/samples/41672/imas.nc" not in package_data
+    assert "data/samples/48224/omas.json.gz" not in package_data
+    assert "data/samples/45531/omas.json.gz" not in package_data
+    assert "data/samples/40600/omas.json.gz" not in package_data
+    assert not any(entry.startswith("data/kineticEfit") for entry in package_data)
     assert "data/geometry/VEST_static_geometry.json.gz" in package_data
     assert not (ROOT / "vaft" / ".hscfg").exists()
     setup_py = (ROOT / "setup.py").read_text(encoding="utf-8")
@@ -100,6 +107,7 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
         in manifest
     )
     assert "include vaft/data/geometry/VEST_em_coupling_pf_versions.npz" in manifest
+    assert "include vaft/data/geometry/VEST_passive_wall_2409.npz" in manifest
     assert "include vaft/data/geometry/*.yaml" in manifest
     assert "include vaft/data/geometry/*.csv" in manifest
     assert "include vaft/data/gpec/*.in" in manifest
@@ -109,10 +117,11 @@ def test_sdist_manifest_uses_the_same_data_allowlist():
     assert "include vaft/data/legacy/langmuir_probe_positions.csv" in manifest
     assert "include vaft/data/samples/*/manifest.yaml" in manifest
     assert "include vaft/data/samples/39915/omas.json.gz" in manifest
-    assert "include vaft/data/samples/39915/imas.nc" in manifest
+    assert "include vaft/data/samples/39915/imas.nc" not in manifest
     assert "include vaft/data/wheel_samples/39915/manifest.yaml" in manifest
     assert "include vaft/data/wheel_samples/39915/omas.json.gz" in manifest
-    assert "include vaft/data/wheel_samples/39915/imas.nc" in manifest
+    # the hook no longer reads the compact IMAS twin, so the sdist drops it (0.8.0)
+    assert "include vaft/data/wheel_samples/39915/imas.nc" not in manifest
     assert "include vaft/data/geometry/VEST_static_geometry.json.gz" in manifest
 
 
@@ -198,3 +207,37 @@ def test_wheel_sample_carries_the_same_conventions_as_the_checkout_sample():
     assert toroidal <= {round(float(IMPA_TOROIDAL_PROBE_TOROIDAL_ANGLE), 9)}
     # and no poloidal probe carries a toroidal_angle at all (#725)
     assert not any("toroidal_angle" in probe for probe in magnetics["b_field_pol_probe"])
+
+
+def test_verify_dist_requires_the_runtime_data_outside_vaft_data(tmp_path):
+    """cold review 0.8.0 execution-backend F3: ``_allowed_data_file`` only
+    inspects ``vaft/data/``, so a wheel lacking the NICE parameters, the NICE
+    compatibility header or the diagram template passed every other check."""
+    import zipfile
+
+    import verify_dist
+
+    outside = {
+        "vaft/code/nice/vest_reference_param.xml",
+        "vaft/code/nice/upstream_compat.h",
+        "vaft/diagram/templates/standalone.tex",
+        # cold review 0.8.0 plot-gui-packaging F5: image_path() raises at render time without it
+        "vaft/diagram/images/vest_machine.jpg",
+    }
+    assert outside <= verify_dist.REQUIRED_FILES
+    for name in sorted(outside):
+        assert (ROOT / name).is_file(), name
+    package_data = _pyproject()["tool"]["setuptools"]["package-data"]["vaft"]
+    assert {"code/nice/*.xml", "code/nice/*.h", "diagram/templates/*.tex", "diagram/images/*.jpg"} <= set(package_data)
+
+    def wheel(without: str) -> Path:
+        path = tmp_path / f"vaft-0.0-{abs(hash(without))}-py3-none-any.whl"
+        with zipfile.ZipFile(path, "w") as archive:
+            for name in sorted(verify_dist.REQUIRED_FILES - {without}):
+                archive.writestr(name, "x")
+        return path
+
+    verify_dist._verify_distribution(wheel(without=""))
+    for name in sorted(outside):
+        with pytest.raises(ValueError, match=name):
+            verify_dist._verify_distribution(wheel(without=name))

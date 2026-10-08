@@ -22,11 +22,16 @@ from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axe
 
 __all__ = [
     "impa_profile_field",
+    "core_profiles_profile_zeff",
+    "charge_exchange_profile_fit",
     "charge_exchange_profile_ion_temperature",
     "charge_exchange_profile_velocity_tor",
     "electron_density_profile",
+    "electron_density_profile_gradient",
     "electron_temperature_profile",
+    "electron_temperature_profile_gradient",
     "ion_temperature_profile",
+    "ion_temperature_profile_gradient",
     "thermal_pressure_profile",
     "equilibrium_profile_f",
     "equilibrium_profile_ffprime",
@@ -34,10 +39,15 @@ __all__ = [
     "equilibrium_profile_pprime",
     "equilibrium_profile_pressure",
     "equilibrium_profile_q",
+    "coil_3d_profile_current",
+    "coil_3d_spectrum_current",
     "mhd_linear_profile_b_field_perturbed",
+    "mhd_linear_profile_chirikov",
     "mhd_linear_profile_displacement",
+    "mhd_linear_spectrum_b_field_perturbed",
     "render_profile_1d",
     "thomson_scattering_profile_electron_density",
+    "thomson_scattering_profile_fit",
     "thomson_scattering_profile_electron_temperature",
 ]
 
@@ -154,7 +164,32 @@ def mirnov_spatial_phase(model: Profile1D, *, ax: Axes | None = None, show: bool
     optional_paths=_SENSOR_POSITIONS["flux_loop"] + ("magnetics.flux_loop.{i}.flux.time", "magnetics.time"),
 )
 def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """Flux-loop flux against sensor position at one time (issue #486)."""
+    """Flux-loop flux against sensor position at one time (issue #486).
+
+    Interpretation
+    --------------
+    The flux of every loop at one instant, against where the loop sits.  It
+    shows the spatial pattern behind the time traces: an up-down asymmetry can
+    reflect a vertical plasma displacement or asymmetric coil currents, an
+    inboard-outboard difference the radial position and current.
+
+    Options
+    -------
+    ``time=`` picks the stored sample nearest the requested instant; nothing is
+    interpolated.  ``coordinate=`` draws the sensors either against height,
+    with inboard and outboard sensors in separate panels, or against their
+    poloidal angle about the centre of the sensor layout (``centre=`` moves
+    it). ``validity=`` treats flagged channels as in the time view.
+
+    Limitations
+    -----------
+    The values include the vacuum field.  Sensors are sparse: whatever is drawn
+    between them is not measured.
+
+    See Also
+    --------
+    flux_loop_time_flux : the same loops against time.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -170,7 +205,34 @@ def flux_loop_spatial_flux(model: Profile1D, *, ax: Axes | None = None, show: bo
     optional_paths=_SENSOR_POSITIONS["b_field_probe"] + ("magnetics.b_field_pol_probe.{i}.field.time", "magnetics.time"),
 )
 def b_field_probe_spatial_field(model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any) -> tuple[Figure, Axes]:
-    """B-probe poloidal field against sensor position at one time (issue #486)."""
+    """B-probe poloidal field against sensor position at one time (issue #486).
+
+    Interpretation
+    --------------
+    The field of every magnetic probe at one instant, against where the probe
+    sits.  It shows how the poloidal field is distributed around the plasma
+    region at that time, which follows the plasma's position, shape and current
+    distribution as well as the coil field.
+
+    Options
+    -------
+    ``time=`` picks the stored sample nearest the requested instant; nothing is
+    interpolated.  ``coordinate=`` draws the sensors either against height,
+    with inboard and outboard sensors in separate panels, or against their
+    poloidal angle about the centre of the sensor layout (``centre=`` moves
+    it). ``validity=`` treats flagged channels as in the time view. ``angle=``
+    chooses the geometric poloidal angle or the one stored with each probe.
+
+    Limitations
+    -----------
+    Each probe measures one field component along its own axis, so neighbouring
+    probes mounted differently are not directly comparable.  The values include
+    the vacuum field, and nothing between sensors is measured.
+
+    See Also
+    --------
+    b_field_probe_time_field : the same probes against time.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -223,6 +285,27 @@ def neoclassical_profile_bootstrap_current(
 
 
 @_profile_renderer(
+    domain="core_profiles", quantity="zeff",
+    subject="core_profiles",
+    description=(
+        "Z_eff(rho) stored in a core_profiles slice, labelled measured, assumed, derived or "
+        "inferred by its zeff_fit record; an unlabelled profile says so."
+    ),
+    ids=("core_profiles",),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.zeff",
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+    ),
+    optional_paths=("core_profiles.profiles_1d.{i}.zeff_fit.parameters",),
+)
+def core_profiles_profile_zeff(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Stored Z_eff(rho), labelled by the origin its record states."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
     domain="equilibrium", quantity="pressure",
     subject="equilibrium",
     description="Equilibrium 1D pressure profile.",
@@ -248,7 +331,48 @@ def equilibrium_profile_pressure(
 def equilibrium_profile_q(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Equilibrium safety-factor profile."""
+    """Equilibrium safety-factor profile.
+
+    Interpretation
+    --------------
+    Shows the safety factor q -- the number of toroidal turns a field line
+    makes per poloidal turn on a flux surface -- across the radius of one
+    reconstructed equilibrium slice.  It is read for the location of low-order
+    rational surfaces (q = m/n such as 1, 3/2, 2, 3), for the magnetic shear
+    given by the local slope of the curve, for the central value q0 and the
+    edge value, and for differences in current-profile structure between slices
+    or shots: a peaked current gives a low q0 and a steep rise, a broad or
+    hollow one a flat or reversed-shear core.
+
+    Options
+    -------
+    ``coordinate=`` changes only the horizontal axis.  The q values are the
+    same equilibrium quantity on every coordinate, so the positions of rational
+    surfaces move with the choice and must be compared on one coordinate.
+    ``rational_q=`` and ``resonances=`` mark where the stored profile crosses a
+    requested q or the m/n of a requested harmonic.  ``orientation=`` decides
+    whether q keeps its stored sign or is drawn positive.
+
+    Convention
+    ----------
+    The stored sign of q follows the equilibrium's COCOS and the directions of
+    plasma current and toroidal field.  The default display draws it positive
+    (the title then says "sign flipped"); ``orientation="canonical"`` keeps
+    the stored sign.  Rational surfaces are matched on the magnitude of q.
+
+    Limitations
+    -----------
+    The profile is the reconstruction's, not a measurement.  With magnetic
+    constraints alone the core q, and q0 in particular, is weakly determined
+    and reflects the solver's profile parametrisation.  q gives context for
+    tearing, kink and sawtooth behaviour, but it is not by itself a stability
+    criterion.
+
+    See Also
+    --------
+    equilibrium_time_q95 : q at the 95 % flux surface against time.
+    equilibrium_profile_j_tor : the current density that shapes q.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -323,7 +447,37 @@ def equilibrium_profile_ffprime(
 def electron_temperature_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Core electron temperature profile."""
+    """Core electron temperature profile.
+
+    Interpretation
+    --------------
+    The electron temperature against the radial flux coordinate at one
+    core_profiles time.  It is read for the central temperature, the peaking,
+    the regions of steep gradient and a pedestal if there is one, and for how
+    the profile changes between times or discharges.
+
+    Options
+    -------
+    ``coordinate=`` draws the profile against rho_tor_norm, the square root of
+    the normalized toroidal flux, or against the normalized poloidal flux
+    psi_N; the values do not change, but positions do, so
+    profiles are compared on one coordinate.  ``rational_q=`` and
+    ``resonances=`` mark rational surfaces from the equilibrium's q profile.
+    ``uncertainty=`` and ``validity=`` control how stored uncertainties and
+    flagged values are drawn.
+
+    Limitations
+    -----------
+    A core_profiles entry may be a fit to measurements, a model or an assumed
+    profile; the curve between measurement points is the fit's, not the data.
+    Mapping onto a flux coordinate uses an equilibrium, whose errors move the
+    points radially.
+
+    See Also
+    --------
+    thomson_scattering_profile_fit : the measurements behind a fitted profile.
+    electron_temperature_field : the same profile mapped onto the poloidal plane.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -338,7 +492,37 @@ def electron_temperature_profile(
 def electron_density_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Core electron density profile."""
+    """Core electron density profile.
+
+    Interpretation
+    --------------
+    The electron density against the radial flux coordinate at one
+    core_profiles time.  It is read for the central density, the peaking, the
+    gradient regions and the edge, and for how the profile evolves with
+    fuelling and confinement.
+
+    Options
+    -------
+    ``coordinate=`` draws the profile against rho_tor_norm, the square root of
+    the normalized toroidal flux, or against the normalized poloidal flux
+    psi_N; the values do not change, but positions do, so
+    profiles are compared on one coordinate.  ``rational_q=`` and
+    ``resonances=`` mark rational surfaces from the equilibrium's q profile.
+    ``uncertainty=`` and ``validity=`` control how stored uncertainties and
+    flagged values are drawn.
+
+    Limitations
+    -----------
+    A core_profiles entry may be a fit to measurements, a model or an assumed
+    profile; the curve between measurement points is the fit's, not the data.
+    Mapping onto a flux coordinate uses an equilibrium, whose errors move the
+    points radially.
+
+    See Also
+    --------
+    thomson_scattering_profile_fit : the measurements behind a fitted profile.
+    electron_density_field : the same profile mapped onto the poloidal plane.
+    """
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -354,6 +538,84 @@ def ion_temperature_profile(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Core ion temperature profile."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+#: What a profile gradient view needs from the equilibrium it is mapped
+#: through (issue #551): the flux map and the axis the midplane radii come from.
+_GRADIENT_EQUILIBRIUM_PATHS = (
+    "equilibrium.time_slice.{i}.profiles_1d.psi",
+    "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+)
+#: The grids a profile may be stored on; the recipe takes the first it finds.
+_GRADIENT_GRID_PATHS = (
+    "core_profiles.profiles_1d.{i}.grid.psi",
+    "core_profiles.profiles_1d.{i}.grid.rho_pol_norm",
+    "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="gradient",
+    subject="electron_temperature",
+    description=(
+        "Normalized logarithmic gradient of the core electron temperature, -L d ln f/dx, with its "
+        "abscissa, gradient coordinate and reference length stated (a/L by default)."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        *_GRADIENT_EQUILIBRIUM_PATHS,
+    ),
+    optional_paths=_GRADIENT_GRID_PATHS,
+)
+def electron_temperature_profile_gradient(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Core electron temperature gradient; the model carries the values, the label and the record."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="gradient",
+    subject="electron_density",
+    description=(
+        "Normalized logarithmic gradient of the core electron density, -L d ln f/dx, with its "
+        "abscissa, gradient coordinate and reference length stated (a/L by default)."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.electrons.density",
+        *_GRADIENT_EQUILIBRIUM_PATHS,
+    ),
+    optional_paths=_GRADIENT_GRID_PATHS,
+)
+def electron_density_profile_gradient(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Core electron density gradient; the model carries the values, the label and the record."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="core_profiles", quantity="gradient",
+    subject="ion_temperature",
+    description=(
+        "Normalized logarithmic gradient of the core ion temperature, -L d ln f/dx, with its "
+        "abscissa, gradient coordinate and reference length stated (a/L by default)."
+    ),
+    ids=("core_profiles", "equilibrium"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.ion.{j}.temperature",
+        *_GRADIENT_EQUILIBRIUM_PATHS,
+    ),
+    optional_paths=_GRADIENT_GRID_PATHS,
+)
+def ion_temperature_profile_gradient(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Core ion temperature gradient; the model carries the values, the label and the record."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -405,6 +667,59 @@ def thomson_scattering_profile_electron_density(
     model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
     """Thomson-scattering electron density versus position."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="thomson_scattering", quantity="fit",
+    subject="thomson_scattering",
+    description=(
+        "Thomson T_e or n_e (field=te|ne) at one time: channels with error bars, refused "
+        "channels hollow, and the fit through them on psi_N, rho_N or R, mapped through "
+        "the ODS's own or a given equilibrium (issue #952)."
+    ),
+    ids=("thomson_scattering", "equilibrium"),
+    required_paths=(
+        "thomson_scattering.time",
+        "thomson_scattering.channel.{i}.t_e.data",
+        "thomson_scattering.channel.{i}.n_e.data",
+        "thomson_scattering.channel.{i}.position.r",
+    ),
+    optional_paths=(
+        "thomson_scattering.channel.{i}.t_e.data_error_upper",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    ),
+)
+def thomson_scattering_profile_fit(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Thomson points and their fit on a flux coordinate."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@_profile_renderer(
+    domain="charge_exchange", quantity="fit",
+    subject="charge_exchange",
+    description=(
+        "Charge-exchange T_i or V_phi (field=ti|vphi) at one time: channels with error "
+        "bars, refused channels hollow, and the fit through them on psi_N, rho_N or R "
+        "(issue #952)."
+    ),
+    ids=("charge_exchange", "equilibrium"),
+    required_paths=(
+        "charge_exchange.time",
+        "charge_exchange.channel.{i}.ion.{j}.t_i.data",
+        "charge_exchange.channel.{i}.position.r.data",
+    ),
+    optional_paths=(
+        "charge_exchange.channel.{i}.ion.{j}.velocity_tor.data",
+        "equilibrium.time_slice.{i}.profiles_2d.{j}.psi",
+    ),
+)
+def charge_exchange_profile_fit(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Charge-exchange points and their fit on a flux coordinate."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
@@ -561,6 +876,50 @@ def mhd_linear_profile_island_width(
     return render_profile_1d(model, ax=ax, show=show, **style)
 
 
+@_profile_renderer(
+    domain="mhd_linear", quantity="chirikov",
+    subject="mhd_linear",
+    description="Island-overlap parameter per rational surface against normalized "
+                "poloidal flux, in GPEC's own surface definition, with the K = 1 "
+                "criterion drawn; derived from the mapped perturbed flux.",
+    ids=("mhd_linear",),
+    required_paths=_GPEC_RESONANT_PATHS,
+)
+def mhd_linear_profile_chirikov(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Island overlap per rational surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+_MHD_LINEAR_SPECTRUM_PATHS = (
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.n_tor",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim1",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.grid.dim2",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.real",
+    "mhd_linear.time_slice.{i}.toroidal_mode.{j}.plasma.b_field_perturbed.coordinate1.imaginary",
+)
+
+
+@renderer(
+    domain="mhd_linear", subject="mhd_linear", view="spectrum",
+    quantity="b_field_perturbed", model=Profile1D,
+    description="Perturbed normal flux amplitude against poloidal harmonic at one "
+                "flux surface; the outermost mapped surface unless psi_n names "
+                "another, and the title reports the surface actually drawn.",
+    ids=("mhd_linear",),
+    required_paths=_MHD_LINEAR_SPECTRUM_PATHS,
+    optional_paths=(
+        "mhd_linear.time_slice.{i}.toroidal_mode.{j}.energy_perturbed",
+    ),
+)
+def mhd_linear_spectrum_b_field_perturbed(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Perturbed normal flux spectrum at one flux surface."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
 _NBI_PROFILE_PATHS = (
     "core_sources.source.{i}.identifier.index",
     "core_sources.source.{i}.profiles_1d.{j}.grid.rho_tor_norm",
@@ -623,3 +982,46 @@ def nbi_profile_current_drive(
     """Beam-driven parallel current density."""
     return render_profile_1d(model, ax=ax, show=show, **style)
 
+
+_COIL_3D_EXCITATION_PATHS = (
+    # `code.parameters` carries the `<coil_set>` blocks the sets are grouped
+    # by, and `identifier` is what each coil is matched to one with.
+    "coils_non_axisymmetric.code.parameters",
+    "coils_non_axisymmetric.coil.{i}.identifier",
+    "coils_non_axisymmetric.coil.{i}.name",
+    "coils_non_axisymmetric.coil.{i}.current.data",
+    "coils_non_axisymmetric.coil.{i}.conductor.0.elements.start_points.phi",
+)
+
+
+@_profile_renderer(
+    domain="coils_non_axisymmetric", quantity="current",
+    subject="coil_3d",
+    description="Sector currents of each non-axisymmetric coil set against toroidal "
+                "angle: one marker per sector, because that is the whole waveform a "
+                "discrete coil set carries.",
+    ids=("coils_non_axisymmetric",),
+    required_paths=_COIL_3D_EXCITATION_PATHS,
+    optional_paths=("coils_non_axisymmetric.coil.{i}.current.time",),
+)
+def coil_3d_profile_current(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Non-axisymmetric coil currents against toroidal angle."""
+    return render_profile_1d(model, ax=ax, show=show, **style)
+
+
+@renderer(
+    domain="coils_non_axisymmetric", subject="coil_3d", view="spectrum",
+    quantity="current", model=Profile1D,
+    description="Toroidal mode content |C_n| of each non-axisymmetric coil set's "
+                "excitation, to the last harmonic its sectors resolve.",
+    ids=("coils_non_axisymmetric",),
+    required_paths=_COIL_3D_EXCITATION_PATHS,
+    optional_paths=("coils_non_axisymmetric.coil.{i}.current.time",),
+)
+def coil_3d_spectrum_current(
+    model: Profile1D, *, ax: Axes | None = None, show: bool = False, **style: Any
+) -> tuple[Figure, Axes]:
+    """Toroidal mode content of a non-axisymmetric coil excitation."""
+    return render_profile_1d(model, ax=ax, show=show, **style)

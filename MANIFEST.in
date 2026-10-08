@@ -8,14 +8,34 @@ prune test
 # ``vaft*`` package glob, so nothing ships it today; say so explicitly, because
 # the alternative is relying on an omission staying an omission.
 prune docs
+# Issue studies (#1756): only the fixed_free_1608 scripts ship; the README and
+# the measured matrix are notes and a run record, and the other folders are
+# repository-only (see vaft/validation/studies/__init__.py).
+prune vaft/validation/studies/ec_launcher_cad_266
+prune vaft/validation/studies/nice_issue_666
+prune vaft/validation/studies/nice_issue_666_superseded
+exclude vaft/validation/studies/fixed_free_1608/README.md
+exclude vaft/validation/studies/fixed_free_1608/measured_matrix.json
 global-exclude *.py[cod]
 global-exclude ._*
 
+# The hosted-GUI deployment templates (#1755).  `graft vaft` already carries
+# them; they are named so the allowlist reads the same here and in pyproject.
+include vaft/deploy/gui/*.service
+include vaft/deploy/gui/*.example
+include vaft/deploy/gui/*.conf
 include vaft/data/*.py
+# Public-database readers; the databases themselves are fetched, never shipped.
+include vaft/data/public/*.py
+# ShotLog era schemas read at run time by vaft.machine_mapping.pulse_schedule (#995).
+include vaft/data/shotlog/schemas/*.yaml
+include vaft/data/unified/vest_diagnostics/manifest.yaml
+include vaft/data/unified/vest_diagnostics/omas.json.gz
 include vaft/data/geometry/Coil_info.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_1906.mat
 include vaft/data/geometry/VEST_DiscretizedCoilGeometry_Full_ver_2507.mat
 include vaft/data/geometry/VEST_em_coupling_pf_versions.npz
+include vaft/data/geometry/VEST_passive_wall_2409.npz
 include vaft/data/geometry/VEST_static_geometry.json.gz
 include vaft/data/geometry/*.yaml
 include vaft/data/geometry/*.csv
@@ -28,7 +48,5 @@ include vaft/data/legacy/sxr_te_ratio_be_al.csv
 include vaft/data/legacy/langmuir_probe_positions.csv
 include vaft/data/samples/*/manifest.yaml
 include vaft/data/samples/39915/omas.json.gz
-include vaft/data/samples/39915/imas.nc
 include vaft/data/wheel_samples/39915/manifest.yaml
 include vaft/data/wheel_samples/39915/omas.json.gz
-include vaft/data/wheel_samples/39915/imas.nc

@@ -621,3 +621,525 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Generated formula / process reference pages (_includes/reference/). */
+.ref-intro {
+  color: var(--vaft-muted-color);
+}
+
+.ref-table-wrap {
+  margin: 0.8em 0 1.2em;
+  overflow-x: auto;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-table {
+  display: table;
+  width: 100%;
+  margin: 0;
+  font-size: 0.92em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-table td,
+.book .book-body .page-wrapper .page-inner section.normal .ref-table th {
+  padding: 0.45em 0.7em;
+  vertical-align: top;
+  text-align: left;
+}
+
+.ref-table td > p {
+  margin: 0;
+}
+
+.ref-table td > p + p {
+  margin-top: 0.4em;
+}
+
+.ref-table .ref-type,
+.ref-table .ref-unit {
+  white-space: nowrap;
+  color: var(--vaft-muted-color);
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-table tr.ref-group th {
+  background: var(--vaft-panel-surface);
+  color: var(--vaft-muted-color);
+  font-size: 0.8em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Long names (alpha_heating_power_from_n_D_n_T_T_keV_V) break anywhere
+   rather than starving the summary column. */
+.ref-index-table td:first-child {
+  width: 19em;
+  min-width: 12em;
+}
+
+.ref-index-table td:first-child code {
+  overflow-wrap: anywhere;
+}
+
+.ref-index-table td:last-child {
+  min-width: 14em;
+}
+
+.ref-filter {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5em 0.75em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 6px;
+  background: var(--vaft-surface);
+  color: var(--vaft-body-color);
+  font: inherit;
+}
+
+.ref-filter-empty {
+  color: var(--vaft-muted-color);
+  font-style: italic;
+}
+
+.ref-entry {
+  margin: 1.6em 0;
+  padding: 0.2em 1.2em 0.6em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 8px;
+  background: var(--vaft-surface);
+  scroll-margin-top: calc(var(--vaft-header-height) + 12px);
+}
+
+.ref-entry[hidden],
+.ref-index [hidden] {
+  display: none;
+}
+
+.ref-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em 0.8em;
+  margin: 0.9em 0 0.4em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal h3.ref-name,
+.book .book-body .page-wrapper .page-inner section.normal h4.ref-name {
+  margin: 0;
+  font-size: 1.15em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal h3.ref-name a,
+.book .book-body .page-wrapper .page-inner section.normal h4.ref-name a {
+  color: var(--vaft-heading-color);
+  text-decoration: none;
+}
+
+.ref-flags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35em;
+}
+
+.ref-flag {
+  display: inline-block;
+  padding: 0.05em 0.55em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 999px;
+  background: var(--vaft-panel-surface);
+  color: var(--vaft-muted-color);
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.ref-flag-convention {
+  border-color: #c98a1b;
+  color: #9a6200;
+}
+
+.ref-flag-empirical {
+  border-color: #7c5cbf;
+  color: #5f3fa3;
+}
+
+.ref-flag-vest {
+  border-color: #2f7fb8;
+  color: #1f5f8f;
+}
+
+.ref-flag-deprecated {
+  border-color: #c0392b;
+  color: #a12b20;
+}
+
+.book.color-theme-2 .ref-flag-convention { color: #f0b85a; }
+.book.color-theme-2 .ref-flag-empirical { color: #b9a0f0; }
+.book.color-theme-2 .ref-flag-vest { color: #86c3f0; }
+.book.color-theme-2 .ref-flag-deprecated { color: #f08a7e; }
+
+.ref-source {
+  margin-left: auto;
+  font-size: 0.85em;
+}
+
+/* Light rather than the dark code-block style: one per entry, and it reads as
+   a heading line, not as a listing.  The copy-button plugin wraps every <pre>
+   in .code-block-wrapper, so the frame goes on that wrapper; the right
+   padding keeps the wrapped text clear of the button. */
+.book .book-body .page-wrapper .page-inner section.normal .code-block-wrapper:has(> pre.ref-signature) {
+  margin: 0.2em 0 0.9em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 6px;
+  background: var(--vaft-inline-code-bg);
+}
+
+.book .book-body .page-wrapper .page-inner section.normal pre.ref-signature {
+  margin: 0.2em 0 0.9em;
+  padding: 0.6em 5.5em 0.6em 0.8em;
+  border-radius: 6px;
+  background: var(--vaft-inline-code-bg);
+  color: var(--vaft-inline-code-fg);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .code-block-wrapper > pre.ref-signature {
+  margin: 0;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal pre.ref-signature code {
+  color: inherit;
+  white-space: pre-wrap;
+  font-size: 1.25rem;
+}
+
+.ref-note {
+  color: var(--vaft-muted-color);
+  font-size: 0.9em;
+}
+
+.ref-callout {
+  margin: 0.9em 0;
+  padding: 0.5em 0.9em;
+  border-left: 3px solid var(--vaft-border);
+  border-radius: 0 6px 6px 0;
+  background: var(--vaft-panel-surface);
+}
+
+.ref-callout-convention {
+  border-left-color: #c98a1b;
+}
+
+.ref-callout-raises {
+  border-left-color: #c0392b;
+}
+
+/* Plot reference (#1505): the scientific reading of a plot, from its docstring. */
+.ref-callout-interpretation {
+  border-left-color: #2e7d9a;
+}
+
+.ref-callout-options {
+  border-left-color: #6b7f99;
+}
+
+.ref-callout-limitations {
+  border-left-color: #c98a1b;
+}
+
+.ref-callout > :last-child {
+  margin-bottom: 0.3em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-label {
+  margin: 0.3em 0 0.3em;
+  color: var(--vaft-muted-color);
+  font-size: 0.78em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.ref-raises {
+  margin: 0;
+  padding-left: 1.1em;
+}
+
+.ref-more {
+  margin: 0.9em 0 0.3em;
+  border-top: 1px solid var(--vaft-border);
+  padding-top: 0.5em;
+}
+
+.ref-more > summary {
+  cursor: pointer;
+  color: var(--vaft-link-color);
+  font-size: 0.9em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-more h4.ref-label,
+.book .book-body .page-wrapper .page-inner section.normal .ref-more h5.ref-label {
+  margin-top: 1em;
+}
+
+/* Inline source (#1069): collapsed under the signature, the same lines the
+   [source] link points at.  Capped in height so a long body scrolls in place. */
+.ref-code {
+  margin: 0 0 0.9em;
+}
+
+.ref-code > summary {
+  cursor: pointer;
+  color: var(--vaft-link-color);
+  font-size: 0.9em;
+}
+
+.ref-code > summary .ref-note {
+  margin-left: 0.4em;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-code pre {
+  max-height: 32em;
+  overflow: auto;
+}
+
+.api-members .ref-source,
+.api-link .ref-source {
+  margin-left: 0.4em;
+}
+
+/* Diagram gallery: the committed SVG is the entry point of each card. */
+.ref-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15em, 1fr));
+  gap: 0.8em;
+  margin: 0.8em 0;
+}
+
+.ref-figure {
+  margin: 0;
+  padding: 0.5em;
+  border: 1px solid var(--vaft-border);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.ref-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 22em;
+  object-fit: contain;
+}
+
+.ref-plot-gallery {
+  grid-template-columns: repeat(auto-fill, minmax(12em, 1fr));
+}
+
+.ref-figure-empty {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: var(--vaft-surface);
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-figure-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 7em;
+  color: #777;
+  font-size: 0.85em;
+  text-decoration: none;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .ref-figure figcaption {
+  margin-top: 0.4em;
+  font-size: 0.8em;
+  color: #333;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+  .ref-entry {
+    padding: 0.1em 0.8em 0.5em;
+  }
+
+  .ref-source {
+    margin-left: 0;
+  }
+
+  /* The table scrolls inside its wrapper; let the short columns wrap and
+     keep the description wide enough to read once it is scrolled to. */
+  .ref-table .ref-type {
+    white-space: normal;
+  }
+
+  .ref-table:not(.ref-index-table) td:last-child {
+    min-width: 13em;
+  }
+}
+
+/* Landing page hero, entry points and pipeline strip (#1763). */
+@font-face {
+  font-family: "IBM Plex Sans Condensed VAFT";
+  src: url("../brand/fonts/IBMPlexSansCondensed-SemiBold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+.vaft-hero {
+  margin: 0.4rem 0 2.6rem;
+  padding: 2.8rem 2.2rem 2.4rem;
+  text-align: center;
+  background: var(--vaft-panel-surface);
+  border: 1px solid var(--vaft-border);
+  border-radius: 12px;
+}
+
+.vaft-hero .vaft-hero-logo {
+  display: block;
+  width: min(100%, 46rem);
+  height: auto;
+  margin: 0 auto 1.6rem;
+}
+
+.vaft-hero .vaft-hero-logo-dark,
+.book.color-theme-2 .vaft-hero .vaft-hero-logo-light {
+  display: none;
+}
+
+.book.color-theme-2 .vaft-hero .vaft-hero-logo-dark {
+  display: block;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .vaft-hero .vaft-hero-tagline {
+  max-width: 68rem;
+  margin: 0 auto 0.7rem;
+  color: var(--vaft-heading-color);
+  font-family: "IBM Plex Sans Condensed VAFT", sans-serif;
+  font-size: clamp(2.2rem, 3vw, 3rem);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .vaft-hero .vaft-hero-summary {
+  max-width: 58rem;
+  margin: 0 auto 1.5rem;
+  color: var(--vaft-body-color);
+  font-size: 1.6rem;
+  line-height: 1.5;
+}
+
+.vaft-hero .vaft-hero-commands code {
+  margin: 0 0.4rem;
+  padding: 0.35rem 0.9rem;
+  font-size: 1.4rem;
+  border: 1px solid var(--vaft-border);
+  border-radius: 6px;
+}
+
+.vaft-hero .vaft-hero-commands code::before,
+.vaft-hero .vaft-hero-commands code::after {
+  content: none;
+}
+
+.vaft-start {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1.2rem;
+  margin: 0 0 2.8rem;
+}
+
+.vaft-start-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1.6rem;
+  color: var(--vaft-body-color) !important;
+  background: var(--vaft-panel-surface);
+  border: 1px solid var(--vaft-border);
+  border-radius: 10px;
+}
+
+.vaft-start-card:hover,
+.vaft-start-card:focus-visible {
+  border-color: var(--vaft-link-color);
+  text-decoration: none;
+}
+
+.vaft-start-card strong {
+  margin-bottom: 0.5rem;
+  color: var(--vaft-heading-color);
+  font-size: 1.7rem;
+}
+
+.vaft-start-card span {
+  font-size: 1.3rem;
+  line-height: 1.5;
+}
+
+.vaft-pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0.8rem;
+  margin: 1.2rem 0 1.4rem;
+  padding: 0;
+  list-style: none;
+}
+
+.vaft-pipeline li {
+  position: relative;
+  flex: 1 1 0;
+  margin: 0;
+  padding: 1.1rem 1.2rem;
+  background: var(--vaft-panel-surface);
+  border: 1px solid var(--vaft-border);
+  border-radius: 10px;
+  font-size: 1.3rem;
+  line-height: 1.45;
+}
+
+.vaft-pipeline li strong {
+  display: block;
+  color: var(--vaft-heading-color);
+  font-size: 1.6rem;
+}
+
+.vaft-pipeline li + li::before {
+  position: absolute;
+  top: 50%;
+  left: -0.85rem;
+  color: var(--vaft-link-color);
+  content: "\2192";
+  font-weight: 700;
+  transform: translate(-50%, -50%);
+}
+
+.book-header .book-logo {
+  position: absolute;
+  top: 11px;
+  left: 64px;
+  line-height: 0;
+}
+
+.book-header .book-logo img {
+  width: 28px;
+  height: 28px;
+}
+
+@media (max-width: 1000px) {
+  .vaft-start {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vaft-pipeline {
+    flex-direction: column;
+  }
+
+  .vaft-pipeline li + li::before {
+    top: -0.85rem;
+    left: 50%;
+    content: "\2193";
+  }
+}

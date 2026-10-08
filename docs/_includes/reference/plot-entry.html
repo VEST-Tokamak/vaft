@@ -1,0 +1,86 @@
+{%- comment -%}
+One plot of the generated plot reference (plot_catalog.yml).
+
+  include.p     the snapshot row
+  include.ref   git ref the source link points at
+
+The data-catalog attribute is what validate_docs.rb counts: every plot in the
+catalog must render exactly one of these, and every one rendered must still be
+in the catalog.
+
+The scientific guidance is the renderer's docstring parsed under the plot
+contract (p.documentation, issue #1505): Interpretation, Options and
+Limitations are shown open, the other sections folded behind one <details>.
+Section prose is emitted raw so kramdown renders it exactly once, as on the
+formula and process pages.
+{%- endcomment -%}
+{%- assign p = include.p -%}
+{%- assign doc = p.documentation -%}
+{%- assign interpretation = doc.sections | where: "title", "Interpretation" | first -%}
+{%- assign options = doc.sections | where: "title", "Options" | first -%}
+{%- assign limitations = doc.sections | where: "title", "Limitations" | first -%}
+{%- assign more = doc.sections | where_exp: "s", "s.title != 'Interpretation' and s.title != 'Options' and s.title != 'Limitations'" -%}
+<section class="ref-entry" id="{{ p.name }}" data-catalog="plot" markdown="block">
+<header class="ref-head">
+<h4 class="ref-name no_toc"><a href="#{{ p.name }}"><code>{{ p.name }}</code></a></h4>
+<span class="ref-flags"><span class="ref-flag">{{ p.view }}</span>{% if p.status != "canonical" %}<span class="ref-flag ref-flag-deprecated">{{ p.status | capitalize }}</span>{% endif %}</span>
+{% include reference/source-link.html src=p.source ref=include.ref key=p.name %}
+</header>
+<p class="ref-note">{{ p.subject }} / {{ p.view }}{% if p.quantity != "" %} / {{ p.quantity }}{% endif %} &middot; domain <code>{{ p.domain }}</code> &middot; view model <code>{{ p.model }}</code></p>
+
+{{ p.description | escape }}
+
+{% if interpretation %}<div class="ref-callout ref-callout-interpretation" markdown="1">
+<p class="ref-label">Interpretation</p>
+
+{{ interpretation.text }}
+
+</div>
+
+{% endif %}{% if options %}<div class="ref-callout ref-callout-options" markdown="1">
+<p class="ref-label">Options</p>
+
+{{ options.text }}
+
+</div>
+
+{% endif %}{% if limitations %}<div class="ref-callout ref-callout-limitations" markdown="1">
+<p class="ref-label">Limitations</p>
+
+{{ limitations.text }}
+
+</div>
+
+{% endif %}{% if more.size > 0 or doc.references.size > 0 %}<details class="ref-more" markdown="block">
+<summary>{% for s in more %}{{ s.title }}{% unless forloop.last %} · {% endunless %}{% endfor %}{% if doc.references.size > 0 %}{% if more.size > 0 %} · {% endif %}References{% endif %}</summary>
+
+{% for s in more %}<h5 class="ref-label no_toc">{{ s.title }}</h5>
+
+{{ s.text }}
+
+{% endfor %}{% if doc.references.size > 0 %}<h5 class="ref-label no_toc">References</h5>
+
+<ol class="ref-cites">
+{% for ref in doc.references %}  <li>{{ ref.text | markdownify | remove: "<p>" | remove: "</p>" }}</li>
+{% endfor %}</ol>
+
+{% endif %}</details>
+
+{% endif %}{% if p.thumbnail %}<p class="ref-note">{% if p.thumbnail.status == "rendered" %}Thumbnail drawn from sample shot {{ p.thumbnail.shot }}{% if p.thumbnail.stale != "" %}, <strong>stale</strong>: {{ p.thumbnail.stale | escape }}{% endif %}.{% else %}No thumbnail: {{ p.thumbnail.reason | escape }}.{% endif %}</p>
+
+{% endif %}<pre class="ref-signature"><code>{{ p.adapter }}(ods)         # from data
+vaft.plot.{{ p.name }}(model)   # from a {{ p.model }}</code></pre>
+{% include reference/source-code.html src=p.source ref=include.ref key=p.name %}
+
+<div class="ref-table-wrap"><table class="ref-table">
+  <tbody>
+  <tr><th>IDS</th><td>{% for i in p.ids %}<code>{{ i }}</code>{% unless forloop.last %}, {% endunless %}{% else %}&mdash;{% endfor %}</td></tr>
+  <tr><th>Required paths</th><td>{% for path in p.required_paths %}<code>{{ path }}</code>{% unless forloop.last %}<br>{% endunless %}{% else %}&mdash;{% endfor %}</td></tr>
+  {% if p.optional_paths.size > 0 %}<tr><th>Optional paths</th><td>{% for path in p.optional_paths %}<code>{{ path }}</code>{% unless forloop.last %}<br>{% endunless %}{% endfor %}</td></tr>
+  {% endif %}<tr><th>Backends</th><td>{{ p.backends | join: ", " }}</td></tr>
+  {% if p.overlays.size > 0 %}<tr><th>Overlays</th><td>{% for o in p.overlays %}<a href="#{{ o }}"><code>{{ o }}</code></a>{% unless forloop.last %}, {% endunless %}{% endfor %}</td></tr>
+  {% endif %}<tr><th>Renderer</th><td><code>{{ p.renderer }}</code></td></tr>
+  </tbody>
+</table></div>
+
+</section>

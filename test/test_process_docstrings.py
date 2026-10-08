@@ -56,6 +56,10 @@ DEFINITIONAL = frozenset({
     "signal_on_offset",
     "process_signal",
     "time_derivative",
+    # Containment in the LCFS outline, or the flux threshold where there is none.
+    "plasma_cell_weights",
+    # #1087: one harmonic's sector currents, the inverse of toroidal_mode_decomposition
+    "phased_sector_currents",
     "filter_dataframe",
     "log_transform",
     "analyze_significance",
@@ -71,19 +75,97 @@ DEFINITIONAL = frozenset({
     "export_electron_profile_txt",
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
+    # transport_state (#1428): readiness, identity and config bookkeeping; the
+    # physics they gate lives in the GACODE adapters they call.
+    "assess_tglf_readiness",
+    "assess_neo_readiness",
+    "run_identity",
+    "physics_parameters",
+    # Signed sums and magnitude shares of fluxes the models already computed.
+    "transport_partition",
+    # A comparison of two solver inputs, no physics of its own.
+    "inferred_ti_supported",
     # Deleting a sum-over-species leaf from a slice that has no ion species is
     # what the leaf means, not a method borrowed from anywhere.
     "strip_electron_only_pressure",
+    # impurity (#1565): constructors and the provenance-record grammar --
+    # validation and bookkeeping; the algebra they feed is vaft.formula.impurity.
+    "composition_from_fractions",
+    # mhd_stability (#940): sign intervals of a sampled profile -- pure numerics.
+    "criterion_intervals",
+    "composition_from_model",
+    "composition_record_origin",
+    "composition_record_text",
     "compute_time_match_atol",
     "find_time_match_index",
     "normalize_atomic_symbol",
     "integrate_emissivity_profile",
+    # line_of_sight (#886): a sparse matrix product
+    "project_emissivity",
+    # ml (#669): dataset assembly, hashing, metrics, a quantile and dispatch -- bookkeeping
+    "build_dataset",
+    "calibrate_threshold",
+    "dataset_fingerprint",
+    "evaluate_model",
+    "load_dataset",
+    "load_model",
+    "load_model_bundle",
+    "predict",
+    "register_architecture",
+    "register_augmentation",
+    "register_loss",
+    "save_dataset",
+    # core_q_context (#1798): connected |s| < threshold intervals -- pure geometry.
+    "low_shear_regions",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
+    "mode_frequency_tracks",
+    # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
+    # match -> scan -> minimise; nominal -> perturbed re-fits
+    "smooth_local_polynomial",
+    "observed_resistance",
+    "model_resistance",
+    "infer_resistive_zeff",
+    "per_slice_resistive_zeff",
+    "resistive_zeff_sensitivity",
+    # transport_state (#1428): times -> Ti hierarchy -> geometry -> composition/convert
+    "resolve_transport_state",
+    # impurity (#1565): match time -> choose by precedence -> close at Z_eff -> reduce
+    "resolve_impurity_composition",
+    # impurity (#1565 Sec. 8): ADF11 states -> moments -> S1/S2 -> one scale -> check
+    "resolve_radial_composition",
+    "populate_radial_impurity_profiles",
+    # impurity (Lane L PR 5): main ion -> lumped charge at the surface -> densities
+    "surface_composition_profile",
+    # species (#1567): match -> nuclide/charge/population per ion -> state
+    "species_state_from_core_profiles",
+    "project_species_state",
+    # kinetic_closure (#1606): v_c -> tau_s -> n_f, W_f -> p_f; slice -> composition -> pressures
+    "fast_ion_slowing_down_estimate",
+    "infer_kinetic_closure",
+    # zeff_projection (#1566): R_p of the profile -> root / Lane Z's window objective
+    "project_zeff_profile_to_resistive_scalar",
+    "project_window_to_resistive_scalar",
+    # impurity (#1565): match -> keep main ion -> dilute -> write species -> zeff
+    "populate_impurity_profiles",
+    # profile_gradient (#551): slice -> coordinates -> differentiate -> chain rule -> scale -> place
+    "radial_coordinate_map",
+    "profile_gradient",
+    # nbi (#1136): optical depth -> survival and birth -> shine-through -> power bookkeeping
+    "neutral_beam_attenuation_along_path",
+    # equilibrium / magnetic_island / line_of_sight / soft_x_rays (#886):
+    # map -> island -> emissivity -> chord integral
+    "straight_field_line_map",
+    "magnetic_island_topology",
+    "build_line_integral_operator",
+    "synthetic_island_soft_x_rays",
     # profile (V4/D-05): window, fit, accept-or-fall-back
     "pedestal_top",
+    # profile (#122): grid -> shapes -> normalization -> closure -> residuals
+    "generate_synthetic_kinetic_profiles",
     # magnetics / electromagnetics / fluctuation (#418)
     "analyze_fluctuation_spectrum",
     "b_field_pol_probe_field",
@@ -121,7 +203,17 @@ PIPELINE = frozenset({
     "psi_to_radial",
     "psi_to_rz",
     "solve_solovev_constraints",
+    "solovev_example",
+    "solve_guazzotto_freidberg",
+    "guazzotto_freidberg_parameters",
+    "guazzotto_freidberg_to_equilibrium",
+    "derive_current_moments",
+    "fit_solovev",
+    "fit_mxh_chebyshev",
     "connection_length_map",
+    "ejiri_mirror_geometry",
+    "romero_flux_balance",
+    "integrate_romero_closure",
     "trace_field_line",
     # cocos (#419)
     "validate_cocos",
@@ -161,11 +253,31 @@ PIPELINE = frozenset({
     "integrate_emissivity_profile",
     "compute_line_radiation_power_series",
 
+    # fluctuation / transients (#1005): common grid then Welch; floor, runs, path;
+    # crossings then rate; trend, window, noise, threshold
+    "cross_spectrum",
+    "cross_spectrogram",
+    "cross_spectral_matrix",
+    "coherent_components",
+    "track_dominant_frequency",
+    "current_quench",
+    "current_spike",
     # camera_fluctuation (#161)
     "mhd_band_power",
     "normalize_by_local_emission",
     "pixelwise_spectrogram",
     "subtract_temporal_background",
+    # ml (#669): the order decides leakage (split before window) and trust (hash before load)
+    "fetch_model",
+    "resolve_model",
+    "save_model_bundle",
+    "split_groups",
+    "train_model",
+    "window_dataset",
+    # core_q_context (#1798): |q| -> radius and shear -> landmarks and shape ->
+    # rational crossings and pairs -> low-shear regions -> enclosed pressure
+    "core_q_context_from_profiles",
+    "core_q_context",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -173,6 +285,8 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    # soft_x_rays (#886): prescribed island -> synthetic chord signal
+    "synthetic_island_soft_x_rays",
     # wall_modes (#571): element space <-> mode space
     "combined_operators",
     "project",
@@ -190,16 +304,69 @@ STATEFUL = frozenset({
     "core_profiles_from_eq",
     "core_profiles_from_eq_ratio",
     "compute_line_radiation_power_series",
+    # profile (#122): equilibrium + assumptions -> synthetic; synthetic -> stored slice
+    "generate_synthetic_kinetic_profiles",
+    "write_synthetic_core_profiles",
 
     # camera_fluctuation (#161): power and frames arrive on different time bases
     "normalize_by_local_emission",
+    # ml (#669): record-level samples -> windows
+    "window_dataset",
+    # impurity (#1565): an electron-only or H+ slice -> an explicit, labelled species list
+    "populate_impurity_profiles",
+    "populate_radial_impurity_profiles",
+    "surface_composition_profile",
+    # species (#1567): a core_profiles slice -> canonical components
+    "species_state_from_core_profiles",
+    # kinetic_closure (#1606): a fitted slice -> derived kinetic densities and pressures
+    "infer_kinetic_closure",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # #1608: COCOS source profiles versus full-weber Green response orientation.
+    "fit_free_boundary_coils",
+    # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
+    # the parallel (not perpendicular) Spitzer coefficient; <J.B>, not j_tor
+    "observed_resistance",
+    "parallel_conductivity",
+    "model_resistance",
+    # transport_state (#1435): a positive flux runs down the gradient, as the TGLF/NEO mappers
+    "classical_heat_fluxes",
+    # transport_state (#1426): a run surface's input must not depend on the gap fill
+    "inferred_ti_supported",
+    # profile_gradient (#551): midplane r_minor (not the contour half-width), the
+    # reference length's definition, and each code's gradient normalization
+    "radial_coordinate_map",
+    "radial_coordinate_map_from_arrays",
+    "resolve_reference_length",
+    "resolve_convention",
+    "profile_gradient",
+    "dominant_mode",
+    "finite_width_delta",
+    "jump_width",
+    "shielded_field",
     "lab_to_straight_field_line",
     "straight_field_line_tables",
+    # #886: the PEST angle's origin and direction, the island's width and
+    # helicity, |q| resonance, the chord grid's cell convention
+    "straight_field_line_angle_on_grid",
+    "straight_field_line_map",
+    # V5P / C-44: which straight-field-line angle, and whose toroidal partner
+    "pest_angle_from_jacobian_angle",
+    "equilibrium_safety_factor",
+    "resolve_rational_surface",
+    # #506: |q| = |m/n| resonance; rho_tor_norm never rebuilt from psi_norm
+    "rational_surfaces",
+    # #460: |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
+    # a velocity divided by R_out of the surface (never R_axis)
+    "mode_frequency_tracks",
+    "magnetic_island_topology",
+    "island_emissivity",
+    "build_line_integral_operator",
+    "clip_segment_to_polygon",
     "cocos_field_scales",
+    "identify_flux_exponent_from_q",
     "resonant_delta",
     "resonant_geometric_factor",
     "align_surfaces_by_q",
@@ -221,10 +388,42 @@ CONVENTION_SENSITIVE = frozenset({
     "resonant_metrics",
     "resonant_windows",
     "rms_resonant_field",
+    # field_line_topology (#1099): the node order a FLARE mesh lays its values
+    # out in, the direction normalized flux increases, the angle alphaS is
+    # measured from, and that the proxy is a density whose measure -- never
+    # whose factor -- is the cell area.
+    "toroidal_surface_cell_areas",
+    "toroidal_surface_node_areas",
+    "upstream_flux_weight",
+    "incidence_factor",
+    "connection_length_weight",
+    "footprint_heat_load_proxy",
+    "footprint_incident_total",
+    "reduce_traced_directions",
+    "target_incident_fractions",
+    # perturbation (D-06): which reconstruction a stored harmonic belongs to.
+    "toroidal_phase_audit",
 
     # profile (V4/D-05): the position is in the declared radial coordinate
     # and is never converted
     "pedestal_top",
+    # profile (#1045): analytic plasma states are defined in psi_norm with
+    # full-width barriers, and the projection relies on the COCOS-free ratio
+    "analytic_hmode_itb_state",
+    "analytic_hmode_state",
+    "analytic_itb_state",
+    "analytic_lmode_state",
+    "compose_analytic_profile",
+    "compose_plasma_state",
+    "evaluate_analytic_profile",
+    "evaluate_plasma_state",
+    "project_flux_function",
+    "project_plasma_state",
+    # profile (#122): psi_norm of the source equilibrium, rho_tor from q, psi in
+    # Wb / COCOS 11 only when the convention fixes it, the declared average chord
+    "generate_synthetic_kinetic_profiles",
+    "spec_from_plasma_state",
+    "write_synthetic_core_profiles",
     # magnetics / electromagnetics / fluctuation (#418): integration sign,
     # shot-era baselines, per-unit-current responses, and the toroidal mode-number
     # entry points harmonized under standard right-handed coordinates (#638)
@@ -304,8 +503,10 @@ CONVENTION_SENSITIVE = frozenset({
     "calculate_q_profile_from_psi",
     "calculate_reconstructed_diamagnetic_flux",
     "check_equilibrium_requirements",
+    "compare_contours",
     "computed_diamagnetism_from_phi",
     "contour_shape_parameters",
+    "contour_shaping_observables",
     "convert_cocos",
     "derive_boundary_representation",
     "derive_global_descriptors",
@@ -314,6 +515,7 @@ CONVENTION_SENSITIVE = frozenset({
     "evaluate_miller",
     "evaluate_solovev",
     "extract_flux_surface_contours",
+    "find_stationary_points",
     "fit_miller_sequence",
     "fit_miller_surface",
     "flux_surface_quantities",
@@ -337,10 +539,32 @@ CONVENTION_SENSITIVE = frozenset({
     "virial_alpha_thin_annulus",
     "solovev_to_equilibrium",
     "solve_solovev_constraints",
+    "solovev_example",
+    "solovev_shape_constraints",
+    "miller_surfaces",
+    "evaluate_guazzotto_freidberg",
+    "guazzotto_freidberg_parameters",
+    "guazzotto_freidberg_to_equilibrium",
+    "solve_guazzotto_freidberg",
+    "current_centroid",
+    "current_covariance",
+    "current_moment",
+    "derive_current_moments",
+    "evaluate_mxh_chebyshev",
+    "fit_mxh_chebyshev",
+    "fit_solovev",
+    "evaluate_fourier_surface",
+    "fit_fourier_surface",
+    "fit_fourier_surface_sequence",
+    "grad_shafranov_residual_modes",
     "connection_length_map",
+    "ejiri_mirror_geometry",
+    "romero_flux_balance",
+    "integrate_romero_closure",
     "make_vacuum_field_interpolator",
     "trace_field_line",
     "volume_average",
+    "plasma_cell_weights",
     # cocos (#419): the module exists to reason about conventions
     "cocos_consistency_signs",
     "validate_cocos",
@@ -401,6 +625,7 @@ CONVENTION_SENSITIVE = frozenset({
     "export_electron_profile_txt",
     "toroidal_mode_decomposition",
     "biot_savart_filaments",
+    "phased_sector_currents",
 
     # camera_fluctuation (#161): the frame axis comes first, band edges are
     # closed, pixel bounds are row-then-column while projected pixels are
@@ -412,6 +637,51 @@ CONVENTION_SENSITIVE = frozenset({
     "subtract_temporal_background",
     "summed_region_signal",
     "track_reference_frequency",
+    # ml (#669): train-only z-score; a stage alias is recorded, never substituted for the version
+    "resolve_model",
+    "train_model",
+    # fluctuation / transients (#1005): the phase is y relative to x, the ridge
+    # floor is relative to the map, and the current is measured on its magnitude.
+    "cross_spectrum",
+    "cross_spectrogram",
+    "cross_spectral_matrix",
+    "coherent_components",
+    "track_dominant_frequency",
+    "current_quench",
+    "current_spike",
+    # impurity (#1565): measured > explicit > derived > assumed, and an
+    # unlabelled stored composition ranks with the assumed ones; the writers
+    # label assumed vs derived, never measured.
+    "resolve_impurity_composition",
+    "populate_impurity_profiles",
+    "populate_zeff_profile",
+    "resolve_radial_composition",
+    "populate_radial_impurity_profiles",
+    "surface_composition_profile",
+    # kinetic_closure (#1606): thermal and fast never share a field; the legacy fallback
+    "assemble_pressure",
+    "infer_kinetic_closure",
+    # zeff_projection (#1566): same model, states and objective on both sides
+    "profile_conductivity_model",
+    "spitzer_resistive_equivalent_zeff",
+    "project_zeff_profile_to_resistive_scalar",
+    "project_window_to_resistive_scalar",
+    "flat_profile_from_resistive",
+    "zeff_profile_for_state",
+    # species (#1567): population labels, dilution bases and per-target projection policy
+    "species_state_from_core_profiles",
+    "species_state_from_composition",
+    "composition_moments",
+    "project_species_state",
+    # mhd_stability (#940): DCON's signs (D_I, D_R > 0 and C_A, dW < 0 unstable)
+    # and its edge-scan peak search.
+    "dcon_local_stability",
+    "dcon_edge_scan",
+    "dcon_edge_comparison",
+    # core_q_context (#1798): |q| resonance with the source sign kept, shear in the
+    # named radial coordinate, q_boundary only on a limited boundary.
+    "core_q_context_from_profiles",
+    "core_q_context",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

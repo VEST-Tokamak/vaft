@@ -15,10 +15,21 @@ import h5pyd
 import numpy as np
 import pandas as pd
 import requests
-import urllib3
 
 from .sources import LEGACY_SOURCE, MissingSourceError
 from .sources import resolve as resolve_source
+
+__all__ = [
+    "CP_REGISTRY_GROUP",
+    "CX_REGISTRY_GROUP",
+    "TS_REGISTRY_GROUP",
+    "ensure_imas_hdf5_userblock",
+    "exist_shot",
+    "is_connect",
+    "processed_registry_uri",
+    "read_legacy_processed_registry",
+    "require_source_exists",
+]
 
 
 def require_source_exists(source: str) -> None:
@@ -50,6 +61,54 @@ def require_source_exists(source: str) -> None:
         if status in (404, 410):
             raise MissingSourceError(source, str(exc)) from exc
         raise
+
+
+class ShotFolderError(OSError):
+    """Raised when a shot's HSDS folder is missing and could not be created."""
+
+
+def ensure_shot_folder(source: str, shot: int) -> None:
+    """Create ``/{source}/{shot}/`` on its first write, as the writing account.
+
+    ``hsload`` does not create a missing folder, so every shot used to need an
+    ``hstouch`` before its first replication (``provision_hsds_shots.sh``). The
+    writer now makes it itself, right before its first upload.
+
+    h5pyd's ``mode="x"`` creates only on a 404/410 and otherwise just opens, so
+    an existing folder costs one GET and is never touched. Two hosts creating the
+    same new shot at once is the one race: the loser's PUT is refused (409) and
+    the folder it wanted is there, which is success. A path that exists as a
+    *domain* (``hstouch /main/123`` without the trailing slash) is refused --
+    every later upload into it would fail as if it were a permissions problem.
+    """
+    path = f"/{source}/{int(shot)}/"
+    try:
+        folder = h5pyd.Folder(path, mode="x")
+    except OSError as exc:
+        status = exc.args[0] if exc.args else None
+        if status == 409:
+            folder = h5pyd.Folder(path, mode="r")
+        elif status == 403:
+            raise ShotFolderError(
+                403,
+                f"HSDS refused to create {path}: this account may not create "
+                f"folders in /{source}/. Have an administrator grant it create "
+                f"permission there, or provision the shot with "
+                f"`hstouch -o <owner> {path}`.",
+            ) from exc
+        else:
+            raise
+    kind = getattr(folder, "_obj_class", "folder")
+    close = getattr(folder, "close", None)
+    if close is not None:
+        close()
+    if kind != "folder":
+        raise ShotFolderError(
+            409,
+            f"{path} exists as an HDF5 domain, not a folder; it was created "
+            f"without the trailing slash and must be deleted and recreated "
+            f"with `hstouch -o <owner> {path}`.",
+        )
 
 
 def processed_registry_uri(
@@ -142,7 +201,38 @@ def is_connect() -> bool:
         return False
 
 
-def _get_namespace_folders(source: str, sort: int = -1) -> List[str]:
+def _is_connection_failure(exc: BaseException) -> bool:
+    """Whether an h5pyd error means the server could not be reached at all.
+
+    h5pyd turns a transport failure into a bare ``OSError`` raised inside
+    ``except requests.ConnectionError`` (``httpconn.py``), so the requests error
+    is in the exception chain; an HTTP error such as 403 or 404 is raised as
+    ``OSError(status, reason)`` with no such cause. Only the first is a
+    connection problem -- an auth failure or a missing folder must not be
+    reported as one.
+
+    (These handlers used to catch ``urllib3.exceptions.MaxRetryError``, which
+    h5pyd never lets through: measured on urllib3 1.26.13 and 2.8.0 alike, an
+    unreachable endpoint raises ``OSError("Connection Error")``.)
+    """
+    if not isinstance(exc, OSError) or (exc.args and isinstance(exc.args[0], int)):
+        return False
+    seen = set()
+    link: BaseException | None = exc
+    while link is not None and id(link) not in seen:
+        seen.add(id(link))
+        if isinstance(link, requests.exceptions.ConnectionError):
+            return True
+        if link.__cause__ is not None:
+            link = link.__cause__
+        elif link.__suppress_context__:
+            break  # ``raise ... from None``: the author cut the chain on purpose
+        else:
+            link = link.__context__
+    return False
+
+
+def _get_namespace_folders(source: str, sort: int = -1, *, strict: bool = False) -> List[str]:
     """Return the shot folders of one named source, with optional sorting.
 
     Every source stores shots the same way, so the same numeric filter applies
@@ -165,7 +255,14 @@ def _get_namespace_folders(source: str, sort: int = -1) -> List[str]:
 
         print(folder_list)
         return folder_list
-    except urllib3.exceptions.MaxRetryError:
+    except OSError as exc:
+        if not _is_connection_failure(exc):
+            raise
+        if strict:
+            raise ConnectionError(
+                f"the HSDS server holding source {source!r} could not be reached, so its "
+                "shots cannot be listed"
+            ) from exc
         print("Connection error")
         return []
 
@@ -177,6 +274,7 @@ def exist_shot(
     sort: int = -1,
     *,
     username: Optional[str] = None,
+    strict: bool = False,
 ) -> Union[List[str], bool, pd.DataFrame, None]:
     """Return a list of shot names or processed-diagnostic data from HSDS.
 
@@ -205,6 +303,10 @@ def exist_shot(
             - 1: Ascending (oldest first)
             - -1: Descending (newest first)
             - 0: No sorting
+        strict (bool, optional): For a plain shot listing, raise ConnectionError
+            when the server cannot be reached instead of printing "Connection
+            error" and returning an empty list -- for callers to whom an empty
+            list would mean "no shots".
 
     Returns:
         Union[List[str], bool, pd.DataFrame, None]:
@@ -245,11 +347,13 @@ def exist_shot(
                     return True
             print("File does not exist")
             return False
-        except urllib3.exceptions.MaxRetryError:
+        except OSError as exc:
+            if not _is_connection_failure(exc):
+                raise
             print("Connection error")
             return False
 
-    return _get_namespace_folders(source, sort=sort)
+    return _get_namespace_folders(source, sort=sort, strict=strict)
 
 
 def read_legacy_processed_registry(group: str) -> dict:

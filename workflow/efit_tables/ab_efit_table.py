@@ -11,7 +11,7 @@ one constraints ODS is built from the eddy product (with table A's
 k-files for arm B are written from a copy whose ``INPUT_DIR``/``TABLE_DIR``
 are rewritten, and the tool refuses to run if the two k-file sets differ in
 any other line.  One ``efit`` executable, resolved once from ``EFITHOME``,
-runs both arms with ``EFITScientificConfig()``.  Per slice it reports
+runs both arms with ``routine_scientific_config()``.  Per slice it reports
 convergence, chi-square, iterations and the final GS error from the log,
 axis and boundary from the g-file, and the a-file scalars, and sets both arms
 beside the stored pipeline reference a/g-files for the same shot.
@@ -36,8 +36,8 @@ from typing import Any
 import numpy as np
 from vaft.database.composition import compose_stage_products
 
-from vaft.code.efit import generate_constraints_ods
-from vaft.code.efit.config import EFITScientificConfig
+from vaft.code.efit import generate_constraints_ods, parse_iteration_history
+from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
 from vaft.code.efit.efund import table_identity
 from vaft.code.efit.slice_name import split_slice_file_name
 from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, resolved_efit_configuration, run_efit
@@ -50,7 +50,6 @@ DEFAULT_WEIGHTING = [1, 1, 1, 0.1, 0.1, 0.1, 0.01, 0.01]
 DEFAULT_TIMES = [0.316, 0.319, 0.323, 0.325]
 DEFAULT_WINDOW = 0.0005
 
-_ITERATION = re.compile(r"\bt=\s*(\d+)\s+it=\s*(\d+)\s+chi2=\s*([0-9.E+-]+).*?err=\s*([0-9.E+-]+)")
 _DIR_LINE = re.compile(r"^\s*(INPUT_DIR|TABLE_DIR)\s*=", re.IGNORECASE)
 A_SCALARS = ("chisq", "ipmhd", "betap", "betat", "li", "q95", "qstar", "rm", "zm", "rcntr", "zcntr", "rcurrt", "zcurrt", "aminor", "elong", "cdflux", "condno", "terror")
 #: EFIT stores TABLE_DIR in a fixed-length character variable; a longer path
@@ -68,39 +67,27 @@ def _table_dir(path: Path) -> str:
 
 
 def iterations_from_log(text: str) -> list[dict[str, Any]]:
-    """Per-slice iteration count, last chi2 and last GS error from EFIT's terminal log.
+    """Per-slice iteration count, last chi2 and last increment from EFIT's terminal log.
 
-    One ``it=`` line per outer iteration, the counter restarting at 1 on every
-    slice; a boundary-finder error is attributed to the block it follows.
+    A view of :func:`vaft.code.efit.parse_iteration_history` (#1038), in time
+    order. The counter restarting at 1 delimits the slices, and a ``bound``
+    error naming a time no slice has yet opens one -- a slice that collapsed
+    before its first Picard step is a block with ``iterations_n == 0``, not an
+    error charged to the slice before it.
+
+    A slice that printed neither a step nor an error (one below the current
+    cut, say) has no block at all, so pairing these blocks with the k-files
+    by position still assumes every k-file printed something.
     """
-    blocks: list[dict[str, Any]] = []
-    current: list[tuple[int, float, float]] = []
-
-    def flush() -> None:
-        if current:
-            blocks.append(
-                {
-                    "iterations_n": max(it for it, _c, _e in current),
-                    "chi2_log": current[-1][1],
-                    "gs_error_log": current[-1][2],
-                    "bound_error": False,
-                }
-            )
-
-    for line in text.splitlines():
-        found = _ITERATION.search(line)
-        if found:
-            if int(found.group(2)) == 1:
-                flush()
-                current = []
-            current.append((int(found.group(2)), float(found.group(3)), float(found.group(4))))
-            continue
-        if "ERROR in bound" in line and current:
-            flush()
-            blocks[-1]["bound_error"] = True
-            current = []
-    flush()
-    return blocks
+    return [
+        {
+            "iterations_n": item.iterations_n,
+            "chi2_log": float(item.chi2[-1]) if item.iterations else None,
+            "gs_error_log": float(item.error[-1]) if item.iterations else None,
+            "bound_error": any(error["routine"] == "bound" for error in item.solver_errors),
+        }
+        for item in parse_iteration_history(text).slices
+    ]
 
 
 def _key_us(name: str) -> int:
@@ -198,8 +185,10 @@ def run_arm(name: str, source, *, shot: int, times: list[float], table_dir: str,
         shot=shot,
         times=list(times),
         args=("129",),
-        npprime=scientific.profile.kppcur,
-        nffprime=scientific.profile.kffcur,
+        profile=scientific.profile,
+        initialization=scientific.initialization,
+        numerics=scientific.numerics,
+        constraints=scientific.constraints,
         stack_size_kb=stack_size_kb,
         provenance={"arm": name, "table_dir": table_dir},
     )
@@ -382,7 +371,7 @@ def main(argv: list[str] | None = None) -> int:
     constraints_seconds = _clock.perf_counter() - started
     print(f"constraints built in {constraints_seconds:.0f} s")
 
-    scientific = EFITScientificConfig()
+    scientific = routine_scientific_config()
     arms = []
     for name, table_dir in (("A", table_a), ("B", table_b)):
         print(f"arm {name}: {table_dir}")

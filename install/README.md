@@ -85,7 +85,7 @@ git clone https://github.com/VEST-Tokamak/vaft.git
 cd vaft
 bash install/linux.sh          # or install/macos.sh, install/windows_wsl.sh
                                # on native Windows, see the table above
-hsconfigure                    # only if you need the remote VEST database
+vaft hsds configure            # only if you need the remote VEST database
 conda activate vaft && jupyter lab
 ```
 
@@ -153,13 +153,19 @@ silently.
 
 ## HSDS configuration
 
-The remote VEST database is reached through HSDS. Configure it with the
-interactive tool that ships with `h5pyd`:
+The remote VEST database is reached through HSDS. Configure it with VAFT's
+credential prompt, which writes the h5pyd configuration file:
 
 ```bash
 conda activate vaft
-hsconfigure
+vaft hsds configure
 ```
+
+The password and API key are read with hidden input, an existing one is shown
+only as `[configured]` (Enter keeps it), and the file is written with mode
+`0600`. Avoid the upstream `hsconfigure`: it echoes the password as you type and
+prints a stored password as the prompt default. On Windows file modes are not
+enforced; `.hscfg` inherits the permissions of your user profile.
 
 | Field | Value |
 | --- | --- |
@@ -167,8 +173,10 @@ hsconfigure
 | Username | contact [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
 | Password | contact [peppertonic18@snu.ac.kr](mailto:peppertonic18@snu.ac.kr) |
 
-`hsconfigure` writes `~/.hscfg` in your home directory. That file holds your
-credentials and belongs **only** there.
+`vaft hsds configure` writes `~/.hscfg` in your home directory. That file holds
+your credentials and belongs **only** there. The environment check warns when a
+`.hscfg` (in your home or in the checkout) is readable by other users, with the
+`chmod 600` that fixes it.
 
 The VAFT bootstrap scripts never ask for, store, print, or transmit your
 credentials. The checker reads `~/.hscfg` only to report whether it exists and
@@ -221,7 +229,7 @@ Every failure names the corrective action:
 ```text
 [WARN] HSDS configuration
        /home/student/.hscfg does not exist; needed only for remote database access
-       -> Run `hsconfigure`, then rerun this check.
+       -> Run `vaft hsds configure`, then rerun this check.
 ```
 
 ```text
@@ -393,6 +401,19 @@ The bootstrap above gives you VAFT, Python and JupyterLab. The external Fortran
 codes are optional and independent: you only need this section if you want VAFT
 to *run* CHEASE or the DCON/GPEC suite rather than only prepare their inputs.
 
+For the overview, generated from the code registry rather than kept by hand:
+
+- [External scientific codes](https://vest-tokamak.github.io/vaft/develop/reference/external-codes/)
+  -- each code's role, how VAFT runs it, who installs it, its `{CODE}HOME`,
+  checker, upstream and literature, and the installation ownership matrix;
+- [Software dependencies](https://vest-tokamak.github.io/vaft/develop/reference/software-dependencies/)
+  -- which capability each Python dependency and each optional extra provides.
+
+![How an external code becomes a VAFT capability](../docs/assets/diagrams/external_code_integration.svg)
+
+The platform-specific build instructions stay below and in each code's own
+README; the generated pages link back to them.
+
 ```text
 Need VAFT only?            -> the platform script above; you are done
 Need CHEASE?    Linux/macOS -> bash install/install_chease.sh --source PATH
@@ -401,6 +422,8 @@ Need DCON/GPEC? Linux/macOS -> bash install/install_gpec.sh --source PATH
                 Windows     -> install_gpec_windows.ps1 -BuildDependencies
 Need EFIT/EFUND? Linux/macOS -> bash install/install_efit.sh --source PATH --accept-efit-users-agreement
                 Windows     -> install_efit_windows.ps1 -AcceptEfitUsersAgreement
+Need GENRAY?    Linux/macOS -> bash install/install_genray.sh --source PATH
+                Windows     -> not supported (see Per-code notes)
 ```
 
 **You obtain the source yourself.** The installers take the path to a checkout
@@ -410,8 +433,8 @@ records, not one it infers — with more than one checkout on a machine, that is
 the difference between reproducible provenance and a guess.
 
 The rest of this section is ordered by platform: find your own heading and
-read only that one. Notes that hold whatever you are on — CHEASE's `nideal`
-default, the two suite tests it un-skips, and the separate entry points for
+read only that one. Notes that hold whatever you are on — CHEASE's `NIDEAL`
+selection, the two suite tests it un-skips, and the separate entry points for
 NUBEAM and GACODE — are collected under [Per-code notes](#per-code-notes)
 afterwards.
 
@@ -437,6 +460,7 @@ missing, they never run a package manager:
 | --- | --- |
 | CHEASE | `gfortran make git` |
 | GPEC | `gfortran gcc make git libnetcdff-dev liblapack-dev libblas-dev` |
+| GENRAY | `gfortran make git libnetcdff-dev` (macOS: `brew install gcc netcdf-fortran`) |
 
 Three things about the Linux build worth knowing before they bite:
 
@@ -638,14 +662,19 @@ code a directory of its own rather than a shared one such as `~/.local`.
 
 ## Per-code notes
 
-### CHEASE and the `nideal` default
+### CHEASE and its `NIDEAL` selection
 
-`CHEASEConfig.nideal` defaults to `6`, which upstream CHEASE accepts and which
-is its own documented default for writing the EQDSK that VAFT reads back.
+VAFT's CHEASE adapter has one contract: GEQDSK in, GEQDSK out. It writes
+CHEASE's native `EXPEQ` from the g-file (`NEQDSK=0`) and reads back the COCOS-2
+EQDSK, which upstream CHEASE writes for `NIDEAL=6`, its own documented default.
+`CHEASEConfig(output="geqdsk")`, the default, selects that; you do not set
+`NIDEAL` yourself. Other mappings, such as `NIDEAL=9` for GENE/ORB5, produce
+files the adapter does not read and are not part of it (#516).
 
-It used to default to `11`, the value the VEST `jsk95` workflow runs against
-the CHEASE build that group uses. Upstream validates the range in `cotrol.f90`
-(0 to 10) and quits before doing any equilibrium work on anything outside it:
+The adapter used to expose `nideal` and default it to `11`, the value the VEST
+`jsk95` workflow runs against the CHEASE build that group uses. Upstream
+validates the range in `cotrol.f90` (0 to 10) and quits before doing any
+equilibrium work on anything outside it:
 
 ```
 WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
@@ -653,8 +682,9 @@ WRONG VALUE FOR NIDEAL IT HAS TO BE 1,2,3,4,5,6,7,8,9 OR 10
 ```
 
 so a CHEASE built from the public repository refused the default configuration
-on every platform. That is fixed (#717); pass `CHEASEConfig(nideal=11)`
-explicitly if you are running against the jsk95 CHEASE revision.
+on every platform (#717). `CHEASEConfig(nideal=11)` still works against the
+jsk95 revision, as a deprecated raw override that warns; the pipeline passes it
+only when `chease.nideal` is set in its config.
 
 ### Two suite tests start running once CHEASE is installed
 
@@ -965,10 +995,15 @@ to check an uninstalled CMake build.
 
 ## Codes with no installer here, and why
 
-`install/` carries a build recipe for five codes: CHEASE, DCON/GPEC, EFIT/EFUND,
-NUBEAM and GACODE. `vaft.code` also talks to three others, and none of them gets
-a script here. That is a deliberate stop, not an omission, so this section says
-what VAFT actually does for each and what you would have to supply yourself.
+`install/` carries build recipes for CHEASE, DCON/GPEC, EFIT/EFUND, NUBEAM,
+GACODE and GENRAY (`install_genray.sh`; its notes are kept in this section). The
+codes below without a script -- TES, TRANSP and TokaMaker -- are not the only
+others `vaft.code` talks to: the generated
+[external-code reference](https://vest-tokamak.github.io/vaft/develop/reference/external-codes/)
+lists every integration, NICE, FLARE, PENTRC and the TGLF surrogates included. That is a deliberate stop, not an omission, so this section says
+what VAFT actually does for each and what you would have to supply yourself. The
+last entry, the `vaft-nn` model registry, is not a code at all but is configured
+the same way.
 
 ### TES
 
@@ -976,12 +1011,85 @@ what VAFT actually does for each and what you would have to supply yourself.
 obtain it; that is between you and its authors.
 
 What VAFT does with it, if you already hold a build: `vaft.code.tes` writes the
-namelist and `cinput` (`prepare_tes_inputs`), launches `$TESHOME/bin/rtes`
+namelist and `cinput` (`prepare_tes_inputs`), launches `$TESHOME/bin/rtes` or,
+for an unmodified source-tree build, `$TESHOME/TES/rtes`, else `$RTES`
 (`run_tes`, `scan_tes`), and parses the result scalars and coil currents
 (`collect_tes_outputs`). So `TESHOME` is a real, used variable — it is simply
 one you point at a binary you brought. There is no `install_tes_*.sh` and no
 `check_tes.py`, and adding either would imply an obtainable source that is not
 there.
+
+If you build `rtes` from source, apply `install/tes/tes_limiter_and_powell.patch`
+first. It adds or changes about twenty lines, with one line of TES source
+around each change as an anchor, and fixes three upstream problems
+(issue #1469):
+
+- **Limiting-point check.** `TES/find_psiab.cpp` writes `if(j=max_index)`, an
+  assignment, in the check that walks inward from a limiting-point candidate.
+  A candidate is therefore accepted after one step instead of the full walk.
+  If no candidate passes the full walk, the most interior limiter flux is
+  used, as before, rather than leaving the boundary flux undefined.
+- **Unbounded refinement.** The same file refines every X-point and
+  magnetic-axis candidate with `powell` on a bicubic patch of one grid cell,
+  and the search is unbounded. Next to a strong in-grid current (vessel eddy
+  filaments) it runs off to R ~ 1e105, and post-processing then aborts with
+  "(r,z) is out of range". A refinement that ends more than one cell away
+  from where it started, or does not converge, is now dropped.
+- **Fatal iteration cap.** `nr/powell.cpp` ends the whole process when it hits
+  its iteration cap. It now returns, and the caller checks the count.
+
+From the directory that holds `TES/` and `nr/`:
+
+```bash
+patch -p1 --dry-run < /path/to/vaft/install/tes/tes_limiter_and_powell.patch
+```
+
+If the dry run reports no rejected hunks, apply it for real:
+
+```bash
+patch -p1 < /path/to/vaft/install/tes/tes_limiter_and_powell.patch
+```
+
+The `nr` Makefile has no dependencies, so rebuild `powell` by hand before
+relinking:
+
+```bash
+cd nr && g++ -c powell.cpp && ar -rv libnr.a powell.o && cd ../TES && make rtes
+```
+
+On 39915 the forward equilibria the solver already reached are unchanged. With
+vessel eddy currents, slices that crashed in post-processing (323 and 325 ms)
+now complete.
+
+### GENRAY
+
+**Open source (https://github.com/compxco/genray); clone it yourself.**
+`install/install_genray.sh --source PATH` builds the committed revision in a
+temporary directory (it exports `git archive HEAD`, so no source file is touched
+and uncommitted changes are not built), installs `bin/xgenray` into
+`<source>/vaft-install` (an untracked directory; `--prefix` moves it), and
+runs `install/check_genray.py`. The checker reruns upstream's own EC regression
+case (`00_Genray_Regression_Tests/ci-tests/test-EC-ITER-Centra-CD`) and compares
+power, driven current and ray end points with upstream's `gold-genray.nc`.
+Export `GENRAYHOME` to the prefix it prints.
+
+Two build choices worth knowing:
+
+* **No PGPLOT.** Upstream links `-lpgplot -lX11` for its diagnostic plots. VAFT
+  reads `genray.nc` only, so the build links `install/genray/pgplot_stub.f`
+  (empty routines) instead. The rays and the netCDF file are unchanged.
+* **`-Wl,-noinhibit-exec` is dropped.** Upstream's makefiles pass it, and with it
+  GNU ld writes an executable even when symbols are unresolved. The installer
+  clears it, so a missing routine fails the build.
+
+`vaft.code.genray` turns `ec_launchers + equilibrium + core_profiles` into a
+GENRAY case (`prepare_genray_inputs`), runs it (`run_genray`, or `run` for all
+three steps), and maps the rays into IMAS `waves` (`genray_to_waves`). The wave
+mode is required and is never inferred. Launched power and Zeff come from the
+ODS or must be passed. A fitted Te that reaches zero at the separatrix is refused
+unless you pass `minimum_temperature_ev`. GENRAY exits 0 on some input errors, so
+`GENRAYResult.ok` also requires a `genray.nc`. Native Windows is not supported:
+upstream ships no Windows build that VAFT has verified.
 
 ### TRANSP
 
@@ -1010,6 +1118,36 @@ Every import is deferred, so `vaft.code.tokamaker` imports cleanly on a machine
 without it and reports the absence when you actually call something. There is no
 `check_tokamaker.py`: `import OpenFUSIONToolkit` already answers the only
 question such a checker would ask.
+
+### vaft-nn (VAFT's published models)
+
+**A private registry, not a build.** Trained models are produced by
+`vaft.process.ml` and published to
+[`VEST-Tokamak/vaft-nn`](https://github.com/VEST-Tokamak/vaft-nn). That
+repository holds metadata only. `models/<name>/releases.yaml` lists the versions,
+their lifecycle status (candidate, validated, production, deprecated), the
+SHA-256 of each version's manifest, and stage aliases such as `production`. The
+weights are GitHub Release assets. Clone it and point `VAFT_NN_HOME` at the
+checkout:
+
+```bash
+git clone git@github.com:VEST-Tokamak/vaft-nn.git ~/git/vaft-nn
+export VAFT_NN_HOME=~/git/vaft-nn
+gh auth login                                   # once
+python install/check_vaft_nn.py                 # registry, cache, gh access
+```
+
+Nothing is compiled, so there is no installer. `vaft.process.ml.fetch_model` downloads a
+release into the cache (`$VAFT_NN_CACHE`, else the platform cache directory)
+with `gh release download`. That reuses the GitHub CLI's login, so no token is
+ever passed to or stored by VAFT, following the HSDS credential rule above. A
+downloaded file is kept only if its SHA-256 equals the one the registry's
+reviewed manifest pins, and a stage alias is resolved to an exact version before
+anything loads. `check_vaft_nn.py` reports on each layer:
+- the checkout and its revision;
+- every model's release index and pinned manifests;
+- which versions are complete in the cache;
+- whether `gh` is installed and logged in, as yes or no only.
 
 ## Uninstalling
 
@@ -1064,8 +1202,8 @@ kernel.
 
 ### What it never removes
 
-- **`~/.hscfg`.** The bootstrap never wrote it — `hsconfigure` did, when you
-  ran it — and it holds your HSDS credentials. Uninstalling VAFT should not
+- **`~/.hscfg`.** The bootstrap never wrote it — `vaft hsds configure` (or
+  `hsconfigure`) did, when you ran it — and it holds your HSDS credentials. Uninstalling VAFT should not
   make you type them again.
 - **Any Conda environment whose name is not exactly `vaft`.** The removal is
   pinned to `--name vaft`, with no prefix or pattern match, so an environment
@@ -1123,8 +1261,9 @@ bash install/linux.sh
 **JupyterLab shows no "Python (vaft)" kernel** — you started Jupyter from a
 different environment. Run `conda activate vaft` first, or rerun the bootstrap.
 
-**`hsconfigure: command not found`** — the `h5pyd` command-line tools live
-inside the environment. Run `conda activate vaft` first.
+**`vaft: command not found`** or **`hsget: command not found`** — the VAFT and
+`h5pyd` command-line tools live inside the environment. Run `conda activate vaft`
+first.
 
 **A network check fails but everything else passes** — that is expected off
 campus or without credentials. The whole offline course works anyway; the HSDS

@@ -492,6 +492,8 @@ def track_reference_frequency(
     so it can jump between two comparable modes from one window to the next. It
     reports the strongest component in range whether or not one is really there;
     a window with no mode still returns its loudest bin.
+    :func:`vaft.process.fluctuation.track_dominant_frequency`, which this calls,
+    offers a floor and a continuity limit for callers that want neither.
 
     Provenance
     ----------
@@ -500,26 +502,13 @@ def track_reference_frequency(
     .. [2] [Jung2022]_ section 4.1, which specifies the magnetic probe as the
        source of the centre frequency.
     """
-    frequency = np.asarray(spectrogram.frequency, dtype=float).reshape(-1)
-    magnitude = np.abs(np.asarray(spectrogram.magnitude, dtype=float))
-    if magnitude.ndim != 2 or magnitude.shape[0] != frequency.size:
-        raise ValueError(
-            "magnitude must be (frequency, time) matching the frequency axis; got "
-            f"{magnitude.shape} for {frequency.size} frequencies"
-        )
-    low, high = (float(search_range[0]), float(search_range[1]))
-    if low >= high:
-        raise ValueError(f"search_range must be increasing; got {search_range!r}")
+    from vaft.process.fluctuation import track_dominant_frequency
 
-    in_range = (frequency >= low) & (frequency <= high)
-    if not np.any(in_range):
-        return np.full(magnitude.shape[1], np.nan)
-    candidates = np.nonzero(in_range)[0]
-    picked = candidates[np.argmax(magnitude[candidates, :], axis=0)]
-    tracked = frequency[picked]
-    # A window with nothing at all in it has no dominant frequency to report.
-    tracked = np.where(magnitude[candidates, :].max(axis=0) > 0.0, tracked, np.nan)
-    return tracked
+    # The shared ridge tracker with no floor and no continuity requirement is
+    # exactly the legacy per-window argmax; only an empty window reports NaN.
+    return track_dominant_frequency(
+        spectrogram, search_range=search_range, floor_ratio=0.0
+    ).frequency
 
 
 def mhd_band_power(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields, replace
 from datetime import datetime
 import gzip
 import hashlib
@@ -32,11 +32,13 @@ from vaft.machine_mapping.impa import (
     impa_probe_indices,
     resolve_impa_config,
 )
-from vaft.machine_mapping.langmuir_probes import langmuir_probes
+from vaft.machine_mapping.langmuir_probes import LangmuirProbeEraGapError, langmuir_probes
 from vaft.machine_mapping.magnetics import (
     FLUCTUATION_MIRNOV_FIRST_SHOT,
     LIMITER_SHUNT_CHANNELS,
+    equilibrium_magnetics_processing_config,
     fluctuation_mirnov_channel_definitions,
+    known_magnetics_faults,
     toroidal_mirnov_reference_channels,
     vest_equilibrium_magnetics_channel_definitions,
     vfit_magnetics_dynamic,
@@ -44,11 +46,18 @@ from vaft.machine_mapping.magnetics import (
 )
 from vaft.machine_mapping.pf_active import (
     PF_COIL_COUNT,
+    require_acquired_pf_currents,
     resolve_geometry_asset,
+    unacquired_pf_coils,
     vfit_pf_active_dynamic,
     vfit_pf_active_static,
 )
-from vaft.machine_mapping.pf_passive import DEFAULT_STATIC_GEOMETRY, pf_passive
+from vaft.machine_mapping.pf_passive import (
+    DEFAULT_STATIC_GEOMETRY,
+    DEFAULT_WALL_2409_ADDITIONS,
+    pf_passive,
+    wall_geometry_version_for_shot,
+)
 from vaft.machine_mapping.spectrometer_uv import spectrometer_uv
 from vaft.machine_mapping.tf import vfit_tf_dynamic, vfit_tf_static
 from vaft.machine_mapping.wall import wall
@@ -72,6 +81,7 @@ class VestMachineEra:
     last_shot: int | None
     pf_geometry: str
     reference_shot: int
+    wall_geometry: str = "1512"
 
     def contains(self, shot: int) -> bool:
         return (self.first_shot is None or shot >= self.first_shot) and (
@@ -79,14 +89,19 @@ class VestMachineEra:
         )
 
 
-# 43017 and 45967 are retained as legacy configuration boundaries.  The
-# corrected PF6/PF7 geometry begins at shot 45958, producing a deliberate
-# intermediate era that the old three-file selection could not represent.
+# One era per machine access that changed a conductor the static product
+# carries (issue #956). Each boundary is the first shot after a multi-day gap
+# in the raw `pulse_datetime`, which is when the vessel could be opened:
+#   43017  passive wall 1512 -> 2409 (+15 SUS316LN elements at Z = -1.164 m);
+#          43016 is 2024-07-05, 43017 is 2024-07-15.
+#   45968  PF6/PF7 rebuilt, coil geometry 1906 -> 2507; 45950-45967 run every
+#          ~12 minutes on 2025-06-30 and 45968 follows on 2025-07-07.
+# The PF boundary was 45958 before #956, with no recorded source, which split
+# off a ten-shot 45958-45966 era and a 45967 legacy boundary; both are gone.
 VEST_MACHINE_ERAS = (
-    VestMachineEra("vest-pre-43017-pf1906", None, 43016, "1906", 43016),
-    VestMachineEra("vest-43017-45957-pf1906", 43017, 45957, "1906", 43017),
-    VestMachineEra("vest-45958-45966-pf2507", 45958, 45966, "2507", 45958),
-    VestMachineEra("vest-45967-plus-pf2507", 45967, None, "2507", 45967),
+    VestMachineEra("vest-pre-43017-pf1906", None, 43016, "1906", 43016, "1512"),
+    VestMachineEra("vest-43017-45967-pf1906", 43017, 45967, "1906", 43017, "2409"),
+    VestMachineEra("vest-45968-plus-pf2507", 45968, None, "2507", 45968, "2409"),
 )
 
 
@@ -181,8 +196,14 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
     ods = ODS(consistency_check=False)
     wall(ods)
     vfit_pf_active_static(ods, shot=era.reference_shot)
-    pf_passive(ods)
+    pf_passive(ods, shot=era.reference_shot)
     em_coupling(ods, shot=era.reference_shot)
+    if wall_geometry_version_for_shot(era.reference_shot) != era.wall_geometry:
+        raise ValueError(
+            f"machine era {era.name} declares wall {era.wall_geometry}, but its "
+            f"reference shot {era.reference_shot} selects wall "
+            f"{wall_geometry_version_for_shot(era.reference_shot)}"
+        )
     # Deliberately un-gated (shot=0, the inventory). A static product describes
     # a machine *era*, and the phase-reference Mirnov boundary (shot 35520)
     # falls inside the first era, whose reference_shot is 43016 -- so no single
@@ -200,7 +221,7 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
     _, _, reciprocity = mapper_comment.partition("; mutual_passive_passive ")
     ods["em_coupling.ids_properties.comment"] = (
         f"VEST electromagnetic coupling; machine era {era.name}; "
-        f"PF geometry {era.pf_geometry}"
+        f"PF geometry {era.pf_geometry}; wall {era.wall_geometry}"
         + (f"; mutual_passive_passive {reciprocity}" if reciprocity else "")
     )
     # pf_active, pf_passive, magnetics, and tf each have a dynamic counterpart
@@ -239,6 +260,20 @@ def build_static_ods(machine_version: str) -> tuple[ODS, dict[str, Any]]:
                 "name": pf_geometry_asset.name,
                 "sha256": sha256_file(pf_geometry_asset),
             },
+            **(
+                {
+                    "wall_additions": {
+                        "name": Path(DEFAULT_WALL_2409_ADDITIONS).name,
+                        "wall_geometry": era.wall_geometry,
+                        "sha256": sha256_file(DEFAULT_WALL_2409_ADDITIONS),
+                    }
+                }
+                if era.wall_geometry != "1512"
+                else {}
+            ),
+            # The static product carries probe positions only. Which raw field
+            # feeds each position is per shot (vest.yaml `wiring`, issue #956)
+            # and recorded in the diagnostics provenance.
             "magnetics_geometry": {
                 "name": "VEST_MagneticsGeometry_Full_ver_2302.yaml",
                 "source_version": "2409",
@@ -643,6 +678,78 @@ def _validate_diagnostics_time_coordinates(
     }
 
 
+def magnetics_processing_for_shot(
+    shot: int, overrides: Mapping[str, Any] | None
+) -> VestMagneticsProcessingConfig | None:
+    """The equilibrium-magnetics processing for *shot*: its era policy, with *overrides* on top.
+
+    ``None`` without overrides, so the mapper resolves the era itself. An
+    override changes only the keys it names. It used to *replace* the era
+    policy: the routine workflow's ``vest.magnetics.processing`` block, which
+    restates the dataclass defaults, then ran every native-DAQ shot (46404 on)
+    through the slow-DAQ path, with the wrong fields and baselines, as soon as
+    the workflow configuration was actually loaded (#1541). The acquisition era
+    (``daq_mode``, the baseline rules, the output window) comes from
+    ``vest.yaml`` unless an override names it explicitly.
+    """
+    if not overrides:
+        return None
+    era = equilibrium_magnetics_processing_config(int(shot))
+    shadowed = set(_WINDOW_RULE_KEYS) if era.window_override is not None else set()
+    if era.flux_baseline_window is not None or era.flux_baseline_samples is not None:
+        shadowed |= set(_FLUX_BASELINE_RULE_KEYS)
+    defaults = {f.name: f.default for f in fields(VestMagneticsProcessingConfig)}
+    # A shadowed key left at its default is inert (the routine block restates
+    # them all); one set to anything else is a change that would be dropped.
+    dropped = sorted(
+        key for key in shadowed & set(overrides)
+        if _as_tuple(overrides[key]) != _as_tuple(defaults[key])
+    )
+    if dropped:
+        raise ValueError(
+            f"shot {shot}: the vest.yaml era policy decides {dropped}, so this override would "
+            "change nothing; set window_override / flux_baseline_window / flux_baseline_samples instead"
+        )
+    # The era window is a triple of INDICES into the output grid
+    # linspace(time_start, time_end, sample_count). An override that moves the
+    # grid while the era keeps the indices moves the analysis window and the
+    # probe baseline with it, silently: `sample_count: 20000` puts the
+    # native-DAQ window at 0.325-0.45 s instead of 0.26-0.36 s. The grid keys
+    # are therefore refused unless the override also names `window_override`,
+    # so a scan that moves the grid owns the indices into it as well.
+    if era.window_override is not None and "window_override" not in overrides:
+        moved = sorted(
+            key for key in _OUTPUT_GRID_KEYS
+            if key in overrides and _as_tuple(overrides[key]) != _as_tuple(getattr(era, key))
+        )
+        if moved:
+            raise ValueError(
+                f"shot {shot}: {moved} would move the output grid that the vest.yaml era window "
+                f"{tuple(era.window_override)} indexes, shifting the analysis window and the probe "
+                "baseline; name window_override alongside them or leave them at the era's values"
+            )
+    return replace(era, **dict(overrides))
+
+
+#: Keys only the legacy hardcoded window ladder reads; an era ``window_override`` shadows them.
+_WINDOW_RULE_KEYS = (
+    "default_index_start", "default_index_end", "default_probe_baseline_end", "late_shot_min",
+    "transient_shot_min", "transient_shot_max", "late_index_start", "late_index_end", "late_probe_baseline_end",
+)
+#: The output grid the era's ``window_override`` indices index into.
+_OUTPUT_GRID_KEYS = ("time_start", "time_end", "sample_count")
+#: Keys only the legacy per-sample flux baselines read; an era flux-baseline rule shadows them.
+_FLUX_BASELINE_RULE_KEYS = (
+    "flux_baseline_first_start", "flux_baseline_first_end", "flux_baseline_second_start",
+    "flux_baseline_second_end", "flux_baseline_late_start", "flux_baseline_late_end",
+    "flux_baseline_late_loop_numbers",
+)
+
+
+def _as_tuple(value: Any) -> Any:
+    return tuple(value) if isinstance(value, (list, tuple)) else value
+
+
 def build_diagnostics_ods(
     *,
     shot: int,
@@ -748,6 +855,10 @@ def build_diagnostics_ods(
             raw_db.RawSignalUnavailableError,
             FileNotFoundError,
             SignalRepairError,
+            # A shot between two documented Langmuir bias/tip eras has no
+            # known setting (#152); that is the Langmuir component's gap,
+            # not a reason to lose every other diagnostic (#989).
+            LangmuirProbeEraGapError,
         ) as error:
             # A fully saturated waveform is a property of the shot, not a fault
             # in the run: refusing to reconstruct one is correct, but it makes
@@ -787,6 +898,12 @@ def build_diagnostics_ods(
         ),
         disabled_channels=_disabled_pf_coils(shot),
     )
+    unacquired_pf = unacquired_pf_coils(ods)
+    if unacquired_pf and statuses["pf_active"]["status"] != "unavailable":
+        # Published without the circuits whose channel was empty (#1568):
+        # they carry NaN, and eddy/EFIT refuse the shot.
+        statuses["pf_active"]["status"] = "partial"
+        statuses["pf_active"]["unacquired_channels"] = unacquired_pf
     grids["pf_active"] = policy_grid("pf_active")
     uv_policy = policies["spectrometer_uv"]
     run_component(
@@ -843,6 +960,9 @@ def build_diagnostics_ods(
         "ec_power", "ec_launchers", "ec_launchers.beam.0.power_launched.time"
     )
     langmuir_policy = policies["langmuir_probes"]
+    # Filled by the mapper; statuses keeps this same dict, so the counts reach
+    # the manifest without opening the ODS (#915).
+    langmuir_unfiltered: dict[str, Any] = {}
     run_component(
         "langmuir_probes",
         ("langmuir_probes",),
@@ -853,10 +973,23 @@ def build_diagnostics_ods(
             langmuir_policy.tend,
             langmuir_policy.dt,
             raw_source=raw_path,
+            report=langmuir_unfiltered,
         ),
+        anti_alias={
+            "policy": (
+                "finite runs of the triple-probe solve shorter than filtfilt "
+                "accepts are decimated unfiltered; every target sample they "
+                "contribute to has validity_timed = -1 (#915)"
+            ),
+            "unfiltered": langmuir_unfiltered,
+        },
     )
     grids["langmuir_probes"] = policy_grid("langmuir_probes")
     tf_policy = policies["tf"]
+    # Filled by the mapper: the TF-current acquisition excursions it replaced
+    # (#1543), so the manifest's `repaired` says what `tf.coil.0.current` no
+    # longer measures rather than a literal empty list.
+    tf_report: dict[str, Any] = {}
     run_component(
         "tf",
         ("tf",),
@@ -869,17 +1002,18 @@ def build_diagnostics_ods(
                 tf_policy.tend,
                 tf_policy.dt,
                 raw_source=raw_path,
+                report=tf_report,
             ),
         ),
     )
     record_realized_grid("tf", "tf", "tf.time")
-    processing = (
-        VestMagneticsProcessingConfig(**vest_magnetics_processing)
-        if vest_magnetics_processing
-        else None
-    )
+    tf_repaired = [{"component": "tf", **entry} for entry in tf_report.get("repaired", [])]
+    if statuses["tf"]["status"] != "unavailable":
+        statuses["tf"]["repaired"] = tf_repaired
+    processing = magnetics_processing_for_shot(shot, vest_magnetics_processing)
     magnetics_channels = [
-        int(channel["field_code"]) for channel in vest_equilibrium_magnetics_channel_definitions()
+        int(channel["field_code"])
+        for channel in vest_equilibrium_magnetics_channel_definitions(int(shot))
     ] + [
         # Gated, like the fluctuation list below: a channel the mapper declines
         # to map past its last operational shot is not a channel the archive is
@@ -897,6 +1031,7 @@ def build_diagnostics_ods(
         field for field in magnetics_channels if field not in archived_fields
     )
     magnetics_policy = policies["magnetics"]
+    magnetics_left_out: dict[str, str] = {}
     run_component(
         "magnetics",
         ("magnetics",),
@@ -908,7 +1043,7 @@ def build_diagnostics_ods(
             # different indices depending on whether a product came from this
             # pipeline or from a fresh mapping.
             vfit_magnetics_static(component, shot),
-            vfit_magnetics_dynamic(
+            magnetics_left_out.update(vfit_magnetics_dynamic(
                 component,
                 shot,
                 magnetics_policy.tstart,
@@ -917,13 +1052,18 @@ def build_diagnostics_ods(
                 processing_config=processing,
                 raw_source=raw_path,
                 target_time=policy_grid("magnetics"),
-            ),
+            ) or {}),
         ),
         processing="VestMagneticsProcessingConfig",
         component_status="partial" if missing_magnetics_channels else "success",
         missing_channels=missing_magnetics_channels,
     )
     grids["magnetics"] = policy_grid("magnetics")
+    if magnetics_left_out and statuses["magnetics"]["status"] != "unavailable":
+        # The IDS was built without these signals (#993): a partial record,
+        # with the reason each one is missing, not a silent success.
+        statuses["magnetics"]["status"] = "partial"
+        statuses["magnetics"]["signals_left_out"] = dict(magnetics_left_out)
 
     # A component whose raw signals were unavailable produced no coordinate,
     # so it must not appear in the realized-coverage record either.
@@ -950,7 +1090,12 @@ def build_diagnostics_ods(
             validate_magnetics_signals,
         )
 
-        quality_report = validate_magnetics_signals(ods)
+        # Channels recorded as broken for this shot (vest.yaml
+        # `known_faults`, issue #956) are condemned by the same pass, so
+        # EFIT and every other reader see them through validity alone.
+        quality_report = validate_magnetics_signals(
+            ods, known_faults=known_magnetics_faults(int(shot))
+        )
         project_validity(ods, quality_report)
         magnetics_quality = magnetics_quality_metrics(ods, quality_report)
 
@@ -984,14 +1129,29 @@ def build_diagnostics_ods(
             "dt": float(analysis.dt),
             "run": int(run),
             "vest_magnetics_processing": vest_magnetics_processing or {},
+            # What the processing actually used: the era policy with the override on top.
+            "vest_magnetics_processing_effective": (
+                json.loads(json.dumps(asdict(processing))) if processing is not None else None
+            ),
             "time_policies": time_policies or {},
         },
         "time_grid": time_grid,
         "magnetics_quality": magnetics_quality,
         "channel_status": statuses,
         "quality_summary": {
-            "missing": sorted(unavailable + missing_channels),
-            "repaired": [],
+            "missing": sorted(
+                unavailable
+                + missing_channels
+                + [
+                    f"magnetics:{signal}"
+                    for signal in statuses.get("magnetics", {}).get("signals_left_out", {})
+                ]
+                + [
+                    f"pf_active:{coil}"
+                    for coil in statuses.get("pf_active", {}).get("unacquired_channels", [])
+                ]
+            ),
+            "repaired": tf_repaired,
             "disabled": _disabled_pf_coils(shot),
             "rejected": [],
             "unavailable": unavailable,
@@ -1194,6 +1354,43 @@ def build_impa_ods(
     return ods, manifest
 
 
+#: ``eddy_status`` prefix of an eddy stage whose inputs do not exist in the data.
+#: Replication reads it as a result, not a fault (vaft.database.replication).
+EDDY_INPUT_UNAVAILABLE = "skipped: required input unavailable"
+
+
+def eddy_no_output_product(
+    *, shot: int, diagnostics_ods: str | Path, static_ods: str | Path, reason: str
+) -> tuple[ODS, dict[str, Any]]:
+    """The eddy product for a shot with an unrecorded PF circuit (#1568).
+
+    :func:`build_eddy_ods` refuses such a shot, and that stays an error for a
+    direct caller. The routine stage records it instead: a product with no
+    ``pf_passive`` and a manifest saying ``no_output`` and why, so the shot is
+    finished with nothing to compute rather than a failure retried forever.
+    Only an unrecorded circuit takes this path; a missing diagnostics
+    component still fails the stage, because it can be a configuration fault.
+    """
+    diagnostics_path, static_path = Path(diagnostics_ods), Path(static_ods)
+    product = ODS(consistency_check=False)
+    product["dataset_description.data_entry.pulse"] = int(shot)
+    product["dataset_description.ids_properties.homogeneous_time"] = 2
+    product["dataset_description.ids_properties.comment"] = f"eddy produced no output: {reason}"
+    manifest = {
+        "schema_version": 1,
+        "stage": "eddy",
+        "shot": int(shot),
+        "machine_version": machine_era_for_shot(int(shot)).name,
+        "status": "no_output",
+        "eddy_status": f"{EDDY_INPUT_UNAVAILABLE}: {reason}",
+        "input": {
+            "diagnostics_sha256": sha256_file(diagnostics_path),
+            "static_sha256": sha256_file(static_path),
+        },
+    }
+    return product, manifest
+
+
 def build_eddy_ods(
     *,
     shot: int,
@@ -1251,6 +1448,9 @@ def build_eddy_ods(
             "diagnostics ODS is missing " + ", ".join(missing),
             signal_name="eddy-current constraints",
         )
+
+    # A coil kept as not-acquired (#1568) would drive the vessel with NaN.
+    require_acquired_pf_currents(diagnostics, int(shot), "the eddy-current solve")
 
     ods = diagnostics
     _copy_ids(ods, static, ("wall", "pf_passive", "em_coupling"))
@@ -1964,6 +2164,120 @@ def _has_kinetic_slice(ods: ODS) -> bool:
     )
 
 
+def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
+    """The ``equilibrium.code.parameters`` payload of a kinetic EFIT product.
+
+    Names the preset that built the base k-file and, as the top-level
+    ``uncertainty_model`` that :func:`vaft.omas.efit_quality.constraint_uncertainty_model`
+    reads, the uncertainty model its constraints were fitted under.  No preset
+    named is the default (``DEFAULT_PRESET``), which is what
+    :func:`vaft.code.efit.kinetic.prepare_kinetic_efit_inputs` builds the
+    k-file with then, so it is recorded by that name.
+    """
+    from vaft.code.efit.presets import DEFAULT_PRESET
+    from vaft.code.efit.presets import efit_preset as _efit_preset
+
+    preset = _efit_preset(efit_preset or DEFAULT_PRESET)
+    record = preset.record()
+    scientific = preset.scientific
+    return json.dumps(
+        {
+            "kinetic_efit": {"stage": stage, "efit_preset": record},
+            "uncertainty_model": scientific.constraints.uncertainty_mode,
+        },
+        sort_keys=True,
+    )
+
+
+def usable_equilibrium_times_ms(solution: Any) -> np.ndarray | None:
+    """Times [ms] of the slices the EFIT collection judged ``usable``.
+
+    ``None`` when the product records no per-slice verdict (written before the
+    collection stored one, or not an EFIT product), so a caller can tell "no
+    verdicts" from "no usable slice".
+    """
+    try:
+        payload = json.loads(str(solution["equilibrium.code.parameters"]))
+        statuses = payload["efit_collection"]["slice_statuses"]
+    except Exception:  # noqa: BLE001 - absent or older payloads carry no verdicts
+        return None
+    return np.asarray(
+        [1e3 * float(entry["time"]) for entry in statuses if entry.get("overall_status") == "usable"],
+        dtype=float,
+    )
+
+
+#: How many aligned profile times the kinetic lineages try before giving up.
+KINETIC_MAX_ATTEMPTS = 3
+
+
+def profile_time_candidates(
+    profile_times_ms: np.ndarray,
+    eq_times_ms: np.ndarray,
+    usable_eq_times_ms: np.ndarray | None,
+    *,
+    tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+) -> tuple[list[float], str]:
+    """Profile times to try, best first, and why: :func:`choose_profile_time`'s
+    choice first, then every other aligned, usable one by offset and time."""
+    first, why = choose_profile_time(profile_times_ms, eq_times_ms, usable_eq_times_ms, tolerance_ms=tolerance_ms)
+    profile = np.asarray(profile_times_ms, dtype=float).reshape(-1)
+    eq = np.asarray(eq_times_ms, dtype=float).reshape(-1)
+    distance = np.abs(profile[:, None] - eq[None, :])
+    offsets = distance.min(axis=1)
+    nearest = eq[distance.argmin(axis=1)]
+    aligned = offsets <= tolerance_ms
+    if why == "aligned and usable":
+        usable = np.round(np.asarray(usable_eq_times_ms, dtype=float).reshape(-1), 3)
+        good = np.flatnonzero(aligned & np.isin(np.round(nearest, 3), usable))
+        order = sorted(good, key=lambda i: (offsets[i], profile[i]))
+        return [float(profile[i]) for i in order], why
+    usable = np.asarray(usable_eq_times_ms if usable_eq_times_ms is not None else [], dtype=float).reshape(-1)
+    if why == "aligned (no aligned slice is usable)" and usable.size and aligned.any():
+        # Thomson fired outside the magnetically usable window (the 42xxx
+        # series: profiles at 322-331 ms, usable EFIT from 333 ms). The kinetic
+        # fit is likeliest to converge next to that window, so try the aligned
+        # times closest to it first rather than the earliest.
+        gap = np.min(np.abs(profile[:, None] - usable[None, :]), axis=1)
+        order = sorted(np.flatnonzero(aligned), key=lambda i: (gap[i], offsets[i], profile[i]))
+        return [float(profile[i]) for i in order], "aligned, nearest the usable window"
+    return [first], why
+
+
+def choose_profile_time(
+    profile_times_ms: np.ndarray,
+    eq_times_ms: np.ndarray,
+    usable_eq_times_ms: np.ndarray | None,
+    *,
+    tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+) -> tuple[float, str]:
+    """The profile time to reconstruct at, and why it was chosen.
+
+    The best-aligned slice, not the first one: which profile time comes first
+    says nothing about which has an equilibrium to reconstruct against.  Among
+    the aligned ones, a slice whose magnetic equilibrium the collection judged
+    ``usable`` wins -- when Thomson and EFIT share a millisecond grid every
+    profile time is aligned, and the first of them was 39915 @ 312 ms, a
+    negative-pressure slice the kinetic fit could not converge from (#1331).
+    Falls back to the best-aligned slice when no aligned one is usable or the
+    product records no verdicts; the returned reason says which happened.
+    """
+    profile = np.asarray(profile_times_ms, dtype=float).reshape(-1)
+    eq = np.asarray(eq_times_ms, dtype=float).reshape(-1)
+    distance = np.abs(profile[:, None] - eq[None, :])
+    offsets = distance.min(axis=1)
+    best = float(profile[int(np.argmin(offsets))])
+    if usable_eq_times_ms is None:
+        return best, "aligned (no per-slice verdicts)"
+    usable = np.asarray(usable_eq_times_ms, dtype=float).reshape(-1)
+    nearest = eq[distance.argmin(axis=1)]
+    good = (offsets <= tolerance_ms) & np.isin(np.round(nearest, 3), np.round(usable, 3))
+    if not good.any():
+        return best, "aligned (no aligned slice is usable)"
+    candidates = np.flatnonzero(good)
+    return float(profile[candidates[int(np.argmin(offsets[candidates]))]]), "aligned and usable"
+
+
 def build_kinetic_efit_ods(
     *,
     shot: int,
@@ -1977,6 +2291,7 @@ def build_kinetic_efit_ods(
     executable: str | None = None,
     encoding: str = "raw6",
     run: int = 1,
+    efit_preset: str | None = None,
 ) -> tuple[ODS, dict[str, Any]]:
     """Reconstruct a kinetic-pressure equilibrium from products already on disk.
 
@@ -2017,6 +2332,12 @@ def build_kinetic_efit_ods(
         "efit_product": str(efit_product),
     }
     manifest["configuration"]["encoding"] = encoding
+    # Always: a product names the configuration that built it, the default
+    # included (DEFAULT_PRESET when none was named).
+    from vaft.code.efit.presets import DEFAULT_PRESET
+    from vaft.code.efit.presets import efit_preset as _efit_preset
+
+    manifest["configuration"]["efit_preset"] = _efit_preset(efit_preset or DEFAULT_PRESET).record()
 
     out = ODS(consistency_check=False)
     dataset_description(
@@ -2100,40 +2421,16 @@ def build_kinetic_efit_ods(
         profile_times = _time_array_ms(ods, "core_profiles.time")
         if profile_times is None:
             return unavailable("no core_profiles slice to reconstruct at")
-        # The best-aligned slice, not the first one. Which profile time happens
-        # to come first says nothing about which has an equilibrium to be
-        # reconstructed against, and with a sub-millisecond tolerance an
-        # arbitrary choice refuses shots a better-aligned slice would serve.
-        offsets = np.min(np.abs(profile_times[:, None] - eq_times[None, :]), axis=1)
-        time_ms = float(profile_times[int(np.argmin(offsets))])
-
-    time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
-    manifest["configuration"]["time_ms"] = float(time_ms)
-    manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
-    manifest["configuration"]["equilibrium_tolerance_ms"] = float(equilibrium_tolerance_ms)
-    # Reconstructing a 298 ms profile against a 308 ms equilibrium is not a
-    # near miss in a discharge this short -- it is a different plasma. Refuse
-    # rather than produce a number nobody can tell is meaningless.
-    offset = abs(float(eq_times[time_index]) - float(time_ms))
-    if offset > equilibrium_tolerance_ms:
-        return unavailable(
-            f"the nearest reconstructed equilibrium is {offset:.1f} ms from the "
-            f"profile time ({time_ms:.1f} ms), beyond the "
-            f"{equilibrium_tolerance_ms:.1f} ms tolerance"
+        candidates, choice = profile_time_candidates(
+            profile_times, eq_times, usable_equilibrium_times_ms(solution),
+            tolerance_ms=equilibrium_tolerance_ms,
         )
-
-    # The psi this carries is the ODS's, in weber (#278/#281), where a g-file's
-    # is weber per radian -- measured on 48224, SIMAG and SIBRY come out exactly
-    # 2*pi larger. It does not matter *here*, because every consumer normalizes:
-    # psi_N = (psi - SIMAG)/(SIBRY - SIMAG) in `_psin_of_r`, and psi_norm /
-    # rho_pol_norm / rho_tor_norm in the profile mapper, so a global factor -- or
-    # a COCOS sign flip -- cancels in numerator and denominator alike. Verified
-    # against the packaged g-file: psi_N agrees to 2e-16. Anything that later
-    # wants *absolute* psi off this object has to convert first.
-    try:
-        geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
-    except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
-        return unavailable(f"cannot build a psi map from the equilibrium: {error}")
+        candidates = candidates[:KINETIC_MAX_ATTEMPTS]
+        manifest["configuration"]["time_choice"] = choice
+    else:
+        candidates = [float(time_ms)]
+        manifest["configuration"]["time_choice"] = "caller"
+    manifest["configuration"]["equilibrium_tolerance_ms"] = float(equilibrium_tolerance_ms)
 
     # A caller-supplied workdir is the caller's to keep. One we invent is ours to
     # remove: EFIT leaves a kfile and its outputs per PLASMA scale, and this stage
@@ -2141,49 +2438,113 @@ def build_kinetic_efit_ods(
     # the filesystem the products themselves live on.
     ephemeral = workdir is None
     work = Path(tempfile.mkdtemp(prefix=f"{stage}-")) if ephemeral else Path(workdir)
+    attempts: list[dict[str, Any]] = []
+    retry = len(candidates) > 1
+
+    def record(time_ms: float, **fields: Any) -> None:
+        if retry:
+            attempts.append({"time_ms": float(time_ms), **fields})
+            manifest["attempts"] = attempts
+
     try:
-        config = KineticEFITConfig(
-            executable=executable,
-            workdir=work,
-            shot=shot,
-            time_ms=float(time_ms),
-            encoding=encoding,
-            # 'auto' is the VEST policy ratio, and it only applies when the ODS
-            # has no ion data -- which is exactly the electron_efit case.
-            ti_te_ratio="auto",
-        )
-        try:
-            chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
-        except Exception as error:  # noqa: BLE001 - recorded, one shot cannot fail a run
-            manifest["status"] = "failed"
-            manifest["error"] = f"{type(error).__name__}: {error}"
-            manifest["traceback"] = traceback.format_exc()
-            return out, manifest
+        # Candidates in order until one converges (#1331): a slice whose
+        # magnetic fit is usable can still lose its boundary once the pressure
+        # constraint is added (39915 @ 315 ms), while its neighbour converges.
+        for time_ms in candidates:
+            # Nothing from a previous attempt may describe this one.
+            for key in ("reconstruction", "traceback", "error"):
+                manifest.pop(key, None)
+            time_index = int(np.argmin(np.abs(eq_times - float(time_ms))))
+            manifest["configuration"]["time_ms"] = float(time_ms)
+            manifest["configuration"]["equilibrium_time_ms"] = float(eq_times[time_index])
+            # Reconstructing a 298 ms profile against a 308 ms equilibrium is not a
+            # near miss in a discharge this short -- it is a different plasma. Refuse
+            # rather than produce a number nobody can tell is meaningless.
+            offset = abs(float(eq_times[time_index]) - float(time_ms))
+            if offset > equilibrium_tolerance_ms:
+                return unavailable(
+                    f"the nearest reconstructed equilibrium is {offset:.1f} ms from the "
+                    f"profile time ({time_ms:.1f} ms), beyond the "
+                    f"{equilibrium_tolerance_ms:.1f} ms tolerance"
+                )
 
-        result = chain["kinetic_efit"]
-        manifest["reconstruction"] = {
-            "status": result.status,
-            "converged": bool(result.converged),
-            "scale": result.scale,
-            "chi2": result.chi2,
-            "reason": result.reason,
-        }
-        if result.status == "skipped":
-            return unavailable(result.reason or "EFIT executable is not configured")
-        if not result.converged or result.gfile is None:
-            manifest["status"] = "no_output"
-            manifest["error"] = result.reason or "no PLASMA scale converged"
-            return out, manifest
+            # The ODS psi is weber (#278/#281); from_equilibrium writes it per radian,
+            # as a g-file stores it (#1292), so SIMAG/SIBRY are the solution's flux over
+            # 2*pi and `geq.to_omas()` gives back the solution's own weber. That matters:
+            # `core_profiles` takes `grid.psi` from `geq.to_omas()`, which before #1292
+            # came out 2*pi too large. psi_N in `_psin_of_r` and the profile mapper is
+            # normalized and was never affected.
+            try:
+                geq = from_equilibrium(as_equilibrium(solution, time_index=time_index))
+            except Exception as error:  # noqa: BLE001 - an unusable equilibrium is not a crash
+                message = f"cannot build a psi map from the equilibrium: {error}"
+                if not retry:
+                    return unavailable(message)
+                manifest["status"], manifest["error"] = "unavailable", message
+                record(time_ms, status="unavailable", reason=message)
+                continue
 
-        # Read the g-file before the workdir goes away.
-        to_omas(read_geqdsk_file(result.gfile), ods=out)
-        manifest["status"] = "success"
-        manifest["quality_summary"]["unavailable"] = []
-        # Recording a path under a directory about to be deleted would name a
-        # file nobody can open; the name is what identifies the reconstruction.
-        manifest["output_gfile"] = (
-            Path(result.gfile).name if ephemeral else str(result.gfile)
-        )
+            config = KineticEFITConfig(
+                executable=executable,
+                workdir=work / f"t{time_ms:.3f}" if retry else work,
+                shot=shot,
+                time_ms=float(time_ms),
+                encoding=encoding,
+                # 'auto' is the VEST policy ratio, and it only applies when the ODS
+                # has no ion data -- which is exactly the electron_efit case.
+                ti_te_ratio="auto",
+                efit_preset=efit_preset or None,
+            )
+            try:
+                chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
+            except Exception as error:  # noqa: BLE001 - recorded, one shot cannot fail a run
+                manifest["status"] = "failed"
+                manifest["error"] = f"{type(error).__name__}: {error}"
+                manifest["traceback"] = traceback.format_exc()
+                record(time_ms, status="failed", reason=manifest["error"])
+                continue  # a failure is the slice's, not the stage's: try the next
+
+            result = chain["kinetic_efit"]
+            manifest["reconstruction"] = {
+                "status": result.status,
+                "converged": bool(result.converged),
+                "scale": result.scale,
+                "chi2": result.chi2,
+                "reason": result.reason,
+            }
+            # The attempt log carries the stage's verdict on the attempt, not
+            # the chain's "EFIT ran" status: an attempt that ran and did not
+            # converge is the stage's ``no_output``, and logging the chain's
+            # ``ok`` beside ``converged: False`` overstated it (cold review
+            # 0.8.0 delta-absorb-2 F3).
+            if result.status == "skipped":
+                verdict = "unavailable"
+            elif not result.converged or result.gfile is None:
+                verdict = "no_output"
+            else:
+                verdict = "success"
+            record(time_ms, **{**manifest["reconstruction"], "status": verdict})
+            if result.status == "skipped":
+                return unavailable(result.reason or "EFIT executable is not configured")
+            if not result.converged or result.gfile is None:
+                manifest["status"] = "no_output"
+                manifest["error"] = result.reason or "no PLASMA scale converged"
+                continue
+
+            # Read the g-file before the workdir goes away.
+            to_omas(read_geqdsk_file(result.gfile), ods=out)
+            # The g-file carries no record of how the constraints were weighted;
+            # the preset (or its absence) does.  Serialized, as `code.parameters`
+            # is a STR_0D that a nested tree does not survive (#380/#642).
+            out["equilibrium.code.parameters"] = kinetic_efit_parameters(stage, efit_preset)
+            manifest["status"] = "success"
+            manifest["quality_summary"]["unavailable"] = []
+            # Recording a path under a directory about to be deleted would name a
+            # file nobody can open; the name is what identifies the reconstruction.
+            manifest["output_gfile"] = (
+                Path(result.gfile).name if ephemeral else str(result.gfile)
+            )
+            return out, manifest
         return out, manifest
     finally:
         if ephemeral:

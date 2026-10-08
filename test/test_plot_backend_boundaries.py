@@ -27,6 +27,6 @@ def test_the_backend_imports_no_data_model_at_module_level():
     assert not {"omas", "imas", "vaft.omas", "vaft.imas"} & loaded
 
 
-@pytest.mark.parametrize("namespace", ["vaft.omas", "vaft.imas", "vaft.database"])
+@pytest.mark.parametrize("namespace", ["vaft.omas", "vaft.imas", "vaft.database", "vaft.diagram"])
 def test_importing_a_namespace_does_not_import_pyplot(namespace):
     assert "matplotlib.pyplot" not in _modules_after(f"import {namespace}")

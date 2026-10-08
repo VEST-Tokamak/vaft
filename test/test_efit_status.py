@@ -256,6 +256,68 @@ def test_timeout_has_slice_status_and_attempt_logs(tmp_path, monkeypatch):
     assert {path.name for path in result.logs} == {"run_efit.err", "run_efit.out"}
 
 
+def test_a_memory_limit_stop_is_not_reported_as_a_timeout(tmp_path, monkeypatch):
+    """The backend's runtime_status and timeout_reason wording reach the EFIT result.
+
+    A tree stopped at memory_limit_mb after 3 s used to be recorded as
+    "timed out after 600 seconds" (cold review 0.8.0 delta-absorb-5 F3).
+    """
+    from vaft.code import efit as efit_package
+    from vaft.code.efit import magnetic
+    from vaft.code.execution import ExecutionResult
+
+    executable = write_launchable_stub(tmp_path / "efit")
+    kdir = tmp_path / "kfile"
+    kdir.mkdir()
+    kfile = kdir / "k039915.00319"
+    kfile.write_text("input", encoding="utf-8")
+
+    class Stopped:
+        def run(self, request):
+            return ExecutionResult(
+                returncode=None, timed_out=True, runtime_status="memory_limit",
+                peak_rss_mb=900.0, elapsed_s=3.0, stdout="partial", stderr="",
+            )
+
+    monkeypatch.setattr(magnetic, "resolve_backend", lambda config: Stopped())
+    config = EFITConfig(
+        executable=str(executable), workdir=tmp_path, shot=39915, timeout=600.0, stack_size_kb=None,
+    )
+
+    result = run_efit(EFITInputs(tmp_path, kfiles=(kfile,)), config)
+
+    assert result.status == "failed"
+    assert result.reason == "EFIT was stopped by the memory limit at 900 MiB resident after 3 s"
+    assert "600" not in result.reason
+    status = result.slice_statuses[0]
+    assert status.overall_status == "runtime_failed"
+    assert {"runtime_error", "timeout"} <= set(status.failure_codes)
+    assert status.provenance["runtime_status"] == "memory_limit"
+    assert status.provenance["runtime"]["process_started"] and status.provenance["runtime"]["timed_out"]
+    assert status.provenance["runtime_reason"] == result.reason
+    assert efit_package  # the package import above is the one the adapter test suite uses
+
+
+def test_validate_efit_slice_keeps_a_memory_limit_apart_from_a_queue_wait():
+    from vaft.code.efit.status import validate_efit_slice
+
+    def capture(runtime_status):
+        return validate_efit_slice(
+            shot=39915, time=0.319, runtime_status=runtime_status, returncode=None,
+            kfile=None, gfile=None,
+        )
+
+    stopped = capture("memory_limit")
+    assert {"runtime_error", "timeout"} <= set(stopped.failure_codes)
+    assert stopped.provenance["runtime"] == {
+        "executable_resolved": False, "process_started": True, "timed_out": True, "returncode": None,
+    }
+    queued = capture("queue_timeout")
+    assert {"runtime_error", "timeout"} <= set(queued.failure_codes)
+    assert queued.provenance["runtime"]["process_started"] is False
+    assert queued.provenance["runtime"]["timed_out"] is True
+
+
 def test_skipped_run_does_not_collect_stale_outputs(tmp_path, monkeypatch):
     monkeypatch.delenv("EFITHOME", raising=False)
     monkeypatch.delenv("EFIT", raising=False)
@@ -332,3 +394,48 @@ def test_early_time_file_names_match_configured_slice(tmp_path):
     assert len(result.slice_statuses) == 1
     assert result.slice_statuses[0].time == 0.05
     assert result.slice_statuses[0].usable
+
+
+def _backend_case(tmp_path):
+    executable = write_launchable_stub(tmp_path / "efit")
+    kdir = tmp_path / "kfile"
+    kdir.mkdir()
+    kfile = kdir / "k039915.00319"
+    kfile.write_text("input", encoding="utf-8")
+    return executable, kfile
+
+
+def test_efit_hands_stdin_and_one_thread_to_the_backend(tmp_path):
+    """#671: the k-file list goes on stdin, and EFIT runs single-threaded."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+
+    executable, kfile = _backend_case(tmp_path)
+    backend = RecordingBackend(ExecutionResult(returncode=0, stdout="", stderr=""))
+    config = EFITConfig(
+        executable=str(executable), workdir=tmp_path, shot=39915,
+        stack_size_kb=None, env={"EFIT_FLAG": "1"}, backend=backend,
+    )
+    run_efit(EFITInputs(tmp_path, kfiles=(kfile,)), config)
+
+    (request,) = backend.requests
+    assert request.command == (str(executable),)
+    assert request.stdin.startswith("2\n1\n")
+    assert "k039915.00319" in request.stdin
+    assert request.env["EFIT_FLAG"] == "1"
+    assert request.resources.threads_per_task == 1
+
+
+def test_an_efit_the_os_refuses_is_a_runtime_error_with_the_os_message(tmp_path, monkeypatch):
+    executable, kfile = _backend_case(tmp_path)
+
+    def refuse(*args, **kwargs):
+        raise OSError(8, "Exec format error")
+
+    monkeypatch.setattr(subprocess, "run", refuse)
+    config = EFITConfig(executable=str(executable), workdir=tmp_path, shot=39915, stack_size_kb=None)
+    result = run_efit(EFITInputs(tmp_path, kfiles=(kfile,)), config)
+
+    assert result.status == "failed"
+    assert result.reason == "[Errno 8] Exec format error"
+    assert "runtime_error" in result.slice_statuses[0].failure_codes

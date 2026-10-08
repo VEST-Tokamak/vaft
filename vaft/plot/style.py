@@ -235,6 +235,7 @@ def finalize(
     (issue #689); ``None`` keeps Matplotlib's default.
     """
     if tight_layout:
+        placed = _place_suptitle(figure, pad)
         # Dense panel grids can be impossible to lay out tightly; that is a
         # cosmetic outcome, not a failure, so do not surface it to callers.
         with warnings.catch_warnings():
@@ -246,20 +247,165 @@ def finalize(
                     figure.tight_layout(pad=pad)
             except Exception:  # pragma: no cover - layout engines can refuse
                 pass
+        if placed:
+            try:
+                _clear_suptitle(figure)
+            except Exception:  # pragma: no cover - a cosmetic step must never fail a render
+                pass
+        try:
+            _contain_3d_axes(figure)
+        except Exception:  # pragma: no cover - a cosmetic step must never fail a render
+            pass
     if show:
         plt.show()
     return figure, axes
 
 
-def save_figure(figure: Figure, path: Any, *, close: bool = True, **savefig_kwargs: Any):
+def _place_suptitle(figure: Figure, pad: float | None) -> bool:
+    """Hang the suptitle from the top edge, inside the band ``tight_layout`` keeps for it.
+
+    ``tight_layout`` reserves the suptitle's height plus one pad on each side
+    above the topmost axes' titles, wherever the suptitle sits.  Hanging it
+    (``va="top"``) one pad below the top edge puts it in that band whatever
+    the grid's shape, the figure's height or the number of title lines: on
+    the canvas, and clear of the first row's titles.  A suptitle the caller
+    positioned (``y=`` given) is left where it was put.
+    """
+    suptitle = getattr(figure, "_suptitle", None)
+    if suptitle is None or not suptitle.get_text() or not getattr(suptitle, "_autopos", False):
+        return False
+    pad_points = (1.08 if pad is None else pad) * plt.rcParams["font.size"]
+    height_points = figure.get_figheight() * 72.0
+    suptitle.set_y(1.0 - pad_points / height_points)
+    suptitle.set_verticalalignment("top")
+    return True
+
+
+def _clear_suptitle(figure: Figure) -> None:
+    """Lower the subplots until nothing under the suptitle reaches into it.
+
+    ``tight_layout`` measures a y label only as far as its axes is tall, so on
+    a deep grid a label taller than its short axes sticks up past the band
+    kept for the suptitle; where it does so under the suptitle (a middle
+    column), the subplots come down by the overlap.  Lowering the top also
+    shrinks the rows, which moves the labels, hence a few passes.
+    """
+    renderer = getattr(figure, "_get_renderer", None)
+    if renderer is None:  # pragma: no cover - every Matplotlib figure has one
+        return
+    renderer = renderer()
+    suptitle = figure._suptitle
+    for _ in range(3):
+        extent = suptitle.get_window_extent(renderer)
+        intrusion = 0.0
+        for axes in figure.axes:
+            if not axes.get_visible():
+                continue
+            # The axis labels are measured themselves: whether an axes' tight
+            # bbox includes a label's overflow differs between Matplotlib versions.
+            boxes = [axes.get_tightbbox(renderer)] + [
+                label.get_window_extent(renderer)
+                for label in (axes.xaxis.label, axes.yaxis.label)
+                if label.get_visible() and label.get_text()
+            ]
+            for box in boxes:
+                if box is not None and box.x0 < extent.x1 and box.x1 > extent.x0:
+                    intrusion = max(intrusion, box.y1 - extent.y0)
+        if intrusion <= 0.0:
+            return
+        params = figure.subplotpars
+        top = params.top - (intrusion + 1.0) / figure.bbox.height
+        if top <= params.bottom + 0.05:
+            return
+        figure.subplots_adjust(top=top)
+
+
+#: Space kept between a 3-D view's outermost text and the canvas edge, in points.
+_3D_EDGE_PAD_PT = 3.0
+
+
+def _contain_3d_axes(figure: Figure, *, passes: int = 3) -> None:
+    """Pull every 3-D axes in so its tick and axis labels sit inside the canvas.
+
+    ``tight_layout`` measures a 3-D axes by its 2-D box, not by the text the
+    projection throws outside it, so the z label of a default machine view
+    hung 14-33 px past the right edge (issue #1317).  This measures what was
+    actually drawn -- the axes' tight bbox and its three axis labels -- and
+    shrinks the axes' position by the overflow on each side, a few passes,
+    because shrinking the cube also moves the labels.  2-D axes are left as
+    the layout put them.
+    """
+    from matplotlib.transforms import Bbox
+
+    three_d = [axis for axis in figure.axes if getattr(axis, "name", "") == "3d" and axis.get_visible()]
+    if not three_d:
+        return
+    pad = _3D_EDGE_PAD_PT * figure.dpi / 72.0
+    for _ in range(passes):
+        # A pdf/svg canvas, or a bare Figure's FigureCanvasBase, has no
+        # get_renderer(); the figure's own layout renderer works on all of them.
+        figure.draw_without_rendering()
+        renderer = figure._get_renderer()
+        frame = figure.bbox
+        moved = False
+        for axis in three_d:
+            extents = [axis.get_tightbbox(renderer)]
+            extents += [
+                label.get_window_extent(renderer)
+                for label in (axis.xaxis.label, axis.yaxis.label, axis.zaxis.label)
+                if label.get_text() and label.get_visible()
+            ]
+            extents = [extent for extent in extents if extent is not None]
+            if not extents:
+                continue
+            drawn = Bbox.union(extents)
+            over = (
+                max(0.0, frame.x0 + pad - drawn.x0), max(0.0, frame.y0 + pad - drawn.y0),
+                max(0.0, drawn.x1 - (frame.x1 - pad)), max(0.0, drawn.y1 - (frame.y1 - pad)),
+            )
+            if not any(value > 0.5 for value in over):
+                continue
+            box = axis.get_position()
+            left, bottom, right, top = (
+                over[0] / frame.width, over[1] / frame.height, over[2] / frame.width, over[3] / frame.height,
+            )
+            width, height = box.width - left - right, box.height - bottom - top
+            if width <= 0.1 * box.width or height <= 0.1 * box.height:
+                continue  # nothing sensible left to shrink to; keep the layout's box
+            axis.set_position([box.x0 + left, box.y0 + bottom, width, height])
+            moved = True
+        if not moved:
+            return
+
+
+def save_figure(
+    figure: Figure, path: Any, *, close: bool = True, figure_options: Any = None, **savefig_kwargs: Any,
+):
     """Write ``figure`` to ``path`` and release it.
 
     Callers outside :mod:`vaft.plot` use this instead of importing pyplot just to
     close a figure, which keeps rendering confined to this package.
+    ``figure_options`` supplies the export fields of a
+    :class:`vaft.plot.FigureOptions` -- ``dpi`` and ``transparent`` -- the one
+    place they act (issue #1421); an explicit savefig keyword still wins.
     """
+    import matplotlib
+
+    if figure_options is not None:
+        from .figure_options import as_figure_options
+
+        export = as_figure_options(figure_options)
+        if export.dpi is not None:
+            savefig_kwargs.setdefault("dpi", export.dpi)
+        if export.transparent is not None:
+            savefig_kwargs.setdefault("transparent", export.transparent)
     savefig_kwargs.setdefault("dpi", 300)
     savefig_kwargs.setdefault("bbox_inches", "tight")
-    figure.savefig(path, **savefig_kwargs)
+    # Vector output keeps its text as text: TrueType fonts embedded in a PDF
+    # (not Type 3 outlines) and SVG text left as text, which journals and
+    # editors expect (issue #1421).  Read when the file is written, so set here.
+    with matplotlib.rc_context({"pdf.fonttype": 42, "ps.fonttype": 42, "svg.fonttype": "none"}):
+        figure.savefig(path, **savefig_kwargs)
     if close:
         plt.close(figure)
     return path

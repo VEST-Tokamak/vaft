@@ -178,21 +178,25 @@ def test_real_vest_shot_loop_voltage_consumption():
     # 1. Loop voltage physical bounds during flat-top
     assert np.all(v_loop > 0.5)
     assert np.all(v_loop < 5.0)
-    assert float(np.mean(v_loop)) == pytest.approx(2.5329, rel=1e-3)
+    assert float(np.mean(v_loop)) == pytest.approx(2.1733, rel=1e-3)
 
     # 2. Volt-second consumption over dt = 2 ms
     dt = t[1] - t[0]
     volt_seconds = float(v_loop[0] * dt)
     assert 1.0e-3 < volt_seconds < 1.0e-2
-    # Exact consistency with boundary-axis flux change 2*pi * Delta(psi_boundary - psi_axis)
-    d_psi_wb = (
-        (float(g2["SIBRY"]) - float(g2["SIMAG"]))
-        - (float(g1["SIBRY"]) - float(g1["SIMAG"]))
-    ) * TWO_PI
+    # Exact consistency with the *boundary* flux change 2*pi * Delta(psi_boundary).
+    # This used to pin Delta(psi_boundary - psi_axis), the flux change inside
+    # the plasma, which is not a loop voltage; it happened to be within 17 %
+    # here and is nine-fold off on 41672 (see the real per-radian test below).
+    d_psi_wb = (float(g2["SIBRY"]) - float(g1["SIBRY"])) * TWO_PI
     assert volt_seconds == pytest.approx(d_psi_wb, rel=1e-6)
 
-    # 3. Energy partition consistency: V_loop = V_ind + V_res
+    # 3. Energy partition consistency: V_loop = V_ind + V_res, and V_res is a
+    # plasma resistance's worth -- about 19 micro-ohm at 80 kA.  With the
+    # vacuum toroidal field in W_mag it was not.
     np.testing.assert_allclose(v_res + v_ind, v_loop, rtol=1e-12)
+    resistance = v_res / float(g1["CURRENT"])
+    assert np.all((resistance > 5e-6) & (resistance < 5e-5))
 
     # 4. Storage convention invariance: DD Wb vs legacy Wb/rad
     legacy = _legacy_style(ods)
@@ -385,3 +389,55 @@ def test_detector_accepts_a_bare_time_slice_as_its_docstring_promises():
     assert ods_psi_to_wb_per_radian_factor(
         weber["equilibrium.time_slice.0"]
     ) == pytest.approx(expected)
+
+
+# Flux-closure windows of the packaged multi-slice equilibria; 39915 stores psi
+# in weber and 41672 per radian, so the two land on different branches of the
+# storage detector -- genuinely, not through _legacy_style.
+_WINDOWS = {39915: (0.316, 0.326), 41672: (0.322, 0.341)}
+
+
+@pytest.mark.parametrize("shot, per_radian", [(39915, False), (41672, True)])
+def test_real_shots_on_both_storage_branches_match_the_inboard_flux_loop(shot, per_radian):
+    """Issue #652: the voltage-consumption path on two real shots that take
+    different branches of ods_psi_to_wb_per_radian_factor, checked against an
+    independent measurement -- the inboard midplane flux loop -- rather than
+    against a parity.  A 2 pi misclassification on either branch would put the
+    ratio near 6 or 0.16; the path's old psi_boundary - psi_axis flux put
+    41672 at 0.11."""
+    import logging
+
+    from vaft.omas.sample import sample_ods
+
+    logging.disable(logging.WARNING)
+    try:
+        ods = sample_ods(shot)
+        times = np.asarray(ods["equilibrium.time"], float)
+        window = [i for i, t_i in enumerate(times) if _WINDOWS[shot][0] <= t_i <= _WINDOWS[shot][1]]
+        assert ods_psi_to_wb_per_radian_factor(ods, window[0]) == pytest.approx(
+            1.0 if per_radian else 1.0 / TWO_PI
+        )
+        t, v_loop, v_ind, v_res = (
+            np.asarray(x, float) for x in compute_voltage_consumption(ods, time_slice=window)
+        )
+    finally:
+        logging.disable(logging.NOTSET)
+
+    loops = ods["magnetics.flux_loop"]
+    inboard = min(
+        range(len(loops)),
+        key=lambda i: (abs(float(loops[i]["position.0.z"])), float(loops[i]["position.0.r"])),
+    )
+    loop_time = np.asarray(
+        loops[inboard]["flux.time"] if "flux.time" in loops[inboard] else ods["magnetics.time"],
+        dtype=float,
+    )
+    flux = np.interp(t, loop_time, np.asarray(loops[inboard]["flux.data"], float))
+    ratio = abs(np.trapezoid(v_loop, t) / (flux[-1] - flux[0]))
+    assert 0.7 < ratio < 1.3, ratio
+
+    current = np.array(
+        [float(ods[f"equilibrium.time_slice.{i}.global_quantities.ip"]) for i in window]
+    )
+    resistance = v_res / current
+    assert np.all((resistance > 1e-6) & (resistance < 1e-4))

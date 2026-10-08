@@ -580,19 +580,122 @@ def test_profiles_exclude_plasma_state_bookkeeping(tmp_path):
 
 
 def test_a_state_left_by_an_earlier_run_does_not_pass_for_a_new_one(tmp_path):
-    """``plasma_state_test`` reports its errors on stdout and exits 0, so the
-    state file is the success signal -- and one from an earlier run in the same
-    work directory satisfied it (cold review transport F5)."""
-    source = _case_directory(tmp_path)
-    gfile = tmp_path / "g"
-    gfile.write_text("EQDSK\n", encoding="utf-8")
-    generator = write_launchable_stub(tmp_path / "bin" / "plasma_state_test")
+    """The output file is checked as well as the exit status, so one left by an
+    earlier run in the same work directory must not satisfy a generator that
+    wrote nothing (cold review transport F5)."""
+    case = nubeam.packaged_vest_case()
+    generator = write_launchable_stub(tmp_path / "bin" / "vaft_plasma_state")
     config = nubeam.NUBEAMConfig(generator_executable=str(generator))
 
     with short_temporary_directory(max_length=60) as scratch:
         inputs = nubeam.prepare_nubeam_inputs(
-            source, gfile=gfile, workdir=scratch / "run", config=config
+            case.input_dir, gfile=case.gfile, workdir=scratch / "run", config=config
         )
         inputs.plasma_state.write_bytes(b"STATE FROM AN EARLIER RUN")
         with pytest.raises(nubeam.NUBEAMExecutionError, match="did not create"):
             nubeam.generate_plasma_state(inputs, config)
+        # The generator was handed its namelist before it ran.
+        assert (inputs.workdir / nubeam.PLASMA_STATE_NAMELIST).is_file()
+
+
+def test_a_failing_generator_is_an_error_even_if_it_wrote_a_file(tmp_path):
+    """vaft_plasma_state exits non-zero on every failure; trust that status."""
+    case = nubeam.packaged_vest_case()
+    generator = write_launchable_stub(tmp_path / "bin" / "vaft_plasma_state", exit_code=1)
+    config = nubeam.NUBEAMConfig(generator_executable=str(generator))
+
+    with short_temporary_directory(max_length=60) as scratch:
+        inputs = nubeam.prepare_nubeam_inputs(
+            case.input_dir, gfile=case.gfile, workdir=scratch / "run", config=config
+        )
+        with pytest.raises(nubeam.NUBEAMExecutionError, match="exit status was 1"):
+            nubeam.generate_plasma_state(inputs, config)
+
+
+def test_nubeam_stages_launch_through_the_configured_backend(tmp_path):
+    """#671: `_run` builds the launch and still writes its own .log/.err."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.nubeam.runner import _run
+
+    backend = RecordingBackend(ExecutionResult(returncode=0, stdout="normal exit.", stderr="warn"))
+    config = nubeam.NUBEAMConfig(args=("--flag",), env={"X": "config"}, backend=backend)
+    completed = _run(
+        tmp_path / "nubeam_comp_exec",
+        workdir=tmp_path,
+        env={"NUBEAM_ACTION": "init_hold", "X": "stage"},
+        log_stem="init",
+        config=config,
+    )
+
+    (request,) = backend.requests
+    assert request.command[1:] == ("--flag",)
+    # config.env is applied last, as it always was.
+    assert request.env == {"NUBEAM_ACTION": "init_hold", "X": "config"}
+    assert completed.returncode == 0
+    assert (tmp_path / "init.log").read_text(encoding="utf-8") == "normal exit."
+    assert (tmp_path / "init.err").read_text(encoding="utf-8") == "warn"
+
+
+def test_a_stopped_nubeam_stage_keeps_its_partial_log_and_names_the_limit(tmp_path):
+    """#1016: ``_run`` returns the stop; the logs are this run's, not an earlier one's."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.nubeam.runner import _run
+
+    (tmp_path / "step.log").write_text("an earlier run", encoding="utf-8")
+    backend = RecordingBackend(
+        ExecutionResult(returncode=None, stdout="partial", timed_out=True, elapsed_s=5.0)
+    )
+    config = nubeam.NUBEAMConfig(timeout=5.0, backend=backend)
+    completed = _run(tmp_path / "exe", workdir=tmp_path, env={}, log_stem="step", config=config)
+    assert completed.timed_out and completed.returncode is None
+    assert (tmp_path / "step.log").read_text(encoding="utf-8") == "partial"
+    assert (tmp_path / "step.err").read_text(encoding="utf-8") == (
+        "NUBEAM step timed out after 5 s of running"
+    )
+
+
+def _stopped_nubeam(tmp_path, monkeypatch, runtime_status="timeout"):
+    """NUBEAM wired to a backend whose every launch was stopped by a limit."""
+    from external_code_stubs import RecordingBackend
+    from vaft.code.execution import ExecutionResult
+    import vaft.code.nubeam.runner as runner
+
+    monkeypatch.setattr(runner, "_require", lambda *args: tmp_path / "exe")
+    monkeypatch.setattr(runner, "_reaction_database_env", lambda config: {})
+    backend = RecordingBackend(
+        ExecutionResult(
+            returncode=None, timed_out=True, elapsed_s=7.0, runtime_status=runtime_status
+        )
+    )
+    inputs = nubeam.NUBEAMInputs(workdir=tmp_path, plasma_state=tmp_path / "state.cdf")
+    return runner, inputs, nubeam.NUBEAMConfig(timeout=7.0, backend=backend)
+
+
+def test_a_stopped_nubeam_run_is_a_failed_result(tmp_path, monkeypatch):
+    runner, inputs, config = _stopped_nubeam(tmp_path, monkeypatch)
+    result = runner.run_nubeam(inputs, config)
+    assert (result.status, result.runtime_status, result.returncode) == ("failed", "timeout", None)
+    assert result.elapsed_s == 7.0
+    assert [log.name for log in result.logs] == ["init.log", "init.err"]
+    assert result.stderr.endswith("NUBEAM init timed out after 7 s of running")
+
+
+def test_a_stopped_plasma_state_is_an_error_alone_and_a_result_in_a_case(tmp_path, monkeypatch):
+    """``generate_plasma_state`` returns a path, so a stop raises there; the
+    one-call case returns it as the case's result (#1016)."""
+    from types import SimpleNamespace
+
+    runner, inputs, config = _stopped_nubeam(tmp_path, monkeypatch, "queue_timeout")
+    monkeypatch.setattr(runner, "_legacy_spec", lambda inputs: SimpleNamespace(output_name="state.cdf"))
+    monkeypatch.setattr(runner, "check_spec_against_namelists", lambda spec: None)
+    monkeypatch.setattr(runner, "render_plasma_state_namelist", lambda spec, workdir: "")
+    with pytest.raises(nubeam.NUBEAMExecutionError, match="never started"):
+        runner.generate_plasma_state(inputs, config)
+    monkeypatch.setattr(runner, "prepare_nubeam_inputs", lambda *args, **kwargs: inputs)
+    result = runner.run_nubeam_case(tmp_path, gfile=tmp_path / "g", workdir=tmp_path, config=config)
+    assert (result.status, result.runtime_status, result.returncode) == (
+        "failed", "queue_timeout", None,
+    )
+    assert result.logs[-1].name == "vaft_plasma_state.err"

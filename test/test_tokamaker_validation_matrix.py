@@ -1,0 +1,123 @@
+"""Small analytic topology and representability checks for the #1608 matrix."""
+from dataclasses import replace
+import json
+from pathlib import Path
+import sys
+import numpy as np
+import pytest
+from vaft.code.tokamaker.profiles import equilibrium_to_tokamaker_profiles
+from vaft.process.equilibrium import derive_boundary_representation, fit_free_boundary_coils
+from vaft.validation.studies.fixed_free_1608 import matrix
+from vaft.validation.studies.fixed_free_1608.matrix import acceptance_failures, machine_case, target_case
+
+
+@pytest.mark.parametrize('family', ['solovev', 'guazzotto_freidberg', 'guazzotto_pedestal'])
+@pytest.mark.parametrize('topology', ['limited', 'lower_single_null', 'double_null'])
+def test_analytic_matrix_has_canonical_sources_and_requested_topology(family, topology):
+    eq = target_case(family, topology, pedestal=.1 if family == 'guazzotto_pedestal' else 0.)
+    eq, _, _ = machine_case(eq, topology)
+    assert eq.convention.cocos == 11
+    assert derive_boundary_representation(eq).topology.value == topology
+    profiles = equilibrium_to_tokamaker_profiles(eq)
+    assert profiles.ip_A == pytest.approx(eq.ip)
+    assert np.isfinite(profiles.pprime).all() and np.isfinite(profiles.ffprime).all()
+
+
+def test_current_pedestal_changes_representable_volume_source():
+    base = target_case('guazzotto_freidberg', 'limited', resolution=33)
+    pedestal = target_case('guazzotto_pedestal', 'limited', pedestal=.1, resolution=33)
+    assert not np.allclose(base.pprime, pedestal.pprime)
+    assert not np.allclose(base.ffprime, pedestal.ffprime)
+    eq, machine, _ = machine_case(pedestal, 'limited')
+    fit = fit_free_boundary_coils(eq, machine, boundary_samples=24, regularization=1e-5)
+    assert fit.optimizer_success and np.isfinite(list(fit.currents_A.values())).all()
+
+
+@pytest.mark.parametrize('term', ['pressure_pedestal', 'bootstrap_fraction', 'mach_number'])
+def test_surface_current_or_flow_contribution_is_explicitly_rejected(term):
+    eq = target_case('guazzotto_freidberg', 'limited', resolution=33)
+    model = replace(eq.metadata['model'], **{term: .1})
+    unsupported = replace(eq, metadata={**eq.metadata, 'model': model})
+    with pytest.raises(ValueError, match='surface-current or flow'):
+        equilibrium_to_tokamaker_profiles(unsupported)
+    _, machine, _ = machine_case(eq, 'limited')
+    with pytest.raises(ValueError, match='surface-current or flow'):
+        fit_free_boundary_coils(unsupported, machine)
+
+
+def test_matrix_gates_fail_missing_or_wrong_frozen_physics():
+    record = {
+        'topology': 'double_null', 'verification_status': 'converged',
+        'verified_comparison': {
+            'lcfs': {'max_distance_m': .005}, 'axis_displacement_m': .001,
+            'native_boundary': {'topology': 'double_null',
+                                'matched_displacements_m': [.0002, .0003],
+                                'unmatched_target': 0, 'unmatched_solved': 0},
+            'globals': {'q95_field_integral': {'difference': .02},
+                        'Ip_A': {'difference': 5.}},
+        },
+    }
+    assert acceptance_failures(record) == []
+    record['verified_comparison']['native_boundary']['topology'] = 'ambiguous'
+    record['verified_comparison']['globals']['q95_field_integral']['difference'] = None
+    assert set(acceptance_failures(record)) == {
+        'native X-point topology mismatch', 'absolute q95 difference > 0.06'}
+    record['error'] = 'failed input'
+    assert acceptance_failures(record) == ['failed input']
+
+
+def test_matrix_records_target_failure_for_each_route_and_exits_nonzero(tmp_path, monkeypatch):
+    def fail(*args, **kwargs):
+        raise RuntimeError('invalid target')
+    monkeypatch.setattr(matrix, 'target_case', fail)
+    out = tmp_path/'matrix'
+    monkeypatch.setattr(sys, 'argv', ['matrix.py', '--workdir', str(out),
+                                      '--families', 'solovev', '--topologies', 'limited'])
+    with pytest.raises(SystemExit) as exc:
+        matrix.main()
+    assert exc.value.code == 1
+    records = json.loads((out/'summary.json').read_text())
+    assert len(records) == 2
+    assert all('target construction failed' in row['error'] for row in records)
+
+
+# The README and measured_matrix.json are excluded from the wheel (#1756), so
+# read them from the repository checkout rather than next to the module.
+STUDY_DIR = Path(__file__).resolve().parents[1] / 'vaft' / 'validation' / 'studies' / 'fixed_free_1608'
+
+
+def _study_file(name):
+    path = STUDY_DIR / name
+    if not path.is_file():
+        pytest.skip(f'{name} is not shipped; run from a repository checkout')
+    return path
+
+
+def _measured_matrix():
+    return json.loads(_study_file('measured_matrix.json').read_text(encoding='utf-8'))
+
+
+def test_committed_measured_matrix_reproduces_its_gate_verdicts():
+    """The gates must read the committed record shape, not only a fresh summary.json."""
+    records = _measured_matrix()
+    assert len(records) == 20
+    for record in records:
+        assert record['accepted'] is True
+        assert acceptance_failures(record) == record['acceptance_failures'] == []
+    broken = json.loads(json.dumps(records[0]))
+    broken['verified']['native_topology'] = 'ambiguous'
+    broken['verified']['lcfs_max_m'] = .02
+    assert set(acceptance_failures(broken)) == {'native X-point topology mismatch', 'LCFS max > 12 mm'}
+
+
+def test_readme_states_unrefined_closure_count_and_refinement_current_change():
+    """The README's fit + refinement statement carries the measured numbers."""
+    records = _measured_matrix()
+    converged_initially = [r for r in records if r['initial']['status'] == 'converged']
+    assert len(converged_initially) == 4
+    assert {r['family'] for r in converged_initially} == {'solovev'}
+    largest = max(r['refined']['max_current_change_A'] for r in records)
+    assert largest == pytest.approx(109.45e3, rel=1e-3)
+    readme = _study_file('README.md').read_text(encoding='utf-8')
+    assert 'converges for 4 of the 20 cases' in readme
+    assert 'up to 109 kA' in readme

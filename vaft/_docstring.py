@@ -179,6 +179,60 @@ def strip_roles(text: str) -> str:
     return _CITATION.sub(r"[\1]", _ROLE.sub(r"``\1``", text))
 
 
+def source_location(fn, root) -> tuple[str, int]:
+    """``(path relative to root, first line)`` of the function's definition.
+
+    The generated reference pages link each entry to this line at the commit
+    the snapshot was built from.  ``root`` is the directory that contains the
+    ``vaft`` package, so the path reads ``vaft/process/numerical.py``.  The
+    function is unwrapped first: a decorated function's own ``def`` is the
+    line worth linking, not the decorator factory's.
+
+    Returns ``("", 0)`` when the source cannot be located -- an install
+    without ``.py`` files, or a wrapper defined outside ``root`` -- because
+    ``describe`` builds every spec of a category through here and must keep
+    working there; the snapshot validation rejects the empty location.
+    """
+    span = source_span(fn, root)
+    return span["path"], span["line"]
+
+
+INLINE_SOURCE_LINES = 80
+"""Longest definition the reference pages show inline; longer ones keep only the link (#1069)."""
+
+
+def source_span(obj, root, *, inline: bool = True) -> dict:
+    """``{"path", "line", "end_line", "code"}`` of a function's or class's definition.
+
+    ``line`` and ``end_line`` are the first and last line of the definition,
+    decorators included, as ``inspect.getsourcelines`` reads them from the
+    unwrapped object -- the range the generated pages link to at the commit
+    the snapshot was built from (#1069).  ``code`` is that range, dedented, when
+    ``inline`` and the definition is at most :data:`INLINE_SOURCE_LINES` lines
+    long, else ``""``: the pages show it collapsed next to the link, so both
+    come from the same tree.
+
+    Returns an empty span (``line`` 0) when the source cannot be located, for
+    the reasons :func:`source_location` gives, and for a lambda.
+    """
+    import textwrap
+    from pathlib import Path
+
+    try:
+        target = inspect.unwrap(obj)
+        path = Path(inspect.getsourcefile(target)).resolve()
+        lines, line = inspect.getsourcelines(target)
+        relative = path.relative_to(Path(root).resolve()).as_posix()
+    except (OSError, TypeError, ValueError):
+        return {"path": "", "line": 0, "end_line": 0, "code": ""}
+    if line == 0 or getattr(getattr(target, "__code__", None), "co_name", "") == "<lambda>":
+        # a module (getsourcelines returns the whole file from line 0), or a
+        # lambda, whose line is an expression rather than a definition
+        return {"path": "", "line": 0, "end_line": 0, "code": ""}
+    code = textwrap.dedent("".join(lines)).rstrip() if inline and len(lines) <= INLINE_SOURCE_LINES else ""
+    return {"path": relative, "line": line, "end_line": line + len(lines) - 1, "code": code}
+
+
 def _split_sections(
     lines: list[str], vocabulary: tuple[str, ...]
 ) -> tuple[list[str], list[tuple[str, list[str]]], list[str]]:

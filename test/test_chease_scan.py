@@ -158,12 +158,16 @@ def test_each_knob_moves_the_quantity_it_names(tmp_path):
     Peaking is the knob that moves li: scaling FF' uniformly does not, because
     CHEASE rescales the total current and a constant factor is exactly what it
     normalizes away.
+
+    Elongation is read off CHEASE's own output, ``EQDSK_COCOS_02.OUT``, not the
+    refined g-file: that file's RBBBS is restored from the input, so it reports
+    the requested shape whether or not the solve used it (#887).
     """
     import vaft.omas
     from vaft.code import CHEASEConfig
 
     config = CHEASEConfig(
-        nideal=6, nw=513, target_psin=0.993, relax=0.5, create_plot=False, timeout=900
+        nw=513, target_psin=0.993, relax=0.5, create_plot=False, timeout=900
     )
     cases = scan_chease(
         str(vaft.data.data_path(SOURCE)),
@@ -186,7 +190,7 @@ def test_each_knob_moves_the_quantity_it_names(tmp_path):
         measured[case.variation.label] = (
             float(node["global_quantities.beta_normal"]),
             float(node["global_quantities.li_3"]),
-            float(node["boundary.elongation"]),
+            _elongation(_native_boundary(case.workdir)),
             np.nanmedian(
                 vaft.omas.compute_grad_shafranov_residual(ods, time_slice=0).relative
             ),
@@ -196,8 +200,11 @@ def test_each_knob_moves_the_quantity_it_names(tmp_path):
     assert measured["beta_up"][0] == pytest.approx(control[0] * 1.5, rel=0.05)
     assert measured["beta_up"][1] == pytest.approx(control[1], rel=0.01)
     assert measured["li_up"][1] > 1.5 * control[1]
-    assert measured["elong_up"][2] > 1.05 * control[2]
-    assert measured["elong_up"][1] == pytest.approx(control[1], rel=0.01)
+    assert measured["elong_up"][2] == pytest.approx(control[2] * 1.10, rel=0.01)
+    # A real shape change moves li too, but by a few percent (0.524 -> 0.499 on
+    # 48224), not the factor peaking gives. The former "li unchanged to 1%"
+    # held only because the solve never saw the new shape.
+    assert abs(measured["elong_up"][1] / control[1] - 1.0) < 0.10
     # Every case is a genuine converged equilibrium, not just a file.
     for label, values in measured.items():
         assert values[3] < 0.15, (label, values[3])
@@ -208,7 +215,7 @@ def test_a_scan_survives_a_case_the_solver_cannot_take(tmp_path):
     from vaft.code import CHEASEConfig
 
     config = CHEASEConfig(
-        nideal=6, nw=513, target_psin=0.993, relax=0.5, create_plot=False, timeout=900
+        nw=513, target_psin=0.993, relax=0.5, create_plot=False, timeout=900
     )
     cases = scan_chease(
         str(vaft.data.data_path(SOURCE)),
@@ -290,3 +297,268 @@ def test_a_nonzero_exit_is_not_convergence(monkeypatch, tmp_path):
     )
     assert not cases[0].converged
     assert "exited 1" in cases[0].error
+
+
+def test_a_timed_out_case_is_recorded_with_its_result_and_named_limit(tmp_path, monkeypatch):
+    """#1016: a timeout is a result, so the scan keeps it and names the limit."""
+    import vaft.code.chease_scan as module
+
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda geqdsk, config: module.CHEASEResult(
+            returncode=None, workdir=config.workdir, runtime_status="timeout",
+            stderr="partial\nCHEASE timed out after 60 s of running",
+        ),
+    )
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("slow"), EquilibriumVariation("slow too")],
+        workdir=tmp_path,
+    )
+    assert len(cases) == 2 and not any(case.converged for case in cases)
+    assert cases[0].result is not None and cases[0].result.runtime_status == "timeout"
+    assert cases[0].error.startswith("CHEASE timed out after 60 s of running; see ")
+
+
+# ---------------------------------------------------------------------------
+# A shape knob must reach the boundary CHEASE solves (#887)
+# ---------------------------------------------------------------------------
+
+def _expeq_boundary(path):
+    """The boundary an EXPEQ file hands CHEASE, in units of its R0.
+
+    Line 4 is the point count and the next that many lines are ``R/R0 Z/R0``;
+    see ``vaft.code.chease._write_expeq``.
+    """
+    lines = path.read_text(encoding="utf-8").splitlines()
+    count = int(lines[3])
+    return np.array([[float(v) for v in line.split()] for line in lines[4 : 4 + count]])
+
+
+def _elongation(rz):
+    return float(np.ptp(rz[:, 1]) / np.ptp(rz[:, 0]))
+
+
+def _native_boundary(workdir):
+    """The LCFS CHEASE solved, from its own output before any restoration."""
+    native = read_geqdsk(str(workdir / "EQDSK_COCOS_02.OUT"))
+    return np.column_stack(
+        [np.asarray(native["RBBBS"], float), np.asarray(native["ZBBBS"], float)]
+    )
+
+
+def test_a_shape_variation_reaches_the_expeq_boundary(monkeypatch, tmp_path):
+    """RBBBS is not what CHEASE solves; EXPEQ is.
+
+    With ``target_psin < 1`` the adapter traces the EXPEQ boundary from PSIRZ,
+    which a shape variation does not touch. A scan that only rewrote RBBBS
+    would hand CHEASE the unperturbed shape, and the refined g-file -- whose
+    RBBBS is restored from the source -- would still report the requested
+    elongation. So measure the file the solver reads.
+    """
+    import vaft.code.chease_scan as module
+    from vaft.code import CHEASEConfig
+    from vaft.code.chease import prepare_chease_inputs
+
+    def materialize_only(geqdsk, config):
+        prepare_chease_inputs(geqdsk, config)
+        return module.CHEASEResult(returncode=1, workdir=config.workdir)
+
+    monkeypatch.setattr(module, "refine_equilibrium", materialize_only)
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [
+            EquilibriumVariation("control"),
+            EquilibriumVariation("elong_up", elongation_scale=1.10),
+        ],
+        config=CHEASEConfig(target_psin=0.993, create_plot=False),
+        workdir=tmp_path,
+    )
+    kappa = {
+        case.variation.label: _elongation(_expeq_boundary(case.workdir / "EXPEQ"))
+        for case in cases
+    }
+    assert kappa["elong_up"] == pytest.approx(1.10 * kappa["control"], rel=0.02)
+    # The override is recorded, since the namelist cannot show it.
+    import json
+
+    for case in cases:
+        assert case.target_psin == 1.0
+        record = json.loads((case.workdir / "scan_boundary.json").read_text())
+        assert record["requested_target_psin"] == 0.993
+        assert record["solved_target_psin"] == 1.0
+
+
+def test_a_scan_without_shape_variation_keeps_the_configured_contour(monkeypatch, tmp_path):
+    import vaft.code.chease_scan as module
+    from vaft.code import CHEASEConfig
+
+    seen = []
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda geqdsk, config: seen.append(config.target_psin)
+        or module.CHEASEResult(returncode=1, workdir=config.workdir),
+    )
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("control"), EquilibriumVariation("beta_up", pressure_scale=1.5)],
+        config=CHEASEConfig(target_psin=0.993, create_plot=False),
+        workdir=tmp_path,
+    )
+    assert seen == [0.993, 0.993]
+    assert [case.target_psin for case in cases] == [0.993, 0.993]
+
+
+# ---------------------------------------------------------------------------
+# A boundary from any model: Contour is what CHEASE consumes (#942)
+# ---------------------------------------------------------------------------
+
+def _fourier_boundary_of_source(geqdsk, z_stretch):
+    """The source LCFS through a Fourier fit, stretched vertically: a non-Miller shape model."""
+    from vaft.data.equilibrium import Contour
+    from vaft.process.equilibrium import evaluate_fourier_surface, fit_fourier_surface
+
+    r = np.asarray(geqdsk["RBBBS"], dtype=float)[:-1]
+    z = np.asarray(geqdsk["ZBBBS"], dtype=float)[:-1]
+    fit = fit_fourier_surface((r, z), modes=8)
+    assert fit.accepted
+    r_new, z_new = evaluate_fourier_surface(fit.surface, np.linspace(0.0, 2*np.pi, 120, endpoint=False))
+    z_mid = 0.5*(z_new.max() + z_new.min())
+    return Contour(r_new, z_mid + z_stretch*(z_new - z_mid))
+
+
+def test_an_explicit_boundary_replaces_the_miller_knobs(geqdsk):
+    from vaft.data.equilibrium import Contour
+
+    boundary = _fourier_boundary_of_source(geqdsk, 1.0)
+    with pytest.raises(ValueError, match="not both"):
+        EquilibriumVariation("both", elongation_scale=1.1, boundary=boundary)
+    with pytest.raises(ValueError, match="closed contour"):
+        EquilibriumVariation("open", boundary=Contour(boundary.r, boundary.z, closed=False))
+    with pytest.raises(TypeError, match="Contour"):
+        EquilibriumVariation("tuple", boundary=(boundary.r, boundary.z))
+    seven = np.linspace(0.0, 2*np.pi, 8)                         # 7 distinct points, closed
+    with pytest.raises(ValueError, match="8 distinct"):
+        EquilibriumVariation("coarse", boundary=Contour(1 + 0.3*np.cos(seven), 0.5*np.sin(seven)))
+    explicit = EquilibriumVariation("explicit", boundary=boundary)
+    assert explicit.reshapes_boundary
+    # Arrays do not break equality or hashing: the label identifies a variation.
+    assert explicit == EquilibriumVariation("explicit", boundary=boundary) and len({explicit}) == 1
+
+
+def test_a_boundary_chease_cannot_hold_is_refused():
+    """The CHEASE input holds the boundary as rho(theta); a crescent whose notch passes the centre folds that."""
+    from vaft.data.equilibrium import Contour
+
+    t = np.linspace(0.0, 2*np.pi, 200, endpoint=False)
+    crescent = Contour(1.0 + 0.3*np.cos(t) + 0.3*np.exp(-((t - np.pi)/0.45)**2), 0.45*np.sin(t))
+    with pytest.raises(ValueError, match="star-shaped"):
+        EquilibriumVariation("crescent", boundary=crescent)
+    # Nor can a doublet: its outermost point is on a lobe, and rays from there cross the waist twice.
+    doublet = Contour(1.0 + 0.3*np.cos(t)*(0.4 + 0.6*np.sin(2*t)**2), 0.6*np.sin(t))
+    with pytest.raises(ValueError, match="star-shaped"):
+        EquilibriumVariation("doublet", boundary=doublet)
+    # A D, a bean and an up-down asymmetric D are all fine.
+    for label, contour in (("d", Contour(1.0 + 0.3*np.cos(t + 0.4*np.sin(t)), 0.5*np.sin(t))),
+                           ("asym", Contour(1.0 + 0.3*np.cos(t + np.arcsin(0.3 + 0.25*np.sin(t))*np.sin(t)),
+                                            0.5*np.sin(t)))):
+        assert EquilibriumVariation(label, boundary=contour).reshapes_boundary
+
+
+def test_an_explicit_boundary_is_written_as_given(geqdsk):
+    boundary = _fourier_boundary_of_source(geqdsk, 1.1)
+    modified, shape = apply_equilibrium_variation(geqdsk, EquilibriumVariation("tall", boundary=boundary))
+    written = np.column_stack((modified["RBBBS"], modified["ZBBBS"]))
+    np.testing.assert_allclose(written[:-1], boundary.points)
+    np.testing.assert_allclose(written[-1], written[0])
+    assert modified["NBBBS"] == boundary.r.size + 1
+    np.testing.assert_array_equal(modified["PRES"], geqdsk["PRES"])
+    r0, minor, kappa, _ = shape
+    assert kappa == pytest.approx(float(np.ptp(boundary.z))/float(np.ptp(boundary.r)), rel=1e-9)
+
+
+def test_a_scan_records_the_boundary_it_solved_on(monkeypatch, tmp_path, geqdsk):
+    """The applied Contour is the case's shape record, whichever model made it."""
+    import json
+
+    import vaft.code.chease_scan as module
+    from vaft.code import CHEASEConfig
+    from vaft.code.chease import prepare_chease_inputs
+
+    def materialize_only(geqdsk, config):
+        prepare_chease_inputs(geqdsk, config)
+        return module.CHEASEResult(returncode=1, workdir=config.workdir)
+
+    monkeypatch.setattr(module, "refine_equilibrium", materialize_only)
+    tall = _fourier_boundary_of_source(geqdsk, 1.1)
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [
+            EquilibriumVariation("control"),
+            EquilibriumVariation("elong_up", elongation_scale=1.10),
+            EquilibriumVariation("fourier_tall", boundary=tall),
+        ],
+        config=CHEASEConfig(target_psin=0.993, create_plot=False),
+        workdir=tmp_path,
+    )
+    by_label = {case.variation.label: case for case in cases}
+    for case in cases:
+        assert case.boundary is not None and case.boundary.r.size >= 8
+        assert set(case.shape_parameters) >= {"elongation", "triangularity_upper", "area"}
+        record = json.loads((case.workdir / "scan_boundary.json").read_text())
+        expected = "explicit_contour" if case.variation.boundary is not None else "miller_rbbbs"
+        assert record["boundary"] == expected
+    # The Fourier-generated boundary is what EXPEQ carries, not a Miller refit or a re-sort of it.
+    expeq = _expeq_boundary(by_label["fourier_tall"].workdir / "EXPEQ")
+    assert _elongation(expeq) == pytest.approx(float(np.ptp(tall.z))/float(np.ptp(tall.r)), rel=2e-3)
+    for case in cases:
+        record = json.loads((case.workdir / "scan_boundary.json").read_text())
+        assert record["boundary_smoothing"] == "fft"
+    assert by_label["fourier_tall"].shape_parameters["elongation"] == pytest.approx(
+        by_label["fourier_tall"].shape[2], rel=1e-9)
+
+
+def test_explicit_boundaries_alone_need_no_miller_fit_of_the_source(monkeypatch, tmp_path, geqdsk):
+    import json
+
+    import vaft.code.chease_scan as module
+    import vaft.process.equilibrium as equilibrium
+    from vaft.code import CHEASEConfig
+
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda geqdsk, config: module.CHEASEResult(returncode=1, workdir=config.workdir),
+    )
+
+    def no_miller(*args, **kwargs):
+        raise AssertionError("a scan of explicit boundaries must not fit Miller to the source")
+
+    monkeypatch.setattr(equilibrium, "fit_miller_surface", no_miller)
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("control"), EquilibriumVariation("tall", boundary=_fourier_boundary_of_source(geqdsk, 1.1))],
+        config=CHEASEConfig(target_psin=0.993, create_plot=False),
+        workdir=tmp_path,
+    )
+    assert all(case.error is None or "exited" in case.error for case in cases), [c.error for c in cases]
+    control = json.loads((cases[0].workdir / "scan_boundary.json").read_text())
+    assert control["boundary"] == "source_rbbbs" and cases[0].target_psin == 1.0
+    np.testing.assert_allclose(cases[0].boundary.r, np.asarray(geqdsk["RBBBS"], float)[:-1])
+
+
+def test_a_scan_without_shape_variation_records_no_boundary(monkeypatch, tmp_path):
+    import vaft.code.chease_scan as module
+    from vaft.code import CHEASEConfig
+
+    monkeypatch.setattr(
+        module, "refine_equilibrium",
+        lambda geqdsk, config: module.CHEASEResult(returncode=1, workdir=config.workdir),
+    )
+    cases = scan_chease(
+        str(vaft.data.data_path(SOURCE)),
+        [EquilibriumVariation("control"), EquilibriumVariation("beta_up", pressure_scale=1.5)],
+        config=CHEASEConfig(target_psin=0.993, create_plot=False),
+        workdir=tmp_path,
+    )
+    # The adapter traces the EXPEQ boundary itself; claiming one here would be wrong.
+    assert all(case.boundary is None and not case.shape_parameters for case in cases)

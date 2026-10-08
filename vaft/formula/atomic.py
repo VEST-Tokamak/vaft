@@ -14,6 +14,7 @@ from os import PathLike
 from typing import TypeAlias
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_index
 from scipy.interpolate import RegularGridInterpolator
 
 from vaft.data.open_adas import (
@@ -322,8 +323,565 @@ def line_cooling_coefficient(
     return coefficient
 
 
+def _rate_matrix(ne_m3, te_eV, acd, scd):
+    """Ionisation-balance rate matrix d f/dt = M f [s^-1], charge states on the last two axes."""
+    recombination = interpolate_adf11(_as_adf11(acd, "acd"), ne_m3, te_eV, multiply_density=True)
+    ionization = interpolate_adf11(_as_adf11(scd, "scd"), ne_m3, te_eV, multiply_density=True)
+    if recombination.shape != ionization.shape:
+        raise ValueError(
+            "ACD and SCD tables produced incompatible charge-state shapes: "
+            f"{recombination.shape} != {ionization.shape}"
+        )
+    if not (np.all(np.isfinite(recombination)) and np.all(np.isfinite(ionization))):
+        raise ValueError("Interpolated rates must be finite")
+    n = ionization.shape[-1] + 1
+    matrix = np.zeros(ionization.shape[:-1] + (n, n))
+    index = np.arange(n - 1)
+    # state j loses by ionisation S_j and gains from j+1 by recombination alpha_{j+1}
+    matrix[..., index, index] -= ionization
+    matrix[..., index + 1, index] += ionization
+    matrix[..., index + 1, index + 1] -= recombination
+    matrix[..., index, index + 1] += recombination
+    return matrix
+
+
+def transient_fractional_abundances(ne_m3, te_eV, acd: ADF11Source, scd: ADF11Source, tau_s):
+    r"""Fractional abundances a time tau after neutral atoms enter a plasma of fixed n_e, T_e.
+
+    $$\frac{d\mathbf f}{dt} = \mathsf M(n_e, T_e)\,\mathbf f,\qquad
+      \mathbf f(\tau) = e^{\tau\mathsf M}\,\mathbf e_0$$
+
+    with $\mathsf M$ tridiagonal: state $z$ is ionised at $n_e S_z$ and
+    recombines at $n_e\alpha_z$, and $\mathbf e_0$ is all neutral.
+
+    Parameters
+    ----------
+    ne_m3 : array-like
+        Electron density, finite and positive [m^-3].
+    te_eV : array-like
+        Electron temperature, finite and positive [eV].
+    acd : ADF11Data or path-like
+        Effective recombination table [n/a].
+    scd : ADF11Data or path-like
+        Effective ionisation table [n/a].
+    tau_s : float or array-like
+        Time since the atoms entered, broadcastable against the profiles,
+        non-negative [s].
+
+    Returns
+    -------
+    np.ndarray
+        Fractions with charge states (neutral first) on a new last axis,
+        summing to one [-].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive profiles, a negative time, or tables of
+        incompatible shape.
+
+    Assumptions
+    -----------
+    Constant $n_e$, $T_e$ over $\tau$, no transport and no charge exchange:
+    the ionisation age of a parcel that entered as neutrals.  As
+    $n_e\tau\to\infty$ it tends to :func:`fractional_abundances`.
+
+    Limitations
+    -----------
+    An age, not a transport solution: an impurity that recycles keeps a
+    population of low charge states that no single age reproduces.
+
+    References
+    ----------
+    .. [1] H. P. Summers, *The ADAS User Manual*, version 2.6 (2004), Sec. on
+           ADF11 (ionisation balance).
+    .. [2] R. J. Hawryluk et al., Nucl. Fusion 19 (1979) 607 (transient
+           ionisation in ohmic plasmas).
+
+    See Also
+    --------
+    fractional_abundances
+    coronal_relaxation_time
+    """
+    from scipy.linalg import expm
+
+    matrix = _rate_matrix(ne_m3, te_eV, acd, scd)
+    tau = np.asarray(tau_s, dtype=float)
+    if not np.all(np.isfinite(tau)) or np.any(tau < 0.0):
+        raise ValueError("tau_s must be finite and non-negative")
+    shape = np.broadcast_shapes(matrix.shape[:-2], tau.shape)
+    matrix = np.broadcast_to(matrix, shape + matrix.shape[-2:])
+    tau = np.broadcast_to(tau, shape)
+    n = matrix.shape[-1]
+    start = np.zeros(n)
+    start[0] = 1.0
+    flat_m = matrix.reshape(-1, n, n)
+    flat_t = tau.reshape(-1)
+    out = np.empty((flat_m.shape[0], n))
+    for k in range(flat_m.shape[0]):
+        out[k] = expm(flat_m[k] * flat_t[k]) @ start
+    out = np.clip(out, 0.0, None)
+    out /= np.sum(out, axis=-1, keepdims=True)
+    return out.reshape(shape + (n,))
+
+
+def coronal_relaxation_time(ne_m3, te_eV, acd: ADF11Source, scd: ADF11Source):
+    r"""Slowest relaxation time of the ionisation balance towards coronal equilibrium.
+
+    $$\tau_\mathrm{relax} = \frac{1}{\min_{\lambda\neq 0}|\mathrm{Re}\,\lambda(\mathsf M)|}$$
+
+    over the non-zero eigenvalues of the rate matrix of
+    :func:`transient_fractional_abundances`.
+
+    Parameters
+    ----------
+    ne_m3 : array-like
+        Electron density, finite and positive [m^-3].
+    te_eV : array-like
+        Electron temperature, finite and positive [eV].
+    acd : ADF11Data or path-like
+        Effective recombination table [n/a].
+    scd : ADF11Data or path-like
+        Effective ionisation table [n/a].
+
+    Returns
+    -------
+    np.ndarray
+        $\tau_\mathrm{relax}$ with the broadcast profile shape [s].
+
+    Raises
+    ------
+    ValueError
+        Non-finite or non-positive profiles, or tables of incompatible shape.
+
+    Physical interpretation
+    -----------------------
+    A plasma younger than a few $\tau_\mathrm{relax}$ (or whose impurities
+    stay in it for less, $\tau_p$) is not in coronal balance, and its
+    charge states lag low.  $n_e\tau_\mathrm{relax}$ is the usual
+    $n_e\tau$ criterion, here evaluated rather than quoted.
+
+    References
+    ----------
+    .. [1] H. P. Summers, *The ADAS User Manual*, version 2.6 (2004), Sec. on
+           ADF11 (ionisation balance).
+    .. [2] R. J. Hawryluk et al., Nucl. Fusion 19 (1979) 607.
+
+    See Also
+    --------
+    transient_fractional_abundances
+    """
+    matrix = _rate_matrix(ne_m3, te_eV, acd, scd)
+    eigen = np.linalg.eigvals(matrix)
+    rates = np.abs(eigen.real)
+    scale = np.max(rates, axis=-1, keepdims=True)
+    rates = np.where(rates > 1e-10 * np.where(scale > 0.0, scale, 1.0), rates, np.inf)
+    slowest = np.min(rates, axis=-1)
+    return np.where(np.isfinite(slowest), 1.0 / slowest, np.inf)
+
+
+def mean_charge_from_charge_state_densities(n_z, axis=-1):
+    r"""Mean charge of one element over its charge states.
+
+    $$\langle Z\rangle = \sum_j j\,f_j = \frac{\sum_j j\,n_j}{\sum_j n_j},
+      \qquad f_j = \frac{n_j}{\sum_k n_k}$$
+
+    Parameters
+    ----------
+    n_z : array-like
+        Density of each charge state along ``axis``, ordered neutral first, so
+        that index $j$ is charge $j$; finite and non-negative [m^-3].
+    axis : int, optional
+        Axis that runs over the charge states [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Mean charge, with ``axis`` removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density, or a slice whose densities sum to
+        zero, which has no charge distribution to average.
+
+    Convention
+    ----------
+    **Index is charge, neutral first**, the layout
+    :func:`fractional_abundances` returns -- so its output can be passed
+    straight in, and densities need not be normalised first because the
+    fractions $f_j$ are formed here.  Spectroscopic notation counts from one
+    (C I is neutral carbon); pass charge, not ionisation stage, or every value
+    comes out one high.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25 (impurity charge states).
+
+    See Also
+    --------
+    fractional_abundances
+    z_eff_from_n_s_Z_s
+    """
+    density = np.asarray(n_z, dtype=float)
+    if density.ndim == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    try:
+        axis = normalize_axis_index(axis, density.ndim)
+    except (IndexError, np.exceptions.AxisError) as exc:  # numpy raises AxisError, an IndexError subclass
+        raise ValueError(f"axis {axis} is out of range for a {density.ndim}-D n_z") from exc
+    if density.shape[axis] == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+        raise ValueError("n_z must be finite and non-negative")
+    total = np.sum(density, axis=axis)
+    if np.any(total <= 0.0):
+        raise ValueError("a charge-state distribution with zero total density has no mean charge")
+    shape = [1] * density.ndim
+    shape[axis] = density.shape[axis]
+    charge = np.arange(density.shape[axis], dtype=float).reshape(shape)
+    mean = np.sum(charge * density, axis=axis) / total
+    return float(mean) if np.ndim(mean) == 0 else mean
+
+
+def mean_square_charge_from_charge_state_densities(n_z, axis=-1):
+    r"""Mean square charge of one element over its charge states.
+
+    $$\langle Z^2\rangle = \sum_j j^2 f_j = \frac{\sum_j j^2\,n_j}{\sum_j n_j},
+      \qquad f_j = \frac{n_j}{\sum_k n_k}$$
+
+    Parameters
+    ----------
+    n_z : array-like
+        Density of each charge state along ``axis``, ordered neutral first, so
+        that index $j$ is charge $j$; finite and non-negative [m^-3].
+    axis : int, optional
+        Axis that runs over the charge states [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Mean square charge, with ``axis`` removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density, or a slice whose densities sum to
+        zero, which has no charge distribution to average.
+
+    Convention
+    ----------
+    **Index is charge, neutral first**, as in
+    :func:`mean_charge_from_charge_state_densities`.  An element of density
+    $n_I$ contributes $n_I\langle Z^2\rangle$ to $Z_\mathrm{eff} n_e$ and
+    $n_I\langle Z\rangle$ to quasi-neutrality; $\langle Z^2\rangle -
+    \langle Z\rangle^2$ is the charge-state variance that collapsing onto the
+    mean charge would drop.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25 (impurity charge states).
+
+    See Also
+    --------
+    mean_charge_from_charge_state_densities
+    fractional_abundances
+    z_eff_from_n_s_Z_s
+    """
+    density = np.asarray(n_z, dtype=float)
+    if density.ndim == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    try:
+        axis = normalize_axis_index(axis, density.ndim)
+    except (IndexError, np.exceptions.AxisError) as exc:  # numpy raises AxisError, an IndexError subclass
+        raise ValueError(f"axis {axis} is out of range for a {density.ndim}-D n_z") from exc
+    if density.shape[axis] == 0:
+        raise ValueError("n_z needs at least one charge state along axis")
+    if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+        raise ValueError("n_z must be finite and non-negative")
+    total = np.sum(density, axis=axis)
+    if np.any(total <= 0.0):
+        raise ValueError("a charge-state distribution with zero total density has no mean square charge")
+    shape = [1] * density.ndim
+    shape[axis] = density.shape[axis]
+    charge = np.arange(density.shape[axis], dtype=float).reshape(shape)
+    mean = np.sum(charge**2 * density, axis=axis) / total
+    return float(mean) if np.ndim(mean) == 0 else mean
+
+
+def z_eff_from_n_s_Z_s(n_s, Z_s, n_e=None):
+    r"""Effective charge of a mixture of ion species.
+
+    $$Z_{\mathrm{eff}} = \frac{\sum_s n_s Z_s^2}{n_e}, \qquad
+      n_e = \sum_s n_s Z_s\ \text{when not given}$$
+
+    Parameters
+    ----------
+    n_s : array-like
+        Density of each ion species or charge state, finite and non-negative;
+        the last axis runs over species [m^-3].
+    Z_s : array-like
+        Charge of each, broadcastable against ``n_s``, finite and non-negative
+        [-].
+    n_e : float or array-like, optional
+        Electron density, finite and positive; default the quasi-neutral
+        $\sum_s n_s Z_s$ [m^-3].
+
+    Returns
+    -------
+    float or np.ndarray
+        Effective charge, with the species axis removed [-].
+
+    Raises
+    ------
+    ValueError
+        A non-finite or negative density or charge, a non-positive electron
+        density, or a quasi-neutral electron density of zero.
+
+    Convention
+    ----------
+    **Pass the electron density only when it is measured independently.**  The
+    default makes the plasma quasi-neutral by construction, and then a pure
+    hydrogenic plasma is exactly 1 and every impurity raises it.  A measured
+    $n_e$ that disagrees with $\sum_s n_s Z_s$ is taken as given and not
+    reconciled, so a density error lands directly in $Z_{\mathrm{eff}}$.
+
+    A charge-resolved impurity is several species here, one per charge state:
+    $Z_{\mathrm{eff}}$ weights $Z^2$, so collapsing an element of density $n_I$
+    onto its mean charge first underestimates it by exactly
+    $n_I\,\mathrm{Var}(Z)/n_e$ -- the quasi-neutral $n_e$ is unchanged, since
+    it weights $Z$ only linearly.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Sec. 4.25.
+
+    See Also
+    --------
+    mean_charge_from_charge_state_densities
+    vaft.formula.equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda
+    """
+    density = np.asarray(n_s, dtype=float)
+    charge = np.asarray(Z_s, dtype=float)
+    if not np.all(np.isfinite(density)) or np.any(density < 0.0):
+        raise ValueError("n_s must be finite and non-negative")
+    if not np.all(np.isfinite(charge)) or np.any(charge < 0.0):
+        raise ValueError("Z_s must be finite and non-negative")
+    density, charge = np.broadcast_arrays(density, charge)
+    weighted = np.sum(density * charge**2, axis=-1)
+    if n_e is None:
+        electrons = np.sum(density * charge, axis=-1)
+        if np.any(electrons <= 0.0):
+            raise ValueError(
+                "the quasi-neutral electron density is zero; pass n_e or a charged species"
+            )
+    else:
+        electrons = np.asarray(n_e, dtype=float)
+        if not np.all(np.isfinite(electrons)) or np.any(electrons <= 0.0):
+            raise ValueError("n_e must be finite and positive")
+    z_eff = weighted / electrons
+    return float(z_eff) if np.ndim(z_eff) == 0 else z_eff
+
+
+def impurity_fraction_from_effective_charge(z_eff, z_impurity):
+    r"""Impurity-to-electron density ratio that produces a given effective charge.
+
+    $$\frac{n_I}{n_e} = \frac{Z_{\mathrm{eff}} - 1}{Z_I\,(Z_I - 1)}$$
+
+    the inverse of :func:`z_eff_from_n_s_Z_s` for one fully ionised impurity of
+    charge $Z_I$ in a hydrogenic main ion.
+
+    Parameters
+    ----------
+    z_eff : float or array-like
+        Effective charge, within $[1, Z_I]$ [-].
+    z_impurity : float
+        Impurity charge $Z_I$, greater than one [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $n_I/n_e$, of the shape of ``z_eff``; the main-ion fraction is
+        $n_H/n_e = 1 - Z_I\,n_I/n_e$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``z_impurity`` not greater than one, or ``z_eff`` non-finite or
+        outside $[1, Z_I]$, where no non-negative density pair exists.
+
+    Assumptions
+    -----------
+    Quasi-neutrality $n_e = n_H + Z_I n_I$ and exactly two ion species: a
+    hydrogenic main ion ($Z = 1$, any isotope) and one impurity in a single
+    charge state.  Those two conditions and the definition
+    $Z_{\mathrm{eff}} n_e = n_H + Z_I^2 n_I$ fix both fractions.
+
+    Limitations
+    -----------
+    One impurity only: a measured $Z_{\mathrm{eff}}$ does not determine a
+    mixture, so the answer is the fraction of the named impurity that would
+    alone account for it.  At $Z_{\mathrm{eff}} = 2$ that is $1/30$ for
+    carbon but $1/5402$ for fully stripped tungsten.
+
+    References
+    ----------
+    .. [1] J. Wesson, *Tokamaks*, 4th ed., Oxford University Press (2011),
+           Ch. 2 (collisions, resistivity and the effective charge).
+
+    See Also
+    --------
+    z_eff_from_n_s_Z_s
+    """
+    charge = float(z_impurity)
+    if not np.isfinite(charge) or charge <= 1.0:
+        raise ValueError(f"an impurity needs Z > 1; got {z_impurity!r}")
+    target = np.asarray(z_eff, dtype=float)
+    if not np.all(np.isfinite(target)) or np.any(target < 1.0) or np.any(target > charge):
+        raise ValueError(
+            f"Z_eff = {z_eff!r} is unreachable with a Z = {charge:g} impurity in "
+            f"hydrogen: it must lie between 1 (no impurity) and {charge:g} (no main ion)"
+        )
+    fraction = (target - 1.0) / (charge * (charge - 1.0))
+    return float(fraction) if fraction.ndim == 0 else fraction
+
+
+# ------------------------------------------------------------------
+# Hydrogenic levels and lines (Bohr model with the reduced mass)
+# ------------------------------------------------------------------
+
+#: nuclear masses of the hydrogen isotopes (CODATA 2018): proton, deuteron, triton [kg]
+_NUCLEUS_MASS = {1: 1.67262192369e-27, 2: 3.3435837724e-27, 3: 5.0073567446e-27}
+
+
+def _reduced_mass_factor(mass_number) -> float:
+    from .constants import ME
+
+    if mass_number is None:
+        return 1.0
+    if mass_number not in _NUCLEUS_MASS:
+        raise ValueError(f"mass_number must be 1, 2 or 3 (H, D, T) or None, not {mass_number!r}")
+    return 1.0 / (1.0 + ME / _NUCLEUS_MASS[mass_number])
+
+
+def hydrogenic_energy_level(n, Z=1, mass_number=None):
+    r"""Bohr energy of level $n$ of a one-electron ion, with the reduced-mass correction.
+
+    $$E_n = -\frac{\mu}{m_e}\,\frac{Z^2}{n^2}\,R_\infty hc,\qquad
+      R_\infty hc = \frac{m_ee^4}{8\varepsilon_0^2h^2}\approx 13.606\ \mathrm{eV}$$
+
+    Parameters
+    ----------
+    n : int or np.ndarray
+        Principal quantum number, at least 1 [-].
+    Z : int, optional
+        Nuclear charge of the one-electron ion (1 for H I, 2 for He II) [-].
+    mass_number : int or None, optional
+        1, 2 or 3 for H, D, T (the reduced mass $\mu = m_eM/(m_e + M)$), only with
+        ``Z = 1``; ``None`` for an infinitely heavy nucleus [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        $E_n$, negative, from the ionisation limit [eV].
+
+    Raises
+    ------
+    ValueError
+        ``n`` below one, ``Z`` below one, an unknown ``mass_number``, or a
+        ``mass_number`` with ``Z > 1``.
+
+    Assumptions
+    -----------
+    Non-relativistic Bohr/Schroedinger levels of a one-electron ion: no fine
+    structure, Lamb shift or hyperfine splitting (H-alpha's fine structure
+    spans about 0.016 nm). Not a stand-in for many-electron levels, which need
+    atomic data (ADF04).
+
+    References
+    ----------
+    .. [1] H. A. Bethe and E. E. Salpeter, *Quantum Mechanics of One- and
+           Two-Electron Atoms*, Springer (1957), Sec. 2.
+    """
+    from .constants import EPS0, H_PLANCK, ME, QE
+
+    n = np.asarray(n, dtype=float)
+    if np.any(n < 1) or np.any(n != np.round(n)):
+        raise ValueError("n must be a positive integer")
+    if int(Z) != Z or Z < 1:
+        raise ValueError(f"Z must be a positive integer, not {Z!r}")
+    if mass_number is not None and Z != 1:
+        raise ValueError("mass_number names a hydrogen isotope (H, D, T): it cannot give the nuclear mass of a "
+                         f"Z = {Z} ion; pass None (infinite nuclear mass)")
+    rydberg_eV = ME * QE**4 / (8.0 * EPS0**2 * H_PLANCK**2) / QE
+    out = -_reduced_mass_factor(mass_number) * rydberg_eV * Z**2 / n**2
+    return float(out) if np.ndim(out) == 0 else out
+
+
+def hydrogenic_transition_wavelength(n_upper, n_lower, Z=1, mass_number=None):
+    r"""Vacuum wavelength of the $n_u \to n_l$ line of a one-electron ion (Rydberg formula).
+
+    $$\frac{1}{\lambda} = \frac{\mu}{m_e}R_\infty Z^2\left(\frac{1}{n_l^2} - \frac{1}{n_u^2}\right),\qquad
+      R_\infty = \frac{m_ee^4}{8\varepsilon_0^2h^3c}$$
+
+    Parameters
+    ----------
+    n_upper : int or np.ndarray
+        Upper principal quantum number, above ``n_lower`` [-].
+    n_lower : int
+        Lower principal quantum number, at least 1 [-].
+    Z : int, optional
+        Nuclear charge of the one-electron ion [-].
+    mass_number : int or None, optional
+        1, 2 or 3 for H, D, T; ``None`` for infinite nuclear mass [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Vacuum wavelength [m].
+
+    Raises
+    ------
+    ValueError
+        ``n_upper <= n_lower`` or an argument of ``hydrogenic_energy_level`` is invalid.
+
+    Convention
+    ----------
+    **Vacuum** wavelength. Tabulated visible lines are usually quoted in air
+    (H-alpha 656.28 nm air, 656.47 nm vacuum): the difference is the
+    refractive index of air, about $2.8\times10^{-4}$. The series of the
+    fusion-diagnostic names is Balmer: alpha is $3 \to 2$, beta $4 \to 2$.
+    The isotope shift from the reduced mass (D-alpha about 0.18 nm below
+    H-alpha) is what separates H and D lines.
+
+    References
+    ----------
+    .. [1] H. A. Bethe and E. E. Salpeter, *Quantum Mechanics of One- and
+           Two-Electron Atoms*, Springer (1957), Sec. 2.
+    """
+    from .constants import C_LIGHT, H_PLANCK, QE
+
+    n_upper = np.asarray(n_upper, dtype=float)
+    if np.any(n_upper <= n_lower):
+        raise ValueError("n_upper must exceed n_lower")
+    delta_eV = hydrogenic_energy_level(n_upper, Z, mass_number) - hydrogenic_energy_level(n_lower, Z, mass_number)
+    out = H_PLANCK * C_LIGHT / (np.asarray(delta_eV) * QE)
+    return float(out) if np.ndim(out) == 0 else out
+
+
 __all__ = [
+    "coronal_relaxation_time",
     "fractional_abundances",
     "interpolate_adf11",
+    "transient_fractional_abundances",
     "line_cooling_coefficient",
+    "mean_charge_from_charge_state_densities",
+    "mean_square_charge_from_charge_state_densities",
+    "z_eff_from_n_s_Z_s",
+    "impurity_fraction_from_effective_charge",
+    "hydrogenic_energy_level",
+    "hydrogenic_transition_wavelength",
 ]

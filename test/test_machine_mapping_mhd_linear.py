@@ -79,7 +79,7 @@ def test_dcon_records_mode_range_provenance_in_code_parameters(tmp_path):
     mhd_linear(ods, str(tmp_path), {"module": "dcon", "time_slice": 0})
 
     params = ods["mhd_linear"]["code"]["parameters"]
-    assert '<solver name="dcon" n_tor="1">' in params
+    assert '<solver name="dcon" n_tor="1" version="2" time_slice="0" position="0">' in params
     assert "<mlow>-3</mlow>" in params
     assert "<mhigh>5</mhigh>" in params
     assert "normalized" in params  # energy_perturbed units caveat

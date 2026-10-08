@@ -46,6 +46,14 @@ The closed-form criteria are catalogued with their exact signatures and unit tra
 [Physics formulas]({{ site.baseurl }}/guide/Formula/) page. This page covers what to do with them and
 how to run the codes.
 
+Which mode family each tool addresses (interchange and Mercier, ballooning, kink and peeling, tearing and
+its parity channels), and why their criteria are not one severity scale, is on
+[MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }}).
+
+What each criterion assumes and proves — exact definition, reduced model, empirical boundary, heuristic or
+solver-derived — is inventoried on
+[Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}).
+
 ---
 
 # Screening an equilibrium
@@ -67,11 +75,20 @@ eq     = ods['equilibrium.time_slice.0.global_quantities']
 beta_N = eq['beta_normal']        # [%·m·T/MA]
 q_95   = eq['q_95']
 
-d_beta, beta_N_crit = vaft.formula.kink_stability_criterion(q_95, beta_N)
-d_bN,   bN_crit     = vaft.formula.beta_stability_boundary(beta_N, q_95)
+B = vaft.formula.boundaries
+beta_check = B.evaluate_boundary(B.get_boundary("troyon"), beta_N)   # beta_N <= 2.2 mu0 1e6 ~ 2.76
+q_check    = B.evaluate_boundary(B.get_boundary("low_q"), q_95)      # q_psi > 2 (Greenwald 1988)
 ```
 
-Every criterion returns a `(margin, critical_value)` pair, and the margin is literally
+`evaluate_boundary` returns a margin that is **positive on the permitted side** whichever way the
+limit points, together with the source (paper, equation, DOI) and the inputs that fall outside the
+range the limit was fitted on. The Troyon coefficient is Troyon *et al.* (1984), p. 214:
+$(\beta A)_{max} \approx 2.2\,I_N$, i.e. $\beta_N \le 2.2\,\mu_0\cdot10^6 \approx 2.76$ %·m·T/MA, the
+origin of the rounded 2.8. `kink_stability_criterion` and `beta_stability_boundary` multiply the limit by
+$q_{95}$, which no source does; they are deprecated (#350) and keep their old numbers only for
+compatibility.
+
+The remaining local criteria return a `(margin, critical_value)` pair, and the margin is literally
 `value - critical`. A **positive** margin therefore means the plasma sits **above** the boundary:
 
 <!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
@@ -97,7 +114,11 @@ f_G = vaft.formula.greenwald_fraction(n_e=1.5, n_G=n_G)
 is conventionally formed with the **line-averaged** electron density. Both arguments to
 `greenwald_fraction` must use the same density definition and units — it just divides.
 
-## The combined margin helper, and its one trap
+## The combined margin helper (deprecated), and its one trap
+
+`plasma_stability_margins` is deprecated (#350): its beta margin uses the unsourced $0.028\,q_{95}$
+limit. Use `evaluate_boundary` with `"troyon"`, `"low_q"` and `"greenwald"` instead, which share one
+sign convention. The description below documents the old behaviour.
 
 <!-- docs-snippet: skip fragment (placeholder name n_e is never defined on the page) -->
 ```python
@@ -137,14 +158,41 @@ vaft.omas.plot_equilibrium_time_beta_t(ods)
 $H_\alpha$, $B_z$ and $R_{\rm major}$ into one 3×2 figure — the fastest way to see whether a beta
 excursion coincides with a disruption.
 
-The empirical $(q_a, l_i)$ disruption boundary from the JET survey (Wesson *et al.*, Nucl. Fusion
-**29**, 1989) is available for overlaying on that space:
+## Internal inductance against edge q
 
-<!-- docs-snippet: skip fragment (placeholder name qa is never defined on the page) -->
+Two literature pictures look alike on this plane and are different objects (#1422):
+
+| | Wesson *et al.* 1989, Fig. 6 | Cheng, Furth & Boozer 1987, Fig. 4 |
+| --- | --- | --- |
+| Kind | **empirical** JET operating space (1985–88) | **theoretical** domain of MHD-stable current profiles |
+| x | $q_\psi$, the equilibrium q at the edge | $q(a)$ of a straight cylinder |
+| y | $l_i = 2\int B_\theta^2\,d\tau/(\mu_0^2 R I^2)$, the $l_i(3)$ form | cylinder $l_i$ (the paper plots $l_i/2$) |
+| Lower boundary | rotating MHD modes during the current rise; kink and double tearing below | ideal external kink (jig-saw), $q(0) = 1.01$, no wall |
+| Upper boundary | density-limit disruptions | low-order resistive kinks (2/1, 3/2) |
+| Registered keys | `wesson_1989_jet_li_qpsi_lower`, `wesson_1989_jet_li_qpsi_upper` (+ `low_q` at $q_\psi = 2$) | `cheng_1987_li_qa_lower`, `cheng_1987_li_qa_upper`, `cheng_1987_qa_min` |
+
+What $l_i$ measures: the peaking of the current profile, through the poloidal-field energy inside
+the plasma normalised to the edge field. It does not fix the profile shape; many $j(r)$ give one
+$l_i$. Edge $q$ and $l_i$ together bound where the current gradient sits relative to the low-order
+rational surfaces, which is why both limits are drawn on this plane. Both papers are for
+conventional aspect ratio. At VEST aspect ratio, $q_\psi$, $q_{95}$ and the cylinder $q(a)$ differ
+substantially, and so do the $l_i$ conventions. A Wesson line is drawn only on a $q_\psi$ axis
+with $l_i(3)$, and a Cheng line only on the cylinder quantities. Neither is drawn on $q_{95}$.
+
+<!-- docs-snippet: skip fragment (table is a placeholder for a canonical state table) -->
 ```python
-qa_ref, li_ref = vaft.formula.empirical_li_qa()          # 18 surveyed points
-li             = vaft.formula.li_from_qa_empirical(qa)   # piecewise-linear interpolation
+import vaft
+vaft.diagram.li_qa(reference="wesson_1989")      # empirical JET boundaries
+vaft.diagram.li_qa(reference="cheng_1987")       # theoretical stable domain
+from vaft.plot.operational_space import operational_space_population
+fig, ax = operational_space_population(table, "li_qa_wesson")   # columns edge_safety_factor, internal_inductance_li3
 ```
+
+Both curves were digitized at 600 dpi from the published figures, with the axes calibrated on the
+printed ticks. For Cheng, the printed closed form $\max(l_i/2) = [1 + 2\ln(q(a)/q(0))]/4$ is
+recovered to 0.01. The older `vaft.formula.empirical_li_qa()` arrays are the Wesson **lower**
+boundary of Fig. 6 (not Fig. 5, which is the Hugill diagram) and agree with the audit to about
+0.03. Prefer the registered entries.
 
 ---
 
@@ -191,8 +239,9 @@ print(result.ok)
 ```
 
 `GPECSuiteConfig` also exposes the DCON edge controls `dcon_sas_flag` (default `False`),
-`dcon_qhigh` (`20.2`) and `dcon_psiedge` (`1.0`), plus a per-module `timeout` (1200 s) and an `env`
-mapping merged into the subprocess environment.
+`dcon_qhigh` (`20.2`) and `dcon_psiedge` (`1.0`), plus a per-module `timeout` (1200 s), an `env`
+mapping merged into the subprocess environment, and a `backend` that launches each module (default:
+a local child process; see [execution backends]({{ site.baseurl }}/guide/API_reference/#execution-backends)).
 
 `run_mode` selects what happens when the executables are not installed:
 
@@ -347,6 +396,12 @@ which produce the refined equilibria the GPEC suite consumes — see the
 - [Physics formulas]({{ site.baseurl }}/guide/Formula/) — full signature reference for
   `vaft.formula.stability`, including the beta conversions, characteristic speeds and unit traps.
 - [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) — producing the equilibrium the codes consume.
+- [Ballooning formulations]({{ '/reference/ballooning-formulations/' | relative_url }}) — how the
+  reduced $s$–$\alpha$ model, DCON's $C_A$ and GPEC.jl's ballooning $\Delta'$ relate, and the shared normalisation.
+- [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }})
+  — how slab, cylindrical and toroidal mode families relate, and which tool sits where.
+- [Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}) — the
+  logical status, assumptions and validation path of every analytic and reduced criterion.
 - [Data structures (ODS, IDS, IMAS)]({{ site.baseurl }}/guide/Data_structures/) — where `beta_normal`,
   `q_95` and the rest of `equilibrium.time_slice[:].global_quantities` live.
 - Source: [`vaft/formula/stability.py`](https://github.com/VEST-Tokamak/vaft/blob/main/vaft/formula/stability.py)

@@ -73,6 +73,42 @@ def render(
     )
 
 
+def compose(
+    composition: Any,
+    source: Any,
+    *,
+    backend: str | None = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **presentation: Any,
+) -> Any:
+    """Draw several canonical plots of ``source`` as one figure (issue #1467).
+
+    ``composition`` is a :class:`vaft.plot.FigureComposition` -- which plots,
+    in which grid cells, which axes move together -- or its ``to_dict()``
+    form.  Every cell is built by its plot's own recipe, so a cell looks like
+    ``plot_<name>`` drawn on its own.  Matplotlib returns ``(Figure,
+    ndarray[Axes])``, one axes per cell in cell order, and takes ``format=``,
+    ``theme=`` and ``figsize=``; ``backend="plotly"`` returns one
+    :class:`plotly.graph_objects.Figure`.  See :mod:`vaft.plot.composition`.
+
+    Example::
+
+        vaft.omas.compose(
+            vaft.plot.FigureComposition.stack(
+                ["plasma_current_time", "flux_loop_time_voltage", "equilibrium_time_q95"]
+            ),
+            ods,
+        )
+    """
+    from vaft.plot.composition import render_composition
+
+    return render_composition(
+        composition, normalize_entries(source, label=label), backend=backend, show=show,
+        namespace="vaft.omas", subject="ods", **presentation,
+    )
+
+
 def available_plots(
     source: Any = None,
     *,
@@ -221,9 +257,13 @@ def _discover_overlay_methods(ods_class: type) -> tuple[str, ...]:
     order-independent.
 
     OMAS' aggregate ``plot_overlay`` dispatcher matches the pattern too but is
-    excluded: it forwards to the individual overlays (which are wrapped), and
-    its ``return_overlay_list=True`` query path draws nothing, so wrapping it
-    would leak a blank figure per query.
+    excluded, because wrapping it would leak a blank figure per
+    ``return_overlay_list=True`` query, a path that draws nothing.  It does
+    *not* reach the wrapped overlays: OMAS' ``overlay()`` calls the
+    module-level ``<name>_overlay(ods, ax, ...)`` functions, not the ODS
+    methods, so ``ods.plot_overlay()`` keeps OMAS' own behaviour and draws
+    onto ``pyplot.gca()`` while each individual ``ods.plot_<name>_overlay()``
+    opens a figure of its own (issue #271).
     """
     canonical = {f"plot_{spec.name}" for spec in specs()}
     return tuple(
@@ -451,11 +491,20 @@ def plot_camera_visible_animation_frames(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ):
-    """Animate a sequence of FAST-camera frames on a shared color scale.
+    """Deprecated: use ``plot_camera_visible_image(..., animation=True)`` (issue #1050).
 
-    Returns ``(Figure, Axes, FuncAnimation)``. Renders with
+    That call draws the same frames through the static camera plot, with its
+    overlays, one colour scale over the sequence, the physical time of every
+    frame in its metadata, and ``.save("x.mp4")``/``.gif``.  This one still
+    returns ``(Figure, Axes, FuncAnimation)`` from
     :func:`vaft.plot.camera_visible_animation_frames`.
     """
+    warnings.warn(
+        "plot_camera_visible_animation_frames is deprecated; use "
+        "plot_camera_visible_image(..., animation=True) and .save('x.mp4') (issue #1050)",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     return render(
         "camera_visible_animation_frames",
         source,
@@ -894,6 +943,21 @@ def plot_interferometer_spectrum(
     )
 
 
+def plot_kinetic_overview_profiles(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Four local kinetic profiles with measurement and fit provenance.
+
+    Renders with :func:`vaft.plot.kinetic_overview_profiles`.
+    """
+    return render("kinetic_overview_profiles", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_machine_geometry_poloidal(
     source: Any,
     *,
@@ -902,13 +966,33 @@ def plot_machine_geometry_poloidal(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Composed poloidal machine view: wall, coils, passive structure and diagnostic positions in one axes.
+    """Composed machine section: wall, coils, passive structure and diagnostics.
+
+    ``overlay="equilibrium_section"`` draws one same-shot EFIT section with
+    PF active/passive geometry and the mapped EFIT flux-loop/B-pol sites.
+    Select its stored ``time_slice=``; ``section_phi=`` is the toroidal plane
+    projected by the companion camera view (6MR, phi=pi by default).
 
     Renders with :func:`vaft.plot.machine_geometry_poloidal`.
     """
     return render(
         "machine_geometry_poloidal", source, ax=ax, show=show, label=label, **options
     )
+
+
+def plot_machine_geometry3d(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Composed 3D machine scene: wall and boundary cuts, PF rings, 3D coils and diagnostics.
+
+    Renders with :func:`vaft.plot.machine_geometry3d`.
+    """
+    return render("machine_geometry3d", source, ax=ax, show=show, label=label, **options)
 
 
 def plot_machine_geometry_topview(
@@ -944,6 +1028,12 @@ def plot_camera_visible_image(
     ``projection=`` is ``"calibrated"`` (the model packaged for the shot) or a
     :class:`vaft.process.camera_geometry.CameraProjection`.  The
     ``plot_camera_visible_image_*`` functions are presets of this one.
+    ``overlay="equilibrium_section"`` draws a same-shot R-Z section over a
+    real frame at ``section_phi=`` (default 6MR, IMAS phi=pi). PF active/passive
+    and EFIT contours use that plane; probes retain their stored phi. With
+    ``animation=True`` the default selection is the interval containing
+    complete equilibrium sections, and ``.save("movie.mp4")`` writes the
+    movie plus a physical-time/provenance JSON sidecar.
     Renders with :func:`vaft.plot.camera_visible_image` (issue #261).
     """
     return render("camera_visible_image", source, ax=ax, show=show, label=label, **options)
@@ -1079,6 +1169,30 @@ def plot_mirnov_spectrum(
     )
 
 
+def plot_diagnostics_spectrum_coherence(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Coherence and relative phase of two fluctuation channels (issue #1005).
+
+    ``x_signal=`` and ``y_signal=`` name the channels -- a Mirnov index,
+    ``"sxr:3"``, ``"mirnov:OutMirnov_45_L1-01"``, ``"interferometer:0"``, an IDS
+    path such as ``"soft_x_rays.channel.2"``, or a channel name; with neither,
+    the first two channels carrying a signal are compared.  Records on
+    different time bases meet on one grid over their overlap, which the title
+    states.  The phase is that of ``y`` relative to ``x``.
+
+    Renders with :func:`vaft.plot.diagnostics_spectrum_coherence`.
+    """
+    return render(
+        "diagnostics_spectrum_coherence", source, ax=ax, show=show, label=label, **options
+    )
+
+
 def plot_flux_loop_spatial_flux(
     source: Any,
     *,
@@ -1089,8 +1203,9 @@ def plot_flux_loop_spatial_flux(
 ) -> Any:
     """Flux-loop flux against sensor position at one time (issue #486).
 
-    ``time=`` snaps to the nearest stored sample (``time_slice=`` maps
-    through a stored equilibrium slice); ``coordinate="z"`` (default) draws
+    ``time=`` snaps to the nearest stored sample, ``time_slice=`` maps
+    through a stored equilibrium slice and ``time_index=`` names a sample of
+    the shared magnetics grid (one of the three, issue #1380); ``coordinate="z"`` (default) draws
     the inboard and outboard loops as two panels, ``"theta"`` one panel
     against the poloidal angle about the layout centre (``centre=``).
     Renders with :func:`vaft.plot.flux_loop_spatial_flux` from OMAS input.
@@ -1470,6 +1585,7 @@ def plot_neoclassical_profile_bootstrap_current(
 
 __all__ = [
     "available_plots",
+    "compose",
     "disable_overlay_methods",
     "disable_plot_methods",
     "enable_overlay_methods",
@@ -1503,6 +1619,8 @@ __all__ = [
     "plot_equilibrium_overview_verification",
     "plot_interferometer_spectrum",
     "plot_machine_geometry_poloidal",
+    "plot_kinetic_overview_profiles",
+    "plot_machine_geometry3d",
     "plot_machine_geometry_topview",
     "plot_magnetics_overview_plasma_residual",
     "plot_magnetics_overview_vacuum",
@@ -1518,6 +1636,7 @@ __all__ = [
     "plot_ntms_time_delta_prime",
     "plot_impa_time_field",
     "plot_mirnov_spectrum",
+    "plot_diagnostics_spectrum_coherence",
     "plot_diagnostics_overview",
     "plot_flux_loop_spatial_flux",
     "plot_mirnov_spatial_phase",

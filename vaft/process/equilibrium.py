@@ -55,8 +55,10 @@ Provenance
    boundary shape definitions, and the parallel current definition.
 """
 
+import warnings
 from dataclasses import dataclass
-from typing import Any, Optional
+from types import MappingProxyType
+from typing import Any, Mapping, Optional
 
 from scipy.interpolate import RectBivariateSpline
 
@@ -77,14 +79,46 @@ _PARAMETRIC_EXPORTS = (
     "derive_boundary_representation",
     "derive_global_descriptors",
     "derive_radial_coordinates",
+    "evaluate_fourier_surface",
     "evaluate_miller",
     "evaluate_solovev",
+    "find_stationary_points",
+    "fit_fourier_surface",
+    "fit_fourier_surface_sequence",
     "fit_miller_sequence",
     "fit_miller_surface",
+    "grad_shafranov_residual_modes",
+    "miller_surfaces",
+    "solovev_example",
+    "solovev_shape_constraints",
     "solovev_to_equilibrium",
+    "solovev_xpoint_constraints",
     "solve_solovev_constraints",
     "validate_equilibrium",
 )
+
+#: Compact representations of existing equilibria (#1166), implemented in
+#: ``._equilibrium_compact``.
+_COMPACT_EXPORTS = ("evaluate_mxh_chebyshev", "fit_mxh_chebyshev", "fit_solovev")
+
+#: The Guazzotto-Freidberg analytic family (#1148), implemented in
+#: ``._equilibrium_guazzotto_freidberg``.
+_GF_EXPORTS = (
+    "evaluate_guazzotto_freidberg",
+    "guazzotto_freidberg_parameters",
+    "guazzotto_freidberg_to_equilibrium",
+    "solve_guazzotto_freidberg",
+)
+
+#: The current-moment API (#943), implemented in ``._equilibrium_moments``.
+_MOMENT_EXPORTS = (
+    "current_centroid",
+    "current_covariance",
+    "current_moment",
+    "derive_current_moments",
+)
+
+_COIL_FIT_EXPORTS = ("CoilFitResult", "fit_free_boundary_coils")
 
 __all__ = [
     "FLUX_SURFACE_QUANTITIES",
@@ -94,13 +128,26 @@ __all__ = [
     "calculate_diamagnetism",
     "calculate_q_profile_from_psi",
     "find_rational_surfaces",
+    "rational_surfaces",
+    "RationalSurface",
+    "RationalSurfaceRoot",
+    "RATIONAL_SURFACE_PRESENT",
+    "RATIONAL_SURFACE_ABSENT",
+    "RATIONAL_SURFACE_RTOL",
+    "StraightFieldLineMap",
     "lab_to_straight_field_line",
+    "pest_angle_from_jacobian_angle",
+    "DCON_JACOBIAN_ANGLE_WEIGHTS",
+    "straight_field_line_angle_on_grid",
+    "straight_field_line_map",
     "straight_field_line_tables",
     "resistive_layer_at",
     "resistive_layer_parameters",
     "calculate_reconstructed_diamagnetic_flux",
     "computed_diamagnetism_from_phi",
+    "compare_contours",
     "contour_shape_parameters",
+    "contour_shaping_observables",
     "efit_virial_volume_integrals",
     "extract_flux_surface_contours",
     "ParallelCurrentResult",
@@ -116,6 +163,7 @@ __all__ = [
     "poloidal_field_at_boundary",
     "prepare_boundary_for_shafranov",
     "psi_to_RZ",
+    "plasma_cell_weights",
     "psi_to_radial",
     "psi_to_rho",
     "psi_to_rz",
@@ -125,11 +173,18 @@ __all__ = [
     "scale_boundary_conformal",
     "shafranov_integrals",
     "connection_length_map",
+    "ejiri_mirror_geometry",
+    "romero_flux_balance",
+    "integrate_romero_closure",
     "trace_field_line",
     "virial_alpha_conformal_annulus",
     "virial_alpha_thin_annulus",
     "volume_average",
     *_PARAMETRIC_EXPORTS,
+    *_COMPACT_EXPORTS,
+    *_GF_EXPORTS,
+    *_MOMENT_EXPORTS,
+    *_COIL_FIT_EXPORTS,
 ]
 
 
@@ -324,6 +379,7 @@ def psi_to_rz(
     psi_RZ: np.ndarray,
     psi_axis: float,
     psi_lcfs: float,
+    fill_outside: str = "zero",
     ):
     """Map a flux-surface profile onto the two-dimensional grid through psi.
 
@@ -339,18 +395,24 @@ def psi_to_rz(
         Poloidal flux on the magnetic axis [Wb/rad].
     psi_lcfs : float
         Poloidal flux at the last closed flux surface [Wb/rad].
+    fill_outside : str, optional
+        ``"zero"`` (default) zeroes every cell outside ``0 <= psiN <= 1``;
+        ``"edge"`` leaves the clamped profile there, so a cell continues at the
+        nearest end value [-].
 
     Returns
     -------
     f_RZ : np.ndarray
-        The profile on the grid, zero outside the boundary [any].
+        The profile on the grid, zero outside the boundary unless
+        ``fill_outside="edge"`` [any].
     psiN_RZ : np.ndarray
         Normalized poloidal flux on the grid [-].
 
     Raises
     ------
     ValueError
-        The profile and its abscissa are not one-dimensional and of equal length.
+        The profile and its abscissa are not one-dimensional and of equal length,
+        or ``fill_outside`` is neither ``"zero"`` nor ``"edge"``.
 
     Processing steps
     ----------------
@@ -363,7 +425,12 @@ def psi_to_rz(
     ----------
     The flux map is indexed major radius first. Outside the boundary the value is
     zero, not the edge value and not a NaN, so a sum over the grid is already a
-    plasma-only integral. Because only the normalized flux is used, the absolute
+    plasma-only integral -- as far as ``0 <= psiN <= 1`` is the plasma, which
+    near the coils it is not (see :func:`volume_average`).  Pass
+    ``fill_outside="edge"`` when the map is to be weighted by
+    :func:`plasma_cell_weights`: an outline-weighted edge cell can sit just past
+    ``psiN = 1``, and a zero there biases the average low (0.5-0.8 % for a
+    profile whose edge value is 30 % of its core, on the packaged samples). Because only the normalized flux is used, the absolute
     unit of the three flux arguments cancels: weber and weber per radian give the
     same answer as long as all three agree.
 
@@ -405,6 +472,10 @@ def psi_to_rz(
         psiN_clip.ravel(), x, y
     ).reshape(psi_RZ.shape)
 
+    if fill_outside == "edge":
+        return f_interp, psiN_RZ
+    if fill_outside != "zero":
+        raise ValueError(f"fill_outside must be 'zero' or 'edge'; got {fill_outside!r}")
     # Outside LCFS → 0
     f_RZ = np.where((psiN_RZ >= 0.0) & (psiN_RZ <= 1.0), f_interp, 0.0)
     return f_RZ, psiN_RZ
@@ -419,6 +490,7 @@ def calculate_reconstructed_diamagnetic_flux(
     psiN_1d: np.ndarray,
     f_1d: np.ndarray,
     f_vac_val: float,
+    weights: np.ndarray | None = None,
 ) -> float:
     """Diamagnetic flux reconstructed from the equilibrium's own toroidal field.
 
@@ -444,6 +516,10 @@ def calculate_reconstructed_diamagnetic_flux(
     f_vac_val : float
         The same function at the boundary, standing in for the vacuum field
         [T m].
+    weights : array_like, optional
+        Fraction of each cell inside the plasma, from
+        :func:`plasma_cell_weights`; replaces the normalized-flux mask when
+        given [-].
 
     Returns
     -------
@@ -484,7 +560,12 @@ def calculate_reconstructed_diamagnetic_flux(
        integrated over the plasma cross-section, in the form the EFIT-style
        workflow this package reproduces uses.
     """
-    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    # With outline weights an edge cell can sit just past psiN = 1, where a
+    # zeroed F would make F - F_vac read as -F_vac and swamp the integral.
+    f_2d, psiN_RZ = psi_to_rz(
+        psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs,
+        fill_outside="zero" if weights is None else "edge",
+    )
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
 
@@ -493,13 +574,14 @@ def calculate_reconstructed_diamagnetic_flux(
         B_phi_vacuum = f_vac_val / R_mesh
 
     diff_B = B_phi_plasma - B_phi_vacuum
-    integrand = np.where(mask_plasma, diff_B, 0.0)
+    cell_fraction = mask_plasma.astype(float) if weights is None else np.asarray(weights, float)
+    integrand = np.where(cell_fraction > 0.0, diff_B, 0.0)
 
     dR = np.gradient(R_grid)[:, None]
     dZ = np.gradient(Z_grid)[None, :]
     dA = np.abs(dR * dZ)
 
-    return float(np.nansum(integrand * dA))
+    return float(np.nansum(integrand * dA * cell_fraction))
 
 
 def calculate_diamagnetism(
@@ -513,6 +595,7 @@ def calculate_diamagnetism(
     f_vac_val: float,
     B_pa: float,
     V_p: float | None = None,
+    weights: np.ndarray | None = None,
 ) -> float:
     """Diamagnetism from its volume-integral definition.
 
@@ -541,6 +624,10 @@ def calculate_diamagnetism(
     V_p : float, optional
         Plasma volume. Computed from the same grid and mask when not given
         [m^3].
+    weights : array_like, optional
+        Fraction of each cell inside the plasma, from
+        :func:`plasma_cell_weights`; replaces the normalized-flux mask when
+        given [-].
 
     Returns
     -------
@@ -578,7 +665,12 @@ def calculate_diamagnetism(
        form is :func:`calculate_reconstructed_diamagnetic_flux`, and the two
        should agree for a consistent equilibrium.
     """
-    f_2d, psiN_RZ = psi_to_rz(psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs)
+    # With outline weights an edge cell can sit just past psiN = 1, where a
+    # zeroed F would make F - F_vac read as -F_vac and swamp the integral.
+    f_2d, psiN_RZ = psi_to_rz(
+        psiN_1d, f_1d, psi_RZ, psi_axis, psi_lcfs,
+        fill_outside="zero" if weights is None else "edge",
+    )
     R_mesh, Z_mesh = np.meshgrid(R_grid, Z_grid, indexing="ij")
     mask_plasma = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (R_mesh > 0.0)
 
@@ -590,14 +682,16 @@ def calculate_diamagnetism(
     # (B_tv² - B_t²) = (F_vac² - F²) / R²; integrand * dV = 2π (F_vac² - F²)/R * dA
     with np.errstate(divide="ignore", invalid="ignore"):
         diff_sq = (f_vac_val**2 - f_2d**2) / (R_mesh**2)
-    integrand = np.where(mask_plasma, diff_sq, 0.0)
+    cell_fraction = mask_plasma.astype(float) if weights is None else np.asarray(weights, float)
+    dV = dV * cell_fraction
+    integrand = np.where(cell_fraction > 0.0, diff_sq, 0.0)
 
     integral = float(np.nansum(integrand * dV))
 
     if V_p is not None and V_p > 0:
         Omega = V_p
     else:
-        Omega = float(np.sum(dV[mask_plasma]))
+        Omega = float(np.sum(dV[cell_fraction > 0.0]))
         if Omega <= 0.0:
             raise ValueError("Plasma volume is zero or negative.")
 
@@ -612,6 +706,7 @@ def volume_average(
     psiN_RZ: np.ndarray,
     R: np.ndarray,
     Z: np.ndarray,
+    weights: np.ndarray | None = None,
     ):
     """Volume average of a gridded quantity over the confined region.
 
@@ -625,6 +720,10 @@ def volume_average(
         Major-radius axis, or the full mesh [m].
     Z : array_like
         Height axis, or the full mesh [m].
+    weights : array_like, optional
+        Fraction of each cell inside the plasma, from
+        :func:`plasma_cell_weights`; replaces the normalized-flux mask when
+        given [-].
 
     Returns
     -------
@@ -637,9 +736,16 @@ def volume_average(
     ----------
     The volume element is the axisymmetric ``2*pi*R dR dZ``, so cells at large
     major radius weigh proportionally more; this is a torus average, not a
-    cross-sectional one. Only cells with normalized flux between zero and one and
-    a positive major radius contribute, which makes the mask the definition of
-    "the plasma" here. Accepts either one-dimensional axes or a full mesh.
+    cross-sectional one. Accepts either one-dimensional axes or a full mesh.
+
+    **Pass** ``weights`` **whenever the slice has a boundary outline.**  Without
+    them the plasma is every cell with normalized flux between zero and one and
+    a positive major radius -- a flux threshold, not a containment test.  Outside
+    the plasma psi is not monotonic and turns over by the coils, so the
+    threshold admits exterior cells: on the packaged VEST samples the flux-mask
+    volume is 1.7 to 18 times the plasma's, and a volume-averaged pressure
+    comes out 40-50 % low.  With :func:`plasma_cell_weights` from the outline
+    both match the contour-traced reference to 0.1 % and 1 %.
 
     Applicability
     -------------
@@ -648,10 +754,9 @@ def volume_average(
     Limitations
     -----------
     Cell areas come from a gradient of the axes, so the outermost cells are
-    one-sided and a strongly non-uniform grid is approximated. The mask is a
-    per-cell test with no sub-cell weighting, so the boundary is resolved only to
-    the grid; :func:`fractional_cell_weights_from_boundary` is the fractional
-    alternative where that matters.
+    one-sided and a strongly non-uniform grid is approximated. The flux mask is a
+    per-cell test with no sub-cell weighting; ``weights`` carry each boundary
+    cell's area fraction instead.
 
     Provenance
     ----------
@@ -673,10 +778,18 @@ def volume_average(
             np.gradient(Rm, axis=0) * np.gradient(Zm, axis=1)
         )
 
-    # LCFS mask
-    inside = (psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (Rm > 0.0)
+    if weights is None:
+        # Flux-threshold fallback; see the Convention section.
+        cell_fraction = ((psiN_RZ >= 0.0) & (psiN_RZ <= 1.0) & (Rm > 0.0)).astype(float)
+    else:
+        cell_fraction = np.where(Rm > 0.0, np.asarray(weights, float), 0.0)
+        if cell_fraction.shape != Rm.shape:
+            raise ValueError(
+                f"weights have shape {cell_fraction.shape}; the grid has {Rm.shape}"
+            )
 
-    dV = 2.0 * np.pi * Rm * dA
+    dV = 2.0 * np.pi * Rm * dA * cell_fraction
+    inside = cell_fraction > 0.0
 
     V = np.sum(dV[inside])
     if V == 0.0:
@@ -684,6 +797,83 @@ def volume_average(
 
     favg = np.sum(f_RZ[inside] * dV[inside]) / V
     return favg, V
+
+
+def plasma_cell_weights(
+    R: np.ndarray,
+    Z: np.ndarray,
+    psiN_RZ: np.ndarray,
+    outline_r: np.ndarray | None = None,
+    outline_z: np.ndarray | None = None,
+) -> np.ndarray:
+    """Fraction of each grid cell that is plasma, from the boundary outline when there is one.
+
+    Parameters
+    ----------
+    R : array_like
+        Major-radius axis, or the full mesh [m].
+    Z : array_like
+        Height axis, or the full mesh [m].
+    psiN_RZ : array_like
+        Normalized poloidal flux on the grid, used only when there is no
+        outline [-].
+    outline_r : array_like, optional
+        Major radius of the last closed flux surface outline [m].
+    outline_z : array_like, optional
+        Height of the same outline [m].
+
+    Returns
+    -------
+    np.ndarray
+        Area fraction in ``[0, 1]`` on the grid's ``(R, Z)`` shape [-].
+
+    Raises
+    ------
+    ValueError
+        The outline coordinates differ in length [-].
+
+    Convention
+    ----------
+    With at least three finite outline points this is
+    :func:`fractional_cell_weights_from_boundary`: containment in the boundary,
+    with each crossed cell's area share.  Otherwise it falls back to the
+    normalized-flux threshold ``0 <= psiN <= 1`` as zeros and ones, and logs a
+    warning, because that threshold also admits exterior cells wherever psi
+    turns over near the coils (see :func:`volume_average`).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The outline is trusted as given: an open or self-intersecting polygon gives
+    whatever point-in-polygon makes of it.
+    """
+    R = np.asarray(R, float)
+    Z = np.asarray(Z, float)
+    if R.ndim == 1 and Z.ndim == 1:
+        Rm, Zm = np.meshgrid(R, Z, indexing="ij")
+    else:
+        Rm, Zm = R, Z
+    if outline_r is not None and outline_z is not None:
+        outline_r = np.asarray(outline_r, float).reshape(-1)
+        outline_z = np.asarray(outline_z, float).reshape(-1)
+        if outline_r.size != outline_z.size:
+            raise ValueError("outline_r and outline_z differ in length")
+        finite = np.isfinite(outline_r) & np.isfinite(outline_z)
+        if finite.sum() >= 3:
+            return fractional_cell_weights_from_boundary(
+                Rm, Zm, outline_r[finite], outline_z[finite]
+            )
+    warnings.warn(
+        "no usable boundary outline; taking the plasma as 0 <= psiN <= 1, which "
+        "also admits cells outside the boundary",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    psiN = np.asarray(psiN_RZ, float)
+    return ((psiN >= 0.0) & (psiN <= 1.0)).astype(float)
 
 def psi_to_radial(
     psi_1d: np.ndarray,
@@ -800,8 +990,8 @@ def poloidal_field_at_boundary(
         COCOS index of *psi_grid*. ``None`` keeps the historical
         weber-per-radian form [-].
     psi_per_radian : bool, optional
-        Whether *psi_grid* is per radian, when the index alone does not settle it
-        [-].
+        Whether *psi_grid* is per radian, when the index alone does not settle it;
+        given together with *cocos* it must agree with that index [-].
 
     Returns
     -------
@@ -811,6 +1001,12 @@ def poloidal_field_at_boundary(
         Its major-radius component [T].
     B_Z_bdry : np.ndarray
         Its height component [T].
+
+    Raises
+    ------
+    ValueError
+        *cocos* and *psi_per_radian* are both given and disagree on the
+        storage family.
 
     Convention
     ----------
@@ -863,6 +1059,7 @@ def poloidal_field_at_boundary(
     #    그대로 두고 2*pi 정규화만 적용합니다 (Wb 저장 psi 에 필요).
     from vaft.formula.equilibrium import poloidal_field_factor
 
+    _check_flux_family("poloidal_field_at_boundary", cocos, psi_per_radian)
     k = poloidal_field_factor(cocos, psi_per_radian=psi_per_radian)
 
     # B_R = k * (1/R) * dPsi/dZ
@@ -2255,6 +2452,117 @@ def extract_flux_surface_contours(
 MIN_FLUX_SURFACE_POINTS = 16
 
 
+def compare_contours(
+    reference_r: np.ndarray, reference_z: np.ndarray, other_r: np.ndarray, other_z: np.ndarray,
+) -> dict[str, float]:
+    """How far apart two closed contours are, point to curve.
+
+    Every vertex of each contour is measured to the nearest point on the other
+    contour's polyline -- to a segment, not to a vertex -- and the averages
+    weight each vertex by the arc length it stands for, half of each adjoining
+    segment.  So the result does not depend on where either contour starts,
+    which way it runs, or how densely or unevenly it is sampled, beyond the
+    sampling's own resolution of the curve.
+
+    Parameters
+    ----------
+    reference_r : array_like
+        Major radius of the reference contour [m].
+    reference_z : array_like
+        Height of the reference contour [m].
+    other_r : array_like
+        Major radius of the contour compared against it [m].
+    other_z : array_like
+        Height of the contour compared against it [m].
+
+    Returns
+    -------
+    dict of str to float
+        ``rms`` and ``mean`` of the separation, arc-length weighted over both
+        contours; ``max``, the symmetric Hausdorff distance; ``max_reference``
+        and ``max_other``, the largest separation from each side; all in metres.
+        ``length_reference`` and ``length_other``, each contour's poloidal
+        length, in metres [-].
+
+    Raises
+    ------
+    ValueError
+        Either contour has fewer than three points.
+
+    Convention
+    ----------
+    Both contours are treated as closed: the last point joins the first whether
+    or not it repeats it.  The measure is symmetric -- both contours' vertices
+    contribute -- and orientation-independent.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A separation is not a correspondence: two contours can be close everywhere
+    and still differ in where along the curve a feature sits.  Time grows as the
+    product of the two point counts; memory is bounded by working through the
+    vertices in blocks.
+
+    Provenance
+    ----------
+    .. [1] Point-to-segment distance and the symmetric Hausdorff distance are
+       standard computational geometry.
+    """
+
+    def closed(r: Any, z: Any) -> np.ndarray:
+        points = np.column_stack(
+            [np.asarray(r, dtype=float).reshape(-1), np.asarray(z, dtype=float).reshape(-1)]
+        )
+        if points.shape[0] < 3:
+            raise ValueError("a contour needs at least three points")
+        if np.allclose(points[0], points[-1]):
+            points = points[:-1]
+        return points
+
+    def to_curve(points: np.ndarray, curve: np.ndarray) -> np.ndarray:
+        step = np.roll(curve, -1, axis=0) - curve
+        step_sq = np.maximum(np.einsum("ij,ij->i", step, step), np.finfo(float).tiny)
+        # Blocks of vertices keep the (block x segments x 2) temporaries small.
+        block = max(1, 2_000_000 // max(1, curve.shape[0]))
+        out = np.empty(points.shape[0])
+        for first in range(0, points.shape[0], block):
+            chunk = points[first : first + block]
+            offset = chunk[:, None, :] - curve[None, :, :]
+            t = np.clip(np.einsum("pij,ij->pi", offset, step) / step_sq, 0.0, 1.0)
+            gap = offset - t[..., None] * step[None, :, :]
+            out[first : first + block] = np.sqrt(np.min(np.einsum("pij,pij->pi", gap, gap), axis=1))
+        return out
+
+    def segment_lengths(points: np.ndarray) -> np.ndarray:
+        return np.linalg.norm(np.roll(points, -1, axis=0) - points, axis=1)
+
+    def vertex_weights(points: np.ndarray) -> np.ndarray:
+        # Each vertex stands for half of each segment it joins.
+        lengths = segment_lengths(points)
+        return 0.5 * (lengths + np.roll(lengths, 1))
+
+    reference = closed(reference_r, reference_z)
+    other = closed(other_r, other_z)
+    from_reference = to_curve(reference, other)
+    from_other = to_curve(other, reference)
+    both = np.concatenate([from_reference, from_other])
+    weights = np.concatenate([vertex_weights(reference), vertex_weights(other)])
+    if not np.sum(weights) > 0.0:
+        raise ValueError("a contour has zero length")
+    return {
+        "rms": float(np.sqrt(np.average(both**2, weights=weights))),
+        "mean": float(np.average(both, weights=weights)),
+        "max": float(max(from_reference.max(), from_other.max())),
+        "max_reference": float(from_reference.max()),
+        "max_other": float(from_other.max()),
+        "length_reference": float(np.sum(segment_lengths(reference))),
+        "length_other": float(np.sum(segment_lengths(other))),
+    }
+
+
 def contour_shape_parameters(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float]:
     """Shape parameters of one closed flux-surface contour.
 
@@ -2337,6 +2645,98 @@ def contour_shape_parameters(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, 
     }
 
 
+def contour_shaping_observables(r_seg: np.ndarray, z_seg: np.ndarray) -> dict[str, float | bool]:
+    """Model-independent shaping observables of one closed contour: indentation and asymmetry.
+
+    Measurable from any valid boundary, whatever model -- Miller, Fourier or
+    none -- describes it, so a model coefficient such as
+    ``MillerSurface.indentation`` can be checked against a geometric fact
+    rather than against another model.
+
+    Parameters
+    ----------
+    r_seg : array_like
+        Major radius of the contour points [m].
+    z_seg : array_like
+        Height of the contour points [m].
+
+    Returns
+    -------
+    dict of str to float or bool
+        ``indentation_depth``, the largest distance from an inboard point to
+        the convex hull of the contour, in metres; ``normalized_indentation_depth``,
+        that over the minor radius [-]; ``inboard_concave``, whether that
+        normalized depth exceeds 1e-3 [-]; and ``up_down_asymmetry``, the
+        Hausdorff distance between the contour and its mirror image about
+        its mid-height, over the minor radius, zero for an up-down symmetric
+        contour [-].
+
+    Raises
+    ------
+    ValueError
+        Fewer than four points, or a contour with zero minor radius.
+
+    Convention
+    ----------
+    Inboard means major radius below the geometric centre ``(R_out +
+    R_in)/2``; the minor radius is ``(R_out - R_in)/2`` and the mirror plane
+    is ``Z = (Z_max + Z_min)/2``, the same references as
+    :func:`contour_shape_parameters`.  Distances are measured against the
+    contour polyline resampled to 4096 points of equal arc length.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The 1e-3 concavity threshold sits above the chord error of a smooth
+    contour sampled with about a hundred points; a coarser contour can read
+    a small spurious depth.  Outboard concavity is not reported.
+
+    Provenance
+    ----------
+    .. [1] The observables proposed in #942, section 7, kept separate from the
+       coefficients of any one parameterization.
+    """
+    from scipy.spatial import ConvexHull, cKDTree
+
+    r_seg = np.asarray(r_seg, dtype=float).reshape(-1)
+    z_seg = np.asarray(z_seg, dtype=float).reshape(-1)
+    if r_seg.size < 4:
+        raise ValueError("a contour needs at least four points")
+    r_min, r_max = float(np.min(r_seg)), float(np.max(r_seg))
+    minor = 0.5 * (r_max - r_min)
+    if minor <= 0.0:
+        raise ValueError("degenerate contour")
+    r_geo = 0.5 * (r_max + r_min)
+    z_mid = 0.5 * (float(np.max(z_seg)) + float(np.min(z_seg)))
+    if np.isclose(r_seg[0], r_seg[-1]) and np.isclose(z_seg[0], z_seg[-1]):
+        r_seg, z_seg = r_seg[:-1], z_seg[:-1]
+    r_closed, z_closed = np.r_[r_seg, r_seg[0]], np.r_[z_seg, z_seg[0]]
+    arc = np.r_[0.0, np.cumsum(np.hypot(np.diff(r_closed), np.diff(z_closed)))]
+    # anti-alias: upsampling a polyline by linear interpolation along its own arc length.
+    s = np.linspace(0.0, arc[-1], 4096, endpoint=False)
+    dense = np.column_stack((np.interp(s, arc, r_closed), np.interp(s, arc, z_closed)))
+    hull = ConvexHull(dense)
+    # Facet equations are n.x + b <= 0 inside; the distance to the hull boundary is the smallest -(n.x + b).
+    inside = -(dense @ hull.equations[:, :2].T + hull.equations[:, 2])
+    depth_all = np.min(inside, axis=1)
+    inboard = dense[:, 0] < r_geo
+    depth = float(np.max(depth_all[inboard])) if np.any(inboard) else 0.0
+    depth = max(depth, 0.0)
+    mirrored = dense.copy()
+    mirrored[:, 1] = 2.0 * z_mid - mirrored[:, 1]
+    forward = cKDTree(dense).query(mirrored)[0]
+    backward = cKDTree(mirrored).query(dense)[0]
+    return {
+        "indentation_depth": depth,
+        "normalized_indentation_depth": depth / minor,
+        "inboard_concave": bool(depth / minor > 1e-3),
+        "up_down_asymmetry": float(max(np.max(forward), np.max(backward))) / minor,
+    }
+
+
 def r_at_z_extremum(r_seg: np.ndarray, z_seg: np.ndarray, *, upper: bool) -> float:
     """Major radius where a contour reaches its highest or lowest point.
 
@@ -2401,8 +2801,19 @@ def _enclosing_segment(
     A level can return several disconnected segments -- the confined surface,
     private-flux lobes, scrape-off branches clipped by the grid. Longest-wins
     picks the wrong one often enough to matter (up to every level on a limited
-    VEST slice), so the segment enclosing the magnetic axis wins outright and
-    length only breaks ties among those.
+    VEST slice), so the segment enclosing the magnetic axis wins outright.
+
+    Enclosing the axis is not enough on its own. Outside a limited plasma psi
+    turns back, so a level just inside the boundary can also trace an *open*
+    branch that runs from grid edge to grid edge round the whole plasma; closed
+    by the chord between its ends, that polygon contains the axis too, and it is
+    longer than the real surface. Picking it put a 10 m^3 "surface" at psi_N
+    0.875-0.94 on late, low-current EFIT slices and inflated ``li_3`` up to 10x
+    and ``beta_normal`` up to 4x (issue #1462). So closed segments are preferred
+    over open ones, and among those left the innermost -- the smallest enclosed
+    area -- wins: flux surfaces nest, so any other enclosing contour at the same
+    level lies outside the plasma. Length only ranks segments when none
+    encloses the axis.
 
     ``min_points`` is applied *after* that choice, never before it. Screening on
     size first lets a large scrape-off branch outlive the small contour that is
@@ -2423,9 +2834,27 @@ def _enclosing_segment(
             if _MplPath(np.column_stack([r_closed, z_closed])).contains_point(axis_rz):
                 enclosing.append((r_seg, z_seg))
         if enclosing:
-            candidates = enclosing
+            closed = [segment for segment in enclosing if _is_closed_segment(*segment)]
+            candidates = closed or enclosing
+            chosen = min(candidates, key=lambda segment: _segment_area(*segment))
+            return chosen if chosen[0].size >= min_points else None
     chosen = max(candidates, key=lambda segment: segment[0].size)
     return chosen if chosen[0].size >= min_points else None
+
+
+def _is_closed_segment(r_seg: np.ndarray, z_seg: np.ndarray) -> bool:
+    """Whether a traced segment returns to its start, rather than ending on the grid edge."""
+    length = float(np.sum(np.hypot(np.diff(r_seg), np.diff(z_seg))))
+    gap = float(np.hypot(r_seg[0] - r_seg[-1], z_seg[0] - z_seg[-1]))
+    return gap <= 1e-3 * length
+
+
+def _segment_area(r_seg: np.ndarray, z_seg: np.ndarray) -> float:
+    """Shoelace area of a segment, closed by the chord between its ends."""
+    r_closed, z_closed = _closed_contour(r_seg, z_seg)
+    return 0.5 * abs(
+        float(np.dot(r_closed, np.roll(z_closed, 1)) - np.dot(z_closed, np.roll(r_closed, 1)))
+    )
 
 
 #: Every profile :func:`flux_surface_quantities` returns.
@@ -2959,76 +3388,110 @@ def calculate_q_profile_from_psi(
     return q_final
 
 
-def equilibrium_field_on_grid(
-    R_grid_1d: np.ndarray,
-    Z_grid_1d: np.ndarray,
-    psi_grid: np.ndarray,
-    psi_1d: np.ndarray,
-    f_1d: np.ndarray,
-    cocos=None,
-):
-    """``(B_R, B_Z, B_phi)`` on the whole ``(R, Z)`` grid, each ``(nR, nZ)``.
+def _check_flux_family(caller, cocos, psi_per_radian):
+    """Refuse a COCOS index and a storage family that contradict each other."""
+    if cocos is None or psi_per_radian is None:
+        return
+    from vaft.data.cocos import cocos_spec
 
-    The vectorised twin of :func:`make_equilibrium_field_interpolator`, for a
-    caller that wants the field everywhere rather than at a point: the same
-    bicubic psi spline, the same Sauter Eq. 20 prefactor, and the same
-    ``F(psi)/R`` with ``F`` clipped to the profile's own range outside the
-    confined region.  Evaluating the point interpolator over a 129x129 grid
-    would be sixteen thousand Python calls; this is one spline evaluation.
+    declared = cocos_spec(int(cocos)).psi_per_radian
+    if bool(psi_per_radian) != declared:
+        raise ValueError(
+            f"{caller}: cocos={int(cocos)} stores psi in "
+            f"{'Wb/rad' if declared else 'Wb'}, but psi_per_radian={psi_per_radian!r} "
+            "says otherwise; pass one or make them agree"
+        )
 
-    Parameters
-    ----------
-    R_grid_1d, Z_grid_1d : array_like
-        Grid axes [m].
-    psi_grid : array_like
-        Poloidal flux on ``(len(R), len(Z))``, in the convention ``cocos``
-        describes [Wb or Wb/rad].
-    psi_1d, f_1d : array_like
-        ``profiles_1d.psi`` and ``profiles_1d.f`` [same psi unit; T m].
-    cocos : int or None, optional
-        COCOS index of *psi_grid*. ``None`` keeps the historical
-        weber-per-radian form [-].
 
-    Returns
-    -------
-    tuple of numpy.ndarray
-        ``(B_R, B_Z, B_phi)``, each shaped ``(len(R), len(Z))`` [T].
+def _record_bp_factor(caller, convention):
+    """Sauter prefactor from a record's convention, or ``None`` to fall back.
 
-    Raises
-    ------
-    ValueError
-        The flux map is not shaped to the two grid axes, or the two profile
-        arrays have different lengths.
-
-    Convention
-    ----------
-    The same prefactor as :func:`make_equilibrium_field_interpolator`, per
-    Sauter Eq. 20: ``B_R = k (1/R) dpsi/dZ`` and ``B_Z = -k (1/R) dpsi/dR``
-    with ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp``, so *psi_grid* must be
-    stored in the convention *cocos* names and a weber-stored flux can be
-    corrected only through that index. The toroidal field is the poloidal
-    current function over the major radius and inherits the sign of *f_1d*.
-    The flux map is indexed major radius first.
-
-    Applicability
-    -------------
-    Machine-independent.
-
-    Limitations
-    -----------
-    Outside the confined region the poloidal current function clips to its
-    nearest edge value, the clip-and-interpolate convention
-    :func:`psi_to_rz` uses, so the toroidal field there is that clipped
-    function over the major radius rather than the true vacuum field. The
-    spline extrapolates beyond the grid, where the field should not be read.
-
-    Provenance
-    ----------
-    .. [1] Sauter and Medvedev (2013), Eq. 20, for the prefactor.
-    .. [2] The point-wise twin :func:`make_equilibrium_field_interpolator` in
-       this module, which this routine is pinned to by test.
+    A declared index settles it.  An open index is settled when every
+    remaining candidate (in the record's storage family, if known) gives the
+    same prefactor.  Candidates that disagree on the orientation -- the
+    ``(1, 2)`` a g-file without a ``COCOS=`` token leaves, or the ``(11, 12)``
+    its ``to_omas()`` leaves -- cannot be narrowed from the signs alone, so
+    ``None`` hands the record to the same assumed-orientation path, and the
+    same ``UserWarning``, the array form takes on those arrays (#1313; cold
+    review 0.8.0 equilibrium-representation F1).
     """
+    from vaft.data.cocos import cocos_spec
+
+    if convention.cocos is not None:
+        return None
+    candidates = tuple(int(c) for c in (convention.candidates or ()) if c)
+    if convention.psi_per_radian is not None:
+        candidates = tuple(
+            c for c in candidates if cocos_spec(c).psi_per_radian == bool(convention.psi_per_radian)
+        )
+    if not candidates:
+        return None
+    factors = {cocos_spec(c).bp_factor for c in candidates}
+    if len(factors) == 1:
+        return factors.pop()
+    return None
+
+
+def _field_inputs(caller, R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, cocos, psi_per_radian):
+    """Arrays and Sauter prefactor for the two field builders, from a record or arrays.
+
+    An :class:`~vaft.data.equilibrium.EquilibriumData` in the first slot
+    supplies the grid, the profiles *and* the flux convention, so the
+    prefactor follows the record rather than the caller's memory.  The array
+    form carries no unit, so what the arguments leave unstated -- the storage
+    family, the orientation -- is an assumption, announced rather than taken
+    silently (#1313).  A contradictory convention raises; an open orientation
+    is assumed and announced, for a record as for arrays.
+    """
+    from vaft.data.equilibrium import EquilibriumData
     from vaft.formula.equilibrium import poloidal_field_factor
+
+    k = None
+    if isinstance(R_grid_1d, EquilibriumData):
+        eq = R_grid_1d
+        extra = [name for name, value in (
+            ("Z_grid_1d", Z_grid_1d), ("psi_grid", psi_grid), ("psi_1d", psi_1d),
+            ("f_1d", f_1d), ("cocos", cocos), ("psi_per_radian", psi_per_radian),
+        ) if value is not None]
+        if extra:
+            raise TypeError(
+                f"{caller}: an EquilibriumData record carries its own grid, profiles and "
+                f"convention; do not also pass {', '.join(extra)}"
+            )
+        missing = [name for name in ("r", "z", "psi", "psi_1d", "f") if getattr(eq, name) is None]
+        if missing:
+            raise ValueError(f"{caller}: the equilibrium record has no {', '.join(missing)}")
+        R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d = eq.r, eq.z, eq.psi, eq.psi_1d, eq.f
+        cocos, psi_per_radian = eq.convention.cocos, eq.convention.psi_per_radian
+        k = _record_bp_factor(caller, eq.convention)
+        what = "the equilibrium record declares"
+    else:
+        missing = [name for name, value in (
+            ("Z_grid_1d", Z_grid_1d), ("psi_grid", psi_grid), ("psi_1d", psi_1d), ("f_1d", f_1d),
+        ) if value is None]
+        if missing:
+            raise TypeError(f"{caller}: the array form needs {', '.join(missing)}")
+        what = "the arguments give"
+    _check_flux_family(caller, cocos, psi_per_radian)
+    if k is None and cocos is None:
+        if psi_per_radian is None:
+            assumption = (
+                "neither a COCOS index nor a flux storage family, so the flux is assumed "
+                "to be in Wb/rad with k = -1. A flux in Wb (COCOS 11-18, every ODS/IMAS "
+                "equilibrium) then gives a poloidal field 2*pi too large"
+            )
+        else:
+            assumption = (
+                "a flux storage family but no COCOS index, so the orientation is assumed "
+                "(k < 0, the COCOS 2/3/6/7 or 12/13/16/17 form); for the other half of "
+                "the indices B_R and B_Z come out reversed"
+            )
+        warnings.warn(
+            f"{caller}: {what} {assumption}. Pass an EquilibriumData record with a "
+            "resolved convention, or cocos=... for arrays.",
+            UserWarning,
+            stacklevel=3,
+        )
 
     R_grid_1d = np.asarray(R_grid_1d, dtype=float).reshape(-1)
     Z_grid_1d = np.asarray(Z_grid_1d, dtype=float).reshape(-1)
@@ -3042,12 +3505,119 @@ def equilibrium_field_on_grid(
     f_1d = np.asarray(f_1d, dtype=float).reshape(-1)
     if psi_1d.size != f_1d.size:
         raise ValueError("psi_1d and f_1d must have the same length.")
+    if k is None:
+        k = poloidal_field_factor(cocos, psi_per_radian=psi_per_radian)
+    return R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, k
+
+
+def equilibrium_field_on_grid(
+    R_grid_1d,
+    Z_grid_1d: np.ndarray | None = None,
+    psi_grid: np.ndarray | None = None,
+    psi_1d: np.ndarray | None = None,
+    f_1d: np.ndarray | None = None,
+    cocos=None,
+    *,
+    psi_per_radian: bool | None = None,
+):
+    """``(B_R, B_Z, B_phi)`` on the whole ``(R, Z)`` grid, each ``(nR, nZ)``.
+
+    The vectorised twin of :func:`make_equilibrium_field_interpolator`, for a
+    caller that wants the field everywhere rather than at a point: the same
+    bicubic psi spline, the same Sauter Eq. 20 prefactor, and the same
+    ``F(psi)/R`` with ``F`` clipped to the profile's own range outside the
+    confined region.  Evaluating the point interpolator over a 129x129 grid
+    would be sixteen thousand Python calls; this is one spline evaluation.
+
+    Called as ``equilibrium_field_on_grid(equilibrium)`` with an
+    :class:`~vaft.data.equilibrium.EquilibriumData`, the grid, profiles and
+    flux convention all come from the record, which is the form to prefer;
+    the record is only as right as its convention, which nothing checks
+    against the arrays.
+
+    Parameters
+    ----------
+    R_grid_1d : array_like or EquilibriumData
+        Major-radius grid axis [m], or the whole equilibrium record, in which
+        case every other argument must be left unset [-].
+    Z_grid_1d : array_like, optional
+        Height grid axis; required with arrays [m].
+    psi_grid : array_like, optional
+        Poloidal flux on ``(len(R), len(Z))``, in the convention ``cocos``
+        describes [Wb or Wb/rad].
+    psi_1d : array_like, optional
+        ``profiles_1d.psi`` [same psi unit].
+    f_1d : array_like, optional
+        ``profiles_1d.f`` [T m].
+    cocos : int or None, optional
+        COCOS index of *psi_grid* [-].
+    psi_per_radian : bool or None, optional
+        Storage family of the flux when the index is not known: ``False`` for
+        weber, ``True`` for weber per radian [-].
+
+    Returns
+    -------
+    tuple of numpy.ndarray
+        ``(B_R, B_Z, B_phi)``, each shaped ``(len(R), len(Z))`` [T].
+
+    Raises
+    ------
+    ValueError
+        The flux map is not shaped to the two grid axes, the two profile
+        arrays have different lengths, the record lacks a field, *cocos*
+        and *psi_per_radian* contradict each other, or the record's open
+        COCOS candidates disagree on the field direction.
+    TypeError
+        A record is combined with array arguments, or the array form is
+        missing one.
+
+    Convention
+    ----------
+    The same prefactor as :func:`make_equilibrium_field_interpolator`, per
+    Sauter Eq. 20: ``B_R = k (1/R) dpsi/dZ`` and ``B_Z = -k (1/R) dpsi/dR``
+    with ``k = sigma_RphiZ * sigma_Bp / (2*pi)**e_Bp``, evaluated by
+    :func:`vaft.formula.equilibrium.poloidal_field_factor` from *cocos* or,
+    failing that, *psi_per_radian*. A record supplies both from its
+    :attr:`~vaft.data.equilibrium.EquilibriumData.convention`. With neither,
+    the weber-per-radian ``k = -1`` is assumed, with a warning. The toroidal
+    field is the poloidal current function over the major radius and inherits
+    the sign of *f_1d*. The flux map is indexed major radius first.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    With neither *cocos* nor *psi_per_radian* known, from the arguments or the
+    record, the flux is taken as weber per radian and a ``UserWarning`` says
+    so (#1313); a weber flux then gives a field ``2*pi`` too large. With the
+    storage family but no index, the orientation is assumed (``k < 0``) and
+    the warning says that instead; a record's open candidates settle it when
+    they agree, and leave it to the same announced assumption when they do
+    not (the packaged g-file, open between COCOS 1 and 2, warns like its
+    arrays do).
+    Outside the confined region the poloidal current function clips to its
+    nearest edge value, the clip-and-interpolate convention
+    :func:`psi_to_rz` uses, so the toroidal field there is that clipped
+    function over the major radius rather than the true vacuum field. The
+    spline extrapolates beyond the grid, where the field should not be read.
+
+    Provenance
+    ----------
+    .. [1] Sauter and Medvedev (2013), Eq. 20, for the prefactor.
+    .. [2] The point-wise twin :func:`make_equilibrium_field_interpolator` in
+       this module, which this routine is pinned to by test.
+    """
+    R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, k = _field_inputs(
+        "equilibrium_field_on_grid", R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d,
+        cocos, psi_per_radian,
+    )
 
     order = np.argsort(psi_1d)
     psi_sorted, f_sorted = psi_1d[order], f_1d[order]
     spline = RectBivariateSpline(R_grid_1d, Z_grid_1d, psi_grid)
     grid_r = R_grid_1d[:, None] * np.ones_like(Z_grid_1d)[None, :]
-    k = poloidal_field_factor(cocos)
 
     dpsi_dr = spline(R_grid_1d, Z_grid_1d, dx=1, dy=0)
     dpsi_dz = spline(R_grid_1d, Z_grid_1d, dx=0, dy=1)
@@ -3060,30 +3630,45 @@ def equilibrium_field_on_grid(
 
 
 def make_equilibrium_field_interpolator(
-    R_grid_1d: np.ndarray,
-    Z_grid_1d: np.ndarray,
-    psi_grid: np.ndarray,
-    psi_1d: np.ndarray,
-    f_1d: np.ndarray,
+    R_grid_1d,
+    Z_grid_1d: np.ndarray | None = None,
+    psi_grid: np.ndarray | None = None,
+    psi_1d: np.ndarray | None = None,
+    f_1d: np.ndarray | None = None,
     cocos=None,
+    *,
+    psi_per_radian: bool | None = None,
 ):
     """Build a callable giving the full magnetic field anywhere on one time slice.
 
+    Pass an :class:`~vaft.data.equilibrium.EquilibriumData` --
+    ``make_equilibrium_field_interpolator(equilibrium)`` -- and the grid, the
+    profiles and the flux convention are read from the record, so the caller
+    need not restate the unit of psi. The record is only as right as its
+    convention, which nothing checks against the arrays. The array form
+    remains for flux maps that have no record, and then the convention must be
+    stated.
+
     Parameters
     ----------
-    R_grid_1d : array_like
-        Major-radius grid axis [m].
-    Z_grid_1d : array_like
-        Height grid axis [m].
-    psi_grid : array_like
-        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb/rad].
-    psi_1d : array_like
-        Flux abscissa the poloidal current function is given on [Wb/rad].
-    f_1d : array_like
+    R_grid_1d : array_like or EquilibriumData
+        Major-radius grid axis [m], or the whole equilibrium record, in which
+        case every other argument must be left unset [-].
+    Z_grid_1d : array_like, optional
+        Height grid axis; required with arrays [m].
+    psi_grid : array_like, optional
+        Poloidal flux on the grid, indexed ``(R, Z)``, in the convention
+        *cocos* describes [Wb or Wb/rad].
+    psi_1d : array_like, optional
+        Flux abscissa the poloidal current function is given on, in the same
+        unit as *psi_grid* [Wb or Wb/rad].
+    f_1d : array_like, optional
         Poloidal current function ``F = R*B_phi`` on that abscissa [T m].
     cocos : int, optional
-        COCOS index of *psi_grid*. ``None`` keeps the historical
-        weber-per-radian form [-].
+        COCOS index of *psi_grid* [-].
+    psi_per_radian : bool or None, optional
+        Storage family of the flux when the index is not known: ``False`` for
+        weber, ``True`` for weber per radian [-].
 
     Returns
     -------
@@ -3093,7 +3678,12 @@ def make_equilibrium_field_interpolator(
     Raises
     ------
     ValueError
-        The flux map is not shaped to the two grid axes.
+        The flux map is not shaped to the two grid axes, the record lacks a
+        field, *cocos* and *psi_per_radian* contradict each other, or the
+        record's open COCOS candidates disagree on the field direction.
+    TypeError
+        A record is combined with array arguments, or the array form is
+        missing one.
 
     Convention
     ----------
@@ -3103,10 +3693,10 @@ def make_equilibrium_field_interpolator(
     poloidal current function over the major radius. The flux map is indexed major
     radius first, matching :func:`extract_flux_surface_contours`.
 
-    Unlike :func:`poloidal_field_at_boundary`, this takes **only** the COCOS index
-    and no separate per-radian flag, so a weber-stored flux can be corrected here
-    only through the index. Supplying neither leaves the field too large by
-    ``2*pi``.
+    ``k`` comes from *cocos*, or from *psi_per_radian* when the index is open,
+    exactly as for :func:`poloidal_field_at_boundary`; a record supplies both
+    from its convention. Supplying neither assumes weber per radian and warns,
+    because a weber flux then gives a field ``2*pi`` too large (#1313).
 
     Applicability
     -------------
@@ -3114,6 +3704,15 @@ def make_equilibrium_field_interpolator(
 
     Limitations
     -----------
+    With neither *cocos* nor *psi_per_radian* known, from the arguments or the
+    record, the flux is taken as weber per radian, the historical default, and
+    a ``UserWarning`` says so (#1313); a weber flux, such as every ODS
+    equilibrium carries, then gives a field ``2*pi`` too large. With the
+    storage family but no index, the orientation is assumed (``k < 0``) and
+    the warning says that instead; a record's open candidates settle it when
+    they agree, and leave it to the same announced assumption when they do
+    not (the packaged g-file, open between COCOS 1 and 2, warns like its
+    arrays do).
     The poloidal current function is defined only from axis to boundary. Points
     outside that range, in the scrape-off layer, clip to the nearest edge value,
     the same clip-and-interpolate convention :func:`psi_to_rz` uses. That is an
@@ -3128,28 +3727,15 @@ def make_equilibrium_field_interpolator(
     .. [2] The clip-and-interpolate convention of :func:`psi_to_rz`, kept
        deliberately the same.
     """
-    R_grid_1d = np.asarray(R_grid_1d, dtype=float).reshape(-1)
-    Z_grid_1d = np.asarray(Z_grid_1d, dtype=float).reshape(-1)
-    psi_grid = np.asarray(psi_grid, dtype=float)
-    if psi_grid.shape != (R_grid_1d.size, Z_grid_1d.size):
-        raise ValueError(
-            f"psi_grid shape {psi_grid.shape} must equal "
-            f"(len(R_grid_1d), len(Z_grid_1d)) = {(R_grid_1d.size, Z_grid_1d.size)}."
-        )
-
-    psi_1d = np.asarray(psi_1d, dtype=float).reshape(-1)
-    f_1d = np.asarray(f_1d, dtype=float).reshape(-1)
-    if psi_1d.size != f_1d.size:
-        raise ValueError("psi_1d and f_1d must have the same length.")
+    R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d, k = _field_inputs(
+        "make_equilibrium_field_interpolator", R_grid_1d, Z_grid_1d, psi_grid, psi_1d, f_1d,
+        cocos, psi_per_radian,
+    )
     sort_idx = np.argsort(psi_1d)
     psi_1d_sorted = psi_1d[sort_idx]
     f_1d_sorted = f_1d[sort_idx]
 
     psi_spline = RectBivariateSpline(R_grid_1d, Z_grid_1d, psi_grid)
-
-    from vaft.formula.equilibrium import poloidal_field_factor
-
-    k = poloidal_field_factor(cocos)
 
     def b_field(R: float, Z: float) -> tuple[float, float, float]:
         dpsi_dR = float(psi_spline.ev(R, Z, dx=1, dy=0))
@@ -3384,6 +3970,24 @@ try:  # pragma: no branch - normal package import takes this path
     from ._equilibrium_parametric import *  # noqa: E402,F401,F403
 except ImportError:  # direct ``spec_from_file_location`` loading
     from vaft.process._equilibrium_parametric import *  # noqa: E402,F401,F403
+try:  # pragma: no branch - normal package import takes this path
+    from ._equilibrium_compact import evaluate_mxh_chebyshev, fit_mxh_chebyshev, fit_solovev  # noqa: E402,F401
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._equilibrium_compact import evaluate_mxh_chebyshev, fit_mxh_chebyshev, fit_solovev  # noqa: E402,F401
+try:  # pragma: no branch - normal package import takes this path
+    from ._equilibrium_guazzotto_freidberg import (  # noqa: E402,F401
+        evaluate_guazzotto_freidberg, guazzotto_freidberg_parameters,
+        guazzotto_freidberg_to_equilibrium, solve_guazzotto_freidberg,
+    )
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._equilibrium_guazzotto_freidberg import (  # noqa: E402,F401
+        evaluate_guazzotto_freidberg, guazzotto_freidberg_parameters,
+        guazzotto_freidberg_to_equilibrium, solve_guazzotto_freidberg,
+    )
+try:  # pragma: no branch - normal package import takes this path
+    from ._equilibrium_moments import *  # noqa: E402,F401,F403
+except ImportError:  # direct ``spec_from_file_location`` loading
+    from vaft.process._equilibrium_moments import *  # noqa: E402,F401,F403
 
 
 def make_vacuum_field_interpolator(
@@ -3621,6 +4225,327 @@ def connection_length_map(
         "saturated": (saturated & inside).reshape(shape),
         "outside": (~inside).reshape(shape),
     }
+
+
+def ejiri_mirror_geometry(
+    r_start: float,
+    b_field,
+    *,
+    wall_r: np.ndarray,
+    wall_z: np.ndarray,
+    z_fit: float | None = None,
+    dphi: float = np.deg2rad(1.0),
+    max_length_m: float = 150.0,
+) -> dict[str, Any]:
+    r"""Ejiri mirror-confinement proxy for one magnetic snapshot.
+
+    Traces the field line through $(R_S, 0)$ and reads off the four lengths the
+    Ejiri low-energy orbit model needs -- the starting radius, the inboard
+    limiter, the curvature radius and the vertical extent over which the line
+    keeps raising $|B|$ -- then evaluates the boundary slope $\alpha$ and the
+    geometry factor $F_3$.
+
+    Parameters
+    ----------
+    r_start : float
+        Major radius the electron starts at, on the midplane [m].
+    b_field : callable
+        A function of ``(R, Z)`` returning ``(B_R, B_Z, B_phi)``, normally from
+        :func:`make_vacuum_field_interpolator` [T].
+    wall_r : np.ndarray
+        Major radius of the limiting polygon [m].
+    wall_z : np.ndarray
+        Height of the limiting polygon [m].
+    z_fit : float, optional
+        Half-height of the window for the diagnostic local parabola fit;
+        default a quarter of ``z_max`` [m].
+    dphi : float, optional
+        Fixed step in toroidal angle for the trace [rad].
+    max_length_m : float, optional
+        Path length at which to stop each branch [m].
+
+    Returns
+    -------
+    dict of str to Any
+        ``r_start``, ``r_inboard_limiter``, ``curvature_radius`` and ``z_max`` in
+        metres; ``alpha`` and ``f3`` dimensionless; ``mirror`` true when the line
+        dips inward before it ends; ``saturated`` true when a branch stopped on
+        ``max_length_m`` rather than on the wall or a turning point;
+        ``binding_branch`` naming the weaker mirror; ``curvature_radius_local``
+        the local parabola fit in metres, for comparison only; per-branch
+        ``z_max_upper``, ``z_max_lower``, ``r_mirror_upper``, ``r_mirror_lower``
+        in metres with ``reason_upper`` and ``reason_lower``; and the two
+        :func:`trace_field_line` branches as ``trace_upper`` and
+        ``trace_lower`` [-].
+
+    Raises
+    ------
+    ValueError
+        A start point outside the wall, no wall crossing of the midplane inboard
+        of it, or a non-positive ``z_fit`` [-].
+
+    Processing steps
+    ----------------
+    1. Trace the line through $(R_S, 0)$ forward and backward against the wall,
+       and label the branch that rises the upper one.
+    2. $R_{\mathrm{LIN}}$: the wall polygon's midplane crossing nearest the start
+       on its inboard side.
+    3. Mirror point of each branch: the smallest $R$ the branch reaches before
+       it ends, excluding the seed -- the strongest field an electron escaping
+       that way has to pass.  Record $|Z|$ and $R$ there.
+    4. Keep the **weaker** mirror: the branch whose mirror point sits at the
+       larger $R$, so the smaller field rise.  Its $|Z|$ is $Z_{\max}$ and its
+       $R$ is $R_m$.  If $R_m \ge R_S$ the line never dips inward.
+    5. $R_C = Z_{\max}^2 / \bigl(2(R_S - R_m)\bigr)$, the parabola through the
+       start and the mirror point, then $\alpha$ and $F_3$ from
+       :func:`vaft.formula.startup.ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max`
+       and :func:`vaft.formula.startup.ejiri_f3_from_alpha`.
+    6. For comparison, fit $R - R_S = c_1 Z + c_2 Z^2$ over $|Z| \le$
+       ``z_fit`` and report $-1/(2c_2)$ as ``curvature_radius_local``.
+
+    Defaults
+    --------
+    The 150 m limit is a numerical convenience matching
+    :func:`connection_length_map`, and it is where the result converges on VEST:
+    at the breakdown onset of the packaged shot, from the electron-cyclotron
+    resonance, 50 m stops both branches short and gives $Z_{\max} = 0.13$ m and
+    $F_3 = 0.38$, while 150, 500 and 1500 m all give $0.30$ m and $0.51$.  The
+    quarter-$Z_{\max}$ window and the one-degree step are numerical
+    conveniences: at 2, 1, 0.5 and 0.25 degrees $F_3$ agrees to six figures and
+    $R_C$ and $Z_{\max}$ to four.
+
+    Convention
+    ----------
+    **$R_C$ is the secant through the mirror point, not a local fit.**  Ejiri's
+    curvature term needs $R_C$ only through $Z_{\max}^2/2R_C = R_S - R_m$, so
+    defining $R_C$ that way makes the term exactly $1/\sqrt{M - 1}$ for the
+    line's true mirror ratio $M = R_S/R_m$ -- the inboard term with the limiter
+    replaced by the line's own mirror point -- whatever shape the line has.  On
+    an exact parabola it equals the parabola's $R_C$.  A local fit, which is
+    what the model's derivation suggests, is not stable on a real field: on the
+    same VEST case it gives $R_C$ from 0.07 to 0.34 m as the window widens from
+    a tenth of $Z_{\max}$ to all of it, and had it fed $\alpha$, $F_3$ would
+    have run from 0.99 to 0.62 on that choice alone.  The secant is 0.52 m for
+    every window.  ``curvature_radius_local`` still reports the fit, so how far
+    the line is from Ejiri's parabola stays visible.
+
+    **The mirror point is the global minimum of $R$ along the branch, not the
+    first local one.**  An escaping electron has to pass the largest field on
+    its way to the wall, wherever it is.  The distinction is not academic: at
+    the breakdown onset of VEST's packaged shot the line through the
+    electron-cyclotron resonance is tilted at the midplane, so on one side $R$
+    rises for a few steps before dipping to 0.60 m.  A first-local-minimum rule
+    gives up on that side, reads the wall end at 0.76 m as the mirror point,
+    and reports no confinement at all.
+
+    **The weaker mirror decides.**  An electron bouncing between the two mirror
+    points escapes through the one with the smaller field rise, which is the
+    one at larger $R$, not necessarily the one at smaller $|Z|$.
+
+    **No inward dip means nothing is confined, not an error.**  When $R_m \ge
+    R_S$ the line is straight or bows outward, $|B|$ does not rise away from the
+    midplane, and curvature traps nothing: this returns $\alpha = \infty$,
+    $F_3 = 0$ and ``mirror`` false without calling the formulas, which reject a
+    non-positive curvature radius.
+
+    The mirror ratio is read in $R$, which assumes $|B| \propto 1/R$: true when
+    the toroidal field dominates, as it does in a pre-breakdown vacuum field.
+
+    Applicability
+    -------------
+    Machine-independent.  The wall polygon and the field are both the caller's,
+    and so is ``r_start`` -- normally the electron-cyclotron resonance, from
+    :func:`vaft.formula.startup.electron_cyclotron_resonance_radius`.
+
+    Limitations
+    -----------
+    An Ejiri-inspired geometric proxy, not the numerical orbit boundary: it
+    says nothing about EC power, collisions or breakdown itself.  A branch whose
+    first step already leaves the wall is read as an immediate loss on that
+    side, so a start point within one step of the wall reports no confinement
+    -- shorten ``dphi`` if that is not the answer wanted.  A branch that
+    stops on ``max_length_m`` sets ``saturated`` and raises a
+    ``RuntimeWarning``: that result is not converged and is not a bound, since a
+    longer trace can move both the mirror point and the branch that binds.
+
+    Provenance
+    ----------
+    .. [1] A. Ejiri and Y. Takase, Nucl. Fusion 47 (2007) 403, Sec. 3, for the
+       orbit-boundary slope and the geometry factor.
+    .. [2] The trace is :func:`trace_field_line`, and the two relations are the
+       :mod:`vaft.formula.startup` kernels named in the processing steps.
+    """
+    return _ejiri_mirror_geometry(
+        r_start,
+        b_field,
+        wall_r=wall_r,
+        wall_z=wall_z,
+        z_fit=z_fit,
+        dphi=dphi,
+        max_length_m=max_length_m,
+    )
+
+
+def _ejiri_mirror_geometry(r_start, b_field, *, wall_r, wall_z, z_fit, dphi, max_length_m):
+    """The body of :func:`ejiri_mirror_geometry`.
+
+    Kept private so both public entry points -- that function and
+    :func:`vaft.omas.compute_ejiri_mirror_proxy_ods` -- call it directly and the
+    saturation warning, raised two frames down, always blames their caller.
+    """
+    from matplotlib.path import Path as MplPath
+
+    from vaft.formula.startup import (
+        ejiri_f3_from_alpha,
+        ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max,
+    )
+
+    wall_r = np.asarray(wall_r, dtype=float)
+    wall_z = np.asarray(wall_z, dtype=float)
+    r_start = float(r_start)
+    if z_fit is not None and (not np.isfinite(z_fit) or z_fit <= 0.0):
+        raise ValueError(f"z_fit must be finite and positive; got {z_fit} m")
+    polygon = MplPath(np.column_stack([wall_r, wall_z]))
+    if not polygon.contains_point((r_start, 0.0)):
+        raise ValueError(
+            f"r_start={r_start} m is not inside the wall on the midplane; there is "
+            "no field line to trace"
+        )
+    r_inboard = _midplane_crossing_inboard(wall_r, wall_z, r_start)
+
+    branches = {}
+    for direction in ("forward", "backward"):
+        trace = trace_field_line(
+            r_start,
+            0.0,
+            0.0,
+            b_field,
+            dphi=dphi,
+            max_length_m=max_length_m,
+            direction=direction,
+            wall_r=wall_r,
+            wall_z=wall_z,
+        )
+        R = np.asarray(trace["R"], dtype=float)
+        Z = np.asarray(trace["Z"], dtype=float)
+        if direction == "backward":
+            # trace_field_line returns points in order of increasing angle, so
+            # the backward branch ends at the seed; walk it from the seed.
+            R, Z = R[::-1], Z[::-1]
+        z_end, r_end, reason = _mirror_point(R, Z, trace["termination_reason"])
+        branches[direction] = {
+            "R": R, "Z": Z, "trace": trace,
+            "z_end": z_end, "r_end": r_end, "reason": reason,
+            # A one-point branch left the wall on its first step and has no
+            # direction of its own; it sorts below any branch that moved.
+            "height": float(np.median(Z[1:])) if Z.size > 1 else 0.0,
+        }
+    upper_key = max(branches, key=lambda key: branches[key]["height"])
+    lower_key = "backward" if upper_key == "forward" else "forward"
+    branches = {"upper": branches[upper_key], "lower": branches[lower_key]}
+
+    saturated = any(b["reason"] == "max_length_m" for b in branches.values())
+    if saturated:
+        warnings.warn(
+            f"a field line from r_start={r_start} m reached max_length_m="
+            f"{max_length_m} m before the wall or a turning point, so the mirror "
+            "geometry is not converged; raise max_length_m",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+
+    binding = max(branches, key=lambda name: branches[name]["r_end"])
+    z_max = branches[binding]["z_end"]
+    r_mirror = branches[binding]["r_end"]
+
+    local = np.nan
+    window_half = z_fit if z_fit is not None else 0.25 * z_max
+    if window_half > 0.0:
+        all_R = np.concatenate([b["R"] for b in branches.values()])
+        all_Z = np.concatenate([b["Z"] for b in branches.values()])
+        window = np.abs(all_Z) <= window_half
+        if np.count_nonzero(window) >= 5:
+            design = np.column_stack([all_Z[window], all_Z[window] ** 2])
+            (_, c2), *_ = np.linalg.lstsq(design, all_R[window] - r_start, rcond=None)
+            local = -1.0 / (2.0 * c2) if c2 < 0.0 else np.inf
+
+    result = {
+        "r_start": r_start,
+        "r_inboard_limiter": r_inboard,
+        "z_max": z_max,
+        "saturated": saturated,
+        "binding_branch": binding,
+        "curvature_radius_local": local,
+        "z_max_upper": branches["upper"]["z_end"],
+        "z_max_lower": branches["lower"]["z_end"],
+        "r_mirror_upper": branches["upper"]["r_end"],
+        "r_mirror_lower": branches["lower"]["r_end"],
+        "reason_upper": branches["upper"]["reason"],
+        "reason_lower": branches["lower"]["reason"],
+        "trace_upper": branches["upper"]["trace"],
+        "trace_lower": branches["lower"]["trace"],
+    }
+    drop = r_start - r_mirror
+    if drop <= 0.0 or z_max <= 0.0:
+        result.update(curvature_radius=np.inf, alpha=np.inf, f3=0.0, mirror=False)
+        return result
+
+    curvature = z_max**2 / (2.0 * drop)
+    alpha = ejiri_mirror_alpha_from_R_S_R_LIN_R_C_Z_max(
+        r_start, r_inboard, curvature, z_max
+    )
+    result.update(
+        curvature_radius=curvature,
+        alpha=alpha,
+        f3=ejiri_f3_from_alpha(alpha),
+        mirror=True,
+    )
+    return result
+
+
+def _midplane_crossing_inboard(wall_r, wall_z, r_start):
+    """The wall's midplane crossing nearest ``r_start`` on its inboard side."""
+    r_closed = np.r_[wall_r, wall_r[:1]]
+    z_closed = np.r_[wall_z, wall_z[:1]]
+    crossings = []
+    for r0, z0, r1, z1 in zip(r_closed[:-1], z_closed[:-1], r_closed[1:], z_closed[1:]):
+        if z0 == z1:
+            if z0 == 0.0:
+                crossings.extend([r0, r1])
+            continue
+        if (z0 <= 0.0 <= z1) or (z1 <= 0.0 <= z0):
+            crossings.append(r0 + (r1 - r0) * (0.0 - z0) / (z1 - z0))
+    inboard = [r for r in crossings if r < r_start]
+    if not inboard:
+        raise ValueError(
+            f"the wall has no midplane crossing inboard of r_start={r_start} m"
+        )
+    return float(max(inboard))
+
+
+def _mirror_point(R, Z, termination_reason):
+    """Where a branch is strongest in |B|: its |Z|, its R, and what ended it.
+
+    An electron escaping along the branch must pass every point between the
+    seed and the wall, so the field it has to overcome is the largest one on
+    that stretch -- the global minimum of ``R``, not the first local one.  The
+    two coincide for a line with a single inward dip; they differ for a line
+    tilted at the midplane, whose ``R`` first rises a hair before it dips, and
+    for a line that dips more than once.  The seed itself is excluded.
+    """
+    if R.size < 2:
+        # The first step already left the wall: nothing on this side raises
+        # |B| above its value at the seed, so an electron heading this way is
+        # lost at once.  Report the seed itself, which reads as "no mirror".
+        return 0.0, float(R[0]), "wall"
+    index = int(np.argmin(R[1:])) + 1
+    if index < R.size - 1:
+        reason = "turning"
+    elif "wall" in str(termination_reason):
+        reason = "wall"
+    else:
+        reason = str(termination_reason)
+    return float(abs(Z[index])), float(R[index]), reason
 
 
 def _trace_branch_lengths(flat_r, flat_z, inside, b_field, polygon, step, max_length_m):
@@ -4108,14 +5033,15 @@ def resistive_layer_parameters(
     n_e,
     psi_norm_kinetic=None,
     ion_mass_amu=1.0,
-    z_eff=2.0,
-    ln_lambda=17.0,
+    z_eff=None,
+    ln_lambda=None,
     m_range=None,
 ):
     """Resistivity and mass density at each rational surface of a toroidal mode.
 
-    Asymptotic-matching codes -- RDCON's ``rmatch``, STRIDE -- ask for one
-    resistivity and one mass density *per rational surface*, because the
+    RDCON's asymptotic matching (``rmatch``) asks for one resistivity and one
+    mass density *per rational surface*; STRIDE, an ideal outer-region code,
+    takes neither. Matching needs them per surface because the
     resistive layer width and the reconnection rate are set locally. This
     composes the two things needed to answer that from an equilibrium and its
     kinetic profiles: where the surfaces are, and what the plasma is like
@@ -4139,10 +5065,14 @@ def resistive_layer_parameters(
     ion_mass_amu : float, optional
         Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default,
         which is what VEST runs [-].
-    z_eff : float, optional
-        Effective ion charge, passed to the Spitzer resistivity [-].
-    ln_lambda : float, optional
-        Coulomb logarithm, passed to the Spitzer resistivity [-].
+    z_eff : float
+        Effective ion charge, passed to the Spitzer resistivity. Omitting it
+        is deprecated (#1188): it falls back to 2 with a ``FutureWarning``
+        and will raise in 0.9 [-].
+    ln_lambda : float
+        Coulomb logarithm, passed to the Spitzer resistivity. Omitting it is
+        deprecated (#1188): it falls back to 17 with a ``FutureWarning`` and
+        will raise in 0.9 [-].
     m_range : tuple of int, optional
         Forwarded to :func:`find_rational_surfaces` [-].
 
@@ -4209,6 +5139,22 @@ def resistive_layer_parameters(
 
     if float(ion_mass_amu) <= 0.0:
         raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+    if z_eff is None or ln_lambda is None:
+        # Warned here, not in resistive_layer_at, so the warning names the
+        # caller's line rather than this module.
+        import warnings
+
+        missing = [name for name, value in (("z_eff", z_eff), ("ln_lambda", ln_lambda))
+                   if value is None]
+        warnings.warn(
+            f"resistive_layer_parameters called without {', '.join(missing)}; the hidden "
+            "fallbacks z_eff=2, ln_lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        z_eff = 2.0 if z_eff is None else z_eff
+        ln_lambda = 17.0 if ln_lambda is None else ln_lambda
 
     surfaces = find_rational_surfaces(psi_norm, q, n, m_range=m_range)
     return {
@@ -4232,8 +5178,8 @@ def resistive_layer_at(
     t_e,
     n_e,
     ion_mass_amu=1.0,
-    z_eff=2.0,
-    ln_lambda=17.0,
+    z_eff=None,
+    ln_lambda=None,
 ):
     """Resistivity and mass density at flux surfaces someone else located.
 
@@ -4255,10 +5201,12 @@ def resistive_layer_at(
         Electron density [m^-3].
     ion_mass_amu : float, optional
         Mass of the bulk ion in atomic mass units; 1 (hydrogen) by default [-].
-    z_eff : float, optional
-        Effective ion charge [-].
-    ln_lambda : float, optional
-        Coulomb logarithm [-].
+    z_eff : float
+        Effective ion charge; omitting it is deprecated as in
+        :func:`resistive_layer_parameters` (#1188) [-].
+    ln_lambda : float
+        Coulomb logarithm; omitting it is deprecated as in
+        :func:`resistive_layer_parameters` (#1188) [-].
 
     Returns
     -------
@@ -4302,6 +5250,20 @@ def resistive_layer_at(
 
     if float(ion_mass_amu) <= 0.0:
         raise ValueError(f"ion_mass_amu must be positive, got {ion_mass_amu!r}")
+    if z_eff is None or ln_lambda is None:
+        import warnings
+
+        missing = [name for name, value in (("z_eff", z_eff), ("ln_lambda", ln_lambda))
+                   if value is None]
+        warnings.warn(
+            f"resistive_layer_at called without {', '.join(missing)}; the hidden "
+            "fallbacks z_eff=2, ln_lambda=17 are deprecated and will raise in 0.9 "
+            "(#1188). Pass them explicitly.",
+            FutureWarning,
+            stacklevel=2,
+        )
+        z_eff = 2.0 if z_eff is None else z_eff
+        ln_lambda = 17.0 if ln_lambda is None else ln_lambda
 
     coordinate = _np.asarray(psi_norm, dtype=float)
     t_e = _np.asarray(t_e, dtype=float)
@@ -4352,6 +5314,36 @@ def resistive_layer_at(
         "t_e": t_e_at,
         "n_e": n_e_at,
     }
+
+
+def _target_crossings(residual: np.ndarray) -> list[tuple[int, float]]:
+    """Where a sampled residual vanishes, as ``(left node, fraction to the next)``.
+
+    The shared bracketing of :func:`find_rational_surfaces` and
+    :func:`rational_surfaces`. ``residual`` is finite and sampled on an
+    increasing coordinate; a crossing between nodes ``i`` and ``i + 1`` is
+    returned as ``(i, w)`` with ``0 < w < 1`` the linear-interpolation weight,
+    a root sitting exactly on node ``i`` as ``(i, 0.0)``.
+
+    Exact zeros are roots in their own right, and are taken first: a root
+    sitting on a node otherwise shows up as two sign changes, +1 -> 0 and
+    0 -> -1, that interpolate to the same point, and a residual flat at zero
+    over an interval shows up as one at each end of it. Either way it is one
+    surface, and counting it twice would double its weight in every reduction
+    downstream.
+    """
+    zero = residual == 0.0
+    crossings = [
+        (int(index), 0.0)
+        for index in np.nonzero(zero)[0]
+        if index == 0 or not zero[index - 1]
+    ]
+    for index in np.nonzero(np.diff(np.sign(residual)) != 0)[0]:
+        if zero[index] or zero[index + 1]:
+            continue  # already taken, as the zero itself
+        span = residual[index + 1] - residual[index]
+        crossings.append((int(index), float(-residual[index] / span)))
+    return crossings
 
 
 def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
@@ -4468,27 +5460,11 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
     positions: list[float] = []
     for m in range(lo, hi + 1):
         target = m / order
-        residual = q - target
-        # Exact zeros are roots in their own right, and are taken first: a
-        # root sitting on a node otherwise shows up as two sign changes,
-        # +1 -> 0 and 0 -> -1, that interpolate to the same point, and a q
-        # flat at m/n over an interval shows up as one at each end of it.
-        # Either way it is one surface, and counting it twice would double its
-        # weight in every reduction downstream.
-        zero = residual == 0.0
         crossings = [
-            float(psi_norm[index])
-            for index in np.nonzero(zero)[0]
-            if index == 0 or not zero[index - 1]
+            float(psi_norm[index] + weight * (psi_norm[index + 1] - psi_norm[index]))
+            if weight else float(psi_norm[index])
+            for index, weight in _target_crossings(q - target)
         ]
-        for index in np.nonzero(np.diff(np.sign(residual)) != 0)[0]:
-            if zero[index] or zero[index + 1]:
-                continue  # already taken, as the zero itself
-            span = residual[index + 1] - residual[index]
-            weight = -residual[index] / span
-            crossings.append(
-                float(psi_norm[index] + weight * (psi_norm[index + 1] - psi_norm[index]))
-            )
         for crossing in crossings:
             modes.append(m)
             q_rational.append(target)
@@ -4500,6 +5476,252 @@ def find_rational_surfaces(psi_norm, q, n, *, m_range=None):
         "q_rational": np.asarray(q_rational, dtype=float)[outward],
         "psi_n_rational": np.asarray(positions, dtype=float)[outward],
     }
+
+
+#: Relative tolerance below which ``|q| - q_target`` counts as zero in
+#: :func:`rational_surfaces`: far above float rounding, far below any physical
+#: difference in q.
+RATIONAL_SURFACE_RTOL = 1e-9
+
+#: ``RationalSurface.status`` of a requested value the profile reaches.
+RATIONAL_SURFACE_PRESENT = "present"
+#: ``RationalSurface.status`` of a requested value the profile never reaches.
+RATIONAL_SURFACE_ABSENT = "absent"
+
+
+@dataclass(frozen=True)
+class RationalSurfaceRoot:
+    """One flux surface where ``|q|`` equals a requested value.
+
+    ``psi_norm`` is where the crossing was found; ``rho_pol_norm`` is its
+    square root (``None`` for a crossing below the axis value, where the root
+    is not real); ``rho_tor_norm`` is read off the toroidal coordinate the
+    caller supplied on the same grid, and is ``None`` when none was -- it is
+    never rebuilt from ``psi_norm``. ``root_index`` counts outward from 0.
+    """
+
+    psi_norm: float
+    rho_pol_norm: float | None
+    rho_tor_norm: float | None
+    root_index: int
+
+
+@dataclass(frozen=True)
+class RationalSurface:
+    """Every surface of one requested rational value, and who asked for it.
+
+    ``q_target`` is the value searched for. ``harmonics`` are the ``(m, n)``
+    requests that reduce to it -- ``(2, 1)`` and ``(4, 2)`` both name
+    ``q = 2`` and share this one record -- and ``requested_q`` is whether it
+    was also asked for as a plain value. ``status`` is
+    :data:`RATIONAL_SURFACE_PRESENT` with at least one root, or
+    :data:`RATIONAL_SURFACE_ABSENT` with none: an absent surface is said, never
+    placed. ``roots`` run outward. ``method`` names how the roots were located.
+    """
+
+    q_target: float
+    harmonics: tuple[tuple[int, int], ...]
+    requested_q: bool
+    status: str
+    roots: tuple[RationalSurfaceRoot, ...]
+    method: str = "linear interpolation of |q| - q_target between bracketing samples"
+
+    @property
+    def present(self) -> bool:
+        """Whether the profile reaches ``q_target`` anywhere."""
+        return self.status == RATIONAL_SURFACE_PRESENT
+
+
+def _rational_targets(q_targets, resonances) -> list[tuple[float, bool, list[tuple[int, int]]]]:
+    """``(q_target, requested as a value, harmonics)`` per distinct value, ascending."""
+    from fractions import Fraction
+
+    merged: dict[Fraction, tuple[float, list[bool], list[tuple[int, int]]]] = {}
+
+    def slot(key: Fraction, value: float):
+        return merged.setdefault(key, (value, [False], []))
+
+    for raw in q_targets:
+        value = float(raw)
+        if not np.isfinite(value) or value <= 0.0:
+            raise ValueError(
+                f"q_targets holds {raw!r}; a rational value is a positive finite |q|"
+            )
+        # A float request meets an (m, n) one on the same key when they are the
+        # same number to 12 digits, so q = 2.0 and (2, 1) are one surface.
+        key = Fraction(value).limit_denominator(10**6)
+        if abs(float(key) - value) > 1e-12 * value:
+            key = Fraction(value)
+        slot(key, value)[1][0] = True
+    for pair in resonances:
+        try:
+            m, n = pair
+        except (TypeError, ValueError):
+            raise ValueError(f"resonances holds {pair!r}; each entry is an (m, n) pair") from None
+        if m != int(m) or n != int(n):
+            raise ValueError(f"resonance {pair!r} is not a pair of whole mode numbers")
+        m, n = int(m), int(n)
+        if m == 0 or n == 0:
+            raise ValueError(f"resonance ({m}, {n}) has q = m/n zero or undefined")
+        key = Fraction(abs(m), abs(n))
+        entry = slot(key, float(key))
+        if (m, n) not in entry[2]:
+            entry[2].append((m, n))
+    return [
+        (merged[key][0], merged[key][1][0], merged[key][2])
+        for key in sorted(merged)
+    ]
+
+
+def rational_surfaces(psi_norm, q, *, q_targets=(), resonances=(), rho_tor_norm=None):
+    """Every flux surface where the safety factor takes a requested rational value.
+
+    The one place a ``q_target -> radius`` question is answered: the 2-D and
+    1-D rational-surface overlays of :mod:`vaft.plot` and any mode analysis
+    that needs ``q = m/n`` read their locations from here. Requests come as
+    plain values (``q_targets``) or as magnetic harmonics (``resonances``);
+    harmonics with the same ``m/n`` share one surface. Every crossing is
+    returned, so a reversed-shear profile reports both of its ``q = 2``
+    surfaces.
+
+    Parameters
+    ----------
+    psi_norm : array_like
+        Normalized poloidal flux, increasing over its finite samples [-].
+    q : array_like
+        Safety factor on ``psi_norm``, of either sign [-].
+    q_targets : iterable of float, optional
+        Rational values to locate, compared with ``|q|`` [-].
+    resonances : iterable of (int, int), optional
+        Magnetic harmonics ``(m, n)``, each locating ``|q| = |m/n|`` [-].
+    rho_tor_norm : array_like, optional
+        An authentic normalized toroidal-flux radius on the same grid; the
+        roots carry no toroidal radius without it [-].
+
+    Returns
+    -------
+    tuple of RationalSurface
+        One record per distinct requested value, ascending in ``q_target``,
+        each holding its harmonics, its status and its roots ordered outward [-].
+
+    Raises
+    ------
+    ValueError
+        Nothing is requested, a request is not a positive value or a whole
+        non-zero ``(m, n)``, the arrays are not one-dimensional and of equal
+        length, fewer than two samples are finite, or ``psi_norm`` does not
+        increase.
+
+    Processing steps
+    ----------------
+    1. Merge the requests into distinct values of ``|q|``, keeping which
+       harmonics named each.
+    2. Split the profile into runs of finite samples; a gap is never bridged.
+    3. In each run, take every node where ``|q|`` equals the value and every
+       bracket where ``|q| - q_target`` changes sign, interpolated linearly
+       (the bracketing of :func:`find_rational_surfaces`).
+    4. Map each root to ``rho_pol_norm = sqrt(psi_norm)`` and, when given, to
+       ``rho_tor_norm`` by the same interpolation weight.
+
+    Convention
+    ----------
+    Resonance is ``|q| = |m/n|``: the sign the source's COCOS gives ``q``
+    (``sgn(Ip) sgn(B0)`` in the 11 family) never decides whether a surface
+    exists. ``rho_pol_norm`` is ``sqrt(psi_norm)``; ``rho_tor_norm`` is never
+    derived from ``psi_norm`` here, since the two agree only for a flat ``q``.
+
+    Limitations
+    -----------
+    Linear interpolation, with the accuracy :func:`find_rational_surfaces`
+    quantifies; interpolate ``q`` onto a finer grid first if that is not
+    enough. A sample within a relative ``1e-9`` of the value
+    (``RATIONAL_SURFACE_RTOL``) is taken to equal it, so rounding noise on a
+    ``|q|`` that hovers at the value yields one root, not one per sign flip.
+    Nothing is extrapolated: a value the profile reaches only beyond
+    its last finite sample is reported absent. A ``q`` flat at the value over
+    an interval yields one root, at its start. Roots are not associated across
+    time slices; each slice is resolved on its own.
+
+    Applicability
+    -------------
+    Machine-independent. Any equilibrium profile on an increasing flux grid.
+
+    Provenance
+    ----------
+    .. [1] :func:`find_rational_surfaces` for the bracketing, which this shares
+       rather than repeats; issue #506 for the request and record semantics.
+    """
+    targets = _rational_targets(tuple(q_targets), tuple(resonances))
+    if not targets:
+        raise ValueError("nothing requested: pass q_targets= and/or resonances=")
+    psi_norm = np.asarray(psi_norm, dtype=float)
+    q = np.asarray(q, dtype=float)
+    rho_tor = None if rho_tor_norm is None else np.asarray(rho_tor_norm, dtype=float)
+    if psi_norm.ndim != 1 or q.ndim != 1 or (rho_tor is not None and rho_tor.ndim != 1):
+        raise ValueError("psi_norm, q and rho_tor_norm are one-dimensional profiles")
+    if psi_norm.shape != q.shape or (rho_tor is not None and rho_tor.shape != q.shape):
+        raise ValueError(
+            f"{psi_norm.size} coordinate points against {q.size} q values"
+            + ("" if rho_tor is None else f" and {rho_tor.size} rho_tor_norm values")
+        )
+    finite = np.isfinite(psi_norm) & np.isfinite(q)
+    if np.count_nonzero(finite) < 2:
+        raise ValueError("need at least two finite samples to find a crossing")
+    if not np.all(np.diff(psi_norm[finite]) > 0):
+        raise ValueError(
+            "psi_norm must increase; a crossing is located by interpolation and a "
+            "non-monotonic coordinate would place it ambiguously"
+        )
+    magnitude = np.abs(q)
+    # Runs of consecutive finite samples: a crossing is only ever interpolated
+    # between two neighbours that both exist.
+    edges = np.flatnonzero(np.diff(np.concatenate(([0], finite.astype(int), [0]))))
+    runs = [(int(start), int(stop)) for start, stop in zip(edges[::2], edges[1::2]) if stop - start >= 1]
+
+    surfaces: list[RationalSurface] = []
+    for value, requested_q, harmonics in targets:
+        found: list[tuple[float, float | None]] = []
+        for start, stop in runs:
+            x = psi_norm[start:stop]
+            residual = magnitude[start:stop] - value
+            # Rounding noise is not a crossing: |q| within RATIONAL_SURFACE_RTOL
+            # of the value is the value, so a q hovering at it is one flat
+            # stretch (one root, at its start), not a root per noise flip.
+            residual[np.abs(residual) <= RATIONAL_SURFACE_RTOL * value] = 0.0
+            for index, weight in _target_crossings(residual):
+                if weight:
+                    position = float(x[index] + weight * (x[index + 1] - x[index]))
+                else:
+                    position = float(x[index])
+                toroidal = None
+                if rho_tor is not None:
+                    left = rho_tor[start + index]
+                    right = rho_tor[start + index + 1] if weight else left
+                    if np.isfinite(left) and np.isfinite(right):
+                        toroidal = float(left + weight * (right - left))
+                found.append((position, toroidal))
+        found.sort(key=lambda item: item[0])
+        unique: list[tuple[float, float | None]] = []
+        for position, toroidal in found:
+            if not unique or position != unique[-1][0]:
+                unique.append((position, toroidal))
+        roots = tuple(
+            RationalSurfaceRoot(
+                psi_norm=position,
+                rho_pol_norm=float(np.sqrt(position)) if position >= 0.0 else None,
+                rho_tor_norm=toroidal,
+                root_index=index,
+            )
+            for index, (position, toroidal) in enumerate(unique)
+        )
+        surfaces.append(RationalSurface(
+            q_target=float(value),
+            harmonics=tuple(harmonics),
+            requested_q=requested_q,
+            status=RATIONAL_SURFACE_PRESENT if roots else RATIONAL_SURFACE_ABSENT,
+            roots=roots,
+        ))
+    return tuple(surfaces)
 
 
 def straight_field_line_tables(
@@ -4705,3 +5927,978 @@ def lab_to_straight_field_line(theta_lab, table: tuple[np.ndarray, np.ndarray]):
     angle = np.where(angle >= start + 2.0 * np.pi, angle - 2.0 * np.pi, angle)
     result = np.mod(np.interp(angle, lab_grid, sfl_grid), 2.0 * np.pi)
     return float(result) if np.ndim(theta_lab) == 0 else result
+
+
+class StraightFieldLineMap:
+    """The PEST straight-field-line angle of one flux map, evaluable anywhere.
+
+    Built by :func:`straight_field_line_map`; see that function for the
+    definition, the construction and its limits.  Holds a table of the
+    flux surfaces sampled on rays from the magnetic axis, indexed by
+    ``sqrt(psi_norm)`` and the geometric angle, and a bicubic spline of the
+    flux itself.  Every method takes points in metres and broadcasts.
+    """
+
+    def __init__(self, spline, psi_axis, psi_boundary, magnetic_axis, x_levels,
+                 theta, rho, nu, rho_boundary):
+        self._spline = spline
+        self.psi_axis = float(psi_axis)
+        self.psi_boundary = float(psi_boundary)
+        self.magnetic_axis = (float(magnetic_axis[0]), float(magnetic_axis[1]))
+        self.sqrt_psi_norm = x_levels
+        self.theta_geometric = theta
+        self.rho = rho
+        self.nu = nu
+        self.rho_boundary = rho_boundary
+        pad = 4
+        theta_ext = np.concatenate((theta[-pad:] - 2.0 * np.pi, theta, theta[:pad] + 2.0 * np.pi))
+        nu_ext = np.concatenate((nu[:, -pad:], nu, nu[:, :pad]), axis=1)
+        rho_b_ext = np.concatenate((rho_boundary[-pad:], rho_boundary, rho_boundary[:pad]))
+        self._nu_spline = RectBivariateSpline(x_levels, theta_ext, nu_ext)
+        self._theta_ext = theta_ext
+        self._rho_b_ext = rho_b_ext
+        self._outboard = None
+
+    def outboard_radius(self, psi_norm):
+        """Major radius where each normalized flux surface crosses the outboard midplane [m].
+
+        Tabulated once on 2049 points of the outboard ray from the axis to the
+        boundary, where the normalized flux is monotonic, and inverted by
+        linear interpolation; well below a tenth of a millimetre on a
+        machine-sized grid.
+        """
+        if self._outboard is None:
+            ra, za = self.magnetic_axis
+            rho = np.linspace(0.0, self.rho_boundary[0], 2049)
+            psin = np.maximum.accumulate(self.psi_norm(ra + rho, np.full_like(rho, za)))
+            psin[0] = 0.0
+            self._outboard = (psin, ra + rho)
+        psin, radius = self._outboard
+        return np.interp(np.asarray(psi_norm, float), psin, radius)
+
+    def psi(self, r, z):
+        """Flux at the points, from the bicubic spline [flux unit of the map]."""
+        return self._spline.ev(np.asarray(r, float), np.asarray(z, float))
+
+    def psi_norm(self, r, z):
+        """Normalized flux at the points [-]."""
+        return (self.psi(r, z) - self.psi_axis) / (self.psi_boundary - self.psi_axis)
+
+    def grad_psi(self, r, z):
+        """``|grad psi|`` at the points [flux unit per metre]."""
+        r = np.asarray(r, float)
+        z = np.asarray(z, float)
+        return np.hypot(self._spline.ev(r, z, dx=1), self._spline.ev(r, z, dy=1))
+
+    def geometric_angle(self, r, z):
+        """``atan2(z - z_axis, r - r_axis)`` wrapped to ``[0, 2 pi)`` [rad]."""
+        ra, za = self.magnetic_axis
+        return np.mod(np.arctan2(np.asarray(z, float) - za, np.asarray(r, float) - ra), 2.0 * np.pi)
+
+    def inside(self, r, z):
+        """True inside the boundary surface, measured along the axis ray [bool]."""
+        ra, za = self.magnetic_axis
+        r = np.asarray(r, float)
+        z = np.asarray(z, float)
+        radius = np.hypot(r - ra, z - za)
+        edge = np.interp(self.geometric_angle(r, z), self._theta_ext, self._rho_b_ext)
+        return radius <= edge
+
+    def theta_star(self, r, z):
+        """Straight-field-line angle in ``[0, 2 pi)``; NaN outside the boundary [rad]."""
+        r = np.asarray(r, float)
+        z = np.asarray(z, float)
+        theta = self.geometric_angle(r, z)
+        x = np.sqrt(np.clip(self.psi_norm(r, z), 0.0, 1.0))
+        x = np.clip(x, self.sqrt_psi_norm[0], self.sqrt_psi_norm[-1])
+        nu = self._nu_spline.ev(x, theta)
+        return np.where(self.inside(r, z), _wrap_turn(theta + nu), np.nan)
+
+    def surface(self, psi_norm, n_theta: int | None = None):
+        """One flux surface on the geometric-angle grid, solved exactly.
+
+        Returns a dict with ``theta`` (geometric), ``theta_star``, ``r``,
+        ``z`` and ``grad_psi`` on that grid, and ``weight``, the integrand
+        ``dl / (R |grad psi|)`` per unit geometric angle.
+        """
+        theta = (self.theta_geometric if n_theta is None
+                 else np.linspace(0.0, 2.0 * np.pi, int(n_theta), endpoint=False))
+        rho, weight = _solve_rays(self._spline, self.psi_axis, self.psi_boundary,
+                                  self.magnetic_axis, theta,
+                                  np.interp(theta, self._theta_ext, self._rho_b_ext),
+                                  np.array([float(psi_norm)]))
+        nu = _integrate_periodic_rate(weight[0])
+        ra, za = self.magnetic_axis
+        r = ra + rho[0] * np.cos(theta)
+        z = za + rho[0] * np.sin(theta)
+        return {
+            "theta": theta,
+            "theta_star": _wrap_turn(theta + nu),
+            "r": r,
+            "z": z,
+            "grad_psi": self.grad_psi(r, z),
+            "weight": weight[0],
+        }
+
+
+def _wrap_turn(angle):
+    """Wrap into ``[0, 2 pi)``; ``np.mod`` returns ``2 pi`` for a tiny negative."""
+    wrapped = np.mod(angle, 2.0 * np.pi)
+    return np.where(wrapped >= 2.0 * np.pi, wrapped - 2.0 * np.pi, wrapped)
+
+
+def _refine_o_point(psi, axis, r, z):
+    """The flux map's own O-point nearest a supplied axis.
+
+    A recorded axis is usually the solver's, a fraction of a cell from the
+    stationary point of the gridded flux, and rays from it see the flux fall
+    before it rises. :func:`find_stationary_points` locates the spline's
+    O-points; the one nearest the recorded axis is taken when it lies within
+    two cells, and the recorded axis is kept otherwise.
+    """
+    from vaft.data.equilibrium import EquilibriumData
+    from ._equilibrium_parametric import find_stationary_points
+
+    recorded = np.array([float(axis[0]), float(axis[1])])
+    cell = max(float(np.max(np.diff(r))), float(np.max(np.diff(z))))
+    points = find_stationary_points(EquilibriumData(r=r, z=z, psi=psi), kind="o")
+    if not points:
+        return recorded
+    nearest = min(points, key=lambda p: np.hypot(p.r - recorded[0], p.z - recorded[1]))
+    if np.hypot(nearest.r - recorded[0], nearest.z - recorded[1]) > 2.0 * cell:
+        return recorded
+    return np.array([float(nearest.r), float(nearest.z)])
+
+
+def _ray_boundary(spline, psi_axis, psi_boundary, axis, theta, rho_max):
+    """Distance from the axis to ``psi_norm = 1`` along each ray."""
+    ra, za = axis
+    samples = np.linspace(0.0, 1.0, 801)[1:]
+    out = np.empty(theta.size)
+    for k, (angle, limit) in enumerate(zip(theta, rho_max)):
+        rho = samples * limit
+        psin = (spline.ev(ra + rho * np.cos(angle), za + rho * np.sin(angle)) - psi_axis) / (
+            psi_boundary - psi_axis)
+        crossed = np.nonzero(psin >= 1.0)[0]
+        if crossed.size == 0:
+            raise ValueError(
+                "the boundary flux is not reached before the grid edge at geometric angle "
+                f"{angle:.3f} rad; the flux map must contain the whole boundary surface"
+            )
+        j = crossed[0]
+        if j and np.any(np.diff(psin[: j + 1]) < -1e-9):
+            raise ValueError(
+                "normalized flux is not monotonic along the ray at geometric angle "
+                f"{angle:.3f} rad; the surfaces are not star-shaped about the axis"
+            )
+        lo = rho[j - 1] if j else 0.0
+        hi = rho[j]
+        p_lo = psin[j - 1] if j else 0.0
+        out[k] = lo + (1.0 - p_lo) * (hi - lo) / (psin[j] - p_lo)
+    return out
+
+
+def _solve_rays(spline, psi_axis, psi_boundary, axis, theta, rho_edge, levels):
+    """Radius of each normalized level along each ray, and the PEST weight there.
+
+    Returns ``rho`` and ``weight``, both ``(levels, theta)``; the weight is
+    ``rho / (R dpsi_norm/drho)``, which is ``dl / (R |grad psi|)`` per unit
+    geometric angle up to the surface's constant flux normalisation.
+    """
+    ra, za = axis
+    span = psi_boundary - psi_axis
+    cos_t, sin_t = np.cos(theta), np.sin(theta)
+    samples = np.linspace(0.0, 1.0, 401)
+    rho_s = samples[:, None] * rho_edge[None, :]
+    psin_s = (spline.ev(ra + rho_s * cos_t, za + rho_s * sin_t) - psi_axis) / span
+    psin_s[0] = 0.0
+    rho = np.empty((levels.size, theta.size))
+    for k in range(theta.size):
+        rho[:, k] = np.interp(levels, np.maximum.accumulate(psin_s[:, k]), rho_s[:, k])
+    for _ in range(3):
+        r = ra + rho * cos_t
+        z = za + rho * sin_t
+        value = (spline.ev(r, z) - psi_axis) / span - levels[:, None]
+        slope = (cos_t * spline.ev(r, z, dx=1) + sin_t * spline.ev(r, z, dy=1)) / span
+        rho = np.clip(rho - value / slope, 0.0, rho_edge[None, :])
+    r = ra + rho * cos_t
+    z = za + rho * sin_t
+    slope = (cos_t * spline.ev(r, z, dx=1) + sin_t * spline.ev(r, z, dy=1)) / span
+    return rho, rho / (r * slope)
+
+
+def _integrate_periodic_rate(weight):
+    """``theta* - theta`` from the PEST rate on a uniform periodic grid.
+
+    ``d theta*/d theta = weight / mean(weight)``, so the difference has a
+    zero-mean periodic derivative; it is integrated spectrally and pinned to
+    zero at the first sample (the outboard midplane).
+    """
+    rate = weight / np.mean(weight) - 1.0
+    n = rate.size
+    coeff = np.fft.rfft(rate)
+    k = np.fft.rfftfreq(n, d=1.0 / n)
+    integral = np.zeros_like(coeff)
+    integral[1:] = coeff[1:] / (1j * k[1:])
+    if n % 2 == 0:
+        integral[-1] = 0.0
+    nu = np.fft.irfft(integral, n)
+    return nu - nu[0]
+
+
+def straight_field_line_map(
+    psi,
+    r,
+    z,
+    psi_axis: float,
+    psi_boundary: float,
+    magnetic_axis,
+    *,
+    n_theta: int = 256,
+    n_surfaces: int = 96,
+    sqrt_psi_norm_min: float = 0.02,
+) -> StraightFieldLineMap:
+    """The PEST straight-field-line poloidal angle of a flux map, built once.
+
+    Parameters
+    ----------
+    psi : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)``, in any storage family:
+        only ratios and the geometry enter [Wb or Wb/rad].
+    r : array_like
+        Major-radius grid axis [m].
+    z : array_like
+        Height grid axis [m].
+    psi_axis : float
+        Flux on the magnetic axis, in the unit of *psi* [Wb or Wb/rad].
+    psi_boundary : float
+        Flux on the boundary surface, in the unit of *psi* [Wb or Wb/rad].
+    magnetic_axis : sequence of float
+        ``(R, Z)`` of the magnetic axis, the origin of the geometric angle [m].
+    n_theta : int, optional
+        Geometric-angle samples per surface, uniform on one period [-].
+    n_surfaces : int, optional
+        Tabulated surfaces, uniform in ``sqrt(psi_norm)`` [-].
+    sqrt_psi_norm_min : float, optional
+        Innermost tabulated surface, as ``sqrt(psi_norm)``; points closer to
+        the axis take its angle offset [-].
+
+    Returns
+    -------
+    StraightFieldLineMap
+        An object evaluating ``theta_star``, ``psi_norm``, ``grad_psi`` and
+        the boundary test at arbitrary points, and solving any single surface
+        exactly with ``surface(psi_norm)`` [-].
+
+    Raises
+    ------
+    ValueError
+        The flux map is not shaped ``(len(r), len(z))``, the axis and boundary
+        flux coincide, the boundary surface leaves the grid, or a surface is
+        not star-shaped about the axis.
+
+    Convention
+    ----------
+    **The PEST angle**, in which field lines are straight:
+    ``theta* = 2 pi int dl/(R |grad psi|) / oint dl/(R |grad psi|)`` along a
+    flux surface, so ``d phi / d theta* = q`` on every surface. The poloidal
+    current function and the flux normalisation are constant on a surface and
+    cancel, which is why neither ``F`` nor the COCOS storage family is needed.
+
+    **Origin and direction are geometric, not COCOS.** ``theta* = 0`` on the
+    outboard midplane ray (``Z = Z_axis``, ``R > R_axis``) and it increases in
+    the same sense as ``atan2(Z - Z_axis, R - R_axis)``: outboard, top,
+    inboard, bottom. Whether that is the direction of the poloidal field
+    depends on the equilibrium's current direction, which a caller forming a
+    helical phase must take from the field, not from this angle.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Processing steps
+    ----------------
+    1. Fit a bicubic spline to the flux.
+    2. Move the axis to the spline's O-point. Along each geometric-angle ray
+       from it, find where the normalized flux reaches one, rejecting a ray on
+       which it is not monotonic.
+    3. On every tabulated surface, solve the ray radius by Newton iteration on
+       the spline and form ``rho / (R d psi_norm / d rho)``, which is
+       ``dl / (R |grad psi|)`` per unit geometric angle.
+    4. Integrate the rate spectrally into ``theta* - theta``, zero at the
+       outboard midplane.
+    5. Spline that periodic offset over ``(sqrt(psi_norm), theta)``.
+
+    Limitations
+    -----------
+    The supplied axis is moved to the flux spline's own O-point when that is
+    within two cells of it, so the angle's origin is the axis of the map as
+    gridded, not the solver's; ``StraightFieldLineMap.magnetic_axis`` records
+    where it went. Needs surfaces that every ray from the axis crosses once, which holds for
+    the nested surfaces of a tokamak inside its boundary but not beyond an
+    X-point, so the boundary surface itself must be closed on the grid. Inside
+    the innermost tabulated surface the angle offset is frozen at that
+    surface's value; the angle is undefined on the axis itself. Accuracy is
+    set by the flux spline, not by the table, because every surface is solved
+    on the spline rather than on grid contours.
+
+    Provenance
+    ----------
+    .. [1] Grimm, Dewar and Manickam, J. Comput. Phys. 49, 94 (1983), the PEST
+       coordinate system this angle belongs to.
+    .. [2] Sauter and Medvedev, Comput. Phys. Commun. 184, 293 (2013), for the
+       straight-field-line relation ``d phi / d theta* = q``.
+    """
+    psi = np.asarray(psi, dtype=float)
+    r = np.asarray(r, dtype=float).reshape(-1)
+    z = np.asarray(z, dtype=float).reshape(-1)
+    if psi.shape != (r.size, z.size):
+        raise ValueError(f"psi shape {psi.shape} must equal (len(r), len(z)) = {(r.size, z.size)}.")
+    if psi_boundary == psi_axis:
+        raise ValueError("psi_boundary must differ from psi_axis to normalize.")
+    axis = np.asarray(magnetic_axis, dtype=float).reshape(-1)
+    if axis.size != 2 or not np.all(np.isfinite(axis)):
+        raise ValueError(f"magnetic_axis must be a finite (R, Z) pair, not {magnetic_axis!r}")
+    spline = RectBivariateSpline(r, z, psi)
+    axis = _refine_o_point(psi, axis, r, z)
+    theta = np.linspace(0.0, 2.0 * np.pi, int(n_theta), endpoint=False)
+    cos_t, sin_t = np.cos(theta), np.sin(theta)
+    # Distance to the grid edge along each ray, a hard bound for the search.
+    with np.errstate(divide="ignore", invalid="ignore"):
+        to_r = np.where(cos_t > 0, (r[-1] - axis[0]) / cos_t,
+                        np.where(cos_t < 0, (r[0] - axis[0]) / cos_t, np.inf))
+        to_z = np.where(sin_t > 0, (z[-1] - axis[1]) / sin_t,
+                        np.where(sin_t < 0, (z[0] - axis[1]) / sin_t, np.inf))
+    rho_max = np.minimum(to_r, to_z)
+    rho_edge = _ray_boundary(spline, psi_axis, psi_boundary, axis, theta, rho_max)
+    x_levels = np.linspace(float(sqrt_psi_norm_min), 1.0, int(n_surfaces))
+    rho, weight = _solve_rays(spline, psi_axis, psi_boundary, axis, theta, rho_edge, x_levels**2)
+    nu = np.array([_integrate_periodic_rate(row) for row in weight])
+    return StraightFieldLineMap(spline, psi_axis, psi_boundary, axis, x_levels, theta, rho, nu, rho_edge)
+
+
+#: The poloidal-angle weight each DCON jacobian carries, as the powers
+#: ``(power_r, power_b, power_bp)`` of ``R``, ``|B|`` and ``B_p``.
+#:
+#: The powers appear in the *reciprocal* of the Jacobian, which is the easy
+#: thing to get backwards: DCON builds its poloidal angle as the normalized
+#: cumulative integral of
+#: ``w = R jacfac * B_p**power_bp * |B|**power_b / R**power_r``
+#: (``equil/inverse.f:207``, ``spl%fs(:,5)``, normalized at ``:215``), and two
+#: angles on one surface satisfy ``J_1 dtheta_1 = J_2 dtheta_2`` because the
+#: volume element between two surfaces does not depend on the parametrisation.
+#: So ``J`` is proportional to ``1 / w``, i.e.
+#: ``J ~ R**power_r / (B_p**power_bp * |B|**power_b)``: Hamada ``(0, 0, 0)``
+#: gives the constant ``J`` Hamada coordinates are defined by, PEST
+#: ``(2, 0, 0)`` gives ``J ~ R**2``, and Boozer ``(0, 2, 0)`` gives
+#: ``J ~ 1 / |B|**2``, each the textbook form.
+#:
+#: The triples are read off ``equil/equil.f:70-94``, the
+#: ``SELECT CASE(jac_type)`` block that sets them. ``"other"`` is a DCON
+#: jacobian too, and deliberately absent: its powers come from the run's own
+#: ``power_r`` / ``power_b`` / ``power_bp`` namelist entries rather than from
+#: its name, so no triple belongs to it here.
+#:
+#: Read-only: a caller that mutated it would silently change which angle every
+#: figure built on this conversion is drawn in.
+DCON_JACOBIAN_ANGLE_WEIGHTS: Mapping[str, tuple[int, int, int]] = MappingProxyType({
+    "hamada": (0, 0, 0),
+    "pest": (2, 0, 0),
+    "equal_arc": (0, 0, 1),
+    "boozer": (0, 2, 0),
+    "park": (0, 1, 0),
+})
+
+#: ``jac_type`` values whose powers the namelist sets individually, so that the
+#: name alone does not fix the weight.  Named rather than lumped in with a
+#: misspelling, because a run really can be in one of these and the refusal has
+#: to say something different about it.
+_NAMELIST_POWER_JACOBIANS = ("other",)
+
+#: Which of :data:`DCON_JACOBIAN_ANGLE_WEIGHTS` a caller holding only ``R`` on
+#: the mesh can convert.  ``|B|`` and ``B_p`` are not part of the
+#: ``coordinate_system`` an IMAS ``mhd_linear`` mesh carries, so a boozer,
+#: park or equal_arc angle cannot be relabelled from the mesh alone.
+_R_ONLY_JACOBIANS = ("hamada", "pest")
+
+
+def pest_angle_from_jacobian_angle(theta_norm, r, jacobian: str) -> np.ndarray:
+    r"""Relabel a DCON flux-surface angle into the PEST angle, from ``R`` alone.
+
+    Parameters
+    ----------
+    theta_norm : array_like
+        One poloidal circuit of DCON's own angle, normalized so that a full
+        circuit spans 1, ascending, the last sample repeating the first
+        (``0 ... 1``) [-].
+    r : array_like
+        Major radius at those samples, on one flux surface [m].
+    jacobian : str
+        The ``jac_type`` the run solved in, a key of
+        :data:`DCON_JACOBIAN_ANGLE_WEIGHTS`; only ``"hamada"`` and ``"pest"``
+        are convertible from ``R`` alone [-].
+
+    Returns
+    -------
+    np.ndarray
+        The PEST angle at the same samples, ascending from ``0`` to ``2 pi``
+        [rad].
+
+    Raises
+    ------
+    ValueError
+        ``theta_norm`` and ``r`` disagree in shape, ``theta_norm`` does not
+        span one circuit normalized to 1, ``theta_norm`` is not strictly
+        increasing, ``r`` is not positive and finite, or *jacobian* is a DCON
+        jacobian whose weight needs a field this signature does not take
+        (``boozer``, ``park``, ``equal_arc``), one whose powers only the
+        namelist knows (``other``), or not a DCON jacobian at all.
+
+    Convention
+    ----------
+    **The PEST angle, referenced to the input angle's own origin.** Both
+    angles run in the same direction and start at the same point on the
+    surface, so ``theta_pest[0] = 0`` wherever ``theta_norm[0] = 0`` is:
+    the reparametrisation is monotonic and fixes no new origin. That matters
+    because a resonant harmonic phase GPEC reports -- ``arg(Phi_res)`` -- is
+    referenced to GPEC's angle origin, and a conversion that silently moved
+    the origin would rotate every pattern built on it.
+
+    **Only the poloidal angle is converted.** Hamada, PEST and Boozer are all
+    straight-field-line systems, but each pairs its poloidal angle with its
+    own toroidal angle; PEST is the one whose toroidal angle is the machine
+    angle ``phi``. So ``m theta - n phi`` is the helical phase in the PEST
+    angle and in no other, which is the reason to convert rather than to
+    accept any straight-field-line angle.
+
+    Applicability
+    -------------
+    Machine-independent. One flux surface of a DCON or GPEC run whose
+    ``jac_type`` is recorded. It says nothing about the radial label.
+
+    Processing steps
+    ----------------
+    1. Two angles on one surface satisfy ``J_1 d theta_1 = J_2 d theta_2``,
+       because the volume element between two surfaces does not depend on how
+       the surface is parametrised. DCON's angle advances as
+       ``w = R jacfac * B_p**power_bp * |B|**power_b / R**power_r``, which is
+       proportional to ``1 / J`` (see
+       :data:`DCON_JACOBIAN_ANGLE_WEIGHTS` -- the powers sit in the
+       reciprocal, so ``J ~ R**power_r / (B_p**power_bp |B|**power_b)``). The
+       ratio of the two weights is therefore
+       ``d theta_pest / d theta_in = J_in / J_pest
+       = R**(power_r - 2) |B|**-power_b B_p**-power_bp``.
+    2. For ``hamada`` (``0, 0, 0``) that weight is ``R**-2`` and no field is
+       needed; for ``pest`` it is 1 and the angle passes through unchanged.
+    3. Integrate the weight over the input angle by the trapezoid rule and
+       normalize the circuit to ``2 pi``.
+
+    Limitations
+    -----------
+    Exact to the quadrature only: the weight is integrated on the samples
+    given, so a coarse circuit converts coarsely. Measured against
+    :func:`straight_field_line_map` on the DIII-D GPEC example's 513-point
+    Hamada circuits, the agreement is 7.5e-06 rad at ``psi_N = 0.594`` and
+    9.2e-06 rad at 0.819, degrading to 1.9e-03 at 0.928 and 0.25 at 0.988 --
+    where the comparison, not this conversion, is the weaker side, because a
+    ray-traced angle map loses accuracy against the separatrix. Taking the
+    Hamada angle *as* the PEST angle, the control for those four numbers, is
+    off by 0.49 to 0.65 rad on the same surfaces.
+
+    It is a *relabelling*, not a check: it cannot tell that the mesh really
+    is in the jacobian it was told, and a mesh labelled ``hamada`` that is
+    not will be converted confidently and wrongly.
+
+    Provenance
+    ----------
+    .. [1] GPEC ``equil/equil.f``, ``SELECT CASE(jac_type)``: the
+       ``(power_r, power_b, power_bp)`` of each named jacobian.
+    .. [2] GPEC ``equil/inverse.f``: DCON's poloidal angle is
+       ``spl%fsi(:,5) / spl%fsi(mtheta,5)``, the normalized cumulative
+       integral of ``r*jacfac * bp**power_bp * b**power_b / r**power_r``.
+    .. [3] Grimm, Dewar and Manickam, J. Comput. Phys. 49, 94 (1983), the
+       PEST coordinate system.
+    .. [4] The agreement quoted under Limitations, measured on GPEC's own
+       DIII-D example (publishable under D-13, 2026-09-28, which requires this
+       record): DIII-D 147131 @ 2300 ms, equilibrium
+       ``g147131.02300_DIIID_KEFIT``
+       (SHA-256 ``35bf902f1d02759ad655f7b5315e3e2b4bc96d88ffc9753f261d48e86dbfe579``)
+       and ``gpec_profile_output_n1.nc``
+       (SHA-256 ``8c17f9675c7046331130d0e6315b38c9e6642c832d3598129c087939072a16b5``)
+       from GPEC ``v1.5.5-378-gf06e6ab`` with ``jac_type = "hamada"``. The
+       comparison is this function applied to the file's ``theta_dcon`` and
+       ``R``, against ``straight_field_line_map`` built from the equilibrium's
+       own ``PSIRZ``, on each of the four rational surfaces the run reports;
+       no solver runs. Same record as
+       ``test/test_gpec_island_geometry.py::R01_PROVENANCE``.
+    """
+    theta_norm = np.asarray(theta_norm, dtype=float).reshape(-1)
+    radius = np.asarray(r, dtype=float).reshape(-1)
+    if theta_norm.shape != radius.shape:
+        raise ValueError(
+            f"theta_norm has {theta_norm.size} samples and r has {radius.size}; "
+            "both describe the same poloidal circuit"
+        )
+    if theta_norm.size < 3:
+        raise ValueError(
+            f"a poloidal circuit needs at least three samples, not {theta_norm.size}"
+        )
+    key = str(jacobian).strip().lower()
+    if key in _NAMELIST_POWER_JACOBIANS:
+        raise ValueError(
+            f"{jacobian!r} is a DCON jacobian, but its powers come from the "
+            "run's own power_r / power_b / power_bp namelist entries rather "
+            "than from its name, so the name does not say what weight to "
+            "convert by; a run in it has to be converted from those powers, "
+            f"not from this table ({sorted(DCON_JACOBIAN_ANGLE_WEIGHTS)})"
+        )
+    if key not in DCON_JACOBIAN_ANGLE_WEIGHTS:
+        raise ValueError(
+            f"{jacobian!r} is not a DCON jacobian; expected one of "
+            f"{sorted(DCON_JACOBIAN_ANGLE_WEIGHTS) + sorted(_NAMELIST_POWER_JACOBIANS)}"
+        )
+    if key not in _R_ONLY_JACOBIANS:
+        power_r, power_b, power_bp = DCON_JACOBIAN_ANGLE_WEIGHTS[key]
+        needs = "|B|" if power_b else "B_p"
+        raise ValueError(
+            f"a {key!r} poloidal angle is weighted by {needs} as well as R "
+            f"(power_r, power_b, power_bp = {power_r}, {power_b}, {power_bp}), "
+            "and this conversion is given only R; relabelling it needs the "
+            "field on the same mesh"
+        )
+    span = float(theta_norm[-1] - theta_norm[0])
+    if not np.isclose(span, 1.0, atol=1e-9):
+        raise ValueError(
+            f"theta_norm spans {span!r}, not one poloidal circuit normalized to 1"
+        )
+    if not np.all(np.diff(theta_norm) > 0.0):
+        raise ValueError("theta_norm must be strictly increasing over the circuit")
+    if not np.all(np.isfinite(radius)) or np.any(radius <= 0.0):
+        raise ValueError("r must be positive and finite everywhere on the circuit")
+    if key == "pest":
+        # Already the PEST angle; only the 2*pi normalisation is applied, so
+        # that a caller need not branch on the jacobian itself.
+        return 2.0 * np.pi * (theta_norm - theta_norm[0])
+    weight = radius ** -2.0
+    step = np.diff(theta_norm)
+    cumulative = np.concatenate(
+        ([0.0], np.cumsum(0.5 * (weight[1:] + weight[:-1]) * step))
+    )
+    return 2.0 * np.pi * cumulative / cumulative[-1]
+
+
+def straight_field_line_angle_on_grid(
+    psi,
+    r,
+    z,
+    psi_axis: float,
+    psi_boundary: float,
+    magnetic_axis,
+    *,
+    n_theta: int = 256,
+    n_surfaces: int = 96,
+    sqrt_psi_norm_min: float = 0.02,
+) -> np.ndarray:
+    """The PEST straight-field-line angle on every node of a flux map.
+
+    Parameters
+    ----------
+    psi : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)`` [Wb or Wb/rad].
+    r : array_like
+        Major-radius grid axis [m].
+    z : array_like
+        Height grid axis [m].
+    psi_axis : float
+        Flux on the magnetic axis, in the unit of *psi* [Wb or Wb/rad].
+    psi_boundary : float
+        Flux on the boundary surface, in the unit of *psi* [Wb or Wb/rad].
+    magnetic_axis : sequence of float
+        ``(R, Z)`` of the magnetic axis [m].
+    n_theta : int, optional
+        Geometric-angle samples per surface, as in
+        :func:`straight_field_line_map` [-].
+    n_surfaces : int, optional
+        Tabulated surfaces, as in :func:`straight_field_line_map` [-].
+    sqrt_psi_norm_min : float, optional
+        Innermost tabulated surface, as ``sqrt(psi_norm)`` [-].
+
+    Returns
+    -------
+    numpy.ndarray
+        ``theta*`` shaped ``(len(r), len(z))``, in ``[0, 2 pi)`` inside the
+        boundary and NaN outside it [rad].
+
+    Convention
+    ----------
+    The angle of :func:`straight_field_line_map`: PEST, zero on the outboard
+    midplane, increasing in the sense of ``atan2(Z - Z_axis, R - R_axis)``.
+    The array is indexed major radius first, like the flux map.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Node values only; a caller that needs the angle between nodes should keep
+    the map from :func:`straight_field_line_map` and evaluate it there, since
+    interpolating a wrapped angle across its ``2 pi`` seam is wrong.
+
+    Provenance
+    ----------
+    .. [1] Grimm, Dewar and Manickam, J. Comput. Phys. 49, 94 (1983), through
+       :func:`straight_field_line_map`.
+    """
+    sfl = straight_field_line_map(psi, r, z, psi_axis, psi_boundary, magnetic_axis,
+                                  n_theta=n_theta, n_surfaces=n_surfaces,
+                                  sqrt_psi_norm_min=sqrt_psi_norm_min)
+    rr, zz = np.meshgrid(np.asarray(r, float).reshape(-1), np.asarray(z, float).reshape(-1), indexing="ij")
+    return sfl.theta_star(rr, zz)
+
+
+def romero_flux_balance(
+    time: np.ndarray,
+    I_p: np.ndarray,
+    psi_boundary: np.ndarray,
+    psi_equilibrium: np.ndarray,
+    R_p: np.ndarray,
+    I_ni: np.ndarray,
+) -> dict[str, np.ndarray]:
+    r"""Romero's exact voltage and volt-second balance over a sampled discharge.
+
+    Differentiates the boundary and equilibrium fluxes and the plasma current,
+    evaluates every term of Romero's balance with :mod:`vaft.formula.transformer`,
+    and integrates the three volt-second budgets, so the residual of each
+    identity is visible sample by sample and cumulatively.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Sample times, strictly increasing, at least three [s].
+    I_p : np.ndarray
+        Plasma current at each time, non-zero, same sense throughout [A].
+    psi_boundary : np.ndarray
+        Boundary flux $\psi_B$, full flux in Romero's sign [Wb].
+    psi_equilibrium : np.ndarray
+        Current-weighted flux $\psi_C$ from
+        :func:`vaft.formula.transformer.current_weighted_flux_from_psi_j_dS`,
+        same convention [Wb].
+    R_p : np.ndarray
+        Plasma resistance at each time, or one value for all [Ohm].
+    I_ni : np.ndarray
+        Non-inductively driven current at each time, or one value; ``0``
+        asserts a purely Ohmic discharge [A].
+
+    Returns
+    -------
+    dict of str to np.ndarray
+        Per sample: ``time`` [s]; ``L_i`` [H] and ``dL_i_dt`` [H/s];
+        ``dI_p_dt`` [A/s]; the voltages ``V_B``, ``V_C`` (from
+        $-\dot\psi_C$), ``V_R``, ``V_I`` $= L_i\dot I_p + \tfrac12 I_p\dot L_i$,
+        ``V_C_from_L_i`` and ``V_C_from_I_p`` (Romero's eqs. 39 and 40 solved
+        for $V_C$) and ``balance_residual`` $= V_B - V_R - V_I$ [V]; and,
+        cumulative from the first sample, ``Phi_B`` $=\int V_B\,dt$,
+        ``Phi_B_direct`` $= -(\psi_B - \psi_B(t_0))$, ``Phi_R``, ``Phi_I`` and
+        ``Phi_closure`` $= \Phi_B - \Phi_R - \Phi_I$ [Wb] [-].
+
+    Raises
+    ------
+    ValueError
+        Arrays of different lengths, fewer than three samples, a time axis
+        that does not strictly increase, a non-finite input, a zero plasma
+        current or one that changes sign, or fluxes whose sign says they are
+        not in Romero's convention [-].
+
+    Processing steps
+    ----------------
+    1. $L_i = (\psi_C - \psi_B)/I_p$ at every sample
+       (:func:`vaft.formula.transformer.internal_inductance_from_psi_C_psi_B_I_p`),
+       which refuses a flux in the opposite convention.
+    2. $\dot I_p$, $\dot L_i$, $V_B = -\dot\psi_B$ and $V_C = -\dot\psi_C$ with
+       :func:`vaft.process.numerical.time_derivative`.
+    3. $V_R = R_p(I_p - \hat I)$ and $V_I = L_i\dot I_p + \tfrac12 I_p\dot L_i$.
+    4. The two inferred $V_C$: eq. (39) from $\dot L_i$ and $V_R$, eq. (40)
+       from $\dot I_p$, $V_B$ and $V_R$.
+    5. Cumulative trapezoidal integrals of $V_B$, $V_R$ and $V_I$ from the
+       first sample, and the direct flux change $-\Delta\psi_B$ beside them.
+
+    Convention
+    ----------
+    **Romero's signs: full-weber flux and $V = -\dot\psi$.**  This is not
+    :func:`vaft.formula.equilibrium.loop_voltage_from_total_flux`'s
+    convention (#354); a COCOS-11 equilibrium has to be brought to this one
+    before the call, and step 1 refuses fluxes that were not.
+
+    **What each residual measures.**  With $L_i$ read from the same fluxes,
+    $V_B - V_C = \mathrm{d}(L_i I_p)/\mathrm{d}t$ holds to differencing error
+    on its own, so the three $V_C$ and ``balance_residual`` all disagree only
+    through $V_R$ -- they test the resistance estimate and $\hat I$, not the
+    equilibria.  ``Phi_B`` against ``Phi_B_direct`` tests the differencing and
+    the integration alone: the two agree to the trapezoid error whatever the
+    physics.
+
+    Applicability
+    -------------
+    Machine-independent.  Closed-flux phase only: $\psi_C$ and $L_i$ need an
+    equilibrium with a boundary, so a start-up window before flux closure must
+    be cut off by the caller, and a zero $I_p$ is refused rather than divided
+    by.
+
+    Limitations
+    -----------
+    All inputs must already be on one time axis, matched by time and not by
+    index; nothing here resamples.  Differentiation amplifies equilibrium
+    noise, and $\dot L_i$ from reconstructed fluxes is the noisiest term --
+    smooth upstream if the residuals are dominated by it.  $R_p$ and $\hat I$
+    are the caller's estimates, and the balance cannot tell which one is
+    wrong.
+
+    Provenance
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (12), (23)-(27), (34)-(40); the volt-second split
+           follows issue #781, Sec. 5.
+    """
+    from scipy.integrate import cumulative_trapezoid
+
+    from vaft.formula.transformer import (
+        equilibrium_surface_voltage_from_I_p_dL_i_V_R,
+        equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R,
+        internal_inductance_from_psi_C_psi_B_I_p,
+        resistive_voltage_from_R_p_I_p_I_ni,
+    )
+    from vaft.process.numerical import time_derivative
+
+    t = np.asarray(time, dtype=float)
+    series = {
+        "I_p": np.asarray(I_p, dtype=float),
+        "psi_boundary": np.asarray(psi_boundary, dtype=float),
+        "psi_equilibrium": np.asarray(psi_equilibrium, dtype=float),
+    }
+    if t.ndim != 1 or t.size < 3:
+        raise ValueError("time must be one-dimensional with at least three samples")
+    if not np.all(np.isfinite(t)) or np.any(np.diff(t) <= 0.0):
+        raise ValueError("time must be finite and strictly increasing")
+    for name, values in series.items():
+        if values.shape != t.shape:
+            raise ValueError(f"{name} has shape {values.shape}; time has {t.shape}")
+    ip, psi_b, psi_c = series["I_p"], series["psi_boundary"], series["psi_equilibrium"]
+    if np.any(ip > 0.0) and np.any(ip < 0.0):
+        # Checked before L_i, whose sign test would otherwise blame the flux
+        # convention for what is a current reversal.
+        raise ValueError(
+            "I_p changes sign within the window; L_i is undefined through the "
+            "reversal -- split the window at the zero crossing"
+        )
+    try:
+        r_p, i_ni = np.broadcast_to(np.asarray(R_p, dtype=float), t.shape), np.broadcast_to(
+            np.asarray(I_ni, dtype=float), t.shape
+        )
+    except ValueError:
+        raise ValueError("R_p and I_ni must be scalars or match time") from None
+
+    l_i = np.asarray(internal_inductance_from_psi_C_psi_B_I_p(psi_c, psi_b, ip))
+    di_dt = time_derivative(t, ip)
+    dl_dt = time_derivative(t, l_i)
+    v_b = -time_derivative(t, psi_b)
+    v_c = -time_derivative(t, psi_c)
+    v_r = np.asarray(resistive_voltage_from_R_p_I_p_I_ni(r_p, ip, i_ni))
+    v_i = l_i * di_dt + 0.5 * ip * dl_dt
+
+    def running(values):
+        return cumulative_trapezoid(values, t, initial=0.0)
+
+    phi_b, phi_r, phi_i = running(v_b), running(v_r), running(v_i)
+    return {
+        "time": t,
+        "L_i": l_i,
+        "dL_i_dt": dl_dt,
+        "dI_p_dt": di_dt,
+        "V_B": v_b,
+        "V_C": v_c,
+        "V_R": v_r,
+        "V_I": v_i,
+        "V_C_from_L_i": np.asarray(equilibrium_surface_voltage_from_I_p_dL_i_V_R(ip, dl_dt, v_r)),
+        "V_C_from_I_p": np.asarray(
+            equilibrium_surface_voltage_from_L_i_dI_p_V_B_V_R(l_i, di_dt, v_b, v_r)
+        ),
+        "balance_residual": v_b - v_r - v_i,
+        "Phi_B": phi_b,
+        "Phi_B_direct": -(psi_b - psi_b[0]),
+        "Phi_R": phi_r,
+        "Phi_I": phi_i,
+        "Phi_closure": phi_b - phi_r - phi_i,
+    }
+
+
+def integrate_romero_closure(
+    time: np.ndarray,
+    V_B: np.ndarray,
+    R_p: np.ndarray,
+    I_ni: np.ndarray,
+    *,
+    I_p0: float,
+    L_i0: float,
+    V_CB0: float = 0.0,
+    k: float,
+    tau: float,
+    rtol: float = 1e-8,
+) -> dict[str, np.ndarray]:
+    r"""Integrate Romero's first-order closure from a boundary-voltage history.
+
+    Evolves the plasma current $I_p$, the internal inductance $L_i$ and
+    $V = V_C - V_B$ under a prescribed boundary loop voltage, resistance and
+    non-inductive current, with the rates of
+    :func:`vaft.formula.transformer.romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau`.
+
+    Parameters
+    ----------
+    time : np.ndarray
+        Output times, strictly increasing, at least two; the inputs are given
+        on the same axis [s].
+    V_B : np.ndarray
+        Boundary loop voltage, Romero's sign, one per time [V].
+    R_p : np.ndarray
+        Plasma resistance, one per time or one value [Ohm].
+    I_ni : np.ndarray
+        Non-inductively driven current, one per time or one value; ``0``
+        asserts a purely Ohmic plasma [A].
+    I_p0 : float
+        Plasma current at the first time, non-zero [A].
+    L_i0 : float
+        Internal inductance at the first time, positive [H].
+    V_CB0 : float, optional
+        $V_C - V_B$ at the first time [V].
+    k : float
+        Closure gain [-].
+    tau : float
+        Closure time constant, positive [s].
+    rtol : float, optional
+        Relative tolerance of the integrator [-].
+
+    Returns
+    -------
+    dict of str to np.ndarray
+        ``time`` [s]; ``I_p`` [A]; ``L_i`` [H]; ``V_CB`` and ``V_C`` $= V_B +
+        V$ and ``V_R`` $= R_p (I_p - \hat I)$ [V] [-].
+
+    Raises
+    ------
+    ValueError
+        Inputs of the wrong length, a time axis that does not strictly
+        increase, a non-finite input, or a trajectory that reaches zero
+        current or non-positive inductance [-].
+
+    Processing steps
+    ----------------
+    1. Interpolate ``V_B``, ``R_p`` and ``I_ni`` linearly in time.
+    2. Integrate the three rates with :func:`scipy.integrate.solve_ivp`
+       (RK45) from the initial state, reporting at ``time``.
+    3. Rebuild $V_C$ and $V_R$ from the state and the inputs.
+
+    Defaults
+    --------
+    ``V_CB0 = 0`` starts from a flat loop-voltage profile, a modelling choice
+    the caller should replace with a measured $V_C - V_B$ when there is one.
+    ``rtol = 1e-8`` is a numerical convenience; the absolute tolerances are
+    scaled from the initial state.
+
+    Convention
+    ----------
+    Romero's signs: full-weber flux, $V = -\dot\psi$, and a positive $V_B$
+    driving a positive $I_p$.  The first two state equations are exact; the
+    third is the closure, so every departure of the trajectory from a
+    measured one is attributable to $k$, $\tau$ or the inputs.
+
+    Applicability
+    -------------
+    Machine-independent.  $k$ and $\tau$ are the caller's, identified for the
+    machine and regime; none are supplied.
+
+    Limitations
+    -----------
+    Linear interpolation of the inputs, so a voltage history sampled more
+    coarsely than $\tau$ is smoothed.  The integration stops with an error
+    if the current falls to 0.1 % of its initial value: $\dot L_i \propto
+    1/I_p$ is undefined at a reversal, and the step size collapses before one.
+
+    Provenance
+    ----------
+    .. [1] J. A. Romero and JET-EFDA contributors, Nucl. Fusion 50 (2010)
+           115002, eqs. (41)-(45).
+    """
+    from scipy.integrate import solve_ivp
+
+    from vaft.formula.transformer import (
+        romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau,
+    )
+
+    t = np.asarray(time, dtype=float)
+    if t.ndim != 1 or t.size < 2 or not np.all(np.isfinite(t)) or np.any(np.diff(t) <= 0.0):
+        raise ValueError("time must be finite, one-dimensional and strictly increasing")
+    try:
+        v_b, r_p, i_ni = (
+            np.broadcast_to(np.asarray(values, dtype=float), t.shape).copy()
+            for values in (V_B, R_p, I_ni)
+        )
+    except ValueError:
+        raise ValueError("V_B, R_p and I_ni must be scalars or match time") from None
+    for name, values in (("V_B", v_b), ("R_p", r_p), ("I_ni", i_ni)):
+        if not np.all(np.isfinite(values)):
+            raise ValueError(f"{name} must be finite")
+    if not (np.isfinite(I_p0) and I_p0 != 0.0):
+        raise ValueError(f"I_p0 must be finite and non-zero; got {I_p0!r}")
+    if not (np.isfinite(L_i0) and L_i0 > 0.0):
+        raise ValueError(f"L_i0 must be finite and positive; got {L_i0!r}")
+
+    # anti-alias: upsampling only -- the caller's own V_B, R_p and I_ni
+    # histories are read at the integrator's sub-steps between their samples;
+    # no rate is reduced and no sample is dropped (cold review 0.8.0
+    # equilibrium-representation F3).
+    def rates(tt, state):
+        current, inductance, relative = state
+        v_r = np.interp(tt, t, r_p) * (current - np.interp(tt, t, i_ni))
+        return romero_closure_rates_from_I_p_L_i_V_CB_V_B_V_R_k_tau(
+            current, inductance, relative, np.interp(tt, t, v_b), v_r, k, tau
+        )
+
+    current_floor = 1e-3 * abs(I_p0)
+
+    def current_collapses(tt, state):
+        return abs(state[0]) - current_floor
+
+    # dL_i/dt goes as 1/I_p, so near a reversal the step size collapses before
+    # the current is ever sampled at zero; stop at 0.1 % of the initial current
+    # instead, where the trajectory is still resolved.
+    current_collapses.terminal = True
+    current_collapses.direction = -1
+
+    scale = np.array([abs(I_p0), L_i0, max(abs(V_CB0), float(np.max(np.abs(v_b))), 1e-3)])
+    solution = solve_ivp(
+        rates, (t[0], t[-1]), [I_p0, L_i0, V_CB0], t_eval=t,
+        rtol=rtol, atol=1e-12 * scale, method="RK45", events=current_collapses,
+    )
+    if solution.status == 1:
+        raise ValueError(
+            "the plasma current falls to 0.1 % of its initial value at "
+            f"t = {solution.t_events[0][0]:.6g} s; L_i is undefined through a "
+            "reversal -- end the window before it"
+        )
+    if not solution.success:
+        raise ValueError(f"the closure could not be integrated: {solution.message}")
+    current, inductance, relative = solution.y
+    return {
+        "time": t,
+        "I_p": current,
+        "L_i": inductance,
+        "V_CB": relative,
+        "V_C": v_b + relative,
+        "V_R": r_p * (current - i_ni),
+    }
+
+
+try:  # pragma: no branch - direct source-file imports have no package context
+    from ._equilibrium_coil_fit import CoilFitResult, fit_free_boundary_coils  # noqa: E402,F401
+except ImportError:
+    from vaft.process._equilibrium_coil_fit import CoilFitResult, fit_free_boundary_coils  # noqa: E402,F401

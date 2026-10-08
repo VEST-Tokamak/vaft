@@ -81,6 +81,14 @@ def virial_magnetic_energy(B: np.ndarray,
     ---------------
     A Riemann sum, first order in the cell size.
 
+    Reduction
+    ---------
+    input: field_2d
+    output: scalar_0d
+    kind: quadratic_integral
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] V. D. Shafranov, in *Reviews of Plasma Physics*, Vol. 2, Consultants
@@ -152,6 +160,14 @@ def virial_thermal_energy(n: np.ndarray,
     -----------
     Equal-volume samples (``V`` is the cell volume); three degrees of freedom.
 
+    Reduction
+    ---------
+    input: field_2d
+    output: scalar_0d
+    kind: integral
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] V. D. Shafranov, in *Reviews of Plasma Physics*, Vol. 2, Consultants
@@ -202,7 +218,13 @@ def virial_theorem(W_mag: float,
 def virial_stability_criterion(W_mag: float,
                              W_kin: float,
                              W_th: float) -> Tuple[float, float]:
-    r"""Virial-ratio margin against the heuristic threshold $r_v = 0.5$.
+    r"""Deprecated: the virial ratio minus an unsourced threshold 0.5; use :func:`virial_theorem`.
+
+    The threshold 0.5 has no recorded derivation or source. The scalar virial
+    theorem constrains equilibrium, not stability, so a margin against it is
+    not a stability verdict (#366). The ratio itself is the second return of
+    :func:`virial_theorem`. This shim returns the same numbers as before and
+    emits a ``DeprecationWarning``.
 
     $$\Delta = r_v - 0.5, \qquad
       r_v = \frac{W_{\mathrm{kin}} + W_{\mathrm{th}}}{W_{\mathrm{mag}}}$$
@@ -223,20 +245,24 @@ def virial_stability_criterion(W_mag: float,
     critical_ratio : float
         The threshold 0.5 [-].
 
-    Limitations
-    -----------
-    The threshold 0.5 is labelled "theoretical value for stability" in the
-    original VAFT source but no derivation or reference for it was recorded;
-    the scalar virial theorem constrains equilibrium, not stability.  Treat the
-    margin as a bookkeeping diagnostic.  Tracked in #366.
+    See Also
+    --------
+    virial_theorem : the virial ratio $r_v$ without a threshold.
 
     References
     ----------
     .. [1] V. D. Shafranov, in *Reviews of Plasma Physics*, Vol. 2, Consultants
            Bureau (1966), p. 103.
     """
-    W_total, virial_ratio = virial_theorem(W_mag, W_kin, W_th)
-    critical_ratio = 0.5  # Theoretical value for stability
+    warnings.warn(
+        "`virial_stability_criterion` is deprecated: its threshold 0.5 has no source and the "
+        "virial theorem constrains equilibrium, not stability (#366). Use "
+        "`virial_theorem(W_mag, W_kin, W_th)[1]` for the virial ratio.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    _, virial_ratio = virial_theorem(W_mag, W_kin, W_th)
+    critical_ratio = 0.5
     return virial_ratio - critical_ratio, critical_ratio
 def virial_beta_p_from_volume(p: np.ndarray,
                               dV: np.ndarray,
@@ -276,6 +302,14 @@ def virial_beta_p_from_volume(p: np.ndarray,
     ---------------
     Plain weighted sum over the supplied cells.
 
+    Reduction
+    ---------
+    input: field_2d, scalar_0d
+    output: scalar_0d
+    kind: integral
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
@@ -313,6 +347,14 @@ def virial_li_from_volume(B_p: np.ndarray,
     ----------
     Lao/EFIT normalisation by $B_{pa}$; not the IMAS $l_{i,3}$ (normalised by
     $(\mu_0 I_p)^2 R_0/2$) nor the cylindrical $l_i$.
+
+    Reduction
+    ---------
+    input: field_2d, scalar_0d
+    output: scalar_0d
+    kind: quadratic_integral
+    locality: global
+    role: global_descriptor
 
     References
     ----------

@@ -1,0 +1,89 @@
+# The published VAFT Python API (issue #162).
+#
+# `python -m vaft._api_catalog` documents every public module (no `_` in its
+# dotted name) that declares `__all__`: `__all__` is the module's own statement
+# of what it publishes, and this file only says how the modules are grouped
+# into pages.  `docs/scripts/catalog_coverage.py` fails the build when
+#
+#   * a public module declares no `__all__` and is not listed under
+#     `undeclared` -- a new module has to say what it publishes, or be listed
+#     here as publishing nothing yet;
+#   * a module listed under `undeclared` declares `__all__` or no longer
+#     exists -- the list is stale;
+#   * a public module belongs to no page below.
+#
+# `scripts` lists module prefixes that are scripts rather than API: issue
+# studies run with `python -m` (#1756).  The catalog and the coverage check
+# skip them and never import them -- they import optional solver toolkits
+# at module level.
+#
+# Order is page order.  `modules` are dotted prefixes covering a module and its
+# submodules (the longest match wins), except `vaft`, which covers only itself.
+pages:
+  - slug: core
+    title: Top level and utilities
+    # vaft.spectroscopy is a deprecated alias of vaft.data.atomic and
+    # vaft.data.spectroscopy (#1711), listed here until its removal in 0.10.0.
+    modules: [vaft, vaft.compat, vaft.ods_access, vaft.spectroscopy, vaft.version]
+  - slug: database
+    title: vaft.database
+    modules: [vaft.database]
+  - slug: data
+    title: vaft.data
+    modules: [vaft.data]
+  - slug: machine-mapping
+    title: vaft.machine_mapping
+    modules: [vaft.machine_mapping]
+  - slug: omas
+    title: vaft.omas
+    modules: [vaft.omas]
+  - slug: imas
+    title: vaft.imas
+    modules: [vaft.imas]
+  - slug: process
+    title: vaft.process
+    modules: [vaft.process]
+  - slug: formula
+    title: vaft.formula
+    modules: [vaft.formula]
+  - slug: plot
+    title: vaft.plot
+    modules: [vaft.plot]
+  - slug: diagram
+    title: vaft.diagram
+    modules: [vaft.diagram]
+  - slug: validation
+    title: vaft.validation
+    modules: [vaft.validation]
+  - slug: code
+    title: vaft.code
+    modules: [vaft.code]
+  - slug: gui
+    title: vaft.gui
+    modules: [vaft.gui]
+  - slug: cli
+    title: vaft.cli
+    modules: [vaft.cli]
+  - slug: mcp
+    title: vaft.mcp
+    modules: [vaft.mcp]
+
+# Script trees under the package: not API, never imported here.
+scripts:
+  - vaft.validation.studies
+
+# Public-looking modules that declare no `__all__`, so publish nothing yet.
+# Declaring `__all__` in one of them publishes it: remove it from this list.
+undeclared:
+  - vaft.deploy
+  - vaft.deploy.gui
+  - vaft.diagram.build
+  - vaft.plot.analysis
+  - vaft.plot.backend
+  - vaft.plot.backend.convention
+  - vaft.plot.history
+  - vaft.plot.mirnov
+  - vaft.plot.onedim
+  - vaft.plot.profile
+  - vaft.plot.time
+  - vaft.plot.twodim

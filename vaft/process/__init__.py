@@ -39,9 +39,12 @@ _SUBMODULES = {
     "cocos": ".cocos",
     "electromagnetics": ".electromagnetics",
     "equilibrium": ".equilibrium",
+    "field_line_topology": ".field_line_topology",
     "fluctuation": ".fluctuation",
     "impa": ".impa",
     "langmuir": ".langmuir",
+    "line_of_sight": ".line_of_sight",
+    "magnetic_island": ".magnetic_island",
     "magnetics": ".magnetics",
     "numerical": ".numerical",
     "onset": ".onset",
@@ -50,8 +53,22 @@ _SUBMODULES = {
     "signal_processing": ".signal_processing",
     "soft_x_rays": ".soft_x_rays",
     "statistical_analysis": ".statistical_analysis",
+    "transients": ".transients",
     "wall_modes": ".wall_modes",
     "coils_non_axisymmetric": ".coils_non_axisymmetric",
+    "ml": ".ml",
+    "nbi": ".nbi",
+    "profile_gradients": ".profile_gradients",
+    "resistive_zeff": ".resistive_zeff",
+    "transport_state": ".transport_state",
+    "confinement": ".confinement",
+    "impurity": ".impurity",
+    "species": ".species",
+    "kinetic_closure": ".kinetic_closure",
+    "zeff_projection": ".zeff_projection",
+    "mode_frequency": ".mode_frequency",
+    "mhd_stability": ".mhd_stability",
+    "core_q_context": ".core_q_context",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -85,6 +102,47 @@ _IMPORT_ORDER = (
     "wall_modes",
     "coils_non_axisymmetric",
     "camera_fluctuation",
+    "line_of_sight",
+    "magnetic_island",
+    # The FLARE interoperability half of #1099; nothing it exports collides.
+    "field_line_topology",
+    # A subpackage (#669); it imports NumPy only, its ML frameworks on first use.
+    "ml",
+    "transients",
+    # The reduced NBI reference layer (#1136); nothing it exports collides.
+    "nbi",
+    # Coordinate, gradient coordinate and reference length kept apart (#551);
+    # nothing it exports collides.
+    "profile_gradients",
+    # Resistive Z_eff from the transformer balance (#1214); nothing it exports
+    # collides.
+    "resistive_zeff",
+    # One resolved plasma state shared by TGLF, NEO and classical (#1428);
+    # nothing it exports collides.
+    "transport_state",
+    # Confinement power balance and slice qualification (#548); nothing it
+    # exports collides.
+    "confinement",
+    # One resolved impurity composition behind every Z_eff (#1565); nothing it
+    # exports collides.
+    "impurity",
+    # Canonical species/population state and its projections (#1567); nothing it
+    # exports collides.
+    "species",
+    # Dilution-aware pressure and the classical fast-ion baseline (#1606); nothing
+    # it exports collides.
+    "kinetic_closure",
+    # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
+    "zeff_projection",
+    # Predicted mode-frequency tracks from rotation at q = m/n (#460); nothing
+    # it exports collides.
+    "mode_frequency",
+    # DCON local-criterion and edge-scan post-processing from the ODS payload
+    # (#940); nothing it exports collides.
+    "mhd_stability",
+    # Equilibrium context for core low-n MHD (#1798): q landmarks, rational
+    # crossings, low-shear regions, boundary topology; nothing it exports collides.
+    "core_q_context",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

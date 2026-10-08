@@ -21,6 +21,12 @@ VAFT stores **every** VEST shot — raw diagnostics, processed signals, equilibr
 [IMAS](https://imas.iter.org/) data model. There is no VEST-specific container format: if you know the IMAS
 Data Dictionary, you already know how to read VEST data.
 
+The standard representation complements the native scientific artifacts (gEQDSK files, solver
+outputs, camera and diagnostic files); it does not replace them. Native artifacts are stored alongside
+the IMAS database:
+
+![Interoperability layers]({{ site.baseurl }}/assets/diagrams/interoperability_layers.svg)
+
 Two libraries are involved, and it is worth keeping them straight.
 
 | | **IMAS** | **OMAS** |
@@ -299,7 +305,7 @@ paths are **category-prefixed**; flat calls such as `data_path("39915.json")` ar
 | Call | Content |
 |---|---|
 | `vaft.data.sample(39915)` | ODS sample (also `41524` and `41672` — see `vaft.data.available_samples()`) |
-| `vaft.data.sample(39915, representation="imas")` | the same shot as an IMAS NetCDF container |
+| `vaft.data.sample(39915, representation="imas")` | the same shot as an IMAS NetCDF container (repository checkout only: the wheel ships the OMAS form, which `vaft.imas.load` also reads) |
 | `data_path("efit/g039915.00319")` | GEQDSK sample |
 | `data_path("legacy/shot_44740.json.gz")` | gzipped raw-DAQ dump used by the offline loader |
 
@@ -579,7 +585,8 @@ with imas.DBEntry("vest_39915.nc", "w") as dbentry:
     dbentry.put(equilibrium)
 ```
 
-The packaged `vaft.data.sample(39915, representation="imas")` artifact is exactly such a container.
+The repository sample `vaft.data.sample(39915, representation="imas")` is exactly such a container
+(it is not in the PyPI distribution, which ships only the OMAS form of 39915).
 
 If you are staying inside OMAS, its own NetCDF backend serialises a whole ODS (all IDSs at once):
 

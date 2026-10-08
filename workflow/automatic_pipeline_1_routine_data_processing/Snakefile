@@ -12,7 +12,13 @@ from pathlib import Path
 # --------------------------------------------------------------------------- #
 # 0) Configuration file
 # --------------------------------------------------------------------------- #
-configfile: "config.yaml"
+# The workflow's own defaults, located by this Snakefile rather than by the
+# working directory: a bare "config.yaml" resolves against `--directory`, so a
+# run launched with `--directory <run dir> --configfile <run dir>/config.yaml`
+# re-read its own partial config and never loaded this one -- every unset key
+# fell back to a code default (efit.run false, no eddy filament, #1530).
+# Command-line `--configfile` files are deep-merged over these.
+configfile: str(Path(workflow.basedir) / "config.yaml")
 
 
 _ENV_REFERENCE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))")
@@ -42,7 +48,17 @@ config.update(_expand_config_environment(config))
 # --------------------------------------------------------------------------- #
 SCRIPT_DIR = Path(workflow.basedir)
 sys.path.insert(0, str(SCRIPT_DIR))
-from paths import FILEDB, PipelinePaths, solver_module, stability_product
+from paths import (
+    FILEDB,
+    PipelinePaths,
+    require_run_config_keys,
+    select_efit_table,
+    solver_module,
+    stability_product,
+    stage_scope,
+)
+
+require_run_config_keys(workflow)
 
 from vaft.database.sources import STAGE_REPLICATION, replicable_stages
 from vaft.omas.vest_upstream import machine_era_for_shot
@@ -62,6 +78,39 @@ IMPA_CONFIG = config.get("impa", {}) or {}
 EDDY_CONFIG = config.get("eddy", {})
 CONSTRAINTS_CONFIG = config.get("constraints", {})
 EFIT_CONFIG = config.get("efit", {})
+# Named EFIT configuration (vaft.code.efit.PRESETS). Empty is the library
+# default (statistical_891 since 2026-10-01); `routine` is the legacy one.
+# Checked here so a typo fails the DAG, not every shot's k-file job.
+EFIT_PRESET = EFIT_CONFIG.get("preset") or None
+if EFIT_PRESET:
+    from vaft.code.efit import efit_preset as _efit_preset
+    _efit_preset(EFIT_PRESET)
+# The basis the constraints product records follows the k-file configuration
+# unless constraints.npprime/nffprime override it.
+from vaft.code.efit.presets import PRESETS as _EFIT_PRESETS, DEFAULT_PRESET as _DEFAULT_EFIT_PRESET
+EFIT_PROFILE = _EFIT_PRESETS[EFIT_PRESET or _DEFAULT_EFIT_PRESET].scientific.profile
+# Per-era Green tables. `efit.table_dir` is the base table, and a shot of its
+# own era uses it exactly as configured. A shot of another era gets a table the
+# pipeline builds once per era (rule generate_efit_table) with the base table's
+# grid and flags, so only the machine geometry differs (#805). `era_tables:
+# false` keeps the base table for every shot, which the constraint stage then
+# refuses for other eras.
+from vaft.code.efit.efund import read_table_manifest as _read_table_manifest
+
+EFIT_BASE_TABLE_DIR = EFIT_CONFIG.get("table_dir", "")
+EFIT_ERA_TABLES = bool(EFIT_CONFIG.get("era_tables", True))
+_EFIT_BASE_MANIFEST = _read_table_manifest(EFIT_BASE_TABLE_DIR) if EFIT_BASE_TABLE_DIR else None
+EFIT_BASE_ERA = ((_EFIT_BASE_MANIFEST or {}).get("machine") or {}).get("era") or None
+EFIT_TABLE_SUFFIX = ((_EFIT_BASE_MANIFEST or {}).get("table") or {}).get("suffix") or None
+EFIT_BASE_IDENTITY = "{}:{}".format(
+    ((_EFIT_BASE_MANIFEST or {}).get("table") or {}).get("identity", ""),
+    ((_EFIT_BASE_MANIFEST or {}).get("efund") or {}).get("config_sha256", ""),
+)
+# Operational settings of rule generate_efit_table, handed over through the
+# environment so that changing them never reruns the rule (see its params).
+os.environ["VAFT_EFIT_BASE_TABLE_DIR"] = str(EFIT_BASE_TABLE_DIR)
+os.environ["VAFT_EFUND"] = str(EFIT_CONFIG.get("efund", "") or "")
+os.environ["VAFT_EFUND_TIMEOUT"] = str(EFIT_CONFIG.get("efund_timeout", "") or "")
 VEST_CONFIG = config.get("vest", {})
 CHEASE_CONFIG = config.get("chease", {})
 # The lineage this run produces. `PipelinePaths` resolves every product under
@@ -144,8 +193,11 @@ if HSDS_CONFIG.get("replicate", False) and PATHS.layout != FILEDB:
 # An optional stage is not part of the baseline target set: its shots are a
 # sparse subset chosen by its own checkpoint, and a shot that never produced it
 # must not read as a missing baseline output (issue #305). Which stages are
-# optional is the registry's answer, not this file's.
-_ALL_REPLICABLE = tuple(replicable_stages()) if REPLICATION_ENABLED else ()
+# optional is the registry's answer, not this file's. Only the routine stages:
+# the corrective ones (Thomson lineage, soft X-ray, camera, ...) have their own
+# producers and no rule here, so asking for their records -- which the IMPA
+# branch did whenever impa.enable and replication were both on -- failed the DAG.
+_ALL_REPLICABLE = tuple(replicable_stages(produced_by="routine")) if REPLICATION_ENABLED else ()
 REPLICATED_STAGES = tuple(
     stage for stage in _ALL_REPLICABLE if not STAGE_REPLICATION[stage].optional
 )
@@ -160,10 +212,20 @@ OPTIONAL_REPLICATED_STAGES = tuple(
 PER_PRODUCT_REPLICATED_STAGES = {"mhd_linear": GPEC_STABILITY_MODULES}
 
 
+#: Which per-shot stages `rule all` requests (#58). Absent: all of them. A
+#: stage outside the scope is never scheduled, so its products, plots and
+#: replication records are not asked for either.
+STAGE_SCOPE = stage_scope(config.get("stages"))
+
+
+def in_scope(stage):
+    return STAGE_SCOPE is None or stage in STAGE_SCOPE
+
+
 def replication_records(shots, stages=None):
     records = []
     for shot in shots:
-        for stage in (REPLICATED_STAGES if stages is None else stages):
+        for stage in ([s for s in REPLICATED_STAGES if in_scope(s)] if stages is None else stages):
             products = PER_PRODUCT_REPLICATED_STAGES.get(stage)
             if products is None:
                 records.append(PATHS.replication_record(shot, stage))
@@ -211,15 +273,19 @@ def validation_plot_products(shots):
             outputs.append(PATHS.raw_plot(shot, name))
         outputs.append(PATHS.raw_plot_manifest(shot))
         for stage in ("diagnostics", "eddy", "efit", "chease"):
+            if not in_scope(stage):
+                continue
             if stage not in EMPTY_VALIDATION_STAGES:
                 for name in stage_plot_filenames(stage, required_only=True):
                     outputs.append(PATHS.stage_plot(shot, stage, name))
             outputs.append(PATHS.stage_plot_manifest(shot, stage))
         # `mhd_linear` is one stage product per stability product (#787), so its
         # plot manifest is one per product too -- the one `plot_mhd_linear` writes.
-        for module in GPEC_STABILITY_MODULES:
-            outputs.append(PATHS.stage_plot_manifest(shot, "mhd_linear", module))
-        outputs.append(PATHS.chease_plot_manifest(shot))
+        if in_scope("mhd_linear"):
+            for module in GPEC_STABILITY_MODULES:
+                outputs.append(PATHS.stage_plot_manifest(shot, "mhd_linear", module))
+        if in_scope("chease"):
+            outputs.append(PATHS.chease_plot_manifest(shot))
     return outputs
 
 
@@ -250,6 +316,25 @@ def eddy_filament(name):
     return csv(EDDY_CONFIG.get("filament", {}).get(name, []))
 
 
+def efit_table_selection(wildcards):
+    return select_efit_table(
+        machine_era_for_shot(int(wildcards.shot)).name,
+        base_table_dir=EFIT_BASE_TABLE_DIR,
+        base_era=EFIT_BASE_ERA,
+        suffix=EFIT_TABLE_SUFFIX,
+        paths=PATHS,
+        era_tables=EFIT_ERA_TABLES,
+    )
+
+
+def efit_table_dir_for_shot(wildcards):
+    return efit_table_selection(wildcards)[0]
+
+
+def efit_table_inputs_for_shot(wildcards):
+    return efit_table_selection(wildcards)[1]
+
+
 def static_ods_for_shot(wildcards):
     """The static machine ODS covering this shot's era."""
     return PATHS.static_ods(machine_era_for_shot(int(wildcards.shot)).name)
@@ -276,33 +361,59 @@ def impa_pipeline_outputs(wildcards):
     """The optional IMPA branch, kept out of the baseline target set."""
     if not IMPA_ENABLED:
         return []
-    shots = impa_shots(wildcards)
+    return impa_outputs(impa_shots(wildcards))
+
+
+def impa_outputs(shots):
+    """What the IMPA branch builds for ``shots``, once they are selected."""
     outputs = [PATHS.impa_ods(shot) for shot in shots]
     outputs += [PATHS.impa_manifest(shot) for shot in shots]
     outputs += replication_records(shots, OPTIONAL_REPLICATED_STAGES)
     return outputs
 
 
+def scoped_gpec_codes():
+    """The GPEC-suite cells `rule all` asks for: per stage, not all-or-nothing.
+
+    `mhd_linear` owns the DCON/RDCON/STRIDE cells and `gpec_ideal` the
+    ideal-GPEC one; the DCON cell ideal GPEC reads arrives through its own
+    rule's input. Unscoped, every configured cell, exactly as before.
+    """
+    if STAGE_SCOPE is None:
+        return GPEC_PATH_CODES
+    codes = [stability_product(module) for module in GPEC_STABILITY_MODULES] if in_scope("mhd_linear") else []
+    if "gpec" in GPEC_MODULES and in_scope("gpec_ideal"):
+        codes.append(stability_product("gpec"))
+    return codes
+
+
 def eligible_pipeline_outputs(wildcards):
-    shots = eligible_shots(wildcards)
-    products = [
-        "diagnostics_ods",
-        "diagnostics_manifest",
-        "eddy_ods",
-        "eddy_manifest",
-        "constraints_ods",
-        "kfile_manifest",
-        "gfile_manifest",
-        "efit_status",
-        "efit_artifact_manifest",
-        "efit_ods",
-        "efit_manifest",
-        "chease_refined",
-        "chease_status",
-        "chease_ods",
-        "chease_manifest",
+    return pipeline_outputs(eligible_shots(wildcards))
+
+
+def pipeline_outputs(shots):
+    """Every per-shot product `rule all` requests for ``shots``, once they pass preflight."""
+    products = {
+        "diagnostics": ("diagnostics_ods", "diagnostics_manifest"),
+        "eddy": ("eddy_ods", "eddy_manifest"),
+        "efit": (
+            "constraints_ods",
+            "kfile_manifest",
+            "gfile_manifest",
+            "efit_status",
+            "efit_artifact_manifest",
+            "efit_ods",
+            "efit_manifest",
+        ),
+        "chease": ("chease_refined", "chease_status", "chease_ods", "chease_manifest"),
+    }
+    outputs = [
+        getattr(PATHS, product)(shot)
+        for stage, names in products.items()
+        if in_scope(stage)
+        for product in names
+        for shot in shots
     ]
-    outputs = [getattr(PATHS, product)(shot) for product in products for shot in shots]
     # One mhd_linear per stability product, not one per shot: the toroidal_mode
     # AOS is a dense (time, n_tor) grid, so two products sharing one stage
     # product would overwrite each other.
@@ -311,8 +422,9 @@ def eligible_pipeline_outputs(wildcards):
         for name in ("mhd_linear_ods", "mhd_linear_manifest")
         for shot in shots
         for module in GPEC_STABILITY_MODULES
+        if in_scope("mhd_linear")
     ]
-    if "gpec" in GPEC_MODULES:
+    if "gpec" in GPEC_MODULES and in_scope("gpec_ideal"):
         outputs += [
             getattr(PATHS, name)(shot, "gpec")
             for name in ("gpec_ideal_ods", "gpec_ideal_manifest")
@@ -321,7 +433,7 @@ def eligible_pipeline_outputs(wildcards):
     outputs += [
         PATHS.gpec_module_status(shot, code, mode)
         for shot in shots
-        for code in GPEC_PATH_CODES
+        for code in scoped_gpec_codes()
         for mode in GPEC_MODES
     ]
     outputs += validation_plot_products(shots)
@@ -342,6 +454,28 @@ rule all:
         static_validation_plot_products(),
         eligible_pipeline_outputs,
         impa_pipeline_outputs
+
+
+# Every product `rule all` reaches for the configured shots, with the preflight
+# and IMPA-selection checkpoints taken as passed: what the DAG looks like for a
+# shot that is eligible (and, with impa.enable, archives IMPA). A dry run cannot
+# see past a checkpoint, so this is how the documentation's lineage graph
+# (vaft._pipeline_graph, #1647) asks Snakemake for the whole topology. Never the
+# default target, and never run: it skips the gate production relies on. Defined
+# only under `documentation_graph: true`, so a production parse never resolves
+# every product of every configured shot for a target it will not ask for.
+if config.get("documentation_graph", False):
+    rule configured_products:
+        input:
+            [PATHS.raw_dump(shot) for shot in SHOTS],
+            [PATHS.raw_manifest(shot) for shot in SHOTS],
+            [PATHS.static_ods(version) for version in MACHINE_VERSIONS],
+            [PATHS.static_manifest(version) for version in MACHINE_VERSIONS],
+            PATHS.preflight_eligible(),
+            PATHS.preflight_excluded(),
+            static_validation_plot_products(),
+            pipeline_outputs(SHOTS),
+            impa_outputs(SHOTS) if IMPA_ENABLED else []
 
 ############################################################
 # DAQ Raw Data Extraction
@@ -556,7 +690,10 @@ rule generate_constraints_ods:
     input:
         eddy=PATHS.shot_pattern("eddy_ods"),
         diagnostics=PATHS.shot_pattern("diagnostics_ods"),
-        eddy_manifest=PATHS.shot_pattern("eddy_manifest")
+        eddy_manifest=PATHS.shot_pattern("eddy_manifest"),
+        # Empty for a shot of the base table's era, so its inputs -- and
+        # therefore Snakemake's rerun decision -- are what they always were.
+        efit_table=efit_table_inputs_for_shot
     output:
         ods=PATHS.shot_pattern("constraints_ods")
     log:
@@ -568,11 +705,11 @@ rule generate_constraints_ods:
         detect_broken=bool_text(CONSTRAINTS_CONFIG.get("detect_broken", False)),
         fl_correct_option=CONSTRAINTS_CONFIG.get("fl_correct_option", 0),
         gaussian_fit_option=CONSTRAINTS_CONFIG.get("gaussian_fit_option", 1),
-        npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
-        nffprime=CONSTRAINTS_CONFIG.get("nffprime", 2),
+        npprime=CONSTRAINTS_CONFIG.get("npprime", EFIT_PROFILE.kppcur),
+        nffprime=CONSTRAINTS_CONFIG.get("nffprime", EFIT_PROFILE.kffcur),
         uncertainty=csv(CONSTRAINTS_CONFIG.get("uncertainty", DEFAULT_UNCERTAINTY)),
         weighting=csv(CONSTRAINTS_CONFIG.get("weighting", DEFAULT_WEIGHTING)),
-        efit_table_dir=EFIT_CONFIG.get("table_dir", "")
+        efit_table_dir=efit_table_dir_for_shot
     conda:
         CONDA if CONDA else None
     shell:
@@ -599,6 +736,40 @@ rule generate_constraints_ods:
         """
 
 ############################################################
+# Per-era EFIT Green table (#805)
+############################################################
+if EFIT_ERA_TABLES and EFIT_BASE_ERA and EFIT_TABLE_SUFFIX:
+    rule generate_efit_table:
+        output:
+            manifest=PATHS.efit_table_manifest("{machine_version}", EFIT_TABLE_SUFFIX)
+        log:
+            PATHS.efit_table_dir("{machine_version}", EFIT_TABLE_SUFFIX) + ".log"
+        wildcard_constraints:
+            # An era name, never a path segment: keeps the suffix out of it.
+            machine_version="vest-[a-z0-9]+(-[a-z0-9]+)*?"
+        params:
+            # What the table is built *from* -- the base table's contents and
+            # EFUND configuration -- and nothing else. A replaced base table
+            # rebuilds every generated one; moving it, or the efund binary, or
+            # changing the timeout does not, because those reach the job
+            # through the environment below and are not params Snakemake
+            # would rerun on (a rerun here reruns EFIT for the whole era).
+            base_identity=EFIT_BASE_IDENTITY
+        conda:
+            CONDA if CONDA else None
+        shell:
+            """
+            mkdir -p "$(dirname {log})"
+            python {SCRIPT_DIR}/generate_efit_table.py \
+                --era {wildcards.machine_version} \
+                --base-table-dir "$VAFT_EFIT_BASE_TABLE_DIR" \
+                --output-dir "$(dirname {output.manifest})" \
+                --efund "$VAFT_EFUND" \
+                --timeout "$VAFT_EFUND_TIMEOUT" \
+                > {log} 2>&1
+            """
+
+############################################################
 # EFIT Input/Execution/ODS
 ############################################################
 rule generate_kfile:
@@ -609,8 +780,10 @@ rule generate_kfile:
     log:
         PATHS.shot_pattern("log", "generate_kfile")
     params:
-        npprime=CONSTRAINTS_CONFIG.get("npprime", 2),
-        nffprime=CONSTRAINTS_CONFIG.get("nffprime", 2)
+        # A named preset (efit.preset) carries its own profile basis, sigma
+        # and termination. Empty is the library default (statistical_891), which generate_kfile.py
+        # records like any named preset; `routine` is the legacy opt-out.
+        configuration=f"--preset {EFIT_PRESET}" if EFIT_PRESET else ""
     conda:
         CONDA if CONDA else None
     shell:
@@ -620,8 +793,7 @@ rule generate_kfile:
             --shot {wildcards.shot} \
             --constraints-ods {input.constraints} \
             --output {output.manifest} \
-            --npprime {params.npprime} \
-            --nffprime {params.nffprime} \
+            {params.configuration} \
             > {log} 2>&1
         """
 
@@ -1077,7 +1249,14 @@ rule run_chease:
         timeout=CHEASE_CONFIG.get("timeout", ""),
         target_psin=CHEASE_CONFIG.get("target_psin", 0.993),
         relax=CHEASE_CONFIG.get("relax", 0.5),
-        nideal=CHEASE_CONFIG.get("nideal", 6),
+        # Deprecated raw NIDEAL for a non-upstream CHEASE build (#516); the
+        # adapter selects it from its GEQDSK output contract otherwise.
+        mesh_args=" ".join(
+            f"--{key} {int(CHEASE_CONFIG[key])}" for key in ("ns", "nt") if CHEASE_CONFIG.get(key) is not None
+        ),
+        nideal_arg=(
+            f"--nideal {int(CHEASE_CONFIG['nideal'])}" if CHEASE_CONFIG.get("nideal") is not None else ""
+        ),
         nw=CHEASE_CONFIG.get("nw", 513),
         auto_cocos=bool_text(CHEASE_CONFIG.get("auto_cocos", True)),
         output_cocos=CHEASE_CONFIG.get("output_cocos", "input"),
@@ -1101,7 +1280,8 @@ rule run_chease:
             --timeout "{params.timeout}" \
             --target-psin {params.target_psin} \
             --relax {params.relax} \
-            --nideal {params.nideal} \
+            {params.nideal_arg} \
+            {params.mesh_args} \
             --nw {params.nw} \
             --auto-cocos {params.auto_cocos} \
             --output-cocos "{params.output_cocos}" \

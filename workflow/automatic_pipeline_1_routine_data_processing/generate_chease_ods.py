@@ -83,10 +83,13 @@ def _provenance_inputs(runs_summary: dict) -> list[dict]:
 
 def _records_summary(runs_summary: dict[str, Any]) -> list[dict[str, Any]]:
     """Per-input-gfile status, including slices that were never refined."""
-    return [
-        {"input": record.get("input", ""), "status": record.get("status", "unknown")}
-        for record in runs_summary.get("records", [])
-    ]
+    summary = []
+    for record in runs_summary.get("records", []):
+        item = {"input": record.get("input", ""), "status": record.get("status", "unknown")}
+        if record.get("solver"):
+            item["solver"] = record["solver"]
+        summary.append(item)
+    return summary
 
 
 def _comparison_metrics_by_time_index(

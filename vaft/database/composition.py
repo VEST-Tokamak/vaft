@@ -31,7 +31,14 @@ from .filedb import OMAS_MANIFEST_NAME
 #: field, the vertical-field sensors are poloidal-plane probes.
 _PROBE_NODES = ("magnetics.b_field_tor_probe", "magnetics.b_field_pol_probe")
 
-__all__ = ["compose", "compose_stage_products", "impa_channels"]
+__all__ = [
+    "EddyNoOutputError",
+    "StageCompositionError",
+    "compose",
+    "compose_stage_products",
+    "eddy_no_output_reason",
+    "impa_channels",
+]
 
 
 def _probe_count(ods: Any, node: str) -> int:
@@ -113,6 +120,34 @@ def compose(
 
 class StageCompositionError(Exception):
     """Two stage products that cannot be composed into one shot."""
+
+
+class EddyNoOutputError(StageCompositionError):
+    """The eddy stage finished ``no_output``: there are no passive currents to compose.
+
+    The eddy stage records a shot whose inputs do not exist in the data (a PF
+    circuit that was not recorded, #1568) as a result rather than a failure.
+    Composition refuses it by name, so the EFIT constraint builder can record
+    EFIT as not applicable with the reason (#205) and the eddy validation
+    figures can be skipped knowingly.
+    """
+
+    def __init__(self, path: Path, reason: str) -> None:
+        super().__init__(f"the eddy stage produced no output for {path}: {reason}")
+        self.reason = reason
+
+
+def eddy_no_output_reason(eddy_manifest: str | Path | None) -> str | None:
+    """The recorded reason when ``eddy_manifest`` says ``no_output``, else ``None``."""
+    if eddy_manifest is None:
+        return None
+    try:
+        manifest = json.loads(Path(eddy_manifest).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(manifest, dict) or str(manifest.get("status", "")).lower() != "no_output":
+        return None
+    return str(manifest.get("eddy_status") or "no reason recorded")
 
 
 def _sha256_file(path: Path) -> str:
@@ -201,6 +236,10 @@ def compose_stage_products(
     """
     diagnostics_path = Path(diagnostics)
     eddy_path = Path(eddy)
+
+    reason = eddy_no_output_reason(eddy_manifest)
+    if reason is not None:
+        raise EddyNoOutputError(eddy_path, reason)
 
     composed = _load_product(diagnostics_path)
     eddy_ods = _load_product(eddy_path)

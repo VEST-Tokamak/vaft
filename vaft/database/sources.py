@@ -739,6 +739,17 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
         produced_by="corrective",
         note="high-frame-rate camera lineage; kept out of the baseline camera product",
     ),
+    # What the operators *planned* -- diagnostic, heating and gas trigger
+    # windows logged in the ShotLog -- as opposed to anything measured. Sparse
+    # (the structured card exists only from 2023) and hand-typed, so it is
+    # optional and corrective like the other file-archive diagnostics (#995).
+    "shotlog": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("pulse_schedule",),
+        optional=True,
+        produced_by="corrective",
+        note="operator-logged schedule; a shot absent from the ShotLog is recorded, not raised",
+    ),
 }
 
 #: Stages whose destination is a function of the stability product, so that no

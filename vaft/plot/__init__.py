@@ -16,7 +16,7 @@ for example :func:`plasma_current_time`, :func:`equilibrium_profile_pressure`, a
 domains, ``machine`` for cross-IDS machine views and ``summary`` for cross-IDS
 summary panels.  ``<view>`` is one of ``time``, ``profile``, ``field``,
 ``geometry``, ``spectrum``, ``spectrogram``, ``overview``, ``image``,
-``animation``.  ``<quantity>`` may be dropped when the domain and view are
+``animation``, ``table``, ``text``.  ``<quantity>`` may be dropped when the domain and view are
 already unambiguous, as in ``soft_x_rays_spectrogram``.
 
 There is no redundant ``plot_`` prefix here; adapter layers and object methods
@@ -44,7 +44,31 @@ Every canonical renderer has this shape::
 * The return value is ``(Figure, Axes)``, or ``(Figure, ndarray[Axes])`` for
   multi-panel renderers -- with one exception: ``<domain>_animation_<quantity>``
   renderers return ``(Figure, Axes, FuncAnimation)``, since none of the other
-  view kinds models a time animation.
+  view kinds models a time animation.  (A movie of any plot is the adapter's
+  ``animation=True``, which draws the plot over its slice control and returns
+  a lazy result with ``save("x.mp4")``; see :func:`vaft.plot.backend.render.render_entries`.)
+
+Tables and text summaries
+-------------------------
+
+Not every scientific view is a figure.  A ``<subject>_table_<content>`` or
+``<subject>_text_<content>`` view (issue #1180) goes through the same three
+steps as a plot -- the adapter selects and reduces the data (a slice is
+chosen, metrics are computed), builds a typed model
+(:class:`~vaft.plot.models.Table`, :class:`~vaft.plot.models.TextSummary`)
+that keeps numbers, stored units and classifications rather than formatted
+strings, and a renderer presents it -- but the presentation is text.  Its
+renderer (:func:`render_table`, :func:`render_text_summary`) returns a
+:class:`RenderedTable` / :class:`RenderedTextSummary` instead of
+``(Figure, Axes)``: it prints as fixed-width text, shows as an HTML table in a
+notebook, exports with ``.text()``/``.markdown()``/``.html()``, and formats
+numbers through the display policy (an ampere current is shown in kA).
+``show=True`` prints it; ``ax=``, ``format=``, ``theme=``, ``figure_options=``
+and ``backend="plotly"`` are Matplotlib presentation keywords and are refused.
+:class:`~vaft.plot.models.TextPanel` stays what it was: text placed *inside* a
+figure.  ``extract_*`` returns the model, so the scientific reduction is
+inspectable apart from its presentation, and ``vaft extract`` serialization
+is not duplicated -- a table is a view, not an export format.
 
 Renderers take a typed view model from :mod:`vaft.plot.models` plus styling and
 layout options, and nothing else.  None of them interprets an OMAS
@@ -114,6 +138,14 @@ Adding a renderer means adding a ``@renderer(...)``-decorated function; the
 decorator registers it and returns it unchanged, so the name stays a real
 module-level ``def`` that documentation tools and type checkers can see.
 
+What a plot is *for* lives in that function's docstring, written to the plot
+docstring contract (issue #1505): a summary, an ``Interpretation`` of what the
+figure shows and which questions it answers, ``Options`` explaining the choices
+that change the representation, and ``Limitations`` on what it cannot show.
+:func:`documentation` parses it into a :class:`PlotDocumentation` that the
+reference pages and GUI help panels read; the registry keeps no scientific
+prose of its own.
+
 Rendering from data
 -------------------
 
@@ -177,9 +209,20 @@ from .models import (
     ReferenceSlope,
     Series,
     Spectrogram,
+    SpectrogramTrack,
+    Table,
+    TableCell,
+    TableColumn,
+    TextItem,
     TextPanel,
+    TextSection,
+    TextSummary,
     ViewModel,
 )
+from .composition import AxisLink, FigureCell, FigureComposition
+from .figure_options import FigureOptions
+from .request import DataSource, PlotRequest
+from ._docstring import PlotDocumentation
 from .discovery import PlotCapability, PlotCatalog
 from .display import PSI_STYLES
 from .navigation import SliceNavigator
@@ -192,6 +235,7 @@ from .renderers.panels import render_panels
 from .renderers.profiles import render_profile_1d
 from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
+from .renderers.tables import RenderedTable, RenderedTextSummary, render_table, render_text_summary
 from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
 from .style import save_figure
 
@@ -204,6 +248,8 @@ from .renderers.fields import (
     equilibrium_field_2d,
     equilibrium_field_psi,
     equilibrium_field_psi_vacuum,
+    field_line_topology_field_connection_length,
+    mhd_linear_field_spectrum,
     passive_structure_field_wall_reduction,
     vacuum_field,
 )
@@ -213,12 +259,14 @@ from .renderers.geometry import (
     coil_3d_geometry_topview,
     equilibrium_geometry_boundary,
     equilibrium_geometry_topview,
+    machine_geometry3d,
     machine_geometry_poloidal,
     machine_geometry_topview,
     magnetics_geometry_poloidal,
-    pf_coil_geometry_poloidal,
+    mhd_linear_geometry_island,
     passive_structure_geometry_poloidal,
     passive_structure_geometry_wall_mode,
+    pf_coil_geometry_poloidal,
     pf_plasma_geometry_poloidal,
     soft_x_rays_geometry_lines_of_sight,
     thomson_scattering_geometry_poloidal,
@@ -246,6 +294,11 @@ from .renderers.lines import (
     equilibrium_time_diamagnetic_flux,
     equilibrium_time_li,
     equilibrium_time_major_radius,
+    equilibrium_time_minor_radius,
+    equilibrium_time_elongation,
+    equilibrium_time_triangularity,
+    equilibrium_time_triangularity_upper,
+    equilibrium_time_triangularity_lower,
     equilibrium_time_plasma_current,
     equilibrium_time_q0,
     equilibrium_time_q95,
@@ -278,12 +331,30 @@ from .renderers.lines import (
     thomson_scattering_time_electron_density,
     thomson_scattering_time_electron_temperature,
 )
+from .renderers.edge_q import (
+    summary_time_estimated_q95,
+    summary_time_normalized_current,
+    summary_time_q_star_cylindrical,
+    summary_time_q_star_kink,
+)
+from .renderers.gyrokinetics import (
+    gyrokinetics_overview,
+    gyrokinetics_profile_eigenfunction,
+    gyrokinetics_spectrum_energy_flux,
+    gyrokinetics_spectrum_frequency,
+    gyrokinetics_spectrum_growth_rate,
+    gyrokinetics_spectrum_particle_flux,
+    turbulent_transport_overview,
+    turbulent_transport_profile_energy_flux,
+    turbulent_transport_profile_particle_flux,
+)
 from .renderers.panels import (
     chease_overview_profile_validity,
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
     current_overview,
     diagnostics_overview,
+    kinetic_overview_profiles,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,
@@ -292,11 +363,15 @@ from .renderers.panels import (
     equilibrium_overview_histories,
     equilibrium_overview_profiles,
     equilibrium_overview_residuals,
+    equilibrium_overview_constraint_weights,
+    equilibrium_overview_pressure_weight_scan,
     equilibrium_overview_verification,
     equilibrium_time_virial,
     interferometer_overview,
     magnetics_overview,
     impa_overview,
+    impurity_profile_charge_state_fraction,
+    impurity_profile_composition,
     magnetics_overview_plasma_residual,
     startup_proxies_time,
     magnetics_overview_vacuum,
@@ -305,8 +380,11 @@ from .renderers.panels import (
     soft_x_rays_overview,
     spectrometer_uv_time_impurity,
     equilibrium_time_beta,
+    equilibrium_time_shape,
     summary_time_energy,
     summary_time_power_balance,
+    summary_time_resistive_zeff,
+    summary_time_romero_balance,
     summary_time_voltage_consumption,
     passive_structure_overview_wall_time,
     passive_structure_overview_wall_reduction,
@@ -318,11 +396,15 @@ from .renderers.profiles import (
     nbi_profile_current_drive,
     nbi_profile_electron_heating,
     nbi_profile_ion_heating,
+    charge_exchange_profile_fit,
     charge_exchange_profile_ion_temperature,
     charge_exchange_profile_velocity_tor,
     electron_density_profile,
+    electron_density_profile_gradient,
     electron_temperature_profile,
+    electron_temperature_profile_gradient,
     ion_temperature_profile,
+    ion_temperature_profile_gradient,
     thermal_pressure_profile,
     equilibrium_profile_f,
     equilibrium_profile_ffprime,
@@ -331,15 +413,22 @@ from .renderers.profiles import (
     equilibrium_profile_pressure,
     equilibrium_profile_q,
     neoclassical_profile_bootstrap_current,
+    core_profiles_profile_zeff,
     mhd_linear_profile_b_field_perturbed,
+    mhd_linear_profile_chirikov,
     mhd_linear_profile_displacement,
     mhd_linear_profile_island_width,
     mhd_linear_profile_resonant_flux,
+    mhd_linear_spectrum_b_field_perturbed,
     impa_profile_field,
     thomson_scattering_profile_electron_density,
     thomson_scattering_profile_electron_temperature,
+    thomson_scattering_profile_fit,
+    coil_3d_profile_current,
+    coil_3d_spectrum_current,
 )
 from .renderers.spectra import (
+    diagnostics_spectrum_coherence,
     interferometer_spectrum,
     mirnov_spectrum,
     soft_x_rays_spectrum,
@@ -350,7 +439,31 @@ from .renderers.spectrograms import (
     mirnov_spectrogram,
     soft_x_rays_spectrogram,
 )
+from .renderers.tables import (
+    equilibrium_table_fit_quality,
+    equilibrium_table_summary,
+    equilibrium_table_validation,
+    equilibrium_text_summary,
+)
 from .parameter_history import plot_parameter_history
+from .analytic import (
+    miller_surfaces_model,
+    plasma_state_projection_model,
+    plot_miller_surfaces,
+    plot_plasma_state_projection,
+    plot_solovev_equilibrium,
+    solovev_equilibrium_model,
+)
+from .fluctuation import (
+    cross_spectrum_model,
+    plot_cross_spectrum,
+    plot_cross_diagnostic_coherence_spectrogram,
+    plot_multi_diagnostic_coherent_spectrogram,
+    plot_multi_diagnostic_coherent_fraction,
+    plot_multi_diagnostic_participation,
+    plot_multi_diagnostic_phase,
+    plot_fluctuation_frequency_coverage,
+)
 
 # Public surface that is not a canonical renderer.
 _SUPPORT_EXPORTS = (
@@ -358,6 +471,12 @@ _SUPPORT_EXPORTS = (
     "DEFAULT_FORMAT",
     "FORMATS",
     "PSI_STYLES",
+    "AxisLink",
+    "DataSource",
+    "FigureCell",
+    "FigureComposition",
+    "FigureOptions",
+    "PlotRequest",
     "Geometry3DLayer",
     "Geometry3DLayers",
     "GeometryLayer",
@@ -368,6 +487,7 @@ _SUPPORT_EXPORTS = (
     "Panels",
     "PlotCapability",
     "PlotCatalog",
+    "PlotDocumentation",
     "PlotSpec",
     "PowerSpectrum",
     "Profile1D",
@@ -375,11 +495,21 @@ _SUPPORT_EXPORTS = (
     "Series",
     "SliceNavigator",
     "Spectrogram",
+    "SpectrogramTrack",
+    "RenderedTable",
+    "RenderedTextSummary",
+    "Table",
+    "TableCell",
+    "TableColumn",
+    "TextItem",
     "TextPanel",
+    "TextSection",
+    "TextSummary",
     "ViewModel",
     "available_plots",
     "canonical_names",
     "dd",
+    "documentation",
     "extract",
     "get_spec",
     "migration_table",
@@ -393,8 +523,24 @@ _SUPPORT_EXPORTS = (
     "render_power_spectrum",
     "render_profile_1d",
     "render_spectrogram",
+    "render_table",
+    "render_text_summary",
     "save_figure",
     "plot_parameter_history",
+    "miller_surfaces_model",
+    "plasma_state_projection_model",
+    "plot_miller_surfaces",
+    "plot_plasma_state_projection",
+    "plot_solovev_equilibrium",
+    "solovev_equilibrium_model",
+    "cross_spectrum_model",
+    "plot_cross_spectrum",
+    "plot_cross_diagnostic_coherence_spectrogram",
+    "plot_multi_diagnostic_coherent_spectrogram",
+    "plot_multi_diagnostic_coherent_fraction",
+    "plot_multi_diagnostic_participation",
+    "plot_multi_diagnostic_phase",
+    "plot_fluctuation_frequency_coverage",
     "THEMES",
     "resolve_presentation",
 )
@@ -412,6 +558,22 @@ def dd(name: str) -> tuple:
     from .backend.dd import dd_paths
 
     return dd_paths(name)
+
+
+def documentation(name: str) -> PlotDocumentation:
+    """The scientific documentation of canonical plot ``name``, parsed from its renderer's docstring.
+
+    A :class:`PlotDocumentation`: the summary plus the plot contract's
+    sections -- ``Interpretation`` (what the figure shows and which questions
+    it supports), ``Options`` (what the representation-changing options mean),
+    ``Limitations`` (what not to conclude from it alone) and the rest (issue
+    #1505).  Documentation pages and GUI help panels read this one parsed form;
+    the option vocabulary itself stays structural, in
+    :func:`vaft.plot.controls.controls_for` and the plot's capability.
+    """
+    from ._docstring import plot_documentation
+
+    return plot_documentation(name)
 
 
 def extract(name: str, source: Any, *, label: Any = "shot", **options: Any) -> Any:

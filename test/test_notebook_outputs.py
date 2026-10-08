@@ -35,6 +35,12 @@ def _offline_notebooks() -> list[str]:
 
 OFFLINE_NOTEBOOKS = _offline_notebooks()
 
+#: Pages whose "saved outputs" cell lists what the run wrote: the directory it
+#: names must be the repository's, as the prose above the cell promises.
+SAVED_OUTPUTS_LISTINGS = {
+    "linear_resistive_stability_analysis_with_rdcon.ipynb": "notebooks/outputs/docs:",
+}
+
 
 @pytest.mark.parametrize("name", OFFLINE_NOTEBOOKS)
 def test_a_notebook_declared_offline_ships_its_figures(name):
@@ -64,3 +70,29 @@ def test_a_notebook_declared_offline_ships_its_figures(name):
         f"{name} is declared offline and renders figures, but none are stored: "
         "execute it and commit the outputs"
     )
+
+
+@pytest.mark.parametrize("name, heading", sorted(SAVED_OUTPUTS_LISTINGS.items()))
+def test_a_saved_outputs_listing_names_the_repository_directory(name, heading):
+    """The cell that lists the page's durable products must say where they are.
+
+    A run with ``$VAFT_DOCS_OUTPUT_DIR`` under a temporary directory committed
+    ``<tmp>`` (the output cleaner's placeholder) as the heading while the
+    markdown above promised ``notebooks/outputs/docs`` (cold review 0.8.0
+    delta-absorb-19 physics F3).  The placeholder is right for a work
+    directory that is released at the end of the page; it is wrong for the
+    listing of what the page keeps.
+    """
+    notebook = nbformat.read(NOTEBOOKS / name, as_version=4)
+    listings = [
+        "".join(output.get("text", ""))
+        for cell in notebook.cells
+        if cell.cell_type == "code" and "_brief(OUTPUT_DIR" in "".join(cell.source)
+        for output in cell.get("outputs", [])
+        if output.get("output_type") == "stream" and output.get("name") == "stdout"
+    ]
+    assert listings, f"{name}: the saved-outputs cell carries no stdout"
+    for text in listings:
+        first = text.splitlines()[0]
+        assert first == heading, f"{name}: saved-outputs listing is headed {first!r}, not {heading!r}"
+        assert "<tmp>" not in text

@@ -32,7 +32,7 @@ BASE_DIR = "/srv/vest.filedb/public"
 FAMILY = "magnetic"
 REFINEMENT = "chease"
 SHOT = 48226
-VERSION = "vest-43017-45957-pf1906"
+VERSION = "vest-43017-45967-pf1906"
 
 
 def _rule_filedb(root: str) -> FileDB:
@@ -469,3 +469,27 @@ def test_shot_first_keeps_the_legacy_literal_when_no_product_is_named():
     assert paths.mhd_linear_ods(SHOT, "dcon-peeling") == (
         f"{BASE_DIR}/{SHOT}/linear_stability/dcon/mhd_linear.json"
     )
+
+
+class _Workflow:
+    """The two Snakemake attributes require_run_config_keys reads."""
+
+    def __init__(self, files, overwrite=None):
+        self.overwrite_configfiles = files
+        self.overwrite_config = overwrite or {}
+
+
+def test_a_complete_run_config_file_passes_even_when_snakemake_does_not_merge_it(tmp_path):
+    """Snakemake 9 leaves overwrite_config empty for --configfile; the file itself is read (#1530)."""
+    run = tmp_path / "run.json"
+    run.write_text('{"base_dir": "/tmp/filedb", "shots": [39915]}', encoding="utf-8")
+    MODULE.require_run_config_keys(_Workflow([run]))  # Snakemake 9: nothing merged
+    MODULE.require_run_config_keys(_Workflow([run], {"base_dir": "/x", "shots": [1]}))  # Snakemake 7
+
+
+def test_a_run_config_file_without_base_dir_or_shots_is_still_refused(tmp_path):
+    run = tmp_path / "run.yaml"
+    run.write_text("shots: [39915]\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="base_dir"):
+        MODULE.require_run_config_keys(_Workflow([run]))
+    MODULE.require_run_config_keys(_Workflow([]))  # no config file: the workflow's defaults are intended
