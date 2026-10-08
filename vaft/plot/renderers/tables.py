@@ -732,7 +732,14 @@ def equilibrium_table_validation(model: Table, *, show: bool = False) -> Rendere
 #: What the vacuum benchmark needs: the PF currents on their time base (the
 #: interval and the wall solve) and the passive loops' resistances (the wall
 #: model it solves); the magnetics it scores vary by shot and are optional.
-_BENCHMARK_IDS = ("pf_active", "pf_passive", "magnetics", "em_coupling", "wall")
+#: The IDS are every root the builder reads
+#: (``recipes._VACUUM_BENCHMARK_ROOTS``; ``dataset_description`` every loader
+#: adds): a loader that selects by them must not drop the UV lines and the
+#: summary's time convention the plasma-free interval is cut at, nor the TF.
+_BENCHMARK_IDS = (
+    "pf_active", "pf_passive", "magnetics", "em_coupling", "wall",
+    "tf", "spectrometer_uv", "summary",
+)
 _BENCHMARK_REQUIRED = (
     "pf_active.time",
     "pf_active.coil.{i}.current.data",
@@ -784,8 +791,9 @@ def magnetics_table_vacuum_benchmark(model: Table, *, show: bool = False) -> Ren
     plasma-free stretch, and every usable B probe and flux loop is compared
     with the coil-only and coil+eddy forward response inside the validation
     window.  One row per scored channel, in the benchmark's order (grouped by
-    family): the eddy improvement 1 - RMS(coil+eddy)/RMS(coil) -- what the wall
-    model is worth on that channel -- the residual RMS as a fraction of the
+    family): the eddy improvement 1 - RMS(measured - (coil+eddy)) /
+    RMS(measured - coil) -- what the wall model is worth on that channel --
+    the residual RMS as a fraction of the
     channel's swing, the correlation of measured with coil+eddy (near 1 with a
     large residual points at a gain, not the wall), and the wall authority, the
     eddy term's share of the reading in whose light a small or negative
@@ -875,10 +883,12 @@ def magnetics_table_vacuum_benchmark_aggregate(model: Table, *, show: bool = Fal
     channels whenever one PF coil dominates at that coil, a change across eras
     at the static model's provenance, one shot among consistent neighbours at
     that shot's acquisition.  An entry that cannot supply a plasma-free case
-    -- it lacks the PF or passive-loop circuits the case is solved from, or
-    the benchmark refuses it -- is a case row with the reason, never dropped.  The caption lists
-    the cases the coils did not drive, the flagged probes per case and the
-    summary medians over driven, unflagged channel rows.
+    -- it lacks the PF or passive-loop circuits the case is solved from, it
+    has no usable magnetic channel or no ``em_coupling``, or the benchmark
+    refuses it -- is a case row with the reason, never dropped, and so is a
+    case whose every channel was excluded.  The caption lists the cases the
+    coils did not drive, the flagged probes per case and the summary medians
+    over driven, unflagged channel rows.
 
     Options
     -------

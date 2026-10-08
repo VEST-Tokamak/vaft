@@ -620,15 +620,16 @@ def _build_magnetics_table_vacuum_benchmark(ods: Any, **options: Any) -> Table:
         f"{'—' if fraction is None else f'{fraction:.2f}'} of the shot peak inside the window "
         f"(sufficiently driven: {_yes_no(drive.get('sufficiently_driven'))}); "
         f"resistance scale {case['static_model']['resistance_scale']:g}. "
-        f"Scored medians over {scored['count']} channels (flagged left out): improvement "
+        f"Scored medians over {scored['count']} channels (flagged channels and channels "
+        f"with an undefined wall authority left out): improvement "
         f"{scored['improvement']['median']:.3g}, normalized residual "
         f"{scored['normalized_residual']['median']:.3g}, correlation "
         f"{scored['correlation']['median']:.3g}."
     )
     notes = [
         "No thresholds and no verdict (#190): the scores are reported, not graded. "
-        "Improvement = 1 − RMS(coil+eddy)/RMS(coil): 1 is perfect, 0 means the wall term "
-        "added nothing, negative that it made agreement worse.",
+        "Improvement = 1 − RMS(measured − (coil+eddy)) / RMS(measured − coil): 1 is "
+        "perfect, 0 means the wall term added nothing, negative that it made agreement worse.",
         "flagged: evaluated, but the probe contradicts its own array "
         "(vaft.validation.vacuum_benchmark.array_contradictions) -- a sensor finding, kept "
         "out of the scored medians; excluded: too few usable samples to score.",
@@ -668,11 +669,21 @@ _AGGREGATE_AXES = (
 
 
 def _unique_labels(labels: list[str]) -> list[str]:
-    seen: dict[str, int] = {}
+    """``labels`` made distinct: a repeat gets the next free `` (n)`` suffix.
+
+    A suffix is taken only when no label -- one given or one already made --
+    uses it, so ``["1 (2)", "1", "1"]`` becomes ``["1 (2)", "1", "1 (3)"]``.
+    """
+    given = set(labels)
+    used: set[str] = set()
     unique = []
     for label in labels:
-        seen[label] = seen.get(label, 0) + 1
-        unique.append(label if seen[label] == 1 else f"{label} ({seen[label]})")
+        candidate, count = label, 1
+        while candidate in used or (candidate != label and candidate in given):
+            count += 1
+            candidate = f"{label} ({count})"
+        used.add(candidate)
+        unique.append(candidate)
     return unique
 
 
@@ -686,12 +697,15 @@ def _build_magnetics_table_vacuum_benchmark_aggregate(
     ``magnetics_table_vacuum_benchmark`` runs it, and the cases go to
     :func:`~vaft.validation.vacuum_benchmark.aggregate_benchmark` with the
     entry's label as their case name.  An entry that cannot supply a case --
-    one missing a path the plot requires, or one the benchmark refuses with
-    :class:`~vaft.validation.vacuum_benchmark.BenchmarkError` -- is a case row
-    carrying the reason, never dropped.  Rows: by case, by family, by PF
-    excitation, by machine era.
+    one missing a path the plot requires, or one the benchmark refuses (a
+    :class:`~vaft.validation.vacuum_benchmark.BenchmarkError`, no usable
+    magnetic channel, no ``em_coupling`` to solve the wall from: every such
+    refusal is a ``ValueError``) -- is a case row carrying the reason, never
+    dropped; so is a case whose every channel was excluded, which
+    :func:`aggregate_benchmark` holds no row for.  Rows: by case, by family,
+    by PF excitation, by machine era.
     """
-    from vaft.validation.vacuum_benchmark import BenchmarkError, aggregate_benchmark
+    from vaft.validation.vacuum_benchmark import aggregate_benchmark
 
     _recipes.vacuum_benchmark_options(options)  # refuse a bad option before any solve
     labels = _unique_labels([str(label) for label, _ods in entries])
@@ -707,13 +721,23 @@ def _build_magnetics_table_vacuum_benchmark_aggregate(
             continue
         try:
             case = _recipes.vacuum_benchmark_case(ods, options)
-        except BenchmarkError as error:
-            failed.append((label, str(error)))
+        except ValueError as error:
+            # BenchmarkError, VacuumMagneticsError (no usable magnetic channel)
+            # and CouplingGeometryMismatch (no em_coupling) all subclass it;
+            # the options were refused above, before any entry was run.
+            failed.append((label, str(error) or type(error).__name__))
             continue
         # The aggregate names a case by its "shot"; the entry label is that
         # name here, so a row reads as the entry the caller passed.
         cases.append({**case, "shot": label})
     aggregate = aggregate_benchmark(cases)
+    # aggregate_benchmark rows only evaluated channels, so a case whose every
+    # channel was excluded has no by_case entry; it is listed with its count.
+    scored_labels = set(aggregate.get("by_case", {}))
+    unscored = [
+        (case["shot"], len(case["channels"]["excluded"]))
+        for case in cases if case["shot"] not in scored_labels
+    ]
 
     columns = (
         TableColumn("Group"),
@@ -728,13 +752,16 @@ def _build_magnetics_table_vacuum_benchmark_aggregate(
     )
     failed_rows = [
         (TableCell("case"), TableCell(label), TableCell(None), TableCell(None), TableCell(None),
-         TableCell(None), TableCell(None), TableCell(None),
-         _verdict_note_cell(f"no benchmark case: {reason}"))
-        for label, reason in failed
+         TableCell(None), TableCell(None), TableCell(None), _verdict_note_cell(note))
+        for label, note in [
+            (label, f"no evaluated channel: {excluded} excluded") for label, excluded in unscored
+        ] + [(label, f"no benchmark case: {reason}") for label, reason in failed]
     ]
+    n_scored = len(cases) - len(unscored)
     title = options.get("title") or (
         f"Vacuum benchmark across {len(entries)} entr{'y' if len(entries) == 1 else 'ies'} "
-        f"({len(cases)} case{'' if len(cases) == 1 else 's'}, {len(failed)} without one)"
+        f"({n_scored} case{'' if n_scored == 1 else 's'} scored, {len(unscored)} with no "
+        f"evaluated channel, {len(failed)} without a case)"
     )
     notes = (
         "No thresholds and no verdict (#190): the medians are reported, not graded; "

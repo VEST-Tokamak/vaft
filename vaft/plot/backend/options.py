@@ -177,7 +177,11 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("log_y", "bool"), OptionSpec("marker_frequencies"), OptionSpec("max_frequency", "float"),
         OptionSpec("max_harmonics", "int"), OptionSpec("max_length_m", "float"), OptionSpec("n_tor", "int"),
         OptionSpec("ncols", "int"), OptionSpec("noverlap", "int"), OptionSpec("nperseg", "int"),
-        OptionSpec("per_family", "bool"),
+        # A channel count per family: the #139 vacuum figures read it as
+        # int(per_family) (default 2), the vacuum benchmark views as a positive
+        # count or None for every usable channel.
+        OptionSpec("per_family", "int",
+                   description="magnetic channels kept per family (vacuum views and benchmark)"),
         # The plasma-free vacuum benchmark (#190, roadmap #1242 C3): the one
         # global wall-resistance factor its resistance study varies, and the
         # wall time constants of solver history the validation window waits for.

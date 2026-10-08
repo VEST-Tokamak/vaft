@@ -1012,7 +1012,13 @@ def magnetics_overview_plasma_residual(
         "improvement against a zero reference, normalized residual and correlation, "
         "channels grouped and coloured by family, flagged probes hollow."
     ),
-    ids=("pf_active", "pf_passive", "magnetics", "em_coupling", "wall"),
+    # Every root the builder reads (recipes._VACUUM_BENCHMARK_ROOTS): the UV
+    # lines and the summary cut the plasma-free interval, so a loader that
+    # selects by ids must not drop them.
+    ids=(
+        "pf_active", "pf_passive", "magnetics", "em_coupling", "wall",
+        "tf", "spectrometer_uv", "summary",
+    ),
     required_paths=(
         "pf_active.time",
         "pf_active.coil.{i}.current.data",
@@ -1032,9 +1038,9 @@ def magnetics_overview_vacuum_benchmark(
     plasma-free stretch -- and each scored B probe and flux loop is one point
     per panel, at its position in the benchmark's order (the ``#`` column of
     :func:`magnetics_table_vacuum_benchmark`), coloured by family.  The top
-    panel is the eddy improvement 1 - RMS(coil+eddy)/RMS(coil), what the wall
-    model is worth on that channel, with a dashed line at zero where the wall
-    term adds nothing; the middle panel the residual RMS as a fraction of the
+    panel is the eddy improvement 1 - RMS(measured - (coil+eddy)) /
+    RMS(measured - coil), what the wall model is worth on that channel, with
+    a dashed line at zero where the wall term adds nothing; the middle panel the residual RMS as a fraction of the
     channel's swing; the bottom the correlation of measured with coil+eddy,
     which near 1 beside a large residual points at a gain rather than at the
     wall.  Read together they show which families and which individual

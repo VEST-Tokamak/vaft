@@ -15252,43 +15252,63 @@ _VACUUM_BENCHMARK_READS = (*_VACUUM_BENCHMARK_ROOTS, *_ONSET_READS)
 VACUUM_BENCHMARK_SCORES = ("improvement", "normalized_residual", "correlation")
 
 
-def _positive_option(options: Mapping[str, Any], key: str, default: float) -> float:
+def _positive_option(
+    options: Mapping[str, Any], key: str, default: float, *, allow_zero: bool = False
+) -> float:
     value = options.get(key)
     if value is None:
         return float(default)
+    wanted = "a non-negative number" if allow_zero else "a positive number"
     if isinstance(value, bool):
-        raise ValueError(f"{key}= takes a positive number; got {value!r}")
+        raise ValueError(f"{key}= takes {wanted}; got {value!r}")
     try:
         number = float(value)
     except (TypeError, ValueError):
-        raise ValueError(f"{key}= takes a positive number; got {value!r}") from None
-    if not np.isfinite(number) or number <= 0.0:
-        raise ValueError(f"{key}= takes a positive number; got {value!r}")
+        raise ValueError(f"{key}= takes {wanted}; got {value!r}") from None
+    if not np.isfinite(number) or number < 0.0 or (number == 0.0 and not allow_zero):
+        raise ValueError(f"{key}= takes {wanted}; got {value!r}")
     return number
+
+
+def _per_family_option(value: Any) -> int | None:
+    """``per_family=``: ``None``, or a positive whole count (``2`` or ``2.0``)."""
+    if value is None:
+        return None
+    refused = ValueError(
+        f"per_family= takes a positive channel count per family, or None for every "
+        f"usable channel; got {value!r}"
+    )
+    if isinstance(value, bool):
+        raise refused
+    if isinstance(value, (int, np.integer)):
+        count = int(value)
+    elif isinstance(value, (float, np.floating)) and np.isfinite(value) and float(value).is_integer():
+        count = int(value)
+    else:
+        raise refused
+    if count < 1:
+        raise refused
+    return count
 
 
 def vacuum_benchmark_options(options: Mapping[str, Any]) -> dict[str, Any]:
     """The :func:`~vaft.validation.vacuum_benchmark.run_benchmark_case` keywords a view passes on.
 
     ``per_family`` (``None``: every usable channel, the benchmark's default; or
-    a positive count per family), ``resistance_scale`` and ``n_tau``; each is
-    type-checked here so a wrong value is refused by name, not deep inside the
-    solver.
+    a positive whole count per family, an integral float such as ``2.0``
+    included), ``resistance_scale`` (positive) and ``n_tau`` (non-negative:
+    ``0`` opens the validation window with the solver input, as
+    ``run_benchmark_case`` allows); each is type-checked here so a wrong value
+    is refused by name, not deep inside the solver.
     """
     from vaft.validation.vacuum_benchmark import DEFAULT_HISTORY_TIME_CONSTANTS
 
-    per_family = options.get("per_family")
-    if per_family is not None:
-        if isinstance(per_family, bool) or not isinstance(per_family, (int, np.integer)) or per_family < 1:
-            raise ValueError(
-                f"per_family= takes a positive channel count per family, or None for every "
-                f"usable channel; got {per_family!r}"
-            )
-        per_family = int(per_family)
     return {
-        "per_family": per_family,
+        "per_family": _per_family_option(options.get("per_family")),
         "resistance_scale": _positive_option(options, "resistance_scale", 1.0),
-        "n_tau": _positive_option(options, "n_tau", DEFAULT_HISTORY_TIME_CONSTANTS),
+        "n_tau": _positive_option(
+            options, "n_tau", DEFAULT_HISTORY_TIME_CONSTANTS, allow_zero=True
+        ),
     }
 
 
@@ -15380,7 +15400,9 @@ def _build_magnetics_vacuum_benchmark(ods: Any, **options: Any) -> Panels:
     positions = np.arange(1, len(rows) + 1, dtype=float)
     x_label = "channel # (benchmark order, grouped by family)"
     titles = {
-        "improvement": ("eddy improvement", "1 − RMS(coil+eddy) / RMS(coil)"),
+        "improvement": (
+            "eddy improvement", "1 − RMS(measured − (coil+eddy)) / RMS(measured − coil)"
+        ),
         "normalized_residual": ("normalized residual", "RMS(residual) / range(measured)"),
         "correlation": ("correlation", "measured vs coil+eddy"),
     }
@@ -15435,7 +15457,8 @@ def _build_magnetics_vacuum_benchmark(ods: Any, **options: Any) -> Panels:
         f"×{case['static_model']['resistance_scale']:g})",
         f"validation {_ms(validation[0])}–{_ms(validation[1])} ms in solver input "
         f"{_ms(solver_window[0])}–{_ms(solver_window[1])} ms",
-        f"scored medians ({scored['count']} ch.): improvement "
+        f"scored medians ({scored['count']} ch.; flagged, undefined wall authority out): "
+        f"improvement "
         f"{scored['improvement']['median']:.2f}, norm. residual "
         f"{scored['normalized_residual']['median']:.3f}, correlation "
         f"{scored['correlation']['median']:.3f}",

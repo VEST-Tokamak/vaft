@@ -26,9 +26,11 @@ import vaft
 import vaft.omas
 import vaft.plot
 from vaft.plot.backend import options as option_schema
-from vaft.plot.backend.recipes import build_model
+from vaft.plot.backend import recipes as recipe_module
+from vaft.plot.backend.recipes import build_model, required_ids
+from vaft.plot.backend.tables import _unique_labels
 from vaft.plot.models import LineSeries, Panels, Table
-from vaft.validation.vacuum_benchmark import BenchmarkError, run_benchmark_case
+from vaft.validation.vacuum_benchmark import BenchmarkError, aggregate_benchmark, run_benchmark_case
 
 from test_vacuum_benchmark import N_TIME, TIME, plasma_shot, vacuum_shot  # noqa: F401 -- fixtures
 
@@ -240,7 +242,7 @@ def test_an_entry_without_a_case_is_a_row_with_its_reason(vacuum_shot, plasma_sh
     assert "no benchmark case" in _note(bad[8]) and "unusable" in _note(bad[8])
     assert bad[2].missing and bad[4].missing
     assert ("case", "good") in rows
-    assert "1 without one" in model.title
+    assert "1 case scored" in model.title and "1 without a case" in model.title
 
 
 def test_an_entry_without_the_circuits_is_a_row_not_a_crash(vacuum_shot):
@@ -279,3 +281,131 @@ def test_two_entries_with_the_same_label_stay_two_cases(vacuum_shot):
     assert [v for g, v in zip(_column(model, "Group"), _column(model, "Value")) if g == "case"] == [
         "1", "1 (2)",
     ]
+
+
+def test_repeated_labels_never_collide_with_a_given_one():
+    assert _unique_labels(["1 (2)", "1", "1"]) == ["1 (2)", "1", "1 (3)"]
+    assert _unique_labels(["1", "1", "1 (2)"]) == ["1", "1 (3)", "1 (2)"]
+    assert _unique_labels(["a", "a", "a"]) == ["a", "a (2)", "a (3)"]
+    for labels in (["1 (2)", "1", "1"], ["x", "x (2)", "x", "x (2)"]):
+        unique = _unique_labels(labels)
+        assert len(set(unique)) == len(unique)
+
+
+@pytest.mark.parametrize("stripped, refusal", [
+    ("magnetics", "no magnetic channel"),
+    ("em_coupling", "em_coupling"),
+])
+def test_an_entry_the_benchmark_refuses_for_any_reason_is_a_row(vacuum_shot, stripped, refusal):
+    """VacuumMagneticsError and CouplingGeometryMismatch are ValueErrors, not BenchmarkErrors."""
+    broken = copy.deepcopy(vacuum_shot)
+    del broken[stripped]
+    model = _quiet(
+        vaft.omas.extract_magnetics_table_vacuum_benchmark_aggregate,
+        [vacuum_shot, broken], label=["whole", "broken"],
+    )
+    rows = {(row[0].value, row[1].value): row for row in model.rows}
+    note = _note(rows[("case", "broken")][8])
+    assert note.startswith("no benchmark case:") and refusal in note
+    assert rows[("case", "whole")][2].value == 1
+    assert "1 case scored" in model.title and "1 without a case" in model.title
+
+
+def test_a_case_with_every_channel_excluded_is_a_row_not_a_gap(vacuum_shot):
+    window = run_benchmark_case(vacuum_shot)["validation_window"]
+    silent = copy.deepcopy(vacuum_shot)
+    inside = np.flatnonzero(TIME >= window[0])
+    validity = np.zeros(N_TIME, dtype=int)
+    validity[inside[1:]] = -1  # one usable sample left in the window: excluded, not unselected
+    for kind in ("b_field_pol_probe", "flux_loop"):
+        node = "field" if kind == "b_field_pol_probe" else "flux"
+        for index in range(len(silent[f"magnetics.{kind}"])):
+            silent[f"magnetics.{kind}.{index}.{node}.validity_timed"] = validity
+    case = run_benchmark_case(silent)
+    assert all(row["status"] == "excluded" for row in case["metrics"]["channels"])
+
+    model = _quiet(
+        vaft.omas.extract_magnetics_table_vacuum_benchmark_aggregate,
+        [vacuum_shot, silent], label=["scored", "silent"],
+    )
+    rows = {(row[0].value, row[1].value): row for row in model.rows}
+    assert _note(rows[("case", "silent")][8]) == "no evaluated channel: 4 excluded"
+    assert rows[("case", "silent")][2].missing
+    assert "1 case scored, 1 with no evaluated channel, 0 without a case" in model.title
+
+    # Alone, the aggregate is empty -- and the case is still listed.
+    alone = _quiet(vaft.omas.extract_magnetics_table_vacuum_benchmark_aggregate, silent)
+    assert alone.caption.startswith("aggregate empty")
+    assert [_note(row[8]) for row in alone.rows] == ["no evaluated channel: 4 excluded"]
+
+
+def test_aggregate_cells_are_the_aggregate_benchmark_numbers(vacuum_shot, plasma_shot):
+    model = _quiet(
+        vaft.omas.extract_magnetics_table_vacuum_benchmark_aggregate,
+        [vacuum_shot, plasma_shot], label=["1", "2"],
+    )
+    cases = [{**_quiet(run_benchmark_case, ods), "shot": label}
+             for label, ods in (("1", vacuum_shot), ("2", plasma_shot))]
+    expected = aggregate_benchmark(cases)
+    rows = {(row[0].value, row[1].value): row for row in model.rows}
+    for group, key, value in (("case", "by_case", "1"), ("family", "by_family", "outboard"),
+                              ("excitation", "by_excitation", "PF0,PF1")):
+        stats = expected[key][value]
+        row = rows[(group, value)]
+        assert row[2].value == stats["cases"] and row[3].value == stats["channels"]
+        assert row[4].value == pytest.approx(stats["median_improvement"])
+        assert row[5].value == pytest.approx(stats["median_normalized_residual"])
+        assert row[6].value == pytest.approx(stats["median_correlation"])
+        assert row[7].value == stats["worst_channel"]
+
+
+def test_an_undriven_case_is_noted_on_its_row(vacuum_shot, monkeypatch):
+    from vaft.validation import vacuum_benchmark
+
+    real = vacuum_benchmark.coil_drive_check
+
+    def undriven(ods, window):
+        report = real(ods, window)
+        return {**report, "sufficiently_driven": False, "reason": "forced undriven"}
+
+    monkeypatch.setattr(vacuum_benchmark, "coil_drive_check", undriven)
+    model = _quiet(vaft.omas.extract_magnetics_table_vacuum_benchmark_aggregate,
+                   vacuum_shot, label=["quiet"])
+    row = {(r[0].value, r[1].value): r for r in model.rows}[("case", "quiet")]
+    assert "not sufficiently driven" in _note(row[8])
+    assert "undriven cases: quiet" in model.caption
+
+
+def test_the_overview_points_are_the_case_scores(vacuum_shot):
+    case = run_benchmark_case(vacuum_shot)
+    model = _quiet(vaft.omas.extract_magnetics_overview_vacuum_benchmark, vacuum_shot)
+    rows = case["metrics"]["channels"]
+    for panel, key in zip(model.models, ("improvement", "normalized_residual", "correlation")):
+        drawn = {
+            int(x): y for s in panel.series if not s.label.startswith("0:")
+            for x, y in zip(s.x, s.y)
+        }
+        assert sorted(drawn) == [1, 2, 3, 4]
+        for position, row in enumerate(rows, start=1):
+            assert drawn[position] == pytest.approx(row[key])
+
+
+def test_options_accept_integral_floats_and_zero_history(vacuum_shot):
+    keywords = recipe_module.vacuum_benchmark_options({"per_family": 2.0, "n_tau": 0})
+    assert keywords["per_family"] == 2 and isinstance(keywords["per_family"], int)
+    assert keywords["n_tau"] == 0.0
+    for bad in ({"per_family": 2.5}, {"per_family": float("nan")}, {"per_family": "2"},
+                {"n_tau": -1.0}, {"resistance_scale": 0.0}):
+        with pytest.raises(ValueError, match=next(iter(bad))):
+            recipe_module.vacuum_benchmark_options(bad)
+    model = _quiet(vaft.omas.extract_magnetics_table_vacuum_benchmark, vacuum_shot, n_tau=0)
+    assert len(model.rows) == 4
+    assert option_schema.OPTION_SCHEMA["per_family"].kind == "int"
+
+
+@pytest.mark.parametrize("name", [TABLE, OVERVIEW, AGGREGATE])
+def test_the_declared_ids_cover_every_root_the_builder_reads(name):
+    """A loader selects by required_ids (plus dataset_description): every read root must be in it."""
+    reads = recipe_module.RECIPES[name].reads
+    roots = {path.split(".")[0] for path in reads}
+    assert roots <= {"dataset_description", *required_ids(name)}, roots - set(required_ids(name))
