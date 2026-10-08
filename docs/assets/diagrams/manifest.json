@@ -790,6 +790,11 @@
       "source_sha256": "6f776bdcf30168814d0dd3501bc95c19dabb97b6d29d6b3d57309cc0a550b6ec",
       "svg_sha256": "6169194b7c30c80b5bb9aede363a59fbb68fc956ea28d450152fa791e95e5acd"
     },
+    "reduced_representation_hierarchy_compact.svg": {
+      "call": "vaft.diagram.reduced_representation_hierarchy_compact()",
+      "source_sha256": "3ae92ef0217f81888184d8b74b4bcf1b5e1c0f4ffb008186e5c9999dbfd89d55",
+      "svg_sha256": "6fe90dca515a62ae1686b3fbf9942db226910aa8b6f91c5c1cba70e6b03623a9"
+    },
     "reduction_graph_current_q.svg": {
       "call": "vaft.diagram.reduction_graph(family='current_q')",
       "source_sha256": "9693e3edae848d057b79935db8c2d9b19b340c01ad875cbad59b907a36620758",

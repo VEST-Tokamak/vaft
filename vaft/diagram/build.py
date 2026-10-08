@@ -69,6 +69,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
     # reduced physical representations (#1626)
     "reduced_representation_hierarchy.svg": ("reduced_representation_hierarchy", {}),
+    "reduced_representation_hierarchy_compact.svg": ("reduced_representation_hierarchy_compact", {}),
     **{f"reduction_graph_{f}.svg": ("reduction_graph", {"family": f})
        for f in ("current_q", "pressure_energy", "kinetic_profiles", "dimensionless_similarity")},
     # tokamak geometry and flux coordinates

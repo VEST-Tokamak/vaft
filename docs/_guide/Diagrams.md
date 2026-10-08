@@ -358,12 +358,14 @@ are built from the formulas' `Reduction` docstring sections and the relation met
 
 ```python
 vaft.diagram.reduced_representation_hierarchy()
+vaft.diagram.reduced_representation_hierarchy_compact()
 vaft.diagram.reduction_graph(family="current_q")   # "pressure_energy", "kinetic_profiles", "dimensionless_similarity"
 ```
 
 | Diagram | Concept |
 | --- | --- |
 | `reduced_representation_hierarchy` | Spatial reduction (field, profile, scalar) down, dimensionless normalisation across, so a dimensionless quantity can still be a profile. Each cell counts the catalogued formulas that land there |
+| `reduced_representation_hierarchy_compact` | The same axes and arrows with only the example symbols in each box, without the counts, at reduced box height and spacing, for slides and overview pages |
 | `reduction_graph` | One family as a layered graph of quantities. A solid edge is a formula, and its catalogued reduction kind is shown as *via*. A dashed edge is a step VAFT performs elsewhere |
 
 ## Tokamak geometry and flux coordinates

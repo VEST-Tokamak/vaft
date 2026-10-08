@@ -5,6 +5,9 @@
     dimensionless across the other -- dimensionless is not 0-D -- then
     similarity coordinates and closures; each cell counts the catalogued
     formulas whose ``Reduction`` section lands there;
+``reduced_representation_hierarchy_compact``
+    the same two axes and arrows with only the example symbols in each box,
+    no counts, at reduced box height and spacing;
 ``reduction_graph``
     one family (``current_q``, ``pressure_energy``, ``kinetic_profiles``,
     ``dimensionless_similarity``) as a layered graph of quantities. Edges are
@@ -93,8 +96,32 @@ def reduced_representation_hierarchy(*, labels: bool = True) -> Diagram:
     ``Reduction`` section outputs there, the column decided by the formula's
     documented return unit (``-`` is dimensionless).
     """
+    return _hierarchy("reduced_representation_hierarchy", labels=labels, compact=False)
+
+
+def reduced_representation_hierarchy_compact(*, labels: bool = True) -> Diagram:
+    r"""The two-axis representation hierarchy with symbols only, compactly spaced.
+
+    The same rows (2-D field, 1-D profile, 0-D scalar, then similarity
+    coordinates and closures / empirical scalings), columns (dimensional,
+    dimensionless) and arrows (flux-surface average, integral, local and
+    global normalisation, similarity transform, scaling law) as
+    :func:`reduced_representation_hierarchy`, without the catalogued-formula
+    counts: each box carries only its example symbols, and the boxes and gaps
+    are shorter.
+    """
+    return _hierarchy("reduced_representation_hierarchy_compact", labels=labels, compact=True)
+
+
+#: (box height, row pitch, column x, lower-row y, lower-box height, note position) of the two layouts [cm]
+_FULL = (1.5, 2.6, 9.6, -7.9, 1.5, (4.8, -9.1))
+_COMPACT = (0.75, 1.55, 10.4, -4.75, 1.1, (4.35, -5.5))
+
+
+def _hierarchy(name: str, *, labels: bool, compact: bool) -> Diagram:
     labels = _check_labels(labels)
     counts = _counts()
+    height, pitch, right, lower_y, lower_h, note = _COMPACT if compact else _FULL
     examples = {
         ("field_2d", False): "$B_p(R, Z)$, $n(R, Z)$, $T(R, Z)$",
         ("profile_1d", False): "$j_\\phi(\\rho)$, $p(\\rho)$, $B_\\theta(r)$",
@@ -102,43 +129,49 @@ def reduced_representation_hierarchy(*, labels: bool = True) -> Diagram:
         ("scalar_0d", False): "$I_p$, $W$, $\\langle p\\rangle$, $\\beta_N$",
         ("scalar_0d", True): "$l_i$, $\\beta_t$, $\\beta_p$, $f_G$, $\\rho_*$",
     }
-    xs = {False: 0.0, True: 9.6}
-    ys = {"field_2d": 0.0, "profile_1d": -2.6, "scalar_0d": -5.2}
+    xs = {False: 0.0, True: right}
+    ys = {"field_2d": 0.0, "profile_1d": -pitch, "scalar_0d": -2.0 * pitch}
+    half_band = 0.5 * height + (0.2 if compact else 0.2)
     items: List = []
     for column, text in ((False, "dimensional"), (True, "dimensionless")):
-        items.append(Label((xs[column], 1.25), text, "concept group title", anchor="south",
-                           role=f"column:{'dimensionless' if column else 'dimensional'}"))
+        items.append(Label((xs[column], 0.5 * height + (0.35 if compact else 0.5)), text, "concept group title",
+                           anchor="south", role=f"column:{'dimensionless' if column else 'dimensional'}"))
     for rep, text in _ROWS:
-        items += band(-5.3, 13.2, ys[rep] - 0.95, ys[rep] + 0.95, role=f"row:{rep}")
+        items += band(-5.3, right + 3.6, ys[rep] - half_band, ys[rep] + half_band, role=f"row:{rep}")
         items.append(Label((-5.15, ys[rep]), text, "concept band label,text width=1.6cm,align=left", anchor="west",
                            role=f"row:{rep}"))
     cells = {}
     for (rep, dimless), example in examples.items():
-        if rep == "field_2d":
+        if compact:
+            text = example
+        elif rep == "field_2d":
             n = counts.get(("field_input", False), 0)
-            tally = f"input to {n} catalogued formula{'s' if n != 1 else ''}"
+            text = f"{example}\\\\ {{\\small input to {n} catalogued formula{'s' if n != 1 else ''}}}"
         else:
             n = counts.get((rep, dimless), 0)
-            tally = f"output of {n} catalogued formula{'s' if n != 1 else ''}"
-        cells[(rep, dimless)] = box(xs[dimless], ys[rep], 5.6, 1.5, f"{example}\\\\ {{\\small {tally}}}",
-                                    style=_STYLE[rep][0],
+            text = f"{example}\\\\ {{\\small output of {n} catalogued formula{'s' if n != 1 else ''}}}"
+        cells[(rep, dimless)] = box(xs[dimless], ys[rep], 5.6, height, text, style=_STYLE[rep][0],
                                     role=f"cell:{rep}:{'dimensionless' if dimless else 'dimensional'}", latex=True)
         items += list(cells[(rep, dimless)].items)
+    similarity = "similarity coordinates:\\\\ $\\rho_*$, $\\nu_*$, $\\Omega_i\\tau_E$"
+    closure = "closures, empirical scalings:\\\\ $\\tau_E$, $q_{95}$ estimate"
+    if not compact:
+        similarity += f"\\\\ {{\\small output of {counts.get(('similarity', True), 0)} catalogued formulas}}"
+        closure += f"\\\\ {{\\small output of {counts.get(('closure', False), 0)} catalogued formulas}}"
     lower = {
-        "similarity": box(9.6, -7.9, 5.6, 1.5, "similarity coordinates:\\\\ $\\rho_*$, $\\nu_*$, $\\Omega_i\\tau_E$\\\\ "
-                          f"{{\\small output of {counts.get(('similarity', True), 0)} catalogued formulas}}",
-                          style="concept strong", role="cell:similarity", latex=True),
-        "closure": box(0.0, -7.9, 5.6, 1.5, "closures, empirical scalings:\\\\ $\\tau_E$, $q_{95}$ estimate\\\\ "
-                       f"{{\\small output of {counts.get(('closure', False), 0)} catalogued formulas}}",
-                       style="concept leaf", role="cell:closure", latex=True),
+        "similarity": box(right, lower_y, 5.6, lower_h, similarity, style="concept strong", role="cell:similarity",
+                          latex=True),
+        "closure": box(0.0, lower_y, 5.6, lower_h, closure, style="concept leaf", role="cell:closure", latex=True),
     }
     for b in lower.values():
         items += list(b.items)
+    # the compact boxes are one line tall, so a horizontal arrow's label is one line too
+    across = " " if compact else "\\\\ "
     arrows = [
         (cells[("field_2d", False)], cells[("profile_1d", False)], "flux-surface average, projection"),
         (cells[("profile_1d", False)], cells[("scalar_0d", False)], "integral, moment, feature"),
-        (cells[("profile_1d", False)], cells[("profile_1d", True)], "local\\\\ normalisation"),
-        (cells[("scalar_0d", False)], cells[("scalar_0d", True)], "global\\\\ normalisation"),
+        (cells[("profile_1d", False)], cells[("profile_1d", True)], f"local{across}normalisation"),
+        (cells[("scalar_0d", False)], cells[("scalar_0d", True)], f"global{across}normalisation"),
         (cells[("profile_1d", True)], cells[("scalar_0d", True)], "feature, average"),
         (cells[("scalar_0d", True)], lower["similarity"], "similarity transform"),
         (lower["similarity"], lower["closure"], "scaling law"),
@@ -163,11 +196,15 @@ def reduced_representation_hierarchy(*, labels: bool = True) -> Diagram:
                 items.append(Label((arrow.start[0] + 0.15, my), text, "small label,align=center", anchor="west",
                                    role="reduction"))
     if labels:
-        items.append(Label((4.8, -9.1), "Down: spatial reduction. Across: dimensionless normalisation -- an "
-                           "independent axis, so a dimensionless quantity can still be a profile",
+        # the compact figure is narrower than the sentence, so it breaks after the first clause
+        items.append(Label(note, "Down: spatial reduction. Across: dimensionless normalisation"
+                           + ("\\\\ " if compact else " ")
+                           + "-- an independent axis, so a dimensionless quantity can still be a profile",
                            "note", anchor="north", role="note"))
-    model = {"counts": dict(counts), "cells": {k: (b.x, b.y) for k, b in cells.items()}}
-    return Diagram("reduced_representation_hierarchy", Scene(tuple(items)), model=model)
+    model = {"cells": {k: (b.x, b.y) for k, b in cells.items()}}
+    if not compact:
+        model = {"counts": dict(counts), **model}
+    return Diagram(name, Scene(tuple(items)), model=model)
 
 
 # ---------------------------------------------------------------------------
