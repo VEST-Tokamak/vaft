@@ -48,8 +48,8 @@ from typing import Any
 
 COLUMNS = (
     "shot", "header", "flags",
-    "total_frames", "stored_rule", "stored_onset", "stored_end", "stored_frames",
-    "expected_onset", "expected_end", "expected_dark_level", "expected_threshold",
+    "total_frames", "stored_rule", "stored_first", "stored_last", "stored_frames",
+    "expected_first", "expected_last", "expected_dark_level", "expected_threshold",
     "replication", "hsds",
     "camera_t0", "camera_t1", "kept_t0", "kept_t1",
     "ip_max_kA", "ip_t_on", "ip_t_off", "error",
@@ -108,31 +108,31 @@ def _hsds(shot: int, stored: dict[str, Any] | None) -> str:
     from vaft.machine_mapping.camera_visible import parse_frame_selection
 
     try:
-        ods = open_ods(shot, "main", ids="camera_visible")
-        remote = parse_frame_selection(str(ods["camera_visible.ids_properties.comment"]))
+        with open_ods(shot, "main", ids="camera_visible") as ods:
+            remote = parse_frame_selection(str(ods["camera_visible.ids_properties.comment"]))
     except Exception as error:  # noqa: BLE001 - reported per shot, never fatal
         return f"missing:{type(error).__name__}"
     if stored is None or remote is None:
         return "unparsed"
-    keys = ("onset", "end", "total_frames", "rule")
+    keys = ("first_retained", "last_retained", "total_frames", "rule")
     return "ok" if all(remote[k] == stored[k] for k in keys) else "mismatch"
 
 
 def audit_shot(root: Path, shot: int, ip_threshold: float, check_hsds: bool, recompute: bool) -> dict[str, Any]:
-    from vaft.machine_mapping.camera_visible import (
-        CameraFrameSelectionError,
-        _load_raw_frame,
-        _parse_bmp_header,
-        frame_time_ms,
-        select_valid_frames,
-    )
-
     row: dict[str, Any] = {"shot": shot}
     flags: list[str] = []
     shot_dir = root / "legacy" / "camera_visible" / str(shot)
     stage_dir = root / "omas" / "camera_visible" / str(shot)
     product = stage_dir / "output" / "camera_visible.h5"
     try:
+        from vaft.machine_mapping.camera_visible import (
+            CameraFrameSelectionError,
+            _load_raw_frame,
+            _parse_bmp_header,
+            frame_time_ms,
+            select_valid_frames,
+        )
+
         header_path = shot_dir / f"{shot}_bmp.txt"
         header = _parse_bmp_header(header_path)
         # Both layouts say `Type: GX-8`; only the original export has the
@@ -153,9 +153,9 @@ def audit_shot(root: Path, shot: int, ip_threshold: float, check_hsds: bool, rec
             if stored is None:
                 flags.append("comment_unparsed")
             else:
-                row["stored_rule"], row["stored_onset"], row["stored_end"] = (
-                    stored["rule"], stored["onset"], stored["end"])
-                if (stored["onset"], stored["end"]) == (0, total - 1):
+                row["stored_rule"], row["stored_first"], row["stored_last"] = (
+                    stored["rule"], stored["first_retained"], stored["last_retained"])
+                if (stored["first_retained"], stored["last_retained"]) == (0, total - 1):
                     flags.append("full_range_retained")
             row["replication"] = _replication(stage_dir)
             if row["replication"] != "validated":
@@ -175,16 +175,18 @@ def audit_shot(root: Path, shot: int, ip_threshold: float, check_hsds: bool, rec
             except CameraFrameSelectionError:
                 flags.append("expected_all_dark")
             else:
-                kept = (selection.onset, selection.end)
-                row["expected_onset"], row["expected_end"] = kept
+                # Compare stored frames with stored frames: the comment names
+                # the first/last frame present, not the padded interval.
+                kept = (selection.first_retained, selection.last_retained)
+                row["expected_first"], row["expected_last"] = kept
                 row["expected_dark_level"] = round(selection.dark_level, 1)
                 row["expected_threshold"] = round(selection.threshold, 1)
-                if stored is not None and (stored["onset"], stored["end"]) != kept:
+                if stored is not None and (stored["first_retained"], stored["last_retained"]) != kept:
                     flags.append("nonconformant")
                 if not product.exists():
                     flags.append("product_missing_but_selectable")
         if kept is None and stored is not None:
-            kept = (stored["onset"], stored["end"])
+            kept = (stored["first_retained"], stored["last_retained"])
         if kept is not None:
             row["kept_t0"], row["kept_t1"] = round(at(kept[0]), 5), round(at(kept[1]), 5)
 

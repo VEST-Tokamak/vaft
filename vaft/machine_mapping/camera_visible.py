@@ -47,6 +47,10 @@ DEFAULT_DARK_MARGIN = 20.0
 #: the recording is bright.
 DARK_LEVEL_PERCENTILE = 1.0
 DARK_LEVEL_FRAME_QUANTILE = 0.25
+#: Measured floors run 15-52 DN across both exports. A recording lit almost
+#: throughout (diffuse light, saturation) would otherwise estimate its "dark"
+#: level at the lit level and reject every frame; the cap keeps such frames.
+DARK_LEVEL_CEILING = 60.0
 #: Names the selection rule in the IDS comment and the stage manifest, so a
 #: product can be audited for which rule it was built with.
 FRAME_SELECTION_RULE = "relative-dark-v2"
@@ -398,6 +402,11 @@ class FrameSelection:
     percentage: float
     buffer_frames: int
     rule: str
+    #: First and last frame inside ``[onset, end]`` that exists: the original
+    #: indices of the first and last frame actually stored. They differ from
+    #: ``onset``/``end`` only when padding lands on missing frames.
+    first_retained: int
+    last_retained: int
     #: ``None`` when the caller fixed ``threshold`` (rule ``fixed-v1``).
     dark_level: float | None = None
 
@@ -405,8 +414,8 @@ class FrameSelection:
         """JSON-ready form, as stored in the stage manifest."""
         return {
             "rule": self.rule,
-            "onset": self.onset,
-            "end": self.end,
+            "first_retained": self.first_retained,
+            "last_retained": self.last_retained,
             "total_frames": self.total_frames,
             "threshold": self.threshold,
             "percentage": self.percentage,
@@ -436,7 +445,7 @@ def select_valid_frames(
     fixed level (``DEFAULT_NEAR_BLACK_THRESHOLD`` reproduces it).
     """
     if threshold is None:
-        dark_level: float | None = estimate_dark_level(frames)
+        dark_level: float | None = min(estimate_dark_level(frames), DARK_LEVEL_CEILING)
         resolved = dark_level + float(dark_margin)
         rule = FRAME_SELECTION_RULE
     else:
@@ -462,10 +471,15 @@ def select_valid_frames(
             "or missing."
         )
 
+    onset = max(0, first_valid - buffer_frames)
+    end = min(total_frames - 1, last_valid + buffer_frames)
+    present = [index for index in range(onset, end + 1) if frames[index] is not None]
     return FrameSelection(
-        onset=max(0, first_valid - buffer_frames),
-        end=min(total_frames - 1, last_valid + buffer_frames),
+        onset=onset,
+        end=end,
         total_frames=total_frames,
+        first_retained=present[0],
+        last_retained=present[-1],
         threshold=resolved,
         percentage=float(percentage),
         buffer_frames=int(buffer_frames),
@@ -503,7 +517,8 @@ def parse_frame_selection(comment: str) -> dict[str, Any] | None:
     """Read the frame selection back out of a ``camera_visible`` IDS comment.
 
     Returns the :meth:`FrameSelection.as_record` fields, or ``None`` when the
-    comment carries no selection. Products written before the rule was named
+    comment carries no selection. The comment names the original indices of
+    the first and last *stored* frame, so those are what come back. Products written before the rule was named
     have no ``rule=`` and are reported as ``fixed-v1``.
     """
     match = _SELECTION_RANGE_PATTERN.search(comment or "")
@@ -519,8 +534,8 @@ def parse_frame_selection(comment: str) -> dict[str, Any] | None:
     buffer_frames = number("buffer_frames")
     return {
         "rule": rule,
-        "onset": int(match.group(1)),
-        "end": int(match.group(2)),
+        "first_retained": int(match.group(1)),
+        "last_retained": int(match.group(2)),
         "total_frames": int(match.group(3)),
         "threshold": number("threshold"),
         "percentage": number("percentage"),
@@ -849,6 +864,7 @@ camera_visible_from_raw_database = camera_visible
 __all__ = [
     "CameraFrameSelectionError",
     "CameraHeaderInfo",
+    "DARK_LEVEL_CEILING",
     "DARK_LEVEL_FRAME_QUANTILE",
     "DARK_LEVEL_PERCENTILE",
     "DEFAULT_BUFFER_FRAMES",

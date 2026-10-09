@@ -163,6 +163,23 @@ def test_dark_level_survives_a_mostly_bright_recording():
     assert (selection.onset, selection.end) == (2, 23)
 
 
+def test_uniformly_lit_recording_is_kept_not_rejected():
+    # Every frame lit everywhere: without the ceiling the "dark" level would be
+    # the lit level and every frame would count as dark.
+    frames = [np.full((10, 10), 200, dtype=np.uint8) for _ in range(10)]
+    selection = select_valid_frames(frames)
+    assert (selection.onset, selection.end) == (0, 9)
+    assert selection.dark_level == pytest.approx(60.0)
+
+
+def test_retained_bounds_skip_missing_padding_frames():
+    frames = _noisy_frames(25, {4, 5, 6}, 10)
+    frames[2] = None
+    selection = select_valid_frames(frames)
+    assert (selection.onset, selection.end) == (2, 8)
+    assert (selection.first_retained, selection.last_retained) == (3, 8)
+
+
 def test_select_valid_frames_raises_when_all_dark_at_any_floor():
     with pytest.raises(CameraFrameSelectionError):
         select_valid_frames(_noisy_frames(48, set(), 10))
@@ -176,7 +193,7 @@ def test_parse_frame_selection_reads_both_comment_generations():
     )
     record = parse_frame_selection(legacy)
     assert record["rule"] == FIXED_FRAME_SELECTION_RULE
-    assert (record["onset"], record["end"], record["total_frames"]) == (0, 100, 101)
+    assert (record["first_retained"], record["last_retained"], record["total_frames"]) == (0, 100, 101)
     assert record["threshold"] == 35 and record["dark_level"] is None
     assert parse_frame_selection("no selection here") is None
 
@@ -187,7 +204,7 @@ def test_camera_visible_comment_round_trips_the_selection(tmp_path):
     camera_visible(ods, SHOT, frame_dir=shot_dir)
     record = parse_frame_selection(ods["camera_visible.ids_properties.comment"])
     assert record["rule"] == FRAME_SELECTION_RULE
-    assert (record["onset"], record["end"], record["total_frames"]) == (2, 8, 10)
+    assert (record["first_retained"], record["last_retained"], record["total_frames"]) == (2, 8, 10)
     assert record["dark_level"] == pytest.approx(5.0)
     assert record["threshold"] == pytest.approx(25.0)
     assert record["buffer_frames"] == 2 and record["percentage"] == pytest.approx(0.98)
