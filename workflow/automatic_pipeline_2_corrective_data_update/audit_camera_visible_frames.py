@@ -135,7 +135,10 @@ def audit_shot(root: Path, shot: int, ip_threshold: float, check_hsds: bool, rec
     try:
         header_path = shot_dir / f"{shot}_bmp.txt"
         header = _parse_bmp_header(header_path)
-        row["header"] = "gx8" if "Type: GX-8" in header_path.read_text(errors="replace")[:400] else "legacy"
+        # Both layouts say `Type: GX-8`; only the original export has the
+        # `Top Frame,...` rows, the BatchConv2 re-export has `TopFrame:` keys.
+        text = header_path.read_text(errors="replace")
+        row["header"] = "original" if "\nTop Frame," in text else "reexport"
         total = header.total_frames
         row["total_frames"] = total
 
