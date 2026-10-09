@@ -8,6 +8,9 @@ from omas import ODS
 
 import vaft.omas
 from vaft.machine_mapping.camera_visible import (
+    DEFAULT_NEAR_BLACK_THRESHOLD,
+    FIXED_FRAME_SELECTION_RULE,
+    FRAME_SELECTION_RULE,
     CameraFrameSelectionError,
     _parse_bmp_header,
     camera_visible,
@@ -16,6 +19,8 @@ from vaft.machine_mapping.camera_visible import (
     frame_time_ms,
     is_near_black,
     narrow_image_storage,
+    parse_frame_selection,
+    select_valid_frames,
 )
 
 SHOT = 99999
@@ -113,6 +118,79 @@ def test_find_valid_frame_interval_raises_when_all_dark():
     frames = [np.full((2, 2), 5, dtype=np.uint8) for _ in range(5)]
     with pytest.raises(CameraFrameSelectionError):
         find_valid_frame_interval(frames, buffer_frames=2)
+
+
+def _noisy_frames(floor: int, bright_indices: set[int], total: int, *, seed: int = 0) -> list[np.ndarray]:
+    """Frames with a sensor floor and +-6 DN noise; bright ones carry a lit region."""
+    rng = np.random.default_rng(seed)
+    frames = []
+    for index in range(total):
+        image = floor + rng.integers(-6, 7, size=(40, 40))
+        if index in bright_indices:
+            image[5:35, 5:35] += 80
+        frames.append(np.clip(image, 0, 255).astype(np.uint8))
+    return frames
+
+
+def test_select_valid_frames_follows_a_raised_dark_floor():
+    # A BatchConv2 re-export puts the empty vessel at ~48 DN, above the fixed
+    # 35: the old rule kept every frame (shot 48909 kept all 101).
+    frames = _noisy_frames(48, {10, 11, 12, 13}, 25)
+    fixed = select_valid_frames(frames, threshold=DEFAULT_NEAR_BLACK_THRESHOLD)
+    assert (fixed.onset, fixed.end) == (0, 24)
+    assert fixed.rule == FIXED_FRAME_SELECTION_RULE
+
+    relative = select_valid_frames(frames)
+    assert (relative.onset, relative.end) == (8, 15)
+    assert relative.rule == FRAME_SELECTION_RULE
+    assert 40 <= relative.dark_level <= 48
+    assert relative.threshold == pytest.approx(relative.dark_level + 20)
+
+
+def test_select_valid_frames_matches_fixed_rule_on_original_exports():
+    # Original exports sit at ~25 DN, where the fixed 35 already worked.
+    frames = _noisy_frames(25, {10, 11, 12, 13}, 25)
+    fixed = select_valid_frames(frames, threshold=DEFAULT_NEAR_BLACK_THRESHOLD)
+    relative = select_valid_frames(frames)
+    assert (relative.onset, relative.end) == (fixed.onset, fixed.end) == (8, 15)
+
+
+def test_dark_level_survives_a_mostly_bright_recording():
+    # Two thirds of the frames lit: the floor still comes from the dark third.
+    bright = set(range(4, 22))
+    frames = _noisy_frames(48, bright, 27)
+    selection = select_valid_frames(frames)
+    assert (selection.onset, selection.end) == (2, 23)
+
+
+def test_select_valid_frames_raises_when_all_dark_at_any_floor():
+    with pytest.raises(CameraFrameSelectionError):
+        select_valid_frames(_noisy_frames(48, set(), 10))
+
+
+def test_parse_frame_selection_reads_both_comment_generations():
+    legacy = (
+        "Frames selected by image-content dark-frame rejection "
+        "(threshold=35, percentage=0.98, buffer_frames=2); retained original frame "
+        "indices [0, 100] out of 101, reindexed from 0."
+    )
+    record = parse_frame_selection(legacy)
+    assert record["rule"] == FIXED_FRAME_SELECTION_RULE
+    assert (record["onset"], record["end"], record["total_frames"]) == (0, 100, 101)
+    assert record["threshold"] == 35 and record["dark_level"] is None
+    assert parse_frame_selection("no selection here") is None
+
+
+def test_camera_visible_comment_round_trips_the_selection(tmp_path):
+    shot_dir = _write_shot(tmp_path, total_frames=10, bright_indices={4, 5, 6})
+    ods = ODS()
+    camera_visible(ods, SHOT, frame_dir=shot_dir)
+    record = parse_frame_selection(ods["camera_visible.ids_properties.comment"])
+    assert record["rule"] == FRAME_SELECTION_RULE
+    assert (record["onset"], record["end"], record["total_frames"]) == (2, 8, 10)
+    assert record["dark_level"] == pytest.approx(5.0)
+    assert record["threshold"] == pytest.approx(25.0)
+    assert record["buffer_frames"] == 2 and record["percentage"] == pytest.approx(0.98)
 
 
 def test_camera_visible_frame_ordering_and_padding(tmp_path):
