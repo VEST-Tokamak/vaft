@@ -3252,3 +3252,32 @@ def test_gacode_platform_check_requires_both_halves_of_the_tag(tmp_path, monkeyp
     bare = tmp_path / "not-a-tree"
     bare.mkdir()
     assert checker.check_platform(str(bare)).status == checker.FAIL
+
+
+def test_gpec_run_with_no_output_is_a_failure_not_a_pass(tmp_path, monkeypatch):
+    """Cold review install F19: exit 0 with zero gpec_*.nc was PASS.
+
+    GPEC exits 0 when it finds nothing to do, so a run that produced no file
+    reported "produced 0 output file(s)" in green; the netCDF layer then
+    globbed *.nc in the same directory, which DCON's own output satisfies.
+    """
+    checker = _load_external_checker("check_gpec.py")
+    workdir = tmp_path / "run"
+    workdir.mkdir()
+    prefix = tmp_path / "prefix"
+    (prefix / "bin").mkdir(parents=True)
+    monkeypatch.setattr(checker, "_run_solver", lambda *args: (0, workdir / "gpec.log"))
+
+    result = checker.check_gpec_run(str(prefix), workdir, timeout=5)
+    assert result.status == checker.FAIL, result
+    assert "gpec_*.nc" in result.detail
+
+    (workdir / "dcon_control.nc").write_bytes(b"")
+    assert checker.check_netcdf_outputs(workdir).status == checker.FAIL
+
+    (workdir / "gpec_control_n1.nc").write_bytes(b"")
+    assert checker.check_gpec_run(str(prefix), workdir, timeout=5).status == checker.PASS
+    # The netCDF layer now sees GPEC's file (an empty stub, so it cannot open
+    # it) rather than reporting that nothing was produced.
+    opened = checker.check_netcdf_outputs(workdir)
+    assert "gpec_control_n1.nc" in opened.detail and "no gpec_*.nc" not in opened.detail, opened
