@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>563f3eb</code>. What is described
+  <code>4787c74</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -5051,10 +5051,12 @@ template.</p>
 python <span class="nt">-m</span> vaft.diagram.build <span class="nt">--check</span>    <span class="c"># verify the committed assets; needs no TeX</span>
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">manifest.json</code>, stored next to the SVGs, records the SHA-256 of the generated TikZ document each SVG
-was rendered from, together with the SHA-256 of the SVG itself. <code class="language-plaintext highlighter-rouge">--check</code> rebuilds the TikZ in pure
-Python and fails in four cases: an asset is stale, an asset was edited by hand, an asset is
-missing, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
+<p>Each SVG carries its own build record: one comment line after the XML declaration holding the call,
+the SHA-256 of the generated TikZ document it was rendered from, and the SHA-256 of the SVG without
+that line. Because the record lives in the diagram’s own file, two pull requests that change different
+diagrams share no generated file and do not conflict (#1750). <code class="language-plaintext highlighter-rouge">--check</code> rebuilds the TikZ in pure
+Python and fails in five cases: an asset is stale, an asset was edited by hand, an asset is missing,
+an asset has no record, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
 and not on SVG bytes, because two <code class="language-plaintext highlighter-rouge">dvisvgm</code> releases write different but equally correct SVG for the
 same picture. Rendering needs <code class="language-plaintext highlighter-rouge">latex</code> and <code class="language-plaintext highlighter-rouge">dvisvgm</code>, which TeX Live and MacTeX provide. The generated
 <code class="language-plaintext highlighter-rouge">.tex</code>, PDF, PNG and LaTeX by-products are never committed.</p>
@@ -5282,7 +5284,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 15:38:47 +0000"
+        "time": "2026-10-10 16:00:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

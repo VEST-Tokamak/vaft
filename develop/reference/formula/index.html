@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>563f3eb</code>. What is described
+  <code>4787c74</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -551,6 +551,10 @@ does not document raises <code class="language-plaintext highlighter-rouge">Valu
     <td><a href="/vaft/develop/reference/formula/kinetic/">kinetic</a></td>
     <td><code>vaft.formula.kinetic</code></td><td>2</td><td>Collisional closures of a multi-species plasma: electron collision time and electron-ion energy exchange.</td>
   </tr>
+  <tr id="turbulence">
+    <td><a href="/vaft/develop/reference/formula/turbulence/">turbulence</a></td>
+    <td><code>vaft.formula.turbulence</code></td><td>5</td><td>Two-variable turbulence--zonal-flow predator--prey model (Lotka--Volterra form).</td>
+  </tr>
   </tbody>
 </table>
 
@@ -612,7 +616,7 @@ which documents the conventions and cites every entry.</p>
 <h2 id="all-formulas">All formulas</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 460 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 465 formulas by name, category or summary" aria-label="Filter formulas" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <thead><tr><th>Formula</th><th>Category</th><th>Summary</th></tr></thead>
   <tbody>
@@ -1594,6 +1598,16 @@ which documents the conventions and cites every entry.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="electron_ion_energy_exchange_time_from_T_e_n_species kinetic"><td><a href="/vaft/develop/reference/formula/kinetic/#electron_ion_energy_exchange_time_from_T_e_n_species"><code>electron_ion_energy_exchange_time_from_T_e_n_species</code></a></td><td><a href="/vaft/develop/reference/formula/kinetic/">kinetic</a></td><td>Time in which electrons and a mixture of ion species exchange thermal energy.
 </td></tr>
+  <tr data-ref-row="predator_prey_fixed_point turbulence"><td><a href="/vaft/develop/reference/formula/turbulence/#predator_prey_fixed_point"><code>predator_prey_fixed_point</code></a></td><td><a href="/vaft/develop/reference/formula/turbulence/">turbulence</a></td><td>Positive (coexistence) fixed point of the predator–prey model.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="predator_prey_invariant turbulence"><td><a href="/vaft/develop/reference/formula/turbulence/#predator_prey_invariant"><code>predator_prey_invariant</code></a></td><td><a href="/vaft/develop/reference/formula/turbulence/">turbulence</a></td><td>Conserved quantity of the classical predator–prey model.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="predator_prey_period turbulence"><td><a href="/vaft/develop/reference/formula/turbulence/#predator_prey_period"><code>predator_prey_period</code></a></td><td><a href="/vaft/develop/reference/formula/turbulence/">turbulence</a></td><td>Small-amplitude oscillation period about the positive fixed point.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="predator_prey_response_lag turbulence"><td><a href="/vaft/develop/reference/formula/turbulence/#predator_prey_response_lag"><code>predator_prey_response_lag</code></a></td><td><a href="/vaft/develop/reference/formula/turbulence/">turbulence</a></td><td>Small-amplitude delay of the zonal-flow peak after the turbulence peak.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="predator_prey_rhs turbulence"><td><a href="/vaft/develop/reference/formula/turbulence/#predator_prey_rhs"><code>predator_prey_rhs</code></a></td><td><a href="/vaft/develop/reference/formula/turbulence/">turbulence</a></td><td>Time derivatives of the turbulence–zonal-flow predator–prey model.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No formula matches.</p>
@@ -1860,7 +1874,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 15:38:47 +0000"
+        "time": "2026-10-10 16:00:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

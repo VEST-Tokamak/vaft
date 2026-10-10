@@ -1,0 +1,1486 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Process reference: ordering_state · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/formula/turbulence/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Process reference: ordering_state</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>4787c74</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/process/Process_reference_ordering_state">Process reference: ordering_state</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>Generated per-function reference for vaft.process.ordering_state, read from the standardized docstrings (issue 252).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None.</dd>
+    <dt>Expected result</dt><dd>Units, processing steps, defaults and their provenance, conventions, machine scope, limitations and sources for every public function of the submodule.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p class="ref-intro">Generated from the docstrings of <code>vaft.process.ordering_state</code>:
+<strong>7</strong> public functions. Each entry is what
+<code>vaft.process.describe("ordering_state.&lt;name&gt;")</code> prints.
+<a href="/vaft/develop/reference/process/">All process categories</a></p>
+
+<h2 id="overview">Overview</h2>
+
+<p>The ordering contracts of <code class="language-plaintext highlighter-rouge">vaft.validation.orderings</code> read a state as a
+row keyed by the names in
+<code class="language-plaintext highlighter-rouge">vaft.validation.orderings.ORDERING_QUANTITIES</code>. This module builds
+those rows from what a reconstructed VEST state actually carries – global
+equilibrium scalars, Thomson profiles, the plasma-current history – with the
+<code class="language-plaintext highlighter-rouge">vaft.formula</code> kernels the quantity registry names, and with nothing
+else.</p>
+
+<p>Three builders, one per scope, because a global <code class="language-plaintext highlighter-rouge">d_i/a</code> and a profile
+<code class="language-plaintext highlighter-rouge">rho_s/L_Te</code> are different quantities on different scales (#1627):</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">global_ordering_quantities</code> – one number per state, on <code class="language-plaintext highlighter-rouge">a</code> or
+<code class="language-plaintext highlighter-rouge">R0</code>;</li>
+  <li><code class="language-plaintext highlighter-rouge">profile_ordering_quantities</code> – one number per flux surface, on that
+surface’s own gradient length or connection length;</li>
+  <li><code class="language-plaintext highlighter-rouge">time_history_ordering_quantities</code> – one number per state from its
+time history (evolution rate, age since onset).</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">ordering_table</code> applies the global and time-history builders row by row
+to a table of states; <code class="language-plaintext highlighter-rouge">ordering_coverage</code> reports which quantities a
+table could assess, by the data-availability tiers of #1627.</p>
+
+<div class="ref-table-wrap"><table class="ref-table ref-notation">
+  <thead><tr><th>Symbol</th><th>Meaning</th><th>Unit</th></tr></thead>
+  <tbody>
+  <tr><td>a, R0</td><td>minor and major radius</td><td class="ref-unit">m</td></tr>
+  <tr><td>B0</td><td>toroidal field on axis</td><td class="ref-unit">T</td></tr>
+  <tr><td>n_e</td><td>electron density</td><td class="ref-unit">m^-3</td></tr>
+  <tr><td>T_e, T_i</td><td>electron and ion temperatures</td><td class="ref-unit">eV</td></tr>
+  <tr><td>Z_eff</td><td>effective charge; the main ion is singly charged</td><td class="ref-unit">-</td></tr>
+  <tr><td>lnLambda</td><td>Coulomb logarithm</td><td class="ref-unit">-</td></tr>
+  <tr><td>eta</td><td>Spitzer resistivity (parallel)</td><td class="ref-unit">Ohm m</td></tr>
+  <tr><td>v_A</td><td>Alfven speed in the ion mass density</td><td class="ref-unit">m/s</td></tr>
+  <tr><td>L_T</td><td>temperature gradient length |T / (dT/dr)|</td><td class="ref-unit">m</td></tr>
+  </tbody>
+</table></div>
+
+<p><strong>Nothing is imputed.</strong> A quantity whose inputs are missing, non-finite or
+non-positive is NaN, so the contract evaluation reports it <code class="language-plaintext highlighter-rouge">UNASSESSED</code>; an
+ion temperature is never set equal to <code class="language-plaintext highlighter-rouge">T_e</code> here, and a density is never
+filled in from another diagnostic. A caller who adopts such an assumption does
+it explicitly and records it.</p>
+
+<p><strong>One ion species.</strong> The ion mass density is <code class="language-plaintext highlighter-rouge">n_i m_i</code> with <code class="language-plaintext highlighter-rouge">n_i = n_e</code>
+(quasineutral, singly charged main ion); <code class="language-plaintext highlighter-rouge">Z_eff</code> enters only the
+resistivity and the electron collisions. Thermal speeds are
+<code class="language-plaintext highlighter-rouge">sqrt(T/m)</code> (NRL formulary), as <code class="language-plaintext highlighter-rouge">vaft.formula.ordering</code> uses.</p>
+
+<p><strong>Gradient lengths</strong> are <code class="language-plaintext highlighter-rouge">|T/(dT/dr)|</code> on the minor-radius coordinate <code class="language-plaintext highlighter-rouge">r</code>
+in metres, from <code class="language-plaintext highlighter-rouge">vaft.formula.utils.normalized_gradient_scale_length</code>;
+a flat or non-monotonic stretch gives a long <code class="language-plaintext highlighter-rouge">L</code> and a small ordering, never
+a sign.</p>
+
+<h2 id="functions">Functions</h2>
+
+<div class="ref-index" data-ref-index="">
+<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<div class="ref-table-wrap"><table class="ref-table ref-index-table">
+  <tbody>
+  <tr data-ref-row="contract_population"><td><a href="#contract_population"><code>contract_population</code></a></td><td>Evaluate one contract on the table its orderings live on.
+</td></tr>
+  <tr data-ref-row="global_ordering_quantities"><td><a href="#global_ordering_quantities"><code>global_ordering_quantities</code></a></td><td>The global ordering quantities of one plasma state, NaN where an input is missing.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ordering_coverage"><td><a href="#ordering_coverage"><code>ordering_coverage</code></a></td><td>The fraction of states (or profile points) with a finite value, per ordering quantity, by #1627 tier.
+</td></tr>
+  <tr data-ref-row="ordering_margins"><td><a href="#ordering_margins"><code>ordering_margins</code></a></td><td>Median ordering margin and the fraction on the permitted side, per assessable ordering.
+</td></tr>
+  <tr data-ref-row="ordering_table"><td><a href="#ordering_table"><code>ordering_table</code></a></td><td>The global and time-history ordering quantities of every state in a table.
+</td></tr>
+  <tr data-ref-row="profile_ordering_quantities"><td><a href="#profile_ordering_quantities"><code>profile_ordering_quantities</code></a></td><td>The profile ordering quantities on each flux surface, NaN where an input is missing.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="time_history_ordering_quantities"><td><a href="#time_history_ordering_quantities"><code>time_history_ordering_quantities</code></a></td><td>How slowly a state evolves against Alfvenic and resistive times, NaN where an input is missing.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  </tbody>
+</table></div>
+<p class="ref-filter-empty" hidden="">No function matches.</p>
+</div>
+
+<div class="ref-entries">
+
+  <section class="ref-entry" id="contract_population" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#contract_population"><code>contract_population</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="contract_population" href="https://github.com/VEST-Tokamak/vaft/blob/4787c740b6e55a31f70316f038cf88dc4292d70f/vaft/process/ordering_state.py#L709-L754" title="vaft/process/ordering_state.py, lines 709–754 at 4787c74">source</a>
+</header>
+    <pre class="ref-signature"><code>contract_population(contract, states, points=None)</code></pre>
+
+    <details class="ref-code" data-source-code="contract_population"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 709–754</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">contract_population</span><span class="p">(</span><span class="n">contract</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">points</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Evaluate one contract on the table its orderings live on.
+
+    $$\text{table} = \begin{cases}\text{states} &amp; \text{every ordering global or time-history}\\
+      \text{points} &amp; \text{otherwise}\end{cases}$$
+
+    Parameters
+    ----------
+    contract : ApproximationContract
+        A #1627 ordering contract [-].
+    states : pandas.DataFrame
+        One row per state [-].
+    points : pandas.DataFrame, optional
+        One row per state and flux surface, carrying the state</span><span class="sh">'</span><span class="s">s global and
+        time-history quantities as well. Without it every contract is
+        evaluated per state, and its profile orderings are then
+        ``UNASSESSED`` [-].
+
+    Returns
+    -------
+    pandas.DataFrame
+        :func:`vaft.validation.applicability.evaluate_population` output, with
+        ``attrs[</span><span class="sh">'</span><span class="s">evaluated_on</span><span class="sh">'</span><span class="s">]`` ``</span><span class="sh">"</span><span class="s">states</span><span class="sh">"</span><span class="s">`` or ``</span><span class="sh">"</span><span class="s">points</span><span class="sh">"</span><span class="s">`` [-].
+
+    Limitations
+    -----------
+    A contract mixing global and profile orderings is evaluated per flux
+    surface, so a state contributes one row per surface; a state without
+    profiles is then absent from it.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Issue #1629 §8-§9: per-state evaluation of state-level contracts,
+       per-surface of local ones.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.validation.applicability</span> <span class="kn">import</span> <span class="n">evaluate_population</span>
+
+    <span class="n">state_level</span> <span class="o">=</span> <span class="nf">all</span><span class="p">(</span><span class="nf">_state_quantity</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">quantity</span><span class="p">)</span> <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">contract</span><span class="p">.</span><span class="n">assumptions</span><span class="p">)</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">states</span> <span class="nf">if </span><span class="p">(</span><span class="n">state_level</span> <span class="ow">or</span> <span class="n">points</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">)</span> <span class="k">else</span> <span class="n">points</span>
+    <span class="n">evaluated</span> <span class="o">=</span> <span class="nf">evaluate_population</span><span class="p">(</span><span class="n">contract</span><span class="p">,</span> <span class="n">table</span><span class="p">)</span>
+    <span class="n">evaluated</span><span class="p">.</span><span class="n">attrs</span><span class="p">[</span><span class="sh">"</span><span class="s">evaluated_on</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="sh">"</span><span class="s">states</span><span class="sh">"</span> <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="n">states</span> <span class="k">else</span> <span class="sh">"</span><span class="s">points</span><span class="sh">"</span>
+    <span class="k">return</span> <span class="n">evaluated</span></code></pre></figure>
+
+</details>
+
+    <p>Evaluate one contract on the table its orderings live on.</p>
+
+\[\text{table} = \begin{cases}\text{states} &amp; \text{every ordering global or time-history}\\
+  \text{points} &amp; \text{otherwise}\end{cases}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>contract</code></td><td class="ref-type">ApproximationContract</td><td class="ref-unit">-</td><td><p>A #1627 ordering contract.</p>
+</td></tr>
+  <tr><td><code>states</code></td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">-</td><td><p>One row per state.</p>
+</td></tr>
+  <tr><td><code>points</code></td><td class="ref-type">pandas.DataFrame, optional</td><td class="ref-unit">-</td><td><p>One row per state and flux surface, carrying the state’s global and time-history quantities as well. Without it every contract is evaluated per state, and its profile orderings are then <code class="language-plaintext highlighter-rouge">UNASSESSED</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">vaft.validation.applicability.evaluate_population</code> output, with <code class="language-plaintext highlighter-rouge">attrs['evaluated_on']</code> <code class="language-plaintext highlighter-rouge">"states"</code> or <code class="language-plaintext highlighter-rouge">"points"</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A contract mixing global and profile orderings is evaluated per flux
+surface, so a state contributes one row per surface; a state without
+profiles is then absent from it.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1629 §8-§9: per-state evaluation of state-level contracts, per-surface of local ones.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="global_ordering_quantities" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#global_ordering_quantities"><code>global_ordering_quantities</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="global_ordering_quantities" href="https://github.com/VEST-Tokamak/vaft/blob/4787c740b6e55a31f70316f038cf88dc4292d70f/vaft/process/ordering_state.py#L132-L226" title="vaft/process/ordering_state.py, lines 132–226 at 4787c74">source</a>
+</header>
+    <pre class="ref-signature"><code>global_ordering_quantities(*, minor_radius, major_radius, b0, n_e=None, t_e=None, z_eff=None, ln_lambda=None, ion_mass_amu=1.0, beta=None)</code></pre>
+
+    <p>The global ordering quantities of one plasma state, NaN where an input is missing.</p>
+
+\[S = \frac{\mu_0 a v_A}{\eta},\quad \frac{d_i}{a},\quad \epsilon = \frac{a}{R_0},\quad
+  \beta,\quad \frac{\beta}{\epsilon}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>minor_radius</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Minor radius <code class="language-plaintext highlighter-rouge">a</code>.</p>
+</td></tr>
+  <tr><td><code>major_radius</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius <code class="language-plaintext highlighter-rouge">R0</code> the inverse aspect ratio is taken against.</p>
+</td></tr>
+  <tr><td><code>b0</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Toroidal field on axis.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density; a volume or line average, whichever the state has, recorded by the caller.</p>
+</td></tr>
+  <tr><td><code>t_e</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature for the resistivity.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Effective charge for the resistivity; never defaulted here.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Coulomb logarithm for the resistivity; never defaulted here.</p>
+</td></tr>
+  <tr><td><code>ion_mass_amu</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion mass number, 1 for hydrogen.</p>
+</td></tr>
+  <tr><td><code>beta</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Toroidal beta of the state, as a fraction (not percent).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">lundquist_number</code>, <code class="language-plaintext highlighter-rouge">ion_skin_depth_over_a</code>, <code class="language-plaintext highlighter-rouge">inverse_aspect_ratio</code>, <code class="language-plaintext highlighter-rouge">beta</code>, <code class="language-plaintext highlighter-rouge">beta_over_inverse_aspect_ratio</code>, each a float or NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">S</code> is taken on the minor radius <code class="language-plaintext highlighter-rouge">a</code>, the scale of
+<code class="language-plaintext highlighter-rouge">vaft.validation.orderings.ORDERING_QUANTITIES</code>; the ion density
+is <code class="language-plaintext highlighter-rouge">n_e</code> (singly charged main ion).</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li><code class="language-plaintext highlighter-rouge">epsilon = a / R0</code>.</li>
+        <li>With <code class="language-plaintext highlighter-rouge">n_e</code>: <code class="language-plaintext highlighter-rouge">d_i = c / omega_pi</code> at <code class="language-plaintext highlighter-rouge">n_i = n_e</code> and <code class="language-plaintext highlighter-rouge">v_A</code> from
+<code class="language-plaintext highlighter-rouge">B0</code> and <code class="language-plaintext highlighter-rouge">n_i m_i</code>.</li>
+        <li>With <code class="language-plaintext highlighter-rouge">T_e</code>, <code class="language-plaintext highlighter-rouge">Z_eff</code> and <code class="language-plaintext highlighter-rouge">lnLambda</code> as well: Spitzer <code class="language-plaintext highlighter-rouge">eta</code> and
+<code class="language-plaintext highlighter-rouge">S = mu0 a v_A / eta</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">beta</code> passes through, and <code class="language-plaintext highlighter-rouge">beta / epsilon</code> follows.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A single global <code class="language-plaintext highlighter-rouge">T_e</code> stands for the whole plasma in <code class="language-plaintext highlighter-rouge">eta</code>; the
+resistivity of a peaked profile varies by an order of magnitude from core
+to edge, so <code class="language-plaintext highlighter-rouge">S</code> is an order-of-magnitude statement.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1627 §1 and §4; the Lundquist number as in D. Biskamp, <em>Magnetic Reconnection in Plasmas</em>, Cambridge (2000), Ch. 1.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ordering_coverage" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ordering_coverage"><code>ordering_coverage</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="ordering_coverage" href="https://github.com/VEST-Tokamak/vaft/blob/4787c740b6e55a31f70316f038cf88dc4292d70f/vaft/process/ordering_state.py#L587-L640" title="vaft/process/ordering_state.py, lines 587–640 at 4787c74">source</a>
+</header>
+    <pre class="ref-signature"><code>ordering_coverage(states, points=None)</code></pre>
+
+    <details class="ref-code" data-source-code="ordering_coverage"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 587–640</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ordering_coverage</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">points</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The fraction of states (or profile points) with a finite value, per ordering quantity, by #1627 tier.
+
+    $$f_q = \frac{\#\{k : q_k\ \text{finite}\}}{N}$$
+
+    Parameters
+    ----------
+    states : pandas.DataFrame
+        One row per state; global and time-history quantities are counted
+        here [-].
+    points : pandas.DataFrame, optional
+        One row per state and flux surface; profile, foundational and mode
+        quantities are counted here when given, else in ``states`` [-].
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per registered quantity: ``group``, ``tier``, ``of`` (states or
+        points), ``assessed`` (count) and ``fraction``; a quantity the table
+        lacks has fraction 0 [-].
+
+    Limitations
+    -----------
+    Coverage counts finite values only; it says nothing about how well a
+    quantity is determined.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Issue #1627 </span><span class="sh">"</span><span class="s">Data-availability tiers</span><span class="sh">"</span><span class="s">: the summary reports coverage
+       by tier.
+    </span><span class="sh">"""</span>
+    <span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+
+    <span class="kn">from</span> <span class="n">vaft.validation.orderings</span> <span class="kn">import</span> <span class="n">ORDERING_QUANTITIES</span>
+
+    <span class="n">tier_of</span> <span class="o">=</span> <span class="p">{</span><span class="n">group</span><span class="p">:</span> <span class="n">tier</span> <span class="k">for</span> <span class="n">tier</span><span class="p">,</span> <span class="n">groups</span> <span class="ow">in</span> <span class="n">COVERAGE_TIERS</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span> <span class="k">for</span> <span class="n">group</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">}</span>
+    <span class="n">flow</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(</span><span class="n">COVERAGE_TIERS</span><span class="p">[</span><span class="sh">"</span><span class="s">tier3_flow</span><span class="sh">"</span><span class="p">])</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">quantity</span> <span class="ow">in</span> <span class="n">ORDERING_QUANTITIES</span><span class="p">.</span><span class="nf">items</span><span class="p">():</span>
+        <span class="n">table</span> <span class="o">=</span> <span class="n">states</span> <span class="nf">if </span><span class="p">(</span><span class="n">points</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="n">quantity</span><span class="p">.</span><span class="n">group</span> <span class="ow">in</span> <span class="n">_STATE_GROUPS</span><span class="p">)</span> <span class="k">else</span> <span class="n">points</span>
+        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">table</span><span class="p">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">to_numeric</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="sh">"</span><span class="s">coerce</span><span class="sh">"</span><span class="p">).</span><span class="nf">to_numpy</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+            <span class="n">assessed</span> <span class="o">=</span> <span class="nf">int</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">isfinite</span><span class="p">(</span><span class="n">values</span><span class="p">).</span><span class="nf">sum</span><span class="p">())</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">assessed</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">rows</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span><span class="sh">"</span><span class="s">quantity</span><span class="sh">"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> <span class="sh">"</span><span class="s">group</span><span class="sh">"</span><span class="p">:</span> <span class="n">quantity</span><span class="p">.</span><span class="n">group</span><span class="p">,</span>
+                     <span class="sh">"</span><span class="s">tier</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">tier3_flow</span><span class="sh">"</span> <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">flow</span> <span class="k">else</span> <span class="n">tier_of</span><span class="p">[</span><span class="n">quantity</span><span class="p">.</span><span class="n">group</span><span class="p">],</span>
+                     <span class="sh">"</span><span class="s">of</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">states</span><span class="sh">"</span> <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="n">states</span> <span class="k">else</span> <span class="sh">"</span><span class="s">points</span><span class="sh">"</span><span class="p">,</span>
+                     <span class="sh">"</span><span class="s">assessed</span><span class="sh">"</span><span class="p">:</span> <span class="n">assessed</span><span class="p">,</span> <span class="sh">"</span><span class="s">fraction</span><span class="sh">"</span><span class="p">:</span> <span class="n">assessed</span> <span class="o">/</span> <span class="nf">len</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="k">if</span> <span class="nf">len</span><span class="p">(</span><span class="n">table</span><span class="p">)</span> <span class="k">else</span> <span class="n">math</span><span class="p">.</span><span class="n">nan</span><span class="p">})</span>
+    <span class="k">return</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">).</span><span class="nf">set_index</span><span class="p">(</span><span class="sh">"</span><span class="s">quantity</span><span class="sh">"</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>The fraction of states (or profile points) with a finite value, per ordering quantity, by #1627 tier.</p>
+
+\[f_q = \frac{\#\{k : q_k\ \text{finite}\}}{N}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>states</code></td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">-</td><td><p>One row per state; global and time-history quantities are counted here.</p>
+</td></tr>
+  <tr><td><code>points</code></td><td class="ref-type">pandas.DataFrame, optional</td><td class="ref-unit">-</td><td><p>One row per state and flux surface; profile, foundational and mode quantities are counted here when given, else in <code class="language-plaintext highlighter-rouge">states</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">-</td><td><p>One row per registered quantity: <code class="language-plaintext highlighter-rouge">group</code>, <code class="language-plaintext highlighter-rouge">tier</code>, <code class="language-plaintext highlighter-rouge">of</code> (states or points), <code class="language-plaintext highlighter-rouge">assessed</code> (count) and <code class="language-plaintext highlighter-rouge">fraction</code>; a quantity the table lacks has fraction 0.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Coverage counts finite values only; it says nothing about how well a
+quantity is determined.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1627 “Data-availability tiers”: the summary reports coverage by tier.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ordering_margins" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ordering_margins"><code>ordering_margins</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="ordering_margins" href="https://github.com/VEST-Tokamak/vaft/blob/4787c740b6e55a31f70316f038cf88dc4292d70f/vaft/process/ordering_state.py#L643-L706" title="vaft/process/ordering_state.py, lines 643–706 at 4787c74">source</a>
+</header>
+    <pre class="ref-signature"><code>ordering_margins(contracts, states, points=None)</code></pre>
+
+    <details class="ref-code" data-source-code="ordering_margins"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 643–706</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ordering_margins</span><span class="p">(</span><span class="n">contracts</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">points</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">Median ordering margin and the fraction on the permitted side, per assessable ordering.
+
+    $$m = \log_{10}(x_0/x)\ (\text{small}),\qquad m = \log_{10}(x/x_0)\ (\text{large})$$
+
+    Parameters
+    ----------
+    contracts : Mapping or iterable of ApproximationContract
+        The contracts whose orderings are summarised; an ordering listed by
+        several is reported once [-].
+    states : pandas.DataFrame
+        Global and time-history quantities, one row per state [-].
+    points : pandas.DataFrame, optional
+        Profile quantities, one row per flux surface; ``states`` is used when
+        absent [-].
+
+    Returns
+    -------
+    pandas.DataFrame
+        Indexed by ``</span><span class="sh">"</span><span class="s">&lt;quantity&gt; (&lt;ordering&gt;)</span><span class="sh">"</span><span class="s">``: ``per`` (state or point), ``n``,
+        ``median_margin`` [decades] and ``permitted`` (fraction with ``m &gt; 0``),
+        sorted from the least to the most room [-].
+
+    Processing steps
+    ----------------
+    1. Collect each distinct ``(quantity, ordering, threshold)`` once.
+    2. Take a global or time-history quantity from ``states`` (one value per
+       state, never repeated per profile point) and any other from ``points``.
+    3. Margins with :func:`vaft.validation.applicability.ordering_margin`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Issues #1627 (margins first) and #1629 §5.
+    </span><span class="sh">"""</span>
+    <span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+
+    <span class="kn">from</span> <span class="n">vaft.validation.applicability</span> <span class="kn">import</span> <span class="n">ordering_margin</span>
+
+    <span class="n">items</span> <span class="o">=</span> <span class="n">contracts</span><span class="p">.</span><span class="nf">values</span><span class="p">()</span> <span class="k">if</span> <span class="nf">hasattr</span><span class="p">(</span><span class="n">contracts</span><span class="p">,</span> <span class="sh">"</span><span class="s">values</span><span class="sh">"</span><span class="p">)</span> <span class="k">else</span> <span class="n">contracts</span>
+    <span class="n">seen</span><span class="p">,</span> <span class="n">rows</span> <span class="o">=</span> <span class="nf">set</span><span class="p">(),</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">contract</span> <span class="ow">in</span> <span class="n">items</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">a</span> <span class="ow">in</span> <span class="n">contract</span><span class="p">.</span><span class="n">assumptions</span><span class="p">:</span>
+            <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">quantity</span><span class="p">,</span> <span class="n">a</span><span class="p">.</span><span class="n">ordering</span><span class="p">,</span> <span class="n">a</span><span class="p">.</span><span class="n">threshold</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">seen</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">seen</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">table</span> <span class="o">=</span> <span class="n">states</span> <span class="nf">if </span><span class="p">(</span><span class="n">points</span> <span class="ow">is</span> <span class="bp">None</span> <span class="ow">or</span> <span class="nf">_state_quantity</span><span class="p">(</span><span class="n">a</span><span class="p">.</span><span class="n">quantity</span><span class="p">))</span> <span class="k">else</span> <span class="n">points</span>
+            <span class="k">if</span> <span class="n">a</span><span class="p">.</span><span class="n">quantity</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">table</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">values</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nf">to_numeric</span><span class="p">(</span><span class="n">table</span><span class="p">[</span><span class="n">a</span><span class="p">.</span><span class="n">quantity</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="sh">"</span><span class="s">coerce</span><span class="sh">"</span><span class="p">).</span><span class="nf">dropna</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">values</span><span class="p">.</span><span class="n">empty</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">m</span> <span class="o">=</span> <span class="n">values</span><span class="p">.</span><span class="nf">map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">v</span><span class="p">:</span> <span class="nf">ordering_margin</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">a</span><span class="p">.</span><span class="n">ordering</span><span class="p">,</span> <span class="n">a</span><span class="p">.</span><span class="n">threshold</span><span class="p">)).</span><span class="nf">dropna</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">m</span><span class="p">.</span><span class="n">empty</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">rows</span><span class="p">.</span><span class="nf">append</span><span class="p">({</span><span class="sh">"</span><span class="s">ordering</span><span class="sh">"</span><span class="p">:</span> <span class="sa">f</span><span class="sh">"</span><span class="si">{</span><span class="n">a</span><span class="p">.</span><span class="n">quantity</span><span class="si">}</span><span class="s"> (</span><span class="si">{</span><span class="n">a</span><span class="p">.</span><span class="n">ordering</span><span class="si">}</span><span class="s">)</span><span class="sh">"</span><span class="p">,</span>
+                         <span class="sh">"</span><span class="s">per</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">state</span><span class="sh">"</span> <span class="k">if</span> <span class="n">table</span> <span class="ow">is</span> <span class="n">states</span> <span class="k">else</span> <span class="sh">"</span><span class="s">point</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">n</span><span class="sh">"</span><span class="p">:</span> <span class="nf">int</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">m</span><span class="p">)),</span>
+                         <span class="sh">"</span><span class="s">median_margin</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">(</span><span class="n">m</span><span class="p">.</span><span class="nf">median</span><span class="p">()),</span> <span class="sh">"</span><span class="s">permitted</span><span class="sh">"</span><span class="p">:</span> <span class="nf">float</span><span class="p">((</span><span class="n">m</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">).</span><span class="nf">mean</span><span class="p">())})</span>
+    <span class="n">frame</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="sh">"</span><span class="s">ordering</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">per</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">n</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">median_margin</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">permitted</span><span class="sh">"</span><span class="p">])</span>
+    <span class="k">return</span> <span class="n">frame</span><span class="p">.</span><span class="nf">set_index</span><span class="p">(</span><span class="sh">"</span><span class="s">ordering</span><span class="sh">"</span><span class="p">).</span><span class="nf">sort_values</span><span class="p">(</span><span class="sh">"</span><span class="s">median_margin</span><span class="sh">"</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>Median ordering margin and the fraction on the permitted side, per assessable ordering.</p>
+
+\[m = \log_{10}(x_0/x)\ (\text{small}),\qquad m = \log_{10}(x/x_0)\ (\text{large})\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>contracts</code></td><td class="ref-type">Mapping or iterable of ApproximationContract</td><td class="ref-unit">-</td><td><p>The contracts whose orderings are summarised; an ordering listed by several is reported once.</p>
+</td></tr>
+  <tr><td><code>states</code></td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">-</td><td><p>Global and time-history quantities, one row per state.</p>
+</td></tr>
+  <tr><td><code>points</code></td><td class="ref-type">pandas.DataFrame, optional</td><td class="ref-unit">-</td><td><p>Profile quantities, one row per flux surface; <code class="language-plaintext highlighter-rouge">states</code> is used when absent.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">-</td><td><p>Indexed by <code class="language-plaintext highlighter-rouge">"&lt;quantity&gt; (&lt;ordering&gt;)"</code>: <code class="language-plaintext highlighter-rouge">per</code> (state or point), <code class="language-plaintext highlighter-rouge">n</code>, <code class="language-plaintext highlighter-rouge">median_margin</code> [decades] and <code class="language-plaintext highlighter-rouge">permitted</code> (fraction with <code class="language-plaintext highlighter-rouge">m &gt; 0</code>), sorted from the least to the most room.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Collect each distinct <code class="language-plaintext highlighter-rouge">(quantity, ordering, threshold)</code> once.</li>
+        <li>Take a global or time-history quantity from <code class="language-plaintext highlighter-rouge">states</code> (one value per
+state, never repeated per profile point) and any other from <code class="language-plaintext highlighter-rouge">points</code>.</li>
+        <li>Margins with <code class="language-plaintext highlighter-rouge">vaft.validation.applicability.ordering_margin</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issues #1627 (margins first) and #1629 §5.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="ordering_table" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ordering_table"><code>ordering_table</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="ordering_table" href="https://github.com/VEST-Tokamak/vaft/blob/4787c740b6e55a31f70316f038cf88dc4292d70f/vaft/process/ordering_state.py#L514-L574" title="vaft/process/ordering_state.py, lines 514–574 at 4787c74">source</a>
+</header>
+    <pre class="ref-signature"><code>ordering_table(states, *, columns=None, ion_mass_amu=1.0)</code></pre>
+
+    <details class="ref-code" data-source-code="ordering_table"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 514–574</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ordering_table</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">columns</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span> <span class="n">ion_mass_amu</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
+    <span class="sa">r</span><span class="sh">"""</span><span class="s">The global and time-history ordering quantities of every state in a table.
+
+    $$\text{row}_k \mapsto \{S, d_i/a, \epsilon, \beta, \beta/\epsilon,
+      \tau_{evol}/\tau_A, \tau_{age}/\tau_R\}_k$$
+
+    Parameters
+    ----------
+    states : pandas.DataFrame
+        One row per plasma state; the inputs are read from the columns named
+        in ``columns`` and a missing column means a missing input [-].
+    columns : Mapping, optional
+        Input name -&gt; column name, overriding :data:`DEFAULT_COLUMNS`
+        (``minor_radius``, ``major_radius``, ``b0``, ``n_e``, ``t_e``,
+        ``z_eff``, ``ln_lambda``, ``beta``, ``plasma_current``,
+        ``current_rate``, ``plasma_age``) [-].
+    ion_mass_amu : float, optional
+        Main-ion mass number [-].
+
+    Returns
+    -------
+    pandas.DataFrame
+        The input index, the seven ordering columns, and ``attrs[</span><span class="sh">'</span><span class="s">columns</span><span class="sh">'</span><span class="s">]``
+        recording which input column fed each argument [-].
+
+    Processing steps
+    ----------------
+    1. Resolve the input columns; an absent one is a missing input.
+    2. :func:`global_ordering_quantities` and
+       :func:`time_history_ordering_quantities` on every row.
+
+    Limitations
+    -----------
+    Profile quantities need radial profiles and are built per state with
+    :func:`profile_ordering_quantities`, not here.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Issue #1627 §2 (the summary layer) and #1629 (the VEST atlas).
+    </span><span class="sh">"""</span>
+    <span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+
+    <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">DEFAULT_COLUMNS</span><span class="p">,</span> <span class="o">**</span><span class="nf">dict</span><span class="p">(</span><span class="n">columns</span> <span class="ow">or</span> <span class="p">{})}</span>
+    <span class="n">rows</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">states</span><span class="p">.</span><span class="nf">iterrows</span><span class="p">():</span>
+        <span class="n">get</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">column</span><span class="p">]</span> <span class="k">if</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">states</span><span class="p">.</span><span class="n">columns</span> <span class="k">else</span> <span class="bp">None</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">.</span><span class="nf">items</span><span class="p">()}</span>
+        <span class="n">common</span> <span class="o">=</span> <span class="nf">dict</span><span class="p">(</span><span class="n">minor_radius</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">minor_radius</span><span class="sh">"</span><span class="p">],</span> <span class="n">b0</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">b0</span><span class="sh">"</span><span class="p">],</span> <span class="n">n_e</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">n_e</span><span class="sh">"</span><span class="p">],</span> <span class="n">t_e</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">t_e</span><span class="sh">"</span><span class="p">],</span>
+                      <span class="n">z_eff</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">z_eff</span><span class="sh">"</span><span class="p">],</span> <span class="n">ln_lambda</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">ln_lambda</span><span class="sh">"</span><span class="p">],</span> <span class="n">ion_mass_amu</span><span class="o">=</span><span class="n">ion_mass_amu</span><span class="p">)</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="nf">global_ordering_quantities</span><span class="p">(</span><span class="n">major_radius</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">major_radius</span><span class="sh">"</span><span class="p">],</span> <span class="n">beta</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">beta</span><span class="sh">"</span><span class="p">],</span> <span class="o">**</span><span class="n">common</span><span class="p">)</span>
+        <span class="n">values</span><span class="p">.</span><span class="nf">update</span><span class="p">(</span><span class="nf">time_history_ordering_quantities</span><span class="p">(</span><span class="n">plasma_current</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">plasma_current</span><span class="sh">"</span><span class="p">],</span>
+                                                       <span class="n">current_rate</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">current_rate</span><span class="sh">"</span><span class="p">],</span>
+                                                       <span class="n">plasma_age</span><span class="o">=</span><span class="n">get</span><span class="p">[</span><span class="sh">"</span><span class="s">plasma_age</span><span class="sh">"</span><span class="p">],</span> <span class="o">**</span><span class="n">common</span><span class="p">))</span>
+        <span class="n">rows</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">values</span><span class="p">)</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">(</span><span class="n">rows</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">states</span><span class="p">.</span><span class="n">index</span><span class="p">)</span>
+    <span class="n">table</span><span class="p">.</span><span class="n">attrs</span><span class="p">[</span><span class="sh">"</span><span class="s">columns</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">column</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">mapping</span><span class="p">.</span><span class="nf">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">column</span> <span class="ow">in</span> <span class="n">states</span><span class="p">.</span><span class="n">columns</span><span class="p">}</span>
+    <span class="n">table</span><span class="p">.</span><span class="n">attrs</span><span class="p">[</span><span class="sh">"</span><span class="s">ion_mass_amu</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">ion_mass_amu</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">table</span></code></pre></figure>
+
+</details>
+
+    <p>The global and time-history ordering quantities of every state in a table.</p>
+
+\[\text{row}_k \mapsto \{S, d_i/a, \epsilon, \beta, \beta/\epsilon,
+  \tau_{evol}/\tau_A, \tau_{age}/\tau_R\}_k\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>states</code></td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">-</td><td><p>One row per plasma state; the inputs are read from the columns named in <code class="language-plaintext highlighter-rouge">columns</code> and a missing column means a missing input.</p>
+</td></tr>
+  <tr><td><code>columns</code></td><td class="ref-type">Mapping, optional</td><td class="ref-unit">-</td><td><p>Input name -&gt; column name, overriding <code class="language-plaintext highlighter-rouge">DEFAULT_COLUMNS</code> (<code class="language-plaintext highlighter-rouge">minor_radius</code>, <code class="language-plaintext highlighter-rouge">major_radius</code>, <code class="language-plaintext highlighter-rouge">b0</code>, <code class="language-plaintext highlighter-rouge">n_e</code>, <code class="language-plaintext highlighter-rouge">t_e</code>, <code class="language-plaintext highlighter-rouge">z_eff</code>, <code class="language-plaintext highlighter-rouge">ln_lambda</code>, <code class="language-plaintext highlighter-rouge">beta</code>, <code class="language-plaintext highlighter-rouge">plasma_current</code>, <code class="language-plaintext highlighter-rouge">current_rate</code>, <code class="language-plaintext highlighter-rouge">plasma_age</code>).</p>
+</td></tr>
+  <tr><td><code>ion_mass_amu</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion mass number.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">-</td><td><p>The input index, the seven ordering columns, and <code class="language-plaintext highlighter-rouge">attrs['columns']</code> recording which input column fed each argument.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Resolve the input columns; an absent one is a missing input.</li>
+        <li><code class="language-plaintext highlighter-rouge">global_ordering_quantities</code> and
+<code class="language-plaintext highlighter-rouge">time_history_ordering_quantities</code> on every row.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Profile quantities need radial profiles and are built per state with
+<code class="language-plaintext highlighter-rouge">profile_ordering_quantities</code>, not here.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1627 §2 (the summary layer) and #1629 (the VEST atlas).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="profile_ordering_quantities" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#profile_ordering_quantities"><code>profile_ordering_quantities</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="profile_ordering_quantities" href="https://github.com/VEST-Tokamak/vaft/blob/4787c740b6e55a31f70316f038cf88dc4292d70f/vaft/process/ordering_state.py#L342-L511" title="vaft/process/ordering_state.py, lines 342–511 at 4787c74">source</a>
+</header>
+    <pre class="ref-signature"><code>profile_ordering_quantities(*, minor_radius_coordinate, n_e, t_e, magnetic_field, safety_factor, major_radius, z_eff, ln_lambda, ion_mass_amu=1.0, t_i=None)</code></pre>
+
+    <p>The profile ordering quantities on each flux surface, NaN where an input is missing.</p>
+
+\[\frac{\rho_s}{L_{T_e}},\ \frac{\rho_i}{L_{T_i}},\ Kn_s = \frac{v_{ts}\tau_s}{qR},\
+  \Omega_{cs}\tau_s,\ \nu_{*s},\ \frac{\lambda_D}{L_{T_e}}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>minor_radius_coordinate</code></td><td class="ref-type">array-like</td><td class="ref-unit">m</td><td><p>Minor-radius coordinate <code class="language-plaintext highlighter-rouge">r</code> of each sample, increasing outward.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density on <code class="language-plaintext highlighter-rouge">r</code>.</p>
+</td></tr>
+  <tr><td><code>t_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature on <code class="language-plaintext highlighter-rouge">r</code>.</p>
+</td></tr>
+  <tr><td><code>magnetic_field</code></td><td class="ref-type">float or array-like</td><td class="ref-unit">T</td><td><p>Field strength at each sample, e.g. the vacuum <code class="language-plaintext highlighter-rouge">B0 R0 / R</code>.</p>
+</td></tr>
+  <tr><td><code>safety_factor</code></td><td class="ref-type">array-like</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">|q|</code> on <code class="language-plaintext highlighter-rouge">r</code> from the equilibrium.</p>
+</td></tr>
+  <tr><td><code>major_radius</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius for the connection length <code class="language-plaintext highlighter-rouge">qR</code> and <code class="language-plaintext highlighter-rouge">epsilon = r/R</code>.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Effective charge for the electron collisions.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Coulomb logarithm.</p>
+</td></tr>
+  <tr><td><code>ion_mass_amu</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion mass number.</p>
+</td></tr>
+  <tr><td><code>t_i</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">eV</td><td><p>Ion temperature on <code class="language-plaintext highlighter-rouge">r</code>; without it every ion quantity is NaN.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">rho_s_over_LTe</code>, <code class="language-plaintext highlighter-rouge">rho_i_over_LTi</code>, <code class="language-plaintext highlighter-rouge">electron_parallel_knudsen_number</code>, <code class="language-plaintext highlighter-rouge">ion_parallel_knudsen_number</code>, <code class="language-plaintext highlighter-rouge">electron_magnetization</code>, <code class="language-plaintext highlighter-rouge">ion_magnetization</code>, <code class="language-plaintext highlighter-rouge">electron_collisionality</code>, <code class="language-plaintext highlighter-rouge">ion_collisionality</code>, <code class="language-plaintext highlighter-rouge">debye_length_over_L</code>: arrays on <code class="language-plaintext highlighter-rouge">r</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">rho_i</code> uses <code class="language-plaintext highlighter-rouge">sqrt(T_i/m_i)</code> (NRL), the convention of
+<code class="language-plaintext highlighter-rouge">vaft.formula.ordering</code>; <code class="language-plaintext highlighter-rouge">sqrt(2T/m)</code> would raise it by <code class="language-plaintext highlighter-rouge">sqrt 2</code>.
+The Debye length is taken against <code class="language-plaintext highlighter-rouge">L_Te</code>, the profile’s own scale.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The profile arrays do not share one length, or <code class="language-plaintext highlighter-rouge">r</code> is not increasing.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Gradient lengths <code class="language-plaintext highlighter-rouge">L_T = |T / (dT/dr)|</code> per species on <code class="language-plaintext highlighter-rouge">r</code>, on the
+finite positive samples of that species’ temperature only.</li>
+        <li><code class="language-plaintext highlighter-rouge">rho_s</code> from <code class="language-plaintext highlighter-rouge">T_e</code> and <code class="language-plaintext highlighter-rouge">rho_i = v_ti / Omega_ci</code> with
+<code class="language-plaintext highlighter-rouge">v_ti = sqrt(T_i/m_i)</code>; each over its own <code class="language-plaintext highlighter-rouge">L_T</code>.</li>
+        <li>Braginskii collision times, mean free paths <code class="language-plaintext highlighter-rouge">v_t tau</code> and the
+parallel Knudsen numbers on <code class="language-plaintext highlighter-rouge">qR</code>; magnetizations <code class="language-plaintext highlighter-rouge">|Omega_c| tau</code>.</li>
+        <li>Sauter collisionalities with the local <code class="language-plaintext highlighter-rouge">epsilon = r / R</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">lambda_D / L_Te</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Gradient lengths of sparse Thomson channels are finite differences of a
+few points; a profile fit should be passed when the raw channels are
+noisy. One main-ion species with <code class="language-plaintext highlighter-rouge">n_i = n_e</code> (no impurity dilution);
+impurities enter only through <code class="language-plaintext highlighter-rouge">Z_eff</code> in the electron collisions. One
+Coulomb logarithm serves both species, so the ion collision time and
+Sauter’s <code class="language-plaintext highlighter-rouge">nu*_i</code> use the caller’s (electron) <code class="language-plaintext highlighter-rouge">lnLambda</code> rather than
+Sauter’s own ion value – a 10-20 % effect on the ion quantities.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1627 §6-§8 and the registry <code class="language-plaintext highlighter-rouge">vaft.validation.orderings.ORDERING_QUANTITIES</code>; collisionality as in O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6, 2834 (1999).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="time_history_ordering_quantities" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#time_history_ordering_quantities"><code>time_history_ordering_quantities</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="time_history_ordering_quantities" href="https://github.com/VEST-Tokamak/vaft/blob/4787c740b6e55a31f70316f038cf88dc4292d70f/vaft/process/ordering_state.py#L229-L316" title="vaft/process/ordering_state.py, lines 229–316 at 4787c74">source</a>
+</header>
+    <pre class="ref-signature"><code>time_history_ordering_quantities(*, minor_radius, b0, n_e=None, t_e=None, z_eff=None, ln_lambda=None, ion_mass_amu=1.0, plasma_current=None, current_rate=None, plasma_age=None)</code></pre>
+
+    <p>How slowly a state evolves against Alfvenic and resistive times, NaN where an input is missing.</p>
+
+\[\frac{\tau_{evol}}{\tau_A} = \frac{|I_p / \dot I_p|}{a / v_A},\qquad
+  \frac{\tau_{age}}{\tau_R} = \frac{t - t_{onset}}{\mu_0 a^2/\eta}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>minor_radius</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Minor radius <code class="language-plaintext highlighter-rouge">a</code>.</p>
+</td></tr>
+  <tr><td><code>b0</code></td><td class="ref-type">float</td><td class="ref-unit">T</td><td><p>Toroidal field on axis.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td class="ref-type">float, optional</td><td class="ref-unit">m^-3</td><td><p>Electron density for <code class="language-plaintext highlighter-rouge">v_A</code>.</p>
+</td></tr>
+  <tr><td><code>t_e</code></td><td class="ref-type">float, optional</td><td class="ref-unit">eV</td><td><p>Electron temperature for <code class="language-plaintext highlighter-rouge">eta</code>.</p>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Effective charge for <code class="language-plaintext highlighter-rouge">eta</code>.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Coulomb logarithm for <code class="language-plaintext highlighter-rouge">eta</code>.</p>
+</td></tr>
+  <tr><td><code>ion_mass_amu</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion mass number.</p>
+</td></tr>
+  <tr><td><code>plasma_current</code></td><td class="ref-type">float, optional</td><td class="ref-unit">A</td><td><p>Plasma current at the state.</p>
+</td></tr>
+  <tr><td><code>current_rate</code></td><td class="ref-type">float, optional</td><td class="ref-unit">A/s</td><td><p><code class="language-plaintext highlighter-rouge">dI_p/dt</code> at the state, from the same current history.</p>
+</td></tr>
+  <tr><td><code>plasma_age</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Time since plasma onset at the state.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">tau_evolution_over_tau_alfven</code> and <code class="language-plaintext highlighter-rouge">tau_age_over_tau_resistive</code>, each a float or NaN.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The evolution time is the plasma current’s; another state variable
+(stored energy, axis position) gives another <code class="language-plaintext highlighter-rouge">tau_evol</code> and is the
+caller’s to pass. Both ratios use the minor radius <code class="language-plaintext highlighter-rouge">a</code>.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li><code class="language-plaintext highlighter-rouge">tau_A = a / v_A</code> from <code class="language-plaintext highlighter-rouge">B0</code> and <code class="language-plaintext highlighter-rouge">n_i m_i</code> (<code class="language-plaintext highlighter-rouge">n_i = n_e</code>).</li>
+        <li><code class="language-plaintext highlighter-rouge">tau_evol = |I_p / (dI_p/dt)|</code>; a zero rate leaves it NaN rather than
+infinite.</li>
+        <li><code class="language-plaintext highlighter-rouge">tau_R = mu0 a^2 / eta</code> with Spitzer <code class="language-plaintext highlighter-rouge">eta</code>, and the age over it.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">tau_R</code> uses one global <code class="language-plaintext highlighter-rouge">T_e</code>, as in
+<code class="language-plaintext highlighter-rouge">global_ordering_quantities</code>; the current-relaxation statement is
+order-of-magnitude.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1627 §9 (quasi-static equilibrium) and §10 (resistive current relaxation).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+</div>
+
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/formula/turbulence/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Formula reference: turbulence">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#functions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Functions</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Process_reference_ordering_state.md",
+        "mtime": "2026-10-07 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-10 16:00:20 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>
