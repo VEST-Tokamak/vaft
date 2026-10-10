@@ -237,10 +237,14 @@ printf 'INTERPOLATION_WARNINGS=%s\n' "$interpolation_warnings"
 # was skipped while the run still reported success.
 if [[ -f "$SCRIPT_DIR/compare-plasma-state.py" ]]; then
   note "comparing against the reference Plasma State"
+  # The comparison carries the verdict: it exits 1 when the headline profiles
+  # disagree with the reference beyond its tolerance, and under pipefail that
+  # status survives the tee.
   "${PYTHON:-python3}" "$SCRIPT_DIR/compare-plasma-state.py" \
     "$WORK_DIR/$REFERENCE_STATE" "$WORK_DIR/$OUTPUT_STATE" \
     --changes "$WORK_DIR/state_changes.cdf" \
-    | tee "$WORK_DIR/comparison.txt"
+    | tee "$WORK_DIR/comparison.txt" ||
+    die "the output state disagrees with the reference beyond tolerance; see $WORK_DIR/comparison.txt and VALIDATION.md"
 else
   die "compare-plasma-state.py is missing from $SCRIPT_DIR, so this run cannot be validated against its reference"
 fi

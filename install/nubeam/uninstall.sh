@@ -38,10 +38,11 @@ Usage: bash install/nubeam/uninstall.sh --nubeam-root PATH [--dry-run]
   --dry-run            list what would be removed and remove nothing
   -h, --help
 
-Removes the installation prefix (<root>/local), the generated build directory,
-the downloaded NTCC sources and the configs the installer wrote, then the
-manifest itself. Running it twice is not an error: the second run reports that
-there is nothing recorded and exits 0.
+Removes what the manifest records: the installation prefix (<root>/local),
+the generated build directory and the configs the installer wrote, then the
+manifest itself. The NTCC modules under <root>/vendor/ntcc are not recorded by
+the POSIX recipes and are left in place. Running it twice is not an error: the
+second run reports that there is nothing recorded and exits 0.
 EOF
 }
 
@@ -68,9 +69,24 @@ if [[ ! -e "$MANIFEST" ]]; then
   exit 0
 fi
 
+# Lexical on purpose: an entry may name a directory that no longer exists,
+# which `cd && pwd -P` could not resolve. So `..` and `.` components, a
+# trailing slash and a doubled slash are refused rather than normalised -- the
+# installers never write them, and `<root>/../x` or `<root>/` would otherwise
+# pass a plain "$ROOT_DIR"/* and reach rm -rf.
 is_child_of_root() {
   case "$1" in
-    "$ROOT_DIR"/*) return 0 ;;
+    */../*|*/..|*/./*|*/.|*/|*//*) return 1 ;;
+    "$ROOT_DIR"/?*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# A directory is removed wholesale, so the manifest alone is not enough to
+# justify it: it also has to sit in one of the subtrees the installers create.
+is_managed_subtree() {
+  case "${1#"$ROOT_DIR"/}" in
+    local|build/?*|vendor/ntcc/?*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -90,8 +106,8 @@ is_child_of_root() {
 # kind of mistake this script exists to not make.
 #
 # So the installer records the root (`root\t<path>`), and that is used when
-# present. For a manifest written before that -- macos.sh still writes none --
-# fall back to the common prefix, but only accept it when its last component
+# present. For a manifest written before the recipes recorded it, fall back to
+# the common prefix, but only accept it when its last component
 # matches this tree's, which is what a relocated copy of the same tree looks
 # like. Anything else is refused rather than guessed at.
 recorded_root() {
@@ -156,7 +172,14 @@ while IFS=$'\t' read -r kind path; do
   is_child_of_root "$path" || die "refusing path outside source tree: $path"
   case "$kind" in
     managed_dir)
+      is_managed_subtree "$path" || die "refusing to remove a directory outside local, build/ and vendor/ntcc/: $path"
       if [[ -d "$path" ]]; then
+        # The lexical guards above cannot see a symlinked component
+        # (<root>/build/sym -> /elsewhere), and rm -rf follows it into
+        # whatever it points at. The directory exists here, so its real
+        # location can be checked against the tree's.
+        resolved="$(cd "$path" 2>/dev/null && pwd -P)" || die "cannot resolve $path"
+        [[ "$resolved" == "$ROOT_DIR"/?* ]] || die "refusing $path: it resolves to $resolved, outside the source tree"
         if ((DRY_RUN)); then
           note "would remove directory $path"
         else

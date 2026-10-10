@@ -16,9 +16,8 @@
 # https://w3.pppl.gov/NTCC/NUBEAM/downloads.shtml. The script never accepts the
 # agreement implicitly.
 #
-# macOS/Apple Silicon only. Native Windows is install/nubeam/windows.ps1.
-# There is no Linux recipe yet: it needs a NUBEAM tree to be written against,
-# and NTCC gates the source behind a licence each user accepts themselves.
+# macOS/Apple Silicon only. Linux is install/nubeam/linux.sh and native Windows
+# is install/nubeam/windows.ps1.
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -86,6 +85,12 @@ ROOT_DIR="$(cd "$NUBEAM_ROOT" 2>/dev/null && pwd -P)" ||
   die "NUBEAM source tree does not exist: $NUBEAM_ROOT"
 [[ -f "$ROOT_DIR/Makefile" && -d "$ROOT_DIR/nubeam_comp_exec" ]] ||
   die "not a NUBEAM source tree (no Makefile and nubeam_comp_exec/): $ROOT_DIR"
+# Make.local carries PREFIX = <root>/local and NETCDF_DIR unquoted, and the
+# NTCC makefiles pass them on to the shell unquoted too, so a path with
+# whitespace in it breaks the build somewhere deep inside a submodule rather
+# than here. Refuse it up front, while nothing has been written.
+[[ "$ROOT_DIR" != *[[:space:]]* ]] ||
+  die "the NUBEAM tree path contains whitespace, which the generated Make.local cannot carry: $ROOT_DIR"
 
 # Everything this script generates stays inside the NUBEAM tree, never in the
 # VAFT checkout.
@@ -180,6 +185,10 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 GENERATED_CONFIGS=("$ROOT_DIR/share/Make.local")
 write_manifest() {
   {
+    # The root is recorded rather than inferred. uninstall.sh otherwise has to
+    # guess it from the entries, and the longest common prefix is wrong the
+    # moment they all share a subdirectory.
+    printf 'root\t%s\n' "$ROOT_DIR"
     printf 'managed_dir\t%s\n' "$PREFIX"
     printf 'managed_dir\t%s\n' "$BUILD_DIR"
     for config in "${GENERATED_CONFIGS[@]}"; do
