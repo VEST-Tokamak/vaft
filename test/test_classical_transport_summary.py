@@ -97,6 +97,7 @@ def test_a_real_state_maps_its_fluxes_and_coefficients_to_separate_leaves(resolv
         ods, records, state.profile, time=0.3, state_identity=state.identity,
         efit_lineage="magnetics")
     assert report["model"] == 0 and report["profile_index"] == 0, report
+    records = [record.as_record() for record in records]   # the mapper took the typed results
     base = "core_transport.model.0.profiles_1d.0"
     q_e = np.asarray(ods[f"{base}.electrons.energy.flux"])
     chi_e = np.asarray(ods[f"{base}.electrons.energy.d"])
@@ -255,3 +256,13 @@ def test_an_envelope_slice_without_an_identity_is_not_recorded():
     ods[path] = ods[path].replace('state_identity="s"', 'state_identity=""')
     (row,) = _summary.extract_classical_transport(ods, 1)
     assert row["configuration_status"] == "state_unrecorded" and row["state_identity"] is None
+
+
+def test_the_projection_is_unchanged_by_the_typed_result(resolved):
+    """#1899: the typed result and its as_record() project to identical core_transport."""
+    state, records = resolved
+    typed, plain = ODS(consistency_check=False), ODS(consistency_check=False)
+    for ods, given in ((typed, records), (plain, [r.as_record() for r in records])):
+        classical.core_transport_from_classical(ods, given, state.profile, time=0.3,
+                                                state_identity=state.identity, efit_lineage="magnetics")
+    assert _summary.extract_classical_transport(typed, 1) == _summary.extract_classical_transport(plain, 1)
