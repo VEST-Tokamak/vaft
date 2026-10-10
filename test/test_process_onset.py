@@ -236,11 +236,42 @@ def test_a_record_too_short_for_the_filter_says_so():
         zero_phase_lowpass(np.ones(12), 2000.0, FS)
 
 
-def test_a_flat_reference_is_flagged():
+def test_a_flat_reference_is_flagged_but_a_clean_pulse_is_still_found():
+    """A quiet lead quantised to one code is not an idle channel.
+
+    The flat reference used to be refused outright, so a clean pulse whose
+    lead sat on one ADC code came back `no_onset` exactly like an all-zero
+    coil (cold review 0.7.0 process F7, #1888).  The threshold degenerates to
+    the fraction-of-peak term, which is still a threshold.
+    """
     y = np.zeros(T.size)
     y[T >= ONSET] = 1.0
     record = sustained_excess_onset(T, y)
-    assert not record.found and "reference_flat" in record.flags
+    assert record.found and "reference_flat" in record.flags
+    assert record.time == pytest.approx(ONSET, abs=2 * DT)
+
+
+def test_a_quantised_pulse_is_found_by_every_detector():
+    t = np.arange(0.0, 0.6, 1e-4)
+    pulse = np.where((t > 0.3) & (t < 0.5), np.sin(np.pi * (t - 0.3) / 0.2), 0.0)
+    quantised = np.round(pulse * 1000) / 1000
+    for detector in (sustained_excess_onset, principal_pulse_onset):
+        record = detector(t, quantised, reference_mask=t < 0.05)
+        assert record.found and "reference_flat" in record.flags, detector.__name__
+        assert record.time == pytest.approx(0.3, abs=5e-3), detector.__name__
+    window = active_window(t, quantised, reference_mask=t < 0.05)
+    assert window.onset.found and "reference_flat" in window.onset.flags
+    assert window.onset.time == pytest.approx(0.3, abs=5e-3)
+
+
+def test_an_idle_channel_is_still_refused():
+    """Flat reference and nothing above it: no threshold is possible."""
+    idle = np.zeros(T.size)
+    for detector in (sustained_excess_onset, principal_pulse_onset):
+        record = detector(T, idle)
+        assert not record.found and record.flags[:2] == ("no_onset", "reference_flat"), detector.__name__
+    window = active_window(T, idle)
+    assert not window.onset.found and "reference_flat" in window.flags
 
 
 def test_zero_phase_filtering_does_not_shift_the_onset():

@@ -907,17 +907,35 @@ def _settle_reference(y: np.ndarray, ref_mask: np.ndarray, sigma: float) -> tupl
     return repaired, ("reference_contaminated",)
 
 
+def _flat_reference(spread: float) -> tuple[str, ...]:
+    """``("reference_flat",)`` when the reference has no spread, else nothing.
+
+    Informational: a reference that sits on one code (a quantised record, a
+    coil that is quiet before it fires) still leaves the fraction-of-peak
+    term to threshold against, as :func:`robust_baseline` says.
+    """
+    return ("reference_flat",) if np.isfinite(spread) and spread <= 0.0 else ()
+
+
 def _degenerate(t, y, method, baseline, spread, peak, threshold, ref_mask, sigma) -> OnsetRecord | None:
-    """The cases where thresholding would be meaningless, as flagged records."""
+    """The cases where thresholding would be meaningless, as flagged records.
+
+    A flat reference alone is not one of them: ``threshold`` then degenerates
+    to the fraction-of-peak term, which is still a threshold when the record
+    rises above its baseline at all.  Only a flat reference *and* no excess
+    above it -- the idle coil -- is refused, so that a clean pulse whose quiet
+    lead is quantised to one code is not reported like an idle channel (cold
+    review 0.7.0 process F7, #1888).
+    """
     flags: list[str] = []
     if int(np.count_nonzero(ref_mask)) < 2:
         flags.append("reference_too_short")
     if not np.isfinite(baseline) or not np.isfinite(spread):
         flags.append("reference_not_finite")
-    elif spread <= 0.0:
-        flags.append("reference_flat")
     if not np.isfinite(peak):
         flags.append("no_finite_samples")
+    elif not flags and spread <= 0.0 and peak <= 0.0:
+        flags.append("reference_flat")
     if not flags:
         return None
     return OnsetRecord(
@@ -1054,6 +1072,7 @@ def sustained_excess_onset(
     degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref, sigma)
     if degenerate is not None:
         return degenerate
+    ref_flags = (*ref_flags, *_flat_reference(spread))
     dt = float(np.median(np.diff(t)))
     hold = max(1, int(round(float(hold_s) / dt)))
     above = _bridged(y > threshold, int(bridge_samples))
@@ -1258,6 +1277,7 @@ def _principal_pulse_onset(
     degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref, sigma)
     if degenerate is not None:
         return degenerate
+    ref_flags = (*ref_flags, *_flat_reference(spread))
     evidence: dict[str, Any] = {
         "baseline_median": baseline, "robust_sigma": spread, "peak": peak, "threshold": threshold,
         "fraction": float(fraction), "sigma": float(sigma), "cutoff_hz": cutoff_hz,
@@ -1548,6 +1568,7 @@ def _active_window(
     degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref, sigma)
     if degenerate is not None:
         return empty(degenerate.flags)
+    ref_flags = (*ref_flags, *_flat_reference(spread))
     if np.isfinite(peak) and peak < float(sigma) * spread:
         return empty(("no_onset", "peak_below_noise"))
 
@@ -1944,6 +1965,7 @@ def zero_crossing_after_excursion(
     degenerate = _degenerate(t, y, method, baseline, spread, peak, threshold, ref, sigma)
     if degenerate is not None:
         return degenerate
+    ref_flags = (*ref_flags, *_flat_reference(spread))
     dt = float(np.median(np.diff(t)))
     hold = max(1, int(round(float(hold_s) / dt)))
     above = _bridged(excess > threshold, int(bridge_samples)) & search
