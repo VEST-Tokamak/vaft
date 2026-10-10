@@ -3092,3 +3092,39 @@ def test_efit_installer_takes_the_hard_stack_limit_when_the_ask_exceeds_it():
     # Already enough: nothing to do, nothing said.
     completed = _raise_stack_limit(soft=32768, hard=49152, want=16384)
     assert "limit=32768 status=0" in completed.stdout and "==>" not in completed.stdout
+
+
+# ---------------------------------------------------------------------------
+# Cold review 0.7.0 install residue (issue #1888)
+# ---------------------------------------------------------------------------
+
+
+def _brace_block(text: str, start: int) -> str:
+    """The `{ ... }` block whose opening brace is the first one at or after `start`."""
+    opening = text.index("{", start)
+    depth = 0
+    for index in range(opening, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[opening:index + 1]
+    raise AssertionError("unbalanced braces")
+
+
+def test_gpec_windows_clears_stale_executables_on_every_build():
+    """Cold review install F11: `bin\\<name>.exe` was removed only under -Clean.
+
+    Upstream's rules judge themselves by a `cp`, so a failed link leaves the
+    previous .exe behind; the acceptance asks only "exists and non-empty", and
+    a binary from the previous revision was then installed and recorded under
+    the new one. install_gpec.sh removes the targets unconditionally.
+    """
+    text = (INSTALL / "install_gpec_windows.ps1").read_text(encoding="utf-8")
+    removal = 'Join-Path $source "bin\\$name.exe"'
+    assert removal in text
+    for gate in re.finditer(r"if \(\$Clean\)", text):
+        assert removal not in _brace_block(text, gate.end()), (
+            "the stale-executable removal must not be gated on -Clean"
+        )

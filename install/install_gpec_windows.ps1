@@ -300,14 +300,17 @@ Write-Result -Status PASS -Name 'netCDF' -Detail $NetcdfHome
 
 $logPath = Join-Path $prefixPath "logs\gpec-build-$timestamp.log"
 
-if ($Clean) {
-    # `make clean` removes the extension-less names the Linux build produces, so
-    # on Windows it leaves every .exe behind, and make then treats a stale
-    # binary as up to date.
-    foreach ($name in $Executables) {
-        foreach ($candidate in @((Join-Path $source "bin\$name.exe"), (Join-Path $source "$name\$name.exe"))) {
-            if (Test-Path -LiteralPath $candidate) { Remove-Item -LiteralPath $candidate -Force }
-        }
+# Always, not only under -Clean: upstream's rules judge themselves by a `cp`
+# of an extension-less name, so a failed link leaves the previous .exe in
+# place and make then treats that stale binary as up to date. The acceptance
+# below only asks "exists and non-empty", which a binary from the previous
+# revision satisfies -- it would then be installed and recorded under the new
+# revision. install_gpec.sh removes the targets unconditionally for the same
+# reason; `make clean` would not help, since it removes only the
+# extension-less names the Linux build produces.
+foreach ($name in $Executables) {
+    foreach ($candidate in @((Join-Path $source "bin\$name.exe"), (Join-Path $source "$name\$name.exe"))) {
+        if (Test-Path -LiteralPath $candidate) { Remove-Item -LiteralPath $candidate -Force }
     }
 }
 
