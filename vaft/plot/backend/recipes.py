@@ -1220,6 +1220,9 @@ def _topview_reads() -> tuple[str, ...]:
         if kind == "segments":
             for point in ("first_point", "second_point"):
                 reads += [f"{container}.{{i}}.line_of_sight.{point}.r", f"{container}.{{i}}.line_of_sight.{point}.phi"]
+        elif kind == "rings":
+            # an axisymmetric loop: radius (top) and height (3-D), no phi (#1829)
+            reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.z"]
         elif container in _LISTED_POSITIONS:
             reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.phi"]
         else:
@@ -3600,6 +3603,27 @@ def _toroidal_position(ods: Any, base: str) -> tuple[float, float] | None:
         return None
 
 
+def _ring_position(ods: Any, base: str) -> tuple[float, float | None] | None:
+    """``(r, z)`` of a toroidal loop stored under ``base`` (``z`` ``None`` when absent).
+
+    A flux loop is axisymmetric: its ``position`` (a list in the DD) gives the
+    loop's radius and height and has no toroidal angle, so -- unlike
+    :func:`_toroidal_position` -- no ``phi`` is required (issue #1829).
+    """
+    prefix = f"{base}.0" if base.startswith(_LISTED_POSITIONS) and base.endswith(".position") else base
+    try:
+        radius = float(np.asarray(_get(ods, f"{prefix}.r"), dtype=float).ravel()[0])
+    except (IndexError, TypeError, ValueError):
+        return None
+    if not (np.isfinite(radius) and radius > 0):
+        return None
+    try:
+        height = float(np.asarray(_get(ods, f"{prefix}.z"), dtype=float).ravel()[0])
+    except (IndexError, TypeError, ValueError):
+        height = None
+    return radius, height if height is not None and np.isfinite(height) else None
+
+
 def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
     """Diagnostic channels with a stored toroidal position, projected to (x, y).
 
@@ -3629,7 +3653,7 @@ def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
         if kind == "rings":
             first_label = True
             for index in range(count):
-                position = _toroidal_position(ods, f"{container}.{index}.position")
+                position = _ring_position(ods, f"{container}.{index}.position")
                 if position is None:
                     continue
                 x, y = _ring(position[0])
@@ -4833,10 +4857,10 @@ def _diagnostic_layers_3d(ods: Any) -> list[Geometry3DLayer]:
                     r, phi, z = (np.array(values) for values in zip(*ends))
                     x, y, height = cylindrical_to_cartesian(r, phi, z)
                 else:
-                    position = _cylindrical_position(ods, f"{container}.{index}.position")
-                    if position is None:
-                        continue
-                    x, y, height = _toroidal_ring_3d(position[0], position[2])
+                    position = _ring_position(ods, f"{container}.{index}.position")
+                    if position is None or position[1] is None:
+                        continue  # a missing height is not assumed to be the midplane
+                    x, y, height = _toroidal_ring_3d(position[0], position[1])
                 layers.append(Geometry3DLayer(
                     x=x, y=y, z=height, label=label if first_label else "", style=style,
                     group=f"{group}/{index}",
