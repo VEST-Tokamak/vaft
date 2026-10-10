@@ -132,6 +132,8 @@ PIPELINE = frozenset({
     "ordering_margins",
     # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
     "mode_frequency_tracks",
+    # coil_operating_space (#1178): ratio against group 0 -> wrapped phase, NaN at A = 0
+    "relative_coil_coordinates",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -376,6 +378,8 @@ CONVENTION_SENSITIVE = frozenset({
     # #460: |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
     # a velocity divided by R_out of the surface (never R_axis)
     "mode_frequency_tracks",
+    # #1178: I_k = A cos(n phi_k + delta), relative phase of group g minus group 0
+    "relative_coil_coordinates",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

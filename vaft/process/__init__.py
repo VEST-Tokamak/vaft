@@ -70,6 +70,7 @@ _SUBMODULES = {
     "mhd_stability": ".mhd_stability",
     "q_profile_context": ".q_profile_context",
     "ordering_state": ".ordering_state",
+    "coil_operating_space": ".coil_operating_space",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -149,6 +150,9 @@ _IMPORT_ORDER = (
     # Asymptotic ordering quantities of measured states (#1627 §2, #1629);
     # nothing it exports collides.
     "ordering_state",
+    # The common coil operating-space result of #1178 (schema settled on
+    # #1886); nothing it exports collides.
+    "coil_operating_space",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

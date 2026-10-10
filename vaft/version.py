@@ -18,6 +18,11 @@ __all__ = ["__version__"]
 #   after it from shear, q_min, low-shear regions and q95; the context
 #   records the slice time; one interior maximum is single_maximum, not
 #   multi_extremum (#1838)
+# - vaft.process.coil_operating_space.CoilOperatingSpace: the common result
+#   of a coil amplitude/phase operating-space study -- samples, per-(sample,
+#   metric) values with a status, the excitation convention
+#   I_k = A cos(n phi_k + delta) and a long-form to_frame() (#1178, schema
+#   settled on #1886)
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the
