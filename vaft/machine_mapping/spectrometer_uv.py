@@ -56,7 +56,7 @@ CHANNEL_RAIL_LEVEL: dict[int, float] = {
 #: no element, ion or transition field under ``processed_line``.  The hydrogen
 #: entries name a Balmer series member instead of an ionization state, which
 #: the Data Dictionary does not cover but spectroscopy does.
-#: :mod:`vaft.spectroscopy` parses both forms, so a label written here is what
+#: :mod:`vaft.data.spectroscopy` parses both forms, so a label written here is what
 #: ``emission=`` resolves against.
 SIGNALS: list[tuple[int, int, int, str, float]] = [
     (101, 0, 0, "H-alpha_6563", 656.3e-9),

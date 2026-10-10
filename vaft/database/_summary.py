@@ -41,6 +41,13 @@ EQUILIBRIUM_GLOBAL_COLUMNS = (
     "beta_pol_circumference",
     "beta_tor",
     "beta_normal",
+    # #1691: the volume beta 2 mu0 <p>_V / <B^2>_V over the total field with the
+    # real F(psi) (Troyon's beta, Menard's aspect-ratio-robust normalization) and
+    # its normalized form; a different definition from beta_tor/beta_normal, which
+    # divide by the vacuum b0 at one radius.
+    "beta_volume_B2",
+    "beta_normal_B2",
+    "normalized_plasma_current",
     "li_3",
     "energy_mhd_J",
     "area_m2",
@@ -518,6 +525,57 @@ def _beta_pol_circumference(eq_slice) -> float:
     return float(beta_poloidal_from_circumference(p_average, ip, length_pol))
 
 
+def _beta_volume(ods, index: int, eq_slice, minor_radius: float, b0: float) -> tuple[float, float]:
+    """The volume beta and its normalized form (#1691), or NaNs where they cannot be formed.
+
+    ``beta_B = 2 mu0 int p dV / int B^2 dV``: the pressure integral from the 1-D
+    profiles, the field integral over the inside of the boundary outline with
+    ``B_phi = F(psi)/R`` (not the vacuum field). Both are averaged over the
+    profile volume so the ratio is the ratio of the integrals; a slice without an
+    outline reports NaN, since the flux-mask fallback integrates a different volume.
+
+    ``beta_normal_B2`` normalizes by ``b0`` at ``vacuum_toroidal_field.r0``, the
+    reference ``beta_normal`` uses, so the two columns differ only in the beta.
+    Menard et al. take ``B_T0`` at the plasma's geometric centre instead: on VEST,
+    whose geometric centre moves inward of ``r0``, the column is not directly the
+    quantity behind their 3.2.
+    """
+    import numpy as np
+
+    from vaft.compat import trapz_compat
+    from vaft.formula.constants import MU0
+    from vaft.formula.equilibrium import beta_normal_from_beta_volume, beta_volume_from_p_B2
+    from vaft.omas.process_wrapper import compute_magnetic_energy
+
+    nan = (float("nan"), float("nan"))
+    # tested with `in` first: reading a missing OMAS path creates it in the caller's ODS
+    needed = ("profiles_1d.pressure", "profiles_1d.volume", "global_quantities.ip", "boundary.outline.r",
+              "boundary.outline.z")
+    if not all(name in eq_slice for name in needed):
+        return nan
+    try:
+        pressure = np.asarray(eq_slice["profiles_1d.pressure"], float).reshape(-1)
+        volume = np.asarray(eq_slice["profiles_1d.volume"], float).reshape(-1)
+        ip = float(eq_slice["global_quantities.ip"])
+        if np.count_nonzero(np.isfinite(np.asarray(eq_slice["boundary.outline.r"], float))) < 3:
+            return nan
+        energy = float(compute_magnetic_energy(ods, time_slice=index, toroidal_field="equilibrium"))
+    except Exception as exc:  # noqa: BLE001 - a slice without the inputs reports NaN
+        logger.debug("slice %s: volume beta unavailable: %s", index, exc)
+        return nan
+    if pressure.size != volume.size or pressure.size < 2:
+        return nan
+    plasma_volume = float(volume[-1])
+    if not (np.isfinite(plasma_volume) and plasma_volume > 0 and np.isfinite(energy) and energy > 0):
+        return nan
+    p_average = float(trapz_compat(pressure, x=volume)) / plasma_volume
+    b2_average = 2.0 * MU0 * energy / plasma_volume
+    beta_volume = float(beta_volume_from_p_B2(p_average, b2_average))
+    if not (np.isfinite(minor_radius) and np.isfinite(b0) and b0 != 0 and np.isfinite(ip) and ip != 0):
+        return beta_volume, float("nan")
+    return beta_volume, float(beta_normal_from_beta_volume(beta_volume, minor_radius, b0, ip))
+
+
 def _normalize_vacuum_field(ods, shot: int) -> None:
     """Rebuild ``b0`` from ``profiles_1d.f``, which the database gets right.
 
@@ -595,6 +653,8 @@ def _normalize_vacuum_field(ods, shot: int) -> None:
 
 def extract_equilibrium_global(ods, shot: int) -> list[dict]:
     """Extract the legacy equilibrium-global history schema from one lazy ODS."""
+    from vaft.formula.equilibrium import normalized_plasma_current
+
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         return []
 
@@ -680,6 +740,15 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
             if np.isfinite(source_b0) and np.isfinite(reference_r0)
             else np.nan
         )
+        beta_volume, beta_normal_volume = _beta_volume(ods, index, eq_slice, minor_radius, source_b0)
+        ip_value = _as_float(_safe_get(eq_slice, "global_quantities.ip"))
+        # on magnitudes, like beta_normal: I_N is the x axis the Troyon line runs through the origin on
+        normalized_current = (
+            float(normalized_plasma_current(abs(ip_value), major_radius, minor_radius, abs(source_b0)))
+            if np.isfinite(ip_value) and np.isfinite(minor_radius) and minor_radius > 0
+            and np.isfinite(source_b0) and source_b0 != 0
+            else np.nan
+        )
         row = {
             "shot": int(shot),
             "eq_index": int(index),
@@ -698,6 +767,9 @@ def extract_equilibrium_global(ods, shot: int) -> list[dict]:
             "beta_normal": _as_float(
                 _safe_get(eq_slice, "global_quantities.beta_normal")
             ),
+            "beta_volume_B2": beta_volume,
+            "beta_normal_B2": beta_normal_volume,
+            "normalized_plasma_current": normalized_current,
             "li_3": _as_float(_safe_get(eq_slice, "global_quantities.li_3")),
             "energy_mhd_J": _as_float(
                 _safe_get(eq_slice, "global_quantities.energy_mhd")
@@ -1942,6 +2014,35 @@ def get_summary_preset(name: str) -> SummaryPreset:
         ) from exc
 
 
+#: Exception families raised by the transport under the HSDS client (requests,
+#: urllib3, the socket layer) and the builtins they derive from.  h5pyd folds
+#: every failure into a bare ``IOError`` whose *message* says what happened, so
+#: the type alone cannot tell "server unreachable" from "domain not found"; the
+#: chained cause/context the ``except`` block left behind can.
+_TRANSPORT_MODULES = frozenset({"requests", "urllib3", "socket", "ssl", "http"})
+
+
+def _is_connection_error(exc: BaseException) -> bool:
+    """Whether ``exc`` or anything it was raised from says the source is unreachable.
+
+    A connection error is a property of the *source*, not of one shot: the next
+    shot will fail the same way after the same retry budget, so :func:`summary`
+    must stop at the first one instead of paying it for every shot in the range.
+    A data error (a missing IDS, a shot that does not exist, an extractor that
+    finds no plasma) stays a per-shot condition and is skipped as before.
+    """
+    seen: set[int] = set()
+    node: BaseException | None = exc
+    while node is not None and id(node) not in seen:
+        seen.add(id(node))
+        if isinstance(node, (ConnectionError, TimeoutError)):
+            return True
+        if (type(node).__module__ or "").split(".")[0] in _TRANSPORT_MODULES:
+            return True
+        node = node.__cause__ or node.__context__
+    return False
+
+
 def summary(
     shot_range: tuple[int, int] | None = None,
     *,
@@ -2012,6 +2113,11 @@ def summary(
                     row["source"] = source
             frames.append(pd.DataFrame(rows))
         except Exception as exc:
+            if _is_connection_error(exc):
+                raise ConnectionError(
+                    f"Shot {shot}: source {source!r} is unreachable while summarising "
+                    f"preset {preset}; stopped before trying the remaining shots"
+                ) from exc
             logger.warning("Shot %s: preset %s failed; skipping: %s", shot, preset, exc)
 
     if not frames:

@@ -424,6 +424,25 @@ def _threshold_blockers_in_dcon(dcon_dir: Path) -> list[str]:
     return problems
 
 
+def _attach_formalism(record: GPECModuleRun, config: GPECSuiteConfig, *, dcon_dir: Path | None = None) -> None:
+    """Record the run's plasma formalism (#1734) from the namelists it was prepared with.
+
+    Only for a cell this call prepared and ran (or deliberately left at
+    ``prepare_only``): a cell skipped for a missing executable, an invalid DCON
+    result or an unprepared directory may hold another configuration's
+    namelists, which are not this run's formalism.
+    """
+    if not Path(record.workdir).is_dir():
+        return
+    if record.status == "skipped" and record.reason != "run_mode=prepare_only":
+        return
+    from ._formalism import resolve_plasma_formalism
+
+    formalism = resolve_plasma_formalism(record.module, record.workdir, config=config, dcon_dir=dcon_dir)
+    if formalism is not None:
+        record.plasma_formalism = formalism.as_dict()
+
+
 def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:
     """Locate same-cell DCON output, possibly in a separate code work tree."""
 
@@ -592,7 +611,7 @@ def _run_module(
     #
     # Except on a stable equilibrium: there the companion has nothing to match
     # and legitimately writes nothing (#423; with the packaged scalar `eta`,
-    # `rmatch` stops before `globalsol.bin` on every stable RDCON cell), so its
+    # `rmatch` stops before `delta.out` on every stable RDCON cell), so its
     # missing output is this cell's finished state, not a step to retry.
     # Without the condition every such cell was solved again on each call.
     required = required_outputs(solver, mode)
@@ -715,7 +734,10 @@ def _run_module(
             f"gpec_cylindrical_output_n{mode}.nc",
         }
         output_names = {path.name for path in outputs}
-        if module == "gpec" and core_gpec_outputs.issubset(output_names):
+        never_started = isinstance(exc, rt.GPECLimitStop) and exc.never_started
+        # A launch never admitted cannot have written anything: core files in the
+        # run dir are an earlier run's, so the carve-out must not claim them.
+        if module == "gpec" and core_gpec_outputs.issubset(output_names) and not never_started:
             # A process killed mid-write can leave the core files present but
             # truncated, so the timeout carve-out must verify its outputs
             # before reporting success (release review, 0.6.0). This does not
@@ -730,7 +752,11 @@ def _run_module(
                     workdir=run_dir,
                     returncode=0,
                     status="completed",
-                    reason=f"timeout after outputs materialized ({exc.timeout} seconds)",
+                    reason=(
+                        f"timeout after outputs materialized ({exc.timeout} seconds)"
+                        if not isinstance(exc, rt.GPECLimitStop) or exc.is_time_limit
+                        else f"{exc.reason}; its outputs had already materialized"
+                    ),
                     logs=tuple(logs),
                     outputs=outputs,
                     commands=tuple(commands),
@@ -742,7 +768,7 @@ def _run_module(
                 returncode=None,
                 status="failed",
                 reason=(
-                    f"timeout after {exc.timeout} seconds; outputs present but "
+                    f"{rt.limit_stop_reason(exc)}; outputs present but "
                     f"failed verification: {check_reason}"
                 ),
                 logs=tuple(logs),
@@ -755,7 +781,7 @@ def _run_module(
             workdir=run_dir,
             returncode=None,
             status="failed",
-            reason=f"timeout after {exc.timeout} seconds",
+            reason=rt.limit_stop_reason(exc),
             logs=tuple(logs),
             outputs=outputs,
             commands=tuple(commands),
@@ -834,7 +860,12 @@ def run_gpec_suite_case(
     run_order = tuple(module for module in ("dcon", "rdcon", "stride", "gpec") if module in modules)
     for mode in modes:
         for module in run_order:
-            records.append(_run_module(inputs, config, module, mode))
+            record = _run_module(inputs, config, module, mode)
+            _attach_formalism(
+                record, config,
+                dcon_dir=_dcon_run_dir(inputs, mode, Path(inputs.geqdsk)) if module == "gpec" else None,
+            )
+            records.append(record)
 
     failures = [record for record in records if record.status == "failed"]
     returncode = 1 if failures else 0

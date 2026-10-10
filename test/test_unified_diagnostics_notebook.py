@@ -24,6 +24,10 @@ def test_unified_notebook_cells_render_and_discover(monkeypatch):
     )
     assert all(cells[name]["outputs"] == [] for name in names)
     monkeypatch.setattr(plt, "show", lambda: None)
+    # Count the figures these cells draw, not whatever an earlier test in the
+    # session left open: on the 0.8.0 release gate three stray single-axes
+    # figures from a preceding file made this read 5 instead of 2.
+    plt.close("all")
     scope = {}
     stream = io.StringIO()
     with contextlib.redirect_stdout(stream), warnings.catch_warnings():
@@ -48,7 +52,7 @@ def test_unified_notebook_cells_render_and_discover(monkeypatch):
 
 def test_four_view_atlas_cell_is_small_and_marked(monkeypatch):
     path = Path(__file__).parents[1] / "notebooks/vest_experimental_data_list.ipynb"
-    cells = {cell["id"]: cell for cell in json.loads(path.read_text())["cells"]}
+    cells = {cell["id"]: cell for cell in json.loads(path.read_text(encoding="utf-8"))["cells"]}
     assert cells["unified-atlas-views"]["outputs"] == []
     monkeypatch.setattr(plt, "show", lambda: None)
     scope = {}

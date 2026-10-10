@@ -45,6 +45,7 @@ reproduced here).
 
 from __future__ import annotations
 
+import re
 from typing import Any, Iterable, Mapping, Optional
 from xml.sax.saxutils import escape
 
@@ -150,6 +151,7 @@ __all__ = [
     "core_transport_from_cgyro",
     "geometric_angle",
     "gyrokinetics_local_from_cgyro",
+    "merge_linear_scan",
 ]
 
 
@@ -760,3 +762,101 @@ def core_transport_from_cgyro(
         ods["core_transport.time"] = np.asarray([float(time)])
     skipped.append("momentum_tor: CGYRO's momentum moment is not mapped (no rotation)")
     return {"written": [base], "skipped": skipped}
+
+
+# -- linear k_y scans ---------------------------------------------------------------
+
+# Subtrees that differ between the single-k_y runs of one scan by construction.
+_SCAN_FREE = ("linear", "code", "ids_properties")
+
+#: ``code.parameters`` entries (and ``code.name``) that fix how the stored numbers are
+#: to be read; runs that disagree on one are not one scan even when every physics
+#: leaf matches.
+_SCAN_CONVENTIONS = ("normalisation", "frequency_sign_convention")
+
+
+def _code_parameter(ids: Any, key: str) -> Optional[str]:
+    """One ``<key>value</key>`` entry of ``code.parameters``, or ``None``."""
+    text = ids["code.parameters"] if "code.parameters" in ids else None
+    if not text:
+        return None
+    match = re.search(fr"<{key}>(.*?)</{key}>", str(text))
+    return match.group(1) if match else None
+
+
+def _conventions(ids: Any) -> dict[str, Optional[str]]:
+    name = ids["code.name"] if "code.name" in ids else None
+    return {"code.name": None if name is None else str(name),
+            **{key: _code_parameter(ids, key) for key in _SCAN_CONVENTIONS}}
+
+
+def merge_linear_scan(odss: Iterable[ODS], *, rtol: float = 1e-9) -> ODS:
+    """Combine single-``k_y`` linear runs of one local problem into one IDS.
+
+    A linear ``k_y`` scan run as separate initial-value runs (one CGYRO run per
+    ``k_y``) is still one ``gyrokinetics_local`` simulation in the GKDB sense: one
+    plasma, many wavevectors. Every leaf outside ``linear``, ``code`` and
+    ``ids_properties`` -- species, flux surface, model flags -- must agree between
+    the runs (to ``rtol``), or the runs are not one scan and a ``ValueError`` names
+    the first leaf that differs. The conventions the numbers are stored in are
+    compared too: ``code.name`` and the ``normalisation`` and
+    ``frequency_sign_convention`` entries of ``code.parameters`` (the only place the
+    mapping records them) must be the same string in every run, or the merge is
+    refused. Every run must carry at least one ``linear.wavevector`` (a run that
+    produced none is refused by position), and two runs may not carry the same
+    ``binormal_wavevector_norm`` (to ``rtol``). Wavevectors are sorted by
+    ``binormal_wavevector_norm``; ``code`` and ``ids_properties`` come from the first
+    run.
+    """
+    import copy
+
+    odss = list(odss)
+    if not odss:
+        raise ValueError("no runs to merge")
+    first = odss[0][IDS]
+
+    def shared(ids: Any) -> dict[str, Any]:
+        return {path: value for path, value in ids.flat().items()
+                if path.split(".")[0] not in _SCAN_FREE}
+
+    reference = shared(first)
+    conventions = _conventions(first)
+    waves: list[tuple[float, Any]] = []
+    for position, ods in enumerate(odss):
+        ids = ods[IDS]
+        leaves = shared(ids)
+        if set(leaves) != set(reference):
+            extra = sorted(set(leaves) ^ set(reference))[0]
+            raise ValueError(f"run {position} is not part of the scan: {extra} is not in every run")
+        for path, value in leaves.items():
+            other = reference[path]
+            if isinstance(value, str) or isinstance(other, str):
+                same = value == other
+            else:
+                same = np.shape(value) == np.shape(other) and np.allclose(
+                    value, other, rtol=rtol, atol=0.0, equal_nan=True)
+            if not same:
+                raise ValueError(f"run {position} is not part of the scan: {path} differs")
+        for key, value in _conventions(ids).items():
+            if value != conventions[key]:
+                raise ValueError(
+                    f"run {position} is not part of the scan: {key} is "
+                    f"{value!r}, run 0 has {conventions[key]!r}")
+        count = path_count(ods, f"{IDS}.linear.wavevector")
+        if not count:
+            raise ValueError(f"run {position} carries no linear.wavevector")
+        for k in range(count):
+            wave = ids[f"linear.wavevector.{k}"]
+            ky = float(wave["binormal_wavevector_norm"])
+            for seen, _wave in waves:
+                if np.isclose(ky, seen, rtol=rtol, atol=0.0):
+                    raise ValueError(
+                        f"run {position} repeats binormal_wavevector_norm {ky!r} of an earlier run")
+            waves.append((ky, wave))
+
+    merged = ODS()
+    merged[IDS] = copy.deepcopy(first)
+    del merged[f"{IDS}.linear.wavevector"]
+    for k, (_ky, wave) in enumerate(sorted(waves, key=lambda pair: pair[0])):
+        merged[f"{IDS}.linear.wavevector.{k}"] = copy.deepcopy(wave)
+    return merged

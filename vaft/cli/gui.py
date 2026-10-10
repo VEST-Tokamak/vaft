@@ -51,7 +51,8 @@ def main(argv: Iterable[str] | None = None) -> int:
     parser.add_argument(
         "--hosted", action="store_true",
         help="serve readers who are not this server's user, behind a reverse proxy: samples and "
-             "database shots only (no server files, no uploads); needs $VAFT_GUI_PASSWORD, or --auth hsds",
+             "database shots only (no server files, no uploads); needs $VAFT_GUI_PASSWORD, or --auth hsds, "
+             "or --auth none behind a proxy that authenticates by itself",
     )
     parser.add_argument("--prefix", help="URL path to serve under, e.g. /gui behind a proxy")
     show = parser.add_mutually_exclusive_group()

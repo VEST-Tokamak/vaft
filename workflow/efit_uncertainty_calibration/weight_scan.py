@@ -100,6 +100,30 @@ def working_settings() -> list[dict[str, Any]]:
     ]
 
 
+#: Stage 6 (#579, 2026-10-02): the model/weight sensitivity ensemble.  Not a
+#: search for the best setting -- every configuration is judged on residual
+#: credibility, Thomson consistency and the stability of W, beta_p, l_i and q
+#: across the configurations, and Thomson never selects one.
+SENSITIVITY_DIA = (None, 4, 16, 64)
+SENSITIVITY_BASES = ((1, 1), (2, 1), (1, 2), (2, 2), (3, 1), (3, 2))
+#: (probe, loop) sigma multipliers: the working setting, then each family
+#: halved and doubled about it with the other held.
+SENSITIVITY_PROBE_LOOP = ((3.62, 2.15), (1.81, 2.15), (7.24, 2.15), (3.62, 1.075), (3.62, 4.3))
+SENSITIVITY_IP = 4.0
+
+
+def sensitivity_settings() -> list[dict[str, Any]]:
+    """Stage 6: SENSITIVITY_DIA x SENSITIVITY_BASES x SENSITIVITY_PROBE_LOOP (120), psi-only exit."""
+    settings = []
+    for basis in SENSITIVITY_BASES:
+        for dia in SENSITIVITY_DIA:
+            for probe, loop in SENSITIVITY_PROBE_LOOP:
+                name = setting_name(basis, probe, loop, dia, STAGE1_FLOOR, SENSITIVITY_IP) + "_psiexit"
+                settings.append({"name": name, "basis": list(basis), "probe": probe, "loop": loop, "dia": dia,
+                                 "ip": SENSITIVITY_IP, "floor": STAGE1_FLOOR, "psi_exit": True})
+    return settings
+
+
 def stage1_settings() -> list[dict[str, Any]]:
     settings = [{"name": "routine", "routine": True}]
     for basis in BASES:
@@ -385,6 +409,10 @@ def check_fingerprints(records: Sequence[Mapping[str, Any]]) -> str | None:
 # --------------------------------------------------------------------------
 
 _CONTEXT: dict[str, Any] = {}
+#: Set by ``main`` before the context is built (workers fork after it):
+#: ``products_dir`` holds ``<shot>.json.gz`` diagnostics+eddy products beyond
+#: the packaged reference set; ``thomson_root`` is the raw Thomson data root.
+_INPUTS: dict[str, Any] = {"products_dir": None, "thomson_root": None}
 
 
 def _context(efit_home: str | None) -> dict[str, Any]:
@@ -414,7 +442,11 @@ def _context(efit_home: str | None) -> dict[str, Any]:
         products={int(i["shot"]): Path(data_path(i["files"]["product"]["path"])) for i in reference["shots"]
                   if i["files"]["product"] and i["files"]["product"]["exists"]},
         diagnostics={},
+        thomson_root=_INPUTS["thomson_root"],
     )
+    if _INPUTS["products_dir"]:
+        for path in sorted(Path(_INPUTS["products_dir"]).expanduser().glob("*.json.gz")):
+            _CONTEXT["products"][int(path.name.split(".")[0])] = path
     return _CONTEXT
 
 
@@ -431,7 +463,7 @@ def process_slice(task: Mapping[str, Any]) -> list[dict[str, Any]]:
         if saved.get("settings") == names:
             return saved["records"]
     if shot not in ctx["diagnostics"]:
-        ctx["diagnostics"][shot] = ctx["thomson_check"].thomson_diagnostics(shot)
+        ctx["diagnostics"][shot] = ctx["thomson_check"].thomson_diagnostics(shot, ctx["thomson_root"])
     try:
         built, chosen = study.prepare_constraints(
             shot, ctx["products"][shot], [time], workdir=output / f"shot_{shot}" / tag / "constraints",
@@ -576,8 +608,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--table", required=True, type=Path)
-    parser.add_argument("--stage", type=int, default=1, choices=(1, 2, 3, 4, 5))
-    parser.add_argument("--settings", type=Path, help="JSON list of settings (stage 1/2 only)")
+    parser.add_argument("--stage", type=int, default=1, choices=(1, 2, 3, 4, 5, 6))
+    parser.add_argument("--settings", type=Path, help="JSON list of settings (stages 1, 2, 5, 6)")
+    parser.add_argument("--products-dir", type=Path, default=None,
+                        help="<shot>.json.gz diagnostics+eddy products (compose_products.py) beyond the reference set")
+    parser.add_argument("--thomson-root", type=Path, default=None,
+                        help="raw Thomson data root (default: the packaged legacy data)")
     # --stage 3: self-consistent sigma, SAICON-gated exit; --stage 4: the same on psi convergence alone
     parser.add_argument("--bases", default=None, help="stage 4 only: kppcur,kffcur pairs, e.g. '1,3;2,2'")
     parser.add_argument("--shots", default="39915,41524,41672")
@@ -588,8 +624,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.bases and args.stage != 4:
         parser.error("--bases applies to --stage 4 only")
     if args.settings and args.stage in (3, 4):
-        parser.error("--settings applies to stages 1, 2 and 5; stages 3 and 4 solve their own")
+        parser.error("--settings applies to stages 1, 2, 5 and 6; stages 3 and 4 solve their own")
 
+    _INPUTS.update(products_dir=args.products_dir, thomson_root=args.thomson_root)
     ctx = _context(args.efit_home)
     if ctx["efit"] is None:
         print("no efit executable: set EFITHOME", file=sys.stderr)
@@ -606,6 +643,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         "schema_version": SCHEMA, "stage": args.stage,
         "run_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "toolchain": toolchain_identities(ctx["resolved"]), "tables": ctx["tables"],
+        "products": {str(shot): str(path) for shot, path in sorted(ctx["products"].items())},
+        "thomson_root": None if ctx["thomson_root"] is None else str(ctx["thomson_root"]),
         "criteria": criteria.CRITERIA, "criteria_version": criteria.CRITERIA_VERSION, "workers": args.workers,
     }
     if args.stage in (3, 4):
@@ -616,7 +655,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         payload.update(cells=result["cells"])
     else:
         settings = (json.loads(args.settings.read_text()) if args.settings
-                    else {1: stage1_settings, 2: stage2_settings, 5: working_settings}[args.stage]())
+                    else {1: stage1_settings, 2: stage2_settings, 5: working_settings,
+                          6: sensitivity_settings}[args.stage]())
         records = run_all(slices, settings, output, workers=args.workers, efit_home=args.efit_home)
         payload.update(settings=settings)
     payload.update(

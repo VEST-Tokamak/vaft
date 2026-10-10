@@ -52,6 +52,8 @@ __all__ = [
     "collect_efit_outputs",
     "collect_gpec_suite_outputs",
     "efit",
+    "formalism",
+    "PlasmaFormalism",
     "efit_parameter_grid",
     "gacode",
     "GACODEConfig",
@@ -179,6 +181,7 @@ __all__ = [
 ]
 
 _EXPORT_MAP = {
+    "PlasmaFormalism": (".formalism", "PlasmaFormalism"),
     "GACODEConfig": (".gacode", "GACODEConfig"),
     "find_gacode_executable": (".gacode", "find_gacode_executable"),
     "gacode_environment": (".gacode", "gacode_environment"),
@@ -347,6 +350,7 @@ def __getattr__(name: str):
         "base",
         "efit",
         "execution",
+        "formalism",
         "gacode",
         "resources",
         "slurm",

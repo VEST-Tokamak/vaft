@@ -61,6 +61,72 @@ def test_stored_coil_segments_preserved_including_gap_and_second_conductor():
         np.testing.assert_equal(record.phi, [.1, .2, np.nan, .3, .4])
 
 
+def _gapped_coil_with_limiter():
+    """A coil whose two stored elements do not touch, plus a minimal wall."""
+    from vaft.ods_access import set_path
+    data = {}
+    base = "coils_non_axisymmetric.coil.0.conductor.0.elements"
+    for axis, starts, ends in (("r", [1.0, 1.2], [1.1, 1.3]), ("z", [.1, .3], [.2, .4]), ("phi", [.1, .3], [.2, .4])):
+        set_path(data, f"{base}.start_points.{axis}", starts)
+        set_path(data, f"{base}.end_points.{axis}", ends)
+    set_path(data, "coils_non_axisymmetric.coil.0.name", "GAPPED")
+    set_path(data, "wall.description_2d.0.limiter.unit.0.outline.r", [.1, .8, .8, .1, .1])
+    set_path(data, "wall.description_2d.0.limiter.unit.0.outline.z", [-1., -1., 1., 1., -1.])
+    return data
+
+
+def test_coil_gap_is_drawn_as_a_polyline_break_not_dropped():
+    """A stored discontinuity is a NaN break in every projection, not a missing coil."""
+    data = _gapped_coil_with_limiter()
+    record, = machine_geometry_registry(data)
+    for view in ("rz", "3d", "top"):
+        layer = project_machine_geometry(record, view, samples_per_segment=3)
+        assert layer is not None, view
+        first = layer.x if view == "3d" else layer.r
+        assert np.isnan(first).any() and np.isfinite(first).sum() >= 4, view
+        assert len(machine_geometry_view(data, view).layers) == 1, view
+    rz = project_machine_geometry(record, "rz", samples_per_segment=3)
+    finite = rz.r[np.isfinite(rz.r)]
+    np.testing.assert_allclose(finite[[0, -1]], [1.0, 1.3])
+
+    class Calibration:
+        def project(self, xyz_cm):
+            assert np.isfinite(xyz_cm).all()
+            return np.repeat([[10., 20.]], len(xyz_cm), axis=0), np.ones(len(xyz_cm), dtype=bool)
+    camera = project_machine_geometry(record, "camera", projection=Calibration(), samples_per_segment=3)
+    assert np.isnan(camera.r).any() and np.isfinite(camera.r).sum() >= 4
+
+    # A coil with no stored height is still not drawable in a Z view.
+    no_height = MachineGeometry("coils_non_axisymmetric", "coil_path", [1, 2], [np.nan, np.nan], [0, .1])
+    assert project_machine_geometry(no_height, "rz") is None
+    assert project_machine_geometry(no_height, "3d") is None
+    assert project_machine_geometry(no_height, "top") is not None
+
+
+def test_composed_machine_views_keep_gapped_coil_and_name_undrawable_cause():
+    from vaft.ods_access import set_path
+    from vaft.plot.backend.recipes import RECIPES
+    data = _gapped_coil_with_limiter()
+    for name, options in (("machine_geometry_poloidal", {}),
+                          ("machine_geometry_poloidal", {"overlay": ("coils_non_axisymmetric",)}),
+                          ("machine_geometry_topview", {}), ("machine_geometry3d", {})):
+        model = RECIPES[name].builder(data, **options)
+        assert any("coil" in layer.label.lower() or "GAPPED" in layer.label
+                   for layer in model.layers), (name, options)
+    # The explicit overlay of a stored-but-undrawable coil names that cause,
+    # not an absent IDS.
+    no_height = {}
+    base = "coils_non_axisymmetric.coil.0.conductor.0.elements"
+    for axis, starts, ends in (("r", [1., 1.1], [1.1, 1.2]), ("z", [np.nan] * 2, [np.nan] * 2), ("phi", [.1, .2], [.2, .3])):
+        set_path(no_height, f"{base}.start_points.{axis}", starts)
+        set_path(no_height, f"{base}.end_points.{axis}", ends)
+    with pytest.raises(ValueError, match="coils_non_axisymmetric.*stored but") as excinfo:
+        RECIPES["machine_geometry_poloidal"].builder(no_height, overlay=("coils_non_axisymmetric",))
+    assert "are present" not in str(excinfo.value)
+    with pytest.raises(ValueError, match="none of the poloidal machine geometry IDS"):
+        RECIPES["machine_geometry_poloidal"].builder({}, overlay=("coils_non_axisymmetric",))
+
+
 def test_small_fixture_sources_and_reflected_chord():
     from vaft.data import unified_diagnostics_fixture, unified_diagnostics_manifest
     data = unified_diagnostics_fixture()
@@ -68,7 +134,8 @@ def test_small_fixture_sources_and_reflected_chord():
     before = set(data.flat())
     records = machine_geometry_registry(data, manifest=manifest)
     assert set(data.flat()) == before
-    assert {record.family for record in records} == {"thomson_scattering", "charge_exchange", "langmuir_probes", "interferometer", "soft_x_rays", "coils_non_axisymmetric", "ec_launchers", "nbi"}
+    assert {record.family for record in records} == {"thomson_scattering", "charge_exchange", "langmuir_probes", "interferometer", "soft_x_rays", "coils_non_axisymmetric", "ec_launchers", "nbi",
+                                                    "flux_loop", "b_field_pol_probe"}  # magnetics since #1829
     chords = [record for record in records if record.family == "interferometer"]
     assert [record.r.size for record in chords] == [3, 2]
     assert [next(iter(json.loads(record.provenance_json)["sources"])) for record in chords] == [
@@ -161,7 +228,10 @@ def test_four_views_share_family_selection_and_composite_notice():
         model = machine_geometry_view(data, view, families=selected, manifest=manifest,
                                       projection=camera if view == "camera" else None)
         assert "Cross-shot composite" in model.title
-        assert "shot 39915" in model.title
+        # One wording for every view (#1625 marker, #1661 shared title, camera view):
+        # the composite line and the projection-onto-reference line, nothing else.
+        assert "projected onto geometry reference shot 39915" in model.title
+        assert model.title.count("39915") == 1
         assert model.layers
         if view == "3d":
             assert {layer.group.split("/")[0] for layer in model.layers} == set(selected)

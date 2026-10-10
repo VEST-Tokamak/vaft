@@ -789,8 +789,16 @@ def get_equilibrium_summary(
 
     from vaft.database._summary import extract_equilibrium_global
 
+    # Refuse a time or tolerance that cannot match anything before the
+    # whole-shot extraction below (seconds per shot), not after it; the
+    # spacing-derived default tolerance is still _slice_index's.
+    if time is not None and not math.isfinite(float(time)):
+        raise ToolInputError(f"time must be a finite number of seconds, got {time!r}")
+    if tolerance is not None and (not math.isfinite(float(tolerance)) or float(tolerance) <= 0):
+        raise ToolInputError(f"tolerance must be a positive finite number of seconds, got {tolerance!r}")
     dataset = _dataset(shot, artifact, database_source)
-    count = len(_times(dataset.data, "equilibrium") if _times(dataset.data, "equilibrium") is not None else ())
+    times = _times(dataset.data, "equilibrium")
+    count = len(times) if times is not None else 0
     if count > MAX_SUMMARY_SLICES:
         raise ToolInputError(f"{count} equilibrium slices; the summary is limited to {MAX_SUMMARY_SLICES} per call "
                              f"(use inspect_data_path for single quantities)")

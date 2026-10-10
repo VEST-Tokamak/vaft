@@ -7,6 +7,7 @@ from vaft.formula.constants import MU0
 from vaft.process.confinement import (
     confinement_exclusion_table,
     confinement_power_balance,
+    ohmic_confinement_series,
     confinement_slice_decision,
     confinement_slice_evidence,
     resistive_loop_voltage,
@@ -317,7 +318,7 @@ def test_lane_d_text_io_never_uses_the_locale_encoding():
 
     root = pathlib.Path(__file__).resolve().parents[1]
     sources = {p: p.read_text(encoding="utf-8") for p in (root / "workflow/confinement_scaling").glob("*.py")}
-    for name in ("confinement_time_scaling", "multi_machine_database_comparison", "tokamak_power_balance"):
+    for name in ("confinement_time_scaling", "multi_machine_confinement_database", "tokamak_power_balance"):
         nb = json.loads((root / "notebooks" / f"{name}.ipynb").read_text(encoding="utf-8"))
         sources[root / "notebooks" / f"{name}.ipynb"] = "\n".join(
             "".join(c["source"]) for c in nb["cells"] if c["cell_type"] == "code")
@@ -328,3 +329,110 @@ def test_lane_d_text_io_never_uses_the_locale_encoding():
             if text_io.search(line) and "encoding=" not in line and '"rb"' not in line and "gzip" not in line:
                 offenders.append(f"{path.name}:{number}: {line.strip()}")
     assert not offenders, "\n".join(offenders)
+
+
+# --- #1905: the shared Ohmic confinement contract -------------------------------------------------------------
+
+def test_inductive_voltage_splits_into_current_and_profile_terms():
+    t = np.linspace(0.30, 0.31, 11)
+    ip, dip = 1e5 + 2e6 * (t - 0.30), np.full(t.size, 2e6)
+    li, dli = 0.6 + 5.0 * (t - 0.30), np.full(t.size, 5.0)
+    r0 = 0.4
+    split = resistive_loop_voltage(np.full(t.size, 2.0), ip, dip, li, r0, dli3_dt=dli)
+    np.testing.assert_allclose(split.v_ind_current, 0.5 * MU0 * r0 * li * dip)
+    np.testing.assert_allclose(split.v_ind_profile, 0.25 * MU0 * r0 * ip * dli)
+    np.testing.assert_allclose(split.v_ind, split.v_ind_current + split.v_ind_profile)
+    assert not split.li3_rate_fallback.any()
+
+
+def test_missing_li3_rate_is_held_only_when_asked_and_always_flagged():
+    args = (np.full(3, 2.0), np.full(3, 1e5), np.full(3, 1e6), np.full(3, 0.6), 0.4)
+    rate = np.array([1.0, np.nan, 1.0])
+    held = resistive_loop_voltage(*args, dli3_dt=rate, hold_li3_where_missing=True)
+    assert held.li3_rate_fallback.tolist() == [False, True, False]
+    assert np.isfinite(held.v_res).all() and held.v_ind_profile[1] == 0.0
+    kept = resistive_loop_voltage(*args, dli3_dt=rate)  # default: a NaN rate is not hidden
+    assert np.isnan(kept.v_res[1]) and not kept.li3_rate_fallback.any()
+    none = resistive_loop_voltage(*args)  # no rate at all: the profile term is absent, exactly zero
+    assert none.li3_rate_fallback.all() and (none.v_ind_profile == 0.0).all()
+
+
+@pytest.mark.parametrize("shot, time_s, tau_ms", [(39917, 0.321, 2.33143), (42962, 0.333, 2.26342)])
+def test_reference_series_reproduce_from_their_inputs(shot, time_s, tau_ms):
+    """#1905 Sec. 8: the frozen Tier A inputs give back every derived column of the atlas build."""
+    import pathlib
+
+    import pandas as pd
+
+    path = pathlib.Path(__file__).resolve().parents[1] / f"vaft/data/confinement/vest_{shot}_power_balance_series.csv"
+    s = pd.read_csv(path)
+    chain = ohmic_confinement_series(
+        s.time_s.to_numpy(), s.ip_meas_A.to_numpy(), s.dip_dt_A_s.to_numpy(), s.v_loop_V.to_numpy(),
+        s.li_3.to_numpy(), 0.4, s.w_mhd_J.to_numpy(), rate_window_s=3e-3, rate_polyorder=1)
+    for column, value in (("v_ind_V", chain.v_ind), ("v_res_V", chain.v_res), ("dwdt_W", chain.dwdt),
+                          ("p_ohm_W", chain.p_ohmic), ("p_net_W", chain.p_net), ("tau_e_net_s", chain.tau_e_net)):
+        np.testing.assert_allclose(value, s[column].to_numpy(), rtol=1e-9, atol=1e-12, err_msg=column)
+    k = int(np.argmin(abs(chain.time - time_s)))
+    assert chain.tau_e_net[k] * 1e3 == pytest.approx(tau_ms, rel=1e-5)
+    np.testing.assert_allclose(chain.v_ind_current + chain.v_ind_profile, chain.v_ind)
+    assert chain.r0 == 0.4 and chain.orientation == 1.0
+
+
+def test_no_energy_rate_is_never_replaced_by_zero():
+    """An isolated slice keeps P_OH (l_i held, flagged) but has no dW/dt, P_net or tau_E, with a reason."""
+    t = np.array([0.310, 0.311, 0.320])  # the last slice is 9 ms from the others: outside a 3 ms window
+    n = t.size
+    chain = ohmic_confinement_series(t, np.full(n, 8e4), np.zeros(n), np.full(n, 1.5), np.array([0.6, 0.62, 0.7]),
+                                     0.4, np.array([200.0, 210.0, 230.0]), rate_window_s=3e-3)
+    assert np.isfinite(chain.dwdt[:2]).all() and np.isnan(chain.dwdt[2])
+    assert np.isfinite(chain.p_ohmic).all() and chain.li3_rate_fallback.tolist() == [False, False, True]
+    assert np.isnan(chain.p_net[2]) and np.isnan(chain.tau_e_net[2])
+    assert chain.missing_reason[2] == "no energy rate in the window" and chain.missing_reason[0] == ""
+    single = ohmic_confinement_series(t[:1], [8e4], [0.0], [1.5], [0.6], 0.4, [200.0], rate_window_s=3e-3)
+    assert np.isfinite(single.p_ohmic).all() and np.isnan(single.dwdt).all() and np.isnan(single.tau_e_net).all()
+
+
+def test_ohmic_chain_records_its_settings_and_named_approximations():
+    t = np.linspace(0.30, 0.31, 6)
+    n = t.size
+    chain = ohmic_confinement_series(t, np.full(n, 8e4), np.zeros(n), np.full(n, 1.5), np.full(n, 0.6), 0.4,
+                                     np.full(n, 200.0), rate_window_s=3e-3,
+                                     assumptions={"v_loop": "measured FL10", "w": "magnetics EFIT 1.5 int p dV"})
+    assert "inferred, not measured" in chain.assumptions["v_res"]
+    assert chain.assumptions["v_loop"] == "measured FL10" and chain.assumptions["w"].startswith("magnetics")
+    assert np.isnan(chain.p_transport).all() and "unmeasured" in chain.assumptions["p_rad"]
+    assert chain.settings["rate_window_s"] == 3e-3 and chain.settings["rate_polyorder"] == 1
+    assert "constant-inductance" in chain.settings["li3_rate_fallback"]
+    assert chain.settings["dwdt_fallback"].startswith("none")
+    np.testing.assert_allclose(chain.power_balance().tau_e_net, chain.tau_e_net)
+
+
+def test_ohmic_chain_flags_reversed_orientation_and_non_positive_power():
+    t = np.linspace(0.30, 0.31, 6)
+    n = t.size
+    chain = ohmic_confinement_series(t, np.full(n, 8e4), np.zeros(n), np.full(n, -1.5), np.full(n, 0.6), 0.4,
+                                     np.full(n, 200.0), rate_window_s=5e-3)  # 2 ms spacing: 5 ms holds a rate
+    assert chain.orientation == -1.0 and (chain.p_ohmic < 0).all()
+    assert np.isnan(chain.tau_e_net).all() and set(chain.missing_reason) == {"P_net not positive"}
+    with pytest.raises(ValueError):
+        ohmic_confinement_series(t, np.full(n, 8e4), np.zeros(n), np.ones(n), np.ones(n), 0.4, np.ones(n),
+                                 rate_window_s=0.0)
+    with pytest.raises(ValueError):
+        ohmic_confinement_series(t, np.full(n, 8e4), np.zeros(n), np.ones(n), np.ones(n), 0.0, np.ones(n),
+                                 rate_window_s=3e-3)
+    with pytest.raises(ValueError):  # validated even where no rate is taken
+        ohmic_confinement_series(t[:1], [8e4], [0.0], [1.0], [1.0], 0.4, [1.0], rate_window_s=3e-3, rate_polyorder=0)
+    with pytest.raises(ValueError):
+        ohmic_confinement_series(t[::-1], np.full(n, 8e4), np.zeros(n), np.ones(n), np.ones(n), 0.4, np.ones(n),
+                                 rate_window_s=3e-3)
+
+
+def test_noisy_irregular_energy_rate_is_recovered_by_the_local_fit():
+    rng = np.random.default_rng(3)
+    t = np.sort(0.30 + rng.uniform(0, 0.02, 40))
+    w = 200.0 + 4e3 * (t - 0.30) + rng.normal(0, 0.05, t.size)  # dW/dt = 4 kW
+    n = t.size
+    chain = ohmic_confinement_series(t, np.full(n, 8e4), np.zeros(n), np.full(n, 1.5), np.full(n, 0.6), 0.4, w,
+                                     rate_window_s=6e-3)
+    assert np.nanmedian(chain.dwdt) == pytest.approx(4e3, rel=0.05)
+    np.testing.assert_allclose(chain.p_net, chain.p_ohmic - chain.dwdt)

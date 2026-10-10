@@ -68,7 +68,7 @@ def test_machine_view_keeps_diagnostic_geometry_distinct(fixture_data):
     )
     interferometer = [layer for layer in model.layers if layer.label == "Interferometer LOS"]
     langmuir = [layer for layer in model.layers if layer.label == "Langmuir sites"]
-    sxr = [layer for layer in model.layers if layer.label == "SXR LOS"]
+    sxr = [layer for layer in model.layers if layer.label == "Soft X-ray LOS"]
     assert len(interferometer) == 1
     assert interferometer[0].kind == "polyline"
     # The three stored corners remain on the sampled Cartesian LOS, including
@@ -104,6 +104,113 @@ def test_kinetic_overview_keeps_local_measurement_meanings(fixture_data):
     assert {series.role for series in radius_panels.models[0].series} == {"measurement", "derived"}
     assert not any(series.role == "reconstruction" for panel in radius_panels.models for series in panel.series)
     assert "shot 42699" in radius_panels.models[0].series[-1].label
+
+
+def test_kinetic_overview_maps_measurements_through_the_time_matched_slice(fixture_data):
+    """The Thomson sample is picked by time, so the equilibrium slice must be too.
+
+    Two slices with different axes: the plotted psi_N must follow the slice
+    nearest ``core_profiles.time``, not slice 0 whatever the target time is.
+    """
+    from omas import ODS
+
+    from vaft.omas.sample import sample_ods
+    from vaft.plot.backend.recipes import build_model
+    from vaft.process.profile import equilibrium_mapping_points
+
+    _, fixture = fixture_data
+    sample = sample_ods()
+    times = np.asarray(sample["equilibrium.time"], dtype=float)
+    assert times.size >= 2
+    two = ODS(consistency_check=False)
+    two["thomson_scattering"] = fixture["thomson_scattering"]
+    for new, old in ((0, 0), (1, times.size - 1)):
+        two[f"equilibrium.time_slice.{new}"] = sample[f"equilibrium.time_slice.{old}"]
+    two["equilibrium.time"] = np.array([times[0], times[-1]])
+    for leaf in ("equilibrium.vacuum_toroidal_field.r0", "equilibrium.ids_properties.cocos"):
+        if leaf in sample:
+            two[leaf] = sample[leaf]
+    channels = len(fixture["thomson_scattering.channel"])
+    r = np.array([float(fixture[f"thomson_scattering.channel.{i}.position.r"]) for i in range(channels)])
+    z = np.array([float(fixture[f"thomson_scattering.channel.{i}.position.z"]) for i in range(channels)])
+    targets = (float(times[0]), float(times[-1]))
+    expected = {when: equilibrium_mapping_points(two, r, z, time=when).psi_norm for when in targets}
+    assert not np.allclose(np.nan_to_num(expected[targets[0]]), np.nan_to_num(expected[targets[1]]))
+
+    plotted = {}
+    for when in targets:
+        two["core_profiles.time"] = np.array([when])
+        panels = build_model("kinetic_overview_profiles", [("two", two)], coordinate="psi_norm")
+        measured = panels.models[0].series[0]
+        assert measured.role == "measurement"
+        assert all(np.isclose(value, expected[when]).any() for value in measured.x), when
+        plotted[when] = measured.x
+    assert not np.array_equal(plotted[targets[0]], plotted[targets[1]])
+
+
+def test_kinetic_overview_omits_an_unavailable_coordinate_instead_of_raising(fixture_data):
+    """An equilibrium without q cannot give rho_tor_norm; the overview still builds.
+
+    ``available_plots`` promises the plot on IDS presence, so ``auto`` must
+    resolve to a coordinate the equilibrium supplies, and an explicit
+    unavailable coordinate omits the mapped series as the contract says.
+    """
+    from omas import ODS
+
+    from vaft.omas.sample import sample_ods
+    from vaft.plot.backend.kinetic_overview import _LABELS
+    from vaft.plot.backend.recipes import build_model, missing_required_path
+
+    _, fixture = fixture_data
+    sample = sample_ods()
+    without_q = ODS(consistency_check=False)
+    without_q["thomson_scattering"] = fixture["thomson_scattering"]
+    without_q["equilibrium"] = sample["equilibrium"]
+    for index in range(len(without_q["equilibrium.time_slice"])):
+        prefix = f"equilibrium.time_slice.{index}.profiles_1d"
+        for leaf in ("q", "rho_tor_norm", "phi"):
+            if f"{prefix}.{leaf}" in without_q:
+                del without_q[f"{prefix}.{leaf}"]
+    assert missing_required_path(without_q, "kinetic_overview_profiles") is None
+
+    panels = build_model("kinetic_overview_profiles", [("h", without_q)])
+    assert [len(panel.series) for panel in panels.models] == [1, 1, 0, 0]
+    assert panels.models[0].series[0].role == "measurement"
+    assert all(panel.coordinate_label == _LABELS["rho_pol_norm"] for panel in panels.models)
+    with pytest.raises(ValueError, match="no compatible local kinetic profiles"):
+        build_model("kinetic_overview_profiles", [("h", without_q)], coordinate="rho_tor_norm")
+
+
+def test_kinetic_overview_provenance_labels_come_from_the_manifest(fixture_data):
+    """Source and reference shots are read from the fixture manifest, not literals."""
+    import copy
+
+    from vaft.plot.backend.recipes import build_model
+
+    manifest, ods = fixture_data
+    shots = {name: record["source_shot"] for name, record in manifest["sources"].items()}
+    panels = build_model("kinetic_overview_profiles", [("fixture", ods)])
+    measured = [series for series in panels.models[0].series if series.role == "measurement"]
+    assert measured and all(series.entry == f"shot {shots['thomson_scattering']}" for series in measured)
+    assert f"Kinetic flux: shot {shots['equilibrium']} equilibrium" in panels.suptitle
+    assert f"reference: shot {manifest['geometry_reference']['source_shot']}" in panels.suptitle
+
+    relabelled = copy.deepcopy(manifest)
+    for name in ("thomson_scattering", "charge_exchange", "core_profiles", "equilibrium"):
+        relabelled["sources"][name]["source_shot"] = 48999
+    relabelled["sources"]["langmuir_probes"]["source_shot"] = 42000
+    relabelled["geometry_reference"]["source_shot"] = 39000
+    panels = build_model("kinetic_overview_profiles", [("fixture", ods)], geometry_manifest=relabelled)
+    assert all(
+        series.entry == "shot 48999" and "[shot 48999]" in series.label
+        for panel in panels.models for series in panel.series
+    )
+    assert "Kinetic flux: shot 48999 equilibrium; machine geometry reference: shot 39000" in panels.suptitle
+    assert "48224" not in panels.suptitle
+    radius = build_model("kinetic_overview_profiles", [("fixture", ods)], coordinate="R",
+                         geometry_manifest=relabelled)
+    probe = radius.models[0].series[-1]
+    assert probe.role == "derived" and probe.entry == "shot 42000" and "[shot 42000]" in probe.label
 
 
 def test_probe_only_overview_uses_major_radius_without_invention(fixture_data):
@@ -178,11 +285,50 @@ def test_sha256_pinned_calibration_assets_are_checked_out_with_lf():
     )
     if out.returncode != 0:
         pytest.skip("not a git checkout")
+    table = _check_attr_table(out.stdout)
     for path in paths:
-        attrs = dict(
-            line.rsplit(": ", 2)[1:] for line in out.stdout.splitlines() if line.startswith(path)
-        )
+        attrs = table.get(_attr_key(path), {})
         assert attrs.get("text") == "unset" or attrs.get("eol") == "lf", (path, out.stdout)
+
+
+def _attr_key(path: str) -> str:
+    import os
+
+    return os.path.normcase(os.path.normpath(path))
+
+
+def _check_attr_table(stdout: str) -> dict[str, dict[str, str]]:
+    """``git check-attr`` output as {path: {attribute: value}}.
+
+    Git quotes a path that needs escaping, which on Windows is every absolute
+    path (``"D:\\a\\vaft\\..."``), so a ``startswith(path)`` match found
+    nothing there and the gate read the attributes as unset while they were
+    ``text: auto`` / ``eol: lf``.  Unquote C-style and normalise before keying.
+    """
+    table: dict[str, dict[str, str]] = {}
+    for line in stdout.splitlines():
+        try:
+            path, name, value = line.rsplit(": ", 2)
+        except ValueError:
+            continue
+        if len(path) >= 2 and path[0] == path[-1] == '"':
+            path = path[1:-1].encode("latin-1").decode("unicode_escape")
+        table.setdefault(_attr_key(path), {})[name] = value
+    return table
+
+
+def test_check_attr_table_reads_the_quoted_windows_form():
+    """The quoted, backslash-escaped path Git prints on Windows must still key."""
+    win = r"D:\a\vaft\vaft\vaft\data\geometry\camera_visible\pose_39915.json"
+    quoted = '"' + win.replace("\\", "\\\\") + '"'
+    posix = "/home/r/vaft/vaft/data/geometry/camera_visible/intrinsics.json"
+    stdout = "\n".join([
+        f"{quoted}: text: auto", f"{quoted}: eol: lf",
+        f"{posix}: text: auto", f"{posix}: eol: lf", "",
+    ])
+    table = _check_attr_table(stdout)
+    assert table[_attr_key(win)] == {"text": "auto", "eol": "lf"}
+    assert table[_attr_key(posix)] == {"text": "auto", "eol": "lf"}
 
 
 def test_calibration_checksum_still_rejects_crlf_content(tmp_path, monkeypatch):

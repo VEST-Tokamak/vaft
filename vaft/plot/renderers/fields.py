@@ -185,7 +185,47 @@ def _field_renderer(*, domain: str, subject: str, quantity: str, description: st
 def equilibrium_field_psi(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Reconstructed poloidal flux map on the equilibrium (R, Z) grid."""
+    """Reconstructed poloidal flux map on the equilibrium (R, Z) grid.
+
+    Interpretation
+    --------------
+    Shows the poloidal flux psi(R, Z) of one reconstructed slice.  Its contours
+    are the cross-sections of the magnetic flux surfaces, so the map is read
+    for the plasma's position and shape, the last closed flux surface, the
+    magnetic axis, X-points, and how the coil field closes around the plasma.
+    At equal level spacing, closely packed contours mark a strong poloidal
+    field: the flux gradient is proportional to R B_p.
+
+    Options
+    -------
+    ``style=`` chooses between flux surfaces at fixed steps of normalized flux
+    (continued outside the plasma in grey), the flux normalized to 0 on the
+    axis and 1 at the boundary, and a filled map of the flux itself.
+    ``units=`` changes only the display scale between full weber and weber per
+    radian. ``overlay=`` adds the machine and the equilibrium's own boundary,
+    axis and X-points as geometric context.  ``rational_q=`` and
+    ``resonances=`` draw the contours of chosen rational surfaces.
+
+    Convention
+    ----------
+    VAFT stores psi in full weber (IMAS DD); a per-radian display divides by 2
+    pi.  The sign and the offset of psi depend on the COCOS and the current
+    direction, so between equilibria only flux differences and normalized flux
+    are comparable.
+
+    Limitations
+    -----------
+    The map is the solver's solution for one slice, not an interpolation in
+    time.  Inside the plasma the contour shapes depend on the assumed profile
+    parametrisation and are constrained only indirectly by external magnetics;
+    outside, the flux contains whatever coil and vessel currents the
+    reconstruction modelled.
+
+    See Also
+    --------
+    equilibrium_field_2d : other reconstructed 2-D quantities on the same grid.
+    equilibrium_overview : the same map with the slice's profiles and globals.
+    """
     return render_field_2d(model, ax=ax, show=show, **style)
 
 
@@ -213,7 +253,38 @@ def equilibrium_field_psi(
 def equilibrium_field_2d(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """One reconstructed 2-D equilibrium quantity, chosen with ``field=``."""
+    """One reconstructed 2-D equilibrium quantity, chosen with ``field=``.
+
+    Interpretation
+    --------------
+    Shows one quantity of a reconstructed slice on the poloidal (R, Z) grid:
+    the poloidal flux, the toroidal current density, the pressure, or a
+    component of the magnetic field.  The current-density map shows where the
+    reconstruction places the plasma current, the pressure map where the stored
+    energy sits, and the field components the field a probe or particle would
+    see at a point.
+
+    Options
+    -------
+    ``field=`` chooses the quantity.  A quantity the slice does not store is
+    derived from it on a private copy -- the current density and the field
+    components from the flux and the 1-D profiles, the pressure by mapping the
+    1-D pressure profile through the slice's own flux -- so it carries no
+    information beyond the reconstruction.  ``units=``, ``style=`` and
+    ``overlay=`` act as in :func:`equilibrium_field_psi`.
+
+    Limitations
+    -----------
+    Every quantity is the solver's, not a local measurement.  Derived fields
+    inherit the grid resolution, and differentiation amplifies noise near the
+    boundary.  Current density and pressure inside the plasma follow the
+    assumed profile parametrisation; outside the boundary they say nothing
+    about the plasma.
+
+    See Also
+    --------
+    equilibrium_field_psi : the flux map with its contour styles.
+    """
     return render_field_2d(model, ax=ax, show=show, **style)
 
 
@@ -297,7 +368,33 @@ def passive_structure_field_wall_reduction(
 def electron_temperature_field(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Electron temperature mapped onto the poloidal plane."""
+    """Electron temperature mapped onto the poloidal plane.
+
+    Interpretation
+    --------------
+    The electron temperature profile drawn on the poloidal (R, Z) plane through
+    the equilibrium flux surfaces: each grid cell takes the profile's value at
+    its own flux surface.  It shows where the hot core sits relative to the
+    vessel and the diagnostics' lines of sight.
+
+    Options
+    -------
+    ``time_slice=`` names the equilibrium slice; the profile mapped onto it is
+    the core_profiles entry stored at that slice's time.
+
+    Limitations
+    -----------
+    The map holds no information beyond the 1-D profile and the equilibrium: it
+    assumes the quantity is constant on each flux surface, so poloidal
+    asymmetries are absent by construction.  Cells are filled wherever the
+    normalized flux is below 1 and left blank elsewhere, so a private-flux
+    region below an X-point, or flux that recurs near a coil, is filled
+    although it is not inside the plasma.
+
+    See Also
+    --------
+    electron_temperature_profile : the 1-D profile that is mapped.
+    """
     return render_field_2d(model, ax=ax, show=show, **style)
 
 
@@ -315,7 +412,33 @@ def electron_temperature_field(
 def electron_density_field(
     model: Field2D, *, ax: Axes | None = None, show: bool = False, **style: Any
 ) -> tuple[Figure, Axes]:
-    """Electron density mapped onto the poloidal plane."""
+    """Electron density mapped onto the poloidal plane.
+
+    Interpretation
+    --------------
+    The electron density profile drawn on the poloidal (R, Z) plane through the
+    equilibrium flux surfaces: each grid cell takes the profile's value at its
+    own flux surface.  It shows where the density sits relative to the vessel
+    and to diagnostic and heating beam paths.
+
+    Options
+    -------
+    ``time_slice=`` names the equilibrium slice; the profile mapped onto it is
+    the core_profiles entry stored at that slice's time.
+
+    Limitations
+    -----------
+    The map holds no information beyond the 1-D profile and the equilibrium: it
+    assumes the quantity is constant on each flux surface, so poloidal
+    asymmetries are absent by construction.  Cells are filled wherever the
+    normalized flux is below 1 and left blank elsewhere, so a private-flux
+    region below an X-point, or flux that recurs near a coil, is filled
+    although it is not inside the plasma.
+
+    See Also
+    --------
+    electron_density_profile : the 1-D profile that is mapped.
+    """
     return render_field_2d(model, ax=ax, show=show, **style)
 
 

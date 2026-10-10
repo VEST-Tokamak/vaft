@@ -526,6 +526,21 @@ def plot_current_overview(
     return render("current_overview", source, ax=ax, show=show, label=label, **options)
 
 
+def plot_current_overview_reconstruction(
+    source: Any,
+    *,
+    ax: Any = None,
+    show: bool = False,
+    label: str | Sequence[str] = "shot",
+    **options: Any,
+) -> tuple[Any, Any]:
+    """Measured and reconstructed I_p, PF coil currents and eddy currents, in kA.
+
+    Renders with :func:`vaft.plot.current_overview_reconstruction` from native IMAS input.
+    """
+    return render("current_overview_reconstruction", source, ax=ax, show=show, label=label, **options)
+
+
 def plot_diagnostics_overview(
     source: Any,
     *,
@@ -1437,7 +1452,10 @@ def plot_kinetic_overview_profiles(
     label: str | Sequence[str] = "shot",
     **options: Any,
 ) -> tuple[Any, Any]:
-    """Four local kinetic profiles from native IMAS input."""
+    """Four local kinetic profiles from native IMAS input.
+
+    Renders with :func:`vaft.plot.kinetic_overview_profiles` from native IMAS input.
+    """
     return render("kinetic_overview_profiles", source, ax=ax, show=show, label=label, **options)
 
 
@@ -2221,6 +2239,7 @@ __all__ += [
     "plot_coil_3d_geometry_topview",
     "plot_core_profiles_time_volume_averaged",
     "plot_current_overview",
+    "plot_current_overview_reconstruction",
     "plot_diagnostics_overview",
     "plot_diamagnetic_flux_time",
     "plot_electron_density_field",

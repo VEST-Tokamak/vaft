@@ -47,6 +47,11 @@ _SUBMODULES = {
     "boundaries": ".boundaries",
     "impurity": ".impurity",
     "dimensional": ".dimensional",
+    "sensitivity": ".sensitivity",
+    "ordering": ".ordering",
+    "fast_ion": ".fast_ion",
+    "kinetic": ".kinetic",
+    "turbulence": ".turbulence",
 }
 
 #: The order these submodules were star-imported in when this package loaded
@@ -82,6 +87,11 @@ _IMPORT_ORDER = (
     "boundaries",
     "impurity",
     "dimensional",
+    "sensitivity",
+    "ordering",
+    "fast_ion",
+    "kinetic",
+    "turbulence",
 )
 
 #: Names served by ``.catalog`` on first access.  Deliberately not in

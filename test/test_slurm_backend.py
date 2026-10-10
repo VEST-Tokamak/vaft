@@ -263,6 +263,18 @@ def test_batch_job_captures_output_and_exit_status(tmp_path, slurm):
     assert stat.S_IMODE((scratch / "job.sh").stat().st_mode) == 0o700
 
 
+def test_a_label_that_is_not_one_path_component_is_refused(tmp_path, slurm):
+    # The label names the scratch directory under the working directory;
+    # a separator or ``..`` in it would create (and remove) one elsewhere
+    # (cold review 0.8.0 plot-gui-packaging F2).
+    work = _workdir(tmp_path)
+    with pytest.raises(ValueError, match="label"):
+        _batch().run(_python(work, "pass", label="../../escape"))
+    assert not (work / SCRATCH_DIRECTORY).exists()
+    assert not (tmp_path / SCRATCH_DIRECTORY).exists()
+    assert not (slurm.directory / "calls.jsonl").exists()  # sbatch never ran
+
+
 def test_clean_batch_job_removes_its_scratch(tmp_path, slurm):
     work = _workdir(tmp_path)
     result = _batch().run(_python(work, "print('ok')"))

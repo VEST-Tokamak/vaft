@@ -12,7 +12,7 @@ import hashlib
 import re
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Collection, Mapping
 
 import yaml
 
@@ -88,8 +88,18 @@ def load_diagnostic_registry(path: str | Path | None = None) -> dict[str, dict[s
     return normalized
 
 
-def validate_diagnostic_registry(registry: Mapping[str, Mapping[str, Any]]) -> None:
-    """Validate the schema shared by runtime checks and documentation export."""
+def validate_diagnostic_registry(
+    registry: Mapping[str, Mapping[str, Any]],
+    *,
+    subjects: Collection[str] | None = None,
+) -> None:
+    """Validate the schema shared by runtime checks and documentation export.
+
+    ``subjects`` is the vocabulary a record's optional ``subject`` must belong
+    to (``vaft.plot.taxonomy.SUBJECTS`` for the ontology generator).  It is
+    passed in rather than imported here so that loading the registry never
+    pulls in :mod:`vaft.plot`; without it a subject only has to be a name.
+    """
     seen_names: set[str] = set()
     for identifier, record in registry.items():
         context = f"diagnostic_registry.{identifier}"
@@ -124,6 +134,12 @@ def validate_diagnostic_registry(registry: Mapping[str, Mapping[str, Any]]) -> N
                 raise DiagnosticRegistryError(f"{context}: responsible people require names")
             if "email" in person and not _EMAIL.fullmatch(str(person["email"])):
                 raise DiagnosticRegistryError(f"{context}: invalid responsible email")
+        if "subject" in record:
+            subject = record["subject"]
+            if not isinstance(subject, str) or not subject.strip():
+                raise DiagnosticRegistryError(f"{context}: subject must be a non-empty name")
+            if subjects is not None and subject not in subjects:
+                raise DiagnosticRegistryError(f"{context}: subject {subject!r} is not a vaft.plot.taxonomy subject")
         source = record["source"]
         if not isinstance(source, Mapping) or not isinstance(source.get("type"), str):
             raise DiagnosticRegistryError(f"{context}: source requires a type")

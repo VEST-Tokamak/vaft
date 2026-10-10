@@ -73,7 +73,7 @@ def _assert_checkout() -> None:
 
 def _labels(states_csv: Path, qualities: tuple[str, ...]) -> dict[tuple[int, int], str]:
     labels = {}
-    for r in csv.DictReader(open(states_csv)):
+    for r in csv.DictReader(open(states_csv, encoding="utf-8")):
         if r["efit_lineage"] == "magnetics" and r["efit_quality"] in qualities:
             labels[(int(r["shot"]), int(round(float(r["time_efit_s"]) * 1e3)))] = r["efit_quality"]
     return labels
@@ -83,7 +83,7 @@ def _ages(ages_csv: Optional[Path]) -> dict[tuple[int, int], float]:
     ages = {}
     if ages_csv is None:
         return ages
-    for r in csv.DictReader(open(ages_csv)):
+    for r in csv.DictReader(open(ages_csv, encoding="utf-8")):
         if r.get("plasma_age_s") not in (None, "", "None"):
             ages[(int(r["shot"]), int(round(float(r["time_efit_s"]) * 1e3)))] = float(r["plasma_age_s"])
     return ages
@@ -258,7 +258,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     columns = sorted({k for r in rows for k in r}, key=lambda c: (
         c not in ("shot", "time_efit_s", "efit_lineage", "efit_quality", "r_over_a", "case", "status"), c))
-    with open(out / "tglf_composition.csv", "w", newline="") as handle:
+    with open(out / "tglf_composition.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
         writer.writeheader()
         writer.writerows(rows)
@@ -285,7 +285,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     pair_rows = sorted(pairs.values(), key=lambda e: (e["shot"], e["time_efit_s"], e["r_over_a"]))
     if pair_rows:
         cols = list(dict.fromkeys(k for e in pair_rows for k in e))
-        with open(out / "tglf_composition_pairs.csv", "w", newline="") as handle:
+        with open(out / "tglf_composition_pairs.csv", "w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=cols)
             writer.writeheader()
             writer.writerows(pair_rows)
@@ -302,7 +302,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 "comparison": "co_openadas is matched to an n_e-weighted MEAN Z_eff of 2, not the local Z_eff; "
                               "zeff_local, the impurity a/Ln and the lumped charges are columns of the tables",
                 "status_counts": {s: sum(1 for r in rows if r.get("status") == s) for s in {r.get("status") for r in rows}}}
-    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1, default=str) + "\n")
+    (out / "MANIFEST.json").write_text(json.dumps(manifest, indent=1, default=str) + "\n", encoding="utf-8")
     print(json.dumps({k: manifest[k] for k in ("states", "jobs", "status_counts")}))
     return 0
 

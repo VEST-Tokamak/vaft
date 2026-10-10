@@ -16,6 +16,7 @@ import warnings
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from ._brand import FAVICON_URL, LOGO_DATA_URI
 from ._require import require_panel
 from .catalog_view import describe, group_options, matching_names
 from .composer import CompositionEditor
@@ -881,6 +882,7 @@ class BrowserApp:
         pn = require_panel()
         return pn.template.FastListTemplate(
             title="VAFT", sidebar=self.sidebar(), main=self.main(), sidebar_width=360,
+            logo=LOGO_DATA_URI, favicon=FAVICON_URL, header_background="#0b1a2e",
         )
 
     def close(self) -> None:
@@ -996,7 +998,8 @@ def serve(
     readers are not this server's user, so the app opens samples and database
     shots only -- no server paths, no file browser, no uploads -- the password
     is always asked and must be given (a service's restart would otherwise
-    change it unseen), and the proxy's ``X-Forwarded-*`` headers are trusted.
+    change it unseen) unless ``auth="none"`` leaves authentication to a proxy
+    that does it by itself, and the proxy's ``X-Forwarded-*`` headers are trusted.
     ``prefix`` serves the app under a URL path, e.g. ``/gui`` when the proxy
     passes ``https://host/gui/`` through.  The proxy's public host name goes
     in ``websocket_origin``.

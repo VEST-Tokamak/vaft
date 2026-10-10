@@ -49,6 +49,7 @@ __all__ = [
     "collisionality_from_n_T_B_R",
     "delta_prime_from_outer_derivatives",
     "empirical_li_qa",
+    "ggj_resistive_interchange_index_from_ideal",
     "greenwald_density",
     "greenwald_fraction",
     "helical_harmonic",
@@ -379,6 +380,14 @@ def ballooning_alpha_from_p_B_R(p: Union[float, np.ndarray],
     ``numpy.gradient`` along the supplied axis (second-order interior, first-order
     ends), sign-sensitive to the direction of ``R``.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: differential
+    locality: flux_surface_local
+    role: stability_coordinate
+
     References
     ----------
     .. [1] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40
@@ -594,6 +603,10 @@ def greenwald_density(I_p: float,
     No dependence on shaping, heating power or fuelling; spherical tokamaks
     routinely exceed it.
 
+    Semantics
+    ---------
+    consumes: plasma_current, minor_radius
+
     References
     ----------
     .. [1] M. Greenwald et al., Nucl. Fusion 28 (1988) 2199, Eq. (1).
@@ -625,6 +638,14 @@ def greenwald_fraction(n_e: float,
     Both inputs in one unit and with the line-averaged density, the definition
     used in the Greenwald database; a volume average gives a systematically
     lower fraction.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: regime_coordinate
 
     References
     ----------
@@ -660,8 +681,9 @@ def power_limit_from_beta(beta_N: float,
 
     Limitations
     -----------
-    $\beta B_0^2V/2\mu_0$ is the stored energy at beta $\beta$
-    (:func:`vaft.formula.equilibrium.stored_energy_from_beta_V`), not a power;
+    $\beta B_0^2V/2\mu_0$ is the pressure volume integral $\langle p\rangle V$
+    at beta $\beta$ (:func:`vaft.formula.equilibrium.stored_energy_from_beta_V`),
+    two thirds of the thermal energy, and not a power;
     no time scale enters, and no source records what limit was intended.  Kept
     for compatibility.  Tracked in #362.
 
@@ -1100,6 +1122,14 @@ def kadomtsev_mixing_radius(r, q):
     Complete (Kadomtsev) reconnection in a cylinder; large aspect ratio.
     Many sawteeth reconnect only partly, so $r_\mathrm{mix}$ is an upper bound
     on the region a real crash flattens.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: scalar_0d
+    kind: feature_extraction
+    locality: global
+    role: profile_descriptor
 
     References
     ----------
@@ -1596,6 +1626,14 @@ def rhostar_from_Te_a_Bt(Te_eV: float,
     ``m_e`` argument it accepted -- so the result was neither dimensionless nor
     proportional to $\rho_*$ across devices, and no rescaling recovered it. The
     dead ``m_e`` parameter is gone with the defect.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: similarity_coordinate
 
     References
     ----------
@@ -2747,3 +2785,53 @@ def s_alpha_marginal_alpha(s, alpha_max=6.0, resolution=1e-3):
     if np.ndim(s) == 0:
         return float(first[0]), float(second[0])
     return first, second
+
+
+def ggj_resistive_interchange_index_from_ideal(D_I, H):
+    r"""GGJ resistive-interchange index $D_R$ from the ideal index $D_I$ and $H$.
+
+    $$D_R = D_I + \left(H - \tfrac{1}{2}\right)^{2}$$
+
+    Parameters
+    ----------
+    D_I : float or np.ndarray
+        GGJ ideal-interchange (Mercier) index on a flux surface [-].
+    H : float or np.ndarray
+        GGJ coefficient $H$ on the same surface [-].
+
+    Returns
+    -------
+    float or np.ndarray
+        Resistive-interchange index $D_R$ [-].
+
+    Convention
+    ----------
+    GGJ's signs, as ``ggj_ideal_interchange_index`` and
+    ``ggj_resistive_interchange_index`` define them and RDCON and DCON write
+    them: $D_I > 0$ is Mercier unstable, $D_R > 0$ resistive-interchange
+    unstable. It is the same $D_R$ as ``ggj_resistive_interchange_index``,
+    eliminating $E + F$ between $D_I = E + F + H - 1/4$ and
+    $D_R = E + F + H^{2}$; this form exists because RDCON writes $D_I$ and $H$
+    but not $E$ and $F$. $D_R$ is a local criterion, not a Rutherford
+    $\Delta'$ contribution, and with any sign of $\Delta'$ it is not a
+    tearing verdict, which needs an inner-layer solution.
+
+    Physical interpretation
+    -----------------------
+    The offset $(H - 1/2)^{2} \ge 0$ is why $D_R \ge D_I$: a surface can be
+    Mercier stable yet resistively unstable, never the reverse.
+
+    Assumptions
+    -----------
+    $D_I$ and $H$ from the same equilibrium, on the same surface.
+
+    References
+    ----------
+    .. [1] A. H. Glasser, J. M. Greene and J. L. Johnson, "Resistive
+           instabilities in general toroidal plasma configurations",
+           Phys. Fluids 18, 875 (1975).
+    .. [2] A. H. Glasser, Z. R. Wang and J.-K. Park, "Computation of resistive
+           instabilities by matched asymptotic expansions", Phys. Plasmas 23,
+           112506 (2016).
+    """
+    return np.asarray(D_I, dtype=float) + (np.asarray(H, dtype=float) - 0.5) ** 2

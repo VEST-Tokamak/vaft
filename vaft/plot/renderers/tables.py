@@ -31,8 +31,11 @@ __all__ = [
     "TextView",
     "equilibrium_table_fit_quality",
     "equilibrium_table_summary",
+    "equilibrium_table_validation",
     "equilibrium_text_summary",
     "format_quantity",
+    "magnetics_table_vacuum_benchmark",
+    "magnetics_table_vacuum_benchmark_aggregate",
     "render_table",
     "render_text_summary",
 ]
@@ -42,7 +45,10 @@ __all__ = [
 DEFAULT_FORMAT = ".4g"
 
 #: How a status reads in the text forms.
-STATUS_LABELS = {"": "", "pass": "PASS", "warn": "WARN", "fail": "FAIL", "info": "INFO"}
+STATUS_LABELS = {
+    "": "", "pass": "PASS", "warn": "WARN", "fail": "FAIL", "info": "INFO",
+    "indeterminate": "INDETERMINATE", "not_available": "NOT_AVAILABLE",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -526,7 +532,42 @@ _SLICE_OPTIONAL = (
     optional_paths=_SLICE_OPTIONAL,
 )
 def equilibrium_table_summary(model: Table, *, show: bool = False) -> RenderedTable:
-    """The selected equilibrium slice's global quantities, tabulated."""
+    """The selected equilibrium slice's global quantities, tabulated.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the table as well as returning it.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    The global quantities of one reconstructed slice -- the slice
+    :func:`equilibrium_overview` draws -- as a Quantity / Value / Unit table
+    for reports and for comparing slices or shots number by number.  A quantity
+    the slice does not store but that can be derived from it is shown with a
+    note saying so; one that is neither is shown as not stored.
+
+    Options
+    -------
+    ``time=`` and ``time_slice=`` choose the slice exactly as for
+    :func:`equilibrium_overview`; ``units=`` sets the flux display unit.
+
+    Limitations
+    -----------
+    The numbers are reconstruction outputs without their uncertainties, and a
+    derived value is computed from the stored slice, not refitted.
+
+    See Also
+    --------
+    equilibrium_table_fit_quality : how well the same slice fits its constraints.
+    """
     return render_table(model, show=show)
 
 
@@ -550,7 +591,325 @@ def equilibrium_table_summary(model: Table, *, show: bool = False) -> RenderedTa
     ),
 )
 def equilibrium_table_fit_quality(model: Table, *, show: bool = False) -> RenderedTable:
-    """EFIT goodness of fit at one slice, by constraint family."""
+    """EFIT goodness of fit at one slice, by constraint family.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the table as well as returning it.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    For one EFIT slice and each constraint family -- the magnetic sensor arrays
+    and the scalar plasma-current and diamagnetic-flux constraints -- the table
+    states whether it was fitted, how many channels were enabled, disabled or
+    missing, its chi-square and share of the total, and the normalized
+    residuals z = (measured - reconstructed) * weight / k: their RMS, mean bias
+    and largest magnitude with the channel that has it.  The caption gives the
+    reduced chi-square over EFIT's own count of degrees of freedom.  It answers
+    which family dominates the fit, whether a family is systematically offset
+    (flagged when the bias exceeds two standard errors), and which channel to
+    inspect.
+
+    Options
+    -------
+    ``time_slice=`` selects the stored slice.
+
+    Limitations
+    -----------
+    Chi-square and z are measured in units of the uncertainties EFIT was given,
+    so they judge the fit against those uncertainties, not against the truth: a
+    small chi-square can mean generous uncertainties, and a family given small
+    uncertainties dominates the total whatever its information content.  A good
+    fit to external magnetics does not validate the internal profiles, which
+    those constraints determine only weakly.
+
+    See Also
+    --------
+    equilibrium_overview_fit_quality : the same metrics across slices, plotted.
+    equilibrium_table_summary : the global quantities of the slice.
+    """
+    return render_table(model, show=show)
+
+
+@renderer(
+    domain="equilibrium",
+    subject="equilibrium",
+    view="table",
+    quantity="validation",
+    model=Table,
+    description=(
+        "Every registered validation check's verdict at one equilibrium slice -- "
+        "verification, diagnostic fit, physical validity, independent validation: "
+        "the number each status was decided on, the registry criterion, the status "
+        "(NOT_AVAILABLE and INDETERMINATE kept as such) and its reason; the "
+        "aggregate status and the count per status in the caption."
+    ),
+    ids=("equilibrium", "magnetics", "core_profiles", "thomson_scattering"),
+    required_paths=_SLICE_REQUIRED,
+    optional_paths=(
+        "equilibrium.time_slice.{i}.profiles_1d.q",
+        "equilibrium.time_slice.{i}.profiles_1d.pressure",
+        "equilibrium.time_slice.{i}.constraints.bpol_probe.{j}.chi_squared",
+        "magnetics.diamagnetic_flux.{j}.data",
+    ),
+)
+def equilibrium_table_validation(model: Table, *, show: bool = False) -> RenderedTable:
+    """The validation verdicts of one equilibrium slice, one row per registered check.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the text form.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    For one equilibrium slice, every check of the validation registry in its
+    registry order, one row each: the category (verification, diagnostic fit,
+    physical validity, independent validation), the check, the measure and
+    the number the status was decided on, the registry's criterion (a
+    tolerance pair, or "rule" with the method as a note), the status, and the
+    reason the check itself gave.  The status is printed as a word -- pass,
+    warn, fail, indeterminate or not_available -- and carried as a
+    ``data-status`` attribute in the HTML form; no colour is drawn.
+    ``not_available`` means the evidence was never produced (the input lacks
+    what the check reads) and ``indeterminate`` that it was produced but did
+    not decide; neither is a pass, and both keep their reason in the note
+    rather than being dropped.  The caption aggregates the rows the way
+    :func:`vaft.validation.equilibrium.aggregate_status` does -- the worst of
+    fail, warn and indeterminate wins, and pass needs every row to pass, so a
+    mix of pass and not_available reads indeterminate -- and counts each
+    status.  The table is read to find which check holds a slice back and
+    why, and which checks the input could not even be put to.  It flags and
+    never edits: the numbers are the stored equilibrium's and the statuses
+    are the registered checks' own, with their tolerances; the view adds no
+    physics and no threshold.
+
+    Options
+    -------
+    ``time=`` and ``time_slice=`` select the slice the checks run on, by
+    nearest stored time or by index; without either the representative slice
+    of the overview is used, and the title says which and why.  ``title=``
+    replaces the title.  The set of checks is the registry's and is not
+    selectable here.
+
+    Limitations
+    -----------
+    A row judges the slice against the check's tolerance in the units the
+    check uses, so an all-pass table states that the registered checks found
+    nothing, not that the reconstruction is right: the internal profiles are
+    weakly constrained by external magnetics whatever the fit quality says,
+    and a check that is not_available contributes no evidence.  Continuity
+    is the one row decided over the whole IDS rather than the slice.  A value
+    shown in the Value column was graded; a measure the verdict was not
+    decided on is moved to the note so it does not read as a grade.  The
+    verdicts come from the validation functions as they are: a tolerance
+    that is a round figure rather than a qualified threshold is marked so in
+    the registry, not here.
+
+    See Also
+    --------
+    equilibrium_table_fit_quality : the goodness of fit per constraint family, in numbers.
+    equilibrium_overview_verification : the verification checks drawn across slices.
+    """
+    return render_table(model, show=show)
+
+
+#: What the vacuum benchmark needs: the PF currents on their time base (the
+#: interval and the wall solve) and the passive loops' resistances (the wall
+#: model it solves); the magnetics it scores vary by shot and are optional.
+#: The IDS are every root the builder reads
+#: (``recipes._VACUUM_BENCHMARK_ROOTS``; ``dataset_description`` every loader
+#: adds): a loader that selects by them must not drop the UV lines and the
+#: summary's time convention the plasma-free interval is cut at, nor the TF.
+_BENCHMARK_IDS = (
+    "pf_active", "pf_passive", "magnetics", "em_coupling", "wall",
+    "tf", "spectrometer_uv", "summary",
+)
+_BENCHMARK_REQUIRED = (
+    "pf_active.time",
+    "pf_active.coil.{i}.current.data",
+    "pf_passive.loop.{i}.resistance",
+)
+_BENCHMARK_OPTIONAL = (
+    "magnetics.b_field_pol_probe.{i}.field.data",
+    "magnetics.flux_loop.{i}.flux.data",
+    "magnetics.ip.{i}.data",
+    "em_coupling.mutual_passive_active",
+)
+
+
+@renderer(
+    domain="magnetics",
+    subject="magnetics",
+    view="table",
+    quantity="vacuum_benchmark",
+    model=Table,
+    description=(
+        "The plasma-free vacuum benchmark of one shot (issue #190), one row per channel: "
+        "family, kind, status (evaluated, flagged, excluded), eddy improvement, normalized "
+        "residual, correlation, wall authority and the reason a channel is flagged or "
+        "excluded; windows, solver history, coil drive and scored medians in the caption."
+    ),
+    ids=_BENCHMARK_IDS,
+    required_paths=_BENCHMARK_REQUIRED,
+    optional_paths=_BENCHMARK_OPTIONAL,
+)
+def magnetics_table_vacuum_benchmark(model: Table, *, show: bool = False) -> RenderedTable:
+    """The vacuum benchmark's per-channel scores of one shot, one row per channel.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the text form.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    The shot is run through :func:`vaft.validation.vacuum_benchmark.run_benchmark_case`:
+    the passive wall is re-solved from the measured PF currents alone over the
+    plasma-free stretch, and every usable B probe and flux loop is compared
+    with the coil-only and coil+eddy forward response inside the validation
+    window.  One row per scored channel, in the benchmark's order (grouped by
+    family): the eddy improvement 1 - RMS(measured - (coil+eddy)) /
+    RMS(measured - coil) -- what the wall model is worth on that channel --
+    the residual RMS as a fraction of the
+    channel's swing, the correlation of measured with coil+eddy (near 1 with a
+    large residual points at a gain, not the wall), and the wall authority, the
+    eddy term's share of the reading in whose light a small or negative
+    improvement is read.  Status is a fact, not a grade: ``flagged`` is a probe
+    that contradicts its own array, scored but kept out of the medians as a
+    sensor finding; ``excluded`` had too few usable samples.  The caption
+    states the case type, the validation window inside the solver-input
+    window, the solver history against the slowest wall time constant, the
+    coil drive inside the window and the scored medians, so a row can be
+    traced to the conditions it was measured under.  The table answers which
+    channels and families the wall model reproduces and which it does not.
+
+    Options
+    -------
+    ``per_family=`` limits the case to that many channels per family (the
+    default scores every usable channel, which qualifying a machine model
+    needs).  ``resistance_scale=`` multiplies every passive-loop resistance by
+    one global factor -- the benchmark's resistance study, never a per-loop
+    fit.  ``n_tau=`` sets how many slowest wall time constants of solver
+    history must elapse before the validation window opens.  ``title=``
+    replaces the title.
+
+    Limitations
+    -----------
+    The benchmark states no acceptance threshold and no verdict, and neither
+    does the table: #190 defers acceptance bounds until the VEST benchmark
+    distribution has been inspected.  A score is measured against one shot's
+    plasma-free stretch, so it says nothing about the model with plasma, and a
+    low improvement where the wall authority is small is a rounding of the
+    model's error rather than a finding about the wall.  A flagged probe is a
+    sensor finding from its array neighbours, not a proof that the probe is
+    faulty.  A case the coils did not drive inside its window is reported (the
+    caption says so) and its improvements are ratios of noise.
+
+    See Also
+    --------
+    magnetics_overview_vacuum_benchmark : the same scores drawn per channel.
+    magnetics_table_vacuum_benchmark_aggregate : the benchmark across shots.
+    magnetics_overview_vacuum : one shot's measured, coil and coil+eddy waveforms.
+    """
+    return render_table(model, show=show)
+
+
+@renderer(
+    domain="magnetics",
+    subject="magnetics",
+    view="table",
+    quantity="vacuum_benchmark_aggregate",
+    model=Table,
+    description=(
+        "The plasma-free vacuum benchmark across shots (issue #190): median eddy "
+        "improvement, normalized residual and correlation and the worst channel by case, "
+        "family, PF excitation and machine era; undriven cases, flagged channels and the "
+        "summary in the caption."
+    ),
+    ids=_BENCHMARK_IDS,
+    required_paths=_BENCHMARK_REQUIRED,
+    optional_paths=_BENCHMARK_OPTIONAL,
+)
+def magnetics_table_vacuum_benchmark_aggregate(model: Table, *, show: bool = False) -> RenderedTable:
+    """The vacuum benchmark across shots, by case, family, excitation and machine era.
+
+    Parameters
+    ----------
+    model : Table
+        The table the adapter built.
+    show : bool
+        Print the text form.
+
+    Returns
+    -------
+    RenderedTable
+        Text, Markdown and HTML renderings of the table.
+
+    Interpretation
+    --------------
+    Every entry is run through :func:`vaft.validation.vacuum_benchmark.run_benchmark_case`
+    and the cases are cross-tabulated by
+    :func:`vaft.validation.vacuum_benchmark.aggregate_benchmark`.  One row per
+    group of each axis -- case (the entry's label), magnetic family, PF
+    excitation (the coils that carried current) and machine era (the VEST era
+    the pulse falls in, ``unknown`` without a pulse) -- with the number of cases
+    and channels in it, the median eddy improvement, normalized residual and
+    correlation, and the channel with the lowest improvement.  Which axis a poor
+    median concentrates on is the diagnosis the cross-tabs exist for: one
+    channel across excitations points at probe calibration or geometry, many
+    channels whenever one PF coil dominates at that coil, a change across eras
+    at the static model's provenance, one shot among consistent neighbours at
+    that shot's acquisition.  An entry that cannot supply a plasma-free case
+    -- it lacks the PF or passive-loop circuits the case is solved from, it
+    has no usable magnetic channel or no ``em_coupling``, or the benchmark
+    refuses it -- is a case row with the reason, never dropped, and so is a
+    case whose every channel was excluded.  The caption lists the cases the
+    coils did not drive, the flagged probes per case and the summary medians
+    over driven, unflagged channel rows.
+
+    Options
+    -------
+    ``per_family=``, ``resistance_scale=`` and ``n_tau=`` are passed to every
+    case as in :func:`magnetics_table_vacuum_benchmark`; ``label=`` names the
+    entries, and so the case rows.  ``title=`` replaces the title.
+
+    Limitations
+    -----------
+    No threshold and no verdict, as in the benchmark itself.  The cross-tab
+    medians count every evaluated channel, the flagged and undriven ones too
+    (the notes say so); only the caption's summary leaves them out.  A median
+    over a group of one case is that case, not a distribution, and the
+    packaged samples are few: a cross-tab over them shows the structure of the
+    analysis, not the VEST benchmark distribution.
+
+    See Also
+    --------
+    magnetics_table_vacuum_benchmark : one case, channel by channel.
+    magnetics_overview_vacuum_benchmark : one case's scores drawn per channel.
+    """
     return render_table(model, show=show)
 
 

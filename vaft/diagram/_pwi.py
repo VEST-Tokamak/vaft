@@ -1,4 +1,5 @@
-"""Plasma-wall interaction concepts: processes, reflection, sputtering, recycling, energy partition (#1047).
+"""Plasma-wall interaction concepts: processes, reflection, sputtering, recycling, energy partition, and the
+reflected-energy, angle, threshold, particle-balance and surface-response views (#1047).
 
 ``plasma_wall_interaction_processes``
     one impact and its outcomes: reflection, implantation/retention,
@@ -12,13 +13,23 @@
 ``plasma_wall_interaction_recycling``
     reflection, re-emission and retention as flux bookkeeping;
 ``plasma_wall_interaction_energy_partition``
-    particle balance and energy balance side by side: not the same thing.
+    particle balance and energy balance side by side: not the same thing;
+``plasma_wall_interaction_reflection_energy``
+    incident to reflected energy distribution, with the binary-collision limit;
+``plasma_wall_interaction_angle_dependence``
+    normal and grazing incidence, angles from the surface normal;
+``plasma_wall_interaction_sputtering_threshold``
+    a qualitative yield curve that shows a threshold exists, not where;
+``plasma_wall_interaction_particle_balance``
+    the projectile balance, with the target-material source kept outside it;
+``plasma_wall_interaction_surface_response``
+    the generic input -> response -> output model a PWI backend fills.
 
 Level 0 of the issue's enrichment: semantics only. No reflection or
 sputtering coefficient, threshold or yield is drawn unless computed from a
 ``vaft.formula.pwi`` relation with inputs the caller supplies (a threshold
 needs the surface binding energy). Projectile and target species are checked
-against :mod:`vaft.spectroscopy`'s element vocabulary and kept visually apart
+against :mod:`vaft.data.atomic`'s element vocabulary and kept visually apart
 (projectile blue, target dark).
 """
 
@@ -35,7 +46,7 @@ from vaft.formula.pwi import (
     recycling_coefficient,
     sputtering_threshold_bohdansky,
 )
-from vaft.spectroscopy import ATOMIC_NUMBERS, parse_species
+from vaft.data.atomic import ATOMIC_NUMBERS, parse_species
 
 from ._concept import box, connector
 from ._equations import formula_equation
@@ -76,7 +87,7 @@ def _species(name) -> str:
     """The element symbol (D and T kept as isotopes of hydrogen, named as such) of a species name."""
     sp = parse_species(name)
     if sp is None or sp.element not in ATOMIC_NUMBERS:
-        raise ValueError(f"{name!r} is not a species vaft.spectroscopy recognises")
+        raise ValueError(f"{name!r} is not a species vaft.data.atomic recognises")
     if sp.element == "H" and sp.mass_number in (2, 3):
         return {2: "D", 3: "T"}[sp.mass_number]
     return sp.element
@@ -344,3 +355,232 @@ def plasma_wall_interaction_energy_partition(*, labels: bool = True) -> Diagram:
     return Diagram("plasma_wall_interaction_energy_partition", Scene(tuple(items)),
                    model={"particles": tuple(parts_p), "energy_in": tuple(inputs), "energy_out": tuple(outputs),
                           "imas": IMAS_WALL_PATHS})
+
+
+def _arc(center, radius: float, a0: float, a1: float, role: str) -> Polyline:
+    """An angle arc around ``center`` from ``a0`` to ``a1`` [rad, measured from the +y normal, clockwise positive]."""
+    a = np.linspace(a0, a1, 30)
+    return Polyline.of(np.stack([center[0] + radius * np.sin(a), center[1] + radius * np.cos(a)], -1), "angle arc",
+                       role=role)
+
+
+def plasma_wall_interaction_reflection_energy(projectile="D", target="W", *, labels: bool = True) -> Diagram:
+    r"""Incident energy to reflected energy: two distributions joined by the surface interaction.
+
+    An incident state $f_i(E_i)$ meets the target; a reflected state
+    $f_r(E_r)$ leaves it. The only kinematic fact drawn is the binary-collision
+    limit: a projectile backscattered by one head-on collision keeps
+    $(1 - \gamma)E_i$, with $\gamma$ from
+    ``binary_collision_energy_transfer_factor`` for the pair. $R_N(E_i)$,
+    $R_E(E_i)$ and $\langle E_r\rangle(E_i)$ are the enrichment slots of
+    #1047 level 2; they are data and stay empty here, so no functional
+    relation between $E_i$ and $E_r$ is drawn.
+    """
+    labels = _check_labels(labels)
+    p, t = _species(projectile), _species(target)
+    if p not in MASS_U or t not in MASS_U:
+        raise ValueError(f"no mass tabulated here for {p if p not in MASS_U else t}")
+    gamma = float(binary_collision_energy_transfer_factor(MASS_U[p], MASS_U[t]))
+    incident = box(0.0, 0.0, 4.4, 1.6, f"incident {p}\\\\ $f_i(E_i)$", role="state:incident", latex=True)
+    surface = box(6.6, 0.0, 4.0, 1.6, f"surface interaction\\\\ target {t}", role="surface", latex=True,
+                  style="concept leaf")
+    reflected = box(13.2, 0.0, 4.4, 1.6, f"reflected {p}\\\\ $f_r(E_r)$", role="state:reflected", latex=True)
+    items: List = []
+    for b in (incident, surface, reflected):
+        items += list(b.items)
+    items += [connector(incident, surface, role="edge"), connector(surface, reflected, role="edge")]
+    if labels:
+        items += [
+            Label((6.6, -1.1), "enrichment slots (data, not drawn): $R_N(E_i)$, $R_E(E_i)$, "
+                  "$\\langle E_r\\rangle(E_i)$", "small label", anchor="north", role="enrichment"),
+            Label((6.6, -1.75), f"{p} on {t}: one head-on collision keeps $(1-\\gamma)E_i$, $\\gamma = {gamma:.3f}$",
+                  "small label", anchor="north", role="kinematics"),
+            Label((3.3, -2.6), f"$\\displaystyle {formula_equation(binary_collision_energy_transfer_factor)}$",
+                  "formula box", anchor="north", role="equations"),
+            Label((10.3, -2.6), f"$\\displaystyle {formula_equation(mean_reflected_energy_fraction)}$",
+                  "formula box", anchor="north", role="equations"),
+            _note("Particle reflection ($R_N$) and energy reflection ($R_E$) are different data per projectile, "
+                  "target, energy and angle; no relation $E_r(E_i)$ is assumed", 6.6, -4.2),
+        ]
+    return Diagram("plasma_wall_interaction_reflection_energy", Scene(tuple(items)),
+                   model={"projectile": p, "target": t, "gamma": gamma,
+                          "enrichment": {"R_N(E_i)": None, "R_E(E_i)": None, "<E_r>(E_i)": None},
+                          "imas": IMAS_WALL_PATHS})
+
+
+def plasma_wall_interaction_angle_dependence(projectile="D", target="W", *, labels: bool = True) -> Diagram:
+    r"""Normal and grazing incidence side by side, angles measured from the surface normal.
+
+    The same projectile reaches the same target at $\theta_i = 0$ (normal) and
+    near $90^\circ$ (grazing); the reflected particle leaves at $\theta_r$.
+    The response at each angle -- $R_N(E_i, \theta_i)$, $R_E(E_i, \theta_i)$,
+    $Y(E_i, \theta_i)$ -- is data and is named, not drawn: no response
+    surface is assumed.
+    """
+    labels = _check_labels(labels)
+    p, t = _species(projectile), _species(target)
+    items: List = []
+    panels = {"normal": (0.0, 0.0, math.radians(20.0)), "grazing": (11.0, math.radians(75.0), math.radians(70.0))}
+    for name, (x0, th_in, th_out) in panels.items():
+        items += [it for it in _wall(x0, x0 + 8.0, 1.0)]
+        hit = (x0 + 4.0, 0.0)
+        L_in, L_out = 3.0, 2.4
+        start = (hit[0] - L_in * math.sin(th_in), L_in * math.cos(th_in))
+        end = (hit[0] + L_out * math.sin(th_out), L_out * math.cos(th_out))
+        items += [Polyline.of([hit, (hit[0], 3.0)], "approx", role=f"normal:{name}"),
+                  Arrow(start, hit, "drift ion", role=f"incident:{name}"),
+                  Arrow(hit, end, "drift ion", role=f"reflected:{name}"),
+                  _arc(hit, 0.9, 0.0, th_out, f"angle_out:{name}")]
+        if th_in > 0:
+            items.append(_arc(hit, 1.2, -th_in, 0.0, f"angle_in:{name}"))
+        if labels:
+            items += [
+                Label((hit[0], 3.4), f"{name} incidence", "small label", anchor="south", role=f"title:{name}"),
+                Label((x0 + 0.2, -0.3), f"target {t}", "small label", anchor="north west", role=f"wall:{name}"),
+                Label((hit[0] + 1.0, 0.9), "$\\theta_r$", "small label", anchor="south west",
+                      role=f"angle_out:{name}"),
+            ]
+            if th_in > 0:
+                items.append(Label((hit[0] - 1.3, 0.6), "$\\theta_i$", "small label", anchor="south east",
+                                   role=f"angle_in:{name}"))
+            else:
+                items.append(Label((hit[0] - 0.15, 2.2), "$\\theta_i = 0$", "small label", anchor="east",
+                                   role=f"angle_in:{name}"))
+    if labels:
+        items += [
+            Label((9.5, -1.4), f"incident {p}; angles from the surface normal", "small label", anchor="north",
+                  role="convention"),
+            _note("Named, not drawn: $R_N(E_i,\\theta_i)$, $R_E(E_i,\\theta_i)$, $Y(E_i,\\theta_i)$ -- data per "
+                  "projectile and target; no response surface is assumed", 9.5, -2.2),
+        ]
+    return Diagram("plasma_wall_interaction_angle_dependence", Scene(tuple(items)),
+                   model={"projectile": p, "target": t, "angles": "from the surface normal",
+                          "enrichment": {"R_N(E_i,theta_i)": None, "R_E(E_i,theta_i)": None, "Y(E_i,theta_i)": None},
+                          "imas": IMAS_WALL_PATHS})
+
+
+def plasma_wall_interaction_sputtering_threshold(projectile="D", target="W",
+                                                 surface_binding_energy: Optional[float] = None, *,
+                                                 labels: bool = True) -> Diagram:
+    r"""Sputtering yield against incident energy: a threshold, drawn qualitatively.
+
+    A schematic $Y(E_i)$: zero below a threshold, rising above it, levelling
+    off. The axes carry no scale and the curve no data -- it shows that a
+    threshold exists, not where it is or how steeply the yield rises. A value
+    for $E_\mathrm{th}$ is printed only when ``surface_binding_energy`` is
+    given, from Bohdansky's fit (``sputtering_threshold_bohdansky``).
+    """
+    labels = _check_labels(labels)
+    p, t = _species(projectile), _species(target)
+    if p not in MASS_U or t not in MASS_U:
+        raise ValueError(f"no mass tabulated here for {p if p not in MASS_U else t}")
+    E_th = None
+    if surface_binding_energy is not None:
+        E_th = float(sputtering_threshold_bohdansky(surface_binding_energy, MASS_U[p], MASS_U[t]))
+    x_th = 3.0
+    x = np.linspace(0.0, 10.0, 200)
+    y = 3.2 * (1.0 - np.exp(-(np.clip(x - x_th, 0.0, None) / 2.4) ** 1.6))  # schematic shape only: 0 below x_th
+    items: List = [
+        Polyline.of([(x_th - 0.6, 0.0), (x_th + 0.6, 0.0), (x_th + 0.6, 4.0), (x_th - 0.6, 4.0)], "concept band",
+                    role="threshold_region", closed=True),
+        Arrow((0.0, 0.0), (10.6, 0.0), "axis", role="axis:x"),
+        Arrow((0.0, 0.0), (0.0, 4.2), "axis", role="axis:y"),
+        Polyline.of(np.stack([x, y], -1), "crest", role="schematic_yield"),
+    ]
+    if labels:
+        items += [
+            Label((10.7, 0.0), "$E_i$", "small label", anchor="west", role="axis:x"),
+            Label((0.0, 4.3), f"$Y_\\mathrm{{sput}}$ ({t} atoms per incident {p})", "small label", anchor="south west",
+                  role="axis:y"),
+            Label((x_th, -0.2), "threshold region" + (f"\\\\ $E_\\mathrm{{th}} = {E_th:.0f}$ eV" if E_th else ""),
+                  "small label,align=center", anchor="north", role="threshold"),
+            Label((7.5, 3.4), "schematic: no scale, no data", "small label", anchor="south", role="schematic"),
+            Label((5.0, -1.6), f"$\\displaystyle {formula_equation(sputtering_threshold_bohdansky)}$", "formula box",
+                  anchor="north", role="equations"),
+            _note(f"{p} on {t}: " + (f"$E_\\mathrm{{th}}$ for the supplied $E_s = {surface_binding_energy:g}$ eV"
+                                    if E_th else "$E_\\mathrm{th}$ needs the surface binding energy $E_s$ (not assumed)")
+                  + "; the yield curve itself is material data", 5.0, -4.7),
+        ]
+    return Diagram("plasma_wall_interaction_sputtering_threshold", Scene(tuple(items)),
+                   model={"projectile": p, "target": t, "threshold_eV": E_th, "schematic": True,
+                          "enrichment": {"Y(E_i)": None}, "imas": IMAS_WALL_PATHS})
+
+
+def plasma_wall_interaction_particle_balance(projectile="D", target="W", *, labels: bool = True) -> Diagram:
+    r"""The projectile's particle balance, and the target-material source beside it, not inside it.
+
+    Incident projectiles leave the wall reflected, re-emitted or not at all
+    (retained); those three close the projectile balance, and recycling is the
+    first two (``recycling_coefficient``). Sputtering creates a second species
+    -- target atoms -- whose source is drawn apart: a sputtered tungsten atom
+    is not a branch of the deuterium balance.
+    """
+    labels = _check_labels(labels)
+    p, t = _species(projectile), _species(target)
+    incident = box(0.0, 0.0, 3.4, 1.2, f"incident {p}\\\\ $\\Gamma_\\mathrm{{in}}$", role="flux:incident", latex=True)
+    wall = box(6.0, 0.0, 3.0, 1.2, f"wall ({t})", role="wall", latex=True, style="concept leaf")
+    reflected = box(6.0, 2.6, 3.8, 1.2, f"reflected {p}\\\\ $\\Gamma_\\mathrm{{refl}}$", role="flux:reflected",
+                    latex=True)
+    reemitted = box(3.2, -2.8, 3.8, 1.2, f"re-emitted {p}\\\\ $\\Gamma_\\mathrm{{re\\text{{-}}em}}$",
+                    role="flux:reemitted", latex=True)
+    retained = box(8.0, -2.8, 3.8, 1.2, f"retained {p}\\\\ wall inventory", role="flux:retained", latex=True)
+    sputtered = box(14.0, 0.0, 4.2, 1.2, f"sputtered {t} atoms\\\\ $Y\\,\\Gamma_\\mathrm{{in}}$",
+                    role="flux:sputtered", latex=True, style="concept leaf")
+    items: List = []
+    for b in (incident, wall, reflected, reemitted, retained, sputtered):
+        items += list(b.items)
+    for a, b in ((incident, wall), (wall, reflected), (wall, reemitted), (wall, retained), (wall, sputtered)):
+        items.append(connector(a, b, role=f"edge:{b.items[0].role}"))
+    # the projectile balance is everything left of the dashed line; the target source is to its right
+    items.append(Polyline.of([(10.9, 3.6), (10.9, -3.8)], "approx", role="species_boundary"))
+    if labels:
+        items += [
+            Label((5.4, 3.5), f"{p} balance", "small label", anchor="south", role="group:projectile"),
+            Label((14.0, 1.0), f"{t} source (another species)", "small label", anchor="south", role="group:target"),
+            Label((5.4, -4.6), f"$\\displaystyle {formula_equation(recycling_coefficient)}$", "formula box",
+                  anchor="north", role="equations"),
+            _note(f"$\\Gamma_\\mathrm{{in}}$ = reflected + re-emitted + retained, all {p}; the {t} atoms are not "
+                  f"part of that sum. No fractions drawn: they are data", 7.0, -6.2),
+        ]
+    return Diagram("plasma_wall_interaction_particle_balance", Scene(tuple(items)),
+                   model={"projectile": p, "target": t, "projectile_balance": ("reflected", "re-emitted", "retained"),
+                          "target_source": ("sputtered",), "imas": IMAS_WALL_PATHS})
+
+
+def plasma_wall_interaction_surface_response(projectile="D", target="W", *, labels: bool = True) -> Diagram:
+    r"""The generic surface-response model: what a PWI backend takes in and returns.
+
+    Inputs (species, material, incident energy and angle, surface temperature,
+    composition and state) feed a surface response that returns the particle
+    and energy reflection coefficients and the sputtering yield, and from them
+    the reflected and sputtered distributions and the retained/recycled split.
+    This is the extension point of #1047 levels 2-4: tabulated data or an
+    external code fills the response; at level 0 it is empty.
+    """
+    labels = _check_labels(labels)
+    p, t = _species(projectile), _species(target)
+    inputs = (f"incident species: {p}", f"target material: {t}", "$E_i$, $\\theta_i$", "surface temperature",
+              "surface composition and state")
+    coefficients = ("$R_N$", "$R_E$", "$Y_\\mathrm{sput}$")
+    outputs = (f"reflected {p}: $f(E_r, \\theta_r)$", f"sputtered {t}: $f(E_\\mathrm{{sput}}, \\theta_\\mathrm{{sput}})$",
+               "retention / recycling")
+    inp = box(0.0, 0.0, 5.2, 3.4, "\\textbf{input}\\\\ " + "\\\\ ".join(inputs), role="inputs", latex=True)
+    response = box(6.6, 0.0, 3.6, 1.4, "surface response\\\\ (data or backend)", role="response", latex=True,
+                   style="concept leaf")
+    coef = [box(11.4, 1.6 - 1.6 * k, 1.8, 1.0, c, role=f"coefficient:{k}", latex=True) for k, c in
+            enumerate(coefficients)]
+    out = box(17.2, 0.0, 6.0, 2.8, "\\textbf{output}\\\\ " + "\\\\ ".join(outputs), role="outputs", latex=True)
+    items: List = []
+    for b in (inp, response, *coef, out):
+        items += list(b.items)
+    items.append(connector(inp, response, role="edge"))
+    for c in coef:
+        items += [connector(response, c, role="edge"), connector(c, out, role="edge")]
+    if labels:
+        items += [
+            _note("Level 0 (here): the structure only. Levels 2-4 of \\#1047 fill the response from tables, an "
+                  "external PWI code, or the plasma's own energy and angle distributions", 8.6, -2.8),
+        ]
+    return Diagram("plasma_wall_interaction_surface_response", Scene(tuple(items)),
+                   model={"projectile": p, "target": t, "inputs": inputs, "coefficients": ("R_N", "R_E", "Y_sput"),
+                          "outputs": outputs, "backend": None, "imas": IMAS_WALL_PATHS})

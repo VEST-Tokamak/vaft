@@ -43,6 +43,9 @@ flowchart LR
 | `vaft.formula.green` | Axisymmetric Green's functions for $\psi$, $B_R$, $B_Z$ and the elliptic integrals behind them |
 | `vaft.formula.atomic` | OPEN-ADAS ADF11 interpolation, coronal charge-state fractions, line-radiation cooling coefficients |
 | `vaft.formula.impurity` | Impurity-mixture moments, densities for a target $Z_\mathrm{eff}$, the reduced pseudo-impurity, main-ion dilution |
+| `vaft.formula.fast_ion` | Classical fast-ion slowing down: critical speed and energy, slowing-down times, distribution, density, energy density and pressure |
+| `vaft.formula.kinetic` | Multi-species electron collision time and electron–ion energy-exchange time |
+| `vaft.formula.turbulence` | Turbulence–zonal-flow predator–prey (Lotka–Volterra) model: right-hand side, fixed point, invariant, small-amplitude period and response lag |
 | `vaft.formula.statistics` | Residual, goodness-of-fit and solver-convergence statistics used by the validation layer |
 
 `vaft/formula/__init__.py` resolves its submodules lazily (PEP 562): importing one of them costs
@@ -178,8 +181,9 @@ Energy and resistivity:
 
 <!-- docs-snippet: skip fragment (placeholder name p is never defined on the page) -->
 ```python
-W   = vaft.formula.stored_energy_from_p_V(p, V)                # W = p V
-W   = vaft.formula.stored_energy_from_beta_V(beta, B0, V)      # W = beta B0^2 V / (2 mu0)
+W   = vaft.formula.thermal_energy_from_p_V(p, V)               # W_th = 3/2 <p> V (IMAS energy_thermal)
+PV  = vaft.formula.stored_energy_from_p_V(p, V)                # int p dV = <p> V: NOT W_th, despite the name
+PV  = vaft.formula.stored_energy_from_beta_V(beta, B0, V)      # <p> V again, from beta = 2 mu0 <p> / B0^2
 eta = vaft.formula.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(T_e, Z_eff=2.0, ln_Lambda=17.0)
 ```
 

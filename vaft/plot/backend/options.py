@@ -107,6 +107,7 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("geometry_data", "any", description="separate geometry input for a calibrated camera overlay"),
         OptionSpec("geometry_manifest", "any", description="cross-shot provenance for projected geometry"),
         OptionSpec("geometry_families", "any", description="machine geometry families included in every view"),
+        OptionSpec("section_phi", "float", description="IMAS toroidal angle [rad] of an equilibrium R-Z section; default 6MR"),
         OptionSpec("axis_length", "float", description="display extent of a directed axis in metres"),
         OptionSpec("projection", "any", description="camera projection method"),
         OptionSpec("theta_deg_range", "range",
@@ -176,7 +177,20 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("log_y", "bool"), OptionSpec("marker_frequencies"), OptionSpec("max_frequency", "float"),
         OptionSpec("max_harmonics", "int"), OptionSpec("max_length_m", "float"), OptionSpec("n_tor", "int"),
         OptionSpec("ncols", "int"), OptionSpec("noverlap", "int"), OptionSpec("nperseg", "int"),
-        OptionSpec("per_family", "bool"),
+        # A channel count per family: the #139 vacuum figures read it as
+        # int(per_family) (default 2), the vacuum benchmark views as a positive
+        # count or None for every usable channel.
+        OptionSpec("per_family", "int",
+                   description="magnetic channels kept per family (vacuum views and benchmark)"),
+        # The plasma-free vacuum benchmark (#190, roadmap #1242 C3): the one
+        # global wall-resistance factor its resistance study varies, and the
+        # wall time constants of solver history the validation window waits for.
+        # Only recipes.VACUUM_BENCHMARK_PLOTS take them (DECLARED_ONLY_OPTIONS).
+        OptionSpec("resistance_scale", "float",
+                   description="vacuum benchmark: global scale factor on every passive-loop resistance"),
+        OptionSpec("n_tau", "float",
+                   description="vacuum benchmark: slowest wall time constants of solver history "
+                               "before the validation window opens"),
         # wall eigenmode views (vaft #473)
         OptionSpec("basis"), OptionSpec("segment"), OptionSpec("mode"), OptionSpec("max_modes", "int"),
         OptionSpec("whole_wall", "bool"), OptionSpec("remap_em_coupling", "bool"), OptionSpec("rows"),
@@ -225,6 +239,10 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("rational_q", description="safety-factor values whose surfaces are drawn, e.g. [1, 1.5, 2]"),
         OptionSpec("resonances",
                    description="(m, n) harmonics whose q = m/n surfaces are drawn; (2, 1) and (4, 2) share one"),
+        # Predicted mode-frequency tracks over a spectrogram (issue #460).
+        OptionSpec("mode_overlay",
+                   description="(m, n) modes whose predicted n * f_phi(q = m/n) tracks are drawn "
+                               "(toroidal_rotation model); (2, 1) and (4, 2) give f_phi and 2 f_phi"),
         # Edge-q estimates (issue #1583): where shape and current come from, the
         # stand-in shape, and the q95 scaling; the defaults are vest.yaml's.
         # Only the summary_time_* edge-q views take them (DECLARED_ONLY_OPTIONS).
@@ -236,6 +254,12 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
         OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
                    "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
+        # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that
+        # reached no growth-rate tolerance is left out unless asked for.  Only
+        # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
+        OptionSpec("include_unconverged", "bool",
+                   description="gyrokinetic linear spectra: also draw initial-value eigenmodes "
+                               "that reached no growth_rate_tolerance (a last-step value, not an eigenvalue)"),
     )
 
 
@@ -251,6 +275,12 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "gradient_coordinate", "reference_length", "convention", "rational_q", "resonances",
     # issue #1583: the edge-q views' choices.
     "estimate_from", "q95_scaling", "start_configuration",
+    # issue #460: the Mirnov spectrogram's predicted mode tracks.
+    "mode_overlay",
+    # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
+    "include_unconverged",
+    # roadmap #1242 C3: the vacuum benchmark's knobs.
+    "resistance_scale", "n_tau",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);

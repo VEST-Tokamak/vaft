@@ -8,6 +8,9 @@ source of truth for:
 
 * the registered subjects and their strict aliases,
 * quantity-level aliases for concise tokamak terminology,
+* canonical quantities, with or without an alias (:data:`CANONICAL_QUANTITIES`),
+  which the formula/process ``Semantics`` sections and the generated ontology
+  resolve against as well (#1702),
 * quantity families -- named groups of distinct, related quantities.
 
 Alias semantics are strict: an alias is registered only when both terms
@@ -24,6 +27,7 @@ from dataclasses import dataclass
 
 __all__ = [
     "FAMILIES",
+    "CANONICAL_QUANTITIES",
     "QUANTITY_ALIASES",
     "SUBJECTS",
     "QuantityFamily",
@@ -129,6 +133,11 @@ _SUBJECTS = (
     # Neoclassical transport: the analytic models and the drift-kinetic solver
     # that answer the same question, which is why the plot compares them.
     Subject("neoclassical", "model", ("bootstrap_current",)),
+    # Turbulence (#1591): one local flux-tube calculation (gyrokinetics_local) and the
+    # radial turbulent fluxes several of them give (core_transport, anomalous) are
+    # different objects, so they are two subjects rather than one "turbulence".
+    Subject("gyrokinetics", "model", ("gyrokinetics_local", "local_gyrokinetics", "linear_spectrum")),
+    Subject("turbulent_transport", "model", ("anomalous_transport", "turbulent_flux")),
     # Impurity composition: elements spread over charge states by atomic data
     # from T_e, n_e -- a model of what the plasma holds, not a measurement of it
     # (#1565).  The stored Z_eff stays a core_profiles quantity.
@@ -187,6 +196,34 @@ def _build_quantity_aliases() -> dict[str, str]:
 #: Concise canonical quantity names with strict aliases (issue #251 section 11).
 QUANTITY_ALIASES: dict[str, str] = _build_quantity_aliases()
 
+#: Canonical quantities that need no alias (yet): physical quantities a plot
+#: names as its ``quantity`` or a #1626 reduction graph reduces (#1702).  A
+#: name joins only when it means one quantity: ``pressure`` stays out, because
+#: plots and diagnostics use it for both plasma and neutral gas pressure, and
+#: ``estimated_q95`` (a scaling estimate) stays distinct from ``q95``.
+_UNALIASED_QUANTITIES = (
+    "b_t",
+    "elongation",
+    "energy_confinement_time",
+    "estimated_q95",
+    "greenwald_fraction",
+    "j_tor",
+    "magnetic_shear",
+    "major_radius",
+    "minor_radius",
+    "mixing_radius",
+    "normalized_current",
+    "nu_star",
+    "peaking_factor",
+    "psi",
+    "rho_star",
+    "triangularity",
+    "zeff",
+)
+
+#: Every canonical quantity name: the alias targets and the unaliased ones.
+CANONICAL_QUANTITIES: frozenset[str] = frozenset(QUANTITY_ALIASES.values()) | frozenset(_UNALIASED_QUANTITIES)
+
 
 def resolve_quantity(term: str) -> str:
     """Return the canonical quantity name for ``term`` (name or strict alias).
@@ -194,7 +231,7 @@ def resolve_quantity(term: str) -> str:
     A canonical quantity resolves to itself; unknown terms raise
     :class:`KeyError`.
     """
-    if term in set(QUANTITY_ALIASES.values()):
+    if term in CANONICAL_QUANTITIES:
         return term
     canonical = QUANTITY_ALIASES.get(term)
     if canonical is not None:

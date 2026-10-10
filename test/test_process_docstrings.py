@@ -91,6 +91,8 @@ DEFINITIONAL = frozenset({
     # impurity (#1565): constructors and the provenance-record grammar --
     # validation and bookkeeping; the algebra they feed is vaft.formula.impurity.
     "composition_from_fractions",
+    # mhd_stability (#940): sign intervals of a sampled profile -- pure numerics.
+    "criterion_intervals",
     "composition_from_model",
     "composition_record_origin",
     "composition_record_text",
@@ -113,10 +115,23 @@ DEFINITIONAL = frozenset({
     "register_augmentation",
     "register_loss",
     "save_dataset",
+    # q_profile_context (#1798): connected |s| < threshold intervals -- pure geometry.
+    "low_shear_regions",
+    # mhd_stability (#1852): reading the atlas tables -- bookkeeping.
+    "load_stability_atlas",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # ordering_state (#1627 §2): inputs -> v_A, eta -> ratios; gradients -> gyroradii,
+    # collision times -> Knudsen, magnetization, collisionality; columns -> rows
+    "global_ordering_quantities",
+    "time_history_ordering_quantities",
+    "profile_ordering_quantities",
+    "ordering_table",
+    "ordering_margins",
+    # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
+    "mode_frequency_tracks",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -134,6 +149,12 @@ PIPELINE = frozenset({
     "populate_radial_impurity_profiles",
     # impurity (Lane L PR 5): main ion -> lumped charge at the surface -> densities
     "surface_composition_profile",
+    # species (#1567): match -> nuclide/charge/population per ion -> state
+    "species_state_from_core_profiles",
+    "project_species_state",
+    # kinetic_closure (#1606): v_c -> tau_s -> n_f, W_f -> p_f; slice -> composition -> pressures
+    "fast_ion_slowing_down_estimate",
+    "infer_kinetic_closure",
     # zeff_projection (#1566): R_p of the profile -> root / Lane Z's window objective
     "project_zeff_profile_to_resistive_scalar",
     "project_window_to_resistive_scalar",
@@ -262,6 +283,12 @@ PIPELINE = frozenset({
     "split_groups",
     "train_model",
     "window_dataset",
+    # q_profile_context (#1798): |q| -> radius and shear -> landmarks and shape ->
+    # rational crossings and pairs -> low-shear regions -> enclosed pressure
+    "core_q_context_from_profiles",
+    "core_q_context",
+    # mhd_stability (#1852): ideal W_t -> per-slice Delta'_max -> local criteria -> counts
+    "stability_atlas_populations",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -300,10 +327,18 @@ STATEFUL = frozenset({
     "populate_impurity_profiles",
     "populate_radial_impurity_profiles",
     "surface_composition_profile",
+    # species (#1567): a core_profiles slice -> canonical components
+    "species_state_from_core_profiles",
+    # kinetic_closure (#1606): a fitted slice -> derived kinetic densities and pressures
+    "infer_kinetic_closure",
 })
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # #1627 §2: S and tau ratios on a, n_i = n_e, v_t = sqrt(T/m), L_T on r in metres
+    "global_ordering_quantities",
+    "time_history_ordering_quantities",
+    "profile_ordering_quantities",
     # #1608: COCOS source profiles versus full-weber Green response orientation.
     "fit_free_boundary_coils",
     # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
@@ -338,6 +373,9 @@ CONVENTION_SENSITIVE = frozenset({
     "resolve_rational_surface",
     # #506: |q| = |m/n| resonance; rho_tor_norm never rebuilt from psi_norm
     "rational_surfaces",
+    # #460: |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
+    # a velocity divided by R_out of the surface (never R_axis)
+    "mode_frequency_tracks",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",
@@ -635,6 +673,9 @@ CONVENTION_SENSITIVE = frozenset({
     "resolve_radial_composition",
     "populate_radial_impurity_profiles",
     "surface_composition_profile",
+    # kinetic_closure (#1606): thermal and fast never share a field; the legacy fallback
+    "assemble_pressure",
+    "infer_kinetic_closure",
     # zeff_projection (#1566): same model, states and objective on both sides
     "profile_conductivity_model",
     "spitzer_resistive_equivalent_zeff",
@@ -642,6 +683,22 @@ CONVENTION_SENSITIVE = frozenset({
     "project_window_to_resistive_scalar",
     "flat_profile_from_resistive",
     "zeff_profile_for_state",
+    # species (#1567): population labels, dilution bases and per-target projection policy
+    "species_state_from_core_profiles",
+    "species_state_from_composition",
+    "composition_moments",
+    "project_species_state",
+    # mhd_stability (#940): DCON's signs (D_I, D_R > 0 and C_A, dW < 0 unstable)
+    # and its edge-scan peak search.
+    "dcon_local_stability",
+    "dcon_edge_scan",
+    "dcon_edge_comparison",
+    # q_profile_context (#1798): |q| resonance with the source sign kept, shear in the
+    # named radial coordinate, q_boundary only on a limited boundary.
+    "core_q_context_from_profiles",
+    "core_q_context",
+    # mhd_stability (#1852): which side of zero is unstable, and which resolution is read.
+    "stability_atlas_populations",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]
