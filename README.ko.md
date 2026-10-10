@@ -19,9 +19,9 @@ VAFT는 장치별 진단·운전 데이터를 [IMAS Data Dictionary](https://ima
 
 ![VAFT가 연결하는 핵융합 연구 생태계](https://raw.githubusercontent.com/VEST-Tokamak/vaft/develop/docs/assets/diagrams/fusion_research_ecosystem_presentation.svg)
 
-그림은 실험, 이론·모델링, 데이터 기반 연구가 측정·재구성·시뮬레이션된 플라즈마 상태를 함께 활용하는 모습을 보여 줍니다. VAFT는 연구자가 이 상태를 주고받고 비교하도록 돕되, 분야별 물리 코드를 대체하지는 않습니다.
+그림은 실험, 이론·모델링, 데이터 기반 연구가 측정·재구성·시뮬레이션된 플라즈마 상태를 함께 활용하는 모습을 보여 줍니다. VAFT는 연구자가 이 상태를 주고받고 비교하도록 돕되, 물리 영역별 전문 코드를 대체하지는 않습니다.
 
-[그림 설명과 상세 버전 보기](https://vest-tokamak.github.io/vaft/develop/reference/diagrams/).
+[그림 설명과 상세 버전 보기](https://vest-tokamak.github.io/vaft/develop/reference/diagrams/). VAFT가 연결하는 연구 영역은 실험·이론·모델링·AI/ML 같은 연구 방식과 평형·안정성·수송 같은 물리 영역을 함께 가리킵니다. 정의는 [Research domains](https://vest-tokamak.github.io/vaft/develop/reference/research-domains/)에 있습니다.
 
 ## 이를 가능하게 하는 네 관점
 

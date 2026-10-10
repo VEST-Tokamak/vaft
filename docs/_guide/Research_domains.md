@@ -30,7 +30,7 @@ every axis at once.
 | Classification | Answers | Examples | Owned by |
 | --- | --- | --- | --- |
 | **Research modes** | How is knowledge produced, evaluated and applied? | Experiment, Theory, Modelling & Simulation, Data-driven methods (AI/ML) | the common-model diagrams below |
-| **Physics domains** | What is it about? | Equilibrium, MHD stability, transport and turbulence, plasma initiation, impurities | the subjects of [`vaft.plot.taxonomy`]({{ '/reference/ontology/' | relative_url }}) and the [Computational layers]({{ '/reference/computational-layers/' | relative_url }}) granularity rule |
+| **Physics domains** | What is it about? | Equilibrium, MHD stability, transport and turbulence, heating, plasma initiation | no registry: the broad domains of the [Computational layers]({{ '/reference/computational-layers/' | relative_url }}) granularity rule and `integrated_scientific_framework(domain=...)` |
 | **Research activities** | What is being done? | Planning, measurement, processing, reconstruction, modelling, validation, synthesis | the [fusion research ecosystem](#research-activities-and-scientific-states) |
 | **Computational layers** | Where does the computation live in VAFT? | Formula, Process, Code | [Computational layers]({{ '/reference/computational-layers/' | relative_url }}) |
 | **Scientific representations** | How is the result stored and exchanged? | IMAS IDS, OMAS `ODS`, the planned `DD`/`DDView` | [Fusion data structure and IMAS concepts]({{ '/reference/imas-concepts/' | relative_url }}) |
@@ -41,33 +41,42 @@ Two consequences matter in practice:
 - **A research mode is not a physics domain.** Experiment and modelling both study equilibrium, and
   equilibrium is studied by all four modes. "Theory" is never a subject area here, and "equilibrium" is never a
   method.
-- **A physics domain is not a computational layer.** Equilibrium work spans a Formula (Solov'ev), a Process
-  (flux-surface geometry), and Codes (EFIT, CHEASE, TokaMaker). Several codes in one physics domain do not
+- **A physics domain is not a computational layer.** Equilibrium work spans Formulas (virial closures,
+  `vaft.formula.virial`), Processes (Solov'ev equilibria, flux-surface geometry), and Codes (EFIT, CHEASE,
+  TokaMaker). Several codes in one physics domain do not
   make a shared abstraction by themselves ([When an Actor is justified]({{ '/reference/computational-layers/' | relative_url }}#when-an-actor-is-justified)).
 
 ### Which word to use
 
 - **Research modes** for experiment, theory, modelling and simulation, and data-driven methods (AI/ML).
 - **Physics domains** for subject areas and physical processes.
-- **Research domains** only with its scope stated, as the tagline does: the modes and the physics domains together.
+- **Research domains** only with its scope stated, as this page states it for the tagline: the modes and the
+  physics domains together.
 - **Research activities** for what researchers do; **research roles** for who does it (a person may combine roles).
-- **Application contexts** for where the science is used: existing fusion experiments, and future devices and
-  reactor concepts (the two contexts of `machine_agnostic_architecture`).
+`domain` keeps its established technical meanings, and nothing is renamed. Among others:
 
-`domain` keeps its established technical meanings, and nothing is renamed: `PlotSpec.domain` is the IDS a plot
-reads, `integrated_scientific_framework(domain="equilibrium")` selects a physics domain, and an applicability
-domain is a validity range. Each is unambiguous in its own context.
+- `PlotSpec.domain` is the IDS a plot reads.
+- `integrated_scientific_framework(domain="equilibrium")` selects a physics domain.
+- The two *application domains* of `machine_agnostic_architecture` are existing fusion experiments and future
+  devices and reactor concepts: where the science is used.
+- An applicability domain is a validity range.
+- The spatial and topology domains of [Plasma models, orderings, and scales]({{ '/reference/plasma-models/' | relative_url }})
+  say where in the plasma a model applies.
+
+Each is unambiguous in its own context.
 
 ## Research modes and physics domains intersect
 
-Every cell below is an existing VAFT component; a dash means VAFT has none today. The rows are physics
-domains and the columns are research modes, so one row is one physics question answered several ways.
+Each cell names a VAFT component that exists today. A dash means VAFT has none, and *backend only* means
+VAFT runs such models but ships no trained weights. The rows are physics domains and the columns are research
+modes, so one row is one physics question answered several ways.
 
 | Physics domain | Experiment | Theory | Modelling & simulation | Data-driven (AI/ML) |
 | --- | --- | --- | --- | --- |
-| Equilibrium | magnetics mapping and EFIT reconstruction (`vaft.code.efit`) | Solov'ev equilibria (`vaft.process.equilibrium.solovev_*`), virial and shape formulas (`vaft.formula`) | CHEASE, TokaMaker (`vaft.code`) | — |
-| MHD stability | spectral analysis of measured fluctuations (`vaft.process.fluctuation`) | stability formulas, ordering parameters and analytic islands (`vaft.formula.stability`, `vaft.formula.ordering`, `vaft.process.magnetic_island`) | DCON, RDCON, STRIDE, GPEC (`vaft.code.gpec`) | the learned-model backbone (`vaft.process.ml`) |
-| Transport and turbulence | Thomson and charge-exchange profile fits (`vaft.process.profile`) | neoclassical and confinement-scaling formulas (`vaft.formula.neoclassical`, `vaft.formula.equilibrium`) | TGLF, NEO, CGYRO, NUBEAM (`vaft.code.gacode`, `vaft.code.nubeam`) | TGLF neural-network surrogates (`vaft.code.gacode.tglf.surrogate`) |
+| Equilibrium | magnetics mapping (`vaft.machine_mapping`) and EFIT reconstruction (`vaft.code.efit`) | Solov'ev and Guazzotto–Freidberg equilibria (`vaft.process.equilibrium`), virial closures (`vaft.formula.virial`) | CHEASE, TokaMaker (`vaft.code`) | — |
+| MHD stability | spectral analysis of measured fluctuations (`vaft.process.fluctuation`) | stability formulas (`vaft.formula.stability`) | DCON, RDCON, STRIDE, GPEC (`vaft.code.gpec`), with post-processing in `vaft.process.mhd_stability` | backend only (`vaft.process.ml`) |
+| Transport and turbulence | Thomson and charge-exchange profile fits (`vaft.process.profile`) | neoclassical and turbulence–zonal-flow formulas (`vaft.formula.neoclassical`, `vaft.formula.turbulence`) | TGLF, NEO, CGYRO (`vaft.code.gacode`) | backend only: TGLF neural-network surrogates (`vaft.code.gacode.tglf.surrogate`) |
+| Heating and fast ions | — | — | NUBEAM (`vaft.code.nubeam`), GENRAY (`vaft.code.genray`) | — |
 | Plasma initiation | signal-onset and active-window detection (`vaft.process.onset`) | Townsend and start-up formulas (`vaft.formula.startup`) | vacuum-field and eddy-current models (`vaft.process.electromagnetics`) | — |
 
 The diagrams draw the same intersection for one domain. The four modes sit around one common data model, and
@@ -110,21 +119,21 @@ representations, codes and checks. It describes the vocabulary. It does not own 
 
 ## Worked example: equilibrium research
 
-One physics domain, four research modes, one representation:
+One physics domain, four research modes, one representation. Each step names its mode and its activity:
 
-1. **Experiment.** Magnetics (flux loops, B-probes, Rogowski coils, diamagnetic loop) are mapped from VEST's
+1. **Experiment: measurement.** Magnetics (flux loops, B-probes, Rogowski coils, diamagnetic loop) are mapped from VEST's
    native data into the IMAS `magnetics` IDS ([Experimental interpretation]({{ '/workflows/experimental-interpretation/' | relative_url }})).
-2. **Reconstruction.** EFIT turns those measurements into a reconstructed equilibrium in the IMAS
+2. **Experiment: reconstruction.** EFIT turns those measurements into a reconstructed equilibrium in the IMAS
    `equilibrium` IDS: a *reconstructed* state, not a measured one.
-3. **Modelling.** CHEASE refines the equilibrium, and TokaMaker solves free-boundary equilibria from coil
+3. **Modelling: simulation.** CHEASE refines the equilibrium, and TokaMaker solves free-boundary equilibria from coil
    currents. Both read and write the same `equilibrium` IDS ([Equilibrium and kinetic profiles]({{ '/workflows/equilibrium-kinetic-profiles/' | relative_url }})).
-4. **Theory.** Solov'ev solutions and the virial and shape formulas give closed-form references that the numerical
-   routes are checked against.
-5. **Data-driven inference.** A learned model can fill the same representation. VAFT has the backbone
+4. **Theory: analytic reference.** Solov'ev and Guazzotto–Freidberg solutions and the virial closures give
+   closed-form references that the numerical routes are checked against.
+5. **Data-driven methods: inference.** A learned model can fill the same representation. VAFT has the backbone
    (`vaft.process.ml`), but no equilibrium model ships today.
-6. **Comparison and analysis.** Because every route lands in one representation, they can be compared
-   directly. That comparison covers shape, $q_{95}$, $\beta$, $\ell_i$ and the operational space, and it is
-   what validation then qualifies ([Plasma parameter inference]({{ '/workflows/plasma-parameter-inference/' | relative_url }})).
+6. **Any mode: comparison and validation.** Because every route lands in one representation, the routes can be
+   compared directly. That comparison covers shape, $q_{95}$, $\beta$, $\ell_i$ and the operational space,
+   and validation then qualifies it ([Credibility and applicability]({{ '/reference/credibility-applicability/' | relative_url }})).
 
 The physics domain stayed the same throughout; what changed was the research mode, the activity and the
 state. In the ontology explorer, search `equilibrium` to see the same subject linked to its diagnostics, IDS,

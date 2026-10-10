@@ -1460,7 +1460,8 @@ vaft.diagram.machine_research_archive()
 ![Machine and research archive]({{ '/assets/diagrams/machine_research_archive.svg' | relative_url }})
 
 The interoperability figures read as one progression, from data interoperability through scientific
-integration to infrastructure and implementation. Their four nodes are research modes, not physics domains;
+integration to infrastructure and implementation. The four nodes of the network and framework figures are
+research modes, not physics domains;
 [Research domains]({{ '/reference/research-domains/' | relative_url }}) sets out how the two classifications
 cross:
 
