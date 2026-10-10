@@ -797,4 +797,7 @@ def test_a_tstep_below_the_millisecond_keys_is_refused(study, capsys):
         study.main(["--tstep", "0.0004"])
     assert exc.value.code == 2
     assert "whole millisecond" in capsys.readouterr().err
-    assert study._tstep_argument("0.001") == 0.001
+    with pytest.raises(SystemExit):
+        study.main(["--tstep", "0.0015"])  # PR #1920 review F1: between the keys
+    assert "whole number of milliseconds" in capsys.readouterr().err
+    assert study.whole_millisecond_tstep("0.002") == 0.002

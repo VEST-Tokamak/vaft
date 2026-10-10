@@ -217,3 +217,18 @@ def test_below_cut_slices_are_counted_against_the_configured_cut_on_the_magnitud
     assert [row["constraint_ip"] for row in case["slices"]] == [30.0e3, -80.0e3]
     assert case["below_current_cut"] == 0
     assert "below 15 kA" in STUDY.markdown({"cases": {"only": case}})
+
+
+def test_tstep_must_be_a_whole_number_of_milliseconds():
+    """PR #1920 review F1: 1.5 ms passed the "below 1 ms" guard and mispaired every other slice."""
+    import argparse
+
+    import pytest
+
+    from vaft.code.efit.slice_name import whole_millisecond_tstep
+
+    assert whole_millisecond_tstep("0.001") == 0.001
+    assert whole_millisecond_tstep("0.002") == 0.002
+    for text in ("0.0015", "0.0004", "0.00099999"):
+        with pytest.raises(argparse.ArgumentTypeError, match="whole number of milliseconds"):
+            whole_millisecond_tstep(text)

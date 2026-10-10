@@ -54,6 +54,8 @@ from typing import Any, Sequence
 
 import numpy as np
 
+from vaft.code.efit.slice_name import whole_millisecond_tstep
+
 SCHEMA = 1
 REPOSITORY = Path(__file__).resolve().parents[2]
 BASELINE = REPOSITORY / "workflow" / "efit_numerics" / "baseline_termination.py"
@@ -499,24 +501,6 @@ def verdict_lines(payload: dict[str, Any]) -> list[str]:
     return lines
 
 
-def _tstep_argument(text: str) -> float:
-    """``--tstep`` in seconds, refused below 1 ms.
-
-    This study keys its slices by whole millisecond (``int(round(t * 1000))``
-    on the request side, EFIT's printed ``t=`` on the log side), so a finer
-    step would fold several requested slices into one key and pair them
-    with the wrong outputs. Refusing is the conservative choice until the
-    keys carry microseconds (cold review F9).
-    """
-    value = float(text)
-    if value < 1.0e-3:
-        raise argparse.ArgumentTypeError(
-            f"{text} s is below 1 ms: this study keys slices by whole millisecond, "
-            "so --tstep must be >= 0.001"
-        )
-    return value
-
-
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--output", required=True, type=Path)
@@ -537,7 +521,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--shots", default=None, help="comma-separated; default: the reference set's magnetics shots")
     parser.add_argument("--efit-home", default=None)
-    parser.add_argument("--tstep", type=_tstep_argument, default=0.001)
+    parser.add_argument("--tstep", type=whole_millisecond_tstep, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     args = parser.parse_args(argv)
 
