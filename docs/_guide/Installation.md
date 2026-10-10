@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines twelve extras (ten optional-dependency groups, the empty `gui` alias, and `dev`); none is needed for the first result on this page. The [software dependencies]({{ site.baseurl }}/reference/software-dependencies/) page groups every dependency and extra by the capability it provides, and [external scientific codes]({{ site.baseurl }}/reference/external-codes/) covers the solvers VAFT integrates but does not install as Python packages:
+The project defines thirteen extras (eleven optional-dependency groups, the empty `gui` alias, and `dev`); none is needed for the first result on this page. The [software dependencies]({{ site.baseurl }}/reference/software-dependencies/) page groups every dependency and extra by the capability it provides, and [external scientific codes]({{ site.baseurl }}/reference/external-codes/) covers the solvers VAFT integrates but does not install as Python packages:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -51,6 +51,7 @@ The project defines twelve extras (ten optional-dependency groups, the empty `gu
 | `jupyter3d` | k3d | `vaft.plot.k3d.to_k3d` and `coil_phase_explorer`: interactive 3-D scenes in Jupyter (#1087) |
 | `video` | PyAV (av) | writing `.mp4`/`.webm` from `plot_*(..., animation=True)` and its inline notebook preview; `.gif` export needs no extra (#1050) |
 | `accel` | numba | nothing yet: no VAFT module imports it. Reserved for acceleration that measurements justify (#1013) |
+| `optimize` | optuna | nothing yet: reserved for domain-owned adaptive optimization in `vaft.process.*` / `vaft.code.*` (#1875); a method that adopts it imports Optuna only when that strategy runs, and SciPy remains the default optimizer |
 | `mcp` | mcp (the Model Context Protocol SDK) | `python -m vaft.mcp` / `vaft mcp`: the local, read-only MCP server for agent clients ([MCP server]({{ site.baseurl }}/reference/mcp/)); `import vaft` never needs it |
 | `gui` | nothing | kept so that `vaft[gui]` still installs: Panel, which `vaft gui` ([Browser GUI]({{ site.baseurl }}/workflows/gui/)) needs, is a core dependency |
 | `architecture` | grimp | `python -m vaft._dependency_graph`: generating the import graph behind the [dependency explorer]({{ site.baseurl }}/reference/dependency-graph/); documentation tooling, never needed by `import vaft` |

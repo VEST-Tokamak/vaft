@@ -79,6 +79,8 @@ CAPABILITIES: Tuple[Capability, ...] = (
     Capability("interfaces", "Agent interfaces", "optional",
                "The MCP server for agent clients (vaft[gui] is kept as an empty alias)"),
     Capability("acceleration", "Acceleration", "optional", "JIT compilation, reserved until a measurement justifies it"),
+    Capability("optimization", "Adaptive scientific optimization", "optional",
+               "Optuna studies behind domain-owned methods, imported only when such a strategy runs"),
     Capability("development", "Testing, quality and notebooks", "development",
                "The test suite, linters, formatters and notebook execution"),
     Capability("architecture", "Architecture and documentation tooling", "development",
@@ -131,6 +133,7 @@ EXTRA_ROLES = {
     "mcp": ("interfaces", "the local, read-only MCP server for agent clients"),
     "gui": ("interfaces", "nothing: Panel is core now; the empty extra keeps vaft[gui] working"),
     "accel": ("acceleration", "nothing yet: no VAFT module imports numba"),
+    "optimize": ("optimization", "nothing yet: reserved for domain-owned adaptive optimization (#1875)"),
     "architecture": ("architecture", "the import graph behind the dependency explorer"),
     "dev": ("development", "running the test suite and contributing"),
 }
