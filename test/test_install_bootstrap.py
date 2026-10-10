@@ -3384,3 +3384,18 @@ def test_gpec_windows_never_reuses_a_partial_download(tmp_path):
     (work / "x.tar.gz").write_bytes(whole)
     fake_curl.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
     assert fetch().returncode == 0
+
+
+def test_gpec_posix_build_failures_name_the_serial_retry():
+    """Cold review install F27: the default is `-j <cores>`; a failure said nothing.
+
+    The parallel default is kept -- the marker check refuses trees without
+    upstream's ordered install/TARGETS.inc, and the recorded verifications were
+    made with it -- but a build or link that fails anyway now tells the
+    operator the one thing worth trying before reading the log: --jobs 1.
+    """
+    text = (INSTALL / "install_gpec.sh").read_text(encoding="utf-8")
+    assert "install/TARGETS.inc" in text, "the marker that makes the parallel default safe"
+    for failure in ("build failed", "was not produced"):
+        line = next(line for line in text.splitlines() if failure in line and "die" in line)
+        assert "--jobs 1" in line, f"the '{failure}' message must name --jobs 1"
