@@ -37,7 +37,7 @@ calibration, mappings and conventions, the processing and model configuration, a
 | Pipeline | Orchestration | Purpose |
 |---|---|---|
 | `automatic_pipeline_1_routine_data_processing` | Snakemake DAG (10 rules) + `Makefile` | Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite |
-| `automatic_pipeline_2_corrective_data_update` | Snakemake DAG (5 stages + one replication rule each) | Builds Thomson, CES, `core_profiles` and the two kinetic EFIT lineages from externally uploaded profile diagnostics |
+| `automatic_pipeline_2_corrective_data_update` | Snakemake DAG (6 stages + one replication rule each) | Builds Thomson, CES, `core_profiles` and the two kinetic EFIT lineages from externally uploaded profile diagnostics |
 | `automatic_pipeline_3_data_summary` | partial Snakefile (2 rules) + manual scripts | Mines the file database into cross-shot `.xlsx` history sheets and plots |
 | `running_linear_stability` | Snakemake DAG (1 rule, fanned out) | Runs DCON / RDCON / STRIDE per (shot, time, n-mode) on refined equilibria |
 
@@ -285,7 +285,8 @@ leave them behind.
 
 This pipeline builds the products that depend on data uploaded *after* a shot was processed: Thomson
 scattering, charge exchange (CES), the `core_profiles` mapped from them, and the two kinetic EFIT lineages.
-It is a Snakemake stage-product DAG, like pipeline 1.
+It is a Snakemake stage-product DAG, like pipeline 1. The `composition` stage then adds the assumed impurity
+composition, the diluted ion density and `Z_eff(rho)` to the measured profiles.
 
 ```bash
 cd workflow/automatic_pipeline_2_corrective_data_update
@@ -305,6 +306,7 @@ executable and the named EFIT preset used for the base magnetic k-file.
 | `thomson` | `build_thomson_ods` | an uploaded Thomson file | `thomson_scattering` → `main` |
 | `ces` | `build_ces_ods` | an uploaded CES file | `charge_exchange` → `main` |
 | `core_profiles` | `build_core_profiles_ods` | `thomson` (+ `ces`), pipeline 1's EFIT | `core_profiles` → `main` |
+| `composition` | `build_composition_ods` | `core_profiles`, pipeline 1's EFIT and diagnostics | `core_profiles` → `main`, after the stage above |
 | `electron_efit` | `build_kinetic_efit_ods` | `core_profiles` without ion data | `equilibrium` → `electron-efit` |
 | `kinetic_efit` | `build_kinetic_efit_ods` | `core_profiles` with ion data | `equilibrium` → `kinetic-efit` |
 
@@ -314,6 +316,25 @@ the two kinetic lineages runs for a shot is decided by whether the `core_profile
 temperature, not by configuration. The destinations come from `STAGE_REPLICATION` in
 `vaft/database/sources.py`; the two kinetic lineages go to their own sources because they share the
 `equilibrium` IDS with the baseline EFIT.
+
+### The composition overlay
+
+`composition` takes the measured `core_profiles` product and adds, per slice, the C/O composition of
+`machine_mapping/vest.yaml`'s `impurity_model` (equal carbon and oxygen elemental densities, `n_e dV`-mean
+`Z_eff = 2`): `ion[]` with charge states, the diluted main ion and `zeff`. Everything it writes is an assumption
+(`origin=assumed|derived` in the `*_fit.parameters` record, with `target_zeff=`), and a `zeff` labelled measured is
+never overwritten. Each composed slice also records the equilibrium it was matched to
+(`equilibrium_lineage=magnetics; equilibrium_occurrence=0; equilibrium_time_s=...`) in its electron temperature
+fit record and, when it has an ion temperature, in that record.
+
+* **`ionization`** (`composition.ionization`, default `transient`) needs the plasma age, `t - onset`, with the onset
+  from `plasma_timing` on pipeline 1's diagnostics product. A slice with no positive age is skipped and named in the
+  manifest rather than silently computed as `coronal`, which overstates the charge on VEST's short discharges.
+* **ADF11 atomic data** come from OPEN-ADAS and are fetched on first use. A server without network needs the cache
+  warmed and `composition.adf11_cache_dir` pointing at it.
+* **Replication is an overlay.** `core_profiles` and `composition` both own the `core_profiles` IDS in `main`,
+  which the registry otherwise avoids. The `composition` replication waits for the `core_profiles` record, so `main`
+  holds the composed product when the stage succeeded and the measured one when it was skipped.
 
 ### Reading the result
 

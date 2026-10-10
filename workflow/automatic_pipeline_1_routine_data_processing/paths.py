@@ -202,6 +202,14 @@ SCIENTIFIC_REFERENCES = (
         "generate_core_profiles_ods", "efit", "efit_ods", "routine",
         "maps Thomson and CES onto the magnetic equilibrium's flux coordinate",
     ),
+    ScientificReference(
+        "generate_composition_ods", "efit", "efit_ods", "routine",
+        "weights the composition by the equilibrium's volume and records the lineage it was matched to",
+    ),
+    ScientificReference(
+        "generate_composition_ods", "diagnostics", "diagnostics_ods", "routine",
+        "supplies the plasma onset, hence the age that sets the transient charge states",
+    ),
     *(
         reference
         for stage in ("electron_efit", "kinetic_efit")
@@ -359,6 +367,7 @@ _LOG_OWNER = {
     "generate_thomson_ods": ("omas", "thomson"),
     "generate_ces_ods": ("omas", "ces"),
     "generate_core_profiles_ods": ("omas", "core_profiles"),
+    "generate_composition_ods": ("omas", "composition"),
     "generate_electron_efit_ods": ("omas", "electron_efit"),
     "generate_kinetic_efit_ods": ("omas", "kinetic_efit"),
     **{
@@ -371,6 +380,7 @@ _LOG_OWNER = {
             "eddy",
             "efit",
             "core_profiles",
+            "composition",
             "electron_efit",
             "kinetic_efit",
             "chease",
@@ -630,6 +640,14 @@ class PipelinePaths:
     def core_profiles_manifest(self, shot) -> str:
         self._canonical_only("core_profiles")
         return str(self._filedb.omas_manifest("core_profiles", shot=shot))
+
+    def composition_ods(self, shot) -> str:
+        self._canonical_only("composition")
+        return str(self._filedb.omas_product("composition", shot=shot))
+
+    def composition_manifest(self, shot) -> str:
+        self._canonical_only("composition")
+        return str(self._filedb.omas_manifest("composition", shot=shot))
 
     def electron_efit_ods(self, shot) -> str:
         self._canonical_only("electron_efit")

@@ -2181,6 +2181,230 @@ def _path_present(ods: ODS, path: str) -> bool:
         return False
 
 
+def _append_record_fields(
+    ods: ODS, path: str, fields: Mapping[str, Any], *, when_absent: str = ""
+) -> None:
+    """Add ``key=value`` fields to a provenance record, keeping what it holds.
+
+    A record is read by key, so an appended field never disturbs a parser of the
+    grammar already there; a key the record carries is left as written.
+
+    ``when_absent`` starts a record that does not exist yet.  It matters for an
+    ion temperature: an absent record is read as *measured*, while a record with
+    only these fields is read as *unknown* and a measured ``T_i`` would be
+    refused downstream -- so the caller states what the absence meant.
+    """
+    from vaft.machine_mapping.core_profiles import ti_record_fields
+    from vaft.ods_access import path_value
+
+    current = path_value(ods, path, None)
+    text = "" if current is None else str(current).strip().rstrip(";").strip()
+    text = text or when_absent
+    present = ti_record_fields(text)
+    added = "; ".join(f"{key}={value}" for key, value in fields.items() if key not in present)
+    if added:
+        ods[path] = f"{text}; {added}" if text else added
+
+
+def _volume_weights_on_grid(solution: ODS, index: int, rho: np.ndarray) -> np.ndarray | None:
+    """``dV`` per ``rho_tor_norm`` point from the equilibrium's own ``V(rho)`` at ``index``.
+
+    The composition normalisation is an ``n_e dV`` mean, so it needs the volume
+    element of the surface each point sits on.  Points beyond the equilibrium's
+    ``rho`` range are clamped by ``np.interp`` and so get ``dV = 0``.
+    """
+    from vaft.ods_access import path_value
+
+    base = f"equilibrium.time_slice.{index}.profiles_1d"
+    rho_eq = path_value(solution, f"{base}.rho_tor_norm", None)
+    volume = path_value(solution, f"{base}.volume", None)
+    if rho_eq is None or volume is None or rho.size < 2:
+        return None
+    rho_eq, volume = np.asarray(rho_eq, dtype=float), np.asarray(volume, dtype=float)
+    ok = np.isfinite(rho_eq) & np.isfinite(volume)
+    if not ok.any():
+        return None
+    order = np.argsort(rho_eq[ok])
+    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
+    return np.clip(np.diff(np.interp(edges, rho_eq[ok][order], volume[ok][order])), 0.0, None)
+
+
+def _plasma_onset(diagnostics_product: str | Path | None) -> tuple[float | None, str]:
+    """``(onset [s], source)`` of the discharge, or ``(None, why)`` when there is none."""
+    if diagnostics_product is None or not Path(diagnostics_product).exists():
+        return None, "no diagnostics product"
+    try:
+        from vaft.omas.plasma_timing import plasma_timing
+
+        diagnostics, _ = load_ods(Path(diagnostics_product))
+        timing = plasma_timing(diagnostics)
+    except Exception as error:  # noqa: BLE001 - recorded; the stage reports it per slice
+        return None, f"{type(error).__name__}: {error}"[:120]
+    return (float(timing.onset), str(timing.source)) if timing.found else (None, "no plasma found")
+
+
+COMPOSITION_IONIZATIONS = ("transient", "coronal")
+
+
+def build_composition_ods(
+    *,
+    shot: int,
+    core_profiles_product: str | Path,
+    efit_product: str | Path | None = None,
+    diagnostics_product: str | Path | None = None,
+    ionization: str = "transient",
+    normalization: str = "ne_weighted_mean",
+    equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+    cache_dir: str | None = None,
+    tables: Mapping[str, Any] | None = None,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Add the VEST impurity composition, ``n_i`` and plasma ``Z_eff(rho)`` to measured core profiles.
+
+    Each ``core_profiles`` slice of the measured product is given the charge-state
+    resolved C/O composition of ``machine_mapping/vest.yaml`` ``impurity_model``:
+    the elemental ratio and the ``n_e dV``-mean ``Z_eff`` target are the model's,
+    the radial charge states come from ADF11 data at the slice's ``T_e(rho)`` and
+    ``n_e(rho)``, and the main ion is diluted accordingly.  Everything written is
+    an *assumption* (``origin=assumed``/``derived``); a measured ``zeff`` is never
+    overwritten.
+
+    ``transient`` ionization needs the plasma age, ``t - onset``, with the onset
+    from ``plasma_timing`` on the diagnostics product.  A slice with no positive
+    age is skipped and named in the manifest -- it is never silently computed as
+    coronal, which overstates the charge on VEST's tens-of-ms discharges.
+
+    Each composed slice also records which equilibrium it was matched to
+    (``equilibrium_lineage``, ``equilibrium_occurrence``, ``equilibrium_time_s``),
+    in the electron temperature fit record and, when the slice has an ion
+    temperature, in its record (an ion temperature with no record is stated as
+    ``origin=measured`` first, which is what its absence meant): the pipeline-1
+    EFIT is the magnetic lineage.
+    The product is the measured one plus these additions; the replicated IDS is
+    ``core_profiles``, which this product replaces in ``main`` only when it exists.
+
+    ``cache_dir`` is where the OPEN-ADAS ADF11 files are kept (they are fetched on
+    first use, so a server without network needs the cache warmed); ``tables``
+    overrides them with ``{element: (acd, scd)}`` paths and exists for tests.
+    """
+    from vaft.machine_mapping.core_profiles import vest_impurity_model
+    from vaft.ods_access import path_value
+    from vaft.process.impurity import populate_radial_impurity_profiles, resolve_radial_composition
+
+    if ionization not in COMPOSITION_IONIZATIONS:
+        raise ValueError(f"ionization must be one of {COMPOSITION_IONIZATIONS}, got {ionization!r}")
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    manifest = _external_profile_manifest("composition", shot, run, era.name)
+    manifest["input"] = {
+        "core_profiles_product": str(core_profiles_product),
+        "efit_product": str(efit_product) if efit_product is not None else None,
+        "diagnostics_product": str(diagnostics_product) if diagnostics_product is not None else None,
+    }
+    manifest["configuration"].update(
+        ionization=ionization, normalization=normalization,
+        equilibrium_tolerance_ms=float(equilibrium_tolerance_ms),
+    )
+
+    if not Path(core_profiles_product).exists():
+        # A path that does not resolve is a caller error, not an absent product.
+        raise FileNotFoundError(f"the core_profiles product is missing: {core_profiles_product}")
+    ods, _ = load_ods(Path(core_profiles_product))
+    times = path_value(ods, "core_profiles.time", None)
+    if times is None or np.asarray(times).size == 0:
+        manifest["error"] = "the core_profiles product carries no slices"
+        return ods, manifest
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+
+    model = vest_impurity_model(shot)
+    if model is None:
+        manifest["error"] = f"vest.yaml defines no impurity_model for shot {shot}"
+        return ods, manifest
+    weights = {item["element"]: float(item["relative_density"]) for item in model["species"]}
+    target_zeff = float(model["target_zeff"])
+    manifest["composition"] = {
+        "model_status": model["status"], "elemental_weights": weights,
+        "target_zeff": target_zeff, "main_ion": model["main_ion"],
+    }
+
+    solution = eq_times_ms = None
+    if efit_product is not None and Path(efit_product).exists():
+        solution, _ = load_ods(Path(efit_product))
+        eq_times_ms = _time_array_ms(solution, "equilibrium.time")
+    onset, onset_source = _plasma_onset(diagnostics_product)
+    manifest["composition"].update(onset_s=onset, onset_source=onset_source)
+
+    composed, skipped = 0, []
+    for index, time_s in enumerate(times):
+        base = f"core_profiles.profiles_1d.{index}"
+        rho = path_value(ods, f"{base}.grid.rho_tor_norm", None)
+        te = path_value(ods, f"{base}.electrons.temperature", None)
+        ne = path_value(ods, f"{base}.electrons.density_thermal", None)
+        if ne is None:
+            ne = path_value(ods, f"{base}.electrons.density", None)
+        if rho is None or te is None or ne is None:
+            skipped.append({"time_s": float(time_s), "reason": "slice lacks rho, T_e or n_e"})
+            continue
+        rho, te, ne = (np.atleast_1d(np.asarray(v, dtype=float)) for v in (rho, te, ne))
+
+        equilibrium_index = None
+        if solution is not None and eq_times_ms is not None:
+            nearest = int(np.argmin(np.abs(eq_times_ms - time_s * 1e3)))
+            if abs(float(eq_times_ms[nearest]) - time_s * 1e3) <= equilibrium_tolerance_ms:
+                equilibrium_index = nearest
+        dv = (
+            _volume_weights_on_grid(solution, equilibrium_index, rho)
+            if equilibrium_index is not None else None
+        )
+
+        age = None if onset is None else float(time_s) - onset
+        positive_age = age if age is not None and age > 0.0 else None
+        if ionization == "transient" and positive_age is None:
+            skipped.append({"time_s": float(time_s), "reason": f"no positive plasma age ({onset_source})"})
+            continue
+        try:
+            radial = resolve_radial_composition(
+                te, ne, rho, weights, normalization=normalization, target_zeff=target_zeff,
+                ionization=ionization, plasma_age_s=positive_age, volume_weights=dv,
+                cache_dir=cache_dir, tables=tables, time=float(time_s),
+            )
+            ods = populate_radial_impurity_profiles(ods, radial, time=float(time_s))
+        except Exception as error:  # noqa: BLE001 - one slice that cannot be composed is a skipped one
+            skipped.append({"time_s": float(time_s), "reason": f"{type(error).__name__}: {error}"[:200]})
+            continue
+        composed += 1
+
+        _append_record_fields(ods, f"{base}.zeff_fit.parameters", {"target_zeff": target_zeff})
+        if equilibrium_index is not None:
+            lineage = {
+                "equilibrium_lineage": "magnetics", "equilibrium_occurrence": 0,
+                "equilibrium_time_s": round(float(eq_times_ms[equilibrium_index]) * 1e-3, 6),
+            }
+            _append_record_fields(ods, f"{base}.electrons.temperature_fit.parameters", lineage)
+            if path_value(ods, f"{base}.ion.0.temperature", None) is not None:
+                # No record on a stored T_i means "measured" to every reader
+                # (classify_ti_record); say so before adding to it.
+                _append_record_fields(
+                    ods, f"{base}.ion.0.temperature_fit.parameters", lineage,
+                    when_absent="origin=measured",
+                )
+
+    manifest["slices"] = {
+        "composed": composed, "skipped": len(skipped), "total": int(times.size),
+    }
+    manifest["skipped_slices"] = skipped[:20]
+    if composed:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        if skipped:
+            manifest["quality_summary"]["missing"] = [
+                f"composition:t={item['time_s']:.4f}s" for item in skipped[:20]
+            ]
+    else:
+        manifest["error"] = skipped[0]["reason"] if skipped else "no slice could be composed"
+    return ods, manifest
+
+
 def _has_kinetic_slice(ods: ODS) -> bool:
     """Whether any core_profiles slice carries a measured ion temperature.
 

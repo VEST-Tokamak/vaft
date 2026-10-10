@@ -62,6 +62,11 @@ if KINETIC_EFIT_PRESET:
     from vaft.code.efit import efit_preset as _efit_preset
     _efit_preset(KINETIC_EFIT_PRESET)
 
+COMPOSITION_CONFIG = config.get("composition", {}) or {}
+COMPOSITION_IONIZATION = COMPOSITION_CONFIG.get("ionization", "transient")
+COMPOSITION_NORMALIZATION = COMPOSITION_CONFIG.get("normalization", "ne_weighted_mean")
+COMPOSITION_ADF11_CACHE = COMPOSITION_CONFIG.get("adf11_cache_dir", "") or ""
+
 HSDS_CONFIG = config.get("hsds", {}) or {}
 REPLICATION_ENABLED = bool(HSDS_CONFIG.get("replicate", False))
 REPLICATION_ATTEMPTS = HSDS_CONFIG.get("attempts", 3)
@@ -80,7 +85,7 @@ workflow.global_resources.setdefault("hsds", REPLICATION_CONCURRENCY)
 # Named here rather than derived, because "which stages does this pipeline
 # build" is a real decision -- but checked against the registry, so a stage
 # renamed or retired there fails the run instead of silently dropping out of it.
-THOMSON_LINEAGE = ("thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit")
+THOMSON_LINEAGE = ("thomson", "ces", "core_profiles", "composition", "electron_efit", "kinetic_efit")
 _CORRECTIVE = frozenset(replicable_stages(produced_by="corrective"))
 _UNREGISTERED = tuple(stage for stage in THOMSON_LINEAGE if stage not in _CORRECTIVE)
 if _UNREGISTERED:
@@ -193,6 +198,46 @@ rule generate_core_profiles_ods:
 
 
 ############################################################
+# The composition overlay
+############################################################
+# The measured core_profiles plus the assumed C/O composition, diluted n_i and
+# Z_eff(rho). Its own stage and manifest, so a shot that cannot be composed is
+# recorded and keeps the measured product. Both efit and diagnostics are pipeline
+# 1's products, passed as params for the reason given in the header.
+rule generate_composition_ods:
+    input:
+        core_profiles=PATHS.shot_pattern("core_profiles_ods")
+    output:
+        ods=PATHS.shot_pattern("composition_ods"),
+        manifest=PATHS.shot_pattern("composition_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_composition_ods")
+    params:
+        efit=scientific_reference(PATHS, "generate_composition_ods", "efit"),
+        diagnostics=scientific_reference(PATHS, "generate_composition_ods", "diagnostics"),
+        ionization=COMPOSITION_IONIZATION,
+        normalization=COMPOSITION_NORMALIZATION,
+        adf11_cache=COMPOSITION_ADF11_CACHE
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_composition_ods.py \
+            --shot {wildcards.shot} \
+            --core-profiles-product {input.core_profiles} \
+            --efit-product {params.efit} \
+            --diagnostics-product {params.diagnostics} \
+            --ionization {params.ionization} \
+            --normalization {params.normalization} \
+            --adf11-cache-dir "{params.adf11_cache}" \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+############################################################
 # The kinetic lineages
 ############################################################
 # Both are asked for every shot and at most one can apply: whichever the
@@ -243,13 +288,20 @@ for _stage in ("electron_efit", "kinetic_efit"):
 # `main`, and a retry re-sends only what failed.
 if REPLICATION_ENABLED:
 
+    OVERLAID_BY = {"composition": [PATHS.shot_pattern("replication_record", "core_profiles")]}
+
     for _stage in STAGES:
 
         rule:
             name: "replicate_" + _stage + "_to_hsds"
             input:
                 ods=PATHS.shot_pattern(_stage + "_ods"),
-                manifest=PATHS.shot_pattern(_stage + "_manifest")
+                manifest=PATHS.shot_pattern(_stage + "_manifest"),
+                # `composition` overlays the IDS `core_profiles` owns in the same
+                # source, so it must reach `main` second: its record waits for
+                # the measured product's, whatever its outcome (a skipped
+                # replication writes a record too).
+                after=OVERLAID_BY.get(_stage, [])
             output:
                 record=PATHS.shot_pattern("replication_record", _stage)
             log:

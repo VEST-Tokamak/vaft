@@ -79,6 +79,7 @@ def test_the_snakefile_parses_and_builds_every_stage(tmp_path):
         "generate_thomson_ods",
         "generate_ces_ods",
         "generate_core_profiles_ods",
+        "generate_composition_ods",
         "generate_electron_efit_ods",
         "generate_kinetic_efit_ods",
     ):
@@ -95,7 +96,7 @@ def test_both_kinetic_lineages_become_their_own_rule(tmp_path):
 def test_replication_adds_one_rule_per_stage(tmp_path):
     result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}'])
     assert result.returncode == 0, result.stderr[-3000:]
-    for stage in ("thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit"):
+    for stage in ("thomson", "ces", "core_profiles", "composition", "electron_efit", "kinetic_efit"):
         assert f"replicate_{stage}_to_hsds" in result.stdout, result.stdout[-2000:]
 
 
@@ -123,7 +124,7 @@ def test_the_lineage_is_checked_against_the_registry():
     from vaft.database.sources import replicable_stages
 
     corrective = set(replicable_stages(produced_by="corrective"))
-    lineage = {"thomson", "ces", "core_profiles", "electron_efit", "kinetic_efit"}
+    lineage = {"thomson", "ces", "core_profiles", "composition", "electron_efit", "kinetic_efit"}
     assert lineage <= corrective, sorted(lineage - corrective)
 
 
@@ -151,3 +152,38 @@ def test_pipeline2_loads_its_own_config_under_a_run_directory(tmp_path):
     no_base.write_text(json.dumps({"layout": "filedb", "shots": [48226], "conda": None}), encoding="utf-8")
     refused = subprocess.run(base + ["--configfile", str(no_base)], capture_output=True, text=True)
     assert refused.returncode != 0 and "does not set base_dir" in refused.stdout + refused.stderr
+
+
+def _job(stdout: str, rule: str) -> str:
+    """One dry-run job's text: from its ``rule`` line to the next one."""
+    return stdout.split(f"rule {rule}:", 1)[1].split("\nrule ", 1)[0]
+
+
+def _input_line(job: str) -> str:
+    return next(line for line in job.splitlines() if line.strip().startswith("input:"))
+
+
+def test_the_composition_overlay_is_replicated_after_the_measured_core_profiles(tmp_path):
+    """Both stages own `core_profiles` in `main`; the later replication wins, so the order is the contract."""
+    result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}', "-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    inputs = _input_line(_job(result.stdout, "replicate_composition_to_hsds"))
+    assert "omas/core_profiles/48226/metadata/replication.json" in inputs
+    # and no other stage is held back by it
+    assert "replication.json" not in _input_line(_job(result.stdout, "replicate_core_profiles_to_hsds"))
+
+
+def test_the_composition_rule_reads_pipeline_ones_products_as_params_not_inputs(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_composition_ods")
+    inputs = _input_line(job)
+    assert inputs.count("/omas/") == 1 and "core_profiles" in inputs, inputs  # only the measured product
+    assert "--efit-product" in job and "--diagnostics-product" in job
+    assert "--ionization transient" in job
+
+
+def test_the_composition_ionization_is_configurable(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p", "--config", 'composition={"ionization": "coronal"}'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "--ionization coronal" in result.stdout

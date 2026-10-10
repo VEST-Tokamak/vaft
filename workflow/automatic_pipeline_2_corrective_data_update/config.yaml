@@ -26,6 +26,15 @@ kinetic:
   # with (efit.preset there).
   efit_preset: ""
 
+composition:
+  # transient needs the plasma age (diagnostics onset); a slice without one is
+  # skipped and named in the manifest. coronal overstates VEST's charge states.
+  ionization: transient
+  normalization: ne_weighted_mean
+  # OPEN-ADAS ADF11 files are fetched on first use; point this at a warmed cache
+  # on a server without network. Empty uses the user cache.
+  adf11_cache_dir: ""
+
 hsds:
   replicate: false
   attempts: 3

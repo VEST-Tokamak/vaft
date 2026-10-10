@@ -82,6 +82,11 @@ class OMASStage(str, Enum):
     EDDY = "eddy"
     EFIT = "efit"
     CORE_PROFILES = "core_profiles"
+    # The measured core_profiles plus the VEST impurity composition, n_i and
+    # Z_eff(rho) (#1842). Same IDS as CORE_PROFILES in the same source, on
+    # purpose: it replaces the measured product in `main` once it exists, and
+    # the measured one stays when it does not.
+    COMPOSITION = "composition"
     ELECTRON_EFIT = "electron_efit"
     KINETIC_EFIT = "kinetic_efit"
     CHEASE = "chease"

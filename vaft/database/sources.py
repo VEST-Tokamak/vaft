@@ -639,6 +639,19 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
         note="requires thomson; ion channels only when ces is present",
         produced_by="corrective",
     ),
+    # The measured profiles plus the assumed C/O composition, diluted n_i and
+    # Z_eff(rho). It owns `core_profiles` in the same source as the stage above,
+    # which the rule at the top of this class normally forbids: it is an
+    # explicit overlay. The replicate rule orders it after `core_profiles`, so
+    # `main` holds the composed product when this stage succeeded and the
+    # measured one when it was skipped (no impurity model, no plasma age, ...).
+    "composition": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("core_profiles",),
+        optional=True,
+        note="overlays core_profiles with the assumed impurity composition; replicated after it",
+        produced_by="corrective",
+    ),
     # Both share the `equilibrium` IDS with the EFIT baseline and with each
     # other, so all three are separated by source rather than occurrence. Which
     # of the two runs for a shot is decided by whether CES data exist, not by
