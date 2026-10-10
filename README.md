@@ -9,7 +9,7 @@
 
 English | [한국어](README.ko.md) · [PyPI](https://pypi.org/project/vaft/) · [License](LICENSE)
 
-> **Connecting nuclear fusion knowledge across disciplines for integrated tokamak research**
+> **Connecting Nuclear Fusion Knowledge Across Domains for Integrated Tokamak Research**
 
 **VAFT is a scientific framework for organizing and analyzing tokamak data using IMAS structures.** It connects experimental data, reconstructed plasma states, simulation results, and analysis workflows through shared data structures and recorded processing history.
 

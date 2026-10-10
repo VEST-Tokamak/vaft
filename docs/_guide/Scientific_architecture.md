@@ -245,4 +245,5 @@ These follow existing decisions and add none. VAFT is not meant to become:
   computation represents. This page says only where it lives.
 - [Fusion data structure and IMAS concepts]({{ '/reference/imas-concepts/' | relative_url }}): the IMAS data model.
 - [Database and data sources]({{ '/reference/database-data-sources/' | relative_url }}): retrieval and persistence.
+- [Research domains]({{ '/reference/research-domains/' | relative_url }}): the research modes and physics domains this architecture serves, and how they meet.
 - [Diagrams]({{ '/reference/diagrams/' | relative_url }}): every canonical architecture and concept figure.

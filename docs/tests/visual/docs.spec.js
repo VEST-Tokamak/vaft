@@ -23,7 +23,7 @@ test('homepage exposes equal workflow and reference entry paths', async ({ page 
 test('homepage hero keeps the approved message and readable theme logo', async ({ page }) => {
   await page.goto('');
   await expect(page.locator('.vaft-hero-tagline')).toHaveText(
-    'Connecting nuclear fusion knowledge across disciplines for integrated tokamak research',
+    'Connecting Nuclear Fusion Knowledge Across Domains for Integrated Tokamak Research',
   );
   await expect(page.locator('.vaft-hero-summary')).toHaveText(
     'Machine-agnostic workflows for interoperable IMAS data and reproducible tokamak analysis.',
