@@ -2,7 +2,7 @@
 
 The packaged `rmatch.in` supplies one scalar where RMATCH reads an array of
 one value per rational surface (`match.f:99`, guarded at `:183`), so it stops
-before writing `globalsol.bin`. These cover the composition that fills it.
+before writing `delta.out`. These cover the composition that fills it.
 """
 
 from __future__ import annotations
