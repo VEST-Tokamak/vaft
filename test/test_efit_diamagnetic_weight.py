@@ -553,3 +553,17 @@ def test_the_phase_threshold_is_stored_under_its_sibling_studies_key(profile_stu
     assert "phase_dcurrent_dt_threshold" not in text
     assert '"phase_flat_current_threshold": threshold' in text
     assert '"phase_flat_current_threshold"' in PROFILE_STUDY.read_text(encoding="utf-8")
+
+
+def test_a_tstep_below_the_millisecond_keys_is_refused(scan, capsys):
+    """Cold review 0.7.0 efit-workflows F9 (#1888).
+
+    Slices are keyed by whole millisecond, so 0.4 ms over 300-302 ms gives
+    six requests and three keys. The study refuses the step instead of
+    pairing slices with the wrong outputs.
+    """
+    with pytest.raises(SystemExit) as exc:
+        scan.main(["--tstep", "0.0004"])
+    assert exc.value.code == 2
+    assert "whole millisecond" in capsys.readouterr().err
+    assert scan._tstep_argument("0.001") == 0.001

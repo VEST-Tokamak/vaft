@@ -627,6 +627,24 @@ def markdown(payload: Mapping[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _tstep_argument(text: str) -> float:
+    """``--tstep`` in seconds, refused below 1 ms.
+
+    This study keys its slices by whole millisecond (``int(round(t * 1000))``
+    on the request side, EFIT's printed ``t=`` on the log side), so a finer
+    step would fold several requested slices into one key and pair them
+    with the wrong outputs. Refusing is the conservative choice until the
+    keys carry microseconds (cold review F9).
+    """
+    value = float(text)
+    if value < 1.0e-3:
+        raise argparse.ArgumentTypeError(
+            f"{text} s is below 1 ms: this study keys slices by whole millisecond, "
+            "so --tstep must be >= 0.001"
+        )
+    return value
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
@@ -642,7 +660,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--tables", default=None)
     parser.add_argument("--efit-home", default=None)
-    parser.add_argument("--tstep", type=float, default=0.001)
+    parser.add_argument("--tstep", type=_tstep_argument, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     parser.add_argument(
         "--workers",

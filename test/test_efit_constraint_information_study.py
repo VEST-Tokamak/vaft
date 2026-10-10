@@ -144,3 +144,15 @@ def test_a_nan_in_an_embedded_run_does_not_lose_the_whole_table():
     source = SCRIPT.read_text(encoding="utf-8")
     assert source.count("json.dumps(_finite_json(payload), indent=1, sort_keys=True, allow_nan=False)") == 2
     assert "json.dumps(payload," not in source
+
+
+def test_a_tstep_below_the_millisecond_keys_is_refused(capsys):
+    """Cold review 0.7.0 efit-workflows F9 (#1888): same key granularity as the siblings."""
+    import pytest
+
+    study = _study()
+    with pytest.raises(SystemExit) as exc:
+        study.main(["--tstep", "0.0004"])
+    assert exc.value.code == 2
+    assert "whole millisecond" in capsys.readouterr().err
+    assert study._tstep_argument("0.001") == 0.001
