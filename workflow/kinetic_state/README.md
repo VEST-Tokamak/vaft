@@ -85,5 +85,15 @@ pressure sum `p_e+p_i=p_eq` is a closure identity. Thomson measurements used
 as fit input are shown with errors but do not independently validate their
 own fit. The notebooks do not write poster assets.
 
-Promotion of this composite view to `vaft.plot`/`vaft.omas` is tracked in
-[#1837](https://github.com/VEST-Tokamak/vaft/issues/1837).
+The composite view is the public plot `vaft.omas.plot_kinetic_overview_state`
+([#1837](https://github.com/VEST-Tokamak/vaft/issues/1837)), which reads stored
+IMAS paths only. [`archive_to_ods.py`](archive_to_ods.py) turns a snapshot into
+such an ODS: it replays the notebooks' C/O composition and pressure-partition
+algebra, writes the ion densities, `T_i`, `p_i` and `Z_eff` into
+`core_profiles`, and the `kinetic_state` record (lineage, occurrence, evidence
+roles, `T_i` validity, composition target) into its `code.parameters`. The
+snapshots keep the Thomson mapping but not the 2-D flux map, so the converter
+places the channels at their archived radii (39915: the 40326 radii) and builds a
+synthetic psi map on which they land at their archived `psi_N`. It is a
+workflow-side reconstruction, not package code; the notebooks and the tests import
+it by putting this directory on `sys.path`.
