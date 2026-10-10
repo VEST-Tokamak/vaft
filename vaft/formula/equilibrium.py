@@ -27,6 +27,7 @@ from typing import NamedTuple, Union, Tuple, Optional
 import numpy as np
 
 from ._exports import public_names
+from ._propagation import jacobian as _jacobian
 from .constants import (
     MU0, QE, ME, MI_P, EPS0, C_LIGHT,
     E_ALPHA, SIGMA_V_COEF,
@@ -4028,6 +4029,12 @@ def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
 # Power Balance
 # ------------------------------------------------------------------
 
+def _ohmic_heating_power_jacobian(I_p, V_res):
+    """``[dP/dI_p, dP/dV_res]`` of :func:`ohmic_heating_power_from_I_p_V_res`."""
+    return [[V_res, I_p]]
+
+
+@_jacobian(_ohmic_heating_power_jacobian, wrt=("I_p", "V_res"))
 def ohmic_heating_power_from_I_p_V_res(I_p: float,
                                         V_res: float) -> float:
     r"""Ohmic heating power $P_{ohm} = I_pV_{res}$.
@@ -4051,6 +4058,18 @@ def ohmic_heating_power_from_I_p_V_res(I_p: float,
     With the *surface* loop voltage in place of $V_{res}$ the product also
     counts the inductive power $L\,dI_p/dt$ and the change of internal
     inductance, so it is a resistive-heating estimate only when $dI_p/dt \approx 0$.
+
+    Uncertainty propagation
+    -----------------------
+    Inputs in order $(I_p, V_{res})$ [A, V]; analytic Jacobian
+    $J = (V_{res},\ I_p)$ [V, A], so
+    $\sigma_P^2 = V_{res}^2\sigma_{I}^2 + I_p^2\sigma_{V}^2 + 2I_pV_{res}\,\mathrm{cov}(I_p, V_{res})$.
+    The product is bilinear, so first order is exact up to the
+    $\mathrm{cov}(I_p, V_{res})^2 + \sigma_I^2\sigma_V^2$ term of the variance, negligible
+    when both relative uncertainties are small. $I_p$ and $V_{res}$ share the
+    loop-voltage and Rogowski calibration chain, so their covariance is rarely
+    zero. $V_{res}$ already carries the inductive correction; its uncertainty
+    includes that of $L\,dI_p/dt$, which this formula cannot see.
 
     References
     ----------
@@ -5218,6 +5237,12 @@ calc_omega_i_tau_E = omega_i_tau_E_from_B_tau_E_M
 # ------------------------------------------------------------------
 # Confinement Time
 # ------------------------------------------------------------------
+def _confinement_time_jacobian(P_loss, W_th):
+    """``[dtau/dP_loss, dtau/dW_th]`` of :func:`confinement_time_from_P_loss_W_th`."""
+    return [[-W_th / P_loss ** 2, 1.0 / P_loss]]
+
+
+@_jacobian(_confinement_time_jacobian, wrt=("P_loss", "W_th"))
 def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     r"""Energy confinement time as stored energy over loss power.
 
@@ -5244,6 +5269,19 @@ def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     Semantics
     ---------
     produces: energy_confinement_time
+
+    Uncertainty propagation
+    -----------------------
+    Inputs in order $(P_{loss}, W_{th})$ [W, J]; analytic Jacobian
+    $J = (-W_{th}/P_{loss}^2,\ 1/P_{loss})$ [s/W, s/J], so
+    $(\sigma_\tau/\tau)^2 = (\sigma_P/P)^2 + (\sigma_W/W)^2 - 2\,\mathrm{cov}(P, W)/(PW)$.
+    First order is local: the ratio is nonlinear in $P_{loss}$, and the
+    linearization stops describing the spread as $\sigma_P/P_{loss}$ grows
+    (it is singular at $P_{loss} = 0$ and undefined for $P_{loss} \le 0$, a
+    transient with $dW/dt$ larger than the heating power). A positive
+    correlation (both inputs from one equilibrium reconstruction, or $dW/dt$
+    in $P_{loss}$ from the same $W_{th}$) *reduces* the spread. Measured-input
+    covariance only; no confinement-scaling or model-form uncertainty.
 
     References
     ----------

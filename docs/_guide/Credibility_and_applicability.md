@@ -162,10 +162,49 @@ There is no `sensitivity` package, and nothing in this section runs unless it is
 | `monte_carlo_propagation(f, μ, Σ, samples, seed)` | formula | one model call per sample: opt-in only; failed draws are counted as `rejected` |
 | `singular_value_spectrum(J, column_scale)` | formula | SVD of $JD$, never of $J^{\mathsf T}J$ |
 | `linearity_ratio(f, x, δ, J)` | formula | share of a finite response the Jacobian misses |
+| `propagate_formula_uncertainty(formula, inputs, covariance= \| std=)` | formula | one public formula by parameter name: the kernels above plus a $\pm1\sigma$ linearity check (#1874) |
 | `Jacobian(provenance, kind, perturbation, inputs, outputs, matrix \| jvp)` | validation | explicit or matrix-free |
 | `compare_jacobians(reference, candidate, tolerance=)` | validation | one derivative verified by another |
 | `compare_linear_to_monte_carlo(J Σ Jᵀ, sampled, tolerance=)` | validation | local-to-global escalation test |
 | `scan_evidence(report)` | validation | a targeted scan (#1663) as model-form evidence |
+
+### Propagating through one formula (#1874)
+
+A formula can state how uncertainty passes through it. Its docstring then has an `Uncertainty propagation`
+section: the input order, the Jacobian, what is held fixed, and where first order stops being valid. It may
+also carry a domain-owned analytic Jacobian. The decorator that attaches one returns the formula itself, so
+its signature, values and cost do not change. `describe(name).uncertainty_propagation` and
+`.analytic_jacobian` report both, and the formula reference shows the section. The pilots are
+`equilibrium.confinement_time_from_P_loss_W_th` and `equilibrium.ohmic_heating_power_from_I_p_V_res`.
+
+```python
+import numpy as np
+from vaft.formula import equilibrium, sensitivity
+
+# P_loss = 100 kW +/- 10 %, W_th = 2 kJ +/- 5 %, correlated through one reconstruction (rho = 0.5)
+cov = np.array([[1.0e4**2, 0.5 * 1.0e4 * 1.0e2],
+                [0.5 * 1.0e4 * 1.0e2, 1.0e2**2]])
+result = sensitivity.propagate_formula_uncertainty(
+    equilibrium.confinement_time_from_P_loss_W_th,
+    inputs={"P_loss": 1.0e5, "W_th": 2.0e3},
+    input_names=("P_loss", "W_th"),  # the covariance axes; any other input is fixed
+    covariance=cov,                   # or std=[...] for independent inputs, never both
+)
+result.value, result.std            # 0.02 s, about 1.7 ms
+result.derivative_method            # "analytic" (else "finite_difference")
+result.linearity                    # largest linearity_ratio over +/- 1 sigma: about 0.1 here
+```
+
+**The facade's rules:**
+- **An unstated uncertainty is an error, not zero.** Pass explicit zeros for an exact input.
+- **A 1-D `covariance` holds variances; `std` holds standard deviations.**
+- **The finite-difference step follows each input's own magnitude.**
+- **A point outside the formula's domain is refused** rather than given a covariance.
+- **A $\pm1\sigma$ step that leaves the domain** (here $P_{loss} - \sigma \le 0$) reports `linearity = inf`.
+- **`method="monte_carlo"` samples the formula itself** and reports `rejected`.
+
+The result is local and first order. It carries only measured-input uncertainty, not the fitted coefficients
+or scatter of an empirical law. `compare_linear_to_monte_carlo` and `compare_jacobians` interpret it.
 
 **Distinctions kept apart:**
 - **Provenance:** `native`, `finite_difference`, `autodiff` or `analytic`. Comparing a Jacobian
