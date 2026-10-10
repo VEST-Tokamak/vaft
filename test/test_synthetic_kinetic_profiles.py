@@ -105,6 +105,58 @@ def test_legacy_helpers_are_byte_identical_and_the_level0_kernel_reproduces_them
     assert np.array_equal(ods["core_profiles.profiles_1d.0.electrons.temperature"], te_k)
 
 
+def _proxy_equilibrium(eq_ods, *, with_q: bool):
+    """The g-file slice as a pre-#276 producer wrote it: sqrt(psi_N) under rho_tor_norm."""
+    ods = copy.deepcopy(eq_ods)
+    ts = "equilibrium.time_slice.0.profiles_1d"
+    psi = np.asarray(ods[f"{ts}.psi"], float)
+    psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
+    ods[f"{ts}.rho_tor_norm"] = np.sqrt(np.clip(psi_n, 0.0, 1.0))
+    if not with_q:
+        del ods[f"{ts}.q"]
+    return ods, psi_n
+
+
+@pytest.mark.parametrize("builder", [core_profiles_from_eq, core_profiles_from_eq_ratio])
+def test_the_builders_resolve_a_proxy_grid_the_way_core_profiles_does(eq_ods, builder):
+    """A stored sqrt(psi_N) must not be interpolated and written as rho_tor_norm.
+
+    Both builders read `profiles_1d.rho_tor_norm` raw, so on a pre-#276 slice
+    the pressure was sampled on the poloidal proxy and the result stored as a
+    toroidal coordinate with no flag (cold review 0.7.0 process F10, #1888).
+    """
+    from vaft.data._derived import is_rho_pol_proxy
+    from vaft.process.profile import _rho_tor_from_equilibrium
+
+    ods, psi_n = _proxy_equilibrium(eq_ods, with_q=True)
+    proxy = np.asarray(ods["equilibrium.time_slice.0.profiles_1d.rho_tor_norm"], float)
+    assert is_rho_pol_proxy(proxy, psi_n)
+    rho_tor = _rho_tor_from_equilibrium(ods, psi_n)
+    assert rho_tor is not None and np.max(np.abs(rho_tor - proxy)) > 0.02
+
+    rho_fit = np.linspace(0.0, 1.0, 7)
+    kwargs = {"Te0_eV": 100.0} if builder is core_profiles_from_eq else {"C_ne_over_Te": 1.0e17}
+    builder(ods, rho_fit=rho_fit, **kwargs)
+    pressure = np.asarray(ods["equilibrium.time_slice.0.profiles_1d.pressure"], float)
+    expected = np.interp(rho_fit, rho_tor, pressure)
+    wrong = np.interp(rho_fit, proxy, pressure)
+    te = np.asarray(ods["core_profiles.profiles_1d.0.electrons.temperature"], float)
+    shape = (te / te[0]) ** 2
+    np.testing.assert_allclose(shape, expected / expected[0], rtol=1e-9)
+    assert np.max(np.abs(shape - wrong / wrong[0])) > 1e-3
+
+
+@pytest.mark.parametrize("builder", [core_profiles_from_eq, core_profiles_from_eq_ratio])
+def test_the_builders_refuse_a_proxy_grid_they_cannot_re_derive(eq_ods, builder):
+    from vaft.process.profile import CoordinateUnavailableError
+
+    ods, _ = _proxy_equilibrium(eq_ods, with_q=False)
+    kwargs = {"Te0_eV": 100.0} if builder is core_profiles_from_eq else {"C_ne_over_Te": 1.0e17}
+    with pytest.raises(CoordinateUnavailableError, match="sqrt\\(psi_N\\) proxy"):
+        builder(ods, rho_fit=np.linspace(0.0, 1.0, 7), **kwargs)
+    assert "core_profiles.profiles_1d" not in ods
+
+
 @pytest.mark.parametrize("amplitude", [SqrtPressureSplit(te_axis=120.0), SqrtPressureSplit(ne_over_te=1.0e17)])
 def test_level0_generator_matches_the_legacy_slice_on_the_legacy_grid(eq_ods, amplitude):
     """Generator against core_profiles_from_eq itself, sampled on the helper's own grid.
