@@ -27,6 +27,7 @@ from .compare import (
     read_input_tglf,
 )
 from .coordinates import r_over_a_at, rho_tor_norm_at
+from .portals import ClosedLoopReport, closed_loop_report, run_portals_closed_loop
 from .runner import (
     mitim_tglf_local_inputs,
     run_mitim_driver,
@@ -36,6 +37,9 @@ from .runner import (
 )
 
 __all__ = [
+    "run_portals_closed_loop",
+    "closed_loop_report",
+    "ClosedLoopReport",
     "neo_input_charges",
     "run_mitim_neo",
     "read_input_neo",
