@@ -314,9 +314,6 @@ CORE_MODULES: tuple[str, ...] = (
     # issue's exact reference values, the precedence resolver on tiny ODSs, and
     # the vest.yaml impurity_model preset it reads. Pure NumPy, under 10 s.
     "test_formula_fast_ion.py",
-    # Turbulence-zonal-flow predator-prey reduced model (#1820): analytic kernels
-    # checked against a numerical orbit. Pure NumPy, under 5 s.
-    "test_formula_turbulence.py",
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
     "test_process_impurity.py",
@@ -327,6 +324,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
+    # Turbulence-zonal-flow predator-prey reduced model (#1820): analytic kernels
+    # checked against a numerical orbit. Pure NumPy, under 5 s.
+    "test_formula_turbulence.py",
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
