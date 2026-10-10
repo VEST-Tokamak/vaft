@@ -859,11 +859,90 @@ def test_inline_names_stay_inside_their_axes():
     t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 17, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
     fig, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0.0, 18.0),
                                            y_range=(0.0, 2.0), format="slide")
+    from vaft.plot.operational_space import _draw_shifted
+
     fig.canvas.draw()
     renderer, box = fig.canvas.get_renderer(), ax.get_window_extent()
     for label in ax.texts:
         if type(label).__name__ == "Annotation" or not label.get_text().strip():
             continue
-        bb = label.get_window_extent(renderer)
+        # the extent as drawn: the draw-time shift is applied for the draw only (zooming must not move a name)
+        bb = _draw_shifted(label, renderer, lambda r: label.get_window_extent(r))
         if bb.width < box.width and bb.height < box.height:
             assert box.x0 - 1 <= bb.x0 and bb.x1 <= box.x1 + 1 and box.y0 - 1 <= bb.y0 and bb.y1 <= box.y1 + 1, label.get_text()
+
+
+
+def _footprints(ax):
+    from vaft.plot.operational_space import _footprint
+
+    fig = ax.figure
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    return [(t.get_text().strip(), _footprint(t, renderer)) for t in ax.texts if t.get_text().strip()]
+
+
+def test_inline_names_do_not_cover_one_another():
+    from vaft.plot.operational_space import _overlap
+
+    _, ax = operational_space_population(_troyon_table(), "troyon", boundary_style="inline", x_range=(0.0, 3.5),
+                                         y_range=(0.0, 14.0), format="slide")
+    names = [(n, p) for n, p in _footprints(ax) if n not in ("Stable",)]
+    for i, (name, path) in enumerate(names):
+        others = [p for j, (_, p) in enumerate(names) if j != i]
+        assert _overlap(path, others) < 0.05, name
+
+
+def test_a_source_end_note_is_drawn_inside_its_axes():
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 17, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    fig, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0.0, 18.0),
+                                           y_range=(0.0, 2.0), format="slide")
+    fig.canvas.draw()
+    renderer, box = fig.canvas.get_renderer(), ax.get_window_extent()
+    notes = [a for a in ax.texts if "Fig. 6 ends" in a.get_text()]
+    assert notes
+    bb = notes[0].get_window_extent(renderer)
+    assert box.x0 - 1 <= bb.x0 and bb.x1 <= box.x1 + 1 and box.y0 - 1 <= bb.y0 and bb.y1 <= box.y1 + 1
+
+
+def test_zooming_away_and_back_leaves_every_name_on_its_line():
+    fig, ax = operational_space_population(_troyon_table(), "troyon", boundary_style="inline", x_range=(0.0, 3.5),
+                                           y_range=(0.0, 14.0))
+    fig.canvas.draw()
+    before = [t.get_position() for t in ax.texts]
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 3.0)
+    fig.canvas.draw()
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    fig.canvas.draw()
+    assert [t.get_position() for t in ax.texts] == before
+
+
+def test_a_kept_inside_label_pickles():
+    import pickle
+
+    _, ax = operational_space_population(_troyon_table(), "troyon", boundary_style="inline", x_range=(0.0, 3.5),
+                                         y_range=(0.0, 14.0))
+    names = [t for t in ax.texts if type(t).__name__ == "_InsideText"]
+    assert names and "draw" not in vars(names[0])   # a module-level class, not a patched instance method
+    assert pickle.loads(pickle.dumps(type(names[0]))) is type(names[0])
+
+
+def test_experimental_levels_do_not_warn_about_their_own_machine():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        operational_space_population(_troyon_table(), "troyon", boundary_style="inline", x_range=(0.0, 3.5),
+                                     y_range=(0.0, 14.0))
+    assert not [w for w in caught if "applies to" in str(w.message) and "beta_n" in str(w.message)]
+
+
+def test_the_discharge_diamond_is_named_only_on_the_axis_it_is_drawn_on():
+    t = pd.DataFrame({"internal_inductance_li3": [0.5, 0.7], "normalized_beta": [1.0, 2.0]})
+    t.attrs["units"] = {"normalized_beta": "% m T/MA"}
+    _, ax = operational_space_population(t, "beta_n_li", boundary_style="inline", legend_keys=False,
+                                         boundaries=["troyon", "taylor_1995_diiid_beta_n_record"])
+    legend = " ".join(x.get_text() for x in ax.get_legend().get_texts())
+    assert "discharge" not in legend
+    assert not [l for l in ax.get_lines() if l.get_marker() == "D"]

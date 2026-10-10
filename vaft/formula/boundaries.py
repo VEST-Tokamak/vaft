@@ -202,7 +202,7 @@ class Boundary:
       function so its coefficients are not restated.
 
     ``allowed_side`` says which side of $b$ the operating value is permitted
-    on. ``hardness`` records how the literature treats crossing it: ``soft``
+    on; for a ``kind`` other than ``"limit"`` (a reference, an envelope, a record) it only orients the margin. ``hardness`` records how the literature treats crossing it: ``soft``
     for an empirical limit that operation can exceed.
 
     A regime-transition threshold carries ``source_regime`` and
@@ -509,6 +509,11 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
         warnings += (
             "the operating value is not finite at some inputs; margin and ratio are NaN "
             "and the state is not counted as permitted there",
+        )
+    if boundary.kind != "limit":
+        warnings += (
+            f"{boundary.key!r} is a {boundary.kind.replace('_', ' ')}, not a limit: the margin is a signed distance "
+            "from it, and 'allowed' only says on which side the state lies",
         )
     return BoundaryEvaluation(
         key=boundary.key,
@@ -1201,7 +1206,7 @@ _register(Boundary(
     hardness="soft",
     origin="published",
     basis="empirical",
-    event="beta_limit",
+    event="beta_reference",
     kind="experimental_envelope",
     applicability=Applicability(
         machine_class="conventional tokamak (DIII-D)",
@@ -1232,7 +1237,7 @@ _register(Boundary(
     hardness="soft",
     origin="published",
     basis="empirical",
-    event="beta_limit",
+    event="beta_reference",
     kind="experimental_achievement",
     applicability=Applicability(
         machine_class="conventional tokamak (DIII-D)",
@@ -1264,7 +1269,7 @@ _register(Boundary(
     hardness="soft",
     origin="published",
     basis="empirical",
-    event="beta_limit",
+    event="beta_reference",
     kind="experimental_envelope",
     applicability=Applicability(
         machine_class="spherical tokamak (START, PEGASUS)",
@@ -1294,7 +1299,7 @@ _register(Boundary(
     hardness="soft",
     origin="published",
     basis="empirical",
-    event="beta_limit",
+    event="beta_reference",
     kind="experimental_achievement",
     applicability=Applicability(
         machine_class="spherical tokamak (NSTX)",

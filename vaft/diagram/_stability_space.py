@@ -342,11 +342,13 @@ def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elo
            q_limit: Optional[float] = None, labels: bool = True) -> Diagram:
     r"""Troyon diagram: toroidal beta against the normalised current $I_p/(aB_T)$.
 
-    The beta limit is the registered ``troyon`` boundary
-    ($\beta_N \le 2.2\,\mu_0 \cdot 10^6 \approx 2.76$, :mod:`vaft.formula.boundaries`)
-    drawn through the definition of $\beta_N$, $\beta_T[\%] = \beta_N\,I_p/(aB_T)$.
-    ``beta_N_max`` overrides the registered value for a what-if picture, and the
-    note then says so.
+    The registered ``troyon`` stability reference
+    ($\beta_N = 2.2\,\mu_0 \cdot 10^6 \approx 2.76$, :mod:`vaft.formula.boundaries`) is
+    drawn through the definition of $\beta_N$, $\beta_T[\%] = \beta_N\,I_p/(aB_T)$,
+    with the projection's experimental references (#1691: DIII-D, ST, NSTX levels)
+    dashed beside it. None is a limit, so no side is marked stable or unstable.
+    ``beta_N_max`` overrides the Troyon value for a what-if picture, and the note
+    then says so.
 
     No current limit is drawn by default: the registered ``low_q`` is on
     $q_\psi$, and this axis is $q_\mathrm{cyl}$-like. ``q_limit`` adds a
@@ -363,18 +365,27 @@ def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elo
     x_max = 1.35 * x_q
     y_max = 1.3 * level * x_q
     chart = Chart(x_range=(0.0, float(x_max)), y_range=(0.0, float(y_max)))
+    plan = overlay_plan("troyon", x_range=(0.0, x_max), y_range=(0.0, y_max), samples=101)
     if beta_N_max is None:
-        plan = overlay_plan("troyon", x_range=(0.0, x_max), y_range=(0.0, y_max), samples=101)
-        chart.curves["beta_limit"] = plan.curves[0].xy
+        chart.curves["beta_limit"] = next(c for c in plan.curves if c.key == "troyon").xy
     else:
         x = np.linspace(0.0, x_max, 101)
         chart.curves["beta_limit"] = np.stack([x, level * x], axis=-1)
     styles = {"beta_limit": "boundary"}
-    chart.labels.update({
-        "stable": (0.6 * x_q, 0.25 * level * x_q),
-        "beta": (0.35 * x_q, 0.9 * level * x_q),
-    })
-    text = {"stable": "Stable", "beta": f"$\\beta_N > {level:.3g}$"}
+    # the Troyon name below its line, the experimental references' names where each meets the top of the frame
+    chart.labels["beta"] = (0.95 * x_q, 0.45 * level * x_q)
+    text = {"beta": f"Troyon $\\beta_N = {level:.3g}$"}
+    for k, curve in enumerate(c for c in plan.curves if c.key != "troyon"):
+        entry = _b.get_boundary(curve.key)
+        name = f"ref{k}"
+        chart.curves[name] = curve.xy
+        styles[name] = "approx"
+        # just right of its line, alternating heights so neighbouring steep lines keep their names apart
+        y_label = (0.92 - 0.12 * (k % 2)) * y_max
+        x_label = y_label / float(entry.coefficient) + 0.06 * x_max
+        if x_label < 0.97 * x_max:
+            chart.labels[name] = (x_label, y_label)
+            text[name] = f"{entry.coefficient:.3g}"
     if q_limit is not None:
         chart.curves["low_q"] = np.array([[x_q, 0.0], [x_q, y_max]])
         styles["low_q"] = "approx"
@@ -382,8 +393,11 @@ def troyon(*, beta_N_max: Optional[float] = None, aspect_ratio: float = 3.0, elo
         text["low_q"] = "\\begin{tabular}{c}Reference\\\\$q_\\mathrm{cyl}$\\end{tabular}"
     chart.parameters.update({"beta_N_max": level, "beta_N_registered": registered, "aspect_ratio": aspect_ratio,
                              "elongation": elongation, "q_limit": q_limit, "current_at_q_limit": x_q})
-    source = "registered Troyon limit" if beta_N_max is None else "user value, not the registered limit"
+    source = "registered Troyon stability reference" if beta_N_max is None else "user value, not the registered one"
+    levels = ", ".join(f"{_b.get_boundary(c.key).coefficient:.3g}" for c in plan.curves if c.key != "troyon")
     note = f"$\\beta_N = {level:.3g}$ ({source})"
+    if levels:   # the values from the registry, never restated here
+        note += f"; dashed: experimental $\\beta_N$ levels {levels} (references, not limits)"
     if q_limit is not None:
         note += (f"; $q_\\mathrm{{cyl}} = {q_limit:g}$ at $R_0/a = {aspect_ratio:g}$, "
                  f"$\\kappa_a = {elongation:g}$")

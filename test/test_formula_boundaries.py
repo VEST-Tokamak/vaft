@@ -733,3 +733,10 @@ def test_the_diiid_record_carries_its_discharge_as_a_single_evidence_point():
     evidence = B.get_boundary("taylor_1995_diiid_beta_n_record").applicability.evidence_ranges
     low, high = evidence["normalized_current"]
     assert low == high == pytest.approx(12.6 / 4.3)   # discharge 80108: beta_T 12.6 % at beta_N 4.3
+
+
+def test_evaluating_a_reference_says_it_is_not_a_limit():
+    reference = B.evaluate_boundary(B.get_boundary("troyon"), 3.0)
+    assert any("not a limit" in w for w in reference.warnings)
+    limit = B.evaluate_boundary(B.get_boundary("greenwald"), 0.5, plasma_current=0.1, minor_radius=0.3)
+    assert not any("not a limit" in w for w in limit.warnings)

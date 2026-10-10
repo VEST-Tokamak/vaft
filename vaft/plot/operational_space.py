@@ -24,6 +24,7 @@ import textwrap
 import warnings
 from typing import Mapping, Optional, Sequence, Tuple, Union
 
+from matplotlib.text import Annotation, Text
 import numpy as np
 import pandas as pd
 
@@ -273,14 +274,14 @@ def _kind(key: str) -> str:
     return getattr(_b.get_boundary(key), "kind", "limit")
 
 
-def _reference_label(curve: _b.BoundaryCurve, suffix: str = "") -> str:
+def _reference_label(curve: _b.BoundaryCurve, suffix: str = "", x_name: Optional[str] = None) -> str:
     """``{name}, {target} = {value}: {kind word}``: the value from the registry, not the renderer; the basis only
     when it is not empirical (an experimental level is empirical by its kind)."""
     entry = _b.get_boundary(curve.key)
     value = f", {_math(entry.target.symbol)} = {entry.coefficient:.3g}" if entry.form == "threshold" else ""
     basis = "" if _basis_word(entry) == "Empirical" else f" ({_basis_word(entry)})"
     evidence = entry.applicability.evidence_ranges if entry.applicability is not None else {}
-    span = next(iter(evidence.values())) if evidence else None
+    span = evidence.get(x_name) if x_name is not None else None   # only on the axis the evidence is on
     shown = "" if span is None else " (◆ its discharge)" if span[0] == span[1] else " (heavy: source data)"
     if entry.kind in ("experimental_envelope", "experimental_achievement"):
         # another machine's operating level is not calibrated on this population by construction, so its
@@ -304,8 +305,13 @@ def _draw_reference(ax, curve: _b.BoundaryCurve, x_name: str, color: str, linewi
     low, high = (-np.inf if evidence[0] is None else evidence[0]), (np.inf if evidence[1] is None else evidence[1])
     ok = np.isfinite(cx) & np.isfinite(cy)
     if low == high:
+        if not ok.any():
+            return
         order = np.argsort(cx[ok])
-        ax.plot([low], [np.interp(low, cx[ok][order], cy[ok][order])], marker="D", color=color,
+        y_point = np.interp(low, cx[ok][order], cy[ok][order], left=np.nan, right=np.nan)
+        if not np.isfinite(y_point):   # the point is not on the sampled curve: no diamond off its line
+            return
+        ax.plot([low], [y_point], marker="D", color=color,
                 markersize=2.6 * linewidth, markeredgecolor="black", markeredgewidth=0.5, linestyle="none", zorder=4)
         return
     inside = ok & (cx >= low) & (cx <= high)
@@ -496,10 +502,17 @@ def _place_label(ax, curve: _b.BoundaryCurve, text: str, color: str, placed: lis
 
 
 def _shift_inside(ax, text, renderer) -> None:
-    """Move a label that pokes out of the axes back inside; a label larger than the axes stays where it is."""
+    """Move a label that pokes out of the axes back inside; a label larger than the axes, or one whose anchor is
+    outside the view, stays where it is (clipping hides it rather than the label leaving its line)."""
+    from matplotlib.text import Annotation
+
     try:
+        anchor = text.xy if isinstance(text, Annotation) else text.get_position()
+        ax_px = ax.transData.transform(anchor)
         bb, box = text.get_window_extent(renderer), ax.get_window_extent(renderer)
     except Exception:  # noqa: BLE001 - a backend without extents: keep the placement
+        return
+    if not box.contains(*ax_px):
         return
     if bb.width >= box.width or bb.height >= box.height:
         return
@@ -518,16 +531,45 @@ def _shift_inside(ax, text, renderer) -> None:
         text.set_position(tuple(ax.transData.inverted().transform((px + dx, py + dy))))
 
 
-def _keep_inside(ax, text):
-    """Keep a label inside its axes: at every draw, once the layout is final, a label that pokes out is shifted
-    back in so clipping does not cut its words; a label larger than the axes is left where it is."""
-    draw = text.draw
+def _draw_shifted(text, renderer, draw):
+    """Draw ``text`` shifted inside its axes for this draw only, then put it back."""
+    from matplotlib.text import Annotation
 
-    def draw_inside(renderer):
-        _shift_inside(ax, text, renderer)
+    if text.axes is None:
         return draw(renderer)
+    saved = text.xyann if isinstance(text, Annotation) else text.get_position()
+    _shift_inside(text.axes, text, renderer)
+    try:
+        return draw(renderer)
+    finally:
+        if isinstance(text, Annotation):
+            text.xyann = saved
+        else:
+            text.set_position(saved)
 
-    text.draw = draw_inside
+
+class _InsideText(Text):
+    """A label drawn inside its axes (:func:`_keep_inside`)."""
+
+    def draw(self, renderer):
+        return _draw_shifted(self, renderer, super().draw)
+
+
+class _InsideAnnotation(Annotation):
+    """A note drawn inside its axes (:func:`_keep_inside`)."""
+
+    def draw(self, renderer):
+        return _draw_shifted(self, renderer, super().draw)
+
+
+def _keep_inside(ax, text):
+    """Keep a label inside its axes when it is drawn: once the layout is final, a label whose anchor is in view
+    but whose words poke out is drawn shifted back in. The shift is not stored, so zooming away and back leaves the
+    label on its line; a label whose anchor leaves the view is simply clipped. The label becomes an instance of a
+    module-level subclass, so a figure stays picklable."""
+    from matplotlib.text import Annotation
+
+    text.__class__ = _InsideAnnotation if isinstance(text, Annotation) else _InsideText
     return text
 
 
@@ -739,7 +781,8 @@ def _applicability_warnings(curve: _b.BoundaryCurve, rows: pd.DataFrame, axes: T
             yield (f"boundary {curve.key!r} is extrapolated: {int(outside.sum())} of {values.size} value(s) of "
                    f"{name} lie outside its fitted range {lo:g}..{hi:g}")
     machine = getattr(entry.applicability, "machine_class", "")
-    if machine and machine != "tokamak":
+    # another machine's operating level names its machine by construction: not a warning about this plot
+    if machine and machine != "tokamak" and entry.kind not in ("experimental_envelope", "experimental_achievement"):
         yield f"boundary {curve.key!r} applies to: {machine}"
 
 
@@ -785,7 +828,11 @@ def _draw_trajectories(ax, trajectories, x: str, y: str, time: str, colour_of, s
         ax.plot(t["_x"], t["_y"], color=edge, linewidth=1.0 * lw, zorder=5)
         ax.scatter(t["_x"], t["_y"], s=np.full(len(t), size), c=[colour_of(r) for _, r in t.iterrows()],
                    edgecolors=edge, linewidths=1.4 * lw, zorder=6, label=str(label))
+        pts = ax.transData.transform(np.c_[t["_x"].to_numpy(), t["_y"].to_numpy()])
+        shrink_px = (np.sqrt(size) + 2) * ax.figure.dpi / 72.0   # the two markers' share of a step
         for i in range(len(t) - 1):
+            if np.hypot(*(pts[i + 1] - pts[i])) <= shrink_px:   # too short to show a head between the markers
+                continue
             ax.annotate("", xy=(t["_x"].iloc[i + 1], t["_y"].iloc[i + 1]), xytext=(t["_x"].iloc[i], t["_y"].iloc[i]),
                         arrowprops=dict(arrowstyle="-|>", color=edge, linewidth=1.2 * lw,
                                         shrinkA=0.5 * np.sqrt(size), shrinkB=0.5 * np.sqrt(size) + 2,
@@ -1114,11 +1161,11 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
         suffix = _status_suffix(*applicability[curve.key])
         if _kind(curve.key) in REFERENCE_KINDS:   # a reference, not a limit: no forbidden side (#1691)
             _draw_reference(ax, curve, proj.x.name, c, 1.6 * line_scale,
-                            label=None if inline else _reference_label(curve, suffix))
+                            label=None if inline else _reference_label(curve, suffix, proj.x.name))
             if inline:
                 from matplotlib.lines import Line2D
                 patches.append(Line2D([], [], color=c, linestyle=REFERENCE_KINDS[_kind(curve.key)][0],
-                                      linewidth=1.6 * line_scale, label=_reference_label(curve, suffix)))
+                                      linewidth=1.6 * line_scale, label=_reference_label(curve, suffix, proj.x.name)))
             continue
         reference = curve.key in REFERENCE_ONLY and (
             inline or proj.key in REFERENCE_PROJECTIONS or _is_spherical(machine_class))
