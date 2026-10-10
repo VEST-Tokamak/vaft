@@ -3291,9 +3291,10 @@ def normalized_plasma_current(Ip: Union[float, np.ndarray],
 
     Convention
     ----------
-    SI current in, engineering-unit ratio out: the same $I_N$ that normalises
-    $\beta_N = \beta_t[\%]/I_N$ and that the ST beta-limit literature plots
-    against.
+    SI current in, engineering-unit ratio out: the Troyon normalisation
+    $I_N = I_p/(a B_t)$ [1] that turns $\beta_t$ into $\beta_N = \beta_t[\%]/I_N$,
+    and the current axis of the low-aspect-ratio $(I_N, \beta_N)$ stability
+    maps [2].
 
     Semantics
     ---------
@@ -3302,9 +3303,12 @@ def normalized_plasma_current(Ip: Union[float, np.ndarray],
 
     References
     ----------
-    .. [1] J. E. Menard et al., Phys. Plasmas 23 (2016) 072508,
-           https://doi.org/10.1063/1.4959808, Sec. II.
-    .. [2] F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209.
+    .. [1] F. Troyon, R. Gruber, H. Saurenmann, S. Semenzato and S. Succi,
+           Plasma Phys. Control. Fusion 26 (1984) 209,
+           https://doi.org/10.1088/0741-3335/26/1A/319.
+    .. [2] J. E. Menard, S. C. Jardin, S. M. Kaye, C. E. Kessel and
+           J. Manickam, Nucl. Fusion 37 (1997) 595,
+           https://doi.org/10.1088/0029-5515/37/5/I03.
     """
     Ip = Ip / 1e6  # Convert A to MA
     return Ip / (a * Bt)

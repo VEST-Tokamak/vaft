@@ -233,7 +233,7 @@ Only the `'conventional'` and `'ST'` branches return `beta_max` / `beta_crit`; `
 
 $$ q_{\rm kink} = \frac{2\pi a^2 B_t}{\mu_0 I_p R}\left(1 + \frac{\kappa^2}{2}\right) $$
 
-Normalised plasma current (Phys. Plasmas **23**, 072508):
+Normalised plasma current, the Troyon normalisation $I_N = I_p/(a B_t)$ (Plasma Phys. Control. Fusion **26**, 209) and the current axis of the Menard et al. low-aspect-ratio stability maps (Nucl. Fusion **37**, 595):
 
 <!-- docs-snippet: skip fragment (placeholder name Ip is never defined on the page) -->
 ```python
