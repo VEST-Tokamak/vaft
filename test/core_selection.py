@@ -327,8 +327,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
     # Turbulence-zonal-flow predator-prey reduced model (#1820): analytic kernels
-    # checked against a numerical orbit. Pure NumPy, under 5 s.
+    # checked against a numerical orbit, and the process layer (intensity split,
+    # cycle metrics, trajectory fit) on synthetic orbits. Under 30 s.
     "test_formula_turbulence.py",
+    "test_process_gyrokinetics.py",
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
