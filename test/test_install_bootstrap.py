@@ -3281,3 +3281,19 @@ def test_gpec_run_with_no_output_is_a_failure_not_a_pass(tmp_path, monkeypatch):
     # it) rather than reporting that nothing was produced.
     opened = checker.check_netcdf_outputs(workdir)
     assert "gpec_control_n1.nc" in opened.detail and "no gpec_*.nc" not in opened.detail, opened
+
+
+def test_chease_installer_header_agrees_with_the_recorded_macos_verification():
+    """Cold review install F21: the header called the macOS arm untested.
+
+    install/README.md records a manual macOS verification with the `darwin`
+    machine reproducing the Linux comparison numbers; the script header
+    contradicted it and claimed the linux_nohdf5 branch was the only correct one.
+    """
+    text = (INSTALL / "install_chease.sh").read_text(encoding="utf-8")
+    header = text[: text.index("set -euo pipefail")]
+    assert "untested" not in header
+    assert "README" in header and "darwin" in header
+    readme = (INSTALL / "README.md").read_text(encoding="utf-8")
+    macos_row = next(line for line in readme.splitlines() if line.startswith("| CHEASE, macOS"))
+    assert "Verified" in macos_row and "q_rms_rel=0.0144" in macos_row
