@@ -69,9 +69,24 @@ if [[ ! -e "$MANIFEST" ]]; then
   exit 0
 fi
 
+# Lexical on purpose: an entry may name a directory that no longer exists,
+# which `cd && pwd -P` could not resolve. So `..` and `.` components, a
+# trailing slash and a doubled slash are refused rather than normalised -- the
+# installers never write them, and `<root>/../x` or `<root>/` would otherwise
+# pass a plain "$ROOT_DIR"/* and reach rm -rf.
 is_child_of_root() {
   case "$1" in
-    "$ROOT_DIR"/*) return 0 ;;
+    */../*|*/..|*/./*|*/.|*/|*//*) return 1 ;;
+    "$ROOT_DIR"/?*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# A directory is removed wholesale, so the manifest alone is not enough to
+# justify it: it also has to sit in one of the subtrees the installers create.
+is_managed_subtree() {
+  case "${1#"$ROOT_DIR"/}" in
+    local|build/?*|vendor/ntcc/?*) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -157,6 +172,7 @@ while IFS=$'\t' read -r kind path; do
   is_child_of_root "$path" || die "refusing path outside source tree: $path"
   case "$kind" in
     managed_dir)
+      is_managed_subtree "$path" || die "refusing to remove a directory outside local, build/ and vendor/ntcc/: $path"
       if [[ -d "$path" ]]; then
         if ((DRY_RUN)); then
           note "would remove directory $path"
