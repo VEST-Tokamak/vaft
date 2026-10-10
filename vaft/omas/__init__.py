@@ -231,6 +231,7 @@ def save(ods, target, *, compression=None):
     """
     import os
     from pathlib import Path
+    import uuid
 
     from ..compat import reopenable_temporary_file
 
@@ -255,10 +256,12 @@ def save(ods, target, *, compression=None):
     # instead of a truncated file under the canonical name that the next
     # reader fails on (cold review 0.7.0 data F16, #1888).  The staging name
     # keeps the target's last suffix because ``ODS.save`` chooses its format
-    # from it.
-    staged = target_path.with_name(
-        f".{target_path.stem}.tmp-{os.getpid()}{target_path.suffix}"
-    )
+    # from it, and carries a random token rather than the pid: threads of one
+    # process saving the same target would otherwise share the staging path
+    # and rename each other's half-written bytes onto it (PR #1926 review F1;
+    # the same token ``vaft.database._export._atomic`` uses).
+    token = uuid.uuid4().hex[:12]
+    staged = target_path.with_name(f".{target_path.stem}.tmp-{token}{target_path.suffix}")
     try:
         _write_ods_file(ods, staged, suffixes, compression, reopenable_temporary_file)
         os.replace(staged, target_path)

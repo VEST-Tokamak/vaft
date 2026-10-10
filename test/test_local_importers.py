@@ -73,6 +73,41 @@ def test_a_failed_save_leaves_the_previous_product_intact(tmp_path, monkeypatch,
     assert sorted(p.name for p in tmp_path.iterdir()) == [name], "no staging file left behind"
 
 
+def test_threads_saving_the_same_target_do_not_share_a_staging_file(tmp_path):
+    """Four threads, each saving the same product repeatedly, all succeed.
+
+    The staging name was `.<stem>.tmp-<pid><suffix>`, the same path for every
+    thread of a process: one thread's `os.replace` moved another's half-written
+    bytes onto the canonical name, and the other then failed with
+    FileNotFoundError (PR #1926 review F1).  The token is now random per call.
+    """
+    import threading
+
+    from omas import ODS
+
+    ods = ODS()
+    ods["magnetics.time"] = list(range(2000))
+    target = tmp_path / "shared.json"
+    errors: list[BaseException] = []
+
+    def worker():
+        try:
+            for _ in range(5):
+                vaft.omas.save(ods, target)
+        except BaseException as exc:  # noqa: BLE001 - collected for the assertion
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["shared.json"]
+    assert list(vaft.omas.load(target)["magnetics.time"]) == list(range(2000))
+
+
 def test_imas_handle_detects_netcdf_and_converts_omas_source(tmp_path):
     with vaft.imas.load(IMAS_NC) as handle:
         assert handle.info.format == "imas_netcdf"
