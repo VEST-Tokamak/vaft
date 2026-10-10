@@ -839,10 +839,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"  {shot}: {block['classification']['verdict']}", flush=True)
 
         if shot == KINETIC_SHOT:
+            # The runs know which g-files chkerr flagged; the directory does
+            # not, so the verdicts travel with the paths (cold review F3).
             block["kinetic_cross_check"] = thomson.compare_ladder(
                 {rung.name: workdir for rung, _, workdir, _ in results},
                 shot=shot,
                 output=output / f"shot_{shot}",
+                outcomes={
+                    rung.name: {
+                        int(round(float(item["time_ms"]))): item.get("outcome")
+                        for item in run["slices"]
+                    }
+                    for rung, run, _, _ in results
+                },
+                headline=BASELINE,
             )
 
         payload["shots"][str(shot)] = block

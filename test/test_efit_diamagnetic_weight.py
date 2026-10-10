@@ -400,6 +400,49 @@ def test_a_ladder_whose_survivors_miss_the_thomson_window_says_so(thomson):
     assert summary_with["compared"] == 1
 
 
+def test_a_flagged_gfile_on_a_higher_rung_does_not_move_the_ladder(
+    thomson, monkeypatch, tmp_path
+):
+    """Cold review 0.7.0 efit-workflows F3 (#1888).
+
+    EFIT writes a g-file for a slice ``chkerr`` flagged, so a directory
+    listing cannot tell it from a reconstruction. Given the runs' own
+    verdicts the ladder keeps the flagged slice out of every ratio, compares
+    the rungs on the slices every rung accepted, and takes its headline from
+    the rung the caller names rather than from whichever came first.
+    """
+    monkeypatch.setattr(thomson, "thomson_diagnostics", lambda shot: object())
+    ratios = {"w1": {317: 0.0}, "w2": {317: 0.0, 319: math.log(50.0)}}
+
+    def fake_check_gfile(path, diagnostics):
+        time_ms = int(path.name.split(".")[1])
+        return {
+            "path": path.name,
+            "status": "compared",
+            "log_ratio": ratios[path.parent.name][time_ms],
+        }
+
+    monkeypatch.setattr(thomson, "check_gfile", fake_check_gfile)
+    for rung, times in ratios.items():
+        (tmp_path / rung).mkdir()
+        for time_ms in times:
+            (tmp_path / rung / f"g039915.{time_ms:05d}").write_text("x", encoding="utf-8")
+    workdirs = {"w1": tmp_path / "w1", "w2": tmp_path / "w2"}
+    outcomes = {"w1": {317: "accepted"}, "w2": {317: "accepted", 319: "flagged"}}
+
+    out = thomson.compare_ladder(workdirs, shot=39915, outcomes=outcomes, headline="w2")
+
+    w2 = out["rungs"]["w2"]["summary"]
+    assert w2["flagged_slices"] == 1
+    assert w2["compared"] == 1 and w2["decisive_slices"] == 0
+    assert w2["median_sum_ratio"] == pytest.approx(1.0)
+    assert out["common_slices_ms"] == [317]
+    assert out["rungs"]["w2"]["common_summary"]["compared"] == 1
+    assert out["headline_rung"] == "w2"
+    assert "within what measurement scatter could explain" in out["verdict"]
+    assert "this is not a data problem" not in out["verdict"]
+
+
 # ---------------------------------------------------------------------------
 # the sign convention, on shots the existing regression never covered
 # ---------------------------------------------------------------------------
