@@ -1063,14 +1063,16 @@ def _vacuum_currents(ods: ODS, indices) -> ndarray:
     sample: on VEST that is 960 IMAS path parses instead of 960 per time, which
     is the difference between a slider that moves and one that stutters.
 
-    ``indices`` are positions on ``pf_active.time``.  The passive loops are
-    paired by time, not by position: ``pf_passive.time`` is its own base, and
-    an input whose base is shifted, decimated or merely a different length
-    (a hand-built or foreign ODS; every vaft producer writes equal bases) used
-    to be indexed as if it were the coil base, silently taking the wrong
-    sample or failing with an ``IndexError``.  The loop sample nearest to each
-    requested coil sample is used -- a snap, like the map's own ``time``, not
-    an interpolation.
+    ``indices`` are positions on ``pf_active.time``, and the three the map
+    differences for ``dpsi_dt`` have to be read on that one base.  The passive
+    loops are therefore paired by time, not by position: ``pf_passive.time``
+    is its own base, and an input whose base is shifted, decimated or merely a
+    different length (a hand-built or foreign ODS; every vaft producer writes
+    equal bases) used to be indexed as if it were the coil base, silently
+    taking the wrong sample or failing with an ``IndexError``.  An unequal
+    base is resampled onto the coil base once (:func:`vaft.process.
+    resample_to_time`, so a finer passive record is low-passed rather than
+    aliased) and then indexed like the coils.
     """
     pf, pfp = ods["pf_active"], ods["pf_passive"]
     take = np.asarray(indices, dtype=int).ravel()
@@ -1078,13 +1080,12 @@ def _vacuum_currents(ods: ODS, indices) -> ndarray:
                for i in range(len(pf["coil"]))]
     coil_time = np.asarray(pf["time"], dtype=float)
     loop_time = np.asarray(pfp["time"], dtype=float)
-    if loop_time.shape == coil_time.shape and np.array_equal(loop_time, coil_time):
-        take_loops = take
-    else:
-        wanted = coil_time[take]
-        take_loops = np.argmin(np.abs(loop_time[:, None] - wanted[None, :]), axis=0)
-    columns += [np.asarray(pfp[f"loop.{i}.current"], dtype=float)[take_loops]
-                for i in range(len(pfp["loop"]))]
+    loops = [np.asarray(pfp[f"loop.{i}.current"], dtype=float) for i in range(len(pfp["loop"]))]
+    if loop_time.shape != coil_time.shape or not np.array_equal(loop_time, coil_time):
+        from vaft.process.signal_processing import resample_to_time
+
+        loops = [resample_to_time(loop_time, current, coil_time) for current in loops]
+    columns += [current[take] for current in loops]
     return np.column_stack(columns)
 
 

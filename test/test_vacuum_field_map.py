@@ -413,8 +413,14 @@ def test_a_passive_base_that_is_not_the_coil_base_is_matched_by_time():
     np.testing.assert_allclose(result["dpsi_dt"], expected["dpsi_dt"], rtol=1e-6, atol=0)
 
 
-def test_a_decimated_passive_base_takes_the_nearest_loop_sample():
-    """A shorter passive base is neither indexed past its end nor read at the wrong time."""
+def test_a_decimated_passive_base_is_resampled_onto_the_coil_base():
+    """A coarser passive record must still give the eddy share of dpsi/dt.
+
+    dpsi/dt differences three consecutive coil samples; loop currents snapped
+    to their own nearest sample would make that difference zero (the same
+    loop sample three times) or one passive step over one coil step.
+    Resampled onto the coil base, the derivative follows the record's secant.
+    """
     ods = vaft.omas.sample_ods()
     vaft.omas.compute_eddy_currents(ods, [], [])
     time_base = np.asarray(ods["pf_active.time"], dtype=float)
@@ -430,4 +436,19 @@ def test_a_decimated_passive_base_takes_the_nearest_loop_sample():
     assert wanted in time_base[::4]
     result = pw.compute_vacuum_field_map(ods, time=wanted, grid=COARSE)
     np.testing.assert_allclose(result["psi"], expected["psi"], rtol=1e-9, atol=0)
-    assert np.isfinite(result["dpsi_dt"]).all()
+    # The eddy share of dpsi/dt on this sample is a quarter of the whole; a
+    # linear secant over four coil steps reproduces it to about one per cent.
+    scale = np.max(np.abs(expected["dpsi_dt"]))
+    np.testing.assert_allclose(result["dpsi_dt"], expected["dpsi_dt"], rtol=0, atol=0.03 * scale)
+    assert np.max(np.abs(result["dpsi_dt"] - expected["dpsi_dt"])) < 0.2 * np.max(np.abs(expected["dpsi_dt"] - _coil_only_dpsi_dt(ods, wanted)))
+
+
+def _coil_only_dpsi_dt(ods, wanted):
+    """dpsi/dt with every passive loop frozen: what a lost eddy share looks like."""
+    frozen = vaft.omas.sample_ods()
+    vaft.omas.compute_eddy_currents(frozen, [], [])
+    for index in range(len(frozen["pf_passive.loop"])):
+        current = np.asarray(frozen[f"pf_passive.loop.{index}.current"], dtype=float)
+        frozen[f"pf_passive.loop.{index}.current"] = np.full_like(current, current[len(current) // 2])
+    pw.clear_vacuum_field_cache()
+    return pw.compute_vacuum_field_map(frozen, time=wanted, grid=COARSE)["dpsi_dt"]
