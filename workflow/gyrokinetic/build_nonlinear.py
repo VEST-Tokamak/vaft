@@ -40,7 +40,9 @@ import numpy as np
 def _sat_reference(path: Optional[Path], record: dict, field: str) -> dict[int, float]:
     if path is None:
         return {}
-    tglf_field = {"es": "es", "em-aperp": "em-bper"}[field]
+    from vaft.code.gacode.cgyro import TGLF_FIELD_MODEL
+
+    tglf_field = TGLF_FIELD_MODEL[field]
     out: dict[int, float] = {}
     with open(path, newline="", encoding="utf-8") as handle:
         for row in csv.DictReader(handle):
@@ -103,14 +105,19 @@ def batch_means(t: np.ndarray, y: np.ndarray, blocks: int) -> dict:
     if blocks < 2:
         raise ValueError("batch means needs at least two blocks")
     edges = np.linspace(t[0], t[-1], blocks + 1)
+    edge_values = np.interp(edges, t, y)
     means = []
-    for a, b in zip(edges[:-1], edges[1:]):
-        inside = (t >= a) & (t <= b)
-        if np.count_nonzero(inside) < 2:
-            raise ValueError(f"block [{a:g}, {b:g}] holds fewer than two samples")
-        means.append(_mean(t[inside], y[inside]))
+    for k, (a, b) in enumerate(zip(edges[:-1], edges[1:])):
+        # interior samples plus the trace interpolated at both edges, so the blocks
+        # tile the window exactly and their equal-weight mean is the window mean
+        inside = (t > a) & (t < b)
+        if np.count_nonzero(inside) < 1:
+            raise ValueError(f"block [{a:g}, {b:g}] holds no interior sample")
+        tb = np.concatenate([[a], t[inside], [b]])
+        yb = np.concatenate([[edge_values[k]], y[inside], [edge_values[k + 1]]])
+        means.append(_mean(tb, yb))
     means = np.asarray(means)
-    return {"mean": _mean(t, y), "block_means": means.tolist(), "blocks": int(blocks),
+    return {"mean": float(means.mean()), "block_means": means.tolist(), "blocks": int(blocks),
             "block_length": float(edges[1] - edges[0]),
             "standard_error": float(np.std(means, ddof=1) / np.sqrt(blocks))}
 
@@ -126,12 +133,8 @@ def zonal_fraction(run) -> Optional[dict]:
     field = _kxky_phi(Path(run.directory), grid, bool((run.equilibrium or {}).get("hiprec_flag")))
     if field is None:
         return None
-    aligned = run.align_records(field) if hasattr(run, "align_records") else None
-    if aligned is not None:
-        field, time = aligned, np.asarray(run.time, dtype=float)
-    else:
-        time = np.asarray(run.time, dtype=float)[: field.shape[-1]]
-        field = field[..., : time.size]
+    field = run.align_records(field)
+    time = np.asarray(run.time, dtype=float)[: field.shape[-1]]
     power = (np.abs(field) ** 2).mean(axis=1)                      # (radial, n, time)
     zonal = power[:, 0].sum(axis=0)
     total = power.sum(axis=(0, 1))

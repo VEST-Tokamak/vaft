@@ -219,17 +219,18 @@ class CgyroOutputs:
         """A raw time-history array (time on the last axis) aligned to :attr:`time`.
 
         Drops the out-of-order records :attr:`record_index` excludes and any record
-        written past the last time line; ``None`` when the array holds fewer records
-        than the kept ones need.
+        written past the last time line. A file shorter than the time record (a run
+        cut mid-step) gives the aligned *prefix*: element ``k`` of the result always
+        belongs to ``time[k]``, so pair it with ``time[: result.shape[-1]]``.
+        ``None`` only without a time record.
         """
         if self.time is None:
             return None
+        steps = data.shape[-1]
         if self.record_index is None:
-            return data[..., : self.time.size] if data.shape[-1] >= self.time.size else None
+            return data[..., : min(steps, self.time.size)]
         index = np.asarray(self.record_index, dtype=int)
-        if data.shape[-1] <= index.max():
-            return None
-        return data[..., index]
+        return data[..., index[index < steps]]
 
     def missing(self) -> tuple[str, ...]:
         return tuple(
@@ -509,9 +510,8 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
     if freq is not None and freq.size >= 2 * n_n:
         steps = freq.size // (2 * n_n)
         cube = freq[: 2 * n_n * steps].reshape((2, n_n, steps), order="F")
-        if outputs.record_index is not None:
-            aligned = outputs.align_records(cube)
-            cube = aligned if aligned is not None else cube
+        if outputs.time is not None:
+            cube = outputs.align_records(cube)
         outputs.frequency = cube[0].astype(float)
         outputs.growth_rate = cube[1].astype(float)
 
@@ -528,15 +528,21 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
     flux = _binary(directory, "ky_flux", real)
     if flux is not None:
         cube = _ky_flux(flux, grid, raw_count)
-        if cube is not None and outputs.record_index is not None:
+        if cube is not None and outputs.time is not None:
             cube = outputs.align_records(cube)
         outputs.flux = cube
     return outputs
 
 
 def _monotonic_records(time: np.ndarray) -> np.ndarray:
-    """Indices of the records whose time exceeds every earlier record's: the stray
-    out-of-order records a requeued restart can leave are dropped."""
+    """Indices of the records whose time exceeds every earlier record's.
+
+    The first record of each time is kept, deliberately. In the requeued run that
+    prompted this (#1484), a second writer interleaved a few stale records (t going
+    back by ~4 a/c_s for one step at a time) into an otherwise continuous sequence;
+    keeping the first keeps that sequence whole, whereas "last wins" would splice
+    the two. CGYRO's own restart rewinds its files, so a clean restart leaves no
+    back-steps at all."""
     keep, last = [], -np.inf
     for i, value in enumerate(np.asarray(time, dtype=float)):
         if value > last:
@@ -557,14 +563,18 @@ def _ky_flux(data: np.ndarray, grid: Mapping[str, Any], n_time: Optional[int]) -
     base = grid["n_species"] * grid["n_field"] * grid["n_n"]
     moments = len(FLUX_MOMENTS)
     if n_time:
-        if data.size % (base * n_time) == 0 and data.size // (base * n_time) >= moments:
+        if data.size % (base * moments) == 0 and data.size // (base * moments) == n_time + 1:
+            # one record written past the last time line (a job stopped between the
+            # flux and time writes), checked first: for n_time = 1 or 3 the size would
+            # otherwise also read as a four-moment file
+            m, steps = moments, n_time
+        elif data.size % (base * n_time) == 0 and data.size // (base * n_time) >= moments:
             m, steps = data.size // (base * n_time), n_time
         elif data.size >= base * moments and (data.size // (base * moments)) <= n_time:
             # a run cut short mid-record: whole steps only, three moments
             m, steps = moments, data.size // (base * moments)
         elif data.size % (base * moments) == 0 and data.size // (base * moments) > n_time:
-            # a record written past the last time line (a job stopped between the
-            # flux and time writes): the steps that have a time are kept
+            # several records past the last time line: the steps that have a time
             m, steps = moments, n_time
         else:
             return None

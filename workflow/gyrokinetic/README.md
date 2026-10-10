@@ -78,4 +78,4 @@ Long runs are chained allocations with `--restart`. **CGYRO counts `MAX_TIME` fr
 - the **zonal-fraction trace**;
 - the TGLF SAT0-3 reference and the locality QA on the same window.
 
-A bursty run, where turbulence and zonal flows trade energy, is not stationary on short windows. For such a run, quote the window mean ± its batch-means standard error, with blocks longer than the burst spacing. Do not quote the window standard deviation; it mostly measures the bursts.
+A bursty run, where turbulence and zonal flows trade energy, is not stationary on short windows. For such a run, quote the window mean ± its batch-means standard error, with blocks longer than the burst spacing. With `--blocks n` the standard error has only n - 1 degrees of freedom; the default 4 is a rough error bar, so quote more blocks when the run is long enough (39915 r/a 0.7: 9 blocks of 100 a/c_s). Do not quote the window standard deviation; it mostly measures the bursts.

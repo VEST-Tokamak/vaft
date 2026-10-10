@@ -230,3 +230,52 @@ def test_a_clean_run_has_no_record_index():
     # the committed linear fixture is a clean single-segment run
     run = collect_cgyro_outputs(Path(__file__).parent / "data" / "gacode" / "cgyro_linear_48224_r0.7_em")
     assert run.record_index is None
+
+
+def _requeued_run(tmp_path, *, times, flux_records, n_n=4):
+    from test_cgyro_adapter import write_run
+
+    directory = write_run(tmp_path / "run", n_n=n_n, n_radial=8, n_theta=4,
+                          steps=len(times), flux=True, exit_message="Normal")
+    (directory / "out.cgyro.time").write_text(
+        "\n".join(f"{x:.6e} 1e-3 1e-3 0.0" for x in times))
+    flux = np.zeros((3, 3, 1, n_n, len(flux_records)), dtype=np.float32)
+    flux[:, 1] = np.asarray(flux_records, dtype=np.float32)
+    flux.flatten(order="F").tofile(directory / "bin.cgyro.ky_flux")
+    return directory
+
+
+def test_a_short_file_after_a_requeue_gives_the_aligned_prefix_not_a_shifted_one(tmp_path):
+    directory = _requeued_run(tmp_path, times=[1, 2, 3, 4, 2.5, 5, 3.5, 6],
+                              flux_records=[10, 20, 30, 40, -1, 50, -1])   # cut mid-step
+    run = collect_cgyro_outputs(directory)
+    assert run.flux[0, 1, 0, 0].tolist() == [10, 20, 30, 40, 50]            # not lost, not shifted
+    raw = np.arange(7.0)[None, :]                                          # a 7-record kxky file
+    assert run.align_records(raw)[0].tolist() == [0, 1, 2, 3, 5]
+
+
+def test_frequency_is_aligned_even_without_stray_records():
+    from types import SimpleNamespace
+    from vaft.code.gacode.cgyro.outputs import CgyroOutputs
+
+    run = CgyroOutputs(directory=".", time=np.array([1.0, 2.0, 3.0]))
+    longer = np.arange(4.0)[None, :]                                       # a trailing record
+    assert run.align_records(longer)[0].tolist() == [0, 1, 2]
+
+
+@pytest.mark.parametrize("n_time", [1, 3])
+def test_a_trailing_flux_record_is_not_read_as_a_fourth_moment(tmp_path, n_time):
+    times = list(range(1, n_time + 1))
+    directory = _requeued_run(tmp_path, times=times, flux_records=list(range(10, 10 * (n_time + 2), 10)))
+    run = collect_cgyro_outputs(directory)
+    assert run.flux.shape[1] == 3 and run.flux.shape[-1] == n_time
+    assert run.flux[0, 1, 0, 0].tolist() == [10.0 * (k + 1) for k in range(n_time)]
+
+
+def test_batch_means_tile_the_window_exactly():
+    module = _build_nonlinear_module()
+    t = np.linspace(0.0, 10.0, 11)                                         # samples on the edges
+    y = t.copy()
+    out = module.batch_means(t, y, 5)
+    assert out["block_means"] == pytest.approx([1.0, 3.0, 5.0, 7.0, 9.0])
+    assert out["mean"] == pytest.approx(5.0)
