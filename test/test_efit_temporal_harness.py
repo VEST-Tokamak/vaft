@@ -59,6 +59,20 @@ def test_log_blocks_are_paired_with_kfiles_by_printed_time_not_position():
     assert by_key["00320"]["iterations_n"] == 3 and by_key["00320"]["bound_error"]
 
 
+def test_the_printed_millisecond_rule_has_one_definition():
+    """PR #1920 review F5: the scripts use the library's rule, not a private copy."""
+    from vaft.code.efit.iteration_history import printed_ms
+
+    assert printed_ms(0.306999) == 307  # >= 0.999 ms remainder rounds up
+    assert printed_ms(0.30699) == 306
+    assert printed_ms(0.3205) == 320
+    assert STUDY.printed_ms is printed_ms
+    assert "def _printed_ms" not in SCRIPT.read_text(encoding="utf-8")
+    assert STUDY.blocks_by_kfile(["00306_999"], [{"time_ms": 307, "iterations_n": 1}]) == {
+        "00306_999": {"time_ms": 307, "iterations_n": 1}
+    }
+
+
 def test_two_sub_millisecond_slices_of_one_millisecond_take_their_own_blocks():
     log = """
  r=  0 t=   320 it=  1 chi2=7.32E+02 zm= 9.81E-04 err=3.867E+00 dz=-2.799E-03 chigam= 0.00E+00

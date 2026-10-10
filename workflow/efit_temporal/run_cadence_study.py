@@ -54,6 +54,7 @@ import vaft
 import vaft.omas
 from vaft.database.composition import compose_stage_products
 from vaft.code.efit import generate_constraints_ods, parse_iteration_history
+from vaft.code.efit.iteration_history import printed_ms
 from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
 from vaft.code.efit.slice_name import decode_time_suffix, split_slice_file_name
 from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, resolved_efit_configuration, run_efit
@@ -121,23 +122,14 @@ def _key_us(name: str) -> int:
     return split_slice_file_name(name)[1]
 
 
-def _printed_ms(microseconds: int) -> int:
-    """The millisecond EFIT prints for a slice at ``microseconds``.
-
-    ``data_input.F90`` truncates the time (``itime=time``), except that a
-    remainder of 0.99 ms or more rounds up -- the same rule
-    :mod:`vaft.code.efit.iteration_history` applies to pair m-files.
-    """
-    return int(math.floor(microseconds / 1000.0 + 1.0e-3))
-
-
 def blocks_by_kfile(kfile_keys: list[str], progress: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Pair the log blocks with the k-files by the millisecond EFIT printed.
 
     A slice that printed nothing (below the current cut, say) has no block,
     so pairing by position would hand its successor's block to it and leave
     the last k-file with none. Each k-file instead takes the first unclaimed
-    block of its printed millisecond, in log order, which also keeps two
+    block of its printed millisecond (:func:`vaft.code.efit.iteration_history.printed_ms`,
+    EFIT's floor-with-0.999-ms-round-up), in log order, which also keeps two
     sub-millisecond slices of one millisecond on their own blocks. A k-file
     whose millisecond printed nothing gets no block; a block no k-file claims
     is left out (``len(progress) - len(result)`` of them).
@@ -145,7 +137,7 @@ def blocks_by_kfile(kfile_keys: list[str], progress: list[dict[str, Any]]) -> di
     unclaimed = list(progress)
     paired: dict[str, dict[str, Any]] = {}
     for key in kfile_keys:
-        printed = _printed_ms(decode_time_suffix(key))
+        printed = printed_ms(decode_time_suffix(key) / 1.0e6)
         for index, block in enumerate(unclaimed):
             if block.get("time_ms") == printed:
                 paired[key] = unclaimed.pop(index)
