@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>51989f6</code>. What is described
+  <code>6f5a45f</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -854,39 +854,64 @@ for a BatchConv2 re-export (<code class="language-plaintext highlighter-rouge">T
 
 <h3 id="frame-selection-convention">Frame selection convention</h3>
 
-<p>A camera product holds only the frames from the first to the last <strong>non-dark</strong> frame of the recording, plus
-two frames of padding on each side. Dark frames inside that range stay. The kept frames are renumbered from 0,
+<p>A camera product holds only the frames from the first to the last <strong>plasma-lit</strong> frame of the recording, plus
+two frames of padding on each side. Unlit frames inside that range stay. The kept frames are renumbered from 0,
 and each one keeps the time of its original frame index.</p>
 
+<p>The default rule, <code class="language-plaintext highlighter-rouge">background-relative-v3</code>, compares each frame with the shot’s own view before the plasma:</p>
+
 <ul>
-  <li><strong>Near-black frame:</strong> more than 98 % of its pixels are below <code class="language-plaintext highlighter-rouge">dark_level + 20</code> DN.</li>
-  <li><strong><code class="language-plaintext highlighter-rouge">dark_level</code>:</strong> the shot’s own sensor floor, the lower quartile over frames of each frame’s 1st-percentile
-pixel, capped at 60 DN so that a recording lit almost throughout is not rejected as dark.</li>
+  <li><strong>Reference:</strong> the per-pixel median of the first 10 frames. The camera is triggered before breakdown, so these
+frames show the vessel without plasma, including room light and the sensor floor.</li>
+  <li><strong>Plasma-lit frame:</strong> its mean rises above the reference by more than <code class="language-plaintext highlighter-rouge">max(3, 6·σ_ref)</code> DN, or its
+99th-percentile pixel rises by more than 15 DN. <code class="language-plaintext highlighter-rouge">σ_ref</code> is the spread of the reference frames’ own mean rise.</li>
+  <li><strong>Plasma end:</strong> when the shot’s diagnostics product gives an I_p window (<code class="language-plaintext highlighter-rouge">|I_p| &gt; 5 kA</code>), the last lit frame is
+capped at the first frame at or after the end of I_p. A lit vessel fades slowly after the plasma ends, and
+without the cap that afterglow is kept. The start is never capped, so the breakdown flash before the I_p onset
+stays.</li>
 </ul>
 
-<p>The level is relative because the floor depends on the export. Original exports sit near 25 DN. Re-exports
-use another gain and sit near 48 DN, so the earlier fixed 35 DN marked no frame of a re-export as dark and kept
-whole recordings. The +20 DN margin was calibrated against the plasma-current window on 55 plasma shots of both
-exports.</p>
+<p>A dark-level rule cannot separate an empty but lit vessel from plasma light. Shot 48914 has a ~58 DN floor under
+room light and kept all 101 frames under v2; v3 keeps frames 26-61. A frozen recording (48913: 101 copies of one
+saturated image) has no lit frame under v3 either.</p>
 
-<p>A shot with no non-dark frame raises <code class="language-plaintext highlighter-rouge">CameraFrameSelectionError</code> and gets no product. The rule uses images
-only. Plasma current is a cross-check in the audit, not an input.</p>
+<p>When the reference cannot stand for “no plasma”, the selection falls back to <code class="language-plaintext highlighter-rouge">relative-dark-v2</code>, and the
+comment names that rule. This happens when:</p>
+
+<ul>
+  <li>fewer than 11 frames exist;</li>
+  <li>any of the first 10 frames is missing (most original exports were already trimmed to the plasma by the
+operators);</li>
+  <li><code class="language-plaintext highlighter-rouge">σ_ref &gt; 2</code> DN;</li>
+  <li>a later frame’s mean falls below the reference by more than the threshold, meaning the camera started during
+the plasma.</li>
+</ul>
+
+<p>Under <code class="language-plaintext highlighter-rouge">relative-dark-v2</code>, a frame is near-black when more than 98 % of its pixels are below <code class="language-plaintext highlighter-rouge">dark_level + 20</code> DN.
+<code class="language-plaintext highlighter-rouge">dark_level</code> is the lower quartile over frames of each frame’s 1st-percentile pixel, capped at 60 DN.
+Passing <code class="language-plaintext highlighter-rouge">threshold=</code> restores the donor’s fixed 35 DN (<code class="language-plaintext highlighter-rouge">fixed-v1</code>).</p>
+
+<p>A shot with no lit frame raises <code class="language-plaintext highlighter-rouge">CameraFrameSelectionError</code> and gets no product.</p>
 
 <p>Every product records which rule built it, so it can be checked without loading frames:</p>
 
 <ul>
-  <li><code class="language-plaintext highlighter-rouge">camera_visible.ids_properties.comment</code> holds <code class="language-plaintext highlighter-rouge">rule=relative-dark-v2</code>, <code class="language-plaintext highlighter-rouge">dark_level</code>, <code class="language-plaintext highlighter-rouge">threshold</code> and
-<code class="language-plaintext highlighter-rouge">retained original frame indices [a, b] out of N</code>. Products built before the rule had a name have no <code class="language-plaintext highlighter-rouge">rule=</code>
-and read as <code class="language-plaintext highlighter-rouge">fixed-v1</code>.</li>
-  <li>The stage manifest holds the same fields under <code class="language-plaintext highlighter-rouge">provenance.frame_selection</code>.</li>
+  <li><code class="language-plaintext highlighter-rouge">camera_visible.ids_properties.comment</code> holds <code class="language-plaintext highlighter-rouge">rule=</code>, <code class="language-plaintext highlighter-rouge">threshold</code>, <code class="language-plaintext highlighter-rouge">percentage</code>, <code class="language-plaintext highlighter-rouge">buffer_frames</code>, and
+<code class="language-plaintext highlighter-rouge">plasma_end_frame</code> (<code class="language-plaintext highlighter-rouge">none</code> when nothing was capped). It also holds <code class="language-plaintext highlighter-rouge">dark_level</code> (v2), or <code class="language-plaintext highlighter-rouge">peak_threshold</code>,
+<code class="language-plaintext highlighter-rouge">reference_frames</code> and <code class="language-plaintext highlighter-rouge">reference_sigma</code> (v3), and <code class="language-plaintext highlighter-rouge">retained original frame indices [a, b] out of N</code>.
+Products built before the rule had a name have no <code class="language-plaintext highlighter-rouge">rule=</code> and read as <code class="language-plaintext highlighter-rouge">fixed-v1</code>.</li>
+  <li>The stage manifest holds the same fields under <code class="language-plaintext highlighter-rouge">provenance.frame_selection</code>. The I_p window the ingest used is
+under <code class="language-plaintext highlighter-rouge">provenance.plasma_current_window_s</code>.</li>
 </ul>
 
 <!-- docs-snippet: skip needs-raw-source (reads raw camera frames) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.camera_visible</span> <span class="kn">import</span> <span class="n">parse_frame_selection</span><span class="p">,</span> <span class="n">select_valid_frames</span>
 
 <span class="nf">parse_frame_selection</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">camera_visible.ids_properties.comment</span><span class="sh">"</span><span class="p">])</span>
-<span class="c1"># {'rule': 'relative-dark-v2', 'first_retained': 33, 'last_retained': 57, 'total_frames': 101, ...}
-</span><span class="nf">select_valid_frames</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mi">35</span><span class="p">)</span>   <span class="c1"># the old fixed rule, for comparison
+<span class="c1"># {'rule': 'background-relative-v3', 'first_retained': 31, 'last_retained': 57, 'total_frames': 101, ...}
+</span><span class="nf">select_valid_frames</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">plasma_end_frame</span><span class="o">=</span><span class="mi">55</span><span class="p">)</span>      <span class="c1"># v3, afterglow capped at I_p end
+</span><span class="nf">select_valid_frames</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">rule</span><span class="o">=</span><span class="sh">"</span><span class="s">relative-dark-v2</span><span class="sh">"</span><span class="p">)</span>  <span class="c1"># the dark-level rule, for comparison
+</span><span class="nf">select_valid_frames</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mi">35</span><span class="p">)</span>             <span class="c1"># the old fixed rule
 </span></code></pre></div></div>
 
 <p><code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_2_corrective_data_update/audit_camera_visible_frames.py</code> checks each FileDB
@@ -1476,7 +1501,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 16:42:19 +0000"
+        "time": "2026-10-10 17:41:17 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
