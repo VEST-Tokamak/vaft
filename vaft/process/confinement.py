@@ -187,8 +187,10 @@ class ResistiveLoopVoltage:
     ``v_ind = v_ind_current + v_ind_profile`` (#1905): the current-evolution
     term $L_i\\,dI_p/dt$ and the profile-evolution term
     $\\tfrac14\\mu_0 R_0 I_p\\,dl_{i,3}/dt$ [V]. ``li3_rate_fallback`` is
-    True where no $dl_{i,3}/dt$ entered, i.e. the inductance was held fixed
-    (a numerical fallback, not evidence of a stationary current profile).
+    True where the inductance was held fixed: no ``dli3_dt`` given, or a NaN
+    one zeroed by ``hold_li3_where_missing`` (a numerical fallback, not
+    evidence of a stationary current profile). A NaN rate left in place is
+    not a fallback: it stays False and the voltages there are NaN.
     """
 
     v_ind: np.ndarray
@@ -240,8 +242,8 @@ def resistive_loop_voltage(
         resistance seen by the total current (NaN where $I_p = 0$) [Ohm];
         ``l_int``, the internal inductance $\\mu_0 R_0 l_{i,3}/2$ [H];
         ``v_ind_current`` and ``v_ind_profile``, the two terms of ``v_ind``
-        [V]; ``li3_rate_fallback``, True where the profile term was not
-        evaluated [-] [any].
+        [V]; ``li3_rate_fallback``, True where the inductance was held
+        fixed (see :class:`ResistiveLoopVoltage`) [-] [any].
 
     Raises
     ------
@@ -587,6 +589,10 @@ def ohmic_confinement_series(
     wv = _series("w", w, n)
     if not float(rate_window_s) > 0:
         raise ValueError(f"rate_window_s must be positive, got {rate_window_s!r}")
+    if int(rate_polyorder) < 1:  # checked here too: a single sample never reaches the derivative
+        raise ValueError(f"rate_polyorder must be at least 1, got {rate_polyorder!r}")
+    if np.any(np.diff(t) <= 0):
+        raise ValueError("time must be strictly increasing")
     has_rate = n >= 2
 
     if has_rate:

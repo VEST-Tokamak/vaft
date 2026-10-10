@@ -420,6 +420,11 @@ def test_ohmic_chain_flags_reversed_orientation_and_non_positive_power():
     with pytest.raises(ValueError):
         ohmic_confinement_series(t, np.full(n, 8e4), np.zeros(n), np.ones(n), np.ones(n), 0.0, np.ones(n),
                                  rate_window_s=3e-3)
+    with pytest.raises(ValueError):  # validated even where no rate is taken
+        ohmic_confinement_series(t[:1], [8e4], [0.0], [1.0], [1.0], 0.4, [1.0], rate_window_s=3e-3, rate_polyorder=0)
+    with pytest.raises(ValueError):
+        ohmic_confinement_series(t[::-1], np.full(n, 8e4), np.zeros(n), np.ones(n), np.ones(n), 0.4, np.ones(n),
+                                 rate_window_s=3e-3)
 
 
 def test_noisy_irregular_energy_rate_is_recovered_by_the_local_fit():
