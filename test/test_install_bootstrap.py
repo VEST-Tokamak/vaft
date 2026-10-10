@@ -3399,3 +3399,69 @@ def test_gpec_posix_build_failures_name_the_serial_retry():
     for failure in ("build failed", "was not produced"):
         line = next(line for line in text.splitlines() if failure in line and "die" in line)
         assert "--jobs 1" in line, f"the '{failure}' message must name --jobs 1"
+
+
+def _load_plasma_state_comparator() -> ModuleType:
+    path = NUBEAM_DIR / "compare-plasma-state.py"
+    spec = importlib.util.spec_from_file_location("compare_plasma_state", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_plasma_state_comparison_excludes_fill_values():
+    """Cold review install F28: `np.asarray` dropped the mask and summed the fill.
+
+    netCDF hands back masked arrays; the 9.97e36 fill then dominated both sums
+    and a 3x disagreement read as 0.00%.
+    """
+    numpy = pytest.importorskip("numpy")
+    comparator = _load_plasma_state_comparator()
+    fill = 9.9692099683868690e36
+    reference = numpy.ma.masked_values([1.0, 2.0, fill], fill)
+    candidate = numpy.ma.masked_values([3.0, 6.0, fill], fill)
+    rel_integral, rel_l2, note = comparator.metrics(reference, candidate)
+    assert rel_integral == pytest.approx(2.0) and rel_l2 == pytest.approx(2.0) and note == ""
+    # The same values with the mask already lost are still not summed.
+    rel_integral, _, _ = comparator.metrics(numpy.array([1.0, 2.0, fill]), numpy.array([3.0, 6.0, fill]))
+    assert rel_integral == pytest.approx(2.0)
+    assert comparator.metrics(numpy.ma.masked_all(3), numpy.ma.masked_all(3))[2] == "no finite values"
+
+
+def test_plasma_state_comparison_has_a_verdict(tmp_path):
+    """Cold review install F28: the comparator printed and exited 0 whatever it saw.
+
+    run-local-validation.sh piped it through tee and never looked at a status,
+    so the step the harness exists for could not fail. The comparator now
+    exits 1 when the headline median exceeds --tolerance, and the harness
+    turns that into a die.
+    """
+    netCDF4 = pytest.importorskip("netCDF4")
+    comparator = _load_plasma_state_comparator()
+
+    def state(path: Path, scale: float) -> None:
+        with netCDF4.Dataset(str(path), "w") as dataset:
+            dataset.createDimension("rho", 4)
+            for name, _ in comparator.HEADLINE:
+                variable = dataset.createVariable(name, "f8", ("rho",))
+                variable[:] = scale * numpy_arange
+    numpy_arange = pytest.importorskip("numpy").arange(1.0, 5.0)
+    state(tmp_path / "reference.cdf", 1.0)
+    state(tmp_path / "candidate.cdf", 3.0)
+    state(tmp_path / "close.cdf", 1.05)
+
+    def run(candidate: str, *extra: str) -> int:
+        argv = [sys.argv[0], str(tmp_path / "reference.cdf"), str(tmp_path / candidate), *extra]
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(sys, "argv", argv)
+            return comparator.main()
+
+    assert run("candidate.cdf") == 1
+    assert run("close.cdf") == 0
+    assert run("close.cdf", "--tolerance", "0.01") == 1
+
+    harness = _executable_source(NUBEAM_DIR / "run-local-validation.sh")
+    assert re.search(r'tee "\$WORK_DIR/comparison.txt" \|\|\s*die', harness), (
+        "the harness must turn the comparator's exit status into a failure"
+    )

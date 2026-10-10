@@ -2,6 +2,7 @@
 """Compare two NUBEAM Plasma State files, profile by profile.
 
 Usage: compare-plasma-state.py REFERENCE.cdf CANDIDATE.cdf [--changes state_changes.cdf]
+                               [--tolerance FRACTION]
 
 Exact agreement is neither expected nor the goal. NUBEAM is a Monte Carlo code:
 the distribution function is built from a finite particle sample, so every run
@@ -22,6 +23,13 @@ Two metrics per profile:
                 Point-by-point disagreement. Stays stubbornly large under low
                 particle counts even when the integral matches, because it
                 sees the per-bin scatter directly.
+
+Verdict: the exit status is 1 when the median rel_integral over the headline
+profiles exceeds --tolerance (default 0.25). The median, not the worst row:
+single profiles are noise-dominated at these particle counts (VALIDATION.md
+records tqbjxb at 84% against a 75% seed-to-seed floor), while a build computing
+the wrong physics shifts most of them at once. The recorded references sit at a
+2-4% median. Masked values -- netCDF fill, ~1e37 -- are excluded, never summed.
 """
 import argparse
 import sys
@@ -48,9 +56,22 @@ HEADLINE = [
 ]
 
 
+#: Anything this large in a Plasma State is a fill value, not a quantity. netCDF
+#: masks them on read; a plain float array of the same file would not, and the
+#: default fill (9.97e36) then dominates every sum it enters.
+FILL_MAGNITUDE = 1e30
+
+
+def _values(x):
+    """A float array with masked, non-finite and fill entries turned into NaN."""
+    x = np.ma.masked_invalid(np.ma.asarray(x, dtype=float)).ravel()
+    x = np.ma.masked_where(np.abs(np.ma.filled(x, 0.0)) > FILL_MAGNITUDE, x)
+    return np.ma.filled(x, np.nan)
+
+
 def metrics(a, b):
-    a = np.asarray(a, dtype=float).ravel()
-    b = np.asarray(b, dtype=float).ravel()
+    a = _values(a)
+    b = _values(b)
     if a.shape != b.shape:
         return None, None, "shape %s vs %s" % (a.shape, b.shape)
     finite = np.isfinite(a) & np.isfinite(b)
@@ -67,6 +88,16 @@ def metrics(a, b):
     return rel_integral, rel_l2, ""
 
 
+def headline_median(rows):
+    """Median rel_integral over the headline profiles present, or None."""
+    names = {name for name, _ in HEADLINE}
+    values = [
+        rel_integral for name, rel_integral, _, _ in rows
+        if name in names and rel_integral is not None and np.isfinite(rel_integral)
+    ]
+    return float(np.median(values)) if values else None
+
+
 def fmt(x):
     if x is None:
         return "     -"
@@ -81,6 +112,9 @@ def main():
     ap.add_argument("candidate")
     ap.add_argument("--changes", help="state_changes.cdf; restricts the full "
                                       "table to variables NUBEAM actually wrote")
+    ap.add_argument("--tolerance", type=float, default=0.25,
+                    help="exit 1 when the median integral disagreement over the "
+                         "headline profiles exceeds this fraction (default 0.25)")
     args = ap.parse_args()
 
     ref = Dataset(args.reference)
@@ -158,6 +192,19 @@ def main():
               % (len(finite), 100.0 * float(np.median(finite)),
                  100.0 * max(finite)))
 
+    median = headline_median(rows)
+    if median is None:
+        print("no headline profile could be compared", file=sys.stderr)
+        return 1
+    if median > args.tolerance:
+        print("FAIL: headline median integral disagreement %.2f%% exceeds the "
+              "tolerance of %.2f%%" % (100.0 * median, 100.0 * args.tolerance),
+              file=sys.stderr)
+        return 1
+    print("headline median integral disagreement %.2f%% is within %.2f%%"
+          % (100.0 * median, 100.0 * args.tolerance))
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
