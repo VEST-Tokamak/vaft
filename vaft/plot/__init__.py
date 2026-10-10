@@ -356,6 +356,7 @@ from .renderers.panels import (
     current_overview_reconstruction,
     diagnostics_overview,
     kinetic_overview_profiles,
+    kinetic_overview_state,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,

@@ -111,6 +111,28 @@ def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[s
     return labels, title
 
 
+#: Smallest legend type a ``fontsize_scale`` placement resolves to, in points.
+LEGEND_MIN_PT = 7.0
+
+
+def resolve_legend_placement(placement: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """A ``legend_placement`` mapping as :func:`apply_legend` keywords.
+
+    ``fontsize_scale`` becomes a size in points -- that fraction of the base
+    type size in force (the presentation format's, when a renderer draws
+    inside one), never below :data:`LEGEND_MIN_PT`; every other key is passed
+    on as given.  ``None`` or empty gives ``None``: the policy's defaults.
+    One implementation for every renderer that takes ``legend_placement=``.
+    """
+    if not placement:
+        return None
+    resolved = dict(placement)
+    scale = resolved.pop("fontsize_scale", None)
+    if scale is not None:
+        resolved["fontsize"] = max(LEGEND_MIN_PT, float(scale) * float(plt.rcParams["font.size"]))
+    return resolved
+
+
 def apply_legend(
     axes: Any,
     *,
