@@ -18,6 +18,12 @@ __all__ = ["__version__"]
 #   after it from shear, q_min, low-shear regions and q95; the context
 #   records the slice time; one interior maximum is single_maximum, not
 #   multi_extremum (#1838)
+# - vaft.process.ntv_coil_response: solver-free test and use of a Hermitian
+#   quadratic coil-response model of the signed NTV torque, T = c^H Q c --
+#   the K^2 probe design and Q reconstruction, scaling/sign/common-phase and
+#   held-out qualification (qualified/rejected/insufficient), an
+#   inhomogeneous fit, two-group analytic, budgeted and fixed-amplitude
+#   extrema (#1887)
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the

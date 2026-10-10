@@ -119,6 +119,10 @@ DEFINITIONAL = frozenset({
     "low_shear_regions",
     # mhd_stability (#1852): reading the atlas tables -- bookkeeping.
     "load_stability_atlas",
+    # ntv_coil_response (#1887): phasors and the probe set -- pure bookkeeping.
+    "coil_phasors",
+    "quadratic_probe_design",
+    "quadratic_torque",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
@@ -132,6 +136,15 @@ PIPELINE = frozenset({
     "ordering_margins",
     # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
     "mode_frequency_tracks",
+    # ntv_coil_response (#1887): probes -> Q; expected -> tolerance -> per-kind check;
+    # drop failed -> compare -> status; generalized eigen -> scale; grid -> polish
+    "hermitian_torque_matrix",
+    "quadratic_invariance_checks",
+    "qualify_torque_matrix",
+    "fit_inhomogeneous_torque",
+    "two_group_phase_extrema",
+    "budgeted_torque_extrema",
+    "fixed_amplitude_phase_extrema",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -376,6 +389,18 @@ CONVENTION_SENSITIVE = frozenset({
     # #460: |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
     # a velocity divided by R_out of the surface (never R_axis)
     "mode_frequency_tracks",
+    # #1887: c_k = A_k exp(+i phi_k) and T = c^H Q c fix the sign of every Im Q_ij;
+    # torques stay signed
+    "coil_phasors",
+    "quadratic_probe_design",
+    "hermitian_torque_matrix",
+    "quadratic_torque",
+    "quadratic_invariance_checks",
+    "qualify_torque_matrix",
+    "fit_inhomogeneous_torque",
+    "two_group_phase_extrema",
+    "budgeted_torque_extrema",
+    "fixed_amplitude_phase_extrema",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",
