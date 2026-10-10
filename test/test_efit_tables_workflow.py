@@ -109,6 +109,19 @@ def test_log_parser_keeps_a_slice_that_collapsed_before_its_first_step(ab_efit_t
     assert blocks[1]["chi2_log"] is None and blocks[2]["chi2_log"] == 90.0
 
 
+def test_ab_arm_pairs_log_blocks_with_kfiles_by_printed_time(ab_efit_table):
+    """Cold review 0.7.0 efit-workflows F5 (#1888): the A/B arm has the same pairing."""
+    text = (
+        " r=  0 t=   318 it=  1 chi2=7.09E+02 zm= 1.19E-07 err=3.905E+00 dz= 1.192E-07 chigam= 0.00E+00\n"
+        " r=  0 t=   320 it=  1 chi2=7.32E+02 zm= 9.81E-04 err=3.867E+00 dz=-2.799E-03 chigam= 0.00E+00\n"
+        " r=  0 t=   320 it=  2 chi2=3.00E+01 zm= 9.81E-04 err=1.000E+00 dz=-2.799E-03 chigam= 0.00E+00\n"
+    )
+    progress = ab_efit_table.iterations_from_log(text)
+    by_key = ab_efit_table.blocks_by_kfile(["00318", "00319", "00320"], progress)
+    assert "00319" not in by_key
+    assert by_key["00320"]["iterations_n"] == 2
+
+
 def test_reference_rows_read_the_stored_39915_reference(ab_efit_table):
     rows = ab_efit_table.reference_rows(Path(data_path("efit")), 39915)
     assert "00319" in rows

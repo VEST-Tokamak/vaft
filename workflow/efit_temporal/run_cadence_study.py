@@ -40,6 +40,7 @@ import argparse
 import copy
 import importlib.util
 import json
+import math
 from pathlib import Path
 import re
 import shutil
@@ -54,7 +55,7 @@ import vaft.omas
 from vaft.database.composition import compose_stage_products
 from vaft.code.efit import generate_constraints_ods, parse_iteration_history
 from vaft.code.efit.config import EFITScientificConfig, routine_scientific_config
-from vaft.code.efit.slice_name import split_slice_file_name
+from vaft.code.efit.slice_name import decode_time_suffix, split_slice_file_name
 from vaft.code.efit.magnetic import EFITConfig, prepare_efit_inputs, resolved_efit_configuration, run_efit
 from vaft.data import read_aeqdsk
 from vaft.data.meqdsk import read_meqdsk
@@ -99,8 +100,8 @@ def iterations_from_log(text: str) -> list[dict[str, Any]]:
     error charged to the slice before it.
 
     A slice that printed neither a step nor an error (one below the current
-    cut, say) has no block at all, so pairing these blocks with the k-files
-    by position still assumes every k-file printed something.
+    cut, say) has no block at all, so the blocks are paired with the k-files
+    by printed millisecond (:func:`blocks_by_kfile`), never by position.
     """
     return [
         {
@@ -108,6 +109,8 @@ def iterations_from_log(text: str) -> list[dict[str, Any]]:
             "chi2_log": float(item.chi2[-1]) if item.iterations else None,
             "gs_error_log": float(item.error[-1]) if item.iterations else None,
             "bound_error": any(error["routine"] == "bound" for error in item.solver_errors),
+            # The millisecond EFIT printed, which blocks_by_kfile pairs on.
+            "time_ms": item.time_ms,
         }
         for item in parse_iteration_history(text).slices
     ]
@@ -116,6 +119,38 @@ def iterations_from_log(text: str) -> list[dict[str, Any]]:
 def _key_us(name: str) -> int:
     """``k041524.00320_400`` -> 320400: sort k-files by time, not lexically."""
     return split_slice_file_name(name)[1]
+
+
+def _printed_ms(microseconds: int) -> int:
+    """The millisecond EFIT prints for a slice at ``microseconds``.
+
+    ``data_input.F90`` truncates the time (``itime=time``), except that a
+    remainder of 0.99 ms or more rounds up -- the same rule
+    :mod:`vaft.code.efit.iteration_history` applies to pair m-files.
+    """
+    return int(math.floor(microseconds / 1000.0 + 1.0e-3))
+
+
+def blocks_by_kfile(kfile_keys: list[str], progress: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Pair the log blocks with the k-files by the millisecond EFIT printed.
+
+    A slice that printed nothing (below the current cut, say) has no block,
+    so pairing by position would hand its successor's block to it and leave
+    the last k-file with none. Each k-file instead takes the first unclaimed
+    block of its printed millisecond, in log order, which also keeps two
+    sub-millisecond slices of one millisecond on their own blocks. A k-file
+    whose millisecond printed nothing gets no block; a block no k-file claims
+    is left out (``len(progress) - len(result)`` of them).
+    """
+    unclaimed = list(progress)
+    paired: dict[str, dict[str, Any]] = {}
+    for key in kfile_keys:
+        printed = _printed_ms(decode_time_suffix(key))
+        for index, block in enumerate(unclaimed):
+            if block.get("time_ms") == printed:
+                paired[key] = unclaimed.pop(index)
+                break
+    return paired
 
 
 def per_slice_metrics(workdir: Path, shot: int) -> list[dict[str, Any]]:
@@ -198,10 +233,11 @@ def run_case(
     log_text = log_path.read_text(errors="replace") if log_path.exists() else result.stdout
     progress = iterations_from_log(log_text)
     bound_errors = log_text.count("ERROR in bound")
-    # k-files are processed in stdin order == ascending time; a-files exist
-    # only for slices EFIT wrote, so align the log blocks on the k-file order.
+    # k-files are processed in stdin order == ascending time, but a slice
+    # that printed nothing has no block, so the blocks are matched on the
+    # millisecond EFIT printed rather than on position (cold review F5).
     kfile_keys = [path.name.split(".", 1)[1] for path in sorted(inputs.kfiles, key=lambda p: _key_us(p.name))]
-    by_key = {key: block for key, block in zip(kfile_keys, progress)}
+    by_key = blocks_by_kfile(kfile_keys, progress)
     # The constraint current per slice, so a slice EFIT never wrote can be
     # explained (below CUTIP) rather than merely counted as failed.
     constraints_ip = {}
@@ -236,6 +272,7 @@ def run_case(
         "afiles": len(result.afiles),
         "mfiles": len(result.mfiles),
         "log_slices": len(progress),
+        "log_slices_unpaired": len(progress) - len(by_key),
         "bound_errors": bound_errors,
         "converged": len(converged),
         "failed": int(times.size) - len(converged),
