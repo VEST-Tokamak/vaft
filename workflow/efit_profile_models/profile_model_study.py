@@ -54,6 +54,8 @@ import warnings
 
 import numpy as np
 
+from vaft.code.efit.slice_name import whole_millisecond_tstep
+
 SCHEMA = 4
 REPOSITORY = Path(__file__).resolve().parents[2]
 SEED_STUDY = REPOSITORY / "workflow" / "efit_numerics" / "seed_basin.py"
@@ -1603,7 +1605,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--tables", default=None, help="source 129x129 table directory")
     parser.add_argument("--packaged-envelope", action="store_true", help="do not install the VEST acceptance envelope")
     parser.add_argument("--efit-home", default=None)
-    parser.add_argument("--tstep", type=float, default=0.001)
+    parser.add_argument("--tstep", type=whole_millisecond_tstep, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     parser.add_argument("--table", type=Path, default=None)
     parser.add_argument(

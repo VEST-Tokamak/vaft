@@ -55,24 +55,64 @@ CRITERIA: tuple[tuple[str, str, str, int], ...] = (
 EFIT_BUILTIN = {"aminor_min": 30.0, "rcntr_min": 90.0}
 
 
-def observed(baseline_dir: Path) -> dict[str, list[float]]:
-    """Every a-file scalar the baseline produced, by name.
+def plasma_slices(baseline_dir: Path) -> dict[int, set[int]]:
+    """``{shot: {time_ms}}`` of the baseline's plasma-phase, non-collapsed slices.
 
-    Zeros are kept and reported rather than filtered: a reconstruction that
-    collapsed writes ``aminor = 0``, and a floor that rejects it is doing its
-    job. Confusing that with a floor that rejects a real 21 cm plasma is
-    exactly the error this audit exists to prevent.
+    Read from the ``baseline.json`` the #171 baseline writes beside its
+    a-files. An a-file alone does not say whether EFIT was solving a plasma:
+    the vacuum stretch before breakdown converges with zero current, and a
+    flagged or collapsed slice still writes a file, so its scalars are not a
+    reconstruction the envelope could reject (cold review F11).
     """
+    path = Path(baseline_dir) / "baseline.json"
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"{path} is missing: the audit joins every a-file on the baseline's own "
+            "phase and collapse verdicts, so --baseline must be a #171 baseline output "
+            "directory, not a bare directory of a-files"
+        )
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    kept: dict[int, set[int]] = {}
+    for record in payload["shots"]:
+        times = {
+            int(item["time_ms"])
+            for item in record["slices"]
+            if item.get("phase") == "plasma" and not item.get("collapsed") and item.get("afile")
+        }
+        kept[int(record["shot"])] = times
+    return kept
+
+
+def observed(baseline_dir: Path) -> tuple[dict[str, list[float]], dict[str, int]]:
+    """Every a-file scalar of the baseline's plasma slices, by name, and what was left out.
+
+    Only slices ``baseline.json`` calls plasma-phase and not collapsed are
+    read (:func:`plasma_slices`); the second value counts the a-files that
+    were skipped. Zeros among the kept values are still reported rather than
+    filtered: a reconstruction that collapsed late writes ``aminor = 0``, and
+    a floor that rejects it is doing its job. Confusing that with a floor
+    that rejects a real 21 cm plasma is exactly the error this audit exists
+    to prevent.
+    """
+    from vaft.code.efit.slice_name import split_slice_file_name
     from vaft.data import read_aeqdsk
 
+    kept = plasma_slices(baseline_dir)
     values: dict[str, list[float]] = {}
-    for path in sorted(glob.glob(str(baseline_dir / "shot_*" / "a0*"))):
+    counts = {"afiles": 0, "plasma": 0, "excluded_vacuum_or_collapsed": 0}
+    for path in sorted(glob.glob(str(Path(baseline_dir) / "shot_*" / "a0*"))):
+        counts["afiles"] += 1
+        shot_text, microseconds = split_slice_file_name(path)
+        if microseconds // 1000 not in kept.get(int(shot_text), set()):
+            counts["excluded_vacuum_or_collapsed"] += 1
+            continue
+        counts["plasma"] += 1
         record = read_aeqdsk(path)
         for name, *_ in CRITERIA:
             value = record.scalars.get(name)
             if value is not None and np.isfinite(float(value)):
                 values.setdefault(name, []).append(float(value))
-    return values
+    return values, counts
 
 
 def audit(packaged: Any, proposed: Any, samples: dict[str, list[float]]) -> list[dict[str, Any]]:
@@ -188,9 +228,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     r = np.asarray(outline["r"], dtype=float)
     z = np.asarray(outline["z"], dtype=float)
 
-    samples = observed(args.baseline.expanduser())
+    samples, slice_counts = observed(args.baseline.expanduser())
     payload = {
         "schema_version": SCHEMA,
+        "slices": slice_counts,
         "audited_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "era": args.era,
         "limiter": {"r": [float(r.min()), float(r.max())], "z": [float(z.min()), float(z.max())]},

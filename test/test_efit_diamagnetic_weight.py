@@ -12,6 +12,7 @@ import math
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 REPOSITORY = Path(__file__).resolve().parents[1]
@@ -400,6 +401,86 @@ def test_a_ladder_whose_survivors_miss_the_thomson_window_says_so(thomson):
     assert summary_with["compared"] == 1
 
 
+def test_a_flagged_gfile_on_a_higher_rung_does_not_move_the_ladder(
+    thomson, monkeypatch, tmp_path
+):
+    """Cold review 0.7.0 efit-workflows F3 (#1888).
+
+    EFIT writes a g-file for a slice ``chkerr`` flagged, so a directory
+    listing cannot tell it from a reconstruction. Given the runs' own
+    verdicts the ladder keeps the flagged slice out of every ratio, compares
+    the rungs on the slices every rung accepted, and takes its headline from
+    the rung the caller names rather than from whichever came first.
+    """
+    monkeypatch.setattr(thomson, "thomson_diagnostics", lambda shot: object())
+    ratios = {"w1": {317: 0.0}, "w2": {317: 0.0, 319: math.log(50.0)}}
+
+    def fake_check_gfile(path, diagnostics):
+        time_ms = int(path.name.split(".")[1])
+        return {
+            "path": path.name,
+            "status": "compared",
+            "log_ratio": ratios[path.parent.name][time_ms],
+        }
+
+    monkeypatch.setattr(thomson, "check_gfile", fake_check_gfile)
+    for rung, times in ratios.items():
+        (tmp_path / rung).mkdir()
+        for time_ms in times:
+            (tmp_path / rung / f"g039915.{time_ms:05d}").write_text("x", encoding="utf-8")
+    workdirs = {"w1": tmp_path / "w1", "w2": tmp_path / "w2"}
+    outcomes = {"w1": {317: "accepted"}, "w2": {317: "accepted", 319: "flagged"}}
+
+    out = thomson.compare_ladder(workdirs, shot=39915, outcomes=outcomes, headline="w2")
+
+    w2 = out["rungs"]["w2"]["summary"]
+    assert w2["flagged_slices"] == 1
+    assert w2["compared"] == 1 and w2["decisive_slices"] == 0
+    assert w2["median_sum_ratio"] == pytest.approx(1.0)
+    assert out["common_slices_ms"] == [317]
+    assert out["rungs"]["w2"]["common_summary"]["compared"] == 1
+    assert out["closest_to_thomson_basis"] == "common"
+    assert out["headline_rung"] == "w2"
+    assert "within what measurement scatter could explain" in out["verdict"]
+    assert "this is not a data problem" not in out["verdict"]
+
+
+def test_rungs_with_no_common_accepted_slice_are_not_ranked(thomson, monkeypatch, tmp_path):
+    """PR #1920 review F3/F4.
+
+    w1 and w2 accept disjoint Thomson-comparable slices: medians over
+    different slice sets cannot say which rung is closer, so the ladder says
+    so instead of ranking them. A g-file no verdict names is counted as
+    unmatched, not as a chkerr rejection.
+    """
+    monkeypatch.setattr(thomson, "thomson_diagnostics", lambda shot: object())
+    ratios = {"w1": {317: 0.0, 318: 0.1}, "w2": {319: 0.2, 320: 0.3}}
+
+    def fake_check_gfile(path, diagnostics):
+        time_ms = int(path.name.split(".")[1])
+        return {"path": path.name, "status": "compared", "log_ratio": ratios[path.parent.name][time_ms]}
+
+    monkeypatch.setattr(thomson, "check_gfile", fake_check_gfile)
+    for rung, times in ratios.items():
+        (tmp_path / rung).mkdir()
+        for time_ms in times:
+            (tmp_path / rung / f"g039915.{time_ms:05d}").write_text("x", encoding="utf-8")
+    outcomes = {"w1": {317: "accepted", 318: "accepted"}, "w2": {319: "accepted"}}  # 320 unnamed
+
+    out = thomson.compare_ladder(
+        {"w1": tmp_path / "w1", "w2": tmp_path / "w2"}, shot=39915, outcomes=outcomes
+    )
+
+    assert out["common_slices_ms"] == []
+    assert out["closest_to_thomson"] is None
+    assert out["closest_to_thomson_basis"] is None
+    assert "do not rank rungs" in out["closest_to_thomson_reason"]
+    assert "do not rank rungs" in out["verdict"]
+    w2 = out["rungs"]["w2"]["summary"]
+    assert w2["flagged_slices"] == 0 and w2["unmatched_slices"] == 1
+    assert w2["compared"] == 1
+
+
 # ---------------------------------------------------------------------------
 # the sign convention, on shots the existing regression never covered
 # ---------------------------------------------------------------------------
@@ -474,3 +555,55 @@ def test_the_stored_measurement_is_attached_to_every_slice_not_just_the_first(
     assert [row["stored_measured_wb"] for row in rows] == [-1.4e-3, -1.5e-3, -7.8e-4]
     # No a-file, so no row could be read, and that must be visible.
     assert all(row["row_source"] is None for row in rows)
+
+
+def test_reading_the_stored_measurement_does_not_grow_the_constraints(scan):
+    """Cold review 0.7.0 efit-workflows F13 (#1888).
+
+    ``_stored_measurement`` used to read ``measured_error_upper`` inside a
+    ``try``: on an ODS the failed lookup creates an empty node, which then
+    deep-copies into every rung's constraints.
+    """
+    from omas import ODS
+
+    node = "equilibrium.time_slice.0.constraints.diamagnetic_flux"
+    constraints = ODS(consistency_check=False)
+    constraints[f"{node}.measured"] = -1.4e-3
+
+    stored = scan._stored_measurement(constraints, np.array([0.315]))
+
+    assert stored == {315: {"measured_wb": -1.4e-3}}
+    assert list(constraints[node].keys()) == ["measured"]
+    assert f"{node}.measured_error_upper" not in constraints
+
+
+def test_the_phase_threshold_is_stored_under_its_sibling_studies_key(profile_study):
+    """Cold review 0.7.0 efit-workflows F10 (#1888).
+
+    ``_phase_map`` returns the flat-current floor in amperes; the scan used
+    to store it as ``phase_dcurrent_dt_threshold`` while the profile and
+    constraint-information studies call it ``phase_flat_current_threshold``.
+    The payload is only built by ``main`` (which runs EFIT), so the key is
+    pinned at the source.
+    """
+    text = SCAN.read_text(encoding="utf-8")
+    assert "phase_dcurrent_dt_threshold" not in text
+    assert '"phase_flat_current_threshold": threshold' in text
+    assert '"phase_flat_current_threshold"' in PROFILE_STUDY.read_text(encoding="utf-8")
+
+
+def test_a_tstep_below_the_millisecond_keys_is_refused(scan, capsys):
+    """Cold review 0.7.0 efit-workflows F9 (#1888).
+
+    Slices are keyed by whole millisecond, so 0.4 ms over 300-302 ms gives
+    six requests and three keys. The study refuses the step instead of
+    pairing slices with the wrong outputs.
+    """
+    with pytest.raises(SystemExit) as exc:
+        scan.main(["--tstep", "0.0004"])
+    assert exc.value.code == 2
+    assert "whole millisecond" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        scan.main(["--tstep", "0.0015"])  # PR #1920 review F1: between the keys
+    assert "whole number of milliseconds" in capsys.readouterr().err
+    assert scan.whole_millisecond_tstep("0.002") == 0.002

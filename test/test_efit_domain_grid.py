@@ -262,3 +262,20 @@ def test_the_report_renders_from_the_committed_table(module, table):
     for shot in table["shots"]:
         assert f"## {shot}" in text
     assert "What this says" in text
+
+
+def test_a_tstep_below_the_millisecond_keys_is_refused(module, capsys):
+    """Cold review 0.7.0 efit-workflows F9 (#1888).
+
+    Slices are keyed by whole millisecond, so 0.4 ms over 300-302 ms gives
+    six requests and three keys. The study refuses the step instead of
+    pairing slices with the wrong outputs.
+    """
+    with pytest.raises(SystemExit) as exc:
+        module.main(["--tstep", "0.0004"])
+    assert exc.value.code == 2
+    assert "whole millisecond" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        module.main(["--tstep", "0.0015"])  # PR #1920 review F1: between the keys
+    assert "whole number of milliseconds" in capsys.readouterr().err
+    assert module.whole_millisecond_tstep("0.002") == 0.002

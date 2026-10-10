@@ -16,6 +16,7 @@ by time, and keeps two slices of the same millisecond apart.
 
 from __future__ import annotations
 
+import argparse
 import re
 from pathlib import Path
 
@@ -26,6 +27,7 @@ __all__ = [
     "slice_file_name",
     "split_slice_file_name",
     "file_name_microseconds",
+    "whole_millisecond_tstep",
 ]
 
 _SUFFIX = re.compile(r"^(\d+)(?:_(\d{1,3}))?$")
@@ -82,3 +84,24 @@ def file_name_microseconds(name: str | Path) -> int | None:
         return split_slice_file_name(name)[1]
     except ValueError:
         return None
+
+
+def whole_millisecond_tstep(text: str) -> float:
+    """An argparse ``type`` for ``--tstep``: seconds, a whole number of milliseconds.
+
+    The EFIT studies key their slices by whole millisecond
+    (``int(round(t * 1000))`` on the request side, EFIT's printed ``t=`` --
+    the floor -- on the log and file side). A step that is not a multiple of
+    1 ms puts slices between the keys, where ``round`` and ``floor`` disagree
+    and every other slice is paired with the wrong output, and a step below
+    1 ms folds several slices into one key. Both are refused with the reason
+    (cold review 0.7.0 efit-workflows F9; PR #1920 review F1).
+    """
+    value = float(text)
+    milliseconds = value * 1000.0
+    if value < 1.0e-3 or abs(milliseconds - round(milliseconds)) > 1.0e-9:
+        raise argparse.ArgumentTypeError(
+            f"{text} s is not a whole number of milliseconds >= 0.001: the study keys "
+            "slices by whole millisecond, so --tstep must be 0.001, 0.002, ..."
+        )
+    return value
