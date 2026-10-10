@@ -117,6 +117,8 @@ DEFINITIONAL = frozenset({
     "save_dataset",
     # q_profile_context (#1798): connected |s| < threshold intervals -- pure geometry.
     "low_shear_regions",
+    # mhd_stability (#1852): reading the atlas tables -- bookkeeping.
+    "load_stability_atlas",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
@@ -278,6 +280,8 @@ PIPELINE = frozenset({
     # rational crossings and pairs -> low-shear regions -> enclosed pressure
     "core_q_context_from_profiles",
     "core_q_context",
+    # mhd_stability (#1852): ideal W_t -> per-slice Delta'_max -> local criteria -> counts
+    "stability_atlas_populations",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -682,6 +686,8 @@ CONVENTION_SENSITIVE = frozenset({
     # named radial coordinate, q_boundary only on a limited boundary.
     "core_q_context_from_profiles",
     "core_q_context",
+    # mhd_stability (#1852): which side of zero is unstable, and which resolution is read.
+    "stability_atlas_populations",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

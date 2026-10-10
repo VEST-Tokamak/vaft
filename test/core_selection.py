@@ -271,6 +271,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_rdcon_ods_closure.py",
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
+    "test_stability_atlas_population.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
     # GPEC adapter records (#1460): how a solver stop is worded and recorded --
