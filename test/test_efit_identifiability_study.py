@@ -111,7 +111,6 @@ def _validation(study, reference, **updates):
         "residual_relative_error": 1e-12,
         "singular_value_relative_error": 1e-12,
         "condition_number_relative_error": 1e-8,
-        "curvature_sum_relative_error": 1e-12,
         "mode_share_sum_error": 1e-12,
         "ip_vcurrt_relative_error": 1e-10,
         "mfile_family_chi2_max_relative_error": 1e-10,
@@ -214,7 +213,6 @@ def test_native_problem_validation_reproduces_the_solve_and_parameter_roles():
     assert validation.residual_relative_error == 0.0
     assert validation.singular_value_relative_error == 0.0
     assert validation.condition_number_relative_error == 0.0
-    assert validation.curvature_sum_relative_error == 0.0
     assert validation.mode_share_sum_error == 0.0
     assert validation.executable_sha256_matches
     mismatch = study.validate_native_problem(
@@ -230,6 +228,39 @@ def test_native_problem_validation_reproduces_the_solve_and_parameter_roles():
     gate = study.stage1_gate(validations)
     assert not gate.passed
     assert any("executable SHA-256" in reason for reason in gate.reasons)
+
+
+def test_the_stage1_gate_has_no_curvature_sum_identity():
+    """Cold review 0.7.0 efit-workflows F14 (#1888).
+
+    The curvature-sum "check" compared sum_f A_f^T A_f over a partition of
+    the rows with A^T A of the same matrix: an identity that holds at
+    machine epsilon for random matrices and random family labels, so it
+    could never fail on data. A gate that cannot fail is not a gate; what
+    it was meant to protect (the family labels matching the rows) raises on
+    a length mismatch instead.
+    """
+    from dataclasses import fields
+
+    study = _study()
+    assert "curvature_sum_relative_error" not in {f.name for f in fields(study.Stage1Validation)}
+    assert "curvature_sum_relative_error" not in {f.name for f in fields(study.GateThresholds)}
+    rng = np.random.default_rng(0)
+    matrix = rng.normal(size=(12, 4))
+    block = SimpleNamespace(
+        solver_a=matrix, solver_rhs=np.zeros(12), solver_solution=np.zeros(4),
+        row_solver_weighted_residual=np.zeros(12),
+        singular_values=np.linalg.svd(matrix, compute_uv=False),
+        retained_mask=np.ones(4, dtype=bool), condno=None,
+        solver_exact_c=np.empty((0, 4)), solver_exact_d=np.empty(0),
+        exact_c=np.empty((0, 4)), exact_d=np.empty(0), weighted_a=matrix,
+        row_family=("probe",) * 11, parameter_role=("pf_current",) * 4, ncol=4, nexact=0,
+    )
+    problem = SimpleNamespace(main=block, external_current=None, schema_version=1)
+    with pytest.raises(ValueError, match="row_family"):
+        study.validate_native_problem(
+            problem, SimpleNamespace(modes=()), reference=study.REFERENCE_SLICES[0], outcome="accepted"
+        )
 
 
 def test_native_row_audit_keeps_measurements_weights_and_soft_relations():

@@ -111,7 +111,13 @@ class GateThresholds:
     residual_relative_error: float = 1.0e-10
     singular_value_relative_error: float = 1.0e-10
     condition_number_relative_error: float = 5.0e-6
-    curvature_sum_relative_error: float = 1.0e-10
+    # There is deliberately no curvature-sum threshold: summing per-family
+    # A_f^T A_f over a partition of the rows of the same weighted_a and
+    # comparing it with A^T A is an algebraic identity (relative error at
+    # machine epsilon for any matrix), so it could never fail on data. The
+    # family shares are checked where they are computed (mode_share_sum_error)
+    # and the physical/solver matrices against column_scale by the sidecar
+    # reader (cold review F14).
     mode_share_sum_error: float = 1.0e-10
     ip_vcurrt_relative_error: float = 5.0e-8
     # Flux-loop and probe rows are persisted as float32 in the m-file.  The
@@ -141,7 +147,6 @@ class Stage1Validation:
     residual_relative_error: float | None
     singular_value_relative_error: float | None
     condition_number_relative_error: float | None
-    curvature_sum_relative_error: float | None
     mode_share_sum_error: float | None
     ip_vcurrt_relative_error: float | None
     mfile_family_chi2_max_relative_error: float | None
@@ -757,11 +762,6 @@ def stage1_gate(
             "condition_number_relative_error",
             thresholds.condition_number_relative_error,
         )
-        require_limit(
-            item,
-            "curvature_sum_relative_error",
-            thresholds.curvature_sum_relative_error,
-        )
         require_limit(item, "mode_share_sum_error", thresholds.mode_share_sum_error)
         require_limit(
             item,
@@ -861,14 +861,11 @@ def validate_native_problem(
             abs(float(block.condno)), np.finfo(float).tiny
         )
 
-    physical_a = np.asarray(block.weighted_a, dtype=float)
-    total_curvature = physical_a.T @ physical_a
-    family_curvature = np.zeros_like(total_curvature)
-    row_families = np.asarray(block.row_family, dtype=object)
-    for family in set(block.row_family):
-        selected = physical_a[row_families == family]
-        family_curvature += selected.T @ selected
-    curvature_error = _relative_norm(family_curvature, total_curvature)
+    if len(block.row_family) != int(np.asarray(block.weighted_a).shape[0]):
+        raise ValueError(
+            f"row_family has {len(block.row_family)} entries for "
+            f"{np.asarray(block.weighted_a).shape[0]} rows of weighted_a"
+        )
 
     share_errors = []
     for mode in report.modes:
@@ -918,7 +915,6 @@ def validate_native_problem(
         residual_relative_error=residual_error,
         singular_value_relative_error=singular_error,
         condition_number_relative_error=condition_error,
-        curvature_sum_relative_error=curvature_error,
         mode_share_sum_error=share_error,
         ip_vcurrt_relative_error=ip_vcurrt_error,
         mfile_family_chi2_max_relative_error=chi2_audit.get(
