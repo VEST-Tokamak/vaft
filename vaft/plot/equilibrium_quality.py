@@ -155,7 +155,7 @@ def equilibrium_quality_residual_distribution(points: pd.DataFrame, *, family: s
     ax.set_ylabel("fraction of channels ≤ |z|")
     ax.set_ylim(0, 1.02)
     ax.set_title(FAMILY_TITLES.get(family, family))
-    ax.legend(fontsize=7, frameon=False, loc="lower right")
+    ax.legend(fontsize="x-small", frameon=False, loc="lower right")
     _finish(show)
     return fig, ax
 
@@ -177,7 +177,7 @@ def equilibrium_quality_reduced_chi2(table: pd.DataFrame, *, column: str = "prob
     ax.set_xlabel(column.replace("_", " "))
     ax.set_ylabel("fraction of slices ≤ value")
     ax.set_ylim(0, 1.02)
-    ax.legend(fontsize=7, frameon=False, loc="lower right")
+    ax.legend(fontsize="x-small", frameon=False, loc="lower right")
     _finish(show)
     return fig, ax
 
@@ -213,7 +213,7 @@ def equilibrium_quality_validation_matrix(census: dict, *, ax=None, show: bool =
             na = 1.0 - p - f
             text = f"{p:.0%} / {f:.0%}" + (f"\n(n/a {na:.0%})" if na > 0.005 else "")
             dark = np.isfinite(fail[i, j]) and fail[i, j] > 0.6
-            ax.text(j, i, text, ha="center", va="center", fontsize=6.5, color="white" if dark else "#1a1a19")
+            ax.text(j, i, text, ha="center", va="center", fontsize="x-small", color="white" if dark else "#1a1a19")
             if not np.isfinite(fail[i, j]):
                 ax.add_patch(Rectangle((j - 0.5, i - 0.5), 1, 1, fill=False, hatch="///",
                                        edgecolor="#b8b7ae", lw=0))
@@ -221,10 +221,10 @@ def equilibrium_quality_validation_matrix(census: dict, *, ax=None, show: bool =
         ax.axhline(rules.index("thomson_status") - 0.5, color="#1a1a19", lw=1.2)
     ax.set_xticks(range(len(cohorts)))
     ax.set_xticklabels([f"{COHORT_STYLE[c][2]}\n(n={(matrix[rules[0]].get(c) or {}).get('n', 0)})" for c in cohorts],
-                       fontsize=8)
+                       fontsize="small")
     ax.set_yticks(range(len(rules)))
-    ax.set_yticklabels([RULE_TITLES.get(r, r) for r in rules], fontsize=8)
-    ax.set_title("Rule verdicts by cohort (pass / fail; colour = fail share of graded)", fontsize=9)
+    ax.set_yticklabels([RULE_TITLES.get(r, r) for r in rules], fontsize="small")
+    ax.set_title("Rule verdicts by cohort (pass / fail; colour = fail share of graded)", fontsize="medium")
     fig.colorbar(image, ax=ax, fraction=0.04, pad=0.02, label="fail fraction")
     _finish(show)
     return fig, ax
@@ -250,22 +250,22 @@ def equilibrium_quality_selection_funnel(funnel: dict, *, ax=None, show: bool = 
             width = removed.get(rule, 0)
             if width:
                 ax.barh(i, width, left=left, color=shades[j % len(shades)], edgecolor="white")
-                ax.text(left + width / 2, i, str(width), ha="center", va="center", fontsize=7, color="white" if j < 2 else "#1a1a19")
+                ax.text(left + width / 2, i, str(width), ha="center", va="center", fontsize="x-small", color="white" if j < 2 else "#1a1a19")
             left += width
         color = COHORT_STYLE.get(cohort, ("#2a78d6", "o", cohort))[0]
         ax.barh(i, entry["selected"], left=left, color=color, edgecolor="white")
         ax.text(left + entry["selected"] / 2 if entry["selected"] else left, i, f"{entry['selected']} selected",
-                ha="center", va="center", fontsize=7, color="white" if entry["selected"] else "#1a1a19")
+                ha="center", va="center", fontsize="x-small", color="white" if entry["selected"] else "#1a1a19")
     from matplotlib.patches import Patch
 
     handles = [Patch(color=shades[j % len(shades)], label=f"removed by {rule}") for j, rule in enumerate(rules)]
     # Below the axes: inside, it would cover the widest cohort's bar.
-    ax.legend(handles=handles, fontsize=7, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
+    ax.legend(handles=handles, fontsize="x-small", frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.2), ncol=2)
     ax.set_yticks(range(len(cohorts)))
     ax.set_yticklabels([f"{COHORT_STYLE.get(c, (None, None, c))[2]}\n(n={funnel['cohorts'][c]['candidates']})" for c in cohorts],
-                       fontsize=8)
+                       fontsize="small")
     ax.invert_yaxis()
     ax.set_xlabel("confinement candidate slices")
-    ax.set_title("EFIT quality → confinement selection", fontsize=9)
+    ax.set_title("EFIT quality → confinement selection", fontsize="medium")
     _finish(show)
     return fig, ax

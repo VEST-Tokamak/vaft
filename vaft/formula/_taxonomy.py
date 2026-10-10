@@ -163,11 +163,21 @@ def parse_reduction(text: Optional[str]) -> Tuple[Optional[Reduction], Tuple[str
 
 @dataclass(frozen=True)
 class Quantity:
-    """A node of a reduction graph: its symbol, representation and whether it is dimensionless."""
+    """A node of a reduction graph: its symbol, representation and whether it is dimensionless.
+
+    ``concept`` names the quantity in the plotting vocabulary
+    (:mod:`vaft.plot.taxonomy`) when the key is that quantity in some
+    representation (``j_phi`` and ``j_phi_field`` are both ``j_tor``), so the
+    generated ontology (#1702) connects the reduction to it.  It stays
+    ``None`` for a composite (``q_features``, ``engineering``) or a quantity
+    the vocabulary does not define; ``vaft.formula`` never imports
+    ``vaft.plot``, so the ontology's tests check that every name resolves.
+    """
 
     symbol: str
     representation: str
     dimensionless: bool = False
+    concept: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -189,39 +199,39 @@ class Relation:
 
 #: quantity key -> Quantity, shared by every family
 QUANTITIES = {
-    "j_phi": Quantity("$j_\\phi(\\rho)$", "profile_1d"),
-    "psi": Quantity("$\\psi(R, Z)$", "field_2d"),
-    "j_phi_field": Quantity("$j_\\phi(R, Z)$", "field_2d"),
-    "I_p": Quantity("$I_p$", "scalar_0d"),
+    "j_phi": Quantity("$j_\\phi(\\rho)$", "profile_1d", concept="j_tor"),
+    "psi": Quantity("$\\psi(R, Z)$", "field_2d", concept="psi"),
+    "j_phi_field": Quantity("$j_\\phi(R, Z)$", "field_2d", concept="j_tor"),
+    "I_p": Quantity("$I_p$", "scalar_0d", concept="plasma_current"),
     "B_theta": Quantity("$B_\\theta(r)$: cylindrical $B_p$", "profile_1d"),
     "B_p_field": Quantity("$B_p(R, Z)$", "field_2d"),
     "l_i": Quantity("$l_i$", "scalar_0d", True),
-    "q": Quantity("$q(\\rho)$", "profile_1d", True),
-    "s_hat": Quantity("$\\hat s(\\rho)$", "profile_1d", True),
+    "q": Quantity("$q(\\rho)$", "profile_1d", True, concept="q"),
+    "s_hat": Quantity("$\\hat s(\\rho)$", "profile_1d", True, concept="magnetic_shear"),
     "q_features": Quantity("$q_0$, $q_{min}$, $q_{95}$, $r_s$", "scalar_0d"),
     "I_enc": Quantity("$I(r)$ enclosed", "profile_1d"),
-    "r_mix": Quantity("$r_{mix}$", "scalar_0d"),
+    "r_mix": Quantity("$r_{mix}$", "scalar_0d", concept="mixing_radius"),
     "p_profile": Quantity("$p(\\rho)$", "profile_1d"),
     "nT_field": Quantity("$n(R, Z)$, $T(R, Z)$", "field_2d"),
     "p_avg": Quantity("$\\langle p\\rangle$", "scalar_0d"),
     "p_integral": Quantity("$\\int p\\,dV$", "scalar_0d"),
-    "W": Quantity("$W_K = \\tfrac32\\int p\\,dV$", "scalar_0d"),
-    "beta_t": Quantity("$\\beta_t$", "scalar_0d", True),
-    "beta_p": Quantity("$\\beta_p$", "scalar_0d", True),
-    "beta_N": Quantity("$\\beta_N$", "scalar_0d"),
+    "W": Quantity("$W_K = \\tfrac32\\int p\\,dV$", "scalar_0d", concept="w_mhd"),
+    "beta_t": Quantity("$\\beta_t$", "scalar_0d", True, concept="beta_t"),
+    "beta_p": Quantity("$\\beta_p$", "scalar_0d", True, concept="beta_p"),
+    "beta_N": Quantity("$\\beta_N$", "scalar_0d", concept="beta_n"),
     "alpha": Quantity("$\\alpha(\\rho)$", "profile_1d", True),
     "nT_profile": Quantity("$n_s(\\rho)$, $T_s(\\rho)$", "profile_1d"),
     "central_avg": Quantity("$y(0)$, $\\langle y\\rangle$", "scalar_0d"),
-    "peaking": Quantity("peaking $y(0)/\\langle y\\rangle$", "scalar_0d", True),
+    "peaking": Quantity("peaking $y(0)/\\langle y\\rangle$", "scalar_0d", True, concept="peaking_factor"),
     "a_over_L": Quantity("$a/L_n$, $a/L_T$", "profile_1d", True),
     "nu_star_local": Quantity("$\\nu^*_s(\\rho)$", "profile_1d", True),
     "n_avg": Quantity("$\\bar n_e$, $n_G$", "scalar_0d"),
-    "f_G": Quantity("$f_G$", "scalar_0d", True),
+    "f_G": Quantity("$f_G$", "scalar_0d", True, concept="greenwald_fraction"),
     "engineering": Quantity("$I_p$, $B_t$, $n$, $T$, $P$, $R$, $\\epsilon$, $\\kappa$, $M$", "scalar_0d"),
-    "rho_star": Quantity("$\\rho_*$", "scalar_0d", True),
-    "nu_star": Quantity("$\\nu_*$", "scalar_0d", True),
+    "rho_star": Quantity("$\\rho_*$", "scalar_0d", True, concept="rho_star"),
+    "nu_star": Quantity("$\\nu_*$", "scalar_0d", True, concept="nu_star"),
     "omega_tau": Quantity("$\\Omega_i\\tau_E$", "scalar_0d", True),
-    "tau_E": Quantity("$\\tau_E$", "scalar_0d"),
+    "tau_E": Quantity("$\\tau_E$", "scalar_0d", concept="energy_confinement_time"),
     "eng_exponents": Quantity("engineering exponents", "scalar_0d", True),
     "dimless_exponents": Quantity("dimensionless exponents", "scalar_0d", True),
 }

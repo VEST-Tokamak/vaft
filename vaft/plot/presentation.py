@@ -485,6 +485,31 @@ class Presentation:
             return []
         return _grid_rows(model, self.format.width_in, self.format.base_font_pt)
 
+    def grid_figsize(
+        self,
+        nrows: int = 1,
+        ncols: int = 1,
+        *,
+        aspect: float = _PANEL_CELL_ASPECT,
+        fallback: tuple[float, float] | None = None,
+    ) -> tuple[float, float] | None:
+        """The canvas for a plain ``nrows`` x ``ncols`` Matplotlib grid; ``fallback`` without a format.
+
+        For a script that draws with ``plt.subplots`` directly rather than
+        through a view model (the ``workflow/`` studies): the rule a
+        ``Panels`` composite follows (:meth:`row_heights`).  One width
+        whatever the column count, the format's; each row ``aspect`` times a
+        cell's width, never shorter than an axes with its title and x label
+        set at the format's type; the whole held below the format's ceiling.
+        """
+        if self.format is None:
+            return fallback
+        nrows, ncols = max(1, int(nrows)), max(1, int(ncols))
+        width = self.format.width_in
+        floor = _PANEL_MIN_ROW_IN + 3.0 * _TEXT_LINE_PER_PT * self.format.base_font_pt
+        row = max(floor, float(aspect) * width / ncols)
+        return (width, min(nrows * row, self.format.max_height_in))
+
     def rc(self) -> dict[str, Any]:
         """The rcParams this presentation sets, theme baseline times format scale."""
         rc: dict[str, Any] = {}

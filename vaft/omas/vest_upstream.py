@@ -1391,6 +1391,47 @@ def eddy_no_output_product(
     return product, manifest
 
 
+#: The eddy solve's inputs: the diagnostics component that provides each path.
+_EDDY_INPUT_COMPONENTS = {
+    "pf_active.time": "pf_active",
+    "magnetics.ip.0.time": "magnetics",
+    "magnetics.ip.0.data": "magnetics",
+}
+
+
+def eddy_inputs_absent_from_data(diagnostics_ods: str | Path, diagnostics_manifest: str | Path) -> str | None:
+    """Why the eddy solve has no inputs, when the diagnostics stage recorded the raw data as absent.
+
+    ``None`` unless every component the solve needs and the diagnostics product
+    lacks (``pf_active``, ``magnetics``) is recorded in the diagnostics
+    manifest's ``channel_status`` as ``unavailable`` because the raw store
+    returned no waveform for it: a truncated raw
+    dump, a shot without PF acquisition (#1799). That is a property of the
+    shot, recorded as the stage's result. Anything else -- a component missing
+    without such a record, or unavailable for another reason -- stays an error,
+    because it can be a configuration fault.
+    """
+    diagnostics, _ = load_ods(Path(diagnostics_ods))
+    missing = sorted({component for path, component in _EDDY_INPUT_COMPONENTS.items() if path not in diagnostics})
+    if not missing:
+        return None
+    try:
+        status = json.loads(Path(diagnostics_manifest).read_text(encoding="utf-8")).get("channel_status") or {}
+    except (OSError, ValueError):
+        return None
+    reasons = []
+    for component in missing:
+        entry = status.get(component) or {}
+        reason = str(entry.get("reason") or "")
+        # "returned no waveform" is the raw store's absence verdict; the shared
+        # "Required VEST raw signal is unavailable" prefix also heads unusable-data
+        # errors (mismatched lengths, extra channels), which are not absences.
+        if entry.get("status") != "unavailable" or "returned no waveform" not in reason.lower():
+            return None
+        reasons.append(f"{component}: {reason}")
+    return "; ".join(reasons)
+
+
 def build_eddy_ods(
     *,
     shot: int,

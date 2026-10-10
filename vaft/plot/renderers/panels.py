@@ -64,6 +64,7 @@ __all__ = [
     "magnetics_overview",
     "magnetics_overview_plasma_residual",
     "magnetics_overview_vacuum",
+    "magnetics_overview_vacuum_benchmark",
     "mhd_linear_overview_eigenfunction",
     "render_panels",
     "soft_x_rays_overview",
@@ -1101,6 +1102,82 @@ def magnetics_overview_plasma_residual(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Plasma-signal residual left by the coil+eddy synthetic vacuum response."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="magnetics",
+    subject="magnetics",
+    view="overview",
+    quantity="vacuum_benchmark",
+    description=(
+        "Per-channel scores of the plasma-free vacuum benchmark (issue #190): eddy "
+        "improvement against a zero reference, normalized residual and correlation, "
+        "channels grouped and coloured by family, flagged probes hollow."
+    ),
+    # Every root the builder reads (recipes._VACUUM_BENCHMARK_ROOTS): the UV
+    # lines and the summary cut the plasma-free interval, so a loader that
+    # selects by ids must not drop them.
+    ids=(
+        "pf_active", "pf_passive", "magnetics", "em_coupling", "wall",
+        "tf", "spectrometer_uv", "summary",
+    ),
+    required_paths=(
+        "pf_active.time",
+        "pf_active.coil.{i}.current.data",
+        "pf_passive.loop.{i}.resistance",
+    ),
+    optional_paths=_VACUUM_OPTIONAL + ("magnetics.ip.{i}.data", "em_coupling.mutual_passive_active"),
+)
+def magnetics_overview_vacuum_benchmark(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """The vacuum benchmark's per-channel scores of one shot, channel by channel.
+
+    Interpretation
+    --------------
+    The shot is run through :func:`vaft.validation.vacuum_benchmark.run_benchmark_case`
+    -- the passive wall re-solved from the measured PF currents alone over the
+    plasma-free stretch -- and each scored B probe and flux loop is one point
+    per panel, at its position in the benchmark's order (the ``#`` column of
+    :func:`magnetics_table_vacuum_benchmark`), coloured by family.  The top
+    panel is the eddy improvement 1 - RMS(measured - (coil+eddy)) /
+    RMS(measured - coil), what the wall model is worth on that channel, with
+    a dashed line at zero where the wall term adds nothing; the middle panel the residual RMS as a fraction of the
+    channel's swing; the bottom the correlation of measured with coil+eddy,
+    which near 1 beside a large residual points at a gain rather than at the
+    wall.  Read together they show which families and which individual
+    channels the vacuum model reproduces and where it falls away.  A probe
+    the benchmark flags as contradicting its own array is drawn hollow and
+    named in the legend: scored, but a sensor finding kept out of the scored
+    medians.  Excluded channels (too few usable samples) are not drawn; the
+    title names them, with the window, coil drive and solver history the case
+    was measured under.
+
+    Options
+    -------
+    ``per_family=``, ``resistance_scale=`` and ``n_tau=`` are passed to the
+    benchmark as in :func:`magnetics_table_vacuum_benchmark`: the channels per
+    family, one global factor on every passive-loop resistance, and the wall
+    time constants of solver history before the validation window opens.
+
+    Limitations
+    -----------
+    The zero line is a reference, not a threshold: the benchmark states no
+    acceptance bound and no verdict, and neither colour nor marker grades a
+    channel.  The horizontal axis is a channel index, not a geometry; the
+    table gives each index its channel name.  Scores from one shot's
+    plasma-free stretch say nothing about the model with plasma, and a low
+    improvement where the eddy term is a small share of the reading (the
+    table's wall authority) is a rounding of the model's error, not a finding
+    about the wall.
+
+    See Also
+    --------
+    magnetics_table_vacuum_benchmark : the same scores with channel names and reasons.
+    magnetics_table_vacuum_benchmark_aggregate : the benchmark across shots.
+    magnetics_overview_vacuum : the measured, coil and coil+eddy waveforms behind the scores.
+    """
     return render_panels(model, ax=ax, show=show, **style)
 
 

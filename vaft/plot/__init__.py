@@ -376,6 +376,7 @@ from .renderers.panels import (
     magnetics_overview_plasma_residual,
     startup_proxies_time,
     magnetics_overview_vacuum,
+    magnetics_overview_vacuum_benchmark,
     mhd_linear_overview_eigenfunction,
     limiter_current_time,
     soft_x_rays_overview,
@@ -445,6 +446,8 @@ from .renderers.tables import (
     equilibrium_table_summary,
     equilibrium_table_validation,
     equilibrium_text_summary,
+    magnetics_table_vacuum_benchmark,
+    magnetics_table_vacuum_benchmark_aggregate,
 )
 from .parameter_history import plot_parameter_history
 from .analytic import (
