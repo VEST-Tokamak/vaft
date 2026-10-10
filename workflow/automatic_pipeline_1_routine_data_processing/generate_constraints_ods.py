@@ -258,14 +258,16 @@ def _drop_vacuum_times(
     if threshold <= 0.0:
         return times, []
 
-    try:
-        clock = np.asarray(ods["magnetics.ip.0.time"], dtype=float)
-        data = np.asarray(ods["magnetics.ip.0.data"], dtype=float)
-    except Exception:
+    # The same resolver the window selector uses: a homogeneous-time product
+    # stores only `magnetics.time`, and reading `ip.0.time` by name skipped the
+    # cut exactly there (cold review 0.7.0 data F10, #1888).
+    waveform = resolve_signal_waveform(ods, "magnetics.ip.0")
+    if waveform is None:
         LOGGER.warning(
             "no magnetics.ip.0 to judge the vacuum cut by; every selected time is kept"
         )
         return times, []
+    clock, data = waveform
 
     keep, dropped = [], []
     for value in times:
