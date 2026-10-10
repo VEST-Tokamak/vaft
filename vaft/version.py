@@ -7,6 +7,17 @@ __all__ = ["__version__"]
 # ────────────────────────────────────────────────────────
 # patch notes
 # ────────────────────────────────────────────────────────
+# unreleased
+# - vaft.process.core_q_context binds the documented function: the
+#   submodule is renamed q_profile_context so its key no longer shadows the
+#   function it exports (BREAKING for `import vaft.process.core_q_context`;
+#   the function names are unchanged), and no submodule key may equal an
+#   exported name; the reference page moved to
+#   /reference/process/q_profile_context/ with a redirect (#1838)
+# - core_q_context: a NaN psi_n sample no longer drops the finite sample
+#   after it from shear, q_min, low-shear regions and q95; the context
+#   records the slice time; one interior maximum is single_maximum, not
+#   multi_extremum (#1838)
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the

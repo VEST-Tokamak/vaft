@@ -115,7 +115,7 @@ DEFINITIONAL = frozenset({
     "register_augmentation",
     "register_loss",
     "save_dataset",
-    # core_q_context (#1798): connected |s| < threshold intervals -- pure geometry.
+    # q_profile_context (#1798): connected |s| < threshold intervals -- pure geometry.
     "low_shear_regions",
 })
 
@@ -274,7 +274,7 @@ PIPELINE = frozenset({
     "split_groups",
     "train_model",
     "window_dataset",
-    # core_q_context (#1798): |q| -> radius and shear -> landmarks and shape ->
+    # q_profile_context (#1798): |q| -> radius and shear -> landmarks and shape ->
     # rational crossings and pairs -> low-shear regions -> enclosed pressure
     "core_q_context_from_profiles",
     "core_q_context",
@@ -678,7 +678,7 @@ CONVENTION_SENSITIVE = frozenset({
     "dcon_local_stability",
     "dcon_edge_scan",
     "dcon_edge_comparison",
-    # core_q_context (#1798): |q| resonance with the source sign kept, shear in the
+    # q_profile_context (#1798): |q| resonance with the source sign kept, shear in the
     # named radial coordinate, q_boundary only on a limited boundary.
     "core_q_context_from_profiles",
     "core_q_context",
