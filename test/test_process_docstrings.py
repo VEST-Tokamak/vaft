@@ -115,12 +115,21 @@ DEFINITIONAL = frozenset({
     "register_augmentation",
     "register_loss",
     "save_dataset",
-    # core_q_context (#1798): connected |s| < threshold intervals -- pure geometry.
+    # q_profile_context (#1798): connected |s| < threshold intervals -- pure geometry.
     "low_shear_regions",
+    # mhd_stability (#1852): reading the atlas tables -- bookkeeping.
+    "load_stability_atlas",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # ordering_state (#1627 §2): inputs -> v_A, eta -> ratios; gradients -> gyroradii,
+    # collision times -> Knudsen, magnetization, collisionality; columns -> rows
+    "global_ordering_quantities",
+    "time_history_ordering_quantities",
+    "profile_ordering_quantities",
+    "ordering_table",
+    "ordering_margins",
     # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
     "mode_frequency_tracks",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
@@ -274,10 +283,12 @@ PIPELINE = frozenset({
     "split_groups",
     "train_model",
     "window_dataset",
-    # core_q_context (#1798): |q| -> radius and shear -> landmarks and shape ->
+    # q_profile_context (#1798): |q| -> radius and shear -> landmarks and shape ->
     # rational crossings and pairs -> low-shear regions -> enclosed pressure
     "core_q_context_from_profiles",
     "core_q_context",
+    # mhd_stability (#1852): ideal W_t -> per-slice Delta'_max -> local criteria -> counts
+    "stability_atlas_populations",
 })
 
 #: Routines whose output sits at a different place in the processing chain
@@ -324,6 +335,10 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # #1627 §2: S and tau ratios on a, n_i = n_e, v_t = sqrt(T/m), L_T on r in metres
+    "global_ordering_quantities",
+    "time_history_ordering_quantities",
+    "profile_ordering_quantities",
     # #1608: COCOS source profiles versus full-weber Green response orientation.
     "fit_free_boundary_coils",
     # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
@@ -678,10 +693,12 @@ CONVENTION_SENSITIVE = frozenset({
     "dcon_local_stability",
     "dcon_edge_scan",
     "dcon_edge_comparison",
-    # core_q_context (#1798): |q| resonance with the source sign kept, shear in the
+    # q_profile_context (#1798): |q| resonance with the source sign kept, shear in the
     # named radial coordinate, q_boundary only on a limited boundary.
     "core_q_context_from_profiles",
     "core_q_context",
+    # mhd_stability (#1852): which side of zero is unstable, and which resolution is read.
+    "stability_atlas_populations",
 })
 
 SPECS = [spec for spec in catalog.list_processes() if spec.category not in PENDING]

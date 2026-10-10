@@ -1220,6 +1220,9 @@ def _topview_reads() -> tuple[str, ...]:
         if kind == "segments":
             for point in ("first_point", "second_point"):
                 reads += [f"{container}.{{i}}.line_of_sight.{point}.r", f"{container}.{{i}}.line_of_sight.{point}.phi"]
+        elif kind == "rings":
+            # an axisymmetric loop: radius (top) and height (3-D), no phi (#1829)
+            reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.z"]
         elif container in _LISTED_POSITIONS:
             reads += [f"{container}.{{i}}.position.{{j}}.r", f"{container}.{{i}}.position.{{j}}.phi"]
         else:
@@ -1399,6 +1402,43 @@ _EFIT_QUALITY_READS = (
     "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
     "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
     "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+)
+
+#: What vaft.validation.equilibrium.verify_convergence reads for one slice:
+#: EFIT's a-file verdict and tolerances inside code.parameters, the stored
+#: Grad-Shafranov deviation, the run flag and the declared result, plus what
+#: convergence_metrics' self-consistency block reads (the I_p constraint and
+#: the psi map at the axis and boundary) whether or not the verdict uses it.
+_CONVERGENCE_VERDICT_READS = (
+    "equilibrium.code.parameters",
+    "equilibrium.code.output_flag",
+    "equilibrium.time_slice.{i}.convergence.iterations_n",
+    "equilibrium.time_slice.{i}.convergence.grad_shafranov_deviation_value",
+    "equilibrium.time_slice.{i}.convergence.result.name",
+    "equilibrium.time_slice.{i}.convergence.result.index",
+    "equilibrium.time_slice.{i}.convergence.result.description",
+    *(f"equilibrium.time_slice.{{i}}.constraints.ip.{leaf}"
+      for leaf in ("measured", "measured_error_upper", "reconstructed", "chi_squared")),
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.r",
+    "equilibrium.time_slice.{i}.global_quantities.magnetic_axis.z",
+    "equilibrium.time_slice.{i}.global_quantities.psi_axis",
+    "equilibrium.time_slice.{i}.global_quantities.psi_boundary",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim1",
+    "equilibrium.time_slice.{i}.profiles_2d.0.grid.dim2",
+    "equilibrium.time_slice.{i}.profiles_2d.0.psi",
+)
+
+#: current_overview_reconstruction: measured I_p, the reconstructed I_p of
+#: every slice with its convergence verdict, PF coil currents and eddy currents.
+_CURRENT_OVERVIEW_RECONSTRUCTION_READS = (
+    "magnetics.ip.0.data", "magnetics.ip.0.time", *_MAGNETICS_TIME,
+    "equilibrium.time", "equilibrium.time_slice.{i}.time",
+    "equilibrium.time_slice.{i}.global_quantities.ip",
+    *_CONVERGENCE_VERDICT_READS,
+    "pf_active.time", "pf_active.coil.{i}.current.data", "pf_active.coil.{i}.current.time",
+    "pf_active.coil.{i}.name",
+    "pf_passive.time", "pf_passive.loop.{i}.current",
+    "dataset_description.data_entry.pulse",
 )
 
 RECIPES: dict[str, Any] = {
@@ -2145,6 +2185,16 @@ RECIPES: dict[str, Any] = {
             "passive_structure_time_current",
         ),
         suptitle="Electromagnetic Currents",
+    ),
+    # The slide companion of current_overview: the reconstructed I_p of every
+    # slice beside the measurement, the PF coil currents and the eddy total
+    # over its loops, all in kA (built by code, so the scaling is the builder's).
+    "current_overview_reconstruction": CallableRecipe(
+        builder=lambda ods, **options: _build_current_overview_reconstruction(ods, **options),
+        description="Measured and reconstructed I_p, PF coil currents and eddy currents, in kA.",
+        reads=_CURRENT_OVERVIEW_RECONSTRUCTION_READS,
+        backend=NEUTRAL,
+        windowed=True,
     ),
     "core_profiles_time_volume_averaged": PanelRecipe(
         members=(
@@ -3412,8 +3462,11 @@ def _build_machine_poloidal(ods: Any, **options: Any) -> GeometryLayers:
             raise ValueError("equilibrium_section is a complete composed view; select it alone")
         from vaft.plot.equilibrium_section import DEFAULT_SECTION_PHI, DEFAULT_FLUX_LEVELS, build_equilibrium_section
 
+        # The R-Z recipe has no time axis, so validate_options refuses time=
+        # before this builder runs; the kernel's time= stays reachable through
+        # build_equilibrium_section itself (0.8.0 delta-19b C-F4).
         return build_equilibrium_section(
-            ods, time=options.get("time"), time_slice=options.get("time_slice"),
+            ods, time_slice=options.get("time_slice"),
             section_phi=float(options.get("section_phi", DEFAULT_SECTION_PHI)),
             flux_surface_levels=tuple(options.get("flux_surface_levels", DEFAULT_FLUX_LEVELS)),
         ).rz
@@ -3597,6 +3650,27 @@ def _toroidal_position(ods: Any, base: str) -> tuple[float, float] | None:
         return None
 
 
+def _ring_position(ods: Any, base: str) -> tuple[float, float | None] | None:
+    """``(r, z)`` of a toroidal loop stored under ``base`` (``z`` ``None`` when absent).
+
+    A flux loop is axisymmetric: its ``position`` (a list in the DD) gives the
+    loop's radius and height and has no toroidal angle, so -- unlike
+    :func:`_toroidal_position` -- no ``phi`` is required (issue #1829).
+    """
+    prefix = f"{base}.0" if base.startswith(_LISTED_POSITIONS) and base.endswith(".position") else base
+    try:
+        radius = float(np.asarray(_get(ods, f"{prefix}.r"), dtype=float).ravel()[0])
+    except (IndexError, TypeError, ValueError):
+        return None
+    if not (np.isfinite(radius) and radius > 0):
+        return None
+    try:
+        height = float(np.asarray(_get(ods, f"{prefix}.z"), dtype=float).ravel()[0])
+    except (IndexError, TypeError, ValueError):
+        height = None
+    return radius, height if height is not None and np.isfinite(height) else None
+
+
 def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
     """Diagnostic channels with a stored toroidal position, projected to (x, y).
 
@@ -3626,7 +3700,7 @@ def _topview_diagnostic_layers(ods: Any) -> list[GeometryLayer]:
         if kind == "rings":
             first_label = True
             for index in range(count):
-                position = _toroidal_position(ods, f"{container}.{index}.position")
+                position = _ring_position(ods, f"{container}.{index}.position")
                 if position is None:
                     continue
                 x, y = _ring(position[0])
@@ -4830,10 +4904,10 @@ def _diagnostic_layers_3d(ods: Any) -> list[Geometry3DLayer]:
                     r, phi, z = (np.array(values) for values in zip(*ends))
                     x, y, height = cylindrical_to_cartesian(r, phi, z)
                 else:
-                    position = _cylindrical_position(ods, f"{container}.{index}.position")
-                    if position is None:
-                        continue
-                    x, y, height = _toroidal_ring_3d(position[0], position[2])
+                    position = _ring_position(ods, f"{container}.{index}.position")
+                    if position is None or position[1] is None:
+                        continue  # a missing height is not assumed to be the midplane
+                    x, y, height = _toroidal_ring_3d(position[0], position[1])
                 layers.append(Geometry3DLayer(
                     x=x, y=y, z=height, label=label if first_label else "", style=style,
                     group=f"{group}/{index}",
@@ -8325,6 +8399,284 @@ def _build_passive_current(ods: Any, *, channels: Any = None, **_: Any) -> LineS
     )
 
 
+# ---------------------------------------------------------------------------
+# current_overview_reconstruction: I_p measured and reconstructed, PF
+# coil currents and the eddy currents on one time axis, in kA.
+# ---------------------------------------------------------------------------
+
+#: How a reconstructed slice is drawn for each convergence verdict: filled
+#: where the solver's evidence says it converged, a cross where it says the
+#: slice must not be trusted, hollow where no evidence was left at all.
+_SLICE_VERDICT_MARKERS: tuple[tuple[str, str, Mapping[str, Any]], ...] = (
+    ("converged", "EFIT converged", {"marker": "o", "markersize": 5}),
+    ("not_converged", "EFIT not converged", {"marker": "x", "markersize": 6, "mew": 1.5}),
+    ("unknown", "EFIT (convergence unknown)", {"marker": "o", "markersize": 5, "fillstyle": "none"}),
+)
+
+
+def _slice_convergence(ods: Any, index: int) -> str:
+    """``converged``, ``not_converged`` or ``unknown`` for one equilibrium slice.
+
+    The verdict is :func:`vaft.validation.equilibrium.verify_convergence`'s,
+    which reads through :mod:`vaft.ods_access` only: ``pass`` and ``warn``
+    (the iteration cap was hit or the exit tolerance missed, while the
+    acceptance test held) count as converged, ``fail`` as not.  That verdict
+    already weighs ``code.output_flag``, so ``not_available`` means no run
+    flag either, and the slice is shown as unknown rather than guessed.
+    """
+    from vaft.validation.equilibrium import verify_convergence
+    from vaft.validation.model import ValidationStatus
+
+    status = verify_convergence(ods, time_slice=index)["status"]
+    if status in (ValidationStatus.PASS, ValidationStatus.WARN):
+        return "converged"
+    if status == ValidationStatus.FAIL:
+        return "not_converged"
+    return "unknown"
+
+
+def _reconstructed_ip_points(ods: Any) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """The reconstructed I_p [A] at each slice's own time, by convergence verdict.
+
+    A slice is placed at ``time_slice[i].time`` when it stores one and at
+    ``equilibrium.time[i]`` only when that array has one entry per slice, so a
+    point never lands at another slice's time.
+    """
+    count = _count(ods, "equilibrium.time_slice")
+    times = _array(ods, "equilibrium.time")
+    shared = times if times is not None and times.ndim == 1 and times.size == count else None
+    points: dict[str, list[tuple[float, float]]] = {key: [] for key, _, _ in _SLICE_VERDICT_MARKERS}
+    for index in range(count):
+        ip = _get(ods, f"equilibrium.time_slice.{index}.global_quantities.ip")
+        own = _get(ods, f"equilibrium.time_slice.{index}.time")
+        when = own if own is not None else (None if shared is None else shared[index])
+        if ip is None or when is None:
+            continue
+        ip, when = float(np.asarray(ip, dtype=float).ravel()[0]), float(np.asarray(when, dtype=float).ravel()[0])
+        if np.isfinite(ip) and np.isfinite(when):
+            points[_slice_convergence(ods, index)].append((when, ip))
+    out = {}
+    for key, pairs in points.items():
+        if pairs:
+            pairs.sort()
+            out[key] = (np.array([p[0] for p in pairs]), np.array([p[1] for p in pairs]))
+    return out
+
+
+def _windowed(series: Series, window: tuple[float, float] | None) -> Series | None:
+    """``series`` cut to ``window`` (inclusive), or ``None`` when nothing is left."""
+    if window is None:
+        return series
+    keep = (series.x >= window[0]) & (series.x <= window[1])
+    if not keep.any():
+        return None
+    # Every per-sample array is cut with x and y, or the trace rejects itself.
+    yerr = None if series.yerr is None else np.asarray(series.yerr)[..., keep]
+    mask = None if series.valid_mask is None else series.valid_mask[keep]
+    return dataclasses.replace(series, x=series.x[keep], y=series.y[keep], yerr=yerr, valid_mask=mask)
+
+
+#: The legend style of the stacked overview: compact, unframed, at half the
+#: format's type size (resolved by the line renderer, never below 7 pt).
+_OVERVIEW_LEGEND: Mapping[str, Any] = {
+    "fontsize_scale": 0.5, "frameon": False, "handlelength": 1.2,
+    "labelspacing": 0.2, "columnspacing": 1.0, "borderaxespad": 0.4,
+}
+
+#: Fraction of its peak a current must exceed to count as driven: the plasma
+#: current against its own peak, the PF coils against the largest coil's.
+_DISCHARGE_ACTIVE_FRACTION = 0.10
+#: Margin either side of the driven span, as a fraction of it.
+_DISCHARGE_MARGIN = 0.05
+
+
+def _discharge_window(ip: Series, coils: Sequence[Series]) -> tuple[float, float] | None:
+    """The span the coils and the plasma are driven, with a margin; ``None`` if none.
+
+    A record holds long quiet stretches before the first coil fires and after
+    the plasma has gone, which squeeze the discharge into a sliver of the
+    axis.  The span runs from the first sample any PF coil carries more than
+    :data:`_DISCHARGE_ACTIVE_FRACTION` of the largest coil's peak, or the
+    plasma more than that fraction of its own, to the last such sample, and
+    is widened by :data:`_DISCHARGE_MARGIN` either side.  Offsets that never
+    return to zero stay below the threshold, so they do not stretch it.
+    """
+    starts, ends = [], []
+    for traces in ((ip,), tuple(coils)):
+        peak = max((float(np.nanmax(np.abs(t.y))) for t in traces if np.isfinite(t.y).any()), default=0.0)
+        if not peak > 0.0:
+            continue
+        for trace in traces:
+            active = np.abs(np.nan_to_num(trace.y)) > _DISCHARGE_ACTIVE_FRACTION * peak
+            if active.any():
+                starts.append(float(trace.x[active][0]))
+                ends.append(float(trace.x[active][-1]))
+    if not starts:
+        return None
+    low, high = min(starts), max(ends)
+    if not high > low:
+        return None
+    margin = _DISCHARGE_MARGIN * (high - low)
+    return (low - margin, high + margin)
+
+
+def _build_current_overview_reconstruction(ods: Any, **options: Any) -> Panels:
+    """I_p (measured and every EFIT slice), PF coil currents and eddy currents in kA.
+
+    Panel 1 draws the Rogowski I_p and, as markers at each slice's time, the
+    I_p each reconstruction converged to, split by the solver's convergence
+    verdict.  Panel 2 is each PF coil's current as stored, per turn as
+    ``pf_coil_time_current`` draws it; coils that carry no current at all in
+    the shot are left out.  Panel 3 draws the eddy total, with every passive
+    loop faint against a right-hand axis of its own.
+    ``orientation=`` signs panel 1 as ``plasma_current_time`` does (the
+    measured trace decides, the reconstruction follows); ``time_range=`` cuts
+    every panel to a window and makes it the axis, and without it the window
+    is the discharge (:func:`_discharge_window`).
+    """
+    orientation = options.get("orientation", "intuitive")
+    window = _range_option(options, "time_range")
+    kilo = 1.0e-3
+
+    # --- I_p -----------------------------------------------------------------
+    ip = _array(ods, "magnetics.ip.0.data")
+    ip_time = _first_time(ods, ("magnetics.ip.0.time", *_MAGNETICS_TIME))
+    if ip is None or ip_time is None or ip.shape != ip_time.shape:
+        raise ValueError("magnetics.ip.0.data with a matching time base is required")
+    measured = Series(x=ip_time, y=ip * kilo, label="Measured",
+                      style={"color": "role:measured", "lw": 1.3})
+    oriented, flipped = _orient((measured,), orientation)
+    sign = -1.0 if flipped else 1.0
+    # Without an equilibrium (EFIT not run on the shot) the panel is the
+    # measured current alone; the markers are added once the window is known.
+    points = _reconstructed_ip_points(ods) if _count(ods, "equilibrium.time_slice") else {}
+
+    # --- PF coil currents -------------------------------------------------------
+    coil_traces: list[Series] = []
+    for index in range(_count(ods, "pf_active.coil")):
+        current = _array(ods, f"pf_active.coil.{index}.current.data")
+        time = _first_time(ods, ("pf_active.coil.{i}.current.time", "pf_active.time"), i=index)
+        if current is None or time is None or current.shape != time.shape:
+            continue
+        name = _channel_label(ods, "pf_active.coil.{i}.name", index, f"coil {index}")
+        if not np.any(np.nan_to_num(current)):
+            continue  # a coil the shot never energised: a flat line and a legend entry
+        coil_traces.append(Series(
+            x=time, y=current * kilo, label=name, index=index,
+            style={"color": palette(len(coil_traces)), "lw": 1.3},
+        ))
+    if not coil_traces:
+        raise ValueError("no PF coil carries a current with a matching time base")
+
+    # --- eddy currents ----------------------------------------------------------
+    passive_time = _array(ods, "pf_passive.time")
+    if passive_time is None:
+        raise ValueError(
+            "pf_passive.time is not available; solve the eddy currents first "
+            "with vaft.omas.compute_eddy_currents(ods, [], [])"
+        )
+    loops: list[Series] = []
+    total = np.zeros_like(passive_time, dtype=float)
+    finite = np.zeros(passive_time.shape, dtype=bool)
+    for index in range(_count(ods, "pf_passive.loop")):
+        current = _array(ods, f"pf_passive.loop.{index}.current")
+        if current is None or current.shape != passive_time.shape:
+            continue
+        # A sample one loop lacks is left out of the total, not allowed to
+        # blank it; the total is missing only where no loop has a value.
+        total = total + np.nan_to_num(current, nan=0.0, posinf=0.0, neginf=0.0)
+        finite |= np.isfinite(current)
+        # One loop carries ~1% of the total, so the loops are drawn against a
+        # right-hand axis of their own; on the total's scale they collapse onto
+        # zero.  The first one names them all in the legend.
+        loops.append(Series(x=passive_time, y=current * kilo,
+                            label="" if loops else "Each loop (right axis)", index=index,
+                            secondary=True,
+                            style={"color": "emphasis:faint", "alpha": 0.15, "lw": 0.5}))
+    if not loops:
+        raise ValueError("no passive loop current matches the pf_passive time base")
+    total = np.where(finite, total, np.nan)
+    if not finite.any():
+        raise ValueError(
+            "the eddy-current solution is entirely non-finite; the impedance "
+            "matrix was singular and solve_eddy_currents fell back to NaN"
+        )
+    # The total is the line the faint loops are read against, drawn as the
+    # panel's reference; widths match the other panels' traces.
+    eddy = [*loops, Series(x=passive_time, y=total * kilo, label=f"Total ({len(loops)} loops)",
+                           style={"color": "role:reference", "lw": 1.5})]
+
+    asked = window is not None
+    if window is None:
+        window = _discharge_window(oriented[0], coil_traces)
+    ip_series: list[Series] = [oriented[0]]
+    for key, label, marker in _SLICE_VERDICT_MARKERS:
+        if key not in points:
+            continue
+        when, value = points[key]
+        if window is not None:
+            inside = (when >= window[0]) & (when <= window[1])
+            when, value = when[inside], value[inside]
+        if not when.size:
+            continue
+        # Drawn beside the measurement rather than in a role of it: a role
+        # replaces the label with the role's name, and the three verdicts must
+        # stay distinguishable.  The sign follows the measured trace's, and the
+        # count is of the slices drawn.
+        ip_series.append(Series(
+            x=when, y=sign * value * kilo, label=f"{label} (n={when.size})",
+            style={"color": "role:reconstructed", "linestyle": "none", **marker},
+        ))
+    panels_series = []
+    for traces in (ip_series, coil_traces, eddy):
+        kept = [cut for cut in (_windowed(trace, window) for trace in traces) if cut is not None]
+        if not kept:
+            where = f"time_range={window}" if asked else f"the discharge window {window}"
+            raise ValueError(
+                f"{where} holds none of a panel's samples"
+                + ("" if asked else "; pass time_range= to choose the window")
+            )
+        panels_series.append(tuple(kept))
+    if window is None:
+        # Clipped to the data: the shared axis spans what the three panels hold.
+        spans = [(float(np.nanmin(s.x)), float(np.nanmax(s.x))) for traces in panels_series for s in traces]
+        limits = (min(a for a, _ in spans), max(b for _, b in spans))
+        if not limits[1] > limits[0]:
+            limits = None
+    else:
+        limits = window
+
+    pulse = _get(ods, "dataset_description.data_entry.pulse")
+    shot = "" if pulse is None else f" #{pulse}"
+    return Panels(
+        models=(
+            LineSeries(series=panels_series[0], x_label="Time", x_unit="s",
+                       y_label=r"$I_\mathrm{p}$", y_unit="kA", x_limits=limits),
+            LineSeries(series=panels_series[1], x_label="Time", x_unit="s",
+                       y_label=r"$I_\mathrm{PF}$", y_unit="kA", x_limits=limits),
+            LineSeries(series=panels_series[2], x_label="Time", x_unit="s",
+                       y_label=r"$I_\mathrm{eddy}$", y_unit="kA", x_limits=limits,
+                       secondary_y_label="per loop", secondary_y_unit="kA"),
+        ),
+        ncols=1, share_x=True, share_legend=False,
+        # Each legend in the corner a discharge leaves empty -- before
+        # breakdown for I_p and the eddy currents, after the swing for PF --
+        # at half the format's type size.  The eddy legend is forced on: the
+        # policy can drop one of so few entries, which would leave the faint
+        # loops on the right axis unexplained.
+        member_styles=(
+            {"legend_placement": {**_OVERVIEW_LEGEND, "loc": "upper left"}},
+            {"legend_placement": {**_OVERVIEW_LEGEND, "loc": "upper right", "ncol": 2}},
+            {"legend": True, "legend_placement": {**_OVERVIEW_LEGEND, "loc": "upper left"}},
+        ),
+        # A column beside a cross-section on a slide; the right-hand eddy
+        # scale would otherwise pull the title off the time axis.
+        max_width_in=6.5,
+        title_over_axes=True,
+        suptitle=f"Plasma, PF and eddy currents{shot}" + (" (I_p sign flipped)" if flipped else ""),
+    )
+
+
 
 
 def _build_line_traces(
@@ -9396,6 +9748,8 @@ def declares_option(name: str, option: str) -> bool:
         return name in MODE_OVERLAY_PLOTS
     if option == "include_unconverged":
         return name in UNCONVERGED_MODE_PLOTS
+    if option in VACUUM_BENCHMARK_OPTIONS:
+        return name in VACUUM_BENCHMARK_PLOTS
     return choice_options_for(name, option) is not None
 
 
@@ -15047,13 +15401,23 @@ def _channel_position(channel: Any) -> str:
     collides with its neighbour's.  What a reader needs from it is which side
     of the machine the channel is on.
     """
-    name = str(channel.name)
-    for prefix in ("MagneticFieldProbe_", "Flux Loop - "):
-        if name.startswith(prefix):
-            name = name[len(prefix):]
-            break
+    name = channel_short_name(channel.name)
     family = str(channel.family).replace("_flux_loop", "").replace("_", " ")
     return f"{name} · {family}" if family else name
+
+
+#: The instrument prefixes a magnetic channel name repeats on every channel of
+#: its kind; :func:`channel_short_name` drops them.
+CHANNEL_NAME_PREFIXES = ("MagneticFieldProbe_", "Flux Loop - ")
+
+
+def channel_short_name(name: Any) -> str:
+    """A magnetic channel's name without its instrument prefix (:data:`CHANNEL_NAME_PREFIXES`)."""
+    name = str(name)
+    for prefix in CHANNEL_NAME_PREFIXES:
+        if name.startswith(prefix):
+            return name[len(prefix):]
+    return name
 
 
 def _build_magnetics_vacuum(ods: Any, **options: Any) -> Panels:
@@ -15195,6 +15559,284 @@ RECIPES["magnetics_overview_plasma_residual"] = CallableRecipe(
     reads=("pf_active", "pf_passive", "em_coupling", "magnetics", "wall", "tf", *_ONSET_READS),
     backend=OMAS_BOUND,
     reason='vaft.omas.vacuum_magnetics.synthetic_vacuum_magnetics deep-copies the ODS',
+)
+
+
+# ---------------------------------------------------------------------------
+# Plasma-free vacuum benchmark scores (issue #190, plotting roadmap #1242 C3)
+# ---------------------------------------------------------------------------
+#
+# The #139 figures above draw one shot's waveforms; these views draw the
+# benchmark's per-channel *scores* (vaft.validation.vacuum_benchmark), and the
+# aggregate table in vaft.plot.backend.tables compares them across shots.  The
+# benchmark states no threshold and no verdict, so neither do the views: the
+# zero line on the improvement panel is the point where the wall term adds
+# nothing, a reference and not a pass mark.
+
+#: The views that run :func:`vaft.validation.vacuum_benchmark.run_benchmark_case`.
+VACUUM_BENCHMARK_PLOTS = frozenset({
+    "magnetics_overview_vacuum_benchmark",
+    "magnetics_table_vacuum_benchmark",
+    "magnetics_table_vacuum_benchmark_aggregate",
+})
+
+#: The benchmark's own knobs, taken only by :data:`VACUUM_BENCHMARK_PLOTS`
+#: (``per_family=`` is shared with the #139 vacuum figures).
+VACUUM_BENCHMARK_OPTIONS = ("resistance_scale", "n_tau")
+
+#: What a benchmark case reads: the PF and passive-loop circuits and their
+#: coupling, the magnetics it scores, the wall and TF the static model and the
+#: forward response read, the data entry, and the plasma-timing inputs (the UV
+#: lines and the summary's time convention) the plasma-free interval is cut
+#: at.  ``run_benchmark_case`` deep-copies whatever it is given, so the views
+#: hand it a private copy of just these IDS (:func:`_isolated_copy`), and
+#: declare them whole.
+_VACUUM_BENCHMARK_ROOTS = (
+    "pf_active", "pf_passive", "em_coupling", "magnetics", "wall", "tf",
+    "dataset_description", "spectrometer_uv", "summary",
+)
+_VACUUM_BENCHMARK_READS = (*_VACUUM_BENCHMARK_ROOTS, *_ONSET_READS)
+
+#: The three per-channel scores, as the benchmark's metrics name them.
+VACUUM_BENCHMARK_SCORES = ("improvement", "normalized_residual", "correlation")
+
+
+def _positive_option(
+    options: Mapping[str, Any], key: str, default: float, *, allow_zero: bool = False
+) -> float:
+    value = options.get(key)
+    if value is None:
+        return float(default)
+    wanted = "a non-negative number" if allow_zero else "a positive number"
+    if isinstance(value, bool):
+        raise ValueError(f"{key}= takes {wanted}; got {value!r}")
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{key}= takes {wanted}; got {value!r}") from None
+    if not np.isfinite(number) or number < 0.0 or (number == 0.0 and not allow_zero):
+        raise ValueError(f"{key}= takes {wanted}; got {value!r}")
+    return number
+
+
+def _per_family_option(value: Any) -> int | None:
+    """``per_family=``: ``None``, or a positive whole count (``2`` or ``2.0``)."""
+    if value is None:
+        return None
+    refused = ValueError(
+        f"per_family= takes a positive channel count per family, or None for every "
+        f"usable channel; got {value!r}"
+    )
+    if isinstance(value, bool):
+        raise refused
+    if isinstance(value, (int, np.integer)):
+        count = int(value)
+    elif isinstance(value, (float, np.floating)) and np.isfinite(value) and float(value).is_integer():
+        count = int(value)
+    else:
+        raise refused
+    if count < 1:
+        raise refused
+    return count
+
+
+def vacuum_benchmark_options(options: Mapping[str, Any]) -> dict[str, Any]:
+    """The :func:`~vaft.validation.vacuum_benchmark.run_benchmark_case` keywords a view passes on.
+
+    ``per_family`` (``None``: every usable channel, the benchmark's default; or
+    a positive whole count per family, an integral float such as ``2.0``
+    included), ``resistance_scale`` (positive) and ``n_tau`` (non-negative:
+    ``0`` opens the validation window with the solver input, as
+    ``run_benchmark_case`` allows); each is type-checked here so a wrong value
+    is refused by name, not deep inside the solver.
+    """
+    from vaft.validation.vacuum_benchmark import DEFAULT_HISTORY_TIME_CONSTANTS
+
+    return {
+        "per_family": _per_family_option(options.get("per_family")),
+        "resistance_scale": _positive_option(options, "resistance_scale", 1.0),
+        "n_tau": _positive_option(
+            options, "n_tau", DEFAULT_HISTORY_TIME_CONSTANTS, allow_zero=True
+        ),
+    }
+
+
+def _pulse_number(ods: Any) -> int | None:
+    pulse = _get(ods, "dataset_description.data_entry.pulse")
+    try:
+        number = int(pulse)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+def _vest_machine_era(shot: int | None) -> str | None:
+    """The VEST machine era of ``shot`` (``vaft.omas.vest_upstream``), or ``None``."""
+    if shot is None:
+        return None
+    from vaft.omas.vest_upstream import machine_era_for_shot
+
+    try:
+        return machine_era_for_shot(shot).name
+    except ValueError:
+        return None
+
+
+def vacuum_benchmark_case(ods: Any, options: Mapping[str, Any]) -> dict[str, Any]:
+    """One benchmark case of ``ods``, labelled by its data entry's pulse.
+
+    :func:`~vaft.validation.vacuum_benchmark.run_benchmark_case` unchanged,
+    with ``shot`` the stored pulse and ``machine_era`` the VEST era that pulse
+    falls in (``None`` for an ODS without a pulse).  A shot that cannot supply
+    a plasma-free case raises :class:`~vaft.validation.vacuum_benchmark.BenchmarkError`.
+    """
+    from vaft.validation.vacuum_benchmark import run_benchmark_case
+
+    keywords = vacuum_benchmark_options(options)
+    shot = _pulse_number(ods)
+    # The benchmark deep-copies its argument whole; a copy of only the IDS it
+    # reads keeps that copy (and the reads) to those.
+    private = _isolated_copy(ods, _VACUUM_BENCHMARK_ROOTS)
+    return run_benchmark_case(private, shot=shot, machine_era=_vest_machine_era(shot), **keywords)
+
+
+def benchmark_channel_status(row: Mapping[str, Any], flagged: Iterable[str]) -> str:
+    """``evaluated``, ``flagged`` or ``excluded`` for one ``metrics.channels`` row.
+
+    ``flagged`` is evaluated but named in the case's ``channels.flagged`` (it
+    contradicts its own probe array) and so kept out of the scored spread;
+    ``excluded`` had too few usable samples to be scored at all.
+    """
+    if row.get("status") != "evaluated":
+        return "excluded"
+    return "flagged" if row["name"] in set(flagged) else "evaluated"
+
+
+def _ms(value: Any) -> str:
+    try:
+        return f"{float(value) * 1e3:.1f}"
+    except (TypeError, ValueError):
+        return "—"
+
+
+def vacuum_benchmark_window_text(case: Mapping[str, Any]) -> str:
+    """The case's windows: validation inside solver input, in ms."""
+    validation = case["validation_window"]
+    solver = case["solver_input_window"]
+    return (
+        f"validation {_ms(validation[0])}–{_ms(validation[1])} ms inside solver input "
+        f"{_ms(solver[0])}–{_ms(solver[1])} ms"
+    )
+
+
+def _benchmark_excluded_text(case: Mapping[str, Any], limit: int = 4) -> str:
+    names = [channel_short_name(entry["channel"]) for entry in case["channels"]["excluded"]]
+    if not names:
+        return "excluded: none"
+    shown = ", ".join(names[:limit])
+    more = f" (+{len(names) - limit} more)" if len(names) > limit else ""
+    return f"excluded (not plotted): {shown}{more}"
+
+
+def _build_magnetics_vacuum_benchmark(ods: Any, **options: Any) -> Panels:
+    case = vacuum_benchmark_case(ods, options)
+    rows = case["metrics"]["channels"]
+    if not rows:
+        raise ValueError("the benchmark case holds no magnetic channel to score")
+    flagged = {entry["channel"] for entry in case["channels"]["flagged"]}
+    statuses = [benchmark_channel_status(row, flagged) for row in rows]
+    families = list(dict.fromkeys(str(row["family"]) for row in rows))
+    positions = np.arange(1, len(rows) + 1, dtype=float)
+    x_label = "channel # (benchmark order, grouped by family)"
+    titles = {
+        "improvement": (
+            "eddy improvement", "1 − RMS(measured − (coil+eddy)) / RMS(measured − coil)"
+        ),
+        "normalized_residual": ("normalized residual", "RMS(residual) / range(measured)"),
+        "correlation": ("correlation", "measured vs coil+eddy"),
+    }
+
+    panels = []
+    for key in VACUUM_BENCHMARK_SCORES:
+        values = np.array([float(row.get(key, np.nan)) for row in rows], dtype=float)
+        series = []
+        if key == "improvement":
+            series.append(Series(
+                x=np.array([0.5, len(rows) + 0.5]), y=np.zeros(2),
+                label="0: the wall term adds nothing (reference)",
+                style={"linestyle": "--", "color": "emphasis:low", "lw": 0.9},
+            ))
+        for colour, family in enumerate(families):
+            members = [
+                index for index, (row, status) in enumerate(zip(rows, statuses))
+                if str(row["family"]) == family and status == "evaluated"
+            ]
+            if not members:
+                continue
+            series.append(Series(
+                x=positions[members], y=values[members], label=family.replace("_", " "),
+                style={"color": palette(colour % 6), "marker": "o", "markersize": 4,
+                       "linestyle": "none"},
+            ))
+        marked = [index for index, status in enumerate(statuses) if status == "flagged"]
+        if marked:
+            series.append(Series(
+                x=positions[marked], y=values[marked], label="flagged (array contradiction)",
+                style={"color": "emphasis:strong", "marker": "D", "markersize": 6,
+                       "linestyle": "none", "markerfacecolor": "none",
+                       "markeredgecolor": "emphasis:strong", "markeredgewidth": 1.2},
+            ))
+        name, formula = titles[key]
+        panels.append(LineSeries(
+            series=tuple(series), x_label=x_label, y_label=name,
+            title=f"{name}: {formula}",
+        ))
+
+    pulse = _get(ods, "dataset_description.data_entry.pulse", "")
+    scored = case["metrics"]["summary"]["scored"]
+    drive = case["coil_drive"]
+    solver = case["solver"]
+    fraction = drive.get("coil_drive_fraction")
+    fraction_text = "—" if fraction is None else f"{fraction:.2f}"
+    driven = "driven" if drive.get("sufficiently_driven") else "NOT sufficiently driven"
+    history = "met" if solver.get("sufficient") else "NOT met"
+    validation, solver_window = case["validation_window"], case["solver_input_window"]
+    suptitle = "\n".join((
+        f"Vacuum benchmark — shot {pulse} ({case['case_type']}, resistance "
+        f"×{case['static_model']['resistance_scale']:g})",
+        f"validation {_ms(validation[0])}–{_ms(validation[1])} ms in solver input "
+        f"{_ms(solver_window[0])}–{_ms(solver_window[1])} ms",
+        f"scored medians ({scored['count']} ch.; flagged, undefined wall authority out): "
+        f"improvement "
+        f"{scored['improvement']['median']:.2f}, norm. residual "
+        f"{scored['normalized_residual']['median']:.3f}, correlation "
+        f"{scored['correlation']['median']:.3f}",
+        f"{len(flagged)} flagged; {_benchmark_excluded_text(case)}; coil drive {fraction_text} "
+        f"({driven}); history {_ms(solver.get('available_history'))}/"
+        f"{_ms(solver.get('required_history'))} ms ({history})",
+    ))
+    # The three panels stacked; the fourth row holds the one legend they
+    # share (the families and the flagged marker are the same in each).
+    return Panels(
+        models=tuple(panels),
+        nrows=4,
+        ncols=1,
+        share_x=True,
+        share_legend=True,
+        suptitle=suptitle,
+    )
+
+
+RECIPES["magnetics_overview_vacuum_benchmark"] = CallableRecipe(
+    builder=_build_magnetics_vacuum_benchmark,
+    description="Per-channel scores of the plasma-free vacuum benchmark: eddy improvement, "
+                "normalized residual and correlation, by family, flagged probes marked.",
+    reads=_VACUUM_BENCHMARK_READS,
+    backend=OMAS_BOUND,
+    reason=(
+        "vaft.validation.vacuum_benchmark.run_benchmark_case deep-copies the ODS and "
+        "re-solves the passive-wall currents from the PF currents alone"
+    ),
 )
 
 

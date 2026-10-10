@@ -43,6 +43,7 @@ __all__ = [
     "chease_overview_refinement_summary",
     "core_profiles_time_volume_averaged",
     "current_overview",
+    "current_overview_reconstruction",
     "diagnostics_overview",
     "kinetic_overview_profiles",
     "equilibrium_overview",
@@ -63,6 +64,7 @@ __all__ = [
     "magnetics_overview",
     "magnetics_overview_plasma_residual",
     "magnetics_overview_vacuum",
+    "magnetics_overview_vacuum_benchmark",
     "mhd_linear_overview_eigenfunction",
     "render_panels",
     "soft_x_rays_overview",
@@ -280,7 +282,11 @@ def render_panels(
         # finalize hangs it from the top edge inside the band tight_layout
         # reserves for it (just above the first row's titles, whatever the
         # grid's shape), and again when a presentation format re-lays it out.
-        figure.suptitle(model.suptitle)
+        title = figure.suptitle(model.suptitle)
+        if model.title_over_axes:
+            from ..style import TITLE_OVER_AXES_GID
+
+            title.set_gid(TITLE_OVER_AXES_GID)
     # A figure the caller owns keeps the caller's layout: tight_layout is
     # applied only to a figure this renderer created (issue #260 section 8;
     # a figure that redraws its panels must not be re-laid-out each time).
@@ -805,6 +811,104 @@ def current_overview(
 
 
 @_panel_renderer(
+    domain="electromagnetics",
+    subject="current",
+    view="overview",
+    quantity="reconstruction",
+    description=(
+        "Measured I_p with the reconstructed I_p of every equilibrium slice by "
+        "convergence, PF coil currents and eddy currents, in kA."
+    ),
+    ids=("magnetics", "pf_active", "pf_passive", "equilibrium"),
+    required_paths=(
+        "magnetics.ip.0.data",
+        "pf_active.coil.{i}.current.data",
+        "pf_passive.time",
+        "pf_passive.loop.{i}.current",
+    ),
+    # Without an equilibrium the top panel is the measured current alone.
+    optional_paths=("equilibrium.time_slice.{i}.global_quantities.ip",),
+)
+def current_overview_reconstruction(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """Plasma, PF and eddy currents in kA, with every reconstructed slice's I_p.
+
+    Parameters
+    ----------
+    model : Panels
+        The three stacked time histories the adapter built.
+    ax : sequence of Axes, optional
+        Three axes to draw into; a new figure when omitted.
+    show : bool
+        Show the figure as well as returning it.
+
+    Interpretation
+    --------------
+    The three currents that set the poloidal field of a VEST discharge, on
+    one time axis.  The top panel is the Rogowski plasma current with, as
+    markers at each slice's time, the plasma current the equilibrium
+    reconstruction fitted: filled where the solver's evidence says the slice
+    converged, a cross where it says it did not, hollow where no evidence was
+    stored.  A marker on the trace says the reconstruction matched the
+    measured current; one off it, or a cross, says that slice should not be
+    read further.  The middle panel is each PF coil's current as stored, per
+    turn.  The bottom panel is the current induced in the vessel and passive
+    structure: their total strong against the left axis, and every loop faint
+    against a right-hand axis of its own, since one loop carries about a
+    hundredth of the total and would otherwise vanish onto zero.  In the
+    Matplotlib figure the two axes put their zero at the same height whenever
+    both ranges straddle it, so a loop and the total read above or below it
+    the same way; their scales differ.  Without an equilibrium the top panel
+    is the measured current alone.
+
+    Options
+    -------
+    ``orientation=`` signs the plasma-current panel as
+    ``plasma_current_time`` does: the default draws the measured current
+    positive and the reconstructed points follow the same sign;
+    ``"canonical"`` keeps the stored sign.  ``time_range=`` cuts all three
+    panels to a window and makes it the shared axis; without it the axis
+    spans the discharge -- from the first PF coil or plasma current above a
+    tenth of its peak to the last, with a 5 % margin each side -- rather
+    than the whole record.
+
+    Under a presentation format the figure is drawn at most 6.5 in wide (a
+    column beside a cross-section on a slide), with each panel's legend in
+    the corner a discharge leaves empty, at half the format's type size
+    (never below 7 pt), and the title centred over the time axis;
+    ``figsize=`` or ``ax=`` take the canvas over.
+
+    Convention
+    ----------
+    Currents are in kA.  The PF panel is the stored coil current, per turn
+    (``pf_coil_time_current_turns`` multiplies it by the turns).  The PF and
+    eddy panels keep the IMAS sign; only the plasma
+    current is re-signed for display, and the figure title says so when it is.
+
+    Limitations
+    -----------
+    The eddy currents are a circuit-model solution (``pf_passive`` from
+    ``vaft.omas.compute_eddy_currents``), not a measurement.  Convergence is
+    the solver's own evidence as ``vaft.validation.equilibrium.
+    verify_convergence`` reads it; a converged slice can still fit the
+    magnetics poorly, which ``equilibrium_overview_fit_quality`` shows.  PF
+    coils that carry no current at all in the shot are not drawn;
+    ``pf_coil_time_current`` draws every coil.  A loop sample that is not
+    finite is left out of the total at that time, and the total is missing
+    only where no loop is finite.  The 6.5 in column keeps the format's type
+    size, so a ``poster`` figure is tall and narrow; pass ``figsize=`` there.
+
+    See Also
+    --------
+    current_overview : the same three currents in A, one trace per coil and the eddy total.
+    equilibrium_overview_convergence : the convergence evidence behind the markers.
+    passive_structure_time_current : the eddy current alone, or selected loops.
+    """
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
     domain="core_profiles",
     subject="core_profiles",
     view="time",
@@ -998,6 +1102,82 @@ def magnetics_overview_plasma_residual(
     model: Panels, *, ax: Any = None, show: bool = False, **style: Any
 ) -> tuple[Figure, np.ndarray]:
     """Plasma-signal residual left by the coil+eddy synthetic vacuum response."""
+    return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="magnetics",
+    subject="magnetics",
+    view="overview",
+    quantity="vacuum_benchmark",
+    description=(
+        "Per-channel scores of the plasma-free vacuum benchmark (issue #190): eddy "
+        "improvement against a zero reference, normalized residual and correlation, "
+        "channels grouped and coloured by family, flagged probes hollow."
+    ),
+    # Every root the builder reads (recipes._VACUUM_BENCHMARK_ROOTS): the UV
+    # lines and the summary cut the plasma-free interval, so a loader that
+    # selects by ids must not drop them.
+    ids=(
+        "pf_active", "pf_passive", "magnetics", "em_coupling", "wall",
+        "tf", "spectrometer_uv", "summary",
+    ),
+    required_paths=(
+        "pf_active.time",
+        "pf_active.coil.{i}.current.data",
+        "pf_passive.loop.{i}.resistance",
+    ),
+    optional_paths=_VACUUM_OPTIONAL + ("magnetics.ip.{i}.data", "em_coupling.mutual_passive_active"),
+)
+def magnetics_overview_vacuum_benchmark(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """The vacuum benchmark's per-channel scores of one shot, channel by channel.
+
+    Interpretation
+    --------------
+    The shot is run through :func:`vaft.validation.vacuum_benchmark.run_benchmark_case`
+    -- the passive wall re-solved from the measured PF currents alone over the
+    plasma-free stretch -- and each scored B probe and flux loop is one point
+    per panel, at its position in the benchmark's order (the ``#`` column of
+    :func:`magnetics_table_vacuum_benchmark`), coloured by family.  The top
+    panel is the eddy improvement 1 - RMS(measured - (coil+eddy)) /
+    RMS(measured - coil), what the wall model is worth on that channel, with
+    a dashed line at zero where the wall term adds nothing; the middle panel the residual RMS as a fraction of the
+    channel's swing; the bottom the correlation of measured with coil+eddy,
+    which near 1 beside a large residual points at a gain rather than at the
+    wall.  Read together they show which families and which individual
+    channels the vacuum model reproduces and where it falls away.  A probe
+    the benchmark flags as contradicting its own array is drawn hollow and
+    named in the legend: scored, but a sensor finding kept out of the scored
+    medians.  Excluded channels (too few usable samples) are not drawn; the
+    title names them, with the window, coil drive and solver history the case
+    was measured under.
+
+    Options
+    -------
+    ``per_family=``, ``resistance_scale=`` and ``n_tau=`` are passed to the
+    benchmark as in :func:`magnetics_table_vacuum_benchmark`: the channels per
+    family, one global factor on every passive-loop resistance, and the wall
+    time constants of solver history before the validation window opens.
+
+    Limitations
+    -----------
+    The zero line is a reference, not a threshold: the benchmark states no
+    acceptance bound and no verdict, and neither colour nor marker grades a
+    channel.  The horizontal axis is a channel index, not a geometry; the
+    table gives each index its channel name.  Scores from one shot's
+    plasma-free stretch say nothing about the model with plasma, and a low
+    improvement where the eddy term is a small share of the reading (the
+    table's wall authority) is a rounding of the model's error, not a finding
+    about the wall.
+
+    See Also
+    --------
+    magnetics_table_vacuum_benchmark : the same scores with channel names and reasons.
+    magnetics_table_vacuum_benchmark_aggregate : the benchmark across shots.
+    magnetics_overview_vacuum : the measured, coil and coil+eddy waveforms behind the scores.
+    """
     return render_panels(model, ax=ax, show=show, **style)
 
 

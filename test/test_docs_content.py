@@ -156,7 +156,14 @@ def test_page_migrations_are_unique_and_canonical():
     migrations = _data("page_migrations.yml")
     legacy = [m["legacy_url"] for m in migrations]
     assert len(legacy) == len(set(legacy)), "duplicate legacy_url in page_migrations.yml"
-    canonical = _canonical_urls()
+    # A renamed hub child (a per-module reference page, #1838) is canonical too,
+    # when a page claims it: hubs link their children, the sidebar does not.
+    hub_children = {
+        front["permalink"]
+        for front in (_front_matter(p) for p in _pages())
+        if str(front.get("permalink", "")).startswith(HUB_CHILD_PREFIXES) and front.get("layout") != "redirect"
+    }
+    canonical = _canonical_urls() | hub_children
     stray = sorted(m["canonical_url"] for m in migrations if m["canonical_url"] not in canonical)
     assert not stray, f"migrations point at non-canonical URLs: {stray}"
 

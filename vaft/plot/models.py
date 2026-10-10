@@ -141,6 +141,11 @@ class Series(ViewModel):
     #: The channel's index in its diagnostic array, when the trace is one
     #: channel of an array; identity that survives whatever the label says.
     index: int | None = None
+    #: Drawn against the panel's secondary (right-hand) y-axis, for traces
+    #: whose scale would vanish beside the primary ones -- one eddy loop
+    #: beside the total of all of them.  The secondary axis is labelled by
+    #: :attr:`LineSeries.secondary_y_label` / ``secondary_y_unit``.
+    secondary: bool = False
 
     def __post_init__(self) -> None:
         x = as_model_array(self.x, where="Series.x")
@@ -182,6 +187,7 @@ class Series(ViewModel):
         object.__setattr__(self, "role", str(self.role or ""))
         if self.index is not None:
             object.__setattr__(self, "index", int(self.index))
+        object.__setattr__(self, "secondary", bool(self.secondary))
         object.__setattr__(self, "style", _frozen_style(self.style))
         object.__setattr__(self, "label", str(self.label))
 
@@ -237,6 +243,10 @@ class LineSeries(ViewModel):
     #: Resolved display policy (unit/scale/notation) the series were built
     #: with; ``None`` for models assembled outside the display layer.
     display: "DisplaySpec | None" = None
+    #: Label and unit of the right-hand axis that :attr:`Series.secondary`
+    #: traces are drawn against; unused when no trace is secondary.
+    secondary_y_label: str = ""
+    secondary_y_unit: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -1061,6 +1071,13 @@ class Panels(ViewModel):
     #: Mark the panels ``(a)``, ``(b)``, ... in slot order, the way a
     #: publication figure refers to them.
     panel_labels: bool = False
+    #: The widest a presentation format draws this figure, in inches: a
+    #: stack read as a narrow column beside another figure on a slide.  A
+    #: format no wider keeps its own width; an explicit ``figsize=`` wins.
+    max_width_in: float | None = None
+    #: Centre the suptitle over the panels' columns rather than the canvas,
+    #: for a figure whose right margin (a secondary axis) shifts the two.
+    title_over_axes: bool = False
 
     def __post_init__(self) -> None:
         _reject_data_objects(self.models, where="Panels.models")

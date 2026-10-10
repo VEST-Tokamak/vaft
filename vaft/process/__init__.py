@@ -68,7 +68,8 @@ _SUBMODULES = {
     "zeff_projection": ".zeff_projection",
     "mode_frequency": ".mode_frequency",
     "mhd_stability": ".mhd_stability",
-    "core_q_context": ".core_q_context",
+    "q_profile_context": ".q_profile_context",
+    "ordering_state": ".ordering_state",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -142,7 +143,12 @@ _IMPORT_ORDER = (
     "mhd_stability",
     # Equilibrium context for core low-n MHD (#1798): q landmarks, rational
     # crossings, low-shear regions, boundary topology; nothing it exports collides.
-    "core_q_context",
+    # The module is q_profile_context so that its key never shadows the
+    # core_q_context function it exports (#1838).
+    "q_profile_context",
+    # Asymptotic ordering quantities of measured states (#1627 §2, #1629);
+    # nothing it exports collides.
+    "ordering_state",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
