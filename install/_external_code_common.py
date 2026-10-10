@@ -273,6 +273,12 @@ POSIX_PREFIX_LAYOUT = {
 }
 
 
+#: Whether the per-user `%LOCALAPPDATA%\vaft\external\<code>` layout applies.
+#: A module constant rather than an inline `os.name` test so a test can take
+#: either branch without re-binding `os.name`, which pathlib also reads.
+WINDOWS_LAYOUT = os.name == "nt"
+
+
 def default_prefix(
     code: str, source: Optional[str | os.PathLike[str]] = None
 ) -> Optional[Path]:
@@ -285,7 +291,11 @@ def default_prefix(
     ``check_chease.py --source ...`` report "no install prefix to look in" and
     then recommend a PowerShell script to a Linux operator.
     """
-    local = os.environ.get("LOCALAPPDATA")
+    # The platform decides the layout, not the presence of the variable: a
+    # POSIX shell that happens to export LOCALAPPDATA (WSL with Windows
+    # interop, a profile copied across) must not be answered with a Windows
+    # per-user path the POSIX installers never write to.
+    local = os.environ.get("LOCALAPPDATA") if WINDOWS_LAYOUT else None
     if local:
         return Path(local) / "vaft" / "external" / code
     if source:

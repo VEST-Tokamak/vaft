@@ -2104,14 +2104,20 @@ def test_default_prefix_answers_on_posix_too(monkeypatch):
     The POSIX installers put the prefix inside the source tree, which is
     unguessable without --source and derivable with it.
 
-    `default_prefix` chooses by whether `LOCALAPPDATA` is set, not by the
-    operating system, so this controls that variable rather than asking which
-    platform it runs on. Both branches are then checked on every runner. It
-    used to read the real environment, which on Windows took the per-user
-    branch and failed every assertion written for the other one.
+    `default_prefix` chooses the layout by platform (cold review install F26:
+    it used to choose by whether `LOCALAPPDATA` was set, so a POSIX shell that
+    exported it was answered with a Windows per-user path). This test sets
+    the module's WINDOWS_LAYOUT seam as well as the variable, so both branches
+    are checked on every runner, and the variable alone is shown not to switch
+    the layout.
     """
     module = _load_external_checker("_external_code_common.py")
 
+    monkeypatch.setattr(module, "WINDOWS_LAYOUT", False)
+    monkeypatch.setenv("LOCALAPPDATA", str(Path("/per-user")))
+    assert module.default_prefix("chease", "/tmp/chease").as_posix().endswith(
+        "/chease/vaft-install"
+    ), "LOCALAPPDATA in a POSIX environment must not select the Windows layout"
     monkeypatch.delenv("LOCALAPPDATA", raising=False)
     assert module.default_prefix("chease", "/tmp/chease").as_posix().endswith(
         "/chease/vaft-install"
@@ -2123,6 +2129,7 @@ def test_default_prefix_answers_on_posix_too(monkeypatch):
     assert module.default_prefix("chease") is None
 
     # And the per-user branch answers from the code name alone, source or not.
+    monkeypatch.setattr(module, "WINDOWS_LAYOUT", True)
     monkeypatch.setenv("LOCALAPPDATA", str(Path("/per-user")))
     expected = (Path("/per-user") / "vaft" / "external" / "chease").as_posix()
     assert module.default_prefix("chease").as_posix() == expected
