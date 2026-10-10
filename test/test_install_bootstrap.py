@@ -3297,3 +3297,24 @@ def test_chease_installer_header_agrees_with_the_recorded_macos_verification():
     readme = (INSTALL / "README.md").read_text(encoding="utf-8")
     macos_row = next(line for line in readme.splitlines() if line.startswith("| CHEASE, macOS"))
     assert "Verified" in macos_row and "q_rms_rel=0.0144" in macos_row
+
+
+def test_efit_windows_records_the_netcdf_it_got_not_the_netcdf_it_asked_for():
+    """Cold review install F24: `enabled = [bool] $netcdfUnix` was the request.
+
+    install_efit.sh resets a build tree whose config.h disagrees with the
+    NetCDF being asked for (CMake does not track config.h as a dependency, so
+    write_m.F90.o stays compiled against the old setting) and judges the
+    outcome by config.h and by the binary. The .ps1 had neither, and recorded
+    netcdf.enabled from the request.
+    """
+    text = (INSTALL / "install_efit_windows.ps1").read_text(encoding="utf-8")
+    configure = text.index('cmake "$src" "${args[@]}"')
+    before, after = text[:configure], text[configure:]
+    assert "HAVE_NETCDF" in before and "config.h" in before, "stale-object reset before configure"
+    assert "Remove-Item -LiteralPath $buildDirectory" in before[before.index("HAVE_NETCDF"):]
+    assert "netcdf needs to be linked to write m-files" in after, "the binary is the witness"
+    assert re.search(r"enabled\s+=\s+\$netcdfAchieved", after)
+    assert not re.search(r"enabled\s+=\s+\[bool\] \$netcdfUnix", text)
+    # And the remedy the message names is a switch the script declares.
+    assert "-WithoutNetcdf" in after and "[switch] $WithoutNetcdf" in text

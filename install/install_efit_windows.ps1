@@ -321,6 +321,22 @@ if (Test-Path -LiteralPath $cache) {
         Remove-Item -LiteralPath $buildDirectory -Recurse -Force
     }
 }
+# Turning NetCDF on or off changes config.h, and CMake does not track config.h
+# as a dependency of the Fortran sources. An incremental build therefore leaves
+# write_m.F90.o compiled against the *old* setting: it references no NetCDF
+# symbol, the linker drops the libraries as unneeded, and the result is a
+# binary with HAVE_NETCDF in its config.h and no NetCDF in it. Reconfiguring a
+# build tree whose NetCDF state disagrees with what is being asked for is the
+# one case that has to start clean. (The same guard as install_efit.sh.)
+$configHeader = Join-Path $buildDirectory 'config.h'
+$netcdfPattern = '^\s*#define\s+HAVE_NETCDF'
+if (Test-Path -LiteralPath $configHeader) {
+    $hadNetcdf = [bool] (Select-String -LiteralPath $configHeader -Pattern $netcdfPattern -Quiet)
+    if ($hadNetcdf -ne [bool] $netcdfUnix) {
+        Write-Result -Status SKIP -Name 'Existing build directory' -Detail "NetCDF is changing from $hadNetcdf to $([bool] $netcdfUnix); removing it so the sources are recompiled against it"
+        Remove-Item -LiteralPath $buildDirectory -Recurse -Force
+    }
+}
 New-Item -ItemType Directory -Path $buildDirectory -Force | Out-Null
 foreach ($name in $Executables) {
     $stale = Join-Path $buildDirectory $BuiltAt[$name]
@@ -412,6 +428,16 @@ foreach ($name in $Executables) {
     }
 }
 
+# Asking for NetCDF is not the same as getting it. io/efitIO.cmake calls
+# find_package(NetCDF) without REQUIRED and has no else branch, so a NetCDF
+# that cannot be found is a silent build that writes no m-file. The generated
+# config.h is the only statement of what was actually achieved, so the record
+# believes that and not the request.
+$netcdfAchieved = $false
+if (Test-Path -LiteralPath $configHeader) {
+    $netcdfAchieved = [bool] (Select-String -LiteralPath $configHeader -Pattern $netcdfPattern -Quiet)
+}
+
 # ---------------------------------------------------------------------------
 # Record
 #
@@ -433,7 +459,7 @@ $record = @{
     cmake_arguments               = $cmakeArguments
     compiler                      = @{ fortran = 'gfortran'; version = $fortranVersion }
     netcdf                        = @{
-        enabled     = [bool] $netcdfUnix
+        enabled     = $netcdfAchieved
         c_dir       = $(if ($netcdfUnix) { $netcdfUnix } else { $null })
         fortran_dir = $(if ($netcdfUnix) { $netcdfUnix } else { $null })
     }
@@ -519,6 +545,29 @@ The full build log is at $logPath.
     Stop-WithGuidance "The build did not produce: $($missing -join ', '). The full log is at $logPath."
 }
 Write-Result -Status PASS -Name 'EFIT build' -Detail (($Executables | ForEach-Object { "$_.exe" }) -join ', ')
+
+if ($netcdfUnix) {
+    if (-not $netcdfAchieved) {
+        Stop-WithGuidance @"
+NetCDF was requested but the configure did not link it, so this build would
+write no m-files. find_package(NetCDF) found nothing under $candidate; check
+that it holds the library and the .mod, or pass -WithoutNetcdf to accept a
+build with no m-files. The configure output is in $logPath.
+"@
+    }
+    # The binary is the only honest witness: EFIT compiles this message in
+    # exactly when write_m was compiled out, which is what a stale object in
+    # the build directory leaves behind even when config.h says HAVE_NETCDF.
+    $efitImage = [System.Text.Encoding]::ASCII.GetString(
+        [System.IO.File]::ReadAllBytes((Join-Path $buildDirectory $BuiltAt['efit'])))
+    if ($efitImage.Contains('netcdf needs to be linked to write m-files')) {
+        Stop-WithGuidance "NetCDF was requested and configured, but the built efit writes no m-files: that is what a stale object file in $buildDirectory looks like. Rerun with -Clean."
+    }
+    if ($efitImage.IndexOf('netcdf', [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+        Stop-WithGuidance "The configure linked NetCDF but the built efit references none of it, so it would write no m-files. Rerun with -Clean so $buildDirectory is rebuilt from scratch."
+    }
+    Write-Result -Status PASS -Name 'NetCDF' -Detail 'compiled in; this build writes m-files'
+}
 
 if (-not (Test-ExecutableLoads -Executables (@($Executables | ForEach-Object { Join-Path $binDirectory "$_.exe" })))) {
     Stop-WithGuidance 'The installed executables could not load their runtime libraries. See install\README.md.'
