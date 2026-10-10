@@ -465,11 +465,26 @@ class DconEdgeScan:
         )
 
 
-#: ``key=value`` in a Fortran namelist, up to the trailing ``!`` comment.
-_NAMELIST_ENTRY = re.compile(r"^\s*(?P<key>\w+)\s*=\s*(?P<value>[^!\n]*)", re.MULTILINE)
+#: The start of one ``key =`` assignment; keys may carry a derived-type ``%``
+#: (``coil%rpec_flag``).  Several assignments may share a line, separated by commas.
+_NAMELIST_KEY = re.compile(r"(?<![\w%.])(?P<key>[A-Za-z_][\w%]*)\s*=(?!=)")
 
-_NAMELIST_TRUE = {"t", ".true.", "true", "y", "yes", "1"}
-_NAMELIST_FALSE = {"f", ".false.", "false", "n", "no", "0"}
+_NAMELIST_TRUE = {"t", ".t.", ".true.", "true", "y", "yes", "1"}
+_NAMELIST_FALSE = {"f", ".f.", ".false.", "false", "n", "no", "0"}
+
+
+def _strip_comment(line: str) -> str:
+    """``line`` up to its first ``!`` outside a quoted string."""
+    quote = None
+    for index, char in enumerate(line):
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "'\"":
+            quote = char
+        elif char == "!":
+            return line[:index]
+    return line
 
 
 def _namelist_values(path: Path) -> dict[str, str]:
@@ -477,16 +492,25 @@ def _namelist_values(path: Path) -> dict[str, str]:
 
     Deliberately a small hand-rolled reader rather than a new ``f90nml``
     dependency, matching :func:`vaft.code.gpec.read_coil_in`'s treatment of
-    ``coil.in``: the only files parsed here are ones VAFT itself wrote.
+    ``coil.in``: the files parsed here are ones VAFT itself wrote.  It reads
+    several comma-separated assignments on one line (``kin_flag=.t.,
+    electron_flag=t``) and keeps an array value (``eta=1e-8, 2e-8``) whole,
+    since a comma ends a value only where the next ``key=`` begins.  Groups are
+    flattened: a key set in two groups keeps its last value.
     """
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return {}
-    return {
-        match.group("key").strip().lower(): match.group("value").strip().rstrip(",").strip()
-        for match in _NAMELIST_ENTRY.finditer(text)
-    }
+    values: dict[str, str] = {}
+    for raw_line in text.splitlines():
+        line = _strip_comment(raw_line)
+        matches = list(_NAMELIST_KEY.finditer(line))
+        for current, following in zip(matches, matches[1:] + [None]):
+            end = len(line) if following is None else following.start()
+            value = line[current.end():end].strip().rstrip("/").strip().rstrip(",").strip()
+            values[current.group("key").lower()] = value
+    return values
 
 
 def _namelist_bool(values: dict[str, str], key: str) -> Optional[bool]:
