@@ -369,11 +369,19 @@ def render_to_file(
         figure = render(name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options)
         figure.write_html(str(path), include_plotlyjs="cdn")
         return path
+    if options.get("interactive"):
+        # Live controls are a window, not a file: nothing faithful can be written.
+        raise ValueError("interactive=True draws live controls that no file can hold; drop --out or interactive=")
     use_non_interactive_backend()
-    figure, _ = render(
+    result = render(
         name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options
     )
-    return save_figure(figure, path, figure_options=options.get("figure_options"))
+    if not isinstance(result, tuple) and hasattr(result, "save"):
+        # ``animation=True`` returns an Animation (issue #1050): the movie is the file.
+        return result.save(path)
+    # ``(Figure, Axes)``, or ``(Figure, Axes, FuncAnimation)`` from an
+    # image-sequence view, whose current frame is what the still holds.
+    return save_figure(result[0], path, figure_options=options.get("figure_options"))
 
 
 def available_plots(

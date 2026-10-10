@@ -161,3 +161,88 @@ def test_an_unwritable_output_path_and_an_interrupt_are_reported_not_dumped(tmp_
     monkeypatch.setattr(plotting, "render", interrupted)
     assert plot_cli.main(["plasma_current_time", "--shot", "39915"]) == 130
     assert "interrupted" in capsys.readouterr().err
+
+
+# ---------------------------------------------------------------------------
+# --out on the database path takes every renderer's return shape (cold review 0.7.0 plot G12)
+# ---------------------------------------------------------------------------
+
+class _FakeAnimation:
+    """What ``plot_*(..., animation=True)`` returns: saved, not unpacked."""
+
+    def __init__(self):
+        self.saved = None
+
+    def save(self, path):
+        Path(path).write_bytes(b"movie")
+        self.saved = path
+        return path
+
+
+_FIGURE = object()  # what the fake renderers draw; the save must receive exactly this
+
+
+def _render_returning(result_for):
+    def fake_render(name, shot, source=None, **kwargs):
+        return result_for(name, _FIGURE, "axes", kwargs)
+
+    return fake_render
+
+
+def _saving_the_figure(monkeypatch):
+    """``vaft.plot.save_figure`` replaced by one that checks what it is handed and writes the file."""
+    def fake_save(figure, path, *, figure_options=None, **kwargs):
+        assert figure is _FIGURE, figure
+        Path(path).write_bytes(b"still")
+        return path
+
+    # Through sys.modules, not the dotted string: the substitution above
+    # drops the modules a block imported, so ``vaft.plot`` may be a fresh
+    # module while the ``vaft`` package still holds the old one.
+    import vaft.plot as plot_package
+
+    monkeypatch.setattr(plot_package, "save_figure", fake_save)
+
+
+def test_out_saves_an_image_sequence_views_three_tuple(monkeypatch, tmp_path, capsys):
+    from vaft.database import plotting
+
+    _saving_the_figure(monkeypatch)
+    monkeypatch.setattr(plotting, "render", _render_returning(lambda n, f, a, k: (f, a, object())))
+    target = tmp_path / "frames.png"
+    code = plot_cli.main(["camera_visible_animation_frames", "--shot", "1", "--out", str(target)])
+    out, err = capsys.readouterr()
+    assert code == 0, err
+    assert target.read_bytes() == b"still" and out.strip() == str(target)
+
+
+def test_out_saves_an_animation_through_its_own_save(monkeypatch, tmp_path, capsys):
+    from vaft.database import plotting
+
+    animation = _FakeAnimation()
+    monkeypatch.setattr(plotting, "render", _render_returning(lambda n, f, a, k: animation))
+    target = tmp_path / "movie.gif"
+    code = plot_cli.main(["camera_visible_image", "--shot", "1", "--option", "animation=True", "--out", str(target)])
+    assert code == 0, capsys.readouterr().err
+    assert animation.saved == str(target) and target.read_bytes() == b"movie"
+
+
+def test_out_refuses_an_interactive_figure_with_one_line(monkeypatch, tmp_path, capsys):
+    from vaft.database import plotting
+    from vaft.plot.renderers.interactive import Interactive
+
+    _saving_the_figure(monkeypatch)
+    monkeypatch.setattr(plotting, "render", _render_returning(lambda n, f, a, k: Interactive(f, a, object(), ())))
+    target = tmp_path / "live.png"
+    code = plot_cli.main(["plasma_current_time", "--shot", "1", "--option", "interactive=True", "--out", str(target)])
+    err = capsys.readouterr().err
+    assert code == 1 and "interactive=" in err and "Traceback" not in err and not target.exists()
+
+
+def test_list_takes_one_shot(monkeypatch):
+    from vaft.database import plotting
+
+    monkeypatch.setattr(plotting, "available_plots", lambda *a, **k: "never reached")
+    with pytest.raises(SystemExit) as raised:
+        plot_cli.main(["--list", "--shot", "1", "--shot", "2"])
+    assert raised.value.code == 2

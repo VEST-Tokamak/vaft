@@ -182,6 +182,8 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     from vaft.database import plotting
 
+    if args.list and args.shot and len(args.shot) > 1:
+        parser.error("--list describes one shot; give --shot once")
     if args.list:
         try:
             print(plotting.available_plots(shot, args.source, query=args.query, detail=args.detail))
