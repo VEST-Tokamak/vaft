@@ -180,13 +180,33 @@ its manifest line; `python -m vaft.diagram.build --check`, which CI runs on
 every pull request, fails until it does. The Diagrams guide's "Regenerating
 and checking" section has the details.
 
+A function whose place among the scientific quantities nothing else states
+may add a `Semantics` section, the same in formulas and processes:
+
+```text
+Semantics
+---------
+consumes: plasma_current, minor_radius
+produces: q95
+```
+
+Each term must be a quantity of `vaft.plot.taxonomy` (a canonical quantity, a
+quantity subject or a registered alias); the generated ontology at
+`/reference/ontology/` fails on any other term, so add a missing quantity to the
+taxonomy on purpose rather than spelling one into a docstring. Leave it off
+generic helpers, and off functions a `Reduction` relation or a diagnostic
+mapping already connects (#1702).
+
 ## Processing docstrings
 
 `vaft/process` uses the same parser (`vaft/_docstring.py`) and the same unit-tag
 rule, and a different vocabulary, because a processing routine answers a
 different question: how is this input turned into this output?  Its sections
 are `Processing steps`, `Input semantics`, `Output semantics`, `Defaults`,
-`Convention`, `Assumptions`, `Applicability`, `Limitations`, `Provenance`.
+`Convention`, `Assumptions`, `Applicability`, `Limitations`, `Semantics`, `Provenance`.
+`Input semantics` and `Output semantics` are prose about the data (measured,
+reconstructed, synthetic); `Semantics` is the structured list of vocabulary
+quantities described under formula docstrings above.
 `Applicability` opens with `Machine-independent.` or `VEST-specific.`;
 `Defaults` classifies each default that matters (legacy compatibility value,
 validated-workflow default, numerical convenience, ...); `Provenance` takes
