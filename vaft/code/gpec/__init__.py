@@ -611,7 +611,7 @@ def _run_module(
     #
     # Except on a stable equilibrium: there the companion has nothing to match
     # and legitimately writes nothing (#423; with the packaged scalar `eta`,
-    # `rmatch` stops before `globalsol.bin` on every stable RDCON cell), so its
+    # `rmatch` stops before `delta.out` on every stable RDCON cell), so its
     # missing output is this cell's finished state, not a step to retry.
     # Without the condition every such cell was solved again on each call.
     required = required_outputs(solver, mode)

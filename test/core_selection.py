@@ -271,6 +271,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_rdcon_ods_closure.py",
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
+    "test_stability_atlas_population.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
     # GPEC adapter records (#1460): how a solver stop is worded and recorded --
@@ -357,7 +358,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_validation_orderings.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
-    "test_core_q_context.py",
+    "test_q_profile_context.py",
     # The gate's own contract.
     "test_core_selection.py",
 )
