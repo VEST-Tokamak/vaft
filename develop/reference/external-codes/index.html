@@ -157,6 +157,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -372,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a1d3f22</code>. What is described
+  <code>2e3e399</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -529,13 +535,13 @@ shows them.</p>
 <td><code>vaft.code.transp</code></td>
 <td>wherever its results are</td>
 </tr>
-<tr data-ref-row="PENTRC (reader) neoclassical toroidal viscosity native_reader reader_only  read_only">
-<td><a href="#code-pentrc">PENTRC (reader)</a> <span class="ref-flag">read-only</span></td>
+<tr data-ref-row="PENTRC neoclassical toroidal viscosity subprocess_executable vaft_managed_source_build Linux macOS supported">
+<td><a href="#code-pentrc">PENTRC</a></td>
 <td>neoclassical toroidal viscosity</td>
-<td>Reader of finished results</td>
-<td>Results reader (VAFT does not run the code)</td>
-<td><code>vaft.code.pentrc</code></td>
-<td>wherever its results are</td>
+<td>Executable, launched as a subprocess</td>
+<td>VAFT-managed source build (install/; build dependencies may be fetched)</td>
+<td><code>vaft.code.gpec</code></td>
+<td>Linux, macOS</td>
 </tr>
 </tbody></table></div>
 <p class="ref-filter-empty" hidden="">No code matches.</p>
@@ -646,10 +652,10 @@ shows them.</p>
       <td>none</td>
     </tr>
     <tr>
-      <td>PENTRC (reader)</td>
+      <td>PENTRC</td>
       <td>no</td>
+      <td>yes, from source you supply</td>
       <td>no</td>
-      <td>not run by VAFT</td>
       <td>none</td>
     </tr>
   </tbody>
@@ -685,7 +691,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.efit</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/efit/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.efit</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/efit/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -729,7 +735,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/install/README.md#efit-and-efund-licensed-software-obtain-it-yourself">install/README.md</a></td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#efit-and-efund-licensed-software-obtain-it-yourself">install/README.md</a></td>
       </tr>
       <tr>
         <td>Primary reference</td>
@@ -758,7 +764,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.chease</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/chease.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.chease</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/chease.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -802,7 +808,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/install/README.md#chease-and-its-nideal-selection">install/README.md</a></td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#chease-and-its-nideal-selection">install/README.md</a></td>
       </tr>
       <tr>
         <td>Repository</td>
@@ -835,7 +841,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.gpec</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/gpec/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.gpec</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/gpec/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -879,7 +885,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/install/README.md#external-fusion-codes-chease-dcongpec-nubeam-gacode">install/README.md</a></td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#external-fusion-codes-chease-dcongpec-nubeam-gacode">install/README.md</a></td>
       </tr>
       <tr>
         <td>Repository</td>
@@ -916,7 +922,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.gacode</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/gacode/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.gacode</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/gacode/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -960,7 +966,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/install/README.md#gacode">install/README.md</a></td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#gacode">install/README.md</a></td>
       </tr>
       <tr>
         <td>Repository</td>
@@ -1003,7 +1009,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.mitim</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/mitim/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.mitim</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/mitim/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -1082,7 +1088,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.gacode.tglf.surrogate</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/gacode/tglf/surrogate/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.gacode.tglf.surrogate</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/gacode/tglf/surrogate/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -1155,7 +1161,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.nubeam</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/nubeam/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.nubeam</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/nubeam/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -1199,7 +1205,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/install/README.md#nubeam">install/README.md</a></td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#nubeam">install/README.md</a></td>
       </tr>
       <tr>
         <td>Homepage</td>
@@ -1232,7 +1238,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.genray</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/genray/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.genray</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/genray/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -1276,7 +1282,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/install/README.md#genray">install/README.md</a></td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#genray">install/README.md</a></td>
       </tr>
       <tr>
         <td>Repository</td>
@@ -1305,7 +1311,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.tes</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/tes/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.tes</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/tes/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -1349,7 +1355,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/install/README.md#tes">install/README.md</a></td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#tes">install/README.md</a></td>
       </tr>
       <tr>
         <td>Primary reference</td>
@@ -1380,7 +1386,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.tokamaker</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/tokamaker/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.tokamaker</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/tokamaker/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -1424,7 +1430,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/install/README.md#tokamaker-openfusiontoolkit">install/README.md</a></td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#tokamaker-openfusiontoolkit">install/README.md</a></td>
       </tr>
       <tr>
         <td>Repository</td>
@@ -1459,7 +1465,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.nice</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/nice/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.nice</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/nice/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -1536,7 +1542,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.flare</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/flare.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.flare</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/flare.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -1611,7 +1617,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.transp</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/transp/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.transp</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/transp/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
@@ -1655,7 +1661,7 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/install/README.md#transp">install/README.md</a></td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#transp">install/README.md</a></td>
       </tr>
       <tr>
         <td>Homepage</td>
@@ -1672,9 +1678,9 @@ reads it back; each code’s entry below says whether its installers do.</p>
 
 <section class="ref-entry" id="code-pentrc" data-catalog="external-code">
 
-  <h3 id="pentrc-reader">PENTRC (reader)</h3>
+  <h3 id="pentrc">PENTRC</h3>
 
-  <p class="ref-note">The PENTRC executable is built with the GPEC suite and launched through vaft.code.gpec.</p>
+  <p class="ref-note">Built with the GPEC suite and run in a completed ideal-GPEC cell by vaft.code.gpec.run_pentrc (not a GPECSuiteConfig module); vaft.code.gpec also reads its native output, and vaft.code.pentrc re-exports that reader.</p>
 
   <table>
     <thead>
@@ -1690,27 +1696,27 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>VAFT adapter</td>
-        <td><code class="language-plaintext highlighter-rouge">vaft.code.pentrc</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/code/pentrc/__init__.py">source</a>)</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft.code.gpec</code> (<a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/code/gpec/__init__.py">source</a>)</td>
       </tr>
       <tr>
         <td>How VAFT runs it</td>
-        <td>Reader of finished results; reads finished results</td>
+        <td>Executable, launched as a subprocess; local subprocess, Slurm, Slurm over ssh</td>
       </tr>
       <tr>
         <td>Installation</td>
-        <td>Results reader (VAFT does not run the code)</td>
+        <td>VAFT-managed source build (install/; build dependencies may be fetched)</td>
       </tr>
       <tr>
         <td>Configuration</td>
-        <td>none (reads result files)</td>
+        <td><code class="language-plaintext highlighter-rouge">$GPECHOME</code></td>
       </tr>
       <tr>
         <td>Build record</td>
-        <td>none</td>
+        <td><code class="language-plaintext highlighter-rouge">vaft-external-install.json</code> from <code class="language-plaintext highlighter-rouge">install/install_gpec.sh</code></td>
       </tr>
       <tr>
         <td>Installers</td>
-        <td>none in this repository</td>
+        <td><code class="language-plaintext highlighter-rouge">install/install_gpec.sh</code></td>
       </tr>
       <tr>
         <td>Checker</td>
@@ -1718,11 +1724,11 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Platforms</td>
-        <td>as the site installs it</td>
+        <td>Linux, macOS</td>
       </tr>
       <tr>
         <td>Native result</td>
-        <td>reads pentrc_output_n*.nc</td>
+        <td>pentrc.in and a .kin in a completed ideal-GPEC cell, pentrc_output_n*.nc out</td>
       </tr>
       <tr>
         <td>Standardized result</td>
@@ -1734,7 +1740,11 @@ reads it back; each code’s entry below says whether its installers do.</p>
       </tr>
       <tr>
         <td>Install instructions</td>
-        <td>not documented in install/README.md</td>
+        <td><a href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/install/README.md#external-fusion-codes-chease-dcongpec-nubeam-gacode">install/README.md</a></td>
+      </tr>
+      <tr>
+        <td>Repository</td>
+        <td><a href="https://github.com/PrincetonUniversity/GPEC">Princeton University GitHub (in the GPEC suite)</a></td>
       </tr>
       <tr>
         <td>Primary reference</td>
@@ -1845,7 +1855,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-vaft-actually-installs-for-you" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What VAFT actually installs for you</a></li><li class="page-toc-item page-toc-level-2"><a href="#per-code-reference" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Per-code reference</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#efit-with-efund" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">EFIT (with EFUND)</a></li><li class="page-toc-item page-toc-level-3"><a href="#chease" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">CHEASE</a></li><li class="page-toc-item page-toc-level-3"><a href="#dcon-rdcon-stride-and-gpec" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">DCON, RDCON, STRIDE and GPEC</a></li><li class="page-toc-item page-toc-level-3"><a href="#gacode-neo-tglf-and-cgyro" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GACODE: NEO, TGLF and CGYRO</a></li><li class="page-toc-item page-toc-level-3"><a href="#mitim-fusion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MITIM-fusion</a></li><li class="page-toc-item page-toc-level-3"><a href="#tglf-neural-network-surrogates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">TGLF neural-network surrogates</a></li><li class="page-toc-item page-toc-level-3"><a href="#nubeam" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">NUBEAM</a></li><li class="page-toc-item page-toc-level-3"><a href="#genray" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GENRAY</a></li><li class="page-toc-item page-toc-level-3"><a href="#tes-rtes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">TES (RTES)</a></li><li class="page-toc-item page-toc-level-3"><a href="#tokamaker-openfusiontoolkit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">TokaMaker (OpenFUSIONToolkit)</a></li><li class="page-toc-item page-toc-level-3"><a href="#nice" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">NICE</a></li><li class="page-toc-item page-toc-level-3"><a href="#flare" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">FLARE</a></li><li class="page-toc-item page-toc-level-3"><a href="#transp-reader" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">TRANSP (reader)</a></li><li class="page-toc-item page-toc-level-3"><a href="#pentrc-reader" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">PENTRC (reader)</a></li></ul></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#overview" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Overview</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-vaft-actually-installs-for-you" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What VAFT actually installs for you</a></li><li class="page-toc-item page-toc-level-2"><a href="#per-code-reference" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Per-code reference</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#efit-with-efund" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">EFIT (with EFUND)</a></li><li class="page-toc-item page-toc-level-3"><a href="#chease" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">CHEASE</a></li><li class="page-toc-item page-toc-level-3"><a href="#dcon-rdcon-stride-and-gpec" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">DCON, RDCON, STRIDE and GPEC</a></li><li class="page-toc-item page-toc-level-3"><a href="#gacode-neo-tglf-and-cgyro" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GACODE: NEO, TGLF and CGYRO</a></li><li class="page-toc-item page-toc-level-3"><a href="#mitim-fusion" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">MITIM-fusion</a></li><li class="page-toc-item page-toc-level-3"><a href="#tglf-neural-network-surrogates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">TGLF neural-network surrogates</a></li><li class="page-toc-item page-toc-level-3"><a href="#nubeam" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">NUBEAM</a></li><li class="page-toc-item page-toc-level-3"><a href="#genray" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GENRAY</a></li><li class="page-toc-item page-toc-level-3"><a href="#tes-rtes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">TES (RTES)</a></li><li class="page-toc-item page-toc-level-3"><a href="#tokamaker-openfusiontoolkit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">TokaMaker (OpenFUSIONToolkit)</a></li><li class="page-toc-item page-toc-level-3"><a href="#nice" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">NICE</a></li><li class="page-toc-item page-toc-level-3"><a href="#flare" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">FLARE</a></li><li class="page-toc-item page-toc-level-3"><a href="#transp-reader" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">TRANSP (reader)</a></li><li class="page-toc-item page-toc-level-3"><a href="#pentrc" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">PENTRC</a></li></ul></li></ul>
     </nav>
 </aside>
 
@@ -1963,7 +1973,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 20:15:49 +0000"
+        "time": "2026-10-10 20:40:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

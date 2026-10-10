@@ -157,6 +157,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -372,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a1d3f22</code>. What is described
+  <code>2e3e399</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -403,7 +409,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.formula.sensitivity</code>:
-<strong>5</strong> public functions. Each entry is what
+<strong>6</strong> public functions. Each entry is what
 <code>vaft.formula.describe("sensitivity.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/formula/">All formula categories</a></p>
 
@@ -425,12 +431,18 @@ the domain that owns <code class="language-plaintext highlighter-rouge">f</code>
   <li>Every function is cheap except <code class="language-plaintext highlighter-rouge">monte_carlo_propagation</code>, which calls
 <code class="language-plaintext highlighter-rouge">f</code> once per sample and is therefore never invoked by anything else in
 VAFT: it exists to be called explicitly (#1639 s8).</li>
+  <li><code class="language-plaintext highlighter-rouge">propagate_formula_uncertainty</code> connects these kernels to one public
+<code class="language-plaintext highlighter-rouge">vaft.formula</code> function by its parameter names (#1874).  It is opt-in: no
+formula calls it, and a formula’s own signature, values and cost do not
+change.  A formula may carry a domain-owned analytic Jacobian
+(<code class="language-plaintext highlighter-rouge">vaft.formula._propagation</code>); otherwise the Jacobian is a scale-aware
+finite difference.</li>
 </ul>
 
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 5 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 6 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="finite_difference_jacobian"><td><a href="#finite_difference_jacobian"><code>finite_difference_jacobian</code></a></td><td>Jacobian of a vector function by forward or central differences.
@@ -440,6 +452,8 @@ VAFT: it exists to be called explicitly (#1639 s8).</li>
   <tr data-ref-row="linearity_ratio"><td><a href="#linearity_ratio"><code>linearity_ratio</code></a></td><td>How much of a finite response the linearization misses.
 </td></tr>
   <tr data-ref-row="monte_carlo_propagation"><td><a href="#monte_carlo_propagation"><code>monte_carlo_propagation</code></a></td><td>Output mean and covariance by sampling Gaussian inputs through the full model.
+</td></tr>
+  <tr data-ref-row="propagate_formula_uncertainty"><td><a href="#propagate_formula_uncertainty"><code>propagate_formula_uncertainty</code></a></td><td>Propagate input uncertainty through one <code class="language-plaintext highlighter-rouge">vaft.formula</code> function, correlations included.
 </td></tr>
   <tr data-ref-row="singular_value_spectrum"><td><a href="#singular_value_spectrum"><code>singular_value_spectrum</code></a></td><td>Singular values, numerical rank and null space of a (column-scaled) Jacobian.
 </td></tr>
@@ -454,11 +468,11 @@ VAFT: it exists to be called explicitly (#1639 s8).</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#finite_difference_jacobian"><code>finite_difference_jacobian</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="finite_difference_jacobian" href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/formula/sensitivity.py#L41-L115" title="vaft/formula/sensitivity.py, lines 41–115 at a1d3f22">source</a>
+<a class="ref-source" data-source="finite_difference_jacobian" href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/formula/sensitivity.py#L51-L125" title="vaft/formula/sensitivity.py, lines 51–125 at 2e3e399">source</a>
 </header>
     <pre class="ref-signature"><code>finite_difference_jacobian(f, x, step=None, scheme=&#39;central&#39;)</code></pre>
 
-    <details class="ref-code" data-source-code="finite_difference_jacobian"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 41–115</span></summary>
+    <details class="ref-code" data-source-code="finite_difference_jacobian"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 51–125</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">finite_difference_jacobian</span><span class="p">(</span>
     <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -610,11 +624,11 @@ threshold measures the solver, not the physics (#1642 s18).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#linear_covariance_propagation"><code>linear_covariance_propagation</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="linear_covariance_propagation" href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/formula/sensitivity.py#L131-L168" title="vaft/formula/sensitivity.py, lines 131–168 at a1d3f22">source</a>
+<a class="ref-source" data-source="linear_covariance_propagation" href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/formula/sensitivity.py#L141-L178" title="vaft/formula/sensitivity.py, lines 141–178 at 2e3e399">source</a>
 </header>
     <pre class="ref-signature"><code>linear_covariance_propagation(jacobian, covariance)</code></pre>
 
-    <details class="ref-code" data-source-code="linear_covariance_propagation"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 131–168</span></summary>
+    <details class="ref-code" data-source-code="linear_covariance_propagation"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 141–178</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">linear_covariance_propagation</span><span class="p">(</span><span class="n">jacobian</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">covariance</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Output covariance of a linearized model, correlations included.
@@ -707,11 +721,11 @@ and <code class="language-plaintext highlighter-rouge">monte_carlo_propagation</
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#linearity_ratio"><code>linearity_ratio</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="linearity_ratio" href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/formula/sensitivity.py#L320-L368" title="vaft/formula/sensitivity.py, lines 320–368 at a1d3f22">source</a>
+<a class="ref-source" data-source="linearity_ratio" href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/formula/sensitivity.py#L330-L378" title="vaft/formula/sensitivity.py, lines 330–378 at 2e3e399">source</a>
 </header>
     <pre class="ref-signature"><code>linearity_ratio(f, x, step, jacobian, output_scale=None)</code></pre>
 
-    <details class="ref-code" data-source-code="linearity_ratio"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 320–368</span></summary>
+    <details class="ref-code" data-source-code="linearity_ratio"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 330–378</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">linearity_ratio</span><span class="p">(</span>
     <span class="n">f</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span>
@@ -807,7 +821,7 @@ another.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#monte_carlo_propagation"><code>monte_carlo_propagation</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="monte_carlo_propagation" href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/formula/sensitivity.py#L171-L254" title="vaft/formula/sensitivity.py, lines 171–254 at a1d3f22">source</a>
+<a class="ref-source" data-source="monte_carlo_propagation" href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/formula/sensitivity.py#L181-L264" title="vaft/formula/sensitivity.py, lines 181–264 at 2e3e399">source</a>
 </header>
     <pre class="ref-signature"><code>monte_carlo_propagation(f, mean, covariance, samples=2000, seed=0)</code></pre>
 
@@ -872,15 +886,107 @@ covariance that does not converge with <code class="language-plaintext highlight
 
   </section>
 
+  <section class="ref-entry" id="propagate_formula_uncertainty" data-catalog="formula">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#propagate_formula_uncertainty"><code>propagate_formula_uncertainty</code></a></h3>
+<span class="ref-flags"></span>
+<a class="ref-source" data-source="propagate_formula_uncertainty" href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/formula/sensitivity.py#L478-L688" title="vaft/formula/sensitivity.py, lines 478–688 at 2e3e399">source</a>
+</header>
+    <pre class="ref-signature"><code>propagate_formula_uncertainty(formula, inputs, *, input_names=None, covariance=None, std=None, method=&#39;linear&#39;, derivative=&#39;auto&#39;, fd_step=None, domain=None, samples=2000, seed=0)</code></pre>
+
+    <p>Propagate input uncertainty through one <code class="language-plaintext highlighter-rouge">vaft.formula</code> function, correlations included.</p>
+
+\[\Sigma_y \approx J\,\Sigma_x\,J^{\mathsf T}, \qquad J_{ij} = \partial f_i/\partial x_j\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>formula</code></td><td class="ref-type">callable</td><td class="ref-unit">any</td><td><p>A public formula, called with keyword arguments.</p>
+</td></tr>
+  <tr><td><code>inputs</code></td><td class="ref-type">mapping</td><td class="ref-unit">any</td><td><p>Every argument the call needs, by parameter name; uncertain inputs at their mean values.</p>
+</td></tr>
+  <tr><td><code>input_names</code></td><td class="ref-type">sequence of str, optional</td><td class="ref-unit">-</td><td><p>The uncertain inputs, in the order of the covariance axes; every other entry of <code class="language-plaintext highlighter-rouge">inputs</code> is fixed configuration. Default: the numeric scalar entries of <code class="language-plaintext highlighter-rouge">inputs</code> in the formula’s parameter order.</p>
+</td></tr>
+  <tr><td><code>covariance</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">(n, n)</code> covariance of the inputs in <code class="language-plaintext highlighter-rouge">input_names</code> order, or a 1-D array of <em>variances</em>. Exactly one of <code class="language-plaintext highlighter-rouge">covariance</code> and <code class="language-plaintext highlighter-rouge">std</code>.</p>
+</td></tr>
+  <tr><td><code>std</code></td><td class="ref-type">array-like, optional</td><td class="ref-unit">any</td><td><p>1-D <em>standard deviations</em> of independent inputs, <code class="language-plaintext highlighter-rouge">input_names</code> order.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"linear"</code> (first order, $J\Sigma J^{\mathsf T}$) or <code class="language-plaintext highlighter-rouge">"monte_carlo"</code> (Gaussian sampling through the formula).</p>
+</td></tr>
+  <tr><td><code>derivative</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">"auto"</code> (analytic when the formula carries one, else finite difference), <code class="language-plaintext highlighter-rouge">"analytic"</code> (fail if it carries none) or <code class="language-plaintext highlighter-rouge">"finite_difference"</code>.</p>
+</td></tr>
+  <tr><td><code>fd_step</code></td><td class="ref-type">float, array-like or mapping, optional</td><td class="ref-unit">any</td><td><table>
+  <tbody>
+    <tr>
+      <td>Absolute finite-difference step per input; default $\epsilon^{1/3}</td>
+      <td>x_j</td>
+      <td>$, scaled to each input’s own magnitude.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  <tr><td><code>domain</code></td><td class="ref-type">callable, optional</td><td class="ref-unit">-</td><td><p>Predicate on the call’s arguments, <code class="language-plaintext highlighter-rouge">True</code> where the formula is physically defined; default the domain the formula declares (<code class="language-plaintext highlighter-rouge">vaft.formula._propagation</code>), else none.</p>
+</td></tr>
+  <tr><td><code>samples</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Monte Carlo draws.</p>
+</td></tr>
+  <tr><td><code>seed</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Monte Carlo seed.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">FormulaPropagation</td><td class="ref-unit">any</td><td><p>Value, covariance, standard deviation and their provenance.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> No uncertainty given (unknown is not zero), both <code class="language-plaintext highlighter-rouge">covariance</code> and <code class="language-plaintext highlighter-rouge">std</code>, an uncertain input missing, non-scalar, unknown to the formula or non-finite, an uncertainty that is NaN, infinite, negative, not symmetric or not positive semi-definite, input means outside the formula’s domain (declared, or a raised or non-finite evaluation), a non-finite Jacobian, a Monte Carlo run that accepts fewer than two draws, or an unknown or inconsistent <code class="language-plaintext highlighter-rouge">method</code>/<code class="language-plaintext highlighter-rouge">derivative</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Assumptions · Limitations · References</summary>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">"linear"</code> is a <em>local</em> first-order result at the input means; it is
+not a verified global uncertainty and carries no model-form or
+fitted-coefficient uncertainty. <code class="language-plaintext highlighter-rouge">"monte_carlo"</code> assumes Gaussian
+inputs (no other input distribution is supported), and its statistics
+cover the accepted draws only: a draw outside the domain is rejected and
+counted in <code class="language-plaintext highlighter-rouge">rejected</code>.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Uncertain inputs must be scalars; profile- and field-valued covariance is
+out of scope (#1874). A finite difference is not a solver-native
+linearization.</p>
+
+      <h4 class="ref-label no_toc">References</h4>
+
+      <ol class="ref-cites">
+  <li>JCGM 100:2008, <em>Guide to the expression of uncertainty in measurement</em>, Sec. 5.2.
+</li>
+  <li>JCGM 101:2008, <em>Propagation of distributions using a Monte Carlo method</em>, Sec. 7.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="singular_value_spectrum" data-catalog="formula">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#singular_value_spectrum"><code>singular_value_spectrum</code></a></h3>
 <span class="ref-flags"></span>
-<a class="ref-source" data-source="singular_value_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/a1d3f228c85d0126934ebb275a82a82a82f3e5f6/vaft/formula/sensitivity.py#L257-L317" title="vaft/formula/sensitivity.py, lines 257–317 at a1d3f22">source</a>
+<a class="ref-source" data-source="singular_value_spectrum" href="https://github.com/VEST-Tokamak/vaft/blob/2e3e39975c7f2fc355772ce593647ef76656b9d1/vaft/formula/sensitivity.py#L267-L327" title="vaft/formula/sensitivity.py, lines 267–327 at 2e3e399">source</a>
 </header>
     <pre class="ref-signature"><code>singular_value_spectrum(jacobian, column_scale=None, rtol=None)</code></pre>
 
-    <details class="ref-code" data-source-code="singular_value_spectrum"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 257–317</span></summary>
+    <details class="ref-code" data-source-code="singular_value_spectrum"><summary>Show source <span class="ref-note">vaft/formula/sensitivity.py, lines 267–327</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">singular_value_spectrum</span><span class="p">(</span>
     <span class="n">jacobian</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -1217,7 +1323,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 20:15:49 +0000"
+        "time": "2026-10-10 20:40:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

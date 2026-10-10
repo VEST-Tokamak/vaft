@@ -157,6 +157,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
                     
                         <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
@@ -372,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>a1d3f22</code>. What is described
+  <code>2e3e399</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -566,6 +572,30 @@ in the same way:</p>
 <p>A workspace is built the first time it is shown. It reads and changes the shared selection
 through <code class="language-plaintext highlighter-rouge">shell.selection</code> (a <code class="language-plaintext highlighter-rouge">vaft.gui.SelectionState</code>), and draws through the public VAFT APIs
 like every other workspace.</p>
+
+<h2 id="phones-and-tablets">Phones and tablets</h2>
+
+<p>The GUI is one web page for every screen. There is no separate mobile app, and nothing else to
+install.</p>
+
+<ul>
+  <li><strong>Desktop:</strong> the controls stay in a sidebar beside the figure.</li>
+  <li><strong>Tablet</strong> (narrower than 1100 px): the sidebar narrows to 300 px so the figure keeps room.</li>
+  <li><strong>Phone</strong> (narrower than 768 px, or under 500 px tall and 950 px wide: a phone held sideways, or a very small desktop window):
+    <ul>
+      <li>The controls become a drawer over the page, and the page opens with the drawer closed, so
+the figure and the status line are the first thing you see.</li>
+      <li>The ☰ button in the header opens the drawer to change the workspace, source, plot or
+figure options; press it again to see the figure.</li>
+      <li>Wide tables, such as the database namespaces, scroll sideways inside their own box instead
+of widening the page.</li>
+    </ul>
+  </li>
+</ul>
+
+<p>Every control is reachable at every width; nothing is hidden on small screens. The rules live
+in <code class="language-plaintext highlighter-rouge">vaft.gui.layout</code>, and a new workspace gets them by using <code class="language-plaintext highlighter-rouge">vaft.gui.layout.page</code>, as the
+shell does.</p>
 
 <h2 id="run-on-a-remote-host-over-ssh">Run on a remote host over SSH</h2>
 
@@ -806,7 +836,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#adding-a-workspace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Adding a workspace</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#host-it-for-a-team" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Host it for a team</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#adding-a-workspace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Adding a workspace</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#phones-and-tablets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Phones and tablets</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#host-it-for-a-team" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Host it for a team</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
     </nav>
 </aside>
 
@@ -924,7 +954,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 20:15:49 +0000"
+        "time": "2026-10-10 20:40:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
