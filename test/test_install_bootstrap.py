@@ -3222,3 +3222,33 @@ def test_load_probe_runs_on_posix_and_reads_the_loader(tmp_path, monkeypatch):
     assert "leaky" in result.detail and "unlinked" in result.detail
     assert "fine" not in result.detail
     assert "libgfortran" in result.detail and "libnetcdff" in result.detail
+
+
+def test_gacode_platform_check_requires_both_halves_of_the_tag(tmp_path, monkeypatch):
+    """Cold review install F18: the checker guarded the neighbour of what it named.
+
+    `known` was built from platform/build/make.inc.* while the remediation
+    named platform/exec/exec.$GACODE_PLATFORM, the file the launcher execs; and
+    with no platform/build at all, every tag passed because `known` was empty.
+    """
+    checker = _load_external_checker("check_gacode.py")
+    root = tmp_path / "gacode"
+    (root / "platform" / "build").mkdir(parents=True)
+    (root / "platform" / "exec").mkdir()
+    (root / "platform" / "build" / "make.inc.FULL").write_text("", encoding="utf-8")
+    (root / "platform" / "exec" / "exec.FULL").write_text("", encoding="utf-8")
+    (root / "platform" / "build" / "make.inc.HALF").write_text("", encoding="utf-8")
+
+    monkeypatch.setenv("GACODE_PLATFORM", "FULL")
+    assert checker.check_platform(str(root)).status == checker.PASS
+
+    monkeypatch.setenv("GACODE_PLATFORM", "HALF")
+    result = checker.check_platform(str(root))
+    assert result.status == checker.FAIL, result
+    assert "exec.HALF" in result.detail and "FULL" in result.remediation
+
+    monkeypatch.setenv("GACODE_PLATFORM", "BOGUS")
+    assert checker.check_platform(str(root)).status == checker.FAIL
+    bare = tmp_path / "not-a-tree"
+    bare.mkdir()
+    assert checker.check_platform(str(bare)).status == checker.FAIL

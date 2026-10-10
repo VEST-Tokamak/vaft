@@ -103,10 +103,14 @@ def check_suite_executables(prefix: Optional[str]) -> CheckResult:
 
 
 def check_platform(prefix: Optional[str]) -> CheckResult:
-    """A platform tag is set and this installation carries it.
+    """A platform tag is set and this installation carries both halves of it.
 
     An unset or wrong ``GACODE_PLATFORM`` fails inside ``neo/bin/neo`` without
-    naming the variable, so it is worth failing here instead.
+    naming the variable, so it is worth failing here instead. A tag has two
+    files: ``platform/build/make.inc.<tag>`` is what the build read, and
+    ``platform/exec/exec.<tag>`` is what the launcher execs at run time. Only
+    the pair makes a tag usable, so both are required -- checking the build
+    half alone passed a tag the launcher could not run.
     """
     label = "GACODE platform"
     root = _root(prefix)
@@ -114,26 +118,41 @@ def check_platform(prefix: Optional[str]) -> CheckResult:
     if root is None:
         return CheckResult(label, SKIP, "no installation root")
     build = root / "platform" / "build"
+    execs = root / "platform" / "exec"
+    if not build.is_dir() or not execs.is_dir():
+        return CheckResult(
+            label,
+            FAIL,
+            f"{root} has no platform/build and platform/exec, so no tag can be checked",
+            "Point --prefix (or GACODE_ROOT) at a GACODE source tree.",
+        )
     known = sorted(
         entry.name[len("make.inc."):]
         for entry in build.iterdir()
         if entry.is_file() and entry.name.startswith("make.inc.")
-    ) if build.is_dir() else []
+        and (execs / f"exec.{entry.name[len('make.inc.'):]}").is_file()
+    )
     if not platform:
         return CheckResult(
             label,
             FAIL,
             "GACODE_PLATFORM is not set",
             "Set it to the tag you built with, for example "
-            "GFORTRAN_OSX_BREW on macOS. It selects platform/exec/exec.$GACODE_PLATFORM, "
-            "which the launcher execs.",
+            "GFORTRAN_OSX_BREW on macOS. It selects platform/build/make.inc.$GACODE_PLATFORM "
+            "for the build and platform/exec/exec.$GACODE_PLATFORM, which the launcher execs.",
         )
-    if known and platform not in known:
+    missing = [
+        str(path.relative_to(root))
+        for path in (build / f"make.inc.{platform}", execs / f"exec.{platform}")
+        if not path.is_file()
+    ]
+    if missing:
         return CheckResult(
             label,
             FAIL,
-            f"GACODE_PLATFORM={platform} is not one this installation provides",
-            f"Available: {', '.join(known)}.",
+            f"GACODE_PLATFORM={platform} is not one this installation provides: "
+            f"missing {', '.join(missing)}",
+            f"Available: {', '.join(known) or 'none'}.",
         )
     return CheckResult(label, PASS, platform)
 
