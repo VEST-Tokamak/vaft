@@ -131,6 +131,9 @@ class PredatorPreyFit:
     normalization: dict = field(default_factory=dict)
     initial_state: tuple[float, float] = (float("nan"), float("nan"))
     method: str = "trajectory"
+    r2_turbulence: float = float("nan")
+    r2_zonal: float = float("nan")
+    warnings: tuple[str, ...] = ()
 
 
 # -- helpers ----------------------------------------------------------------------
@@ -370,7 +373,8 @@ def predator_prey_cycle_metrics(time, turbulence, zonal, *, transport=None, min_
     4. On a uniform resampling of both traces (median spacing), standardise and
        cross-correlate; the lag of the maximum within $\pm$ half a mean period
        (a quarter of the record without cycles) is ``correlation_lag``.
-    5. Qualify: at least ``min_cycles`` cycles, a lag for most of them, and a
+    5. Qualify: at least ``min_cycles`` cycles, a following zonal peak for every
+       turbulence peak but at most one (the last may have none), and a
        positive mean peak lag.
 
     Defaults
@@ -510,7 +514,7 @@ def _fixed_point_initial(t, n, e):
 
 
 def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", initial_parameters=None,
-                            normalization=None, window=None, fit_initial_state=True):
+                            normalization=None, window=None, fit_initial_state=True, min_r2=0.5):
     r"""Fit the two-variable Lotka--Volterra model to turbulence and zonal-flow traces.
 
     Finds $\gamma_\mathrm{eff}, c_1, c_2, \gamma_Z$ (and, by default, the
@@ -538,14 +542,19 @@ def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", ini
         Fit only samples with ``window[0] <= t <= window[1]`` [time].
     fit_initial_state : bool, optional
         Fit $N(t_0), E(t_0)$ as well instead of taking the first samples [-].
+    min_r2 : float, optional
+        Coefficient of determination each trace must reach for ``success`` [-].
 
     Returns
     -------
     PredatorPreyFit
         The four coefficients, the model traces on the data times, the RMS
-        of the relative residuals of each trace, ``success`` with ``reasons``,
-        the time window, the normalisation record, the initial state used and
-        the method [rates 1/time; c1 1/(time E); c2 1/(time N); RMS -].
+        misfit of each trace divided by its mean (``rms_*``) and its
+        coefficient of determination $R^2 = 1 - \sum r^2/\sum(y-\bar y)^2$
+        (``r2_*``, 0 for a flat line at the mean), ``success`` with the
+        ``reasons`` that block it, non-blocking ``warnings``, the time window,
+        the normalisation record, the initial state used and the method
+        [rates 1/time; c1 1/(time E); c2 1/(time N); RMS and R^2 -].
 
     Raises
     ------
@@ -566,14 +575,18 @@ def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", ini
     4. Minimise the residual $\ln N_\mathrm{model} - \ln N$ and
        $\ln E_\mathrm{model} - \ln E$ over log-coefficients (positivity by
        construction) with a bounded least-squares solver.
-    5. Report the model traces, relative RMS per trace and the normalisation.
+    5. Report the model traces, $R^2$ and the mean-normalised RMS per trace;
+       ``success`` needs the optimiser to converge and $R^2 \ge$ ``min_r2`` on
+       both traces.
 
     Defaults
     --------
     The trajectory method is the conventional choice (#1820 Sec. 9): it uses no
     numerical derivative.  Log residuals are a numerical convenience for traces
     spanning decades.  ``fit_initial_state=True`` is a numerical convenience:
-    a noisy first sample otherwise biases the whole orbit.
+    a noisy first sample otherwise biases the whole orbit.  ``min_r2=0.5`` is
+    a conventional threshold: the model must explain at least half of each
+    trace's variance.
 
     Convention
     ----------
@@ -592,8 +605,8 @@ def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", ini
 
     Limitations
     -----------
-    A local optimum is possible; ``success`` reflects the optimiser and a
-    relative RMS below one, not a global search.  Irregular bursty traces fit
+    A local optimum is possible; ``success`` reflects the optimiser and the
+    $R^2$ threshold, not a global search.  Irregular bursty traces fit
     poorly by construction, and that misfit is the information.
 
     Provenance
@@ -626,12 +639,12 @@ def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", ini
         p0 = _per_capita_initial(t, n, e)
         if not np.all(np.isfinite(p0)) or np.any(p0 <= 0):
             p0 = _fixed_point_initial(t, n, e)
-    x0 = np.log(np.concatenate([p0, [n[0], e[0]]]))
+    x0 = np.log(np.concatenate([p0, [n[0], e[0]]]) if fit_initial_state else p0)
 
     def model(x):
-        g, c1, c2, gz, n0, e0 = np.exp(x)
-        if not fit_initial_state:
-            n0, e0 = n[0], e[0]
+        values = np.exp(x)
+        g, c1, c2, gz = values[:4]
+        n0, e0 = (values[4], values[5]) if fit_initial_state else (n[0], e[0])
 
         def rhs(_, y):
             return predator_prey_rhs(max(y[0], 0.0), max(y[1], 0.0), g, c1, c2, gz)
@@ -651,25 +664,32 @@ def fit_predator_prey_model(time, turbulence, zonal, *, method="trajectory", ini
     result = least_squares(residual, x0, method="trf", x_scale="jac", max_nfev=2000)
     coeffs = np.exp(result.x)
     traces = model(result.x)
-    if traces is None:
+    integrated = traces is not None
+    if not integrated:
         traces = np.full((2, t.size), np.nan)
         reasons.append("the fitted coefficients do not integrate over the window")
+
+    def r2(model_trace, data):
+        return float(1.0 - np.sum((model_trace - data) ** 2) / np.sum((data - data.mean()) ** 2))
+
     rms_n = float(np.sqrt(np.mean(((traces[0] - n) / np.mean(n)) ** 2)))
     rms_e = float(np.sqrt(np.mean(((traces[1] - e) / np.mean(e)) ** 2)))
+    r2_n, r2_e = r2(traces[0], n), r2(traces[1], e)
     if not result.success:
         reasons.append(f"optimiser: {result.message}")
-    if not (rms_n < 1.0 and rms_e < 1.0):
-        reasons.append(f"relative RMS misfit N {rms_n:.2f}, E {rms_e:.2f} (>= 1)")
+    if integrated and not (r2_n >= min_r2 and r2_e >= min_r2):
+        reasons.append(f"R^2 N {r2_n:.2f}, E {r2_e:.2f} below {min_r2}")
+    warnings: list[str] = []
     record = dict(normalization or {})
     missing = [key for key in NORMALIZATION_KEYS if key not in record]
     if missing:
-        reasons.append(f"normalisation not recorded for {', '.join(missing)}; c1, c2 are not comparable")
+        warnings.append(f"normalisation not recorded for {', '.join(missing)}; c1, c2 are not comparable")
     initial = (float(coeffs[4]), float(coeffs[5])) if fit_initial_state else (float(n[0]), float(e[0]))
     return PredatorPreyFit(
         gamma_eff=float(coeffs[0]), coupling_suppression=float(coeffs[1]),
         coupling_drive=float(coeffs[2]), gamma_zonal=float(coeffs[3]),
         turbulence_fit=traces[0], zonal_fit=traces[1], rms_turbulence=rms_n, rms_zonal=rms_e,
-        success=bool(result.success) and traces is not None and rms_n < 1.0 and rms_e < 1.0,
-        reasons=tuple(reasons), time_window=(float(t[0]), float(t[-1])),
+        success=not reasons, reasons=tuple(reasons), time_window=(float(t[0]), float(t[-1])),
         normalization=record, initial_state=initial, method=method,
+        r2_turbulence=r2_n, r2_zonal=r2_e, warnings=tuple(warnings),
     )

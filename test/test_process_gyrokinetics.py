@@ -127,7 +127,8 @@ def test_the_trajectory_fit_recovers_the_coefficients_from_a_noisy_orbit():
     assert fit.coupling_drive == pytest.approx(TRUE["coupling_drive"], rel=0.05)
     assert fit.gamma_zonal == pytest.approx(TRUE["gamma_zonal"], rel=0.05)
     assert fit.rms_turbulence < 0.1 and fit.rms_zonal < 0.1
-    assert fit.normalization == NORMALIZATION and fit.reasons == ()
+    assert fit.normalization == NORMALIZATION and fit.reasons == () and fit.warnings == ()
+    assert fit.r2_turbulence > 0.99 and fit.r2_zonal > 0.99
 
 
 def test_rescaling_the_intensities_moves_only_the_couplings():
@@ -143,7 +144,8 @@ def test_rescaling_the_intensities_moves_only_the_couplings():
 def test_a_missing_normalisation_record_is_reported():
     t, n, e = orbit(1.2, 0.3, 60.0, n_samples=300)
     fit = gk.fit_predator_prey_model(t, n, e)
-    assert any("normalisation not recorded" in reason for reason in fit.reasons)
+    assert any("normalisation not recorded" in w for w in fit.warnings)
+    assert fit.success
 
 
 def test_a_window_restricts_the_fit():
@@ -176,3 +178,22 @@ def test_log_scale_finds_bursts_a_linear_range_misses():
     assert log.n_cycles == 3
     assert log.period_mean == pytest.approx(100.0, rel=0.01)
     assert log.peak_response_lag_mean == pytest.approx(25.0, rel=0.02)
+
+
+def test_a_model_that_misses_the_data_is_not_a_success():
+    """Noise around the mean has no orbit to fit; R^2 stays low and success is
+    refused, although the mean-normalised RMS alone could look acceptable."""
+    t, n, e = orbit(1.2, 0.3, 120.0, n_samples=600)
+    rng = np.random.default_rng(7)
+    noise_n = n.mean() * np.exp(0.3 * rng.standard_normal(n.size))
+    noise_e = e.mean() * np.exp(0.3 * rng.standard_normal(e.size))
+    fit = gk.fit_predator_prey_model(t, noise_n, noise_e, normalization=NORMALIZATION)
+    assert not fit.success
+    assert any("R^2" in reason for reason in fit.reasons)
+
+
+def test_fixing_the_initial_state_uses_the_first_samples():
+    t, n, e = orbit(1.2, 0.3, 120.0, n_samples=600)
+    fit = gk.fit_predator_prey_model(t, n, e, fit_initial_state=False, normalization=NORMALIZATION)
+    assert fit.initial_state == (pytest.approx(n[0]), pytest.approx(e[0]))
+    assert fit.gamma_eff == pytest.approx(TRUE["gamma_eff"], rel=1e-3)
