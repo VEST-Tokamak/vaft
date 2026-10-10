@@ -1062,13 +1062,40 @@ def _vacuum_currents(ods: ODS, indices) -> ndarray:
     Every waveform is read once and then indexed, rather than re-read per
     sample: on VEST that is 960 IMAS path parses instead of 960 per time, which
     is the difference between a slider that moves and one that stutters.
+
+    ``indices`` are positions on ``pf_active.time``, and the three the map
+    differences for ``dpsi_dt`` have to be read on that one base.  The passive
+    loops are therefore paired by time, not by position: ``pf_passive.time``
+    is its own base, and an input whose base is shifted, decimated or merely a
+    different length (a hand-built or foreign ODS; every vaft producer writes
+    equal bases) used to be indexed as if it were the coil base, silently
+    taking the wrong sample or failing with an ``IndexError``.  An unequal
+    base is resampled onto the coil base once (:func:`vaft.process.
+    resample_to_time`, so a finer passive record is low-passed rather than
+    aliased) and then indexed like the coils; a requested instant that the
+    passive record does not cover, beyond one coil step, is refused rather
+    than clamped to the record's end.
     """
     pf, pfp = ods["pf_active"], ods["pf_passive"]
     take = np.asarray(indices, dtype=int).ravel()
     columns = [np.asarray(pf[f"coil.{i}.current.data"], dtype=float)[take]
                for i in range(len(pf["coil"]))]
-    columns += [np.asarray(pfp[f"loop.{i}.current"], dtype=float)[take]
-                for i in range(len(pfp["loop"]))]
+    coil_time = np.asarray(pf["time"], dtype=float)
+    loop_time = np.asarray(pfp["time"], dtype=float)
+    loops = [np.asarray(pfp[f"loop.{i}.current"], dtype=float) for i in range(len(pfp["loop"]))]
+    if loop_time.shape != coil_time.shape or not np.array_equal(loop_time, coil_time):
+        from vaft.process.signal_processing import resample_to_time
+
+        wanted = coil_time[take]
+        step = float(np.median(np.diff(coil_time))) if coil_time.size > 1 else 0.0
+        if wanted.min() < loop_time[0] - step or wanted.max() > loop_time[-1] + step:
+            raise ValueError(
+                f"pf_passive.time ({loop_time[0]:.6g}..{loop_time[-1]:.6g} s, {loop_time.size} samples) "
+                f"does not cover the requested instant(s) {wanted.min():.6g}..{wanted.max():.6g} s on "
+                f"pf_active.time ({coil_time[0]:.6g}..{coil_time[-1]:.6g} s, {coil_time.size} samples)"
+            )
+        loops = [resample_to_time(loop_time, current, coil_time) for current in loops]
+    columns += [current[take] for current in loops]
     return np.column_stack(columns)
 
 

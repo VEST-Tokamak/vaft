@@ -9145,6 +9145,7 @@ def _build_line_series(
             "drop synthetic=."
         )
     resolved: list[str] = []
+    overlaid: set[int] = set()
     smooth = _smooth_option(options, abscissa)
     for entry_label, ods in entries:
         measured = _build_line_traces(
@@ -9162,20 +9163,35 @@ def _build_line_series(
             measured = [_smoothed_trace(trace, smooth) for trace in measured]
         traces.extend(measured)
         if synthetic:
-            traces.extend(_synthetic_traces(ods, spec.name, recipe, measured, synthetic))
+            overlay = _synthetic_traces(ods, spec.name, recipe, measured, synthetic)
+            overlaid.update(id(trace) for trace in overlay)
+            traces.extend(overlay)
     # One figure carries one abscissa: a trace this input cannot place on the
     # requested one puts every trace on the sample index, and the axis says
     # index rather than labelling one as a time (issues #276, #481).
     drawn = abscissa
+    xunit = options.get("xunit")
     if any(name != abscissa.name for name in resolved):
         drawn = INDEX_ABSCISSA
+        # The fallback changes what the caller asked for, so it says so: a
+        # unit conversion has nothing to convert on an index, and a per-slice
+        # overlay has no index of its own on the waveforms' sample axis.
+        dropped = ", the reconstruction overlay is dropped" if overlaid else ""
+        ignored = f", xunit={xunit!r} is ignored" if xunit else ""
+        warnings.warn(
+            f"{spec.name if spec is not None else recipe.title}: an entry cannot be placed "
+            f"on {abscissa.name!r}; every trace is drawn on the sample index{ignored}{dropped}",
+            stacklevel=2,
+        )
+        xunit = None
         traces = [
             dataclasses.replace(trace, x=np.arange(np.asarray(trace.y).size, dtype=float))
             for trace in traces
+            if id(trace) not in overlaid
         ]
     x_display = _resolve_axis_display(
         drawn.unit or ("s" if drawn.name == "time" else ""),
-        unit=options.get("xunit"), subject=subject,
+        unit=xunit, subject=subject,
         series_values=[trace.x for trace in traces],
     )
     y_display = _resolve_axis_display(
