@@ -785,3 +785,164 @@ def test_murakami_is_a_dashed_reference_on_the_st_plane_in_the_default_style_too
     # the conventional Hugill plane keeps Murakami as a shaded limit for a conventional population
     _, ax2 = operational_space_population(_hugill_table(), "hugill")
     assert not [line for line in ax2.get_lines() if line.get_linestyle() == "--"]
+
+
+# --- the Troyon plane's references (#1691) -------------------------------------------------------
+
+
+def _troyon_table():
+    i_n = np.linspace(1.0, 3.0, 20)
+    t = pd.DataFrame({"normalized_current": i_n, "toroidal_beta": 1.5 * i_n})
+    t.attrs["units"] = {"normalized_current": "MA m^-1 T^-1", "toroidal_beta": "%"}
+    return t
+
+
+@pytest.mark.parametrize("style", ["inline", "shade"])
+def test_the_troyon_plane_draws_references_without_a_forbidden_side(style):
+    _, ax = operational_space_population(_troyon_table(), "troyon", boundary_style=style, x_range=(0.0, 3.5),
+                                         y_range=(0.0, 14.0))
+    fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
+    assert not fills                                            # nothing shaded: none of them is a limit
+    assert not [t for t in ax.texts if t.get_text() == "Stable"]   # and no permitted zone is claimed
+
+
+def test_each_reference_is_the_line_beta_t_equals_beta_n_i_n_with_its_registered_value():
+    plan = ops.overlay_plan("troyon", x_range=(0.0, 3.5), y_range=(0.0, 30.0), samples=51)
+    assert {c.key for c in plan.curves} >= {"troyon", "strait_1988_diiid_beta_n_envelope",
+                                            "taylor_1995_diiid_beta_n_record", "garstka_2002_st_beta_n_reference",
+                                            "sabbagh_2006_nstx_beta_n_record"}
+    for curve in plan.curves:
+        value = B.get_boundary(curve.key).coefficient
+        ok = np.isfinite(curve.x) & np.isfinite(curve.y) & (np.asarray(curve.x) > 0)
+        assert np.allclose(np.asarray(curve.y)[ok], value * np.asarray(curve.x)[ok])
+
+
+def test_the_legend_names_each_reference_with_its_kind_and_registered_value():
+    _, ax = operational_space_population(_troyon_table(), "troyon", boundary_style="inline", legend_keys=False,
+                                         x_range=(0.0, 3.5), y_range=(0.0, 14.0))
+    legend = " ".join(t.get_text() for t in ax.get_legend().get_texts()).replace("\n  ", " ")
+    assert "= 2.76: stability reference (Numerical)" in legend and "= 7.2: record" in legend
+    assert "= 3.5: envelope" in legend and "◆ its discharge" in legend
+    assert "Unstable" not in legend
+
+
+def test_the_diiid_record_is_marked_at_its_discharge():
+    _, ax = operational_space_population(_troyon_table(), "troyon", boundary_style="inline", x_range=(0.0, 3.5),
+                                         y_range=(0.0, 14.0))
+    diamonds = [l for l in ax.get_lines() if l.get_marker() == "D"]
+    assert len(diamonds) == 1
+    x, y = diamonds[0].get_xdata()[0], diamonds[0].get_ydata()[0]
+    assert x == pytest.approx(12.6 / 4.3) and y == pytest.approx(12.6, rel=1e-3)
+
+
+def test_experimental_levels_keep_their_applicability_out_of_the_legend_but_on_the_axes():
+    t = _troyon_table()
+    t.attrs["machine_class"] = "spherical_tokamak"
+    _, ax = operational_space_population(t, "troyon", boundary_style="inline", legend_keys=False,
+                                         x_range=(0.0, 3.5), y_range=(0.0, 14.0))
+    texts = [x.get_text().replace("\n  ", " ") for x in ax.get_legend().get_texts()]
+    diiid = [x for x in texts if x.startswith("DIII-D,")]
+    assert diiid and not any("[" in x for x in diiid)
+    assert ax.vaft_applicability["strait_1988_diiid_beta_n_envelope"][0] == "OUTSIDE"
+    assert any("Troyon" in x and "[" in x for x in texts)   # the stability reference keeps its status
+
+
+def test_a_trajectory_has_an_arrowhead_on_every_step():
+    t = _hugill_table()
+    t["time_efit_s"] = np.linspace(0.30, 0.33, len(t))
+    _, ax = operational_space_population(t, "hugill", trajectories={"Shot A": t.iloc[[0, 2, 4, 6]]})
+    arrows = [a for a in ax.texts if type(a).__name__ == "Annotation" and a.arrow_patch is not None]
+    assert len(arrows) == 3
+
+
+def test_inline_names_stay_inside_their_axes():
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 17, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    fig, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0.0, 18.0),
+                                           y_range=(0.0, 2.0), format="slide")
+    from vaft.plot.operational_space import _draw_shifted
+
+    fig.canvas.draw()
+    renderer, box = fig.canvas.get_renderer(), ax.get_window_extent()
+    for label in ax.texts:
+        if type(label).__name__ == "Annotation" or not label.get_text().strip():
+            continue
+        # the extent as drawn: the draw-time shift is applied for the draw only (zooming must not move a name)
+        bb = _draw_shifted(label, renderer, lambda r: label.get_window_extent(r))
+        if bb.width < box.width and bb.height < box.height:
+            assert box.x0 - 1 <= bb.x0 and bb.x1 <= box.x1 + 1 and box.y0 - 1 <= bb.y0 and bb.y1 <= box.y1 + 1, label.get_text()
+
+
+
+def _footprints(ax):
+    from vaft.plot.operational_space import _footprint
+
+    fig = ax.figure
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    return [(t.get_text().strip(), _footprint(t, renderer)) for t in ax.texts if t.get_text().strip()]
+
+
+def test_inline_names_do_not_cover_one_another():
+    from vaft.plot.operational_space import _overlap
+
+    _, ax = operational_space_population(_troyon_table(), "troyon", boundary_style="inline", x_range=(0.0, 3.5),
+                                         y_range=(0.0, 14.0), format="slide")
+    names = [(n, p) for n, p in _footprints(ax) if n not in ("Stable",)]
+    for i, (name, path) in enumerate(names):
+        others = [p for j, (_, p) in enumerate(names) if j != i]
+        assert _overlap(path, others) < 0.05, name
+
+
+def test_a_source_end_note_is_drawn_inside_its_axes():
+    t = pd.DataFrame({"edge_safety_factor": np.linspace(4, 17, 30), "internal_inductance_li3": np.linspace(0.4, 0.8, 30)})
+    fig, ax = operational_space_population(t, "li_qa_wesson", boundary_style="inline", x_range=(0.0, 18.0),
+                                           y_range=(0.0, 2.0), format="slide")
+    fig.canvas.draw()
+    renderer, box = fig.canvas.get_renderer(), ax.get_window_extent()
+    notes = [a for a in ax.texts if "Fig. 6 ends" in a.get_text()]
+    assert notes
+    bb = notes[0].get_window_extent(renderer)
+    assert box.x0 - 1 <= bb.x0 and bb.x1 <= box.x1 + 1 and box.y0 - 1 <= bb.y0 and bb.y1 <= box.y1 + 1
+
+
+def test_zooming_away_and_back_leaves_every_name_on_its_line():
+    fig, ax = operational_space_population(_troyon_table(), "troyon", boundary_style="inline", x_range=(0.0, 3.5),
+                                           y_range=(0.0, 14.0))
+    fig.canvas.draw()
+    before = [t.get_position() for t in ax.texts]
+    xlim, ylim = ax.get_xlim(), ax.get_ylim()
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 3.0)
+    fig.canvas.draw()
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+    fig.canvas.draw()
+    assert [t.get_position() for t in ax.texts] == before
+
+
+def test_a_kept_inside_label_pickles():
+    import pickle
+
+    _, ax = operational_space_population(_troyon_table(), "troyon", boundary_style="inline", x_range=(0.0, 3.5),
+                                         y_range=(0.0, 14.0))
+    names = [t for t in ax.texts if type(t).__name__ == "_InsideText"]
+    assert names and "draw" not in vars(names[0])   # a module-level class, not a patched instance method
+    assert pickle.loads(pickle.dumps(type(names[0]))) is type(names[0])
+
+
+def test_experimental_levels_do_not_warn_about_their_own_machine():
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        operational_space_population(_troyon_table(), "troyon", boundary_style="inline", x_range=(0.0, 3.5),
+                                     y_range=(0.0, 14.0))
+    assert not [w for w in caught if "applies to" in str(w.message) and "beta_n" in str(w.message)]
+
+
+def test_the_discharge_diamond_is_named_only_on_the_axis_it_is_drawn_on():
+    t = pd.DataFrame({"internal_inductance_li3": [0.5, 0.7], "normalized_beta": [1.0, 2.0]})
+    t.attrs["units"] = {"normalized_beta": "% m T/MA"}
+    _, ax = operational_space_population(t, "beta_n_li", boundary_style="inline", legend_keys=False,
+                                         boundaries=["troyon", "taylor_1995_diiid_beta_n_record"])
+    legend = " ".join(x.get_text() for x in ax.get_legend().get_texts())
+    assert "discharge" not in legend
+    assert not [l for l in ax.get_lines() if l.get_marker() == "D"]

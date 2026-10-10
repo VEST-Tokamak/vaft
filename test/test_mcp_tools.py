@@ -348,6 +348,12 @@ def test_boundaries_are_the_registry_without_callables():
     assert described["target"]["unit"] == entry.target.unit
     assert [q["name"] for q in described["inputs"]] == [q.name for q in entry.inputs]
     assert "function" not in described or described["function"] is None
+    # #1691: "kind" stays the entry's class, the reference semantics are reported beside it
+    troyon = _body(tools.describe_boundary("troyon"))
+    assert troyon["kind"] == "Boundary" and troyon["reference_kind"] == "stability_reference"
+    rows = {r["key"]: r for r in _json(tools.list_boundaries())["items"]}
+    assert rows["sabbagh_2006_nstx_beta_n_record"]["reference_kind"] == "experimental_achievement"
+    assert rows["greenwald"]["reference_kind"] == "limit"
     with pytest.raises(tools.ToolInputError):
         tools.describe_boundary("nope")
     with pytest.raises(tools.ToolInputError):

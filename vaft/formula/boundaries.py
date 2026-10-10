@@ -88,6 +88,11 @@ _FORMS = ("power_law", "threshold", "function")
 _SIDES = ("below", "above")
 _HARDNESS = ("hard", "soft", "probabilistic")
 _ORIGINS = ("published", "derived", "reproduced", "fitted")
+#: What crossing a relation means (#1691). Only a ``limit`` has a forbidden side; the others are references a
+#: plot draws without shading: a ``stability_reference`` is a theoretical value for a class of equilibria, an
+#: ``experimental_envelope`` the level a machine class has operated at, an ``experimental_achievement`` a record
+#: (operation above it is not thereby unstable), a ``reduced_comparator`` a low-fidelity estimate for comparison.
+_KINDS = ("limit", "stability_reference", "experimental_envelope", "experimental_achievement", "reduced_comparator")
 
 
 def _frozen_mapping(value) -> Mapping:
@@ -139,11 +144,17 @@ class Applicability:
     machine_class: str = ""
     ranges: Mapping[str, tuple] = field(default_factory=dict, hash=False)
     assumptions: tuple = ()
+    #: Coordinate ranges the source's evidence covers, by quantity name (any quantity, not only an input): a
+    #: constant-beta_N record demonstrated over a finite normalised current is drawn as evidence there and as an
+    #: extrapolated reference elsewhere (#1691). ``(v, v)`` is a single demonstrated point.
+    evidence_ranges: Mapping[str, tuple] = field(default_factory=dict, hash=False)
 
     def __post_init__(self):
         object.__setattr__(self, "ranges", _frozen_mapping({k: tuple(v) for k, v in dict(self.ranges or {}).items()}))
+        object.__setattr__(self, "evidence_ranges",
+                           _frozen_mapping({k: tuple(v) for k, v in dict(self.evidence_ranges or {}).items()}))
         object.__setattr__(self, "assumptions", tuple(self.assumptions))
-        for name, bounds in self.ranges.items():
+        for name, bounds in list(self.ranges.items()) + list(self.evidence_ranges.items()):
             if len(bounds) != 2:
                 raise ValueError(f"range for {name!r} must be (low, high), not {bounds!r}")
             low, high = bounds
@@ -191,7 +202,7 @@ class Boundary:
       function so its coefficients are not restated.
 
     ``allowed_side`` says which side of $b$ the operating value is permitted
-    on. ``hardness`` records how the literature treats crossing it: ``soft``
+    on; for a ``kind`` other than ``"limit"`` (a reference, an envelope, a record) it only orients the margin. ``hardness`` records how the literature treats crossing it: ``soft``
     for an empirical limit that operation can exceed.
 
     A regime-transition threshold carries ``source_regime`` and
@@ -226,6 +237,7 @@ class Boundary:
     source_regime: str = ""
     target_regime: str = ""
     branch: str = ""
+    kind: str = "limit"
 
     def __post_init__(self):
         object.__setattr__(self, "inputs", tuple(self.inputs))
@@ -239,6 +251,8 @@ class Boundary:
             raise ValueError(f"hardness must be one of {_HARDNESS}, not {self.hardness!r}")
         if self.origin not in _ORIGINS:
             raise ValueError(f"origin must be one of {_ORIGINS}, not {self.origin!r}")
+        if self.kind not in _KINDS:
+            raise ValueError(f"kind must be one of {_KINDS}, not {self.kind!r}")
         if bool(self.source_regime) != bool(self.target_regime):
             raise ValueError(f"boundary {self.key!r} needs both source_regime and target_regime, or neither")
         if not self.sources:
@@ -495,6 +509,11 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
         warnings += (
             "the operating value is not finite at some inputs; margin and ratio are NaN "
             "and the state is not counted as permitted there",
+        )
+    if boundary.kind != "limit":
+        warnings += (
+            f"{boundary.key!r} is a {boundary.kind.replace('_', ' ')}, not a limit: the margin is a signed distance "
+            "from it, and 'allowed' only says on which side the state lies",
         )
     return BoundaryEvaluation(
         key=boundary.key,
@@ -1143,6 +1162,9 @@ _register(Boundary(
     origin="published",
     basis="ideal_mhd_numerical",
     event="beta_limit",
+    # a theoretical value for optimised conventional equilibria, not a universal limit: conventional tokamaks and
+    # spherical tokamaks have operated well above it (#1691), so a plot draws it without a forbidden side
+    kind="stability_reference",
     applicability=Applicability(
         machine_class="tokamak",
         assumptions=(
@@ -1168,6 +1190,133 @@ _register(Boundary(
     ),
     notes="Coefficient 2.2 * mu0 * 1e6 ~ 2.76 %·m·T/MA (substituting T_S = R B_T into I_N). Compare with "
           "stability.beta_N_from_beta_a_B0_Ip, which returns beta_N in the same %·m·T/MA convention (#349).",
+))
+
+
+# Experimental beta references on the Troyon plane (#1691): constant-beta_N levels that machines have operated at,
+# drawn without a forbidden side. Each value was read in the source named; the verification level is in notes.
+_register(Boundary(
+    key="strait_1988_diiid_beta_n_envelope",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=3.5,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_envelope",
+    applicability=Applicability(
+        machine_class="conventional tokamak (DIII-D)",
+        assumptions=(
+            "neutral-beam-heated H-mode divertor discharges, no conducting-wall stabilisation; 'an operational "
+            "beta limit of beta <= 3.5 I/aB', linear in I/aB over a threefold range (absolute range not stated)",
+            "terminated by hard disruptions from the ideal 2/1 kink",
+        ),
+    ),
+    sources=(
+        BoundarySource("E.J. Strait, L.L. Lao, T.S. Taylor, M.S. Chu, J.K. Lee, A.D. Turnbull et al., "
+                       "'Stability of high beta discharges in the DIII-D tokamak', Proc. 12th IAEA Conf., Nice "
+                       "(1988), GA-A19444",
+                       equation="abstract: 'an operational beta limit of beta <= 3.5 I/aB'",
+                       note="OSTI 6854291; read from the abstract only"),
+    ),
+    notes="Verification level: abstract (#1691 source check). beta in % with the vacuum field (GA convention).",
+))
+
+_register(Boundary(
+    key="taylor_1995_diiid_beta_n_record",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=4.3,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_achievement",
+    applicability=Applicability(
+        machine_class="conventional tokamak (DIII-D)",
+        # discharge 80108: beta_T = 12.6 % at beta_N = 4.3, so I/aB = 12.6 / 4.3 = 2.93 MA/(m T): one point
+        evidence_ranges={"normalized_current": (12.6 / 4.3, 12.6 / 4.3)},
+        assumptions=(
+            "wall-stabilised (rotation essential), transient high-beta phase of discharge 80108 with q(0) < 1",
+            "beta_T = <p> 2 mu0 / B_T^2 with the vacuum B_T at R_geo = (R_max + R_min)/2; beta_N = beta_T/(I/aB)",
+        ),
+    ),
+    sources=(
+        BoundarySource("T.S. Taylor, E.J. Strait, L.L. Lao et al., 'Wall stabilization of high beta plasmas in "
+                       "DIII-D', General Atomics report GA-A21914 (1995); Phys. Plasmas 2 (1995) 2390",
+                       equation="discharge 80108: beta_T = 12.6 %, beta_N = 4.3",
+                       note="read from the GA report's full text; the issue's 'beta_N ~ 5' was not found in a "
+                            "primary source, so the verified 4.3 is used (#1691, user decision 2026-10-06)"),
+    ),
+    notes="Verification level: full text (GA-A21914).",
+))
+
+_register(Boundary(
+    key="garstka_2002_st_beta_n_reference",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=6.0,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_envelope",
+    applicability=Applicability(
+        machine_class="spherical tokamak (START, PEGASUS)",
+        assumptions=(
+            "the beta_N = 6 reference slope drawn with beta_N = 3.5 in the (I_N, beta_t) plane of the source's "
+            "Fig. 2, with START (neutral-beam) and PEGASUS (ohmic, A = 1.1-1.4) data",
+        ),
+    ),
+    sources=(
+        BoundarySource("G.D. Garstka, R.J. Fonck, S. Diem et al., 'Performance and stability of near-unity "
+                       "aspect-ratio plasmas in the Pegasus Toroidal Experiment', 29th EPS Conf., Montreux "
+                       "(2002), ECA 26B P-1.120",
+                       equation="Fig. 2, beta_t vs I_N for Pegasus and START",
+                       note="read from the full text; the START region is cited there to A. Sykes, PPCF 43 (2001) 127"),
+    ),
+    notes="Verification level: full text (EPS 2002 paper). A reference slope, not a stability limit.",
+))
+
+_register(Boundary(
+    key="sabbagh_2006_nstx_beta_n_record",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(),
+    form="threshold",
+    coefficient=7.2,
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_achievement",
+    applicability=Applicability(
+        machine_class="spherical tokamak (NSTX)",
+        assumptions=(
+            "wall-stabilised (passive plates and rotation); 'the highest beta_N yet achieved in the ST'",
+            "beta_N = 1e8 <beta_t> a B0 / I_p with B0 the vacuum field at the plasma geometric centre",
+            "beta_t = 39 % is quoted alongside but not stated to be simultaneous, so no I_N is attached",
+        ),
+    ),
+    sources=(
+        BoundarySource("S.A. Sabbagh, A.C. Sontag, J.M. Bialek et al., 'Resistive wall stabilized operation in "
+                       "rotating high beta NSTX plasmas', Nucl. Fusion 46 (2006) 635",
+                       doi="10.1088/0029-5515/46/5/014",
+                       equation="p. 635, abstract and Sec. 1: 'beta_t = 39% and beta_N = 7.2' (ref. [2])",
+                       note="read from the full text; cited there to S.M. Kaye et al., Nucl. Fusion 45 (2005) S168"),
+    ),
+    notes="Verification level: full text. A record, not a stability limit.",
 ))
 
 

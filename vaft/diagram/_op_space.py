@@ -165,11 +165,13 @@ _register(OperationalProjection(
 
 _register(OperationalProjection(
     key="troyon",
-    title="Troyon beta limit",
+    title="Toroidal beta against normalised current (Troyon plane)",
     x=_q("normalized_current"),
     y=_q("toroidal_beta"),
-    default_boundaries=("troyon",),
-    references=("F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209, Fig. 10",),
+    default_boundaries=("troyon", "strait_1988_diiid_beta_n_envelope", "taylor_1995_diiid_beta_n_record",
+                        "garstka_2002_st_beta_n_reference", "sabbagh_2006_nstx_beta_n_record"),
+    references=("F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209, Fig. 10",
+                "experimental beta_N references (#1691): Strait 1988, Taylor 1995, Garstka 2002, Sabbagh 2006"),
     assumptions=(
         "beta_N = beta_T / (I_p/(a B_T)) is the ratio of the axes, so its threshold is a line through the origin",
         "Troyon's beta uses the total field; at low beta it is close to the toroidal beta on this axis",
