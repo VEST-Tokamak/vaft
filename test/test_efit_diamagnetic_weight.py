@@ -439,9 +439,46 @@ def test_a_flagged_gfile_on_a_higher_rung_does_not_move_the_ladder(
     assert w2["median_sum_ratio"] == pytest.approx(1.0)
     assert out["common_slices_ms"] == [317]
     assert out["rungs"]["w2"]["common_summary"]["compared"] == 1
+    assert out["closest_to_thomson_basis"] == "common"
     assert out["headline_rung"] == "w2"
     assert "within what measurement scatter could explain" in out["verdict"]
     assert "this is not a data problem" not in out["verdict"]
+
+
+def test_rungs_with_no_common_accepted_slice_are_not_ranked(thomson, monkeypatch, tmp_path):
+    """PR #1920 review F3/F4.
+
+    w1 and w2 accept disjoint Thomson-comparable slices: medians over
+    different slice sets cannot say which rung is closer, so the ladder says
+    so instead of ranking them. A g-file no verdict names is counted as
+    unmatched, not as a chkerr rejection.
+    """
+    monkeypatch.setattr(thomson, "thomson_diagnostics", lambda shot: object())
+    ratios = {"w1": {317: 0.0, 318: 0.1}, "w2": {319: 0.2, 320: 0.3}}
+
+    def fake_check_gfile(path, diagnostics):
+        time_ms = int(path.name.split(".")[1])
+        return {"path": path.name, "status": "compared", "log_ratio": ratios[path.parent.name][time_ms]}
+
+    monkeypatch.setattr(thomson, "check_gfile", fake_check_gfile)
+    for rung, times in ratios.items():
+        (tmp_path / rung).mkdir()
+        for time_ms in times:
+            (tmp_path / rung / f"g039915.{time_ms:05d}").write_text("x", encoding="utf-8")
+    outcomes = {"w1": {317: "accepted", 318: "accepted"}, "w2": {319: "accepted"}}  # 320 unnamed
+
+    out = thomson.compare_ladder(
+        {"w1": tmp_path / "w1", "w2": tmp_path / "w2"}, shot=39915, outcomes=outcomes
+    )
+
+    assert out["common_slices_ms"] == []
+    assert out["closest_to_thomson"] is None
+    assert out["closest_to_thomson_basis"] is None
+    assert "do not rank rungs" in out["closest_to_thomson_reason"]
+    assert "do not rank rungs" in out["verdict"]
+    w2 = out["rungs"]["w2"]["summary"]
+    assert w2["flagged_slices"] == 0 and w2["unmatched_slices"] == 1
+    assert w2["compared"] == 1
 
 
 # ---------------------------------------------------------------------------
