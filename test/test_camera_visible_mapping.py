@@ -1,3 +1,5 @@
+import gzip
+import json
 from pathlib import Path
 
 import cv2
@@ -8,6 +10,7 @@ from omas import ODS
 
 import vaft.omas
 from vaft.machine_mapping.camera_visible import (
+    DARK_FRAME_SELECTION_RULE,
     DEFAULT_NEAR_BLACK_THRESHOLD,
     FIXED_FRAME_SELECTION_RULE,
     FRAME_SELECTION_RULE,
@@ -20,6 +23,8 @@ from vaft.machine_mapping.camera_visible import (
     is_near_black,
     narrow_image_storage,
     parse_frame_selection,
+    plasma_current_window,
+    plasma_end_frame_index,
     select_valid_frames,
 )
 
@@ -140,9 +145,9 @@ def test_select_valid_frames_follows_a_raised_dark_floor():
     assert (fixed.onset, fixed.end) == (0, 24)
     assert fixed.rule == FIXED_FRAME_SELECTION_RULE
 
-    relative = select_valid_frames(frames)
+    relative = select_valid_frames(frames, rule=DARK_FRAME_SELECTION_RULE)
     assert (relative.onset, relative.end) == (8, 15)
-    assert relative.rule == FRAME_SELECTION_RULE
+    assert relative.rule == DARK_FRAME_SELECTION_RULE
     assert 40 <= relative.dark_level <= 48
     assert relative.threshold == pytest.approx(relative.dark_level + 20)
 
@@ -151,8 +156,11 @@ def test_select_valid_frames_matches_fixed_rule_on_original_exports():
     # Original exports sit at ~25 DN, where the fixed 35 already worked.
     frames = _noisy_frames(25, {10, 11, 12, 13}, 25)
     fixed = select_valid_frames(frames, threshold=DEFAULT_NEAR_BLACK_THRESHOLD)
-    relative = select_valid_frames(frames)
+    relative = select_valid_frames(frames, rule=DARK_FRAME_SELECTION_RULE)
+    background = select_valid_frames(frames)
     assert (relative.onset, relative.end) == (fixed.onset, fixed.end) == (8, 15)
+    assert (background.onset, background.end) == (8, 15)
+    assert background.rule == FRAME_SELECTION_RULE
 
 
 def test_dark_level_survives_a_mostly_bright_recording():
@@ -203,11 +211,127 @@ def test_camera_visible_comment_round_trips_the_selection(tmp_path):
     ods = ODS()
     camera_visible(ods, SHOT, frame_dir=shot_dir)
     record = parse_frame_selection(ods["camera_visible.ids_properties.comment"])
-    assert record["rule"] == FRAME_SELECTION_RULE
+    # Ten frames leave no room for a ten-frame reference: the dark-level rule.
+    assert record["rule"] == DARK_FRAME_SELECTION_RULE
     assert (record["first_retained"], record["last_retained"], record["total_frames"]) == (2, 8, 10)
     assert record["dark_level"] == pytest.approx(5.0)
     assert record["threshold"] == pytest.approx(25.0)
     assert record["buffer_frames"] == 2 and record["percentage"] == pytest.approx(0.98)
+    assert record["plasma_end_frame"] is None and record["reference_frames"] is None
+
+
+def _lit_vessel_frames(total: int, plasma: dict[int, int], *, floor: int = 58, seed: int = 0) -> list[np.ndarray]:
+    """A lit-but-empty vessel (48914): ~58 DN, +-3 DN noise, dark corners at ~45
+    and a static reflection at 90 DN on 5 % of the pixels.
+
+    ``plasma`` maps frame index to the extra DN its plasma adds over a region.
+    """
+    rng = np.random.default_rng(seed)
+    frames = []
+    for index in range(total):
+        image = floor + rng.integers(-3, 4, size=(40, 40))
+        image[:4] -= 13
+        image[34:38, :20] = 90
+        image[10:30, 10:30] += plasma.get(index, 0)
+        frames.append(np.clip(image, 0, 255).astype(np.uint8))
+    return frames
+
+
+def test_background_rule_trims_a_lit_vessel_the_dark_rule_keeps_whole():
+    # 48914: room light keeps every pixel above the v2 threshold, so v2 kept
+    # all 101 frames; a weak plasma glow is still well above the reference.
+    frames = _lit_vessel_frames(40, {index: 20 for index in range(18, 26)})
+    dark = select_valid_frames(frames, rule=DARK_FRAME_SELECTION_RULE)
+    assert (dark.onset, dark.end) == (0, 39)
+
+    background = select_valid_frames(frames)
+    assert background.rule == FRAME_SELECTION_RULE
+    assert (background.onset, background.end) == (16, 27)
+    assert background.reference_frames == 10
+    assert background.peak_threshold == pytest.approx(15.0)
+    assert background.threshold == pytest.approx(3.0)
+
+
+def test_frozen_recording_selects_nothing():
+    # 48913: 101 copies of one saturated image. Nothing changes, so no frame
+    # carries plasma light; the dark-level rule kept all of them.
+    image = np.full((20, 20), 255, dtype=np.uint8)
+    image[:4] = 150
+    frames = [image.copy() for _ in range(30)]
+    assert select_valid_frames(frames, rule=DARK_FRAME_SELECTION_RULE).end == 29
+    with pytest.raises(CameraFrameSelectionError, match="background-relative-v3"):
+        select_valid_frames(frames)
+
+
+def test_bright_reference_falls_back_to_the_dark_level_rule():
+    # The camera started during the plasma: the first frames are the bright
+    # ones, so later frames are darker than the "reference".
+    frames = _noisy_frames(25, set(range(0, 12)), 30)
+    selection = select_valid_frames(frames)
+    assert selection.rule == DARK_FRAME_SELECTION_RULE
+    assert (selection.onset, selection.end) == (0, 13)
+
+
+def test_flickering_reference_falls_back_to_the_dark_level_rule():
+    rng = np.random.default_rng(1)
+    frames = [
+        np.clip(25 + rng.integers(-2, 3, size=(20, 20)) + (index % 2) * 8, 0, 255).astype(np.uint8)
+        for index in range(30)
+    ]
+    frames[20] = frames[20] + np.uint8(100)
+    selection = select_valid_frames(frames)
+    assert selection.rule == DARK_FRAME_SELECTION_RULE
+
+
+def test_plasma_end_caps_the_afterglow_but_not_the_breakdown():
+    # Lit from frame 15 (breakdown) to 35 (afterglow); I_p ends at frame 25.
+    frames = _lit_vessel_frames(40, {index: 20 for index in range(15, 36)})
+    uncapped = select_valid_frames(frames)
+    assert (uncapped.onset, uncapped.end) == (13, 37)
+    capped = select_valid_frames(frames, plasma_end_frame=25)
+    assert (capped.onset, capped.end) == (13, 27)
+    assert capped.plasma_end_frame == 25
+    # An I_p end before the first lit frame is not this recording's plasma.
+    ignored = select_valid_frames(frames, plasma_end_frame=10)
+    assert (ignored.onset, ignored.end) == (13, 37)
+    assert ignored.plasma_end_frame is None
+
+
+def test_plasma_end_frame_index_rounds_up_and_ignores_a_late_end():
+    # 101 frames over 280-320 ms: 0.4 ms per frame.
+    assert plasma_end_frame_index(0.30352, 101, 280.0, 320.0) == 59
+    assert plasma_end_frame_index(0.3, 101, 280.0, 320.0) == 50
+    assert plasma_end_frame_index(0.25, 101, 280.0, 320.0) == 0
+    assert plasma_end_frame_index(0.33, 101, 280.0, 320.0) is None
+    assert plasma_end_frame_index(None, 101, 280.0, 320.0) is None
+
+
+def test_plasma_current_window_reads_the_diagnostics_product(tmp_path):
+    path = tmp_path / "diagnostics.json.gz"
+    time = np.linspace(0.28, 0.32, 41)
+    current = np.where((time > 0.2905) & (time < 0.3045), 1.2e5, 1e3)
+    with gzip.open(path, "wt", encoding="utf-8") as handle:
+        json.dump({"magnetics": {"ip": [{"time": time.tolist(), "data": (-current).tolist()}]}}, handle)
+    t_on, t_off, peak = plasma_current_window(path)
+    assert t_on == pytest.approx(0.291) and t_off == pytest.approx(0.304)
+    assert peak == pytest.approx(1.2e5)
+    assert plasma_current_window(tmp_path / "absent.json.gz") == (None, None, None)
+
+
+def test_camera_visible_comment_round_trips_the_background_rule(tmp_path):
+    shot_dir = _write_shot(tmp_path, total_frames=30, bright_indices=set(range(12, 25)))
+    ods = ODS()
+    # 30 frames over 280-320 ms; I_p ends at 300 ms, i.e. frame 15 rounded up.
+    camera_visible(ods, SHOT, frame_dir=shot_dir, plasma_end_s=0.2995)
+    record = parse_frame_selection(ods["camera_visible.ids_properties.comment"])
+    assert record["rule"] == FRAME_SELECTION_RULE
+    assert (record["first_retained"], record["last_retained"], record["total_frames"]) == (10, 17, 30)
+    assert record["plasma_end_frame"] == 15
+    assert record["reference_frames"] == 10
+    assert record["peak_threshold"] == pytest.approx(15.0)
+    assert record["reference_sigma"] == pytest.approx(0.0)
+    assert record["dark_level"] is None
+    assert len(ods["camera_visible.channel.0.detector.0.frame"]) == 8
 
 
 def test_camera_visible_frame_ordering_and_padding(tmp_path):
