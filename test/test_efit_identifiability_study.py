@@ -263,6 +263,24 @@ def test_the_stage1_gate_has_no_curvature_sum_identity():
         )
 
 
+def test_a_stage1_manifest_written_with_the_retired_curvature_field_still_loads():
+    """PR #1920 review F2: Stage-1 outputs predate the F14 deletion.
+
+    Resume (`_stage1_case_result`) and the Stage-2 gate rebuild
+    `Stage1Validation` from the stored manifest, which carries the retired
+    `curvature_sum_relative_error`; hours of EFIT must not become unloadable.
+    """
+    from dataclasses import asdict
+
+    study = _study()
+    stored = asdict(_validation(study, study.REFERENCE_SLICES[0]))
+    stored["curvature_sum_relative_error"] = 1.0e-16
+    loaded = study._validation_from_dict(stored)
+    assert loaded.reference == study.REFERENCE_SLICES[0]
+    assert not hasattr(loaded, "curvature_sum_relative_error")
+    assert study.stage1_gate([loaded, *[_validation(study, item) for item in study.REFERENCE_SLICES[1:]]]).passed
+
+
 def test_native_row_audit_keeps_measurements_weights_and_soft_relations():
     study = _study()
     block = SimpleNamespace(

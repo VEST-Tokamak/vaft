@@ -938,6 +938,10 @@ def _validation_from_dict(payload: Mapping[str, Any]) -> Stage1Validation:
     values.setdefault("mfile_family_chi2_max_relative_error", None)
     values.setdefault("mfile_family_chi2_max_absolute_error", None)
     values.setdefault("mfile_family_chi2_passed", False)
+    # Stage-1 manifests written before cold review F14 retired the
+    # curvature-sum identity still carry it; resume and the Stage-2 gate
+    # must keep loading them.
+    values.pop("curvature_sum_relative_error", None)
     return Stage1Validation(**values)
 
 
