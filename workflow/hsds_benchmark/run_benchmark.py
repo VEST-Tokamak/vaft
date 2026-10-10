@@ -19,6 +19,9 @@ Scenarios (all read-only):
 * ``lazy_large``    -- ``open()``; whole 2-D ``psi`` of every slice and every
   probe field: large-array selections.
 * ``prefetch``      -- ``open()`` + ``prefetch`` of the IDS, then the scalar traversal.
+
+Clients are separate processes released together by a barrier (a process pool
+would let one fast worker run several clients back to back).
 * ``eager_canonical`` / ``eager_h5image`` -- ``load(..., transport=...)``,
   cold (empty cache directory) and warm (same directory, second run).
 * ``eager_full``    -- ``load()`` with the default transport.
@@ -31,7 +34,6 @@ counts; the issue asks for no destructive load tests there.
 from __future__ import annotations
 
 import argparse
-import concurrent.futures as futures
 import hashlib
 import json
 import multiprocessing
@@ -45,6 +47,7 @@ import tempfile
 import time
 import uuid
 from pathlib import Path
+from queue import Empty
 from typing import Any, Callable, Sequence
 
 import numpy as np
@@ -62,43 +65,54 @@ def digest(value: Any) -> str:
     return hashlib.sha256(f"{array.dtype}|{array.shape}|".encode() + payload).hexdigest()[:16]
 
 
-def _try(ods: Any, path: str) -> Any:
+def _try(ods: Any, path: str, errors: list[str]) -> Any:
+    """The value, or ``None`` when the shot lacks the path; any other failure is recorded."""
     try:
         return ods[path]
-    except Exception:  # an absent path is part of the shot, not a failure
+    except LookupError:  # absent from this shot: part of the data, not a failure
+        return None
+    except Exception as exc:  # a read that failed must not pass as "absent"
+        errors.append(f"{path}: {type(exc).__name__}: {exc}"[:200])
         return None
 
 
-def _count(ods: Any, path: str) -> int:
+def _count(ods: Any, path: str, errors: list[str]) -> int:
+    value = _try(ods, path, errors)
     try:
-        return len(ods[path])
-    except Exception:
+        return len(value) if value is not None else 0
+    except TypeError:
         return 0
 
 
-def read_probes(ods: Any, *, large: bool) -> dict[str, str]:
+#: Paths only the large probe set reads.
+LARGE_ONLY = (".profiles_2d.", ".field.data")
+
+
+def read_probes(ods: Any, *, large: bool, errors: list[str] | None = None) -> dict[str, str]:
     """Read the probe set from an ODS (lazy or eager) and return value digests.
 
     The large set is a superset of the small one, so every value a lazy
     scalar traversal reads is also read -- and compared -- by the eager runs.
+    Reads that fail other than by absence are appended to ``errors``.
     """
+    errors = [] if errors is None else errors
     digests: dict[str, str] = {}
 
     def keep(path: str) -> None:
-        value = _try(ods, path)
+        value = _try(ods, path, errors)
         if value is not None:
             digests[path] = digest(value)
 
     keep("equilibrium.time")
     keep("magnetics.ip.0.data")
-    for i in range(_count(ods, "equilibrium.time_slice")):
+    for i in range(_count(ods, "equilibrium.time_slice", errors)):
         for name in SCALARS:
             keep(f"equilibrium.time_slice.{i}.global_quantities.{name}")
         if large:
             keep(f"equilibrium.time_slice.{i}.profiles_2d.0.psi")
-    for i in range(_count(ods, "pf_active.coil")):
+    for i in range(_count(ods, "pf_active.coil", errors)):
         keep(f"pf_active.coil.{i}.current.data")
-    for i in range(_count(ods, "magnetics.b_field_pol_probe")):
+    for i in range(_count(ods, "magnetics.b_field_pol_probe", errors)):
         keep(f"magnetics.b_field_pol_probe.{i}.position.r")
         if large:
             keep(f"magnetics.b_field_pol_probe.{i}.field.data")
@@ -113,12 +127,13 @@ def run_scenario(scenario: str, shot: int, source: str, cache_dir: str | None) -
     started = time.perf_counter()
     error = None
     digests: dict[str, str] = {}
+    probe_errors: list[str] = []
     run_id = os.environ.get("VAFT_BENCHMARK_RUN_ID") or uuid.uuid4().hex[:12]
     with record_io(run_id=run_id) as recorder:
         try:
             if scenario in EAGER:
                 ods = database.load(shot, source, cache=cache_dir or "off", transport=EAGER[scenario])
-                digests = read_probes(ods, large=True)
+                digests = read_probes(ods, large=True, errors=probe_errors)
             else:
                 ods = database.open(shot, source=source)
                 if scenario == "prefetch":
@@ -127,35 +142,66 @@ def run_scenario(scenario: str, shot: int, source: str, cache_dir: str | None) -
                             ods.prefetch(ids)
                         except Exception:  # an IDS the shot does not have
                             pass
-                digests = read_probes(ods, large=scenario == "lazy_large")
+                digests = read_probes(ods, large=scenario == "lazy_large", errors=probe_errors)
         except Exception as exc:  # a failed client is a result, recorded with the rest
             error = f"{type(exc).__name__}: {exc}"[:300]
     rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     peak_mb = rss_kb / (1024 * 1024) if sys.platform == "darwin" else rss_kb / 1024
     return {"wall_s": time.perf_counter() - started, "io": recorder.summary(), "peak_rss_mb": peak_mb,
-            "digests": digests, "error": error}
+            "digests": digests, "probe_errors": probe_errors, "error": error, "pid": os.getpid()}
 
 
-def _client(args: tuple[str, int, str, str | None, str]) -> dict[str, Any]:
+def _client(args: tuple, barrier: Any, queue: Any, index: int) -> None:
+    """One client process: wait for the others, run, and put ``(index, result)`` on ``queue``."""
     scenario, shot, source, cache_dir, run_id = args
     os.environ["VAFT_BENCHMARK_RUN_ID"] = run_id
-    return run_scenario(scenario, shot, source, cache_dir)
+    try:
+        barrier.wait(timeout=600)
+        result = run_scenario(scenario, shot, source, cache_dir)
+    except Exception as exc:  # report, never hang the parent
+        result = {"wall_s": 0.0, "io": {}, "peak_rss_mb": 0.0, "digests": {}, "probe_errors": [],
+                  "error": f"client: {type(exc).__name__}: {exc}"[:300], "pid": os.getpid()}
+    queue.put((index, result))
 
 
 def run_group(scenario: str, shot: int, source: str, clients: int, cache_state: str, cache_root: Path,
-              run_id: str, runner: Callable[[tuple], dict] = _client) -> list[dict[str, Any]]:
-    """``clients`` concurrent child processes; each client gets its own cache directory."""
+              run_id: str, target: Callable[..., None] | None = None) -> list[dict[str, Any]]:
+    """``clients`` child processes, one per client, released together by a barrier.
+
+    A pool would let one fast worker take several queued jobs -- clients would
+    then share a process, its caches and its HTTP session, and run one after
+    another. Each client gets its own process and cache directory instead.
+    """
     dirs = []
     for index in range(clients):
         d = cache_root / f"{scenario}-{shot}-c{clients}-{index}"
         if cache_state == "cold" and d.exists():
             shutil.rmtree(d)
         dirs.append(str(d) if scenario in EAGER else None)
-    jobs = [(scenario, shot, source, dirs[i], run_id) for i in range(clients)]
     context = multiprocessing.get_context("spawn")
-    with futures.ProcessPoolExecutor(max_workers=clients, mp_context=context) as pool:
-        results = list(pool.map(runner, jobs))
-    return results
+    barrier, queue = context.Barrier(clients), context.Queue()
+    processes = [context.Process(target=target or _client, args=((scenario, shot, source, dirs[i], run_id), barrier, queue, i))
+                 for i in range(clients)]
+    for process in processes:
+        process.start()
+    results: dict[int, dict[str, Any]] = {}
+    while len(results) < clients:
+        try:
+            index, result = queue.get(timeout=5)
+            results[index] = result
+        except Empty:
+            if not any(process.is_alive() for process in processes) and queue.empty():
+                break  # a client died without reporting (import failure, OOM kill): do not wait forever
+    for process in processes:
+        process.join()
+    ordered = [results.get(i) or {"wall_s": 0.0, "io": {}, "peak_rss_mb": 0.0, "digests": {}, "probe_errors": [],
+                                  "error": f"client exited with code {processes[i].exitcode} without a result",
+                                  "pid": processes[i].pid}
+               for i in range(clients)]
+    if len({r["pid"] for r in ordered}) != clients:  # never report shared-process timings as N clients
+        for r in ordered:
+            r["error"] = r["error"] or "clients did not run in distinct processes"
+    return ordered
 
 
 def _git(path: Path, *args: str) -> str | None:
@@ -197,21 +243,36 @@ def context_record(source: str, shots: Sequence[int], run_id: str) -> dict[str, 
 
 
 def summarise(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """p50/p95 wall time and I/O per (scenario, shot, clients, cache_state), plus correctness across scenarios."""
+    """p50/p95 wall time and I/O per (scenario, shot, clients, cache_state), plus correctness.
+
+    Correctness is judged against eager canonical for the same shot: values that
+    differ (``mismatched_paths``), values the run should have read but did not
+    (``missing_paths``), reads that failed (``probe_errors``), and whether a
+    reference existed at all (``reference_available``). Canonical runs that
+    disagree with each other are reported too.
+    """
     groups: dict[tuple, list[dict]] = {}
     for r in records:
         groups.setdefault((r["scenario"], r["shot"], r["clients"], r["cache_state"]), []).append(r)
     reference: dict[int, dict[str, str]] = {}
-    for r in records:  # eager canonical is the reference for every probe it read
+    disagreement: dict[int, set[str]] = {}
+    for r in records:
         if r["scenario"] == "eager_canonical" and not r["error"]:
-            reference.setdefault(r["shot"], {}).update(r["digests"])
+            ref = reference.setdefault(r["shot"], {})
+            for path, value in r["digests"].items():
+                if path in ref and ref[path] != value:
+                    disagreement.setdefault(r["shot"], set()).add(path)
+                ref.setdefault(path, value)
     rows = []
     for (scenario, shot, clients, cache_state), rs in sorted(groups.items()):
         ok = [r for r in rs if not r["error"]]
         wall = np.asarray([r["wall_s"] for r in ok], dtype=float)
-        mismatched = sorted({p for r in ok for p, d in r["digests"].items()
-                             if p in reference.get(shot, {}) and reference[shot][p] != d})
-        compared = sum(1 for r in ok for p in r["digests"] if p in reference.get(shot, {}))
+        ref = reference.get(shot, {})
+        expected = {p for p in ref if scenario in EAGER or scenario == "lazy_large"
+                    or not any(marker in p for marker in LARGE_ONLY)}
+        mismatched = sorted({p for r in ok for p, d in r["digests"].items() if p in ref and ref[p] != d})
+        missing = sorted({p for r in ok for p in expected if p not in r["digests"]})
+        compared = sum(1 for r in ok for p in r["digests"] if p in ref)
         rows.append({
             "scenario": scenario, "shot": shot, "clients": clients, "cache_state": cache_state, "runs": len(rs),
             "errors": len(rs) - len(ok),
@@ -222,7 +283,10 @@ def summarise(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "subprocess_seconds_median": float(np.median([r["io"]["subprocess_seconds"] for r in ok])) if ok else None,
             "peak_rss_mb_max": max((r["peak_rss_mb"] for r in ok), default=None),
             "probe_values": len(ok[0]["digests"]) if ok else 0,
-            "compared_to_eager_canonical": compared, "mismatched_paths": mismatched,
+            "reference_available": bool(ref),
+            "compared_to_eager_canonical": compared, "mismatched_paths": mismatched, "missing_paths": missing,
+            "probe_errors": sum(len(r.get("probe_errors", [])) for r in rs),
+            "canonical_disagreement": sorted(disagreement.get(shot, set())) if scenario == "eager_canonical" else [],
         })
     return rows
 

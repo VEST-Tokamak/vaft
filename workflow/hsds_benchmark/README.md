@@ -29,8 +29,10 @@ the runner records `vaft_commit` and `vaft_dirty`, so check them.
 | `eager_h5image` | `load(transport="h5image")` | derived image download in 4 MiB slices; cold and warm |
 | `eager_full` | `load()` (default transport) | the path a user gets without options; cold and warm |
 
-Each client runs in a fresh process (`spawn`). With `--clients N`, N processes
-start together, each with its own cache directory.
+Each client runs in its own fresh process (`spawn`, one `Process` per client,
+not a pool). With `--clients N`, N processes are released together by a
+barrier, each with its own cache directory; a group whose clients did not get
+distinct PIDs is recorded as an error rather than timed.
 
 ## Output
 
@@ -50,7 +52,7 @@ start together, each with its own cache directory.
 | request count, by method | `requests.Session.send` while recording | in-process h5pyd traffic only |
 | response bytes | `Content-Length` of each response | `responses_without_length` counts the ones without; never estimated |
 | header latency p50/p95 | time to response headers | h5pyd streams bodies (`stream=True`), so body transfer is in `wall_s`, not here |
-| subprocess seconds / bytes | `transport._run` around hsget/hsload | their HTTP traffic is in another process and not counted as requests; bytes are the `hsstat` total (download) or local file size (upload) |
+| subprocess seconds / bytes | `transport._run` around hsget/hsload | their HTTP traffic is in another process and not counted as requests; bytes are the `hsstat` total (download) or local file size (upload); a **failed** hsget/hsload is not recorded (its time is still in `wall_s`) |
 | wall time | `perf_counter` around the scenario | module imports happen before timing starts |
 | peak RSS | `getrusage` of the client process | per client |
 
@@ -59,9 +61,21 @@ start together, each with its own cache directory.
 Every scenario reads the same probe values (equilibrium time and slice
 scalars, `psi` in the large set, Ip, PF coil currents, probe positions and
 fields). `eager_canonical` is the reference; every other run's digests for the
-same paths must match, and `mismatched_paths` lists any that do not. The large
-probe set is a superset of the small one, so lazy scalar values are compared
-too.
+same paths must match. Per group the summary reports:
+
+* `mismatched_paths` -- values that differ from eager canonical;
+* `missing_paths` -- values eager canonical read that this run should have read
+  (scalar scenarios are not expected to read `psi` or probe fields) but did not;
+* `probe_errors` -- reads that failed for a reason other than the path being
+  absent (`KeyError`/`IndexError` mean "not in this shot"; anything else is
+  counted, never treated as absent);
+* `reference_available` -- whether an eager canonical run succeeded for the
+  shot at all (without one, nothing was compared);
+* `canonical_disagreement` -- paths on which eager canonical runs disagree with
+  each other.
+
+The large probe set is a superset of the small one, so lazy scalar values are
+compared too.
 
 ### Correlating with server metrics
 

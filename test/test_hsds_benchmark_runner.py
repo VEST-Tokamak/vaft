@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -99,12 +100,73 @@ def test_summary_flags_a_path_whose_value_differs_from_eager_canonical():
     assert rows["lazy_large"]["mismatched_paths"] == ["equilibrium.time_slice.1.profiles_2d.0.psi"]
     assert rows["lazy_large"]["compared_to_eager_canonical"] == len(wrong)
     assert rows["lazy_scalar"]["errors"] == 1 and rows["lazy_scalar"]["wall_p50_s"] is None
+    assert rows["lazy_large"]["reference_available"] and rows["lazy_large"]["missing_paths"] == []
 
 
-def test_unknown_scenarios_are_refused(tmp_path, capsys):
+def _record(scenario, digests, shot=39915, error=None, probe_errors=()):
+    return {"scenario": scenario, "shot": shot, "clients": 1, "cache_state": "cold", "wall_s": 1.0,
+            "error": error, "digests": digests, "peak_rss_mb": 100.0, "probe_errors": list(probe_errors),
+            "io": {"request_count": 1, "response_bytes_observed": 1, "subprocess_seconds": 0.0}}
+
+
+def test_summary_flags_missing_values_failed_reads_and_an_absent_reference():
     bench = _load()
-    try:
-        bench.main(["--scenarios", "lazy_scalar,warp_drive", "--output", str(tmp_path)])
-    except SystemExit as exit_:
-        assert exit_.code == 2
-    assert "warp_drive" in capsys.readouterr().err
+    full = bench.read_probes(_ods(), large=True)
+    scalar = bench.read_probes(_ods(), large=False)
+    dropped = {p: d for p, d in full.items() if p != "pf_active.coil.0.current.data"}
+    rows = {(r["scenario"], r["shot"]): r for r in bench.summarise([
+        _record("eager_canonical", full),
+        _record("lazy_scalar", scalar),  # scalar scenarios are not expected to read psi / fields
+        _record("eager_h5image", dropped, probe_errors=["pf_active.coil.0.current.data: OSError: 503"]),
+        _record("lazy_scalar", scalar, shot=41524),  # no canonical run for this shot
+    ])}
+    assert rows[("lazy_scalar", 39915)]["missing_paths"] == []
+    assert rows[("eager_h5image", 39915)]["missing_paths"] == ["pf_active.coil.0.current.data"]
+    assert rows[("eager_h5image", 39915)]["probe_errors"] == 1
+    assert not rows[("lazy_scalar", 41524)]["reference_available"]
+    assert rows[("lazy_scalar", 41524)]["compared_to_eager_canonical"] == 0
+
+
+def test_canonical_runs_that_disagree_are_reported_not_overwritten():
+    bench = _load()
+    a = bench.read_probes(_ods(), large=True)
+    b = bench.read_probes(_ods(psi_scale=2.0), large=True)
+    rows = {r["scenario"]: r for r in bench.summarise([_record("eager_canonical", a), _record("eager_canonical", b)])}
+    assert rows["eager_canonical"]["canonical_disagreement"] == ["equilibrium.time_slice.1.profiles_2d.0.psi"]
+
+
+def test_a_failed_read_is_recorded_while_an_absent_path_is_not():
+    bench = _load()
+
+    class Broken(FakeODS):
+        def __getitem__(self, path):
+            if path == "magnetics.ip.0.data":
+                raise OSError("HSDS 503")
+            return super().__getitem__(path)
+
+    ods = _ods()
+    errors = []
+    digests = bench.read_probes(Broken(dict(ods), ods.counts), large=False, errors=errors)
+    assert "magnetics.ip.0.data" not in digests
+    assert len(errors) == 1 and errors[0].startswith("magnetics.ip.0.data: OSError")  # li_3 is absent: not an error
+
+
+def _fake_client(args, barrier, queue, index):
+    """Stands in for the runner's client: the process mechanics without HSDS."""
+    barrier.wait(timeout=60)
+    queue.put((index, {"wall_s": 0.0, "io": {}, "peak_rss_mb": 0.0, "digests": {}, "probe_errors": [],
+                       "error": None, "pid": os.getpid()}))
+
+
+def test_each_client_runs_in_its_own_process(tmp_path):
+    bench = _load()
+    results = bench.run_group("lazy_scalar", 1, "main", 3, "cold", tmp_path, "t", target=_fake_client)
+    pids = {r["pid"] for r in results}
+    assert len(pids) == 3 and os.getpid() not in pids
+    assert all(r["error"] is None for r in results)
+
+
+def test_a_client_that_dies_without_reporting_does_not_hang_the_group(tmp_path):
+    bench = _load()  # loaded under a name spawned children cannot import: they die at unpickling
+    results = bench.run_group("lazy_scalar", 1, "main", 2, "cold", tmp_path, "t")
+    assert [r["error"].startswith("client exited with code") for r in results] == [True, True]

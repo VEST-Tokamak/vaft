@@ -21,6 +21,10 @@ What is observed and what is not:
 
 Each request also carries an ``X-VAFT-Run-ID`` header while recording, so HSDS
 access logs can be correlated with a benchmark run.
+
+The patch is process-wide: while any recorder is active, requests from every
+thread go to the innermost (most recently entered) recorder. Measure one thing
+per process -- the benchmark runner uses one process per client.
 """
 
 from __future__ import annotations
@@ -42,6 +46,9 @@ RUN_ID_HEADER = "X-VAFT-Run-ID"
 
 _lock = threading.Lock()
 _stack: list["IORecorder"] = []
+#: ``requests.Session.send`` as it was before the first recorder; captured once and
+#: never cleared, so a request already inside the wrapper when the last recorder
+#: exits still has a send to call.
 _original_send = None
 
 
@@ -140,7 +147,8 @@ def record_io(run_id: str | None = None) -> Iterator[IORecorder]:
     recorder = IORecorder(run_id=run_id or uuid.uuid4().hex[:12])
     with _lock:
         if not _stack:
-            _original_send = requests.Session.send
+            if _original_send is None:
+                _original_send = requests.Session.send
             requests.Session.send = _recording_send
         _stack.append(recorder)
     try:
@@ -151,4 +159,3 @@ def record_io(run_id: str | None = None) -> Iterator[IORecorder]:
             _stack.remove(recorder)
             if not _stack:
                 requests.Session.send = _original_send
-                _original_send = None

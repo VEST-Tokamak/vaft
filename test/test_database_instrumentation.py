@@ -86,7 +86,7 @@ def test_nested_recorders_attribute_requests_to_the_innermost_and_restore_once()
             session.get("http://hsds.test/b")
         assert requests.Session.send is not original
         session.get("http://hsds.test/c")
-    assert requests.Session.send is original and instrumentation._original_send is None
+    assert requests.Session.send is original
     assert [r["path"] for r in outer.requests] == ["/a", "/c"]
     assert [r["path"] for r in inner.requests] == ["/b"]
 
@@ -96,3 +96,15 @@ def test_an_empty_recorder_summarises_without_percentiles():
         pass
     summary = recorder.summary()
     assert summary["request_count"] == 0 and summary["header_latency_p50_s"] is None
+
+
+def test_a_request_caught_in_the_wrapper_after_exit_still_completes():
+    """Cold review: the original send must not be cleared on exit (a thread may be mid-wrapper)."""
+    adapter = _CannedAdapter()
+    session = _session(adapter)
+    with record_io():
+        pass
+    # What a thread that entered the wrapper just before exit would do now:
+    request = requests.Request("GET", "http://hsds.test/late").prepare()
+    response = instrumentation._recording_send(session, request)
+    assert response.status_code == 200 and adapter.seen[-1].url.endswith("/late")
