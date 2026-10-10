@@ -899,11 +899,16 @@ def generate_kfile(
         scale = float(constraint_config.uncertainty_scales[group])
         if constraint_config.uncertainty_mode == "legacy_weight":
             return float(fallback) / scale
+        key = f"{path}.measured_error_upper"
+        # Membership before the read: on an ODS a missing leaf is created by
+        # the lookup, so a failed read would leave an empty node behind.
+        if key not in cstr:
+            raise ValueError(f"standard_deviation mode requires {key}")
         try:
-            value = abs(float(cstr[f"{path}.measured_error_upper"]))
+            value = abs(float(cstr[key]))
         except Exception as exc:
             raise ValueError(
-                f"standard_deviation mode requires {path}.measured_error_upper"
+                f"standard_deviation mode requires a finite {key}, got {cstr[key]!r}"
             ) from exc
         return value * unit_scale / scale
 

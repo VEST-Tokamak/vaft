@@ -192,18 +192,16 @@ def _stored_measurement(
     for index, time_s in enumerate(shot_times):
         path = f"equilibrium.time_slice.{index}.constraints.diamagnetic_flux"
         record: dict[str, float] = {}
-        try:
-            sigma = abs(float(constraints[f"{path}.measured_error_upper"]))
-            if math.isfinite(sigma) and sigma > 0.0:
-                record["sigma_wb"] = sigma
-        except Exception:
-            pass
-        try:
-            measured = float(constraints[f"{path}.measured"])
-            if math.isfinite(measured):
+        # Membership first: reading a missing leaf of an ODS materialises an
+        # empty node, which every rung would then inherit (cold review F13).
+        if f"{path}.measured_error_upper" in constraints:
+            sigma = _finite(constraints[f"{path}.measured_error_upper"])
+            if sigma is not None and abs(sigma) > 0.0:
+                record["sigma_wb"] = abs(sigma)
+        if f"{path}.measured" in constraints:
+            measured = _finite(constraints[f"{path}.measured"])
+            if measured is not None:
                 record["measured_wb"] = measured
-        except Exception:
-            pass
         if record:
             stored[int(round(float(time_s) * 1000.0))] = record
     return stored

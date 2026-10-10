@@ -12,6 +12,7 @@ import math
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 REPOSITORY = Path(__file__).resolve().parents[1]
@@ -517,3 +518,23 @@ def test_the_stored_measurement_is_attached_to_every_slice_not_just_the_first(
     assert [row["stored_measured_wb"] for row in rows] == [-1.4e-3, -1.5e-3, -7.8e-4]
     # No a-file, so no row could be read, and that must be visible.
     assert all(row["row_source"] is None for row in rows)
+
+
+def test_reading_the_stored_measurement_does_not_grow_the_constraints(scan):
+    """Cold review 0.7.0 efit-workflows F13 (#1888).
+
+    ``_stored_measurement`` used to read ``measured_error_upper`` inside a
+    ``try``: on an ODS the failed lookup creates an empty node, which then
+    deep-copies into every rung's constraints.
+    """
+    from omas import ODS
+
+    node = "equilibrium.time_slice.0.constraints.diamagnetic_flux"
+    constraints = ODS(consistency_check=False)
+    constraints[f"{node}.measured"] = -1.4e-3
+
+    stored = scan._stored_measurement(constraints, np.array([0.315]))
+
+    assert stored == {315: {"measured_wb": -1.4e-3}}
+    assert list(constraints[node].keys()) == ["measured"]
+    assert f"{node}.measured_error_upper" not in constraints
