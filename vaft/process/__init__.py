@@ -249,6 +249,14 @@ def __getattr__(name: str):
         globals()["__all__"] = value
         return value
 
+    if name.startswith("_"):
+        # No submodule exports a private or dunder name, so there is nothing
+        # to hunt for: answering `hasattr(vaft.process, "__wrapped__")` (what
+        # inspect, pickle and doctest probe) by importing every submodule cost
+        # the whole package for a guaranteed "no" (cold review 0.7.0 process
+        # F6, #1888).
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
     value = _resolve(name)
     globals()[name] = value
     return value

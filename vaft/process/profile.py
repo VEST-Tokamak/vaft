@@ -2206,6 +2206,11 @@ def _equilibrium_grid_at_time(ods, target_s, tol_s):
     idx = int(np.argmin(np.abs(eq_times - target_s)))
     if abs(eq_times[idx] - target_s) > tol_s:
         return None
+    return _equilibrium_grid_at_index(ods, idx)
+
+
+def _equilibrium_grid_at_index(ods, idx):
+    """Return the resolved grid of equilibrium slice ``idx``, or None."""
     try:
         rho = np.asarray(
             ods[f'equilibrium.time_slice.{idx}.profiles_1d.rho_tor_norm'], dtype=float
@@ -2219,6 +2224,47 @@ def _equilibrium_grid_at_time(ods, target_s, tol_s):
         return None
     psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
     return _resolve_grid_rho(rho, psi, psi_n, lambda: _rho_tor_from_equilibrium(ods, psi_n, time_index=idx))
+
+
+def _equilibrium_rho_tor_norm_for_builder(ods, eq_time_index):
+    """The ``rho_tor_norm`` of slice ``eq_time_index`` that a profile may be built on.
+
+    The synthetic builders used to read ``profiles_1d.rho_tor_norm`` raw and
+    interpolate the pressure on it; on a pre-#276 slice that array is the
+    ``sqrt(psi_N)`` proxy, so the profile landed at the wrong radius and was
+    then stored as ``rho_tor_norm`` (cold review 0.7.0 process F10, #1888).
+    The grid now goes through :func:`_resolve_grid_rho` like
+    :func:`core_profiles`: a proxy is re-derived from ``q``, and refused by
+    name when it cannot be.
+    """
+    from vaft.data._derived import is_rho_pol_proxy
+
+    grid = _equilibrium_grid_at_index(ods, eq_time_index)
+    if grid is not None:
+        if not grid.rho_tor_norm_trusted:
+            raise CoordinateUnavailableError(
+                f"equilibrium.time_slice.{eq_time_index} stores rho_tor_norm as a "
+                "sqrt(psi_N) proxy and carries no usable q profile to re-derive it "
+                "from, so a profile cannot be built on this grid as rho_tor_norm."
+            )
+        return np.asarray(grid.rho_tor_norm, dtype=float)
+    # No usable psi on the slice: judge the stored array against the uniform
+    # psi_N an EFIT profiles_1d is on, which is how the proxy was written.
+    rho = np.asarray(
+        ods[f"equilibrium.time_slice.{eq_time_index}.profiles_1d.rho_tor_norm"], dtype=float
+    )
+    if rho.ndim == 1 and is_rho_pol_proxy(rho):
+        derived = _rho_tor_from_equilibrium(
+            ods, np.linspace(0.0, 1.0, rho.size), time_index=eq_time_index
+        )
+        if derived is None:
+            raise CoordinateUnavailableError(
+                f"equilibrium.time_slice.{eq_time_index} stores rho_tor_norm as a "
+                "sqrt(psi_N) proxy and carries no psi or q to re-derive it from, so "
+                "a profile cannot be built on this grid as rho_tor_norm."
+            )
+        return np.asarray(derived, dtype=float)
+    return rho
 
 
 def _resolve_grid_rho(rho, psi, psi_n, derive):
@@ -2894,6 +2940,9 @@ def core_profiles_from_eq(
     ValueError
         Non-1-D or non-finite equilibrium profiles, or non-positive axis
         pressure.
+    CoordinateUnavailableError
+        The slice stores the ``sqrt(psi_N)`` proxy as ``rho_tor_norm`` and the
+        real coordinate cannot be re-derived from ``q``.
 
     Processing steps
     ----------------
@@ -2913,7 +2962,11 @@ def core_profiles_from_eq(
     Convention
     ----------
     ``p = 2 n_e T_e e`` [Pa]: ``T_i = T_e`` and ``n_i = n_e`` are absorbed in
-    the factor 2.  The grid is the equilibrium's ``rho_tor_norm``, read directly.
+    the factor 2.  The grid is the equilibrium's ``rho_tor_norm``, resolved
+    the way :func:`core_profiles` resolves it: a slice that stores the
+    ``sqrt(psi_N)`` proxy under that name (pre-#276 producers) has the real
+    coordinate re-derived from ``q``, and is refused with
+    :class:`CoordinateUnavailableError` when it cannot be.
 
     Assumptions
     -----------
@@ -2938,10 +2991,9 @@ def core_profiles_from_eq(
     else:
         rho_fit = np.asarray(rho_fit, dtype=float)
 
-    rho_src_path = f"equilibrium.time_slice.{eq_time_index}.profiles_1d.rho_tor_norm"
     p_src_path   = f"equilibrium.time_slice.{eq_time_index}.profiles_1d.pressure"
 
-    rho_src = np.asarray(ods[rho_src_path], dtype=float)
+    rho_src = _equilibrium_rho_tor_norm_for_builder(ods, eq_time_index)
     p_src   = np.asarray(ods[p_src_path], dtype=float)  # Pa
 
     if rho_src.ndim != 1 or p_src.ndim != 1:
@@ -3034,6 +3086,9 @@ def core_profiles_from_eq_ratio(
     ------
     ValueError
         Non-positive axis pressure.
+    CoordinateUnavailableError
+        The slice stores the ``sqrt(psi_N)`` proxy as ``rho_tor_norm`` and the
+        real coordinate cannot be re-derived from ``q``.
 
     Processing steps
     ----------------
@@ -3075,9 +3130,7 @@ def core_profiles_from_eq_ratio(
     if rho_fit is None:
         rho_fit = np.linspace(0, 1, 100)
 
-    rho_src = np.asarray(
-        ods[f'equilibrium.time_slice.{eq_time_index}.profiles_1d.rho_tor_norm']
-    )
+    rho_src = _equilibrium_rho_tor_norm_for_builder(ods, eq_time_index)
     p_src = np.asarray(
         ods[f'equilibrium.time_slice.{eq_time_index}.profiles_1d.pressure']
     )
