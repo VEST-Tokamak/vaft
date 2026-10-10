@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>b6b65e4</code>. What is described
+  <code>51989f6</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -403,7 +403,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.confinement</code>:
-<strong>17</strong> public functions. Each entry is what
+<strong>18</strong> public functions. Each entry is what
 <code>vaft.process.describe("confinement.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -436,7 +436,7 @@ removes so a threshold sweep can be read off directly.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 17 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 18 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="assess_predictor_identifiability"><td><a href="#assess_predictor_identifiability"><code>assess_predictor_identifiability</code></a></td><td>Collinearity of log predictors: correlation, VIF, condition number and rank.
@@ -465,6 +465,8 @@ removes so a threshold sweep can be read off directly.</p>
 </td></tr>
   <tr data-ref-row="leave_one_group_out_scaling"><td><a href="#leave_one_group_out_scaling"><code>leave_one_group_out_scaling</code></a></td><td>Leave-one-group-out refits: coefficient stability and out-of-group prediction error.
 </td></tr>
+  <tr data-ref-row="ohmic_confinement_series"><td><a href="#ohmic_confinement_series"><code>ohmic_confinement_series</code></a></td><td>Ohmic power balance and confinement time from a loop voltage, the internal inductance and a stored energy.
+</td></tr>
   <tr data-ref-row="predictor_principal_directions"><td><a href="#predictor_principal_directions"><code>predictor_principal_directions</code></a></td><td>Principal directions of the log predictors: which exponent combinations the data constrain.
 </td></tr>
   <tr data-ref-row="resistive_loop_voltage"><td><a href="#resistive_loop_voltage"><code>resistive_loop_voltage</code></a></td><td>Inductive and resistive parts of a loop voltage, and the plasma resistance, from the internal inductance.
@@ -484,7 +486,7 @@ removes so a threshold sweep can be read off directly.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assess_predictor_identifiability"><code>assess_predictor_identifiability</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="assess_predictor_identifiability" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L895-L978" title="vaft/process/confinement.py, lines 895–978 at b6b65e4">source</a>
+<a class="ref-source" data-source="assess_predictor_identifiability" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1152-L1235" title="vaft/process/confinement.py, lines 1152–1235 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>assess_predictor_identifiability(predictors)</code></pre>
 
@@ -543,7 +545,7 @@ intercept kept); values above about 30 signal harmful collinearity.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#bootstrap_confinement_scaling"><code>bootstrap_confinement_scaling</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="bootstrap_confinement_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L1080-L1161" title="vaft/process/confinement.py, lines 1080–1161 at b6b65e4">source</a>
+<a class="ref-source" data-source="bootstrap_confinement_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1337-L1418" title="vaft/process/confinement.py, lines 1337–1418 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>bootstrap_confinement_scaling(response, predictors, groups, *, n_boot=2000, seed=0)</code></pre>
 
@@ -614,11 +616,11 @@ itself identifiability evidence.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#closure_constraint"><code>closure_constraint</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="closure_constraint" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L1519-L1574" title="vaft/process/confinement.py, lines 1519–1574 at b6b65e4">source</a>
+<a class="ref-source" data-source="closure_constraint" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1776-L1831" title="vaft/process/confinement.py, lines 1776–1831 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>closure_constraint(mu_rho, names)</code></pre>
 
-    <details class="ref-code" data-source-code="closure_constraint"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1519–1574</span></summary>
+    <details class="ref-code" data-source-code="closure_constraint"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1776–1831</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">closure_constraint</span><span class="p">(</span><span class="n">mu_rho</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">names</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">Linear constraint on I, B, P (and n) exponents fixing the Kadomtsev-completed $</span><span class="se">\\</span><span class="s">mu_</span><span class="se">\\</span><span class="s">rho$.
@@ -750,11 +752,11 @@ $\alpha_n = 0$ by definition, which is part of the hypothesis tested.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_exclusion_table"><code>confinement_exclusion_table</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="confinement_exclusion_table" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L533-L586" title="vaft/process/confinement.py, lines 533–586 at b6b65e4">source</a>
+<a class="ref-source" data-source="confinement_exclusion_table" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L790-L843" title="vaft/process/confinement.py, lines 790–843 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_exclusion_table(rules)</code></pre>
 
-    <details class="ref-code" data-source-code="confinement_exclusion_table"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 533–586</span></summary>
+    <details class="ref-code" data-source-code="confinement_exclusion_table"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 790–843</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_exclusion_table</span><span class="p">(</span><span class="n">rules</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">How many slices each quality rule removes, alone and in sequence.
@@ -858,7 +860,7 @@ $\alpha_n = 0$ by definition, which is part of the hypothesis tested.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_power_balance"><code>confinement_power_balance</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="confinement_power_balance" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L293-L387" title="vaft/process/confinement.py, lines 293–387 at b6b65e4">source</a>
+<a class="ref-source" data-source="confinement_power_balance" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L325-L419" title="vaft/process/confinement.py, lines 325–419 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_power_balance(time, i_p, v_res, w_th, *, p_rad=None, dwdt_window_s=None, dwdt_polyorder=2)</code></pre>
 
@@ -942,11 +944,11 @@ power needs a <em>measured</em> radiated power, which VEST does not map
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_slice_decision"><code>confinement_slice_decision</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="confinement_slice_decision" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L473-L530" title="vaft/process/confinement.py, lines 473–530 at b6b65e4">source</a>
+<a class="ref-source" data-source="confinement_slice_decision" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L730-L787" title="vaft/process/confinement.py, lines 730–787 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_slice_decision(evidence, *, ip_min, max_dwdt_fraction, max_ip_change_per_tau)</code></pre>
 
-    <details class="ref-code" data-source-code="confinement_slice_decision"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 473–530</span></summary>
+    <details class="ref-code" data-source-code="confinement_slice_decision"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 730–787</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_slice_decision</span><span class="p">(</span>
     <span class="n">evidence</span><span class="p">:</span> <span class="n">ConfinementSliceEvidence</span><span class="p">,</span>
@@ -1085,11 +1087,11 @@ select, and a rate rule says how far from stationary each slice is.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#confinement_slice_evidence"><code>confinement_slice_evidence</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="confinement_slice_evidence" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L407-L470" title="vaft/process/confinement.py, lines 407–470 at b6b65e4">source</a>
+<a class="ref-source" data-source="confinement_slice_evidence" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L664-L727" title="vaft/process/confinement.py, lines 664–727 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>confinement_slice_evidence(i_p, dip_dt, w_th, p_ohmic, dwdt, tau_e)</code></pre>
 
-    <details class="ref-code" data-source-code="confinement_slice_evidence"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 407–470</span></summary>
+    <details class="ref-code" data-source-code="confinement_slice_evidence"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 664–727</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">confinement_slice_evidence</span><span class="p">(</span>
     <span class="n">i_p</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -1213,11 +1215,11 @@ select, and a rate rule says how far from stationary each slice is.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dimensionless_confinement_indices"><code>dimensionless_confinement_indices</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="dimensionless_confinement_indices" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L1437-L1516" title="vaft/process/confinement.py, lines 1437–1516 at b6b65e4">source</a>
+<a class="ref-source" data-source="dimensionless_confinement_indices" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1694-L1773" title="vaft/process/confinement.py, lines 1694–1773 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>dimensionless_confinement_indices(alpha, cov)</code></pre>
 
-    <details class="ref-code" data-source-code="dimensionless_confinement_indices"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1437–1516</span></summary>
+    <details class="ref-code" data-source-code="dimensionless_confinement_indices"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1694–1773</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dimensionless_confinement_indices</span><span class="p">(</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
@@ -1370,7 +1372,7 @@ errors of zero, where every index diverges.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_confinement_scaling"><code>fit_confinement_scaling</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="fit_confinement_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L657-L778" title="vaft/process/confinement.py, lines 657–778 at b6b65e4">source</a>
+<a class="ref-source" data-source="fit_confinement_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L914-L1035" title="vaft/process/confinement.py, lines 914–1035 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>fit_confinement_scaling(response, predictors, groups, *, robust=False)</code></pre>
 
@@ -1453,7 +1455,7 @@ error in $P$.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_confinement_scaling_odr"><code>fit_confinement_scaling_odr</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="fit_confinement_scaling_odr" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L1232-L1375" title="vaft/process/confinement.py, lines 1232–1375 at b6b65e4">source</a>
+<a class="ref-source" data-source="fit_confinement_scaling_odr" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1489-L1632" title="vaft/process/confinement.py, lines 1489–1632 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>fit_confinement_scaling_odr(response, predictors, *, sigma_log_response, sigma_log_predictors)</code></pre>
 
@@ -1541,7 +1543,7 @@ bootstrap around this function.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_constrained_confinement_scaling"><code>fit_constrained_confinement_scaling</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="fit_constrained_confinement_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L1577-L1675" title="vaft/process/confinement.py, lines 1577–1675 at b6b65e4">source</a>
+<a class="ref-source" data-source="fit_constrained_confinement_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1834-L1932" title="vaft/process/confinement.py, lines 1834–1932 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>fit_constrained_confinement_scaling(response, predictors, groups, constraint, rhs)</code></pre>
 
@@ -1619,11 +1621,11 @@ $s^2 MAM^\top$ with the constrained residual variance.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#infer_kadomtsev_size_exponent"><code>infer_kadomtsev_size_exponent</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="infer_kadomtsev_size_exponent" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L1378-L1434" title="vaft/process/confinement.py, lines 1378–1434 at b6b65e4">source</a>
+<a class="ref-source" data-source="infer_kadomtsev_size_exponent" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1635-L1691" title="vaft/process/confinement.py, lines 1635–1691 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>infer_kadomtsev_size_exponent(alpha, cov)</code></pre>
 
-    <details class="ref-code" data-source-code="infer_kadomtsev_size_exponent"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1378–1434</span></summary>
+    <details class="ref-code" data-source-code="infer_kadomtsev_size_exponent"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1635–1691</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">infer_kadomtsev_size_exponent</span><span class="p">(</span>
     <span class="n">alpha</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
@@ -1743,11 +1745,11 @@ evidence for it. Label every use accordingly (#548 Sec. 7).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#leave_one_group_out_scaling"><code>leave_one_group_out_scaling</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="leave_one_group_out_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L1164-L1226" title="vaft/process/confinement.py, lines 1164–1226 at b6b65e4">source</a>
+<a class="ref-source" data-source="leave_one_group_out_scaling" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1421-L1483" title="vaft/process/confinement.py, lines 1421–1483 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>leave_one_group_out_scaling(response, predictors, groups)</code></pre>
 
-    <details class="ref-code" data-source-code="leave_one_group_out_scaling"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1164–1226</span></summary>
+    <details class="ref-code" data-source-code="leave_one_group_out_scaling"><summary>Show source <span class="ref-note">vaft/process/confinement.py, lines 1421–1483</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">leave_one_group_out_scaling</span><span class="p">(</span>
     <span class="n">response</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span>
@@ -1866,11 +1868,117 @@ group dominates <code class="language-plaintext highlighter-rouge">rmse_log</cod
 
   </section>
 
+  <section class="ref-entry" id="ohmic_confinement_series" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ohmic_confinement_series"><code>ohmic_confinement_series</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="ohmic_confinement_series" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L481-L644" title="vaft/process/confinement.py, lines 481–644 at 51989f6">source</a>
+</header>
+    <pre class="ref-signature"><code>ohmic_confinement_series(time, i_p, dip_dt, v_loop, li_3, r0, w, *, rate_window_s, rate_polyorder=1, p_rad=None, hold_li3_where_missing=True, assumptions=None)</code></pre>
+
+    <p>Ohmic power balance and confinement time from a loop voltage, the internal inductance and a stored energy.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>time</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">s</td><td><p>Times of the samples, strictly increasing; the slices an energy rate may be taken across, so only validated equilibrium slices.</p>
+</td></tr>
+  <tr><td><code>i_p</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">A</td><td><p>Plasma current at <code class="language-plaintext highlighter-rouge">time</code>, in the orientation of <code class="language-plaintext highlighter-rouge">v_loop</code>.</p>
+</td></tr>
+  <tr><td><code>dip_dt</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">A/s</td><td><p>Its time derivative, from the current record (finer than <code class="language-plaintext highlighter-rouge">time</code>).</p>
+</td></tr>
+  <tr><td><code>v_loop</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">V</td><td><p>Loop voltage at <code class="language-plaintext highlighter-rouge">time</code>, measured or flux-derived (say which in <code class="language-plaintext highlighter-rouge">assumptions</code>).</p>
+</td></tr>
+  <tr><td><code>li_3</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">-</td><td><p>Normalised internal inductance $l_{i,3}$ at <code class="language-plaintext highlighter-rouge">time</code>.</p>
+</td></tr>
+  <tr><td><code>r0</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius normalising $l_{i,3}$, not the instantaneous $R_\mathrm{geo}$.</p>
+</td></tr>
+  <tr><td><code>w</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">J</td><td><p>Stored energy whose rate and confinement are wanted; its definition (EFIT pressure integral, kinetic, global) belongs in <code class="language-plaintext highlighter-rouge">assumptions</code>.</p>
+</td></tr>
+  <tr><td><code>rate_window_s</code></td><td class="ref-type">float</td><td class="ref-unit">s</td><td><p>Full width of the local-polynomial window of $dl_{i,3}/dt$ and $dW/dt$.</p>
+</td></tr>
+  <tr><td><code>rate_polyorder</code></td><td class="ref-type">int, optional</td><td class="ref-unit">-</td><td><p>Degree of that local polynomial.</p>
+</td></tr>
+  <tr><td><code>p_rad</code></td><td class="ref-type">numpy.ndarray, optional</td><td class="ref-unit">W</td><td><p>Measured radiated power; <code class="language-plaintext highlighter-rouge">None</code> leaves <code class="language-plaintext highlighter-rouge">p_transport</code> NaN.</p>
+</td></tr>
+  <tr><td><code>hold_li3_where_missing</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Hold the inductance fixed where the window holds no $l_{i,3}$ rate, so <code class="language-plaintext highlighter-rouge">v_res</code>, <code class="language-plaintext highlighter-rouge">r_p</code> and <code class="language-plaintext highlighter-rouge">p_ohmic</code> survive (flagged in <code class="language-plaintext highlighter-rouge">li3_rate_fallback</code>); <code class="language-plaintext highlighter-rouge">False</code> leaves them NaN there.</p>
+</td></tr>
+  <tr><td><code>assumptions</code></td><td class="ref-type">Mapping[str, str], optional</td><td class="ref-unit">-</td><td><p>Caller’s physical choices to record (voltage source, energy definition, current source); merged over the defaults.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">OhmicConfinement</td><td class="ref-unit">any</td><td><p>Every input, rate, voltage term, power and confinement time on <code class="language-plaintext highlighter-rouge">time</code>, with <code class="language-plaintext highlighter-rouge">missing_reason</code>, <code class="language-plaintext highlighter-rouge">settings</code> and <code class="language-plaintext highlighter-rouge">assumptions</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Arrays of different length, a non-increasing time axis, a non-positive <code class="language-plaintext highlighter-rouge">r0</code> or window, or <code class="language-plaintext highlighter-rouge">rate_polyorder</code> below 1.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>$dl_{i,3}/dt$ by <code class="language-plaintext highlighter-rouge">smoothed_time_derivative</code> over <code class="language-plaintext highlighter-rouge">rate_window_s</code>
+(NaN with fewer than two samples).</li>
+        <li><code class="language-plaintext highlighter-rouge">resistive_loop_voltage</code>: $V_\mathrm{ind} = L_i\,dI_p/dt +
+\tfrac14\mu_0 R_0 I_p\,dl_{i,3}/dt$, $V_\mathrm{res} =
+V_\mathrm{loop} - V_\mathrm{ind}$, $R_p = V_\mathrm{res}/I_p$.</li>
+        <li><code class="language-plaintext highlighter-rouge">confinement_power_balance</code>: $P_\mathrm{OH} = I_p V_\mathrm{res}$,
+$dW/dt$ over the same window, $P_\mathrm{net} = P_\mathrm{OH} - dW/dt$,
+$P_\mathrm{transport} = P_\mathrm{net} - P_\mathrm{rad}$,
+$\tau_E = W/P$ where that power is positive.</li>
+        <li>With a single sample no rate exists: $P_\mathrm{OH}$ is kept (inductance
+held fixed), $dW/dt$ and everything built on it are NaN. A missing
+energy rate is never replaced by zero.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">rate_polyorder = 1</code> and <code class="language-plaintext highlighter-rouge">hold_li3_where_missing = True</code> are the VEST
+Tier A reference settings of #548 (3 ms holds about three EFIT slices),
+numerical choices recorded in <code class="language-plaintext highlighter-rouge">settings</code>, not physical constants.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent. Ohmic plasmas: no auxiliary heating and no
+non-inductive current (with one, $R_p$ needs $I_p - I_\mathrm{ni}$).</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">v_res</code> is inferred, and exact only for a loop on the plasma boundary
+(recorded in <code class="language-plaintext highlighter-rouge">assumptions['v_res']</code>). Holding $l_{i,3}$ fixed is a
+numerical fallback, not evidence of a stationary current profile.
+Smoothing windows bias rates that change within them.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>J. A. Romero et al., <em>Nucl. Fusion</em> <strong>50</strong> (2010) 115002, eq. 24.
+</li>
+  <li>Issue #548 Sec. 1 and <code class="language-plaintext highlighter-rouge">workflow/confinement_scaling</code>: the VEST Tier A reference chain this function was moved out of.
+</li>
+  <li>Issue #1905 Sec. 3: the shared confinement contract and its required result fields.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="predictor_principal_directions" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#predictor_principal_directions"><code>predictor_principal_directions</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="predictor_principal_directions" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L981-L1077" title="vaft/process/confinement.py, lines 981–1077 at b6b65e4">source</a>
+<a class="ref-source" data-source="predictor_principal_directions" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1238-L1334" title="vaft/process/confinement.py, lines 1238–1334 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>predictor_principal_directions(predictors, *, groups=None)</code></pre>
 
@@ -1944,9 +2052,9 @@ it says which scan would add information, not which exponent is right.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resistive_loop_voltage"><code>resistive_loop_voltage</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="resistive_loop_voltage" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L193-L273" title="vaft/process/confinement.py, lines 193–273 at b6b65e4">source</a>
+<a class="ref-source" data-source="resistive_loop_voltage" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L205-L305" title="vaft/process/confinement.py, lines 205–305 at 51989f6">source</a>
 </header>
-    <pre class="ref-signature"><code>resistive_loop_voltage(v_loop, i_p, dip_dt, li_3, r0, *, dli3_dt=None)</code></pre>
+    <pre class="ref-signature"><code>resistive_loop_voltage(v_loop, i_p, dip_dt, li_3, r0, *, dli3_dt=None, hold_li3_where_missing=False)</code></pre>
 
     <p>Inductive and resistive parts of a loop voltage, and the plasma resistance, from the internal inductance.</p>
 
@@ -1965,10 +2073,12 @@ it says which scan would add information, not which exponent is right.</p>
 </td></tr>
   <tr><td><code>dli3_dt</code></td><td class="ref-type">numpy.ndarray, optional</td><td class="ref-unit">1/s</td><td><p>Time derivative of $l_{i,3}$; <code class="language-plaintext highlighter-rouge">None</code> holds the inductance fixed, so only $L_i\,dI_p/dt$ is removed.</p>
 </td></tr>
+  <tr><td><code>hold_li3_where_missing</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Where <code class="language-plaintext highlighter-rouge">dli3_dt</code> is NaN, hold the inductance fixed there (profile term zero, <code class="language-plaintext highlighter-rouge">li3_rate_fallback</code> True) instead of returning NaN voltages.</p>
+</td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
-  <tr><td>&mdash;</td><td class="ref-type">ResistiveLoopVoltage</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">v_ind</code>, the inductive voltage $(1/I_p)\,dW_\mathrm{int}/dt$, and <code class="language-plaintext highlighter-rouge">v_res = v_loop - v_ind</code> [V]; <code class="language-plaintext highlighter-rouge">r_p = v_res / i_p</code>, the plasma resistance seen by the total current (NaN where $I_p = 0$) [Ohm]; <code class="language-plaintext highlighter-rouge">l_int</code>, the internal inductance $\mu_0 R_0 l_{i,3}/2$ [H].</p>
+  <tr><td>&mdash;</td><td class="ref-type">ResistiveLoopVoltage</td><td class="ref-unit">any</td><td><p><code class="language-plaintext highlighter-rouge">v_ind</code>, the inductive voltage $(1/I_p)\,dW_\mathrm{int}/dt$, and <code class="language-plaintext highlighter-rouge">v_res = v_loop - v_ind</code> [V]; <code class="language-plaintext highlighter-rouge">r_p = v_res / i_p</code>, the plasma resistance seen by the total current (NaN where $I_p = 0$) [Ohm]; <code class="language-plaintext highlighter-rouge">l_int</code>, the internal inductance $\mu_0 R_0 l_{i,3}/2$ [H]; <code class="language-plaintext highlighter-rouge">v_ind_current</code> and <code class="language-plaintext highlighter-rouge">v_ind_profile</code>, the two terms of <code class="language-plaintext highlighter-rouge">v_ind</code> [V]; <code class="language-plaintext highlighter-rouge">li3_rate_fallback</code>, True where the inductance was held fixed (see <code class="language-plaintext highlighter-rouge">ResistiveLoopVoltage</code>) [-].</p>
 </td></tr>
   </tbody>
 </table></div>
@@ -1990,7 +2100,8 @@ it says which scan would add information, not which exponent is right.</p>
         <li>$L_i = \mu_0 R_0 l_{i,3}/2$, so $W_\mathrm{int} = L_i I_p^2/2$.</li>
         <li>$V_\mathrm{ind} = (1/I_p)\,dW_\mathrm{int}/dt
 = L_i\,dI_p/dt + \tfrac14\mu_0 R_0 I_p\,dl_{i,3}/dt$, the second
-term only when <code class="language-plaintext highlighter-rouge">dli3_dt</code> is given.</li>
+term only where <code class="language-plaintext highlighter-rouge">dli3_dt</code> is given and finite (or, with
+<code class="language-plaintext highlighter-rouge">hold_li3_where_missing</code>, zero where it is not).</li>
         <li>$V_\mathrm{res} = V_\mathrm{loop} - V_\mathrm{ind}$ and
 $R_p = V_\mathrm{res}/I_p$.</li>
       </ol>
@@ -2022,7 +2133,7 @@ inductive flux between loop and boundary, which this does not remove.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_observed_confinement"><code>resolve_observed_confinement</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="resolve_observed_confinement" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L803-L892" title="vaft/process/confinement.py, lines 803–892 at b6b65e4">source</a>
+<a class="ref-source" data-source="resolve_observed_confinement" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L1060-L1149" title="vaft/process/confinement.py, lines 1060–1149 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_observed_confinement(tau_thermal, energy_basis, *, tau_global=None, thermal_as_global=False)</code></pre>
 
@@ -2096,7 +2207,7 @@ kinetic pressure and is not by itself a thermal energy.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#smoothed_time_derivative"><code>smoothed_time_derivative</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="smoothed_time_derivative" href="https://github.com/VEST-Tokamak/vaft/blob/b6b65e475aa5714fb70b677615d87460e7026444/vaft/process/confinement.py#L77-L175" title="vaft/process/confinement.py, lines 77–175 at b6b65e4">source</a>
+<a class="ref-source" data-source="smoothed_time_derivative" href="https://github.com/VEST-Tokamak/vaft/blob/51989f683c0a8e6f93240b3a3c79d1e035a988e9/vaft/process/confinement.py#L79-L177" title="vaft/process/confinement.py, lines 79–177 at 51989f6">source</a>
 </header>
     <pre class="ref-signature"><code>smoothed_time_derivative(time, data, *, window_s=None, polyorder=2, at=None)</code></pre>
 
@@ -2393,7 +2504,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 16:24:00 +0000"
+        "time": "2026-10-10 16:42:19 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
