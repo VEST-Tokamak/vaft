@@ -204,7 +204,9 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
                 "arguments": {key: _argument(value) for key, value in kwargs.items()},
                 "call": entry.get("call") or build._call_text(builder, kwargs),
                 "svg": (ASSET_DIR.relative_to("docs") / asset).as_posix(),
-                "svg_sha256": entry.get("svg_sha256", ""),
+                # the published file as the site serves it (record line included): what
+                # validate_docs.rb checks the SVG against; the record's own svg_sha256 covers the body only
+                "svg_sha256": _sha256(asset_dir / asset) if (asset_dir / asset).is_file() else "",
                 "source_sha256": entry.get("source_sha256", ""),
             }
         )
