@@ -132,8 +132,12 @@ def radial_correlation_length(
     field = _kxky_phi(Path(outputs.directory), grid, hiprec)
     if field is None:
         return {"reason": "no bin.cgyro.kxky_phi in the run"}
-    time = np.asarray(outputs.time, dtype=float)[: field.shape[-1]]
-    field = field[..., : time.size]
+    aligned = outputs.align_records(field) if hasattr(outputs, "align_records") else None
+    if aligned is not None:
+        field, time = aligned, np.asarray(outputs.time, dtype=float)
+    else:
+        time = np.asarray(outputs.time, dtype=float)[: field.shape[-1]]
+        field = field[..., : time.size]
     if window is None:
         window = (0.5 * float(time[-1]), float(time[-1]))
     mask = (time >= window[0]) & (time <= window[1])

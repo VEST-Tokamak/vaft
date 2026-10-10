@@ -194,3 +194,39 @@ def test_the_zonal_fraction_is_one_when_only_n0_carries_power(tmp_path):
     field[:, :, 1, :] = 1.0
     field.reshape(-1, order="F").tofile(Path(run.directory) / "bin.cgyro.kxky_phi")
     assert np.allclose(module.zonal_fraction(run)["fraction"], 1.0 / 2.0)
+
+
+def test_a_requeued_restart_leaves_stray_records_that_are_dropped_everywhere(tmp_path):
+    """A node failure + requeue can interleave a few out-of-order print records and
+    leave one flux record past the last time line (#1484, job 771927): the run must
+    still parse, with time strictly increasing and every time-history array aligned."""
+    from pathlib import Path
+
+    from test_cgyro_adapter import write_run
+
+    directory = write_run(tmp_path / "run", n_n=4, n_radial=8, n_theta=4, steps=8,
+                          flux=True, exit_message="Normal")
+    t = [1.0, 2.0, 3.0, 4.0, 2.5, 5.0, 3.5, 6.0]           # two stray records
+    (directory / "out.cgyro.time").write_text(
+        "\n".join(f"{x:.6e} 1e-3 1e-3 0.0" for x in t))
+    flux = np.zeros((3, 3, 1, 4, 9), dtype=np.float32)      # one record past the time lines
+    flux[:, 1] = np.array([10, 20, 30, 40, -1, 50, -1, 60, 99], dtype=np.float32)
+    flux.flatten(order="F").tofile(directory / "bin.cgyro.ky_flux")
+    run = collect_cgyro_outputs(directory)
+    assert np.all(np.diff(run.time) > 0)
+    assert run.time.tolist() == [1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+    assert run.record_index.tolist() == [0, 1, 2, 3, 5, 7]
+    assert run.flux[0, 1, 0, 0].tolist() == [10, 20, 30, 40, 50, 60]
+    assert run.growth_rate.shape[-1] == run.time.size
+    raw = np.arange(8.0)[None, :]
+    assert run.align_records(raw)[0].tolist() == [0, 1, 2, 3, 5, 7]
+    back = type(run).from_dict(run.to_dict())
+    assert back.record_index.tolist() == run.record_index.tolist()
+
+
+def test_a_clean_run_has_no_record_index():
+    run = None
+    from pathlib import Path
+    # the committed linear fixture is a clean single-segment run
+    run = collect_cgyro_outputs(Path(__file__).parent / "data" / "gacode" / "cgyro_linear_48224_r0.7_em")
+    assert run.record_index is None

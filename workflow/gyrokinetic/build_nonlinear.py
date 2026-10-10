@@ -126,8 +126,13 @@ def zonal_fraction(run) -> Optional[dict]:
     field = _kxky_phi(Path(run.directory), grid, bool((run.equilibrium or {}).get("hiprec_flag")))
     if field is None:
         return None
-    time = np.asarray(run.time, dtype=float)[: field.shape[-1]]
-    power = (np.abs(field[..., : time.size]) ** 2).mean(axis=1)    # (radial, n, time)
+    aligned = run.align_records(field) if hasattr(run, "align_records") else None
+    if aligned is not None:
+        field, time = aligned, np.asarray(run.time, dtype=float)
+    else:
+        time = np.asarray(run.time, dtype=float)[: field.shape[-1]]
+        field = field[..., : time.size]
+    power = (np.abs(field) ** 2).mean(axis=1)                      # (radial, n, time)
     zonal = power[:, 0].sum(axis=0)
     total = power.sum(axis=(0, 1))
     return {"time": time.tolist(), "fraction": (zonal / np.where(total > 0, total, np.nan)).tolist()}

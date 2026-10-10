@@ -100,6 +100,13 @@ class CgyroOutputs:
         ``ERROR:`` lines. Non-empty means not executed, whatever the exit status.
     exit_message
         The text after ``EXIT: (CGYRO)``, or ``None`` when the kernel never finished.
+    record_index
+        Indices of the print records kept, into the raw per-step records of every
+        time-history file; ``None`` when all were kept. A restart after a node failure
+        can leave stray records out of time order (``out.cgyro.time`` going back by a
+        few steps); only the first record of each strictly increasing time is kept,
+        and every time-history array here is aligned to it. Files read elsewhere
+        (``bin.cgyro.kxky_phi``) are aligned with :meth:`align_records`.
     """
 
     directory: str
@@ -117,6 +124,7 @@ class CgyroOutputs:
     exit_message: Optional[str] = None
     version: Optional[dict[str, Any]] = None
     files: tuple[str, ...] = ()
+    record_index: Optional[np.ndarray] = None
 
     # -- derived ---------------------------------------------------------------
 
@@ -207,6 +215,22 @@ class CgyroOutputs:
         integrate = getattr(np, "trapezoid", None) or np.trapz
         return integrate(trace[..., mask], t[mask], axis=-1) / (t[mask][-1] - t[mask][0])
 
+    def align_records(self, data: np.ndarray) -> Optional[np.ndarray]:
+        """A raw time-history array (time on the last axis) aligned to :attr:`time`.
+
+        Drops the out-of-order records :attr:`record_index` excludes and any record
+        written past the last time line; ``None`` when the array holds fewer records
+        than the kept ones need.
+        """
+        if self.time is None:
+            return None
+        if self.record_index is None:
+            return data[..., : self.time.size] if data.shape[-1] >= self.time.size else None
+        index = np.asarray(self.record_index, dtype=int)
+        if data.shape[-1] <= index.max():
+            return None
+        return data[..., index]
+
     def missing(self) -> tuple[str, ...]:
         return tuple(
             name for name in ("grid", "equilibrium", "time", "frequency", "growth_rate")
@@ -257,6 +281,8 @@ class CgyroOutputs:
             value = payload[f.name]
             if f.name in ("time", "time_error", "frequency", "growth_rate", "flux"):
                 value = None if value is None else np.asarray(value, dtype=float)
+            elif f.name == "record_index":
+                value = None if value is None else np.asarray(value, dtype=int)
             elif f.name == "ballooning":
                 value = {key: decode(item) for key, item in (value or {}).items()}
             elif f.name in ("info", "errors", "files"):
@@ -462,12 +488,16 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
         files=tuple(produced),
     )
 
+    raw_count = None
     time_data = _ascii(directory / "out.cgyro.time")
     if time_data is not None and time_data.size >= 4:
-        count = time_data.size // 4
-        table = time_data[: 4 * count].reshape(count, 4)
-        outputs.time = table[:, 0]
-        outputs.time_error = table[:, 1:3]
+        raw_count = time_data.size // 4
+        table = time_data[: 4 * raw_count].reshape(raw_count, 4)
+        keep = _monotonic_records(table[:, 0])
+        outputs.time = table[keep, 0]
+        outputs.time_error = table[keep, 1:3]
+        if keep.size < raw_count:
+            outputs.record_index = keep
 
     if grid is None:
         return outputs
@@ -479,6 +509,9 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
     if freq is not None and freq.size >= 2 * n_n:
         steps = freq.size // (2 * n_n)
         cube = freq[: 2 * n_n * steps].reshape((2, n_n, steps), order="F")
+        if outputs.record_index is not None:
+            aligned = outputs.align_records(cube)
+            cube = aligned if aligned is not None else cube
         outputs.frequency = cube[0].astype(float)
         outputs.growth_rate = cube[1].astype(float)
 
@@ -494,8 +527,22 @@ def collect_cgyro_outputs(workdir: str | Path) -> Optional[CgyroOutputs]:
 
     flux = _binary(directory, "ky_flux", real)
     if flux is not None:
-        outputs.flux = _ky_flux(flux, grid, None if outputs.time is None else outputs.time.size)
+        cube = _ky_flux(flux, grid, raw_count)
+        if cube is not None and outputs.record_index is not None:
+            cube = outputs.align_records(cube)
+        outputs.flux = cube
     return outputs
+
+
+def _monotonic_records(time: np.ndarray) -> np.ndarray:
+    """Indices of the records whose time exceeds every earlier record's: the stray
+    out-of-order records a requeued restart can leave are dropped."""
+    keep, last = [], -np.inf
+    for i, value in enumerate(np.asarray(time, dtype=float)):
+        if value > last:
+            keep.append(i)
+            last = value
+    return np.asarray(keep, dtype=int)
 
 
 def _ky_flux(data: np.ndarray, grid: Mapping[str, Any], n_time: Optional[int]) -> Optional[np.ndarray]:
@@ -515,6 +562,10 @@ def _ky_flux(data: np.ndarray, grid: Mapping[str, Any], n_time: Optional[int]) -
         elif data.size >= base * moments and (data.size // (base * moments)) <= n_time:
             # a run cut short mid-record: whole steps only, three moments
             m, steps = moments, data.size // (base * moments)
+        elif data.size % (base * moments) == 0 and data.size // (base * moments) > n_time:
+            # a record written past the last time line (a job stopped between the
+            # flux and time writes): the steps that have a time are kept
+            m, steps = moments, n_time
         else:
             return None
     else:
