@@ -158,10 +158,12 @@ def render(
     ``backend="plotly"`` among the options returns a Plotly figure instead of
     ``(Figure, Axes)`` (see :mod:`vaft.plot.backends`).
     """
-    if options.get("interactive") and lazy:
-        # The controls rebuild the model on every widget event, long after
-        # this call returns and its lazy store has closed: load once instead,
-        # with the eager path's whole contract (an occurrence is honoured).
+    if (options.get("interactive") or options.get("animation")) and lazy:
+        # The controls rebuild the model on every widget event, and an
+        # Animation builds its frames only when it is saved or shown -- both
+        # long after this call returns and its lazy store has closed: load
+        # once instead, with the eager path's whole contract (an occurrence
+        # is honoured).
         lazy = False
     _refuse_lazy_occurrence(lazy, occurrence)
     resolved = _resolve_source(source)
