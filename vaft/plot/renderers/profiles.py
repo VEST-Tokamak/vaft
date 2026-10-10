@@ -10,7 +10,7 @@ globals that the old ``vaft.plot.onedim`` created at import time.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -18,7 +18,9 @@ from matplotlib.figure import Figure
 from ..models import Profile1D
 from ..registry import renderer
 from ..presentation import presented, resolve_style
-from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
+from ..style import (
+    apply_legend, axis_label, draw_series, finalize, resolve_axes, resolve_legend_placement, trace_labels,
+)
 
 __all__ = [
     "impa_profile_field",
@@ -67,18 +69,15 @@ def render_profile_1d(
     validity: str = "show",
     format: str | None = None,
     theme: str | None = None,
+    legend_placement: Mapping[str, Any] | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Profile1D` into one axes.
 
-    A composite may place a member's legend through its ``member_styles``
-    with the internal keys ``_legend_loc`` (:data:`vaft.plot.style.LEGEND_PLACEMENTS`;
-    ``"outside"`` beside the axes), ``_legend_ncols`` and ``_legend_fontsize``;
-    they are not caller options (issue #1837, to be unified with #1845).
+    ``legend_placement`` sets where and how a drawn legend sits, as for
+    :func:`~vaft.plot.renderers.lines.render_line_series`
+    (:func:`vaft.plot.style.resolve_legend_placement`).
     """
-    legend_loc = style.pop("_legend_loc", "best")
-    legend_ncols = style.pop("_legend_ncols", 1)
-    legend_fontsize = style.pop("_legend_fontsize", "small")
     if not isinstance(model, Profile1D):
         raise TypeError(
             f"expected a vaft.plot.models.Profile1D; got {type(model).__name__}. "
@@ -118,8 +117,8 @@ def render_profile_1d(
         axes.set_xlim(model.x_limits)
     if grid:
         axes.grid(True, alpha=0.3)
-    apply_legend(axes, legend=legend, title=legend_title, loc=legend_loc, ncols=legend_ncols,
-                 fontsize=legend_fontsize)
+    apply_legend(axes, legend=legend, title=legend_title,
+                 placement=resolve_legend_placement(legend_placement))
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 

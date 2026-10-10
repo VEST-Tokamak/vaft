@@ -65,6 +65,9 @@ SINGLE_SLICE_TOLERANCE = 5e-4
 #: global quantity at that index to belong to it [s].
 GLOBAL_TIME_TOLERANCE = 1e-6
 
+#: Legend type as a fraction of the format's base size (Matplotlib's "x-small").
+LEGEND_FONTSIZE_SCALE = 0.7
+
 #: Elementary charge [C].
 _E = 1.602176634e-19
 
@@ -679,11 +682,11 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
     else:
         ts_text = f", TS {ts['time'] * 1e3:.1f} ms"
     grid = layout == "grid"
-    # Legends beside the panels (a stack in two columns); the renderer moves
-    # them inside for a format too narrow for that.  Underscored: internal
-    # plumbing to the Profile1D renderer, not caller options.
-    legends = ({"_legend_loc": "outside", "_legend_fontsize": "x-small"} if grid else
-               {"_legend_loc": "outside", "_legend_ncols": 2, "_legend_fontsize": "x-small"},) * len(models)
+    # Legends beside the panels, a stack's in two columns; the renderer moves
+    # them inside for a format too narrow for that.
+    beside = {"loc": "upper left", "bbox_to_anchor": (1.02, 1.0), "borderaxespad": 0.0,
+              "fontsize_scale": LEGEND_FONTSIZE_SCALE}
+    legends = ({"legend_placement": beside if grid else {**beside, "ncol": 2}},) * len(models)
     return Panels(models=models, nrows=2 if grid else 4, ncols=2 if grid else 1, share_x=True,
                   member_styles=legends,
                   suptitle=f"Kinetic state at {t_core * 1e3:.1f} ms ({eq_text}{ts_text})")

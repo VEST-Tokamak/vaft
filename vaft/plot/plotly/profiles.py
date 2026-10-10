@@ -23,12 +23,11 @@ def add_profile_1d(
     uncertainty: str = "auto",
     validity: str = "show",
     x_title: bool = True,
+    legend_placement: Any = None,
     **style: Any,
 ) -> None:
-    # A composite's internal Matplotlib legend placement (issue #1837): Plotly
-    # keeps one figure legend, so there is nothing to place.
-    for key in ("_legend_loc", "_legend_ncols", "_legend_fontsize"):
-        style.pop(key, None)
+    # legend_placement places a Matplotlib axes legend; Plotly keeps one
+    # figure legend, so it is accepted and has nothing to place.
     cell = {"row": row, "col": col} if row is not None else {}
     labels, legend_title = trace_labels(model.series, panel_title=model.title)
     labelled = judged = 0

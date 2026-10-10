@@ -178,7 +178,19 @@ def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
     mapping_name = DIAGNOSTIC_TREES[tree]
     data_root = root / "legacy" / tree
     ods = ODS(consistency_check=True)
-    _mapper(mapping_name)(ods, shot, data_root=data_root)
+    options: dict[str, Any] = {}
+    plasma_window = None
+    if mapping_name == "camera_visible":
+        from vaft.machine_mapping.camera_visible import plasma_current_window
+
+        # The I_p window only trims the afterglow off the end of the selected
+        # frames; without a diagnostics product the selection is image-only.
+        t_on, t_off, _peak = plasma_current_window(
+            root / "omas" / "diagnostics" / str(shot) / "output" / "diagnostics.json.gz"
+        )
+        plasma_window = {"t_on": t_on, "t_off": t_off}
+        options["plasma_end_s"] = t_off
+    _mapper(mapping_name)(ods, shot, data_root=data_root, **options)
 
     provenance = {}
     provenance_path = data_root / str(shot) / "provenance.json"
@@ -207,6 +219,7 @@ def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
         selection = parse_frame_selection(str(ods["camera_visible.ids_properties.comment"]))
         if selection is not None:
             provenance = {**provenance, "frame_selection": selection}
+        provenance = {**provenance, "plasma_current_window_s": plasma_window}
 
     manifest = {
         "schema_version": 1,

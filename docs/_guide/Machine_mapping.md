@@ -391,36 +391,59 @@ for a BatchConv2 re-export (`TopFrame:` keys), `frame / Frame_Rate`. Only raw fr
 
 ### Frame selection convention
 
-A camera product holds only the frames from the first to the last **non-dark** frame of the recording, plus
-two frames of padding on each side. Dark frames inside that range stay. The kept frames are renumbered from 0,
+A camera product holds only the frames from the first to the last **plasma-lit** frame of the recording, plus
+two frames of padding on each side. Unlit frames inside that range stay. The kept frames are renumbered from 0,
 and each one keeps the time of its original frame index.
 
-- **Near-black frame:** more than 98 % of its pixels are below `dark_level + 20` DN.
-- **`dark_level`:** the shot's own sensor floor, the lower quartile over frames of each frame's 1st-percentile
-  pixel, capped at 60 DN so that a recording lit almost throughout is not rejected as dark.
+The default rule, `background-relative-v3`, compares each frame with the shot's own view before the plasma:
 
-The level is relative because the floor depends on the export. Original exports sit near 25 DN. Re-exports
-use another gain and sit near 48 DN, so the earlier fixed 35 DN marked no frame of a re-export as dark and kept
-whole recordings. The +20 DN margin was calibrated against the plasma-current window on 55 plasma shots of both
-exports.
+- **Reference:** the per-pixel median of the first 10 frames. The camera is triggered before breakdown, so these
+  frames show the vessel without plasma, including room light and the sensor floor.
+- **Plasma-lit frame:** its mean rises above the reference by more than `max(3, 6·σ_ref)` DN, or its
+  99th-percentile pixel rises by more than 15 DN. `σ_ref` is the spread of the reference frames' own mean rise.
+- **Plasma end:** when the shot's diagnostics product gives an I_p window (`|I_p| > 5 kA`), the last lit frame is
+  capped at the first frame at or after the end of I_p. A lit vessel fades slowly after the plasma ends, and
+  without the cap that afterglow is kept. The start is never capped, so the breakdown flash before the I_p onset
+  stays.
 
-A shot with no non-dark frame raises `CameraFrameSelectionError` and gets no product. The rule uses images
-only. Plasma current is a cross-check in the audit, not an input.
+A dark-level rule cannot separate an empty but lit vessel from plasma light. Shot 48914 has a ~58 DN floor under
+room light and kept all 101 frames under v2; v3 keeps frames 26-61. A frozen recording (48913: 101 copies of one
+saturated image) has no lit frame under v3 either.
+
+When the reference cannot stand for "no plasma", the selection falls back to `relative-dark-v2`, and the
+comment names that rule. This happens when:
+
+- fewer than 11 frames exist;
+- any of the first 10 frames is missing (most original exports were already trimmed to the plasma by the
+  operators);
+- `σ_ref > 2` DN;
+- a later frame's mean falls below the reference by more than the threshold, meaning the camera started during
+  the plasma.
+
+Under `relative-dark-v2`, a frame is near-black when more than 98 % of its pixels are below `dark_level + 20` DN.
+`dark_level` is the lower quartile over frames of each frame's 1st-percentile pixel, capped at 60 DN.
+Passing `threshold=` restores the donor's fixed 35 DN (`fixed-v1`).
+
+A shot with no lit frame raises `CameraFrameSelectionError` and gets no product.
 
 Every product records which rule built it, so it can be checked without loading frames:
 
-- `camera_visible.ids_properties.comment` holds `rule=relative-dark-v2`, `dark_level`, `threshold` and
-  `retained original frame indices [a, b] out of N`. Products built before the rule had a name have no `rule=`
-  and read as `fixed-v1`.
-- The stage manifest holds the same fields under `provenance.frame_selection`.
+- `camera_visible.ids_properties.comment` holds `rule=`, `threshold`, `percentage`, `buffer_frames`, and
+  `plasma_end_frame` (`none` when nothing was capped). It also holds `dark_level` (v2), or `peak_threshold`,
+  `reference_frames` and `reference_sigma` (v3), and `retained original frame indices [a, b] out of N`.
+  Products built before the rule had a name have no `rule=` and read as `fixed-v1`.
+- The stage manifest holds the same fields under `provenance.frame_selection`. The I_p window the ingest used is
+  under `provenance.plasma_current_window_s`.
 
 <!-- docs-snippet: skip needs-raw-source (reads raw camera frames) -->
 ```python
 from vaft.machine_mapping.camera_visible import parse_frame_selection, select_valid_frames
 
 parse_frame_selection(ods["camera_visible.ids_properties.comment"])
-# {'rule': 'relative-dark-v2', 'first_retained': 33, 'last_retained': 57, 'total_frames': 101, ...}
-select_valid_frames(frames, threshold=35)   # the old fixed rule, for comparison
+# {'rule': 'background-relative-v3', 'first_retained': 31, 'last_retained': 57, 'total_frames': 101, ...}
+select_valid_frames(frames, plasma_end_frame=55)      # v3, afterglow capped at I_p end
+select_valid_frames(frames, rule="relative-dark-v2")  # the dark-level rule, for comparison
+select_valid_frames(frames, threshold=35)             # the old fixed rule
 ```
 
 `workflow/automatic_pipeline_2_corrective_data_update/audit_camera_visible_frames.py` checks each FileDB

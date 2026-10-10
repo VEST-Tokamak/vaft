@@ -353,6 +353,7 @@ from .renderers.panels import (
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
     current_overview,
+    current_overview_reconstruction,
     diagnostics_overview,
     kinetic_overview_profiles,
     kinetic_overview_state,

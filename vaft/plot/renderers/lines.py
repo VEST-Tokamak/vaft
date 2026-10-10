@@ -11,15 +11,19 @@ analysis can see it.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
+import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from matplotlib.lines import Line2D
 
 from ..models import LineSeries
 from ..registry import renderer
 from ..presentation import presented
-from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
+from ..style import (
+    apply_legend, axis_label, draw_series, finalize, resolve_axes, resolve_legend_placement, trace_labels,
+)
 
 _DEFAULT_FIGSIZE = (6.0, 2.5)
 
@@ -37,12 +41,19 @@ def render_line_series(
     validity: str = "show",
     format: str | None = None,
     theme: str | None = None,
+    legend_placement: Mapping[str, Any] | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`LineSeries` into one axes.
 
     This is the shared body behind every ``<domain>_time_<quantity>`` renderer and
     is also usable directly for ad-hoc traces that have no canonical name.
+
+    ``legend_placement`` sets where and how a drawn legend sits (see
+    :func:`~vaft.plot.style.apply_legend`); its ``fontsize_scale`` key is a
+    fraction of the format's base type size, never below
+    :data:`vaft.plot.style.LEGEND_MIN_PT`, resolved here, inside the format, so it follows
+    whatever size the figure is drawn at.
     """
     if not isinstance(model, LineSeries):
         raise TypeError(
@@ -52,14 +63,40 @@ def render_line_series(
     figure, axes = resolve_axes(ax, figsize=figsize or _DEFAULT_FIGSIZE)
 
     labels, legend_title = trace_labels(model.series, panel_title=model.title)
+    secondary_axes = None
+    if any(series.secondary for series in model.series):
+        secondary_axes = axes.twinx()
+        # The primary traces stay in front: a twin is drawn above its host
+        # unless the host is raised, and its background would hide them.
+        axes.set_zorder(secondary_axes.get_zorder() + 1)
+        axes.patch.set_visible(False)
     for series, label in zip(model.series, labels):
         options = {**style, **series.style}
         if label:
             options.setdefault("label", label)
-        draw_series(axes, series, uncertainty=uncertainty, validity=validity, **options)
+        target = secondary_axes if series.secondary else axes
+        draw_series(target, series, uncertainty=uncertainty, validity=validity, **options)
+        if series.secondary and label and target.lines:
+            # One legend for the panel: a labelled secondary trace is keyed on
+            # the primary axes by an empty proxy drawn like it -- opaque enough
+            # to read, since a trace drawn translucent to show density would
+            # all but vanish as a legend swatch.
+            drawn = target.lines[-1]
+            alpha = drawn.get_alpha()
+            axes.add_line(Line2D(
+                [], [], label=drawn.get_label(), color=drawn.get_color(),
+                linestyle=drawn.get_linestyle(), linewidth=max(drawn.get_linewidth(), 1.0),
+                marker=drawn.get_marker(), alpha=None if alpha is None else max(alpha, 0.6),
+            ))
 
     axes.set_xlabel(axis_label(model.x_label, model.x_unit))
     axes.set_ylabel(axis_label(model.y_label, model.y_unit))
+    if secondary_axes is not None:
+        # Smaller than the primary label: the right axis is the subordinate
+        # scale, and a label of full size crowds the panel beneath it.
+        secondary_axes.set_ylabel(
+            axis_label(model.secondary_y_label, model.secondary_y_unit), fontsize="small"
+        )
     if model.title:
         axes.set_title(model.title)
     if model.display is not None and model.display.notation == "scientific":
@@ -72,8 +109,27 @@ def render_line_series(
         axes.set_ylim(model.y_limits)
     if grid:
         axes.grid(True, alpha=0.3)
-    apply_legend(axes, legend=legend, title=legend_title)
+    if secondary_axes is not None and not model.log_y:
+        _align_zero(axes, secondary_axes)
+    apply_legend(axes, legend=legend, title=legend_title, placement=resolve_legend_placement(legend_placement))
     return finalize(figure, axes, show=show, tight_layout=ax is None)
+
+
+def _align_zero(primary: Axes, secondary: Axes) -> None:
+    """Put the secondary axis's zero at the height of the primary's.
+
+    Two scales on one panel invite reading one trace against the other's
+    ticks; with the zeros level, "above or below zero" at least reads the
+    same on both.  The secondary range is widened, never cut, so every trace
+    stays in view; nothing changes unless both ranges straddle zero.
+    """
+    low, high = primary.get_ylim()
+    s_low, s_high = secondary.get_ylim()
+    if not (low < 0.0 < high and s_low < 0.0 < s_high):
+        return
+    below = -low / (high - low)
+    scale = max(-s_low / below, s_high / (1.0 - below))
+    secondary.set_ylim(-below * scale, (1.0 - below) * scale)
 
 
 

@@ -427,6 +427,7 @@ SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "nbi_profile_current_drive": make_nbi,
     "interferometer_spectrogram": make_interferometer,
     "passive_structure_time_current": make_eddy_solved,
+    "current_overview_reconstruction": make_eddy_solved,
     "impa_time_field": make_impa_composed,
     "impa_time_voltage": make_impa_composed,
     "impa_profile_field": make_impa_composed,

@@ -106,7 +106,11 @@ def test_the_top_view_places_diagnostics_that_store_a_toroidal_position(sample):
 
     sample = make_impa_composed(sample)
     layers = {layer.label: layer for layer in _topview_diagnostic_layers(sample) if layer.label}
-    assert set(layers) == {"B-pol probes", "B-tor probes"}
+    # flux loops are axisymmetric rings drawn from their radius alone; they no
+    # longer need a stored phi, which the VEST mapper never writes (#1829)
+    assert set(layers) == {"Flux loops", "B-pol probes", "B-tor probes"}
+    ring = layers["Flux loops"]
+    assert np.allclose(np.hypot(ring.r, ring.z), float(sample["magnetics.flux_loop.0.position.0.r"]))
     probe = sample["magnetics.b_field_pol_probe.0.position"]
     r, phi = float(probe["r"]), float(probe["phi"])
     points = layers["B-pol probes"]

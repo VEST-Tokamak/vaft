@@ -1090,6 +1090,11 @@ vaft.diagram.plasma_wall_interaction_reflection()
 vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)   # threshold only if E_s given
 vaft.diagram.plasma_wall_interaction_recycling()
 vaft.diagram.plasma_wall_interaction_energy_partition()
+vaft.diagram.plasma_wall_interaction_reflection_energy()
+vaft.diagram.plasma_wall_interaction_angle_dependence()
+vaft.diagram.plasma_wall_interaction_sputtering_threshold(surface_binding_energy=8.68)   # E_th only if E_s given
+vaft.diagram.plasma_wall_interaction_particle_balance()
+vaft.diagram.plasma_wall_interaction_surface_response()
 ```
 
 ![processes]({{ '/assets/diagrams/plasma_wall_interaction_processes.svg' | relative_url }})
@@ -1098,6 +1103,10 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 | --- | --- |
 | ![reflection]({{ '/assets/diagrams/plasma_wall_interaction_reflection.svg' | relative_url }}) | ![sputtering]({{ '/assets/diagrams/plasma_wall_interaction_sputtering.svg' | relative_url }}) |
 | ![recycling]({{ '/assets/diagrams/plasma_wall_interaction_recycling.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/plasma_wall_interaction_energy_partition.svg' | relative_url }}) |
+| ![reflected energy]({{ '/assets/diagrams/plasma_wall_interaction_reflection_energy.svg' | relative_url }}) | ![angle]({{ '/assets/diagrams/plasma_wall_interaction_angle_dependence.svg' | relative_url }}) |
+| ![threshold]({{ '/assets/diagrams/plasma_wall_interaction_sputtering_threshold.svg' | relative_url }}) | ![particle balance]({{ '/assets/diagrams/plasma_wall_interaction_particle_balance.svg' | relative_url }}) |
+
+![surface response]({{ '/assets/diagrams/plasma_wall_interaction_surface_response.svg' | relative_url }})
 
 | Diagram | Concept |
 | --- | --- |
@@ -1106,6 +1115,11 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 | `plasma_wall_interaction_sputtering` | A collision cascade ejects a target atom. One collision passes at most $\gamma E$ (D on W: $\gamma = 0.043$), hence the high threshold |
 | `plasma_wall_interaction_recycling` | Prompt reflection plus delayed re-emission make recycling; retention is the rest |
 | `plasma_wall_interaction_energy_partition` | Particle balance and energy balance side by side. They are not the same bookkeeping |
+| `plasma_wall_interaction_reflection_energy` | Incident $f_i(E_i)$ to reflected $f_r(E_r)$ through the surface. Only the binary-collision limit $(1-\gamma)E_i$ is stated; $R_N(E_i)$, $R_E(E_i)$, $\langle E_r\rangle(E_i)$ are empty enrichment slots |
+| `plasma_wall_interaction_angle_dependence` | Normal and grazing incidence, angles from the surface normal; $R_N$, $R_E$, $Y$ as functions of $(E_i, \theta_i)$ are named, not drawn |
+| `plasma_wall_interaction_sputtering_threshold` | A schematic $Y(E_i)$ with no scale: a threshold exists. $E_\mathrm{th}$ is printed only for a supplied $E_s$ (Bohdansky) |
+| `plasma_wall_interaction_particle_balance` | The projectile balance (reflected + re-emitted + retained) with the sputtered target atoms drawn apart, as another species' source |
+| `plasma_wall_interaction_surface_response` | Inputs, surface response ($R_N$, $R_E$, $Y_\mathrm{sput}$), outputs: the extension point for tabulated data or an external PWI code (levels 2–4) |
 
 ## Spectroscopy and ionization
 
@@ -2143,10 +2157,12 @@ python -m vaft.diagram.build            # re-render diagrams whose TikZ source c
 python -m vaft.diagram.build --check    # verify the committed assets; needs no TeX
 ```
 
-`manifest.json`, stored next to the SVGs, records the SHA-256 of the generated TikZ document each SVG
-was rendered from, together with the SHA-256 of the SVG itself. `--check` rebuilds the TikZ in pure
-Python and fails in four cases: an asset is stale, an asset was edited by hand, an asset is
-missing, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
+Each SVG carries its own build record: one comment line after the XML declaration holding the call,
+the SHA-256 of the generated TikZ document it was rendered from, and the SHA-256 of the SVG without
+that line. Because the record lives in the diagram's own file, two pull requests that change different
+diagrams share no generated file and do not conflict (#1750). `--check` rebuilds the TikZ in pure
+Python and fails in five cases: an asset is stale, an asset was edited by hand, an asset is missing,
+an asset has no record, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
 and not on SVG bytes, because two `dvisvgm` releases write different but equally correct SVG for the
 same picture. Rendering needs `latex` and `dvisvgm`, which TeX Live and MacTeX provide. The generated
 `.tex`, PDF, PNG and LaTeX by-products are never committed.

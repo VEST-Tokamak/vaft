@@ -14,7 +14,7 @@ renderers themselves only describe what to draw.
 from __future__ import annotations
 
 import warnings
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -111,22 +111,26 @@ def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[s
     return labels, title
 
 
-#: Where a policy legend may be placed: Matplotlib's in-axes locations, and
-#: ``outside`` -- beside the axes on the right, clear of the data, which a
-#: stack of short panels needs (issue #1837).
-LEGEND_PLACEMENTS = (
-    "best", "upper right", "upper left", "lower left", "lower right", "right",
-    "center left", "center right", "lower center", "upper center", "center", "outside",
-)
+#: Smallest legend type a ``fontsize_scale`` placement resolves to, in points.
+LEGEND_MIN_PT = 7.0
 
 
-def _legend_placement(loc: str, ncols: int) -> dict[str, Any]:
-    if loc not in LEGEND_PLACEMENTS:
-        raise ValueError(f"legend_loc must be one of {', '.join(LEGEND_PLACEMENTS)}; got {loc!r}")
-    placement: dict[str, Any] = {"loc": loc, "ncols": max(1, int(ncols))}
-    if loc == "outside":
-        placement.update(loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0.0)
-    return placement
+def resolve_legend_placement(placement: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """A ``legend_placement`` mapping as :func:`apply_legend` keywords.
+
+    ``fontsize_scale`` becomes a size in points -- that fraction of the base
+    type size in force (the presentation format's, when a renderer draws
+    inside one), never below :data:`LEGEND_MIN_PT`; every other key is passed
+    on as given.  ``None`` or empty gives ``None``: the policy's defaults.
+    One implementation for every renderer that takes ``legend_placement=``.
+    """
+    if not placement:
+        return None
+    resolved = dict(placement)
+    scale = resolved.pop("fontsize_scale", None)
+    if scale is not None:
+        resolved["fontsize"] = max(LEGEND_MIN_PT, float(scale) * float(plt.rcParams["font.size"]))
+    return resolved
 
 
 def apply_legend(
@@ -135,17 +139,13 @@ def apply_legend(
     legend: bool | None,
     title: str | None = None,
     lone_entry: bool = False,
-    loc: str = "best",
-    ncols: int = 1,
-    fontsize: Any = "small",
+    placement: Mapping[str, Any] | None = None,
 ) -> None:
     """Draw, omit, or summarise the legend according to the display policy.
 
     ``legend=None`` applies the policy: nothing for a lone trace, a legend for
     up to :data:`LEGEND_MAX_ENTRIES`, and past that a corner note with the
-    trace count.  ``True`` forces a legend, ``False`` suppresses it.  ``loc``
-    (one of :data:`LEGEND_PLACEMENTS`) and ``ncols`` place a legend that is
-    drawn, and ``fontsize`` sizes its text.
+    trace count.  ``True`` forces a legend, ``False`` suppresses it.
 
     ``lone_entry`` keeps a legend for a single entry. A lone *trace* needs no
     key -- the title already names it -- but a lone labelled *layer* drawn
@@ -155,6 +155,11 @@ def apply_legend(
     channel, issue #261) are legend entries but do not count toward the
     threshold, so an overlay never halves the channel count at which the
     legend gives way to a note.
+
+    ``placement`` overrides how a drawn legend sits -- ``loc``, ``ncol``,
+    ``fontsize``, ``frameon`` and the spacings :meth:`Axes.legend` takes --
+    for a view that knows which corner its data leaves empty.  It never
+    decides *whether* a legend is drawn.
     """
     # Decide afresh from everything now on the axes.  A caller may draw into
     # the same axes more than once, so whatever this policy placed last time --
@@ -171,9 +176,9 @@ def apply_legend(
     count = len(handles)
     if legend is False or count == 0:
         return
-    placement = _legend_placement(loc, ncols)
+    options = {"loc": "best", "fontsize": "small", **dict(placement or {})}
     if legend is True:
-        axes.legend(title=title, fontsize=fontsize, **placement).set_gid(_POLICY_LEGEND_GID)
+        axes.legend(title=title, **options).set_gid(_POLICY_LEGEND_GID)
         return
     if count <= 1 and not lone_entry:
         return
@@ -188,7 +193,7 @@ def apply_legend(
             ha="right", va="top", fontsize="small", alpha=0.7, gid=_COUNT_NOTE_GID,
         )
         return
-    axes.legend(title=title, fontsize=fontsize, **placement).set_gid(_POLICY_LEGEND_GID)
+    axes.legend(title=title, **options).set_gid(_POLICY_LEGEND_GID)
 
 
 def resolve_axes(
@@ -277,6 +282,10 @@ def finalize(
             except Exception:  # pragma: no cover - a cosmetic step must never fail a render
                 pass
         try:
+            _centre_suptitle_over_axes(figure)
+        except Exception:  # pragma: no cover - a cosmetic step must never fail a render
+            pass
+        try:
             _contain_3d_axes(figure)
         except Exception:  # pragma: no cover - a cosmetic step must never fail a render
             pass
@@ -303,6 +312,30 @@ def _place_suptitle(figure: Figure, pad: float | None) -> bool:
     suptitle.set_y(1.0 - pad_points / height_points)
     suptitle.set_verticalalignment("top")
     return True
+
+
+#: Marks a suptitle to be centred over the panels rather than the canvas
+#: (``Panels.title_over_axes``).
+TITLE_OVER_AXES_GID = "vaft-title-over-axes"
+
+
+def _centre_suptitle_over_axes(figure: Figure) -> None:
+    """Centre a marked suptitle over the span of the figure's visible axes.
+
+    A right-hand secondary axis or a legend column widens one side of the
+    canvas, so the canvas centre is no longer over the data.  Only a
+    suptitle marked :data:`TITLE_OVER_AXES_GID` moves; it is centred on the
+    union of the visible host axes' boxes (twins share their host's box).
+    """
+    suptitle = getattr(figure, "_suptitle", None)
+    if suptitle is None or suptitle.get_gid() != TITLE_OVER_AXES_GID:
+        return
+    boxes = [axes.get_position() for axes in figure.axes if axes.get_visible()]
+    if not boxes:
+        return
+    left, right = min(b.x0 for b in boxes), max(b.x1 for b in boxes)
+    suptitle.set_x((left + right) / 2.0)
+    suptitle.set_horizontalalignment("center")
 
 
 def _clear_suptitle(figure: Figure) -> None:

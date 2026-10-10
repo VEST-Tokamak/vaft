@@ -73,6 +73,7 @@
    ".models.series:color=red": 3
   },
   "machine_geometry3d": {
+   ".layers:color=#377eb8": 11,
    ".layers:color=#d62728": 19,
    ".layers:color=#e41a1c": 4,
    ".layers:color=#ff7f00": 1,
@@ -86,6 +87,7 @@
    ".layers:color=0.55": 950
   },
   "machine_geometry_topview": {
+   ".layers:color=#377eb8": 11,
    ".layers:color=#e41a1c": 2,
    ".layers:color=#ff7f00": 1,
    ".layers:color=0.4": 2
