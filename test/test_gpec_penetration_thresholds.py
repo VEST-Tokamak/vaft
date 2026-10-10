@@ -782,7 +782,7 @@ def test_the_threshold_input_carries_the_species_the_threshold_is_built_from(tmp
 
 def test_the_threshold_input_claims_no_torque_method(tmp_path):
     """GPEC's threshold path runs none of them, so none is written on."""
-    from vaft.code.pentrc import TORQUE_METHODS
+    from vaft.code.gpec import TORQUE_METHODS
     from vaft.code.gpec._runtime import read_namelist_group
 
     cell = tmp_path / "cell"

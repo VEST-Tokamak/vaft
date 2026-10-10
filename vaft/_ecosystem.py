@@ -352,10 +352,19 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
         note="VAFT reads TRANSP results; it does not run TRANSP.",
     ),
     ExternalCode(
-        "pentrc", "PENTRC (reader)", ("neoclassical toroidal viscosity",), "vaft.code.pentrc", "native_reader",
-        installation="reader_only", maturity="read_only", native="reads pentrc_output_n*.nc",
-        links=(_doi("N. C. Logan, J.-K. Park et al., Phys. Plasmas 20, 122507 (2013)", "10.1063/1.4849395"),),
-        note="The PENTRC executable is built with the GPEC suite and launched through vaft.code.gpec.",
+        "pentrc", "PENTRC", ("neoclassical toroidal viscosity",), "vaft.code.gpec", "subprocess_executable",
+        # install_gpec.sh builds and installs pentrc into $GPECHOME/bin; the Windows installer does not
+        # build it and check_gpec.py does not check it.
+        home="vaft.code.gpec._types:GPEC_HOME_ENV", installation="vaft_managed_source_build",
+        installers=("install/install_gpec.sh",), provenance=("install/install_gpec.sh",),
+        native="pentrc.in and a .kin in a completed ideal-GPEC cell, pentrc_output_n*.nc out",
+        install_section="external-fusion-codes-chease-dcongpec-nubeam-gacode",
+        links=(Reference("repository", "Princeton University GitHub (in the GPEC suite)",
+                         "https://github.com/PrincetonUniversity/GPEC"),
+               _doi("N. C. Logan, J.-K. Park et al., Phys. Plasmas 20, 122507 (2013)", "10.1063/1.4849395")),
+        note="Built with the GPEC suite and run in a completed ideal-GPEC cell by vaft.code.gpec.run_pentrc "
+             "(not a GPECSuiteConfig module); vaft.code.gpec also reads its native output, and "
+             "vaft.code.pentrc re-exports that reader.",
     ),
 )
 
