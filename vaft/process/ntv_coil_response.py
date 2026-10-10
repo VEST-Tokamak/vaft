@@ -79,6 +79,9 @@ __all__ = [
     "two_group_phase_extrema",
 ]
 
+#: Largest phase grid :func:`fixed_amplitude_phase_extrema` builds in memory.
+_MAX_GRID = 2_000_000
+
 #: What :func:`qualify_torque_matrix` can conclude.
 NTV_QUADRATIC_STATUSES = ("qualified", "rejected", "insufficient")
 
@@ -413,9 +416,10 @@ def qualify_torque_matrix(
     Returns
     -------
     qualification : TorqueMatrixQualification
-        ``status`` is ``qualified`` only when every held-out evaluation and
-        every given invariance check passes; ``insufficient`` with no finite
-        held-out evaluation; otherwise ``rejected`` with the reasons [-].
+        ``rejected`` when any compared sample or invariance check fails;
+        otherwise ``insufficient`` when any held-out evaluation failed (NaN) or
+        none was given, since a failed run is not evidence; otherwise
+        ``qualified`` [-].
 
     Raises
     ------
@@ -424,7 +428,7 @@ def qualify_torque_matrix(
 
     Processing steps
     ----------------
-    1. Drop held-out samples whose direct torque is NaN, and say how many.
+    1. Set aside held-out samples whose direct torque is NaN, and count them.
     2. Compare ``c^H Q c`` with the direct torque per sample, passing when
        ``|dT| <= atol + rtol |T_direct|``.
     3. Combine with the invariance checks into one status.
@@ -464,9 +468,9 @@ def qualify_torque_matrix(
     if failed:
         status = "rejected"
         reasons.append(f"failed: {', '.join(failed)}")
-    elif not finite.any():
+    elif not finite.all() or not finite.any():
         status = "insufficient"
-        reasons.append("no finite held-out evaluation: Q is identified, not validated")
+        reasons.append("not every held-out evaluation succeeded: Q is identified, not validated")
     else:
         status = "qualified"
     return TorqueMatrixQualification(
@@ -475,7 +479,8 @@ def qualify_torque_matrix(
         eigenvalues=np.linalg.eigvalsh(q),
         checks=tuple(checks),
         reasons=tuple(reasons),
-        provenance={"atol": float(atol), "rtol": float(rtol), "held_out": int(finite.sum())},
+        provenance={"atol": float(atol), "rtol": float(rtol), "held_out": int(finite.sum()),
+                    "held_out_failed": int((~finite).sum())},
     )
 
 
@@ -498,15 +503,17 @@ def fit_inhomogeneous_torque(phasors: np.ndarray, torques: Sequence[float]) -> d
     Raises
     ------
     ValueError
-        Fewer finite samples than the ``1 + 2K + K^2`` real unknowns, or
-        shapes disagree.
+        Fewer finite samples than the ``1 + 2K + K^2`` real unknowns, shapes
+        disagree, or the samples do not determine every unknown (rank
+        deficient) -- e.g. a scan at fixed amplitudes ``|c_k|``, where ``T0``
+        and the ``Q_ii`` are collinear.
 
     Processing steps
     ----------------
     1. Real unknowns: ``T0``, ``Re b``, ``Im b``, ``Q_ii`` and, for ``i < j``,
        ``Re Q_ij`` and ``Im Q_ij``.
     2. Each sample contributes one real equation; solve by least squares.
-    3. Report the residual and the rank so an under-determined design shows.
+    3. Refuse a rank-deficient design rather than split collinear terms.
 
     Convention
     ----------
@@ -545,6 +552,13 @@ def fit_inhomogeneous_torque(phasors: np.ndarray, torques: Sequence[float]) -> d
         cross.append(-2 * product.imag)   # coefficient of Im Q_ij
     design = np.column_stack([columns[0], *columns[1], *columns[2], *columns[3], *cross])
     solution, _, rank, _ = np.linalg.lstsq(design, t, rcond=None)
+    if rank < unknowns:
+        # lstsq would return the minimum-norm split between collinear columns,
+        # which reads as a background T0 that is not there.
+        raise ValueError(
+            f"the samples determine {rank} of {unknowns} unknowns; vary the group amplitudes, "
+            "not only the phases, before testing T0 and b"
+        )
     t0 = float(solution[0])
     b = solution[1:1 + k] + 1j * solution[1 + k:1 + 2 * k]
     q = np.diag(solution[1 + 2 * k:1 + 3 * k]).astype(complex)
@@ -616,7 +630,7 @@ def two_group_phase_extrema(Q: np.ndarray, amplitudes: Sequence[float]) -> dict[
     base = float(np.real(q[0, 0])) * a1**2 + float(np.real(q[1, 1])) * a2**2
     swing = 2 * a1 * a2 * abs(q[0, 1])
     scale = max(abs(base), abs(q[0, 0]) * a1**2, abs(q[1, 1]) * a2**2, np.finfo(float).tiny)
-    if swing <= 1e-12 * scale:
+    if swing <= 64 * np.finfo(float).eps * scale:  # below the roundoff of the diagonal terms
         return {"delta_phi_max": None, "delta_phi_min": None, "T_max": base, "T_min": base,
                 "phase_independent": True}
     arg = float(np.angle(q[0, 1]))
@@ -731,7 +745,8 @@ def fixed_amplitude_phase_extrema(
     Raises
     ------
     ValueError
-        Shapes disagree, an amplitude is negative, or ``grid_points < 4``.
+        Shapes disagree, an amplitude is negative, ``grid_points < 4``, or the
+        grid would exceed two million points.
 
     Processing steps
     ----------------
@@ -767,6 +782,8 @@ def fixed_amplitude_phase_extrema(
     if int(grid_points) < 4:
         raise ValueError("grid_points must be at least 4")
     k = a.size
+    if k > 1 and int(grid_points) ** (k - 1) > _MAX_GRID:
+        raise ValueError(f"a {grid_points}^{k - 1} phase grid exceeds {_MAX_GRID} points; lower grid_points")
 
     def torque(free):
         return float(quadratic_torque(q, coil_phasors(a, np.concatenate(([0.0], free)))))
@@ -803,8 +820,10 @@ def _hermitian(matrix: np.ndarray) -> np.ndarray:
     q = np.asarray(matrix, dtype=complex)
     if q.ndim != 2 or q.shape[0] != q.shape[1]:
         raise ValueError(f"expected a square matrix, got shape {q.shape}")
+    if not np.all(np.isfinite(q)):
+        raise ValueError("the matrix is not finite")
     scale = max(float(np.max(np.abs(q))), np.finfo(float).tiny)
-    if not np.allclose(q, q.conj().T, rtol=0.0, atol=1e-12 * scale):
+    if not np.allclose(q, q.conj().T, rtol=0.0, atol=1e-9 * scale):
         raise ValueError("the matrix is not Hermitian")
     return 0.5 * (q + q.conj().T)
 

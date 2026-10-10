@@ -45,8 +45,10 @@ def test_k_squared_probes_recover_q_with_the_declared_phasor_sign(eigenvalues):
     assert len(probes) == 9  # K + 2 C(K, 2) = K^2
     recovered = hermitian_torque_matrix(_probe_torques(q), 3)
     np.testing.assert_allclose(recovered, q, atol=1e-12)
-    # The opposite phasor sign would flip every Im Q_ij: the convention is load-bearing.
-    assert not np.allclose(recovered, q.conj())
+    # Probes run in the opposite phasor sign (a physical +90 deg is e_i - i e_j)
+    # recover conj(Q): the convention is load-bearing.
+    flipped = {label: float(quadratic_torque(q, c.conj())) for label, c in probes}
+    np.testing.assert_allclose(hermitian_torque_matrix(flipped, 3), q.conj(), atol=1e-12)
 
 
 def test_signed_torque_of_an_indefinite_q_takes_both_signs():
@@ -57,7 +59,9 @@ def test_signed_torque_of_an_indefinite_q_takes_both_signs():
 
 def test_held_out_synthetic_samples_qualify_the_reconstructed_matrix():
     q = hermitian_torque_matrix(_probe_torques(INDEFINITE), 3)
-    held_out = coil_phasors([1.0, 0.7, 1.3], [0.0, 1.1, -2.0])[None, :] * np.array([[1.0], [0.5]])
+    held_out = np.array([coil_phasors([1.0, 0.7, 1.3], [0.0, 1.1, -2.0]),
+                         coil_phasors([0.4, 1.5, 0.2], [2.5, 0.3, 4.0]),
+                         coil_phasors([0.9, 0.0, 1.1], [1.0, 0.0, 5.5])])
     result = qualify_torque_matrix(q, held_out, quadratic_torque(INDEFINITE, held_out), atol=1e-9, rtol=1e-9)
     assert result.status == "qualified"
     assert result.eigenvalues[0] < 0 < result.eigenvalues[-1]
@@ -73,11 +77,16 @@ def test_a_non_quadratic_response_is_rejected_not_promoted():
     assert result.status == "rejected" and "held_out" in result.reasons[-1]
 
 
-def test_no_held_out_evaluation_is_insufficient_and_failures_are_counted_not_zeroed():
+def test_failed_held_out_evaluations_never_qualify_and_are_counted_not_zeroed():
     q = hermitian_torque_matrix(_probe_torques(INDEFINITE), 3)
     result = qualify_torque_matrix(q, np.ones((1, 3)), [np.nan], atol=1e-9, rtol=1e-9)
     assert result.status == "insufficient"
     assert any("failed" in reason for reason in result.reasons)
+    # One good sample beside two failures is not a validation.
+    held_out = np.ones((3, 3)) * np.array([[1.0], [2.0], [0.5]])
+    partial = qualify_torque_matrix(q, held_out, [float(quadratic_torque(q, held_out[0])), np.nan, np.nan],
+                                    atol=1e-9, rtol=1e-9)
+    assert partial.status == "insufficient" and partial.provenance["held_out_failed"] == 2
 
 
 def test_a_failed_probe_cannot_identify_q():
@@ -105,6 +114,24 @@ def test_invariances_hold_for_a_quadratic_and_fail_for_an_offset():
         assert names["amplitude_scaling"] is expected  # but not scaling
 
 
+def test_a_linear_background_fails_sign_reversal():
+    b = np.array([0.3, -0.2j, 0.1])
+    c = coil_phasors([1.0, 0.4, 0.8], [0.0, 0.9, 2.5])
+
+    def f(x):
+        return float(quadratic_torque(INDEFINITE, x) + 2 * np.real(b.conj() @ x))
+
+    (check,) = quadratic_invariance_checks(f(c), reversed_torque=f(-c), atol=1e-9, rtol=1e-9)
+    assert check.name == "sign_reversal" and not check.passed
+
+
+def test_a_fixed_amplitude_scan_cannot_separate_a_background_and_says_so():
+    phases = RNG.uniform(0, 2 * np.pi, size=(80, 3))
+    phasors = np.exp(1j * phases)  # every |c_k| = 1: T0 and Q_ii are collinear
+    with pytest.raises(ValueError, match="vary the group amplitudes"):
+        fit_inhomogeneous_torque(phasors, quadratic_torque(INDEFINITE, phasors))
+
+
 def test_the_inhomogeneous_fit_finds_a_background_term():
     b = np.array([0.2 - 0.1j, -0.3j, 0.05])
     phasors = RNG.normal(size=(40, 3)) + 1j * RNG.normal(size=(40, 3))
@@ -127,6 +154,14 @@ def test_two_group_analytic_extrema_match_a_phase_grid():
     assert extrema["T_min"] == pytest.approx(sweep.min(), rel=1e-6)
     assert extrema["delta_phi_max"] == pytest.approx(grid[np.argmax(sweep)], abs=1e-3)
     assert extrema["delta_phi_max"] == pytest.approx(np.mod(-0.8, 2 * np.pi))
+    assert 0 <= extrema["delta_phi_min"] < 2 * np.pi  # wrapped, not -arg + pi unwrapped
+
+
+def test_a_small_cross_term_under_cancelling_diagonals_still_has_a_phase():
+    q = np.array([[1e6, 1e-7], [1e-7, -1e6]])
+    extrema = two_group_phase_extrema(q, (1.0, 1.0))
+    assert not extrema["phase_independent"]
+    assert extrema["T_max"] - extrema["T_min"] == pytest.approx(4e-7, rel=1e-3)
 
 
 @pytest.mark.parametrize("q, amplitudes", [(np.diag([1.0, -2.0]), (1.0, 1.0)), (INDEFINITE[:2, :2], (0.0, 1.0))])
@@ -178,3 +213,7 @@ def test_inputs_are_refused_rather_than_guessed():
         quadratic_invariance_checks(1.0, atol=-1.0, rtol=0.0)
     with pytest.raises(ValueError, match="positive"):
         quadratic_invariance_checks(1.0, scaled=[(0.0, 0.0)], atol=0.0, rtol=0.0)
+    with pytest.raises(ValueError, match="not finite"):
+        quadratic_torque(np.full((2, 2), np.nan), np.ones(2))
+    with pytest.raises(ValueError, match="exceeds"):
+        fixed_amplitude_phase_extrema(np.eye(6), np.ones(6), grid_points=36, refine=0)
