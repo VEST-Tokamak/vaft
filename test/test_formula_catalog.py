@@ -112,7 +112,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "boundaries": 14,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580), +spherical-tokamak Hugill coordinates (#1602)
         "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
         "dimensional": 7,  # dimension matrix, exact null space, Pi groups, basis change, similarity constraints (#1621)
-        "sensitivity": 5,  # finite-difference Jacobian, J Sigma J^T, Monte Carlo, SVD spectrum, linearity ratio (#1642)
+        "sensitivity": 6,  # FD Jacobian, J Sigma J^T, Monte Carlo, SVD, linearity (#1642), per-formula propagation (#1874)
         "ordering": 16,  # asymptotic ordering parameters (#1627), +Debye length, Mach number, pressure anisotropy (#1627 phase C)
         "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure (#1606)
         # electron collision time and electron-ion energy exchange, multi-species (#1606);
@@ -317,7 +317,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
     "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
-    "definitions", "reduction", "semantics",
+    "definitions", "reduction", "semantics", "uncertainty_propagation", "analytic_jacobian",
 }
 
 

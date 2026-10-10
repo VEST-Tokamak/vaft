@@ -49,6 +49,7 @@ SECTION_VOCABULARY: tuple[str, ...] = (
     "Numerical notes",
     "Reduction",
     "Semantics",
+    "Uncertainty propagation",
     "References",
     "Notes",
     "See Also",
@@ -66,6 +67,7 @@ CUSTOM_SECTIONS: tuple[str, ...] = (
     "Numerical notes",
     "Reduction",
     "Semantics",
+    "Uncertainty propagation",
 )
 
 #: An empirical formula opens its ``Validity`` section with this sentence.
@@ -89,7 +91,7 @@ FORMULA_CONTRACT = DocstringContract(
     reference_section="References",
     module_section_vocabulary=MODULE_SECTION_VOCABULARY,
     markers={"empirical": ("Validity", EMPIRICAL_MARKER)},
-    presence={"convention_sensitive": "Convention"},
+    presence={"convention_sensitive": "Convention", "uncertainty_propagation": "Uncertainty propagation"},
 )
 
 
