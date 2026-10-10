@@ -57,6 +57,32 @@ def test_a_table_compared_with_itself_is_identical_everywhere(compare_tables):
     assert "## Tables at 129x129" in text and "| ep | rsilpc |" in text
 
 
+def _in3(groups):
+    import f90nml
+
+    n = len(groups)
+    return f90nml.Namelist(
+        {"rf": [0.1 * g for g in groups], "zf": [0.0] * n, "wf": [0.01] * n,
+         "hf": [0.01] * n, "fcid": list(range(1, n + 1)), "fcturn": [1.0] * n}
+    )
+
+
+def test_pf_groups_are_not_paired_when_the_group_counts_differ(compare_tables):
+    """Cold review 0.7.0 efit-workflows F17 (#1888).
+
+    A group number is a position in ``fcid``. B inserts a group in the
+    middle, so pairing by position would set A's group 2 against the new
+    coil and drop B's last group.
+    """
+    out = compare_tables._compare_pf_groups(_in3([1, 2]), _in3([1, 9, 2]), 2, 3)
+    assert out["nfsum"] == [2, 3]
+    assert out["comparable"] is False
+    assert out["groups"] == []
+    assert [len(rows) for rows in out["group_tables"]] == [2, 3]
+    same = compare_tables._compare_pf_groups(_in3([1, 2]), _in3([1, 2]), 2, 2)
+    assert same["comparable"] is True and len(same["groups"]) == 2
+
+
 def test_kfile_diff_accepts_only_the_two_directory_lines(ab_efit_table, tmp_path):
     a = tmp_path / "A"
     b = tmp_path / "B"
