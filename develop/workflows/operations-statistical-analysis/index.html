@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>734f9c5</code>. What is described
+  <code>a1d3f22</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -460,7 +460,7 @@ out of the IDSs and hand them to these functions.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.formula.kinetic</code></td>
-      <td>Multi-species electron collision time and electron–ion energy-exchange time</td>
+      <td>Multi-species electron and ion collision times, electron–ion energy-exchange time, and the Braginskii perpendicular heat diffusivities (classical baseline)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.formula.turbulence</code></td>
@@ -695,7 +695,7 @@ a required, strictly positive argument (<code class="language-plaintext highligh
 
 \[q_{\rm kink} = \frac{2\pi a^2 B_t}{\mu_0 I_p R}\left(1 + \frac{\kappa^2}{2}\right)\]
 
-<p>Normalised plasma current (Phys. Plasmas <strong>23</strong>, 072508):</p>
+<p>Normalised plasma current, the Troyon normalisation $I_N = I_p/(a B_t)$ (Plasma Phys. Control. Fusion <strong>26</strong>, 209) and the current axis of the Menard et al. low-aspect-ratio stability maps (Nucl. Fusion <strong>37</strong>, 595):</p>
 
 <!-- docs-snippet: skip fragment (placeholder name Ip is never defined on the page) -->
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">Ip_star</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">formula</span><span class="p">.</span><span class="nf">normalized_plasma_current</span><span class="p">(</span><span class="n">Ip</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">Bt</span><span class="p">)</span>   <span class="c1"># I_p [A] in, MA/(m T) out
@@ -1292,7 +1292,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 19:07:17 +0000"
+        "time": "2026-10-10 20:15:49 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
