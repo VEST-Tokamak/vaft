@@ -59,6 +59,7 @@ __all__ = [
     "assess_tglf_readiness",
     "inferred_ti_supported",
     "CLASSICAL_MODEL",
+    "ClassicalHeatFluxes",
     "classical_heat_fluxes",
     "surface_toroidal_field",
     "physics_parameters",
@@ -1352,10 +1353,56 @@ CLASSICAL_MODEL = {
     "reference": "S. I. Braginskii, Rev. Plasma Phys. 1 (1965) 205; NRL Plasma Formulary",
 }
 
-#: Braginskii's gamma_1' (electron perpendicular heat conductivity) against Z,
-#: Braginskii 1965, Table 2: 4.66, 4.0, 3.7, 3.6, 3.25 for Z = 1, 2, 3, 4, inf.  The
-#: Z = inf knot sits at 1e9, so a linear lookup in Z is held at 3.6 for Z > 4.
-_GAMMA1_PERP = ((1.0, 4.66), (2.0, 4.0), (3.0, 3.7), (4.0, 3.6), (1e9, 3.25))
+@dataclass(frozen=True)
+class ClassicalHeatFluxes:
+    """The classical (Braginskii) baseline at one surface (#1435, typed by #1899).
+
+    Fluxes are physical fluxes of the stated reduced model (``CLASSICAL_MODEL``);
+    ``chi_*`` are that model's diffusivities; the collision times, Coulomb logarithms,
+    ``gamma1_perp`` and ``b_tesla`` are diagnostics of the evaluation. The model has
+    no particle flux: ``electron_particle_flux_m2_s`` is None (not evaluated, not 0).
+    """
+
+    r_over_a: float
+    electron_energy_flux_W_m2: float
+    ion_energy_flux_W_m2: Mapping[str, float]
+    chi_e_m2_s: float
+    chi_i_m2_s: float
+    tau_e_s: float
+    tau_i_s: float
+    coulomb_logarithm: float
+    coulomb_logarithm_ion: float
+    coulomb_log_valid: bool
+    gamma1_perp: float
+    b_tesla: float
+    model: Mapping[str, Any] = field(default_factory=lambda: dict(CLASSICAL_MODEL))
+    electron_particle_flux_m2_s: Optional[float] = None
+    ion_particle_flux_m2_s: Mapping[str, float] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        # Frozen all the way down: the mappings become read-only views of private copies.
+        from types import MappingProxyType
+
+        for name in ("ion_energy_flux_W_m2", "ion_particle_flux_m2_s", "model"):
+            object.__setattr__(self, name, MappingProxyType(copy.deepcopy(dict(getattr(self, name)))))
+
+    def as_record(self) -> dict[str, Any]:
+        """The JSON-ready mapping the atlas driver stores and the core_transport
+        projection reads; the keys of the pre-#1899 dict, unchanged. A deep copy."""
+        return {
+            "r_over_a": self.r_over_a,
+            "electron_energy_flux_W_m2": self.electron_energy_flux_W_m2,
+            "electron_particle_flux_m2_s": self.electron_particle_flux_m2_s,
+            "ion_energy_flux_W_m2": dict(self.ion_energy_flux_W_m2),
+            "ion_particle_flux_m2_s": dict(self.ion_particle_flux_m2_s),
+            "chi_e_m2_s": self.chi_e_m2_s, "chi_i_m2_s": self.chi_i_m2_s,
+            "tau_e_s": self.tau_e_s, "tau_i_s": self.tau_i_s,
+            "coulomb_logarithm": self.coulomb_logarithm,
+            "coulomb_logarithm_ion": self.coulomb_logarithm_ion,
+            "coulomb_log_valid": self.coulomb_log_valid,
+            "gamma1_perp": self.gamma1_perp, "b_tesla": self.b_tesla,
+            "model": copy.deepcopy(dict(self.model)),
+        }
 
 
 def surface_toroidal_field(profile: Any, local: Any) -> float:
@@ -1389,7 +1436,7 @@ def surface_toroidal_field(profile: Any, local: Any) -> float:
     return abs(float(profile.bcentr)) * float(profile.rcentr) / r_surface
 
 
-def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
+def classical_heat_fluxes(local: Any, b_tesla: float) -> ClassicalHeatFluxes:
     """Classical perpendicular heat fluxes at one surface, from a TGLF local input.
 
     Parameters
@@ -1403,11 +1450,12 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
 
     Returns
     -------
-    dict
+    ClassicalHeatFluxes
         ``r_over_a``; ``electron_energy_flux_W_m2``; ``ion_energy_flux_W_m2`` keyed
         ``z=<charge>`` for the main ion; ``chi_e_m2_s``, ``chi_i_m2_s``; the collision
         times, Coulomb logarithms, ``coulomb_log_valid`` and ``model``
-        (:data:`CLASSICAL_MODEL`) [W/m^2].
+        (:data:`CLASSICAL_MODEL`); :meth:`ClassicalHeatFluxes.as_record` gives the
+        JSON mapping [W/m^2].
 
     Convention
     ----------
@@ -1440,16 +1488,25 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
        3.25 for Z = 1, 2, 3, 4, inf) and kappa_perp,i coefficient 2.
     .. [2] NRL Plasma Formulary: tau_e = 3.44e5 T_e^1.5 / (n lnLambda),
        tau_i = 2.09e7 T_i^1.5 mu^0.5 / (n lnLambda Z^4) and the ion-ion lnLambda
-       (cgs, eV), which the SI forms here reproduce (test_transport_state.py).
+       (cgs, eV), which the SI forms reproduce (test_transport_state.py). Every
+       coefficient and collision time comes from :mod:`vaft.formula.kinetic` (#1899).
     """
     from scipy import constants as c
 
+    from vaft.formula.constants import AMU
     from vaft.formula.equilibrium import coulomb_logarithm_from_n_T
+    from vaft.formula.kinetic import (
+        braginskii_gamma1_perp_from_Z,
+        classical_electron_heat_diffusivity_from_T_e_B,
+        classical_ion_heat_diffusivity_from_T_i_B,
+        electron_collision_time_from_T_e_n_species,
+        ion_collision_time_from_T_i_n_species,
+        ion_ion_coulomb_logarithm_from_n_T,
+    )
 
     norm = local.normalisation
     ne = float(norm.electron_density)
-    te = float(norm.electron_temperature)               # J
-    te_ev = te / c.e
+    te_ev = float(norm.electron_temperature) / c.e
     a = float(norm.minor_radius)
     b = abs(float(b_tesla))
     if not (b > 0.0 and np.isfinite(b)):
@@ -1462,40 +1519,36 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> dict[str, Any]:
     z_i = float(charges[0])
     if z_i != float(charges.min()):
         raise ValueError(f"species 1 (z={z_i:g}) is not the lowest-charge ion; it is not the main ion")
-    m_i = float(local.mass[1]) * _MASS_DEUTERIUM_KG
+    # TGLF's MASS_* are in GACODE deuterium masses; the formula layer takes amu.
+    mass_number = float(local.mass[1]) * _MASS_DEUTERIUM_KG / AMU
     n_i = float(fractions[0]) * ne
-    ti = float(local.taus[1]) * te
-    ti_ev = ti / c.e
+    ti_ev = float(local.taus[1]) * te_ev
     lnl_e = float(coulomb_logarithm_from_n_T(ne, te_ev))
-    # NRL ion-ion, same species: 23 - ln[(Z^2 / T_i) (2 n_i Z^2 / T_i)^(1/2)], cgs/eV.
-    lnl_i = 23.0 - np.log(z_i ** 2 / ti_ev * np.sqrt(2.0 * n_i * 1e-6 * z_i ** 2 / ti_ev))
-    field_density = float(np.sum(fractions * ne * charges ** 2))   # sum_j n_j Z_j^2
+    lnl_i = float(ion_ion_coulomb_logarithm_from_n_T(n_i, ti_ev, z_i))
+    if not lnl_i > 0.0:
+        # The NRL ion-ion form is not defined there (cold, dense ions); before #1899 a
+        # negative logarithm silently gave a negative tau_i and chi_i.
+        raise ValueError(f"ion-ion Coulomb logarithm {lnl_i:.3g} is not positive at "
+                         f"n_i = {n_i:.3g} m^-3, T_i = {ti_ev:.3g} eV, Z = {z_i:g}; "
+                         "the classical ion baseline is not defined")
 
-    tau_e = (6.0 * np.sqrt(2.0) * np.pi ** 1.5 * c.epsilon_0 ** 2 * np.sqrt(c.m_e) * te ** 1.5
-             / (lnl_e * c.e ** 4 * ne * zeff))
-    # Braginskii: tau_i / tau_e = sqrt(2 m_i / m_e) (T_i/T_e)^1.5 at equal density and
-    # Z = 1, i.e. 12 here against 6 sqrt(2) above (NRL: 2.09e7 vs 3.44e5).
-    tau_i = (12.0 * np.pi ** 1.5 * c.epsilon_0 ** 2 * np.sqrt(m_i) * ti ** 1.5
-             / (lnl_i * c.e ** 4 * z_i ** 2 * field_density))
-    # anti-alias: not a time series and not a downsample; a lookup in Braginskii's
-    # gamma_1'(Z) table at one effective charge.
-    gamma1 = float(np.interp(zeff, *zip(*_GAMMA1_PERP)))
-    omega_e = c.e * b / c.m_e
-    omega_i = z_i * c.e * b / m_i
-    chi_e = gamma1 * te / (c.m_e * omega_e ** 2 * tau_e)
-    chi_i = 2.0 * ti / (m_i * omega_i ** 2 * tau_i)
-    q_e = ne * chi_e * te * float(local.rlts[0]) / a
-    q_i = n_i * chi_i * ti * float(local.rlts[1]) / a
-    return {
-        "r_over_a": float(local.rho),
-        "electron_energy_flux_W_m2": float(q_e),
-        "electron_particle_flux_m2_s": None,
-        "ion_energy_flux_W_m2": {f"z={z_i:g}": float(q_i)},
-        "ion_particle_flux_m2_s": {},
-        "chi_e_m2_s": float(chi_e), "chi_i_m2_s": float(chi_i),
-        "tau_e_s": float(tau_e), "tau_i_s": float(tau_i),
-        "coulomb_logarithm": lnl_e, "coulomb_logarithm_ion": float(lnl_i),
-        "coulomb_log_valid": bool(te_ev >= 10.0),
-        "gamma1_perp": gamma1, "b_tesla": b,
-        "model": CLASSICAL_MODEL,
-    }
+    # tau_e against n_e Z_eff; tau_i against every ion species (like-particle form).
+    tau_e = float(electron_collision_time_from_T_e_n_species(te_ev, [ne * zeff], [1.0], lnl_e))
+    tau_i = float(ion_collision_time_from_T_i_n_species(ti_ev, mass_number, z_i, fractions * ne,
+                                                        charges, lnl_i))
+    gamma1 = float(braginskii_gamma1_perp_from_Z(zeff))
+    chi_e = float(classical_electron_heat_diffusivity_from_T_e_B(te_ev, b, tau_e, zeff))
+    chi_i = float(classical_ion_heat_diffusivity_from_T_i_B(ti_ev, b, tau_i, mass_number, z_i))
+    q_e = ne * chi_e * te_ev * c.e * float(local.rlts[0]) / a
+    q_i = n_i * chi_i * ti_ev * c.e * float(local.rlts[1]) / a
+    return ClassicalHeatFluxes(
+        r_over_a=float(local.rho),
+        electron_energy_flux_W_m2=float(q_e),
+        ion_energy_flux_W_m2={f"z={z_i:g}": float(q_i)},
+        chi_e_m2_s=chi_e, chi_i_m2_s=chi_i,
+        tau_e_s=tau_e, tau_i_s=tau_i,
+        coulomb_logarithm=lnl_e, coulomb_logarithm_ion=lnl_i,
+        coulomb_log_valid=bool(te_ev >= 10.0),
+        gamma1_perp=gamma1, b_tesla=b,
+        model=dict(CLASSICAL_MODEL),
+    )

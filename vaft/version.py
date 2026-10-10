@@ -22,6 +22,11 @@ __all__ = ["__version__"]
 #   b_field_pol_probe_field fit their two-sided baseline at the
 #   baseline_onset/offset seconds given, not the record's last 500 samples;
 #   routine VEST products use the era-table chain and are unaffected (#1888)
+# - the PENTRC native output reader (PentrcOutput, read_pentrc_output,
+#   torque_profile, energy_profile and the method/grid registries) is owned
+#   by vaft.code.gpec beside run_pentrc; vaft.code.pentrc and
+#   vaft.code.pentrc.outputs re-export the same objects, and the external-code
+#   registry lists PENTRC as run through vaft.code.gpec (#1883)
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the

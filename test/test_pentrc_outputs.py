@@ -5,8 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from vaft.code import pentrc
-from vaft.code.pentrc import PentrcFormatError
+from vaft.code import gpec
+from vaft.code.gpec import PentrcFormatError
 
 from pentrc_nc_fixtures import ELL, pentrc_dataset, write_pentrc_output
 
@@ -15,7 +15,7 @@ from pentrc_nc_fixtures import ELL, pentrc_dataset, write_pentrc_output
 def run_n3(tmp_path):
     """A run at n = 3, so the 2n energy divisor is distinguishable from 2."""
     path = write_pentrc_output(tmp_path / "pentrc_output_n3.nc", n_tor=3)
-    with pentrc.read_pentrc_output(path) as output:
+    with gpec.read_pentrc_output(path) as output:
         yield output
 
 
@@ -30,14 +30,14 @@ def test_a_file_without_a_mode_number_is_refused(tmp_path):
     dataset.to_netcdf(path)
     dataset.close()
     with pytest.raises(PentrcFormatError) as excinfo:
-        pentrc.read_pentrc_output(path)
+        gpec.read_pentrc_output(path)
     assert "'n' global attribute" in str(excinfo.value)
 
 
 def test_the_torque_reproduces_the_files_own_total(run_n3):
     """The file states the total; summing the profile must agree with it."""
     for method, grid in run_n3.available():
-        _, torque = pentrc.torque_profile(run_n3, method, grid)
+        _, torque = gpec.torque_profile(run_n3, method, grid)
         suffix = f"_{method}" if grid == "lsode" else f"_{method}_{grid}"
         assert torque[-1] == pytest.approx(run_n3.attrs[f"T_total{suffix}"], rel=1e-12)
 
@@ -45,7 +45,7 @@ def test_the_torque_reproduces_the_files_own_total(run_n3):
 def test_the_energy_divides_by_two_n_not_by_two(run_n3):
     """PENTRC's own reduction (torque.F90:2029). At n = 1 the two agree."""
     for method, grid in run_n3.available():
-        _, energy = pentrc.energy_profile(run_n3, method, grid)
+        _, energy = gpec.energy_profile(run_n3, method, grid)
         suffix = f"_{method}" if grid == "lsode" else f"_{method}_{grid}"
         assert energy[-1] == pytest.approx(run_n3.attrs[f"dW_total{suffix}"], rel=1e-12)
 
@@ -58,14 +58,14 @@ def test_the_energy_divides_by_two_n_not_by_two(run_n3):
 def test_at_n_equals_one_the_two_divisors_coincide(tmp_path):
     """Which is why a fixture at n = 1 could not have caught it."""
     path = write_pentrc_output(tmp_path / "n1.nc", n_tor=1)
-    with pentrc.read_pentrc_output(path) as run:
-        _, energy = pentrc.energy_profile(run, "fgar")
+    with gpec.read_pentrc_output(path) as run:
+        _, energy = gpec.energy_profile(run, "fgar")
         summed = run.complex_quantity("T", "fgar").sum(axis=1)
         assert np.imag(summed)[-1] / 2.0 == pytest.approx(energy[-1], rel=1e-12)
 
 
 def test_the_imaginary_part_is_not_returned_as_a_torque(run_n3):
-    _, torque = pentrc.torque_profile(run_n3, "fgar")
+    _, torque = gpec.torque_profile(run_n3, "fgar")
     summed = run_n3.complex_quantity("T", "fgar").sum(axis=1)
     assert torque == pytest.approx(np.real(summed))
     assert not np.allclose(torque, np.abs(summed))
@@ -77,24 +77,24 @@ def test_the_imaginary_part_is_not_returned_as_a_torque(run_n3):
 def test_a_heat_moment_run_is_refused_rather_than_read_as_a_torque(tmp_path):
     """Identical names, identical shapes, identical Nm units, different quantity."""
     path = write_pentrc_output(tmp_path / "heat.nc", n_tor=3, moment="heat")
-    with pentrc.read_pentrc_output(path) as run:
+    with gpec.read_pentrc_output(path) as run:
         # Nothing about the variable's shape or unit gives it away.
         assert run.complex_quantity("T", "fgar").shape[1] == ELL.size
         assert run.long_name("T", "fgar") == "Integrated A*e*psi'*Gamma/2pi"
 
         with pytest.raises(PentrcFormatError) as excinfo:
-            pentrc.torque_profile(run, "fgar")
-        assert pentrc.TORQUE_LONG_NAME in str(excinfo.value)
+            gpec.torque_profile(run, "fgar")
+        assert gpec.TORQUE_LONG_NAME in str(excinfo.value)
 
         with pytest.raises(PentrcFormatError):
-            pentrc.energy_profile(run, "fgar")
+            gpec.energy_profile(run, "fgar")
 
 
 def test_a_torque_run_passes_the_same_check(tmp_path):
     path = write_pentrc_output(tmp_path / "torque.nc", n_tor=3)
-    with pentrc.read_pentrc_output(path) as run:
-        assert run.long_name("T", "fgar") == pentrc.TORQUE_LONG_NAME
-        assert pentrc.torque_profile(run, "fgar")[1].size > 0
+    with gpec.read_pentrc_output(path) as run:
+        assert run.long_name("T", "fgar") == gpec.TORQUE_LONG_NAME
+        assert gpec.torque_profile(run, "fgar")[1].size > 0
 
 
 def test_a_file_declaring_no_long_name_is_allowed_through(tmp_path):
@@ -104,27 +104,27 @@ def test_a_file_declaring_no_long_name_is_allowed_through(tmp_path):
     path = tmp_path / "bare.nc"
     dataset.to_netcdf(path)
     dataset.close()
-    with pentrc.read_pentrc_output(path) as run:
+    with gpec.read_pentrc_output(path) as run:
         assert run.long_name("T", "fgar") == ""
-        assert pentrc.torque_profile(run, "fgar")[1].size > 0
+        assert gpec.torque_profile(run, "fgar")[1].size > 0
 
 
 # ----------------------------------------------------- methods and grids
 
 
 def test_all_eighteen_methods_are_named_with_pentrcs_own_description():
-    assert len(pentrc.TORQUE_METHODS) == 18
-    assert pentrc.TORQUE_METHODS["fgar"].startswith("Full general-aspect-ratio")
-    assert pentrc.TORQUE_METHODS["tgar"].startswith("Trapped particle general")
-    assert pentrc.TORQUE_METHODS["pgar"].startswith("Passing particle general")
-    assert set(pentrc.TORQUE_GRIDS) == {"lsode", "equil", "input"}
+    assert len(gpec.TORQUE_METHODS) == 18
+    assert gpec.TORQUE_METHODS["fgar"].startswith("Full general-aspect-ratio")
+    assert gpec.TORQUE_METHODS["tgar"].startswith("Trapped particle general")
+    assert gpec.TORQUE_METHODS["pgar"].startswith("Passing particle general")
+    assert set(gpec.TORQUE_GRIDS) == {"lsode", "equil", "input"}
 
 
 def test_the_registries_cannot_be_mutated():
     with pytest.raises(TypeError):
-        pentrc.TORQUE_METHODS["zzzz"] = "no"
+        gpec.TORQUE_METHODS["zzzz"] = "no"
     with pytest.raises(TypeError):
-        pentrc.TORQUE_GRIDS["zzzz"] = "no"
+        gpec.TORQUE_GRIDS["zzzz"] = "no"
 
 
 def test_the_two_calculations_sit_on_different_grids(run_n3):
@@ -140,9 +140,9 @@ def test_a_passing_only_run_reports_what_it_has(tmp_path):
     path = write_pentrc_output(
         tmp_path / "pgar.nc", n_tor=1, calculations={("pgar", "lsode"): 11}
     )
-    with pentrc.read_pentrc_output(path) as run:
+    with gpec.read_pentrc_output(path) as run:
         assert run.available() == (("pgar", "lsode"),)
-        assert pentrc.torque_profile(run, "pgar")[0].size == 11
+        assert gpec.torque_profile(run, "pgar")[0].size == 11
 
 
 def test_a_method_on_a_grid_the_run_did_not_use_says_which_it_did(tmp_path):
@@ -150,12 +150,12 @@ def test_a_method_on_a_grid_the_run_did_not_use_says_which_it_did(tmp_path):
     path = write_pentrc_output(
         tmp_path / "equil.nc", n_tor=1, calculations={("fgar", "equil"): 7}
     )
-    with pentrc.read_pentrc_output(path) as run:
+    with gpec.read_pentrc_output(path) as run:
         assert run.available() == (("fgar", "equil"),)
-        assert pentrc.torque_profile(run, "fgar", "equil")[0].size == 7
+        assert gpec.torque_profile(run, "fgar", "equil")[0].size == 7
 
         with pytest.raises(PentrcFormatError) as excinfo:
-            pentrc.torque_profile(run, "fgar", "lsode")
+            gpec.torque_profile(run, "fgar", "lsode")
         message = str(excinfo.value)
         assert "computed 'fgar' on ['equil']" in message
         assert "did not compute" not in message
@@ -165,9 +165,9 @@ def test_a_method_absent_from_every_grid_says_so(tmp_path):
     path = write_pentrc_output(
         tmp_path / "one.nc", n_tor=1, calculations={("fgar", "lsode"): 7}
     )
-    with pentrc.read_pentrc_output(path) as run:
+    with gpec.read_pentrc_output(path) as run:
         with pytest.raises(PentrcFormatError) as excinfo:
-            pentrc.torque_profile(run, "clar")
+            gpec.torque_profile(run, "clar")
         assert "did not compute 'clar' on any grid" in str(excinfo.value)
 
 
@@ -176,7 +176,7 @@ def test_one_method_on_two_grids_is_reported_as_two_calculations(tmp_path):
         tmp_path / "both.nc", n_tor=1,
         calculations={("fgar", "lsode"): 13, ("fgar", "equil"): 7},
     )
-    with pentrc.read_pentrc_output(path) as run:
+    with gpec.read_pentrc_output(path) as run:
         assert run.available() == (("fgar", "equil"), ("fgar", "lsode"))
         assert run.psi_norm("fgar", "equil").size == 7
         assert run.psi_norm("fgar", "lsode").size == 13
@@ -185,13 +185,13 @@ def test_one_method_on_two_grids_is_reported_as_two_calculations(tmp_path):
 @pytest.mark.parametrize("bad", ["whichever", "FGAR", ""])
 def test_an_unknown_method_is_refused(run_n3, bad):
     with pytest.raises(PentrcFormatError) as excinfo:
-        pentrc.torque_profile(run_n3, bad)
+        gpec.torque_profile(run_n3, bad)
     assert "methods" in str(excinfo.value)
 
 
 def test_an_unknown_grid_is_refused(run_n3):
     with pytest.raises(PentrcFormatError) as excinfo:
-        pentrc.torque_profile(run_n3, "fgar", "whatever")
+        gpec.torque_profile(run_n3, "fgar", "whatever")
     assert "lsode" in str(excinfo.value)
 
 
@@ -208,14 +208,14 @@ def test_the_harmonics_come_back_unsummed_and_are_integers(run_n3):
     assert np.issubdtype(ell.dtype, np.integer)
     assert list(ell) == list(ELL)
 
-    _, torque = pentrc.torque_profile(run_n3, "fgar")
+    _, torque = gpec.torque_profile(run_n3, "fgar")
     assert torque == pytest.approx(np.real(unsummed.sum(axis=1)))
     assert not np.allclose(np.real(unsummed[:, 0]), torque)
 
 
 def test_the_docstring_distinguishes_ell_from_leff():
     """ell is the integer bounce harmonic; leff = ell - sigma n q is not here."""
-    from vaft.code.pentrc import outputs
+    from vaft.code.gpec import _pentrc_output as outputs
 
     # Collapsed, so the assertions survive line wrapping.
     prose = " ".join(outputs.__doc__.split())
@@ -225,7 +225,7 @@ def test_the_docstring_distinguishes_ell_from_leff():
 
 
 def test_every_torque_quantity_is_readable(run_n3):
-    for quantity in pentrc.TORQUE_QUANTITIES:
+    for quantity in gpec.TORQUE_QUANTITIES:
         values = run_n3.complex_quantity(quantity, "fgar")
         assert values.shape == (run_n3.psi_norm("fgar").size, ELL.size)
 
@@ -239,7 +239,7 @@ def test_every_torque_quantity_is_readable(run_n3):
 def test_profiles_come_back_in_pentrcs_own_units(run_n3):
     """This layer converts nothing; T_e is in eV because PENTRC says so."""
     assert run_n3.profile("T_e").shape == run_n3.profile_psi_norm().shape
-    assert "eV" in pentrc.PROFILE_VARIABLES["T_e"]
+    assert "eV" in gpec.PROFILE_VARIABLES["T_e"]
 
 
 def test_profile_refuses_a_variable_that_is_not_on_the_profile_grid(run_n3):
@@ -261,7 +261,7 @@ def test_profile_names_what_the_run_actually_wrote(run_n3):
 
 def test_a_closed_output_says_so(tmp_path):
     path = write_pentrc_output(tmp_path / "x.nc")
-    output = pentrc.read_pentrc_output(path)
+    output = gpec.read_pentrc_output(path)
     output.close()
     with pytest.raises(PentrcFormatError):
         output.available()
@@ -270,7 +270,7 @@ def test_a_closed_output_says_so(tmp_path):
 
 def test_the_torque_accumulates_radially(run_n3):
     """It is an integrated torque, so the edge value is not a point value."""
-    _, torque = pentrc.torque_profile(run_n3, "fgar")
+    _, torque = gpec.torque_profile(run_n3, "fgar")
     assert torque.size > 1
     assert torque[0] != pytest.approx(torque[-1])
 
@@ -280,7 +280,7 @@ def test_the_reducers_stay_inside_the_submodule():
 
     Unqualified they would be ambiguous -- ``vaft.code.transp`` also produces
     a torque profile, from an entirely different quantity -- so they are
-    reached as ``pentrc.torque_profile``. The container and the reader, whose
+    reached as ``gpec.torque_profile``. The container and the reader, whose
     names say PENTRC, are exported.
     """
     import vaft.code as code
@@ -289,4 +289,47 @@ def test_the_reducers_stay_inside_the_submodule():
     assert "read_pentrc_output" in code.__all__
     assert "torque_profile" not in code.__all__
     assert "energy_profile" not in code.__all__
-    assert code.pentrc.torque_profile is pentrc.torque_profile
+    assert code.gpec.torque_profile is gpec.torque_profile
+
+
+# -------------------------------------------------------------- ownership (#1883)
+
+_READER_NAMES = (
+    "PROFILE_VARIABLES", "TORQUE_GRIDS", "TORQUE_LONG_NAME", "TORQUE_METHODS", "TORQUE_QUANTITIES",
+    "PentrcFormatError", "PentrcOutput", "energy_profile", "read_pentrc_output", "torque_profile",
+)
+
+
+def test_one_reader_implementation_behind_every_import_path():
+    """vaft.code.pentrc and .outputs re-export the gpec objects; nothing is copied."""
+    import vaft.code
+    from vaft.code import pentrc
+    from vaft.code.gpec import _pentrc_output as canonical
+    from vaft.code.pentrc import outputs as legacy
+
+    for name in _READER_NAMES:
+        obj = getattr(canonical, name)
+        assert getattr(gpec, name) is obj, name
+        assert getattr(pentrc, name) is obj, name
+        assert getattr(legacy, name) is obj, name
+        assert name in gpec.__all__ and name in pentrc.__all__ and name in legacy.__all__, name
+    for name in ("PentrcOutput", "PentrcFormatError", "read_pentrc_output"):
+        assert getattr(vaft.code, name) is getattr(canonical, name), name
+    assert canonical.PentrcOutput.__module__ == "vaft.code.gpec._pentrc_output"
+
+
+def test_the_code_root_gains_no_unqualified_reducer():
+    """torque_profile/energy_profile stay GPEC-qualified (#1883)."""
+    import vaft.code
+
+    for name in ("torque_profile", "energy_profile"):
+        assert name not in vaft.code.__all__
+        assert not hasattr(vaft.code, name)
+
+
+def test_pentrc_options_validates_against_the_canonical_registry():
+    species = {"main_ion": "deuterium", "impurity": "carbon", "collision_operator": "harmonic"}
+    with pytest.raises(ValueError, match="vaft.code.gpec.TORQUE_METHODS"):
+        gpec.PENTRCOptions(methods=("not_a_method",), **species)
+    assert gpec.PENTRCOptions(methods=tuple(gpec.TORQUE_METHODS), **species).methods
+

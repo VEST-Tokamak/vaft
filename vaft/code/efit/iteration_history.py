@@ -65,6 +65,7 @@ __all__ = [
     "read_iteration_history",
     "plot_iteration_convergence",
     "compare_iteration_histories",
+    "printed_ms",
 ]
 
 ITERATION_HISTORY_SCHEMA = "vaft.efit.iteration_history"
@@ -430,13 +431,15 @@ def _provenance_from(configuration: Mapping[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _printed_ms(time: float) -> int:
+def printed_ms(time: float) -> int:
     """The millisecond EFIT prints for a slice at ``time`` seconds.
 
     ``data_input.F90`` truncates (``itime=time``), except that a remainder of
-    0.99 ms or more moves both ``itime`` and the stored time up to the next
+    0.999 ms or more moves both ``itime`` and the stored time up to the next
     whole millisecond -- so the m-file's time and the log agree on the floor.
-    The small offset absorbs the single-precision time in the m-file.
+    The 1 us offset absorbs the single-precision time in the m-file. This is
+    the one definition of the rule; the workflow scripts that pair log blocks
+    with k-files use it too.
     """
     return int(math.floor(time * 1000.0 + 1.0e-3))
 
@@ -522,7 +525,7 @@ def parse_iteration_history(
             for candidate in entries
             if candidate["record"] is not None
             and id(candidate) not in claimed
-            and candidate["record"]["time_ms"] == _printed_ms(time)
+            and candidate["record"]["time_ms"] == printed_ms(time)
         ]
 
     for exact in (True, False):

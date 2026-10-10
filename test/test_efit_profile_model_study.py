@@ -784,3 +784,20 @@ def test_the_per_shot_checkpoint_can_be_written_into_a_directory_that_does_not_e
     assert code == 0
     assert "39915" in json.loads(table.read_text(encoding="utf-8"))["shots"]
     assert report.read_text(encoding="utf-8") == "report"
+
+
+def test_a_tstep_below_the_millisecond_keys_is_refused(study, capsys):
+    """Cold review 0.7.0 efit-workflows F9 (#1888).
+
+    Slices are keyed by whole millisecond, so 0.4 ms over 300-302 ms gives
+    six requests and three keys. The study refuses the step instead of
+    pairing slices with the wrong outputs.
+    """
+    with pytest.raises(SystemExit) as exc:
+        study.main(["--tstep", "0.0004"])
+    assert exc.value.code == 2
+    assert "whole millisecond" in capsys.readouterr().err
+    with pytest.raises(SystemExit):
+        study.main(["--tstep", "0.0015"])  # PR #1920 review F1: between the keys
+    assert "whole number of milliseconds" in capsys.readouterr().err
+    assert study.whole_millisecond_tstep("0.002") == 0.002

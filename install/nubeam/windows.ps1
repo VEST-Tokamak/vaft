@@ -124,8 +124,10 @@ $CodeName = 'nubeam'
 $HomeVariable = 'NUBEAMHOME'
 $Title = 'NUBEAM (Windows native)'
 
-# What a NUBEAM case drives, in the order it uses them.
-$Executables = @('nubeam_comp_exec')
+# What a NUBEAM case drives, in the order it uses them: the same three names
+# install\check_nubeam.py verifies, so the wrapper and the checker agree on
+# what a complete installation is. windows.sh builds all three.
+$Executables = @('vaft_plasma_state', 'nubeam_comp_exec', 'update_state')
 
 # The directories windows.sh creates unconditionally, relative to the source
 # tree. It refuses to start when either exists without its manifest, so with a
@@ -299,6 +301,14 @@ $revision = Get-SourceRevision -SourcePath $source
 Write-RevisionResult -Project 'NUBEAM' -Revision $revision
 
 $prefix = Get-NubeamPrefix -Source $source
+# Make.local carries PREFIX = <root>/local unquoted and the NTCC makefiles pass
+# it to the shell unquoted too, so a path with whitespace in it breaks the
+# build deep inside a submodule rather than here. The default Windows location
+# under %LOCALAPPDATA% inherits a space from a "First Last" user name, which
+# is why this is checked before anything is written.
+if (($source -match '\s') -or ($prefix -match '\s')) {
+    Stop-WithGuidance "The NUBEAM source path contains whitespace, which the generated Make.local cannot carry: $source. Move or junction the tree to a path without spaces."
+}
 $binDirectory = Join-Path $prefix 'bin'
 
 # ---------------------------------------------------------------------------
@@ -386,7 +396,9 @@ Write-Result -Status PASS -Name 'Executables' -Detail (($Executables | ForEach-O
 # ---------------------------------------------------------------------------
 
 Copy-RuntimeDependencies -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -BinDirectory $binDirectory
-Test-ExecutableLoads -Executables (@($Executables | ForEach-Object { Join-Path $binDirectory "$_.exe" }))
+if (-not (Test-ExecutableLoads -Executables (@($Executables | ForEach-Object { Join-Path $binDirectory "$_.exe" })))) {
+    Stop-WithGuidance 'The installed executables could not load their runtime libraries. See install\README.md.'
+}
 
 Write-InstallManifest -Prefix $prefix -Record @{
     code        = $CodeName
@@ -410,3 +422,11 @@ Write-ExternalSummary -Title $Title -NextSteps @(
     'The reference-case harness (install/nubeam/run-local-validation.sh) supports Linux and macOS only.',
     'NUBEAM profiles map to the core_sources and distributions IDS; birth and lost-particle markers stay in the native container (issue #490).'
 )
+
+if ($script:Failed) { exit 1 }
+
+Write-Host ''
+Write-Step 'Verifying the installation ...'
+Write-Host ''
+Invoke-InVaft @('python', (Join-Path $RepositoryRoot 'install\check_nubeam.py'), '--source', $source, '--prefix', $prefix)
+exit $LASTEXITCODE

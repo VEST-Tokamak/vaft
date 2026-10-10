@@ -187,7 +187,7 @@ def test_every_redirect_page_is_declared_as_a_migration():
 # --- prose that restates the code ---------------------------------------------
 
 NUMBER_WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-                "eleven", "twelve"]
+                "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen"]
 
 
 def test_the_installation_page_counts_the_extras_it_tabulates():

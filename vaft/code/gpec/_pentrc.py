@@ -1,7 +1,7 @@
 """Running PENTRC in a completed ideal-GPEC cell.
 
 PENTRC is the GPEC suite's neoclassical toroidal viscous torque calculation.
-:mod:`vaft.code.pentrc` reads what it produced; this is what produces it.
+:func:`read_pentrc_output` (:mod:`._pentrc_output`) reads what it produced; this is what produces it.
 
 **Where it runs, and why not as a fifth suite module.**  PENTRC needs three
 inputs at once: DCON's ``euler.bin``, the ``gpec_xclebsch_n<n>.out`` displacement
@@ -26,13 +26,12 @@ only while ``equil.in`` says ``jac_type='hamada'`` *and* ``gpec.in`` leaves
 
 Typical use, after :func:`~vaft.code.gpec.run_gpec_suite_case` has completed::
 
-    from vaft.code.gpec import PENTRCOptions, run_pentrc
-    from vaft.code import pentrc
+    from vaft.code import gpec
 
-    record = run_pentrc(
+    record = gpec.run_pentrc(
         gpec_cell,
         mode=1,
-        options=PENTRCOptions(
+        options=gpec.PENTRCOptions(
             methods=("fgar", "tgar"),
             main_ion="deuterium",
             impurity="carbon",
@@ -41,8 +40,8 @@ Typical use, after :func:`~vaft.code.gpec.run_gpec_suite_case` has completed::
         kinetic_file="profiles.kin",
         config=config,
     )
-    with pentrc.read_pentrc_output(record.outputs[0]) as run:
-        psi_norm, torque = pentrc.torque_profile(run, "fgar")
+    with gpec.read_pentrc_output(record.outputs[0]) as run:
+        psi_norm, torque = gpec.torque_profile(run, "fgar")
 """
 
 from __future__ import annotations
@@ -234,7 +233,7 @@ def _method_flags(selected: set[str]) -> tuple[dict[str, bool], dict[str, bool]]
     18, and a template is entitled to leave the others out (cold review 0.8.0
     delta-squash F2).
     """
-    from ..pentrc import TORQUE_METHODS
+    from ._pentrc_output import TORQUE_METHODS
 
     required: dict[str, bool] = {}
     optional: dict[str, bool] = {}

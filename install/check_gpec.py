@@ -304,6 +304,15 @@ def check_gpec_run(
             first_error_line(text) or f"GPEC exited {returncode}",
             f"The full run is in {workdir}.",
         )
+    if not outputs:
+        # GPEC's own exit status says nothing about its products: a run that
+        # finds no DCON hand-off, or no gpec.in, exits 0 having written nothing.
+        return CheckResult(
+            label,
+            FAIL,
+            "GPEC exited 0 but wrote no gpec_*.nc",
+            f"The run is in {workdir}; check its log for what GPEC could not read.",
+        )
     return CheckResult(label, PASS, f"produced {len(outputs)} output file(s)")
 
 
@@ -312,10 +321,12 @@ def check_netcdf_outputs(workdir: Optional[Path]) -> CheckResult:
     label = "GPEC netCDF outputs"
     if workdir is None:
         return CheckResult(label, SKIP, "no run")
-    outputs = sorted(workdir.glob("*.nc"))
+    # GPEC's products only: DCON writes its own dcon_*.nc into the same
+    # directory, which would satisfy a bare *.nc on a run where GPEC wrote nothing.
+    outputs = sorted(workdir.glob("gpec_*.nc"))
     if not outputs:
         return CheckResult(
-            label, FAIL, "no netCDF file was produced", "Check the run log for solver diagnostics."
+            label, FAIL, "no gpec_*.nc was produced", "Check the run log for solver diagnostics."
         )
     try:
         import netCDF4

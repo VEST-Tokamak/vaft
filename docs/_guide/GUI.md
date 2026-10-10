@@ -39,13 +39,14 @@ vaft gui --sample 39915 41524     # two samples, compared on each plot
 vaft gui --file equilibrium.json
 vaft gui --shot 39915 41524       # database shots (needs HSDS read access)
 vaft gui --plot equilibrium_field_psi --port 5010
-vaft gui --workspace diagnostics  # start in another workspace (plots, diagnostics, database)
+vaft gui --workspace diagnostics  # start in another workspace (plots, diagnostics, equilibrium, database)
 ```
 
 The page is an application shell. The sidebar starts with the **workspaces**:
 
 - **Plots:** the plot explorer described below.
 - **Diagnostics:** the same explorer narrowed to one diagnostic.
+- **Equilibrium:** equilibrium plots by mode with one shared time slice, and validation verdicts.
 - **Database:** the database sources, the connection, and opening database shots.
 
 A strip above the main area shows the shared selection, which every workspace reads: what is open, the time on
@@ -112,6 +113,24 @@ The **Diagnostics** workspace shows processed diagnostics by diagnostic, not by 
 - **Not yet available.** Raw-versus-processed comparison and raw field inspection need an API
   that names each diagnostic's raw DAQ fields; they come when that API lands.
 
+The **Equilibrium** workspace inspects reconstructed equilibria, after Tutorial 03:
+
+- **One time slice.** Pick a slice on any plot that has one. Every other equilibrium plot you
+  open shows the same slice, and the status strip names it.
+- **Modes.**
+  - **Inspect:** the 2-D state (flux map, boundary) and 1-D profiles.
+  - **Constraints & fit:** constraints, their coverage and weights, residuals and convergence.
+  - **Time evolution:** global quantities across the discharge.
+  - **Quality:** fit-quality plots and table.
+
+  The plots come from plot discovery. A plot no mode claims is shown under Inspect.
+- **Validation verdicts.** In Quality, **Check this slice** (or **Check all slices**) runs
+  `vaft.validation.equilibrium.validate_equilibrium` on each open shot. It shows the verdict of
+  every check (verification, diagnostic fit, physical validity, independent validation) with its
+  reason, exactly as the validation layer states it.
+- **Several shots** compare on each plot as in **Plots**. Nothing in this workspace edits or
+  reruns a reconstruction.
+
 The **Database** workspace contains:
 
 - **Namespaces.** A table of the namespaces a shot can be read from: what each holds, whether
@@ -148,6 +167,25 @@ register_workspace("equilibrium", "Equilibrium", EquilibriumWorkspace, order=30)
 A workspace is built the first time it is shown. It reads and changes the shared selection
 through `shell.selection` (a `vaft.gui.SelectionState`), and draws through the public VAFT APIs
 like every other workspace.
+
+## Phones and tablets
+
+The GUI is one web page for every screen. There is no separate mobile app, and nothing else to
+install.
+
+- **Desktop:** the controls stay in a sidebar beside the figure.
+- **Tablet** (narrower than 1100 px): the sidebar narrows to 300 px so the figure keeps room.
+- **Phone** (narrower than 768 px, or under 500 px tall and 950 px wide: a phone held sideways, or a very small desktop window):
+  - The controls become a drawer over the page, and the page opens with the drawer closed, so
+    the figure and the status line are the first thing you see.
+  - The ☰ button in the header opens the drawer to change the workspace, source, plot or
+    figure options; press it again to see the figure.
+  - Wide tables, such as the database namespaces, scroll sideways inside their own box instead
+    of widening the page.
+
+Every control is reachable at every width; nothing is hidden on small screens. The rules live
+in `vaft.gui.layout`, and a new workspace gets them by using `vaft.gui.layout.page`, as the
+shell does.
 
 ## Run on a remote host over SSH
 

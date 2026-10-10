@@ -72,6 +72,10 @@ def parse_shots(text: str) -> list[int]:
         raise ValueError(f"shots must be whole numbers separated by commas or spaces; got {text!r}") from None
 
 
+#: The page branding every ``vaft gui`` page carries.
+BRANDING = {"logo": LOGO_DATA_URI, "favicon": FAVICON_URL, "header_background": "#0b1a2e"}
+
+
 class BrowserApp:
     """Source picker, plot selector, controls, figure settings and the figure."""
 
@@ -879,11 +883,9 @@ class BrowserApp:
 
     def view(self) -> Any:
         """The page served by ``vaft gui``."""
-        pn = require_panel()
-        return pn.template.FastListTemplate(
-            title="VAFT", sidebar=self.sidebar(), main=self.main(), sidebar_width=360,
-            logo=LOGO_DATA_URI, favicon=FAVICON_URL, header_background="#0b1a2e",
-        )
+        from .layout import page
+
+        return page(self.sidebar(), self.main(), **BRANDING)
 
     def close(self) -> None:
         self.session.close()

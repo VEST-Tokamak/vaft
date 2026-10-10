@@ -21,7 +21,9 @@ from matplotlib.lines import Line2D
 from ..models import LineSeries
 from ..registry import renderer
 from ..presentation import presented
-from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
+from ..style import (
+    apply_legend, axis_label, draw_series, finalize, resolve_axes, resolve_legend_placement, trace_labels,
+)
 
 _DEFAULT_FIGSIZE = (6.0, 2.5)
 
@@ -50,7 +52,7 @@ def render_line_series(
     ``legend_placement`` sets where and how a drawn legend sits (see
     :func:`~vaft.plot.style.apply_legend`); its ``fontsize_scale`` key is a
     fraction of the format's base type size, never below
-    :data:`_LEGEND_MIN_PT`, resolved here, inside the format, so it follows
+    :data:`vaft.plot.style.LEGEND_MIN_PT`, resolved here, inside the format, so it follows
     whatever size the figure is drawn at.
     """
     if not isinstance(model, LineSeries):
@@ -109,23 +111,8 @@ def render_line_series(
         axes.grid(True, alpha=0.3)
     if secondary_axes is not None and not model.log_y:
         _align_zero(axes, secondary_axes)
-    apply_legend(axes, legend=legend, title=legend_title, placement=_placement(legend_placement))
+    apply_legend(axes, legend=legend, title=legend_title, placement=resolve_legend_placement(legend_placement))
     return finalize(figure, axes, show=show, tight_layout=ax is None)
-
-
-#: Smallest legend type a ``fontsize_scale`` placement resolves to, in points.
-_LEGEND_MIN_PT = 7.0
-
-
-def _placement(placement: Mapping[str, Any] | None) -> dict[str, Any] | None:
-    """``placement`` with a ``fontsize_scale`` turned into a size in points."""
-    if not placement:
-        return None
-    resolved = dict(placement)
-    scale = resolved.pop("fontsize_scale", None)
-    if scale is not None:
-        resolved["fontsize"] = max(_LEGEND_MIN_PT, float(scale) * float(plt.rcParams["font.size"]))
-    return resolved
 
 
 def _align_zero(primary: Axes, secondary: Axes) -> None:

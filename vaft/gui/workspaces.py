@@ -6,6 +6,8 @@
   workspace selects.
 * **Diagnostics** -- the explorer narrowed to one diagnostic chosen from the
   diagnostic registry (:mod:`vaft.gui.diagnostics`, #1348).
+* **Equilibrium** -- equilibrium plots by mode with one shared time slice,
+  and the validation verdicts (:mod:`vaft.gui.equilibrium`, #1352).
 * **Database** -- the database sources a shot can be read from, the HSDS
   credential configuration h5pyd will use (never its secrets), a connection
   check, and opening database shots in the plot explorer.
@@ -21,6 +23,7 @@ import os
 from typing import Any
 
 from ._require import require_panel
+from .layout import scrolling_markdown
 from .shell import WORKSPACES, Shell, WorkspaceSpec
 from .state import Source
 
@@ -143,8 +146,8 @@ class DatabaseWorkspace:
         self.open_button = pn.widgets.Button(label="Open in Plots", color="primary")
         self.check_button = pn.widgets.Button(label="Test connection")
         self.connection = pn.pane.Markdown("")
-        self.credentials = pn.pane.Markdown("", sizing_mode="stretch_width")
-        self.table = pn.pane.Markdown(self._source_table(), sizing_mode="stretch_width")
+        self.credentials = scrolling_markdown("")
+        self.table = scrolling_markdown(self._source_table())
         self.detail = pn.pane.Markdown("", sizing_mode="stretch_width")
         self.namespace.param.watch(self._on_namespace, "value")
         self.open_button.on_click(lambda _event: self.open_shots())
@@ -260,6 +263,12 @@ def _diagnostics(shell: Shell) -> Any:
     return DiagnosticsWorkspace(shell)
 
 
+def _equilibrium(shell: Shell) -> Any:
+    from .equilibrium import EquilibriumWorkspace  # it builds on this module
+
+    return EquilibriumWorkspace(shell)
+
+
 def _register() -> None:
     for spec in (
         WorkspaceSpec(
@@ -270,6 +279,11 @@ def _register() -> None:
             "diagnostics", "Diagnostics", _diagnostics,
             "Processed diagnostics by diagnostic, from the diagnostic registry; several shots compare on each plot.",
             order=15,
+        ),
+        WorkspaceSpec(
+            "equilibrium", "Equilibrium", _equilibrium,
+            "Equilibrium time slices: 2-D and 1-D state, constraints and fit, time evolution, validation verdicts.",
+            order=16,
         ),
         WorkspaceSpec(
             "database", "Database", DatabaseWorkspace,

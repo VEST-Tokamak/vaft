@@ -111,6 +111,28 @@ def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[s
     return labels, title
 
 
+#: Smallest legend type a ``fontsize_scale`` placement resolves to, in points.
+LEGEND_MIN_PT = 7.0
+
+
+def resolve_legend_placement(placement: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """A ``legend_placement`` mapping as :func:`apply_legend` keywords.
+
+    ``fontsize_scale`` becomes a size in points -- that fraction of the base
+    type size in force (the presentation format's, when a renderer draws
+    inside one), never below :data:`LEGEND_MIN_PT`; every other key is passed
+    on as given.  ``None`` or empty gives ``None``: the policy's defaults.
+    One implementation for every renderer that takes ``legend_placement=``.
+    """
+    if not placement:
+        return None
+    resolved = dict(placement)
+    scale = resolved.pop("fontsize_scale", None)
+    if scale is not None:
+        resolved["fontsize"] = max(LEGEND_MIN_PT, float(scale) * float(plt.rcParams["font.size"]))
+    return resolved
+
+
 def apply_legend(
     axes: Any,
     *,
@@ -444,6 +466,34 @@ def save_figure(
     if close:
         plt.close(figure)
     return path
+
+
+def save_rendered(result: Any, path: Any, *, figure_options: Any = None) -> Any:
+    """Write whatever a canonical plot rendered to ``path``; returns the path written.
+
+    A renderer returns ``(Figure, Axes)``, an image-sequence view ``(Figure,
+    Axes, FuncAnimation)``, ``animation=True`` an :class:`vaft.plot.Animation`
+    and ``interactive=True`` an :class:`~vaft.plot.renderers.interactive.
+    Interactive`.  A tuple's first item is the figure and is saved through
+    :func:`save_figure`; an animation is written by its own ``save`` (the
+    suffix picks the writer), taking ``figure_options``' ``dpi`` as the frame
+    dpi since it rasterises the frames itself; live controls are refused,
+    since no file can hold them.  Text views and Plotly figures are not
+    figures and are written by their callers.
+    """
+    if isinstance(result, tuple):
+        return save_figure(result[0], path, figure_options=figure_options)
+    if hasattr(result, "save"):
+        if figure_options is not None and hasattr(result, "dpi"):
+            from .figure_options import as_figure_options
+
+            dpi = as_figure_options(figure_options).dpi
+            if dpi is not None:
+                result.dpi = dpi
+        return result.save(path)
+    raise ValueError(
+        f"{type(result).__name__} draws live controls that no file can hold; drop the output path or interactive="
+    )
 
 
 #: How stored uncertainty is drawn.  ``auto`` picks a shaded band for a

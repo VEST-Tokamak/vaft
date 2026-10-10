@@ -456,3 +456,26 @@ def test_a_divided_leaf_is_compared_against_the_product():
     assert dd.normalise_units(f"{recipe.y_unit} {dd.resolve(recipe.divide_by_path).units}") == (
         dd.normalise_units(dd.resolve(canonical).units)
     )
+
+
+def test_a_nested_composite_keeps_the_leaf_member_and_records_the_chain(monkeypatch):
+    """The outer composite overwrote ``member`` with the inner one (cold review 0.7.0 plot F9)."""
+    import vaft.plot.registry as registry
+
+    inner = "summary_time_energy"
+    inner_recipe = R.RECIPES[inner]
+    assert isinstance(inner_recipe, R.PanelRecipe)
+    real_get_spec = registry.get_spec
+    monkeypatch.setitem(R.RECIPES, "__outer__", R.PanelRecipe(members=(inner,)))
+    monkeypatch.setattr(
+        registry, "get_spec", lambda name: real_get_spec(inner) if name == "__outer__" else real_get_spec(name)
+    )
+    paths = dd.dd_paths("__outer__")
+    assert paths
+    leaves = set(inner_recipe.members)
+    for path in paths:
+        assert path.attrs["member"] in leaves, path.canonical
+        assert path.attrs["via"] == (inner,), path.canonical
+        if "members" in path.attrs:
+            assert path.attrs["member"] in path.attrs["members"]
+    assert {p.canonical for p in paths} == {p.canonical for p in dd.dd_paths(inner)}
