@@ -61,3 +61,21 @@ Every run is resumable: a `record.json` whose input hash matches and whose statu
 `linear_summary.csv`, `convergence.csv`, `schema.json`, and `runs/` with each native
 CGYRO directory (`input.cgyro`, `input.cgyro.gen`, `out.cgyro.*`, `bin.cgyro.*`), its
 `record.json`, `cgyro_outputs.json` and `gyrokinetics_local.json` (DD 3.41).
+
+## Nonlinear runs
+
+`run_nonlinear.py` runs one state and surface. Two things about it are not obvious:
+
+- **The default field model is EM (`em-aperp`).** An electrostatic run with kinetic electrons carries a spurious high-frequency branch at low `k_y` (the ω_H mode, |ω| ~ 200 c_s/a). Finer θ resolution makes it worse, and finite β removes it. On 39915 r/a 0.7 it drove the whole ES run (#1484). An ES run with `n=1` at `k_y <= 0.2` is therefore refused unless you pass `--allow-es-low-ky`.
+- **`--amp` sets CGYRO's `AMP`**, the seed amplitude of the `n>0` modes (CGYRO default 0.1). A 10x larger seed only saves about ln(10)/γ_max of linear growth.
+
+Long runs are chained allocations with `--restart`. **CGYRO counts `MAX_TIME` from the restart**, not from t = 0. A continuation therefore passes the *extra* span: a run at t = 250 continued with `--max-time 500` stops at t = 750. With Slurm, chain the jobs with `sbatch -d afterany:<previous>`. The restart file survives a job that hits its wall-time limit.
+
+`build_nonlinear.py` reports, for a window:
+- the window means of Q_tot, Q_i and Q_e;
+- a half-window drift test;
+- a **batch-means standard error** (`--blocks`, default 4);
+- the **zonal-fraction trace**;
+- the TGLF SAT0-3 reference and the locality QA on the same window.
+
+A bursty run, where turbulence and zonal flows trade energy, is not stationary on short windows. For such a run, quote the window mean ± its batch-means standard error, with blocks longer than the burst spacing. With `--blocks n` the standard error has only n - 1 degrees of freedom; the default 4 is a rough error bar, so quote more blocks when the run is long enough (39915 r/a 0.7: 9 blocks of 100 a/c_s). Do not quote the window standard deviation; it mostly measures the bursts.
