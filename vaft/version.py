@@ -18,6 +18,10 @@ __all__ = ["__version__"]
 #   after it from shear, q_min, low-shear regions and q95; the context
 #   records the slice time; one interior maximum is single_maximum, not
 #   multi_extremum (#1838)
+# - vaft.process.magnetics rogowski_coil_ip / flux_loop_flux /
+#   b_field_pol_probe_field fit their two-sided baseline at the
+#   baseline_onset/offset seconds given, not the record's last 500 samples;
+#   routine VEST products use the era-table chain and are unaffected (#1888)
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the
