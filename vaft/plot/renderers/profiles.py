@@ -62,6 +62,9 @@ def render_profile_1d(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     legend: bool | None = None,
+    legend_loc: str = "best",
+    legend_ncols: int = 1,
+    legend_fontsize: Any = "small",
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
@@ -69,7 +72,12 @@ def render_profile_1d(
     theme: str | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Draw a :class:`Profile1D` into one axes."""
+    """Draw a :class:`Profile1D` into one axes.
+
+    ``legend_loc`` places the legend (:data:`vaft.plot.style.LEGEND_PLACEMENTS`;
+    ``"outside"`` beside the axes), ``legend_ncols`` sets its columns and
+    ``legend_fontsize`` its text size.
+    """
     if not isinstance(model, Profile1D):
         raise TypeError(
             f"expected a vaft.plot.models.Profile1D; got {type(model).__name__}. "
@@ -85,6 +93,15 @@ def render_profile_1d(
         draw_series(axes, series, uncertainty=uncertainty, validity=validity, **options)
 
     for line in model.reference_lines:
+        if line.x_end is not None:
+            # A shaded interval sits beneath the data it qualifies.
+            axes.axvspan(
+                line.x, line.x_end,
+                **resolve_style({"color": "emphasis:faint", "alpha": 0.25, "linewidth": 0, "zorder": 0,
+                                 **line.style}),
+                label=line.label or None,
+            )
+            continue
         axes.axvline(
             line.x,
             **resolve_style({"color": "emphasis:medium", "linestyle": ":", "linewidth": 1.0, **line.style}),
@@ -100,7 +117,8 @@ def render_profile_1d(
         axes.set_xlim(model.x_limits)
     if grid:
         axes.grid(True, alpha=0.3)
-    apply_legend(axes, legend=legend, title=legend_title)
+    apply_legend(axes, legend=legend, title=legend_title, loc=legend_loc, ncols=legend_ncols,
+                 fontsize=legend_fontsize)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 

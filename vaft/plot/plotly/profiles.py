@@ -23,8 +23,13 @@ def add_profile_1d(
     uncertainty: str = "auto",
     validity: str = "show",
     x_title: bool = True,
+    legend_loc: str | None = None,
+    legend_ncols: int | None = None,
+    legend_fontsize: Any = None,
     **style: Any,
 ) -> None:
+    # legend_loc/legend_ncols/legend_fontsize place a Matplotlib axes legend; Plotly keeps
+    # one figure legend, so they are accepted and have nothing to place.
     cell = {"row": row, "col": col} if row is not None else {}
     labels, legend_title = trace_labels(model.series, panel_title=model.title)
     labelled = judged = 0
@@ -37,6 +42,16 @@ def add_profile_1d(
                 judged += 1
     _apply_legend_policy(figure, judged, labelled, legend, legend_title, cell, start)
     for line in model.reference_lines:
+        if line.x_end is not None:
+            figure.add_vrect(
+                x0=line.x, x1=line.x_end,
+                fillcolor=color(line.style.get("color", "emphasis:faint")),
+                opacity=float(line.style.get("alpha", 0.25)), line_width=0, layer="below",
+                annotation_text=plain_text(line.label) if line.label else None,
+                annotation_position="top left",
+                **cell,
+            )
+            continue
         figure.add_vline(
             x=line.x,
             line={

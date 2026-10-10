@@ -265,16 +265,22 @@ class ReferenceLine(ViewModel):
 
     ``x`` is in the profile's coordinate; ``label`` joins the legend when set
     (an empty label draws the line unlabelled, for the second of a pair);
-    ``style`` overrides the renderer's dotted grey default.
+    ``style`` overrides the renderer's dotted grey default.  With ``x_end``
+    the marker is the shaded interval ``[x, x_end]`` instead of a line -- the
+    radial span a diagnostic measured, beyond which a fitted profile is
+    extrapolated (issue #1837).
     """
 
     x: float
     label: str = ""
     style: Mapping[str, Any] = field(default_factory=dict)
+    x_end: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "x", float(self.x))
         object.__setattr__(self, "style", dict(self.style))
+        if self.x_end is not None:
+            object.__setattr__(self, "x_end", float(self.x_end))
 
 
 @dataclass(frozen=True)

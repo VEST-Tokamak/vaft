@@ -780,8 +780,17 @@
       "status": "rendered"
     },
     "kinetic_overview_profiles": {
-      "status": "no_sample",
-      "reason": "cross-shot repository fixture is intentionally not assigned a packaged sample shot"
+      "reason": "cross-shot repository fixture is intentionally not assigned a packaged sample shot",
+      "status": "no_sample"
+    },
+    "kinetic_overview_state": {
+      "call": "vaft.omas.plot_kinetic_overview_state(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "60b965f71e700ef68a75c9a9fab12b55c8d5ac6597eb60427ce97ec6cde3310c",
+      "png_sha256": "4fa72834197f4c9c5e096f93bc1debcdb31fe6bf5c949708cdc249ee5eddf6f3",
+      "renderer_sha256": "6624cc02c4e8a1d9ea493d3d355ddd10a30ff0c166dde2be34397c6186381fd4",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
     },
     "limiter_current_time": {
       "call": "vaft.omas.plot_limiter_current_time(vaft.omas.load(vaft.data.sample(39915)))",

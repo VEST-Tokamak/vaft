@@ -111,18 +111,41 @@ def trace_labels(series_list, *, panel_title: str | None = None) -> tuple[list[s
     return labels, title
 
 
+#: Where a policy legend may be placed: Matplotlib's in-axes locations, and
+#: ``outside`` -- beside the axes on the right, clear of the data, which a
+#: stack of short panels needs (issue #1837).
+LEGEND_PLACEMENTS = (
+    "best", "upper right", "upper left", "lower left", "lower right", "right",
+    "center left", "center right", "lower center", "upper center", "center", "outside",
+)
+
+
+def _legend_placement(loc: str, ncols: int) -> dict[str, Any]:
+    if loc not in LEGEND_PLACEMENTS:
+        raise ValueError(f"legend_loc must be one of {', '.join(LEGEND_PLACEMENTS)}; got {loc!r}")
+    placement: dict[str, Any] = {"loc": loc, "ncols": max(1, int(ncols))}
+    if loc == "outside":
+        placement.update(loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0.0)
+    return placement
+
+
 def apply_legend(
     axes: Any,
     *,
     legend: bool | None,
     title: str | None = None,
     lone_entry: bool = False,
+    loc: str = "best",
+    ncols: int = 1,
+    fontsize: Any = "small",
 ) -> None:
     """Draw, omit, or summarise the legend according to the display policy.
 
     ``legend=None`` applies the policy: nothing for a lone trace, a legend for
     up to :data:`LEGEND_MAX_ENTRIES`, and past that a corner note with the
-    trace count.  ``True`` forces a legend, ``False`` suppresses it.
+    trace count.  ``True`` forces a legend, ``False`` suppresses it.  ``loc``
+    (one of :data:`LEGEND_PLACEMENTS`) and ``ncols`` place a legend that is
+    drawn, and ``fontsize`` sizes its text.
 
     ``lone_entry`` keeps a legend for a single entry. A lone *trace* needs no
     key -- the title already names it -- but a lone labelled *layer* drawn
@@ -148,8 +171,9 @@ def apply_legend(
     count = len(handles)
     if legend is False or count == 0:
         return
+    placement = _legend_placement(loc, ncols)
     if legend is True:
-        axes.legend(loc="best", title=title, fontsize="small").set_gid(_POLICY_LEGEND_GID)
+        axes.legend(title=title, fontsize=fontsize, **placement).set_gid(_POLICY_LEGEND_GID)
         return
     if count <= 1 and not lone_entry:
         return
@@ -164,7 +188,7 @@ def apply_legend(
             ha="right", va="top", fontsize="small", alpha=0.7, gid=_COUNT_NOTE_GID,
         )
         return
-    axes.legend(loc="best", title=title, fontsize="small").set_gid(_POLICY_LEGEND_GID)
+    axes.legend(title=title, fontsize=fontsize, **placement).set_gid(_POLICY_LEGEND_GID)
 
 
 def resolve_axes(

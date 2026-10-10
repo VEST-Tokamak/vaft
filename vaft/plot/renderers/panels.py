@@ -45,6 +45,7 @@ __all__ = [
     "current_overview",
     "diagnostics_overview",
     "kinetic_overview_profiles",
+    "kinetic_overview_state",
     "equilibrium_overview",
     "equilibrium_overview_constraint_coverage",
     "equilibrium_overview_constraints",
@@ -871,6 +872,90 @@ def kinetic_overview_profiles(
     """Four cross-diagnostic kinetic profile panels."""
     style.setdefault("figsize", (14.0, 7.0))
     return render_panels(model, ax=ax, show=show, **style)
+
+
+@_panel_renderer(
+    domain="core_profiles", subject="kinetic", view="overview", quantity="state",
+    description=(
+        "One matched kinetic state in four panels -- pressure, density, temperature and Z_eff "
+        "against rho_tor_norm -- from stored core_profiles, the equilibrium of the same time and "
+        "the Thomson channels mapped through it, each trace labelled by its evidence role."
+    ),
+    ids=("core_profiles", "equilibrium", "thomson_scattering"),
+    required_paths=(
+        "core_profiles.profiles_1d.{i}.grid.rho_tor_norm",
+        "core_profiles.profiles_1d.{i}.electrons.temperature",
+        "equilibrium.time_slice.{i}.profiles_1d.pressure",
+    ),
+    optional_paths=(
+        "core_profiles.profiles_1d.{i}.t_i_average",
+        "core_profiles.profiles_1d.{i}.pressure_ion_total",
+        "core_profiles.profiles_1d.{i}.ion.{j}.density",
+        "core_profiles.profiles_1d.{i}.zeff",
+        "core_profiles.code.parameters",
+        "thomson_scattering.channel.{i}.n_e.data",
+        "thomson_scattering.channel.{i}.t_e.data",
+    ),
+)
+def kinetic_overview_state(
+    model: Panels, *, ax: Any = None, show: bool = False, **style: Any
+) -> tuple[Figure, np.ndarray]:
+    """One matched kinetic state: pressure, density, temperature and Z_eff panels (issue #1837).
+
+    Interpretation
+    --------------
+    The four views of a single selected kinetic state, on one radial
+    coordinate.  Pressure compares the equilibrium pressure with the electron
+    and ion pressures stored in core_profiles and their sum; density shows the
+    electron, main-ion and charged impurity-ion densities; temperature the
+    electron and ion temperatures; the last panel the effective charge with
+    its stored resistive value or the composition target as a reference.
+    Thomson channels are mapped from their own (R, Z) through the selected
+    equilibrium and drawn with their 1 sigma errors, and the radial span they
+    cover is shaded: outside it every profile is extrapolated.  Each legend
+    entry names the role the producing stage recorded for that quantity --
+    measured, fit, fit input, assumed, inferred, closure identity,
+    independent validation or invalid -- so a closure that holds by
+    construction (p_e + p_i = p_eq when T_i was inferred from p_eq) is never
+    read as agreement, and Thomson points that were fitted are never read as
+    independent confirmation of their own fit.
+
+    Options
+    -------
+    ``time=`` picks the core_profiles slice nearest that time and the
+    equilibrium slice nearest the core slice; they must lie within one
+    equilibrium time step of each other, or the view refuses.  The Thomson
+    sample nearest the core slice is used.  ``equilibrium_occurrence=`` states
+    which equilibrium occurrence the input carries; it is refused when it
+    contradicts the occurrence the kinetic state records.  ``coordinate=``
+    draws against the stored toroidal-flux radius (refused when it is the
+    sqrt(psi_N) proxy, never relabelled) or the normalized poloidal flux.
+    ``layout=`` arranges the same four panels as a 2 x 2 grid or a 4 x 1
+    stack; ``format=`` and ``theme=`` size and style the figure.
+
+    Limitations
+    -----------
+    Nothing is computed beyond presentation: ion densities, T_i and Z_eff are
+    whatever the stage stored, with no uncertainty drawn for p_eq, T_i, the ion
+    densities or Z_eff because none is stored.  The Thomson pressure error
+    assumes independent n_e and T_e errors.  A quantity whose role the stage
+    did not record is labelled "stored" (a Thomson channel "measured"), not
+    guessed; the T_i points the record marks invalid are left empty.  The
+    equilibrium occurrence can only be checked against the record; an input
+    without one is taken as the caller states it.
+
+    See Also
+    --------
+    kinetic_overview_profiles : local Thomson/CX points and the core-profile fits.
+    core_profiles_profile_zeff : the stored Z_eff alone, labelled by its origin.
+    """
+    figure, axes = render_panels(model, ax=ax, show=show, **style)
+    if model.ncols > 1:
+        # The legends stand beside the panels, so a grid's axes are narrow:
+        # three ticks across the normalized radius keep their labels apart.
+        for axis in np.asarray(axes, dtype=object).ravel():
+            axis.locator_params(axis="x", nbins=3)
+    return figure, axes
 
 
 @_panel_renderer(
