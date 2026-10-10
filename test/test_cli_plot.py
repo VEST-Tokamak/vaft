@@ -246,3 +246,12 @@ def test_list_takes_one_shot(monkeypatch):
     with pytest.raises(SystemExit) as raised:
         plot_cli.main(["--list", "--shot", "1", "--shot", "2"])
     assert raised.value.code == 2
+
+
+@pytest.mark.parametrize("key", ["shot", "source", "lazy", "show", "name"])
+def test_an_option_the_command_itself_sets_is_refused_by_name(key, capsys):
+    """``--option shot=1`` used to surface as Python's "multiple values" error (cold review 0.7.0 plot F8)."""
+    with pytest.raises(SystemExit) as raised:
+        plot_cli.main(["plasma_current_time", "--shot", "39915", "--option", f"{key}=1"])
+    assert raised.value.code == 2
+    assert f"--option {key} is reserved" in capsys.readouterr().err

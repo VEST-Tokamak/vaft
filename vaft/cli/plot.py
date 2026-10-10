@@ -65,16 +65,29 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+#: Option keys the command sets itself, each with the flag that sets it.
+_RESERVED_OPTIONS = {
+    "name": "the positional plot name",
+    "shot": "--shot",
+    "source": "--source",
+    "lazy": "--no-lazy",
+    "show": "--out (its absence shows the figure)",
+}
+
+
 def _parse_option(text: str, parser: argparse.ArgumentParser) -> tuple[str, Any]:
     """``KEY=VALUE`` with a Python literal value where it parses, else a string."""
     key, separator, raw = text.partition("=")
     if not separator or not key.strip():
         parser.error(f"--option expects KEY=VALUE; got {text!r}")
+    key = key.strip()
+    if key in _RESERVED_OPTIONS:
+        parser.error(f"--option {key} is reserved; give it as {_RESERVED_OPTIONS[key]}")
     try:
         value = ast.literal_eval(raw)
     except (SyntaxError, ValueError):
         value = raw
-    return key.strip(), value
+    return key, value
 
 
 def _json_argument(text: str, flag: str, parser: argparse.ArgumentParser) -> Any:
