@@ -22,7 +22,8 @@ produced what. This one shows **what things mean**: plasma current, the diagnost
 it, the Data Dictionary path that represents it, the plots that draw it and the checks that assess
 it. The three never share edges, and an import or a pipeline dependency is never read as a
 scientific relation. How the three views relate is mapped on
-[Scientific architecture]({{ site.baseurl }}/reference/scientific-architecture/).
+[Scientific architecture]({{ site.baseurl }}/reference/scientific-architecture/); which research modes and
+physics domains its concepts serve is set out on [Research domains]({{ site.baseurl }}/reference/research-domains/).
 
 Nothing here is written by hand. Every node and edge comes from a registry that already owns the
 fact and says which (*From* in the detail panel):
