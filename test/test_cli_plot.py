@@ -297,3 +297,18 @@ def test_sample_out_refuses_an_interactive_figure_with_one_line(monkeypatch, tmp
     code = plot_cli.main(["plasma_current_time", "--sample", "39915", "--option", "interactive=True", "--out", str(target)])
     err = capsys.readouterr().err
     assert code == 1 and "interactive=" in err and "Traceback" not in err and not target.exists()
+
+
+def test_figure_options_dpi_reaches_an_animation(monkeypatch, tmp_path):
+    """``--figure-options '{"dpi": 72}'`` sets the frame dpi; it used to be dropped (review of #1924, R5)."""
+    from vaft.plot import save_rendered
+
+    class Movie(_FakeAnimation):
+        dpi = 150
+
+    movie = Movie()
+    save_rendered(movie, tmp_path / "m.gif", figure_options={"dpi": 72})
+    assert movie.dpi == 72 and movie.saved == tmp_path / "m.gif"
+    untouched = Movie()
+    save_rendered(untouched, tmp_path / "n.gif", figure_options={"transparent": True})
+    assert untouched.dpi == 150

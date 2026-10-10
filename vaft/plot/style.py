@@ -454,13 +454,20 @@ def save_rendered(result: Any, path: Any, *, figure_options: Any = None) -> Any:
     and ``interactive=True`` an :class:`~vaft.plot.renderers.interactive.
     Interactive`.  A tuple's first item is the figure and is saved through
     :func:`save_figure`; an animation is written by its own ``save`` (the
-    suffix picks the writer); live controls are refused,
+    suffix picks the writer), taking ``figure_options``' ``dpi`` as the frame
+    dpi since it rasterises the frames itself; live controls are refused,
     since no file can hold them.  Text views and Plotly figures are not
     figures and are written by their callers.
     """
     if isinstance(result, tuple):
         return save_figure(result[0], path, figure_options=figure_options)
     if hasattr(result, "save"):
+        if figure_options is not None and hasattr(result, "dpi"):
+            from .figure_options import as_figure_options
+
+            dpi = as_figure_options(figure_options).dpi
+            if dpi is not None:
+                result.dpi = dpi
         return result.save(path)
     raise ValueError(
         f"{type(result).__name__} draws live controls that no file can hold; drop the output path or interactive="
