@@ -2,7 +2,11 @@
 #
 # Canonical layout only: these stages have no shot-first equivalent, because the
 # legacy pipeline never produced them.
-base_dir: /srv/vest.filedb
+#
+# Paths take `${VAR:-default}`: the environment variable when it is set, the
+# vestserver default otherwise. Set VAFT_FILEDB_DIR / VAFT_DIAGNOSTIC_DIR on any
+# other host instead of editing this file.
+base_dir: ${VAFT_FILEDB_DIR:-/srv/vest.filedb}
 layout: filedb
 
 shots: [48226]
@@ -10,7 +14,7 @@ shots: [48226]
 external:
   # Where the hand-uploaded .mat files are searched for. Empty lets each mapper
   # use its own default search, which covers the layouts VEST has used.
-  data_root: /srv/vest.diagnostic
+  data_root: ${VAFT_DIAGNOSTIC_DIR:-/srv/vest.diagnostic}
   # Which ion layout to read: `ces` for CES_{shot}.mat, `ids` for IDS_{shot}.mat.
   ces_options: ids
 

@@ -32,6 +32,94 @@ def test_omas_json_and_hdf5_round_trip(tmp_path):
         )
 
 
+@pytest.mark.parametrize("name", ["magnetics.json.gz", "magnetics.json", "magnetics.h5"])
+def test_a_failed_save_leaves_the_previous_product_intact(tmp_path, monkeypatch, name):
+    """A writer that dies mid-way must not disturb the canonical file.
+
+    ``save`` used to open the target in place, so a disk-full or a killed
+    worker left a short file under the canonical name that the next reader
+    failed on with ``JSONDecodeError`` (cold review 0.7.0 data F16, #1888).
+    Every format now writes beside the target and ``os.replace``s it, so a
+    failure at any point of the write leaves the previous product as it was.
+    The fault here fires after the bytes of the new product were written, the
+    latest point a failure can occur.
+    """
+    import shutil
+
+    from omas import ODS
+
+    ods = ODS()
+    ods["magnetics.time"] = [0.0, 1.0, 2.0]
+    target = tmp_path / name
+    vaft.omas.save(ods, target)
+    good = target.read_bytes()
+
+    def failing(real):
+        def wrapper(*args, **kwargs):
+            real(*args, **kwargs)
+            raise OSError("disk full mid-write")
+        return wrapper
+
+    if name.endswith(".gz"):
+        monkeypatch.setattr(shutil, "copyfileobj", failing(shutil.copyfileobj))
+    else:
+        monkeypatch.setattr(ODS, "save", failing(ODS.save))
+    bigger = ODS()
+    bigger["magnetics.time"] = list(range(50))
+    with pytest.raises(OSError, match="disk full"):
+        vaft.omas.save(bigger, target)
+
+    assert target.read_bytes() == good
+    assert sorted(p.name for p in tmp_path.iterdir()) == [name], "no staging file left behind"
+
+
+def test_threads_saving_the_same_target_do_not_share_a_staging_file(tmp_path):
+    """Four threads, each saving the same product repeatedly, all succeed.
+
+    The staging name was `.<stem>.tmp-<pid><suffix>`, the same path for every
+    thread of a process: one thread's `os.replace` moved another's half-written
+    bytes onto the canonical name, and the other then failed with
+    FileNotFoundError (PR #1926 review F1).  The token is now random per call.
+    """
+    import threading
+
+    from omas import ODS
+
+    ods = ODS()
+    ods["magnetics.time"] = list(range(2000))
+    target = tmp_path / "shared.json"
+    errors: list[BaseException] = []
+
+    def worker():
+        try:
+            for _ in range(5):
+                vaft.omas.save(ods, target)
+        except BaseException as exc:  # noqa: BLE001 - collected for the assertion
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["shared.json"]
+    assert list(vaft.omas.load(target)["magnetics.time"]) == list(range(2000))
+
+
+def test_the_hdf5_spelling_is_written_by_the_hdf5_writer(tmp_path):
+    """`.hdf5` passed validation but reached `ODS.save`, which has no
+    `save_omas_hdf5` (PR #1926 review F6)."""
+    from omas import ODS
+
+    ods = ODS()
+    ods["magnetics.time"] = [0.0, 1.0, 2.0]
+    target = tmp_path / "magnetics.hdf5"
+    assert vaft.omas.save(ods, target) == target
+    assert list(vaft.omas.load(target)["magnetics.time"]) == [0.0, 1.0, 2.0]
+
+
 def test_imas_handle_detects_netcdf_and_converts_omas_source(tmp_path):
     with vaft.imas.load(IMAS_NC) as handle:
         assert handle.info.format == "imas_netcdf"

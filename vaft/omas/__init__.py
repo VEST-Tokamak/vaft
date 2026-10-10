@@ -229,9 +229,9 @@ def save(ods, target, *, compression=None):
     readers, so a compressed product loads through the ordinary loader with
     no flag on the reading side.
     """
-    import gzip
+    import os
     from pathlib import Path
-    import shutil
+    import uuid
 
     from ..compat import reopenable_temporary_file
 
@@ -249,14 +249,43 @@ def save(ods, target, *, compression=None):
             f"got {target_path.name!r}. JSON.GZ is already gzip-compressed."
         )
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    if compression is not None:
+
+    # Every format is written to a staging file beside the target and moved
+    # over it with ``os.replace`` once complete, so a writer that dies
+    # mid-way (disk full, a killed worker) leaves the previous product intact
+    # instead of a truncated file under the canonical name that the next
+    # reader fails on (cold review 0.7.0 data F16, #1888).  The staging name
+    # keeps the target's last suffix because ``ODS.save`` chooses its format
+    # from it, and carries a random token rather than the pid: threads of one
+    # process saving the same target would otherwise share the staging path
+    # and rename each other's half-written bytes onto it (PR #1926 review F1;
+    # the same token ``vaft.database._export._atomic`` uses).
+    token = uuid.uuid4().hex[:12]
+    staged = target_path.with_name(f".{target_path.stem}.tmp-{token}{target_path.suffix}")
+    try:
+        _write_ods_file(ods, staged, suffixes, compression, reopenable_temporary_file)
+        os.replace(staged, target_path)
+    finally:
+        staged.unlink(missing_ok=True)
+    return target_path
+
+
+def _write_ods_file(ods, path, suffixes, compression, reopenable_temporary_file):
+    """Write ``ods`` to ``path`` in the format ``suffixes`` names (see :func:`save`)."""
+    import gzip
+    import shutil
+
+    if compression is not None or path.suffix.lower() == ".hdf5":
+        # ``ODS.save`` picks ``save_omas_<ext>`` from the suffix and OMAS has
+        # no ``save_omas_hdf5``, so the ``.hdf5`` spelling the validation
+        # accepts goes to the HDF5 writer directly (PR #1926 review F6).
         from omas.omas_h5 import dict2hdf5
 
-        dict2hdf5(str(target_path), ods, lists_as_dicts=True, compression=compression)
-    elif target_path.suffix.lower() == ".nc":
+        dict2hdf5(str(path), ods, lists_as_dicts=True, compression=compression)
+    elif path.suffix.lower() == ".nc":
         from omas import save_omas_nc
 
-        save_omas_nc(ods, str(target_path))
+        save_omas_nc(ods, str(path))
     elif suffixes[-2:] == [".json", ".gz"]:
         # `ODS.save` takes a path and opens it itself, so the staging file has
         # to be openable by name -- which a NamedTemporaryFile is not on
@@ -264,7 +293,7 @@ def save(ods, target, *, compression=None):
         with reopenable_temporary_file(suffix=".json") as plain_path:
             ods.save(str(plain_path))
             with plain_path.open("rb") as plain:
-                with target_path.open("wb") as target_handle:
+                with path.open("wb") as target_handle:
                     with gzip.GzipFile(
                         filename="",
                         mode="wb",
@@ -274,8 +303,7 @@ def save(ods, target, *, compression=None):
                     ) as compressed:
                         shutil.copyfileobj(plain, compressed)
     else:
-        ods.save(str(target_path))
-    return target_path
+        ods.save(str(path))
 
 
 def to_equilibrium(ods, *, time_index=0, profile_index=0, convention=None):

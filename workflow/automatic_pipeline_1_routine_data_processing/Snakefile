@@ -5,7 +5,6 @@
 
 import json
 import os
-import re
 import sys
 from pathlib import Path
 
@@ -21,33 +20,17 @@ from pathlib import Path
 configfile: str(Path(workflow.basedir) / "config.yaml")
 
 
-_ENV_REFERENCE = re.compile(r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))")
+# The expander is shared with pipeline 2 so both read `${VAR}` / `${VAR:-default}`
+# the same way (cold review 0.7.0 data F12, #1888).
+sys.path.insert(0, str(Path(workflow.basedir)))
+from paths import expand_config_environment
 
-
-def _expand_config_environment(value):
-    """Expand environment variables in config values and reject missing ones."""
-    if isinstance(value, dict):
-        return {key: _expand_config_environment(item) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_expand_config_environment(item) for item in value]
-    if not isinstance(value, str):
-        return value
-
-    expanded = os.path.expandvars(value)
-    missing = [match.group("braced") or match.group("bare") for match in _ENV_REFERENCE.finditer(expanded)]
-    if missing:
-        names = ", ".join(sorted(set(missing)))
-        raise ValueError(f"Missing environment variable(s) in config.yaml: {names}")
-    return expanded
-
-
-config.update(_expand_config_environment(config))
+config.update(expand_config_environment(config))
 
 # --------------------------------------------------------------------------- #
 # 1) Global constants
 # --------------------------------------------------------------------------- #
 SCRIPT_DIR = Path(workflow.basedir)
-sys.path.insert(0, str(SCRIPT_DIR))
 from paths import (
     FILEDB,
     PipelinePaths,
