@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>7cd7a70</code>. What is described
+  <code>ead9001</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -845,6 +845,54 @@ with <code class="language-plaintext highlighter-rouge">polarity=-1.0</code>.</p
 <p>Worked example:
 <a href="https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/soft_x_ray_signal_analysis.ipynb"><code class="language-plaintext highlighter-rouge">soft_x_ray_signal_analysis.ipynb</code></a>.</p>
 
+<h2 id="camera_visible">camera_visible</h2>
+
+<p>The FAST camera comes from per-shot BMP frames <code class="language-plaintext highlighter-rouge">{shot}_{frame:08d}.bmp</code> and a <code class="language-plaintext highlighter-rouge">{shot}_bmp.txt</code> header,
+not from the SQL DAQ. The header gives each frame’s time: either the original export’s <code class="language-plaintext highlighter-rouge">Top Frame,</code> rows or,
+for a BatchConv2 re-export (<code class="language-plaintext highlighter-rouge">TopFrame:</code> keys), <code class="language-plaintext highlighter-rouge">frame / Frame_Rate</code>. Only raw frames are stored
+(<code class="language-plaintext highlighter-rouge">frame[:].image_raw</code>); there is no radiometric calibration.</p>
+
+<h3 id="frame-selection-convention">Frame selection convention</h3>
+
+<p>A camera product holds only the frames from the first to the last <strong>non-dark</strong> frame of the recording, plus
+two frames of padding on each side. Dark frames inside that range stay. The kept frames are renumbered from 0,
+and each one keeps the time of its original frame index.</p>
+
+<ul>
+  <li><strong>Near-black frame:</strong> more than 98 % of its pixels are below <code class="language-plaintext highlighter-rouge">dark_level + 20</code> DN.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">dark_level</code>:</strong> the shot’s own sensor floor, the lower quartile over frames of each frame’s 1st-percentile
+pixel, capped at 60 DN so that a recording lit almost throughout is not rejected as dark.</li>
+</ul>
+
+<p>The level is relative because the floor depends on the export. Original exports sit near 25 DN. Re-exports
+use another gain and sit near 48 DN, so the earlier fixed 35 DN marked no frame of a re-export as dark and kept
+whole recordings. The +20 DN margin was calibrated against the plasma-current window on 55 plasma shots of both
+exports.</p>
+
+<p>A shot with no non-dark frame raises <code class="language-plaintext highlighter-rouge">CameraFrameSelectionError</code> and gets no product. The rule uses images
+only. Plasma current is a cross-check in the audit, not an input.</p>
+
+<p>Every product records which rule built it, so it can be checked without loading frames:</p>
+
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">camera_visible.ids_properties.comment</code> holds <code class="language-plaintext highlighter-rouge">rule=relative-dark-v2</code>, <code class="language-plaintext highlighter-rouge">dark_level</code>, <code class="language-plaintext highlighter-rouge">threshold</code> and
+<code class="language-plaintext highlighter-rouge">retained original frame indices [a, b] out of N</code>. Products built before the rule had a name have no <code class="language-plaintext highlighter-rouge">rule=</code>
+and read as <code class="language-plaintext highlighter-rouge">fixed-v1</code>.</li>
+  <li>The stage manifest holds the same fields under <code class="language-plaintext highlighter-rouge">provenance.frame_selection</code>.</li>
+</ul>
+
+<!-- docs-snippet: skip needs-raw-source (reads raw camera frames) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.machine_mapping.camera_visible</span> <span class="kn">import</span> <span class="n">parse_frame_selection</span><span class="p">,</span> <span class="n">select_valid_frames</span>
+
+<span class="nf">parse_frame_selection</span><span class="p">(</span><span class="n">ods</span><span class="p">[</span><span class="sh">"</span><span class="s">camera_visible.ids_properties.comment</span><span class="sh">"</span><span class="p">])</span>
+<span class="c1"># {'rule': 'relative-dark-v2', 'first_retained': 33, 'last_retained': 57, 'total_frames': 101, ...}
+</span><span class="nf">select_valid_frames</span><span class="p">(</span><span class="n">frames</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mi">35</span><span class="p">)</span>   <span class="c1"># the old fixed rule, for comparison
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_2_corrective_data_update/audit_camera_visible_frames.py</code> checks each FileDB
+product, its HSDS replication and the copy in HSDS <code class="language-plaintext highlighter-rouge">main</code> against this rule, using the raw frames and the
+plasma-current window.</p>
+
 <h2 id="thomson_scattering-and-charge_exchange">thomson_scattering and charge_exchange</h2>
 
 <p>Both read MATLAB exports rather than the DAQ, so they take a <code class="language-plaintext highlighter-rouge">shotnumber</code> and an optional <code class="language-plaintext highlighter-rouge">data_root</code> /
@@ -1310,7 +1358,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetics</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma timing policy</a></li><li class="page-toc-item page-toc-level-3"><a href="#discharge-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Discharge timing policy</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-features-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma features policy</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#tf" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">tf</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_active</a></li><li class="page-toc-item page-toc-level-2"><a href="#soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">soft_x_rays</a></li><li class="page-toc-item page-toc-level-2"><a href="#thomson_scattering-and-charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">thomson_scattering and charge_exchange</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_passive-and-em_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_passive and em_coupling</a></li><li class="page-toc-item page-toc-level-2"><a href="#dataset_description" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_description</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#magnetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">magnetics</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#plasma-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma timing policy</a></li><li class="page-toc-item page-toc-level-3"><a href="#discharge-timing-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Discharge timing policy</a></li><li class="page-toc-item page-toc-level-3"><a href="#plasma-features-policy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Plasma features policy</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#tf" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">tf</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_active" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_active</a></li><li class="page-toc-item page-toc-level-2"><a href="#soft_x_rays" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">soft_x_rays</a></li><li class="page-toc-item page-toc-level-2"><a href="#camera_visible" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">camera_visible</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#frame-selection-convention" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Frame selection convention</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#thomson_scattering-and-charge_exchange" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">thomson_scattering and charge_exchange</a></li><li class="page-toc-item page-toc-level-2"><a href="#pf_passive-and-em_coupling" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">pf_passive and em_coupling</a></li><li class="page-toc-item page-toc-level-2"><a href="#dataset_description" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">dataset_description</a></li></ul>
     </nav>
 </aside>
 
@@ -1428,7 +1476,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-08 07:36:40 +0000"
+        "time": "2026-10-10 13:49:22 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
