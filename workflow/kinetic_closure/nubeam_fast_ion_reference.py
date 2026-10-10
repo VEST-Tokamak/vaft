@@ -7,10 +7,12 @@ reproduce NUBEAM's plasma -- the zone grid and volumes, n_e, T_e, the thermal
 ion species, the beam energy and mass, and the **birth rate per zone** -- next
 to NUBEAM's own fast-ion density and energy density and its power balance.
 
-The birth rate comes from the deposition markers of the **last** step (gyro-centre
-R, Z in cm, weight = particles per step), mapped to ``rho_tor_norm`` through the
-case's G-EQDSK (rho = sqrt of the normalised toroidal flux, NUBEAM's own radial
-coordinate).  ``sbedep`` is not used: it counts the electrons ionisation frees,
+The birth rate comes from the deposition markers of the **last** step, every
+CPU's file (gyro-centre R, Z in cm -- the guiding centre ``nbeami`` is counted
+at; weight = particles per step, the step being ``inputf``'s time window over
+the number of steps).  psi_N at each marker comes from the case's G-EQDSK and
+is mapped to rho through the Plasma State's own ``psipol(rho)``, so the zones
+are NUBEAM's.  ``sbedep`` is not used: it counts the electrons ionisation frees,
 and a charge-exchange birth frees none, so on VEST it carries only ~20 % of
 the births.
 
@@ -60,21 +62,24 @@ def _variables(path: Path, names) -> dict:
         return out
 
 
-def births_per_zone(birth_file: Path, gfile: Path, rho_edges: np.ndarray, step_s: float):
-    """Birth rate [1/s] in each rho_tor_norm zone, and the fraction born outside the LCFS."""
+def births_per_zone(birth_files, gfile: Path, rho_edges: np.ndarray, psipol: np.ndarray, step_s: float):
+    """Birth rate [1/s] per rho zone, the rate outside the LCFS, the species and the marker energies [eV]."""
+    import netCDF4
     from scipy.interpolate import RectBivariateSpline
 
     from vaft.data import read_geqdsk
 
-    import netCDF4
-
-    with netCDF4.Dataset(birth_file) as data:
-        key = next(k for k in data.variables if k.startswith("bs_wght_") and k.endswith("_MCBEAM"))
-        species = key[len("bs_wght_"): -len("_MCBEAM")]
-        r = np.asarray(data[f"bs_rgc_{species}_MCBEAM"][:], dtype=float) / 100.0
-        z = np.asarray(data[f"bs_zgc_{species}_MCBEAM"][:], dtype=float) / 100.0
-        weight = np.asarray(data[key][:], dtype=float) / step_s
-        energy = np.asarray(data[f"bs_einj_{species}_MCBEAM"][:], dtype=float)
+    columns = {"r": [], "z": [], "w": [], "e": []}
+    species = None
+    for birth_file in birth_files:
+        with netCDF4.Dataset(birth_file) as data:
+            key = next(k for k in data.variables if k.startswith("bs_wght_") and k.endswith("_MCBEAM"))
+            species = key[len("bs_wght_"): -len("_MCBEAM")]
+            columns["r"].append(np.asarray(data[f"bs_rgc_{species}_MCBEAM"][:], dtype=float) / 100.0)
+            columns["z"].append(np.asarray(data[f"bs_zgc_{species}_MCBEAM"][:], dtype=float) / 100.0)
+            columns["w"].append(np.asarray(data[key][:], dtype=float) / step_s)
+            columns["e"].append(np.asarray(data[f"bs_einj_{species}_MCBEAM"][:], dtype=float))
+    r, z, weight, energy = (np.concatenate(columns[k]) for k in ("r", "z", "w", "e"))
     g = read_geqdsk(str(gfile))
     nw, nh = int(g.get("NW")), int(g.get("NH"))
     r_grid = g.get("RLEFT") + np.linspace(0.0, g.get("RDIM"), nw)
@@ -82,17 +87,14 @@ def births_per_zone(birth_file: Path, gfile: Path, rho_edges: np.ndarray, step_s
     psi = np.asarray(g.get("PSIRZ"), dtype=float)
     psi = psi if psi.shape == (nh, nw) else psi.T
     psi_n = (RectBivariateSpline(z_grid, r_grid, psi).ev(z, r) - g.get("SIMAG")) / (g.get("SIBRY") - g.get("SIMAG"))
-    q = np.asarray(g.get("QPSI"), dtype=float)
-    grid = np.linspace(0.0, 1.0, q.size)
-    flux = np.concatenate(([0.0], np.cumsum(0.5 * (q[1:] + q[:-1]) * np.diff(grid))))
     inside = (psi_n >= 0.0) & (psi_n <= 1.0)
     # anti-alias: spatial interpolation over psi_N, not time -- no sample rate to reduce
-    rho = np.sqrt(np.interp(psi_n[inside], grid, flux) / flux[-1])
+    rho = np.interp(psi_n[inside], psipol / psipol[-1], rho_edges)
     rate, _ = np.histogram(rho, bins=rho_edges, weights=weight[inside])
-    return rate, float(weight[~inside].sum() / weight.sum()), species, np.unique(np.round(energy, 3))
+    return rate, float(weight[~inside].sum()), species, energy, weight
 
 
-def build_reference(workdir: Path, *, step_s: float, steps: int, size: str) -> dict:
+def build_reference(workdir: Path, *, size: str) -> dict:
     from vaft.code import nubeam
     from vaft.data.atomic import STANDARD_ATOMIC_WEIGHTS, parse_species
 
@@ -100,12 +102,21 @@ def build_reference(workdir: Path, *, step_s: float, steps: int, size: str) -> d
     native = result.outputs_native
     runid = native.runid
     state = _variables(workdir / f"{runid}.cdf",
-                       ["rho", "vol", "S_name", "ns", "Ts", "q_S", "kvolt_nbi", "power_nbi"])
+                       ["rho", "psipol", "vol", "S_name", "ns", "Ts", "q_S", "power_nbi"])
     changes = _variables(workdir / "state_changes.cdf",
-                         ["nbeami", "eperp_beami", "epll_beami", "pbe", "pbi", "pbth"])
-    births = sorted(workdir.glob(f"{runid}_birth_cpu*"), key=_step_of)
-    rate, outside, species, energies = births_per_zone(births[-1], workdir / "equilibrium.gfile",
-                                                        state["rho"], step_s)
+                         ["nbeami", "eperp_beami", "epll_beami", "pbe", "pbi", "pbth", "sbtherm"])
+    births = list(workdir.glob(f"{runid}_birth_cpu*"))
+    if not births:
+        raise ValueError(f"{workdir} has no birth file")
+    last = max(_step_of(p) for p in births)
+    window = [float(x) for x in (workdir / "inputf").read_text(encoding="utf-8").split()[:2]]
+    step_s = (window[1] - window[0]) / last
+    last_files = sorted(p for p in births if _step_of(p) == last)
+    rate, outside, species, energy, weight = births_per_zone(
+        last_files, workdir / "equilibrium.gfile", state["rho"], state["psipol"], step_s)
+    energies = np.unique(np.round(energy, 3))
+    if energies.size != 1:
+        raise ValueError(f"births at several energies {energies.tolist()}; the closure takes one per call")
     names = state["S_name"]
     ns, ts = np.atleast_2d(state["ns"]), np.atleast_2d(state["Ts"])
     ions = []
@@ -119,15 +130,17 @@ def build_reference(workdir: Path, *, step_s: float, steps: int, size: str) -> d
     beam_mass = STANDARD_ATOMIC_WEIGHTS[parse_species(species).element]
     n_fast = np.atleast_2d(changes["nbeami"])[0]
     mean_energy = (np.atleast_2d(changes["eperp_beami"])[0] + np.atleast_2d(changes["epll_beami"])[0]) * 1e3
-    deposited = float(np.sum(rate) * float(np.ravel(state["kvolt_nbi"])[0]) * 1e3 * QE)
+    deposited = float(np.sum(weight * energy) * QE)        # every birth, inside the LCFS or not
     balance = {block.species: {name: float(value) for name, value in block.entries.items()}
                for block in native.power_balance}
     return {
         "provenance": {
             "case": "vaft/data/nubeam/vest_case (packaged VEST NUBEAM case)",
-            "run_size": size, "steps": steps, "step_s": step_s,
-            "birth_markers": f"{births[-1].name} (last step), gyro-centre, rho_tor_norm from the case G-EQDSK",
-            "births_outside_lcfs_fraction": outside,
+            "run_size": size, "steps": last, "step_s": step_s,
+            "step_source": "inputf time window / number of birth steps",
+            "birth_markers": ", ".join(p.name for p in last_files)
+                             + " (last step), gyro-centre, psi_N from the G-EQDSK -> rho via the state's psipol",
+            "births_outside_lcfs_fraction": outside / float(np.sum(weight)),
             "written": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "issue": "#1606 (analytic fast-ion closure vs NUBEAM)",
         },
@@ -146,6 +159,8 @@ def build_reference(workdir: Path, *, step_s: float, steps: int, size: str) -> d
             "electron_heating_W": float(np.sum(changes["pbe"])),
             "ion_heating_W": float(np.sum(changes["pbi"])),
             "thermalisation_W": float(np.sum(changes["pbth"])),
+            "thermalisation_rate_s": float(np.sum(changes["sbtherm"])),
+            "birth_rate_s": float(np.sum(weight)),
             "power_balance": balance,
         },
     }
@@ -157,8 +172,10 @@ def main(argv=None) -> int:
     source.add_argument("--run", action="store_true", help="run the packaged VEST case first")
     source.add_argument("--workdir", type=Path, help="an existing NUBEAM run directory")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--run-size", help="how the --workdir run was configured, for the provenance")
     args = parser.parse_args(argv)
-    step_s, steps, size = 1e-3, 5, "reduced (5 x 1 ms, 2000 markers)"
+    step_s, steps = 1e-3, 5
+    size = "reduced (5 x 1 ms, 2000 markers)" if args.run else (args.run_size or "unrecorded (--workdir)")
     temporary = None
     try:
         if args.run:
@@ -171,14 +188,19 @@ def main(argv=None) -> int:
             temporary = Path(tempfile.mkdtemp(prefix="vaft-nb-", dir="/tmp"))
             result = nubeam.run_nubeam_case(case.input_dir, gfile=case.gfile, workdir=temporary, config=config)
             if not result.ok:
-                raise SystemExit(f"NUBEAM failed; see {temporary}")
+                raise SystemExit(f"NUBEAM failed; the run directory is kept: {temporary}")
             workdir = temporary
         else:
             workdir = args.workdir
-        record = build_reference(workdir, step_s=step_s, steps=steps, size=size)
+        record = build_reference(workdir, size=size)
         args.out.parent.mkdir(parents=True, exist_ok=True)
         args.out.write_text(json.dumps(record, indent=1) + "\n", encoding="utf-8")
         print(f"wrote {args.out}")
+    except BaseException:
+        if temporary is not None:
+            print(f"kept {temporary} for inspection")
+            temporary = None
+        raise
     finally:
         if temporary is not None:
             shutil.rmtree(temporary, ignore_errors=True)

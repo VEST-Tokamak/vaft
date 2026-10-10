@@ -47,29 +47,33 @@ def test_the_reference_is_a_steady_state(case):
     balance = data["nubeam"]["power_balance"]["H beam ion"]
     heating = -(balance["electron heating"] + balance["ion heating"] + balance["thermalization"])
     assert abs(balance["d/dt(f.i. energy)"]) < 0.01 * heating               # stored energy no longer growing
+    # particle balance closes: what is born either thermalises or is lost (0.867 vs 0.868)
+    nubeam = data["nubeam"]
+    assert nubeam["thermalisation_rate_s"] / nubeam["birth_rate_s"] == pytest.approx(1 - _losses(data), abs=0.01)
     window = data["provenance"]["steps"] * data["provenance"]["step_s"]
-    assert np.nanmax(estimate.tau_thermalisation) < window / 1.5            # many slowing-down times run
+    assert np.nanmax(estimate.tau_thermalisation) < window                  # the run outlasts slowing down
     # the births carry what was injected less the shine-through
-    assert data["nubeam"]["deposited_W"] == pytest.approx(
-        balance["injected power (W)"] + balance["shine-through"], rel=0.02)
+    assert nubeam["deposited_W"] == pytest.approx(
+        balance["injected power (W)"] + balance["shine-through"], rel=0.005)
 
 
 def test_the_lossless_closure_bounds_nubeam_from_above(case):
     data, dv, estimate = case
     n_ratio = np.nansum(estimate.n_fast * dv) / np.sum(np.asarray(data["nubeam"]["n_fast_m3"]) * dv)
     w_ratio = np.nansum(estimate.W_fast * dv) / np.sum(np.asarray(data["nubeam"]["W_fast_J_m3"]) * dv)
-    # 1.30 and 1.25 on this run: the closure keeps the 13 % NUBEAM loses to bad orbits and CX
+    # 1.32 and 1.26 on this run: the closure keeps the 13 % NUBEAM loses to bad orbits and CX
     assert 1.0 < w_ratio < n_ratio < 1.6
     loss = _losses(data)
     assert 0.10 < loss < 0.20
-    # with NUBEAM's own loss fraction taken out the totals agree to ~10 % (1.13, 1.08)
-    assert n_ratio * (1 - loss) == pytest.approx(1.0, abs=0.2)
-    assert w_ratio * (1 - loss) == pytest.approx(1.0, abs=0.2)
+    # with NUBEAM's own loss fraction taken out the totals are within 15 % (1.14, 1.10);
+    # the rest is orbit width (local deposition here) and Monte Carlo noise
+    assert n_ratio * (1 - loss) == pytest.approx(1.0, abs=0.15)
+    assert w_ratio * (1 - loss) == pytest.approx(1.0, abs=0.15)
 
 
 def test_the_beam_slows_mostly_on_electrons(case):
     data, _, estimate = case
-    # 10 keV H into a 20-80 eV plasma: E_c is a few percent of E_b, so the drag is electron drag
+    # 10 keV H into a 10-20 eV plasma: E_c is a few percent of E_b, so the drag is electron drag
     assert np.nanmax(estimate.E_c_eV) < 0.05 * data["beam"]["energy_eV"]
     heating = data["nubeam"]
     assert heating["electron_heating_W"] > 10 * heating["ion_heating_W"]

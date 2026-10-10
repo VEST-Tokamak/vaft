@@ -268,9 +268,9 @@ def fast_ion_slowing_down_estimate(
     large in a small device like VEST -- are absent, so it bounds the fast
     pressure from above where those losses matter.  On the packaged VEST
     NUBEAM case (10 keV H, 200 kW), given NUBEAM's own birth rate and
-    plasma, it gives 1.30x NUBEAM's fast-ion number and 1.25x its energy;
+    plasma, it gives 1.32x NUBEAM's fast-ion number and 1.26x its energy;
     NUBEAM loses 13 % of the deposited power to bad orbits and CX, and
-    with that removed the totals agree to ~10 % (1.13x, 1.08x).  Radial
+    with that removed the totals agree to 10-15 % (1.14x, 1.10x).  Radial
     profiles differ more, most at the edge, where orbit losses concentrate
     (``test/test_kinetic_closure_nubeam.py``).
 
