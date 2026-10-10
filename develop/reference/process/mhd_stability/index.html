@@ -29,7 +29,7 @@
         
 
         
-            <link rel="next" href="/vaft/develop/reference/process/zeff_projection/" />
+            <link rel="next" href="/vaft/develop/reference/process/q_profile_context/" />
         
     </head>
     <body>
@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>ead9001</code>. What is described
+  <code>77ee257</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -403,7 +403,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.mhd_stability</code>:
-<strong>4</strong> public functions. Each entry is what
+<strong>6</strong> public functions. Each entry is what
 <code>vaft.process.describe("mhd_stability.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -435,7 +435,7 @@ means (#939).</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 4 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 6 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="criterion_intervals"><td><a href="#criterion_intervals"><code>criterion_intervals</code></a></td><td>Where a radial criterion profile is strictly on its unstable side.
@@ -445,6 +445,10 @@ means (#939).</p>
   <tr data-ref-row="dcon_edge_scan"><td><a href="#dcon_edge_scan"><code>dcon_edge_scan</code></a></td><td>DCON’s edge scan: where Re dW_edge peaks, where it changes sign, where DCON truncated.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="dcon_local_stability"><td><a href="#dcon_local_stability"><code>dcon_local_stability</code></a></td><td>DCON’s three local criteria, located: Mercier, resistive interchange, ballooning.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="load_stability_atlas"><td><a href="#load_stability_atlas"><code>load_stability_atlas</code></a></td><td>Read the Tier A stability atlas tables from their directory.
+</td></tr>
+  <tr data-ref-row="stability_atlas_populations"><td><a href="#stability_atlas_populations"><code>stability_atlas_populations</code></a></td><td>The ideal, resistive and local-criterion populations of the stability atlas.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
@@ -457,7 +461,7 @@ means (#939).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#criterion_intervals"><code>criterion_intervals</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="criterion_intervals" href="https://github.com/VEST-Tokamak/vaft/blob/ead900136d777811a1721a0e55ccf19c90ea7dbf/vaft/process/mhd_stability.py#L46-L143" title="vaft/process/mhd_stability.py, lines 46–143 at ead9001">source</a>
+<a class="ref-source" data-source="criterion_intervals" href="https://github.com/VEST-Tokamak/vaft/blob/77ee25773e3c695470b87cbdca02e519d467d6f3/vaft/process/mhd_stability.py#L51-L148" title="vaft/process/mhd_stability.py, lines 51–148 at 77ee257">source</a>
 </header>
     <pre class="ref-signature"><code>criterion_intervals(psi_n, values, *, unstable_side, evaluated=None)</code></pre>
 
@@ -507,11 +511,11 @@ samples is invisible. The resolution is the solver’s radial grid.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dcon_edge_comparison"><code>dcon_edge_comparison</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="dcon_edge_comparison" href="https://github.com/VEST-Tokamak/vaft/blob/ead900136d777811a1721a0e55ccf19c90ea7dbf/vaft/process/mhd_stability.py#L370-L427" title="vaft/process/mhd_stability.py, lines 370–427 at ead9001">source</a>
+<a class="ref-source" data-source="dcon_edge_comparison" href="https://github.com/VEST-Tokamak/vaft/blob/77ee25773e3c695470b87cbdca02e519d467d6f3/vaft/process/mhd_stability.py#L375-L432" title="vaft/process/mhd_stability.py, lines 375–432 at 77ee257">source</a>
 </header>
     <pre class="ref-signature"><code>dcon_edge_comparison(full, truncated)</code></pre>
 
-    <details class="ref-code" data-source-code="dcon_edge_comparison"><summary>Show source <span class="ref-note">vaft/process/mhd_stability.py, lines 370–427</span></summary>
+    <details class="ref-code" data-source-code="dcon_edge_comparison"><summary>Show source <span class="ref-note">vaft/process/mhd_stability.py, lines 375–432</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dcon_edge_comparison</span><span class="p">(</span><span class="n">full</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">truncated</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">Full-edge minus peak-dW-truncated least-stable W_t of one case (#792, #940).
@@ -631,7 +635,7 @@ is the caller’s to ensure (the payload has no equilibrium hash).</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dcon_edge_scan"><code>dcon_edge_scan</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="dcon_edge_scan" href="https://github.com/VEST-Tokamak/vaft/blob/ead900136d777811a1721a0e55ccf19c90ea7dbf/vaft/process/mhd_stability.py#L216-L324" title="vaft/process/mhd_stability.py, lines 216–324 at ead9001">source</a>
+<a class="ref-source" data-source="dcon_edge_scan" href="https://github.com/VEST-Tokamak/vaft/blob/77ee25773e3c695470b87cbdca02e519d467d6f3/vaft/process/mhd_stability.py#L221-L329" title="vaft/process/mhd_stability.py, lines 221–329 at 77ee257">source</a>
 </header>
     <pre class="ref-signature"><code>dcon_edge_scan(row)</code></pre>
 
@@ -699,11 +703,11 @@ Raises <code class="language-plaintext highlighter-rouge">ValueError</code> with
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#dcon_local_stability"><code>dcon_local_stability</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="dcon_local_stability" href="https://github.com/VEST-Tokamak/vaft/blob/ead900136d777811a1721a0e55ccf19c90ea7dbf/vaft/process/mhd_stability.py#L146-L213" title="vaft/process/mhd_stability.py, lines 146–213 at ead9001">source</a>
+<a class="ref-source" data-source="dcon_local_stability" href="https://github.com/VEST-Tokamak/vaft/blob/77ee25773e3c695470b87cbdca02e519d467d6f3/vaft/process/mhd_stability.py#L151-L218" title="vaft/process/mhd_stability.py, lines 151–218 at 77ee257">source</a>
 </header>
     <pre class="ref-signature"><code>dcon_local_stability(row)</code></pre>
 
-    <details class="ref-code" data-source-code="dcon_local_stability"><summary>Show source <span class="ref-note">vaft/process/mhd_stability.py, lines 146–213</span></summary>
+    <details class="ref-code" data-source-code="dcon_local_stability"><summary>Show source <span class="ref-note">vaft/process/mhd_stability.py, lines 151–218</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">dcon_local_stability</span><span class="p">(</span><span class="n">row</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]]:</span>
     <span class="sh">"""</span><span class="s">DCON</span><span class="sh">'</span><span class="s">s three local criteria, located: Mercier, resistive interchange, ballooning.
@@ -832,6 +836,189 @@ present); only a hand-built row can lack it.</p>
 
   </section>
 
+  <section class="ref-entry" id="load_stability_atlas" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#load_stability_atlas"><code>load_stability_atlas</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span></span>
+<a class="ref-source" data-source="load_stability_atlas" href="https://github.com/VEST-Tokamak/vaft/blob/77ee25773e3c695470b87cbdca02e519d467d6f3/vaft/process/mhd_stability.py#L469-L509" title="vaft/process/mhd_stability.py, lines 469–509 at 77ee257">source</a>
+</header>
+    <pre class="ref-signature"><code>load_stability_atlas(directory)</code></pre>
+
+    <details class="ref-code" data-source-code="load_stability_atlas"><summary>Show source <span class="ref-note">vaft/process/mhd_stability.py, lines 469–509</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">load_stability_atlas</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="sh">"""</span><span class="s">Read the Tier A stability atlas tables from their directory.
+
+    Parameters
+    ----------
+    directory : str or Path
+        The atlas directory holding ``atlas_n.csv`` and ``atlas_surfaces.csv``
+        (on vestserver ``~/runs/campaign/atlas/stability``) [-].
+
+    Returns
+    -------
+    atlas_n : pandas.DataFrame
+        One row per (slice, n) [table].
+    atlas_surfaces : pandas.DataFrame
+        One row per (slice, n, solver, rational surface) [table].
+
+    Raises
+    ------
+    FileNotFoundError
+        Either table is missing.
+
+    Applicability
+    -------------
+    VEST-specific. The atlas is the VEST Tier A campaign product of
+    ``workflow/stability_atlas/build_atlas.py``.
+
+    Limitations
+    -----------
+    Reads the CSV form; no schema check beyond the columns
+    :func:`stability_atlas_populations` uses.
+    </span><span class="sh">"""</span>
+    <span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+
+    <span class="n">root</span> <span class="o">=</span> <span class="nc">Path</span><span class="p">(</span><span class="n">directory</span><span class="p">).</span><span class="nf">expanduser</span><span class="p">()</span>
+    <span class="n">tables</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="sh">"</span><span class="s">atlas_n.csv</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">atlas_surfaces.csv</span><span class="sh">"</span><span class="p">):</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">name</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="p">.</span><span class="nf">is_file</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="nc">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">stability atlas table </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s"> not found</span><span class="sh">"</span><span class="p">)</span>
+        <span class="n">tables</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="n">pd</span><span class="p">.</span><span class="nf">read_csv</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">tables</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">tables</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span></code></pre></figure>
+
+</details>
+
+    <p>Read the Tier A stability atlas tables from their directory.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>directory</code></td><td class="ref-type">str or Path</td><td class="ref-unit">-</td><td><p>The atlas directory holding <code class="language-plaintext highlighter-rouge">atlas_n.csv</code> and <code class="language-plaintext highlighter-rouge">atlas_surfaces.csv</code> (on vestserver <code class="language-plaintext highlighter-rouge">~/runs/campaign/atlas/stability</code>).</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>atlas_n</code></td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">table</td><td><p>One row per (slice, n).</p>
+</td></tr>
+  <tr><td><code>atlas_surfaces</code></td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">table</td><td><p>One row per (slice, n, solver, rational surface).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>FileNotFoundError</code> Either table is missing.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Limitations</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific. The atlas is the VEST Tier A campaign product of
+<code class="language-plaintext highlighter-rouge">workflow/stability_atlas/build_atlas.py</code>.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Reads the CSV form; no schema check beyond the columns
+<code class="language-plaintext highlighter-rouge">stability_atlas_populations</code> uses.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="stability_atlas_populations" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#stability_atlas_populations"><code>stability_atlas_populations</code></a></h3>
+<span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="stability_atlas_populations" href="https://github.com/VEST-Tokamak/vaft/blob/77ee25773e3c695470b87cbdca02e519d467d6f3/vaft/process/mhd_stability.py#L512-L629" title="vaft/process/mhd_stability.py, lines 512–629 at 77ee257">source</a>
+</header>
+    <pre class="ref-signature"><code>stability_atlas_populations(atlas_n, atlas_surfaces)</code></pre>
+
+    <p>The ideal, resistive and local-criterion populations of the stability atlas.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>atlas_n</code></td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">table</td><td><p>The atlas’s per-(slice, n) table: <code class="language-plaintext highlighter-rouge">dcon_full_512_W_t</code>, <code class="language-plaintext highlighter-rouge">dcon_full_sign_class</code>, <code class="language-plaintext highlighter-rouge">max_D_I</code>, <code class="language-plaintext highlighter-rouge">min_C_A</code>, <code class="language-plaintext highlighter-rouge">mercier_evaluated</code>, <code class="language-plaintext highlighter-rouge">ballooning_evaluated</code>, keyed by <code class="language-plaintext highlighter-rouge">shot</code>, <code class="language-plaintext highlighter-rouge">time_efit_s</code>, <code class="language-plaintext highlighter-rouge">efit_lineage</code>, <code class="language-plaintext highlighter-rouge">n_tor</code>.</p>
+</td></tr>
+  <tr><td><code>atlas_surfaces</code></td><td class="ref-type">pandas.DataFrame</td><td class="ref-unit">table</td><td><p>The atlas’s per-surface table: <code class="language-plaintext highlighter-rouge">solver</code>, <code class="language-plaintext highlighter-rouge">n_tor</code>, <code class="language-plaintext highlighter-rouge">delta_prime_mpsi512</code>, <code class="language-plaintext highlighter-rouge">two_resolution_consistent</code> with the same key.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>populations</code></td><td class="ref-type">StabilityAtlasPopulations</td><td class="ref-unit">-</td><td><p>Raw values per panel and series, with the per-series counts table.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>Unstable is <code class="language-plaintext highlighter-rouge">W_t &lt; 0</code> (DCON’s energy sign; no <code class="language-plaintext highlighter-rouge">|W_t|</code> band),
+<code class="language-plaintext highlighter-rouge">Delta'_max &gt; 0</code> (a classical tearing drive at <strong>any</strong> rational surface),
+<code class="language-plaintext highlighter-rouge">D_I &gt; 0</code> (Mercier) and <code class="language-plaintext highlighter-rouge">C_A &lt; 0</code> (high-n ballooning).  QA for <code class="language-plaintext highlighter-rouge">W_t</code>
+is the atlas sign class (<code class="language-plaintext highlighter-rouge">robust_*</code>: the sign agrees between mpsi 256 and
+512); for <code class="language-plaintext highlighter-rouge">Delta'_max</code> it is that the maximizing surface is
+two-resolution consistent.</p>
+
+    </div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Input semantics · Output semantics · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Ideal: <code class="language-plaintext highlighter-rouge">W_t</code> (full edge, mpsi 512) of every row, grouped by <code class="language-plaintext highlighter-rouge">n</code>.</li>
+        <li>Resistive: per slice, solver and <code class="language-plaintext highlighter-rouge">n</code>, the largest <code class="language-plaintext highlighter-rouge">Re Delta'</code> at
+mpsi 512 over all rational surfaces.</li>
+        <li>Local: <code class="language-plaintext highlighter-rouge">max D_I</code> and <code class="language-plaintext highlighter-rouge">min C_A</code> of each slice’s <code class="language-plaintext highlighter-rouge">n = 1</code> row, where
+the run evaluated them (the atlas’s reference DCON run, mpsi 256).</li>
+        <li>Counts: per series the slices, the QA-passing slices and those on the
+unstable side of the universal criterion.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Input semantics</h4>
+
+      <p>The atlas as <code class="language-plaintext highlighter-rouge">build_atlas.py</code> writes it (v2): raw solver values plus QA
+annotations.</p>
+
+      <h4 class="ref-label no_toc">Output semantics</h4>
+
+      <p>Raw values with no QA cut (mpsi 512 for <code class="language-plaintext highlighter-rouge">W_t</code> and <code class="language-plaintext highlighter-rouge">Delta'</code>, mpsi 256
+for the local criteria), and a separate counts table.  The
+QA counts are a trust annotation; the unstable counts apply only the
+universal criteria.  Neither changes a value.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>VEST-specific. The VEST Tier A stability atlas (#1429).</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">Delta'_max</code> is a single number per slice and hides the surface it came
+from; the atlas’s per-surface table keeps it.  <code class="language-plaintext highlighter-rouge">W_t</code> is normalized
+(DCON’s units), comparable within one <code class="language-plaintext highlighter-rouge">n</code> and equilibrium only by sign.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1429, the Tier A stability atlas; layers decided there.
+</li>
+  <li>Issue #1852, these population histograms.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
 </div>
 
 
@@ -918,7 +1105,7 @@ window.MathJax = {
                     
 
                     
-                        <a href="/vaft/develop/reference/process/zeff_projection/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: zeff_projection">
+                        <a href="/vaft/develop/reference/process/q_profile_context/" class="navigation navigation-next navigation-unique" aria-label="Next page: Process reference: q_profile_context">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -950,11 +1137,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "Process reference: zeff_projection",
+            "title": "Process reference: q_profile_context",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/Process_reference_zeff_projection.md",
-            "ref": "_guide/Process_reference_zeff_projection.md",
+            "path": "_guide/Process_reference_q_profile_context.md",
+            "ref": "_guide/Process_reference_q_profile_context.md",
             "articles": []
         },
         
@@ -1052,7 +1239,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 13:49:22 +0000"
+        "time": "2026-10-10 15:01:24 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

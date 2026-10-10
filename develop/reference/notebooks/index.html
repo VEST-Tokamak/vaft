@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>ead9001</code>. What is described
+  <code>77ee257</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -915,6 +915,10 @@ its IMAS netCDF twin <code class="language-plaintext highlighter-rouge">imas.nc<
       <td>The #1331 Tier A good and admissible EFIT states on literature operational-space projections (β_N–l_i, Troyon, q95–l_i, Wesson l_i–q_ψ), coloured by the kinetic, stability and transport atlas layers. Needs the atlas tables in <code class="language-plaintext highlighter-rouge">$VAFT_ATLAS_DIR</code> (vestserver campaign outputs).</td>
     </tr>
     <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/stability_atlas_population.ipynb"><code class="language-plaintext highlighter-rouge">stability_atlas_population.ipynb</code></a></td>
+      <td>The Tier A stability atlas population: DCON ideal <code class="language-plaintext highlighter-rouge">W_t</code> (n = 1–6), RDCON/STRIDE <code class="language-plaintext highlighter-rouge">Δ′_max</code> (n = 1, 2) and the Mercier/ballooning criteria as three histograms against their stability boundaries. Needs the atlas tables in <code class="language-plaintext highlighter-rouge">$VAFT_ATLAS_DIR</code> (vestserver campaign outputs).</td>
+    </tr>
+    <tr>
       <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/analytic_solovev_equilibrium.ipynb"><code class="language-plaintext highlighter-rouge">analytic_solovev_equilibrium.ipynb</code></a></td>
       <td>Constant-source analytic Solov’ev construction, verified against the gridded field; a VEST-like analytic baseline with Miller characterization, descriptors and geometry/source scans.</td>
     </tr>
@@ -1075,6 +1079,14 @@ its IMAS netCDF twin <code class="language-plaintext highlighter-rouge">imas.nc<
     <tr>
       <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/tokamak_power_balance.ipynb"><code class="language-plaintext highlighter-rouge">tokamak_power_balance.ipynb</code></a></td>
       <td>Ohmic input against radiated and conducted losses, with an Aurora-based impurity treatment.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/self_consistent_kinetic_inference_vest_39915.ipynb"><code class="language-plaintext highlighter-rouge">self_consistent_kinetic_inference_vest_39915.ipynb</code></a></td>
+      <td>Matched kinetic state for VEST 39915 at 316 ms from an archived, hash-pinned case: a magnetic pressure-partition branch with inferred T_i, and an electron-kinetic EFIT that is rejected for negative edge pressure. Pressure, density, temperature and plasma Z_eff profiles render offline in 2×2 and 4×1 layouts.</td>
+    </tr>
+    <tr>
+      <td><a href="https://github.com/VEST-Tokamak/vaft/blob/4f7c48341a222ca8055a681ccd3667d39a930b13/notebooks/self_consistent_kinetic_inference_vest_40326.ipynb"><code class="language-plaintext highlighter-rouge">self_consistent_kinetic_inference_vest_40326.ipynb</code></a></td>
+      <td>Matched kinetic state for VEST 40326 at 322 ms from an archived case: pressure-partition T_i from the magnetic equilibrium next to an admissible electron-kinetic EFIT, with the equal C/O composition assumption and the circular-T_i refusal made explicit.</td>
     </tr>
   </tbody>
 </table>
@@ -1577,7 +1589,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 13:49:22 +0000"
+        "time": "2026-10-10 15:01:24 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>ead9001</code>. What is described
+  <code>77ee257</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -627,6 +627,25 @@ printed ticks. For Cheng, the printed closed form $\max(l_i/2) = [1 + 2\ln(q(a)/
 recovered to 0.01. The older <code class="language-plaintext highlighter-rouge">vaft.formula.empirical_li_qa()</code> arrays are the Wesson <strong>lower</strong>
 boundary of Fig. 6 (not Fig. 5, which is the Hugill diagram) and agree with the audit to about
 0.03. Prefer the registered entries.</p>
+
+<h3 id="atlas-population-histograms">Atlas population histograms</h3>
+
+<p>The Tier A stability atlas population (#1852) is drawn as three stacked histograms, each against
+its own criterion: DCON ideal $W_t$ for $n = 1$–$6$ (unstable by sign only, $W_t &lt; 0$; no
+$|W_t|$ band), each slice’s largest RDCON/STRIDE $\Delta’$ over its rational surfaces at
+$n = 1, 2$ (unstable if $\Delta’_{\max} &gt; 0$), and the local Mercier $\max D_I$ (unstable $&gt; 0$)
+and ballooning $\min C_A$ (unstable $&lt; 0$). All values are the mpsi 512 run. The QA flags are
+counted in the reader’s <code class="language-plaintext highlighter-rouge">summary</code> table and do not filter the histograms.</p>
+
+<!-- docs-snippet: skip needs-file (reads the campaign atlas tables on vestserver) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.mhd_stability</span> <span class="kn">import</span> <span class="n">load_stability_atlas</span><span class="p">,</span> <span class="n">stability_atlas_populations</span>
+<span class="kn">from</span> <span class="n">vaft.plot.stability_atlas</span> <span class="kn">import</span> <span class="n">stability_atlas_population</span>
+<span class="n">populations</span> <span class="o">=</span> <span class="nf">stability_atlas_populations</span><span class="p">(</span><span class="o">*</span><span class="nf">load_stability_atlas</span><span class="p">(</span><span class="sh">"</span><span class="s">~/runs/campaign/atlas/stability</span><span class="sh">"</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">populations</span><span class="p">.</span><span class="n">summary</span><span class="p">)</span>           <span class="c1"># slices, QA and unstable counts per series
+</span><span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="nf">stability_atlas_population</span><span class="p">(</span><span class="n">populations</span><span class="p">)</span>
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">notebooks/stability_atlas_population.ipynb</code> re-runs it from <code class="language-plaintext highlighter-rouge">$VAFT_ATLAS_DIR</code>.</p>
 
 <hr />
 
@@ -1126,7 +1145,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-deprecated-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper (deprecated), and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#internal-inductance-against-edge-q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Internal inductance against edge q</a></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-deprecated-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper (deprecated), and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#internal-inductance-against-edge-q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Internal inductance against edge q</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atlas-population-histograms" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atlas population histograms</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
     </nav>
 </aside>
 
@@ -1244,7 +1263,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 13:49:22 +0000"
+        "time": "2026-10-10 15:01:24 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
