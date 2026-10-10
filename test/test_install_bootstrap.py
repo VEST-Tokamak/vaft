@@ -3537,3 +3537,54 @@ def test_nubeam_uninstall_refuses_entries_that_only_look_inside_the_tree(tmp_pat
         assert "refusing" in refused.stderr, entry
         assert "would remove" not in refused.stdout, entry
     assert victim.is_dir()
+
+
+def test_plasma_state_verdict_cannot_be_carried_by_a_good_median_alone():
+    """Review of PR #1921, F1: the median passed with half the headline 100% wrong.
+
+    A candidate writing zeros for six headline profiles and matching the other
+    seven at 3% had a 3% median and exited 0; one judged on the single headline
+    variable it carried passed on that one; a reference of zero against a
+    garbage candidate became NaN and was dropped. The verdict now needs at
+    least --min-profiles comparable rows, fails any row that could not be
+    compared, and holds the profiles VALIDATION.md found resolved above the
+    noise to --ceiling individually.
+    """
+    numpy = pytest.importorskip("numpy")
+    comparator = _load_plasma_state_comparator()
+    names = [name for name, _ in comparator.HEADLINE]
+
+    def rows(disagreement: dict[str, float], present=names):
+        return [(name, disagreement.get(name, 0.03), 0.0, "") for name in present]
+
+    ok, reason = comparator.verdict(rows({}), 0.25, 0.5, 10)
+    assert ok, reason
+    # Six of thirteen 100% wrong behind a 3% median: the ceiling catches the
+    # resolved ones among them.
+    wrong = {name: 1.0 for name in ("pfuse", "pfusi", "curbeam", "tqbe", "tqbi", "tqbjxb")}
+    ok, reason = comparator.verdict(rows(wrong), 0.25, 0.5, 10)
+    assert not ok and "curbeam" in reason and "ceiling" in reason
+    # A noise-dominated profile alone may still be large.
+    ok, _ = comparator.verdict(rows({"tqbjxb": 0.84}), 0.25, 0.5, 10)
+    assert ok
+    # Judged on one present profile: refused for want of evidence.
+    ok, reason = comparator.verdict(rows({}, present=["pbe"]), 0.25, 0.5, 10)
+    assert not ok and "1 of 13" in reason
+    # A row that could not be compared is a failure, not a dropped NaN.
+    inf = float("inf")
+    for broken in (inf, float("nan"), None):
+        damaged = rows({})
+        damaged[1] = ("pbi", broken, broken, "" if broken is not None else "shape (4,) vs (5,)")
+        ok, reason = comparator.verdict(damaged, 0.25, 0.5, 10)
+        assert not ok and "pbi could not be compared" in reason, reason
+    # And metrics() now reports a zero reference against a non-zero candidate
+    # as infinite rather than NaN.
+    assert comparator.metrics(numpy.zeros(4), numpy.full(4, 1e5))[0] == inf
+    # Identically-zero pairs (pfuse/pfusi without DT) carry nothing: excluded.
+    zeroed = rows({})
+    zeroed[8] = ("pfuse", 0.0, 0.0, "both identically zero")
+    zeroed[9] = ("pfusi", 0.0, 0.0, "both identically zero")
+    ok, reason = comparator.verdict(zeroed, 0.25, 0.5, 11)
+    assert ok, reason
+    ok, reason = comparator.verdict(zeroed, 0.25, 0.5, 12)
+    assert not ok and "11 of 13" in reason
