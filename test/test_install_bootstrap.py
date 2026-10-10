@@ -3465,3 +3465,28 @@ def test_plasma_state_comparison_has_a_verdict(tmp_path):
     assert re.search(r'tee "\$WORK_DIR/comparison.txt" \|\|\s*die', harness), (
         "the harness must turn the comparator's exit status into a failure"
     )
+
+
+@requires_bash
+@pytest.mark.parametrize("name", ("macos.sh", "linux.sh", "windows.sh"))
+def test_nubeam_recipes_refuse_a_tree_path_with_whitespace(name, tmp_path):
+    """Cold review install F29: Make.local carries PREFIX unquoted.
+
+    None of the recipes checked the root for whitespace before generating
+    Make.local, so a tree under "First Last" failed deep inside an NTCC
+    submodule. Each now refuses up front, before anything is written.
+    """
+    tree = tmp_path / "with space"
+    (tree / "nubeam_comp_exec").mkdir(parents=True)
+    (tree / "Makefile").write_text("", encoding="utf-8")
+    completed = subprocess.run(
+        [BASH, str(NUBEAM_DIR / name), "--nubeam-root", str(tree)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert completed.returncode == 1, completed.stderr
+    assert "whitespace" in completed.stderr and "Make.local" in completed.stderr
+    assert not (tree / "local").exists() and not (tree / "build").exists()
+    assert not (tree / ".nubeam-install-manifest").exists()
+
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert re.search(r"\$source -match '\\s'", wrapper), "windows.ps1 refuses whitespace too"

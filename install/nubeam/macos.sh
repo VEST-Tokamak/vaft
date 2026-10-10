@@ -85,6 +85,12 @@ ROOT_DIR="$(cd "$NUBEAM_ROOT" 2>/dev/null && pwd -P)" ||
   die "NUBEAM source tree does not exist: $NUBEAM_ROOT"
 [[ -f "$ROOT_DIR/Makefile" && -d "$ROOT_DIR/nubeam_comp_exec" ]] ||
   die "not a NUBEAM source tree (no Makefile and nubeam_comp_exec/): $ROOT_DIR"
+# Make.local carries PREFIX = <root>/local and NETCDF_DIR unquoted, and the
+# NTCC makefiles pass them on to the shell unquoted too, so a path with
+# whitespace in it breaks the build somewhere deep inside a submodule rather
+# than here. Refuse it up front, while nothing has been written.
+[[ "$ROOT_DIR" != *[[:space:]]* ]] ||
+  die "the NUBEAM tree path contains whitespace, which the generated Make.local cannot carry: $ROOT_DIR"
 
 # Everything this script generates stays inside the NUBEAM tree, never in the
 # VAFT checkout.

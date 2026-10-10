@@ -301,6 +301,14 @@ $revision = Get-SourceRevision -SourcePath $source
 Write-RevisionResult -Project 'NUBEAM' -Revision $revision
 
 $prefix = Get-NubeamPrefix -Source $source
+# Make.local carries PREFIX = <root>/local unquoted and the NTCC makefiles pass
+# it to the shell unquoted too, so a path with whitespace in it breaks the
+# build deep inside a submodule rather than here. The default Windows location
+# under %LOCALAPPDATA% inherits a space from a "First Last" user name, which
+# is why this is checked before anything is written.
+if (($source -match '\s') -or ($prefix -match '\s')) {
+    Stop-WithGuidance "The NUBEAM source path contains whitespace, which the generated Make.local cannot carry: $source. Move or junction the tree to a path without spaces."
+}
 $binDirectory = Join-Path $prefix 'bin'
 
 # ---------------------------------------------------------------------------
