@@ -318,6 +318,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_fast_ion.py",
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
+    "test_kinetic_closure_nubeam.py",
     "test_process_impurity.py",
     "test_process_kinetic_closure.py",
     "test_process_species.py",
