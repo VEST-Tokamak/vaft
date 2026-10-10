@@ -218,6 +218,29 @@ def _json_values(values: np.ndarray) -> list[float | None]:
     return [float(value) if math.isfinite(float(value)) else None for value in values]
 
 
+def _finite_json(value: Any) -> Any:
+    """``value`` with every non-finite float replaced by ``None``.
+
+    The payload embeds each variant's raw run, and a collapsed g-file
+    (``RMAXIS = 0``) puts NaN into its profile diagnostics; the table is
+    written with ``allow_nan=False`` so that NaN raised and lost the whole
+    table instead of one field (cold review F7).
+    """
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.ndarray):
+        return _finite_json(value.tolist())
+    if isinstance(value, np.generic):
+        return _finite_json(value.item())
+    if isinstance(value, Mapping):
+        return {str(key): _finite_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_finite_json(item) for item in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    return value
+
+
 def _metric(values: Iterable[float], *, absolute: bool = False) -> dict[str, Any]:
     array = np.asarray(list(values), dtype=float)
     array = array[np.isfinite(array)]
@@ -1186,12 +1209,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         block["classification"] = classify(block)
         payload["shots"][str(shot)] = block
         (output / "constraint_information.json").write_text(
-            json.dumps(payload, indent=1, sort_keys=True, allow_nan=False) + "\n",
+            json.dumps(_finite_json(payload), indent=1, sort_keys=True, allow_nan=False) + "\n",
             encoding="utf-8",
         )
     payload["plots"] = plots(payload, output, fmt=args.format, theme=args.theme)
     (output / "constraint_information.json").write_text(
-        json.dumps(payload, indent=1, sort_keys=True, allow_nan=False) + "\n",
+        json.dumps(_finite_json(payload), indent=1, sort_keys=True, allow_nan=False) + "\n",
         encoding="utf-8",
     )
     report = markdown(payload)

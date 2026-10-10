@@ -116,3 +116,31 @@ def test_material_response_uses_the_documented_thresholds():
         "family_residual_rms_absolute_relative_change": {},
     }
     assert study.material_response(comparison)
+
+
+def test_a_nan_in_an_embedded_run_does_not_lose_the_whole_table():
+    """Cold review 0.7.0 efit-workflows F7 (#1888).
+
+    The table embeds each variant's raw run and is written with
+    ``allow_nan=False``; a collapsed g-file's NaN diagnostics used to make
+    that write raise. The payload goes through one sanitiser first.
+    """
+    study = _study()
+    payload = {
+        "shots": {"39915": {"variants": {"baseline": {"run": {"slices": [
+            {"gfile": {"profile_diagnostics": {"jphi_peak": float("nan"),
+                                               "jphi_axis": np.float64("inf")}},
+             "afile": {"scalars": {"betap": np.float64(0.5)}},
+             "path": Path("a039915.00319"),
+             "arrays": np.asarray([1.0, float("nan")])}
+        ]}}}}}
+    }
+    text = json.dumps(study._finite_json(payload), sort_keys=True, allow_nan=False)
+    decoded = json.loads(text)
+    gfile = decoded["shots"]["39915"]["variants"]["baseline"]["run"]["slices"][0]
+    assert gfile["gfile"]["profile_diagnostics"] == {"jphi_peak": None, "jphi_axis": None}
+    assert gfile["afile"]["scalars"]["betap"] == 0.5
+    assert gfile["arrays"] == [1.0, None]
+    source = SCRIPT.read_text(encoding="utf-8")
+    assert source.count("json.dumps(_finite_json(payload), indent=1, sort_keys=True, allow_nan=False)") == 2
+    assert "json.dumps(payload," not in source
