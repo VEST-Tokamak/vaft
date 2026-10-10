@@ -381,6 +381,18 @@ def check_executables(
     return CheckResult(label, PASS, f"{len(found)} in {bin_directory}")
 
 
+#: What a dynamic loader says when a library the binary needs is not where it
+#: was at link time: glibc's ld.so, macOS's dyld, and the two symbol-level
+#: variants each prints when the library is found but the symbol is not.
+LOADER_FAILURE_NEEDLES = (
+    "error while loading shared libraries",
+    "cannot open shared object file",
+    "library not loaded",
+    "symbol lookup error",
+    "symbol not found",
+)
+
+
 def check_executables_load(
     prefix: Optional[str | os.PathLike[str]],
     names: Sequence[str],
@@ -392,30 +404,38 @@ def check_executables_load(
 
     A build can succeed and still be unusable because its runtime libraries are
     only reachable from the shell it was built in. Starting each program with a
-    bare PATH is what proves the prefix is self-contained.
+    bare PATH -- and, on POSIX, without LD_LIBRARY_PATH or DYLD_LIBRARY_PATH --
+    is what proves the prefix is self-contained. A program that starts and then
+    exits for its own reasons (usually "no input file") has proved that; one
+    the loader refuses is reported, on Windows by its status code and on POSIX
+    by what the loader printed.
     """
     label = f"{project} executables load"
-    if os.name != "nt":
-        return CheckResult(label, SKIP, "native Windows only")
     if not prefix:
         return CheckResult(label, SKIP, "no install prefix")
     bin_directory = Path(prefix).expanduser() / "bin"
-    environment = {
-        "SystemRoot": os.environ.get("SystemRoot", "C:/Windows"),
-        "PATH": str(Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32"),
-    }
+    if os.name == "nt":
+        system_root = os.environ.get("SystemRoot", "C:/Windows")
+        environment = {
+            "SystemRoot": system_root,
+            "PATH": str(Path(system_root) / "System32"),
+        }
+    else:
+        environment = {"PATH": "/usr/bin:/bin", "HOME": tempfile.gettempdir()}
     scratch = tempfile.mkdtemp(prefix="vaft-loadprobe-")
     unloadable: list[str] = []
     try:
         for name in names:
-            executable = bin_directory / (name + ".exe")
-            if not executable.is_file():
+            candidates = [bin_directory / (name + ".exe"), bin_directory / name]
+            executable = next((path for path in candidates if path.is_file()), None)
+            if executable is None:
                 continue
             try:
                 completed = subprocess.run(
                     [str(executable)],
                     cwd=scratch,
                     env=environment,
+                    stdin=subprocess.DEVNULL,
                     capture_output=True,
                     encoding="utf-8",
                     errors="replace",
@@ -428,12 +448,21 @@ def check_executables_load(
             except OSError as error:
                 unloadable.append(f"{name}: {error}")
                 continue
-            # 0xC0000135 (no such library) and 0xC0000139 (no such entry
-            # point). CPython reports the raw unsigned DWORD on Windows, so
-            # comparing against the signed spelling of these never matched and
-            # this guard reported every unloadable build as fine.
-            if (completed.returncode & 0xFFFFFFFF) in (0xC0000135, 0xC0000139):
-                unloadable.append(f"{name}: missing runtime libraries")
+            if os.name == "nt":
+                # 0xC0000135 (no such library) and 0xC0000139 (no such entry
+                # point). CPython reports the raw unsigned DWORD on Windows, so
+                # comparing against the signed spelling of these never matched
+                # and this guard reported every unloadable build as fine.
+                if (completed.returncode & 0xFFFFFFFF) in (0xC0000135, 0xC0000139):
+                    unloadable.append(f"{name}: missing runtime libraries")
+                continue
+            # A POSIX loader has no reserved status: ld.so exits 127, dyld
+            # aborts the process. Both say what they could not find.
+            output = (completed.stderr + completed.stdout).lower()
+            complaint = next((line for line in output.splitlines()
+                              if any(needle in line for needle in LOADER_FAILURE_NEEDLES)), None)
+            if complaint is not None:
+                unloadable.append(f"{name}: {complaint.strip()[:200]}")
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
@@ -443,7 +472,7 @@ def check_executables_load(
             FAIL,
             "; ".join(unloadable),
             "Rerun the installer so it copies the runtime libraries next to the "
-            "executables. See install/README.md.",
+            "executables, or links them by an absolute rpath. See install/README.md.",
         )
     return CheckResult(label, PASS, "every executable starts with a bare PATH")
 

@@ -3181,3 +3181,44 @@ def test_nubeam_uninstall_usage_matches_what_the_posix_recipes_record():
     header = (NUBEAM_DIR / "macos.sh").read_text(encoding="utf-8").split("set -euo pipefail")[0]
     assert "no Linux recipe" not in header
     assert "linux.sh" in header
+
+
+@posix_only
+def test_load_probe_runs_on_posix_and_reads_the_loader(tmp_path, monkeypatch):
+    """Cold review install F17: off Windows the load probe returned SKIP.
+
+    NUBEAM's three executables (and GPEC's rdcon/stride/match/rmatch) are not
+    started by any later layer, so on Linux and macOS a build whose libraries
+    resolve only from the shell it was built in reported every layer green.
+    The probe now starts each program with a bare PATH and no
+    LD_LIBRARY_PATH/DYLD_LIBRARY_PATH and reads what the loader prints.
+    """
+    common = _load_external_checker("_external_code_common.py")
+    bin_directory = tmp_path / "prefix" / "bin"
+    bin_directory.mkdir(parents=True)
+
+    def program(name: str, body: str) -> None:
+        path = bin_directory / name
+        path.write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8")
+        path.chmod(0o755)
+
+    # Starts, finds no input, exits for its own reasons: loaded.
+    program("fine", 'echo "no input file" >&2; exit 2')
+    # Only loads if the caller's library path leaks through.
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/leaked")
+    monkeypatch.setenv("DYLD_LIBRARY_PATH", "/leaked")
+    program("leaky", '[ -z "${LD_LIBRARY_PATH:-}${DYLD_LIBRARY_PATH:-}" ] || exit 0; '
+            'echo "dyld[4242]: Library not loaded: @rpath/libgfortran.5.dylib" >&2; kill -ABRT $$')
+    program("unlinked", 'echo "./unlinked: error while loading shared libraries: libnetcdff.so.7: '
+            'cannot open shared object file: No such file or directory" >&2; exit 127')
+
+    result = common.check_executables_load(tmp_path / "prefix", ["fine"], project="NUBEAM")
+    assert result.status == common.PASS, result
+
+    result = common.check_executables_load(
+        tmp_path / "prefix", ["fine", "leaky", "unlinked", "absent"], project="NUBEAM"
+    )
+    assert result.status == common.FAIL, result
+    assert "leaky" in result.detail and "unlinked" in result.detail
+    assert "fine" not in result.detail
+    assert "libgfortran" in result.detail and "libnetcdff" in result.detail
