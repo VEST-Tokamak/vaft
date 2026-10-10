@@ -126,6 +126,36 @@ def test_local_neo_charges_come_from_its_input():
                                  vaft_charges=[1.0], mitim_charges={0.5: None})
 
 
+def test_the_mitim_bridge_never_uses_the_locale_encoding():
+    """Repository text I/O in vaft.code.mitim (drivers included: they are copied
+    into the run directory) and workflow/gyrokinetic is UTF-8, whatever the host
+    locale says (cold review 0.8.0 delta-absorb-17 transport F8)."""
+    import pathlib
+    import re
+
+    root = pathlib.Path(__file__).resolve().parents[1]
+    text_io = re.compile(r"(?<![\w.])open\(|\.read_text\(|\.write_text\(")
+    files = sorted((root / "vaft/code/mitim").rglob("*.py")) + sorted(
+        (root / "workflow/gyrokinetic").glob("*.py"))
+    assert files
+    offenders = []
+    for path in files:
+        lines = path.read_text(encoding="utf-8").splitlines()
+        for number, line in enumerate(lines, 1):
+            if not text_io.search(line):
+                continue
+            statement, depth, k = "", 0, number - 1
+            while k < len(lines):                      # the whole call, over continuation lines
+                statement += lines[k]
+                depth += lines[k].count("(") + lines[k].count("{") - lines[k].count(")") - lines[k].count("}")
+                k += 1
+                if depth <= 0:
+                    break
+            if "encoding=" not in statement and '"rb"' not in statement and '"wb"' not in statement:
+                offenders.append(f"{path.relative_to(root)}:{number}: {line.strip()}")
+    assert not offenders, "\n".join(offenders)
+
+
 def _loop_result(true, start, recovered, residual, *, target=(1.0, 2.0), model=(1.0, 2.0)):
     return {"r_over_a": [0.3, 0.6], "aLte_true": list(true), "aLte_start": list(start),
             "aLte_recovered": list(recovered), "model_minus_required_at_start_MWm2": list(residual),

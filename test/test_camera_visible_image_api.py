@@ -143,7 +143,7 @@ def test_unknown_overlays_are_refused_by_name(shot):
     with pytest.raises(ValueError, match="unknown overlay 'lcfs'"):
         build_model("camera_visible_image", normalize_entries(shot), overlay="lcfs")
     from vaft.plot.machine_geometry import MACHINE_GEOMETRY_FAMILIES
-    assert CAMERA_OVERLAYS == ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry") + MACHINE_GEOMETRY_FAMILIES
+    assert CAMERA_OVERLAYS == ("wall", "equilibrium", "field_line", "vacuum_field_line", "machine_geometry", "equilibrium_section") + MACHINE_GEOMETRY_FAMILIES
 
 
 # ---------------------------------------------------------------------------

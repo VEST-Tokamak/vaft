@@ -87,32 +87,52 @@ def summarize(rows: Sequence[dict[str, str]], references: dict[str, Path | None]
     return summary
 
 
-def figure(rows: Sequence[dict[str, str]], out: Path) -> list[Path]:
+def figure(rows: Sequence[dict[str, str]], out: Path, *, fmt: str = "screen", theme: str | None = None) -> list[Path]:
+    """Draw the figure at a :mod:`vaft.plot.presentation` format (``legacy``: no format, 11 x 8 in)."""
+    from vaft.plot.presentation import Presentation, resolve_presentation
+
+    pres = resolve_presentation(fmt, theme) or Presentation(None, None)
+    with pres.context():
+        return _figure(rows, out, pres.grid_figsize(2, 2, aspect=0.8, fallback=(11.0, 8.0)))
+
+
+def _figure(rows: Sequence[dict[str, str]], out: Path, figsize: tuple[float, float]) -> list[Path]:
+    import textwrap
+
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
 
     matched = [r for r in rows if r["ts_status"] == "matched"]
     colours = {"good": "#2166ac", "admissible": "#e08214"}
-    fig, (left, middle, right) = plt.subplots(1, 3, figsize=(15.0, 4.4), constrained_layout=True)
+    # One width whatever the panel count (vaft.plot presentation): the two
+    # population panels side by side, the paired response below with the
+    # shared legend beside it and the caption underneath.
+    fig, grid = plt.subplots(2, 2, figsize=figsize, constrained_layout=True)
+    (left, middle), (right, notes) = grid
     # #1430 keeps the two validation roles apart: magnetics-only is held-out
     # validation, electron-kinetic is fit consistency (Thomson was fitted).
-    panels = ((left, "magnetics", "o", "Magnetics-only EFIT (held out)"),
-              (middle, "electron_kinetic", "s", r"Electron-kinetic EFIT ($T_i=T_e$, TS fitted)"))
+    panels = ((left, "magnetics", "o", "Magnetics-only EFIT\n(held out)"),
+              (middle, "electron_kinetic", "s", "Electron-kinetic EFIT\n" r"($T_i=T_e$, TS fitted)"))
     for axes, lineage, marker, title in panels:
-        axes.axhspan(1.0, 2.0, color="0.92", zorder=0, label="physical band: 1 \u2264 p/p$_e$ \u2264 2")
-        axes.axhline(1.0, color="0.3", lw=0.8, ls="--", label="$p=p_e$")
+        axes.axhspan(1.0, 2.0, color="0.92", zorder=0)
+        axes.axhline(1.0, color="0.3", lw=0.8, ls="--")
+        counts = []
         for quality in ("admissible", "good"):
             group = [r for r in matched if r["efit_lineage"] == lineage and r["efit_quality"] == quality
                      and math.isfinite(_f(r["r_sum"])) and _f(r["r_sum"]) > 0]  # what a log axis can draw
             if group:
                 axes.scatter([_f(r["ip_measured_a"]) / 1e3 for r in group], [_f(r["r_sum"]) for r in group],
-                             s=22, marker=marker, color=colours[quality], label=f"{quality} ({len(group)})")
+                             marker=marker, color=colours[quality])
+                counts.append(f"{quality} {len(group)}")
+        axes.text(0.98, 0.02, ", ".join(counts), transform=axes.transAxes, ha="right", va="bottom",
+                  fontsize="x-small", bbox=dict(facecolor="white", edgecolor="none", alpha=0.8, pad=1.0))
         axes.set_xlabel("measured $I_p$ [kA]")
         axes.set_yscale("log")
         axes.set_title(title)
-        axes.legend(fontsize=7, loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=2, frameon=False)
     left.set_ylabel(r"$R_\mathrm{sum}=\sum p_\mathrm{EFIT}/\sum p_{e,\mathrm{TS}}$")
     values = [_f(r["r_sum"]) for r in matched]
     values = [v for v in values if math.isfinite(v) and v > 0]
@@ -128,29 +148,41 @@ def figure(rows: Sequence[dict[str, str]], out: Path) -> list[Path]:
     finite = [v for v in xs + ys if math.isfinite(v) and v > 0]
     if finite:
         lo, hi = min(finite) / 1.3, max(finite) * 1.3
-        right.plot([lo, hi], [lo, hi], color="0.3", lw=0.8, ls="--", label="$y=x$")
+        right.plot([lo, hi], [lo, hi], color="0.3", lw=0.8, ls="--")
         right.set_xlim(lo, hi)
         right.set_ylim(lo, hi)
     for (m, k), x, y in zip(pairs, xs, ys):
-        right.scatter([x], [y], s=26, color=colours[m["efit_quality"]],
+        right.scatter([x], [y], color=colours[m["efit_quality"]],
                       marker="s" if k["kinetic_admissible"] == "pass" else "x")
     right.set_xscale("log")
     right.set_yscale("log")
-    right.set_xlabel(r"$R_\mathrm{sum}$, magnetics-only (held out)")
-    right.set_ylabel(r"$R_\mathrm{sum}$, electron-kinetic ($T_i=T_e$, fit to TS)")
-    right.set_title(f"Reconstruction response, {len(pairs)} paired slices")
-    right.legend(fontsize=7, loc="upper left")
+    right.set_xlabel(r"$R_\mathrm{sum}$, magnetics-only")
+    right.set_ylabel(r"$R_\mathrm{sum}$, electron-kinetic")
+    right.set_title(f"Reconstruction response\n{len(pairs)} paired slices")
     from matplotlib.ticker import FixedLocator, NullLocator, ScalarFormatter
 
-    ticks = [0.1, 0.2, 0.3, 0.5, 0.7, 1, 1.5, 2, 3, 5, 7, 10, 20, 30, 50, 100]
-    for axis in (left.yaxis, middle.yaxis, right.xaxis, right.yaxis):
+    dense = [0.1, 0.2, 0.3, 0.5, 0.7, 1, 1.5, 2, 3, 5, 7, 10, 20, 30, 50, 100]
+    sparse = [0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100]  # a square panel's x axis has no room for the dense set
+    for axis, ticks in ((left.yaxis, dense), (middle.yaxis, dense), (right.xaxis, sparse), (right.yaxis, sparse)):
         axis.set_major_locator(FixedLocator(ticks))
         axis.set_minor_locator(NullLocator())
         axis.set_major_formatter(ScalarFormatter())
-    fig.text(0.01, -0.12, "#1331 Tier A, statistical_891. Colour is the criteria-v2 fit quality of the magnetics slice "
-             "at that (shot, t); electron-kinetic rows inherit it. The shaded band is the physical-consistency "
-             "check, not a selection. Right panel only: square = the kinetic fit's own admissibility passes, "
-             "x = fails.", fontsize=7)
+
+    notes.axis("off")
+    handles = [Patch(color="0.92", label=r"physical band $1 \leq p/p_e \leq 2$"),
+               Line2D([], [], color="0.3", lw=0.8, ls="--", label=r"$p=p_e$ (top), $y=x$ (bottom)"),
+               *(Line2D([], [], ls="", marker="o", color=colours[q], label=f"{q} (magnetics slice)")
+                 for q in ("good", "admissible")),
+               Line2D([], [], ls="", marker="s", color="0.4", label="kinetic fit admissible"),
+               Line2D([], [], ls="", marker="x", color="0.4", label="kinetic fit not admissible")]
+    notes.legend(handles=handles, loc="upper left", frameon=False, fontsize="small", borderaxespad=0.0)
+    caption = ("#1331 Tier A, statistical_891. Colour is the criteria-v2 fit quality of the magnetics slice "
+               "at that (shot, t); electron-kinetic rows inherit it. The shaded band is the physical-consistency "
+               "check, not a selection. Square/x apply to the paired panel only.")
+    # Below the whole canvas, wrapped to its width (an average glyph is ~0.55 em
+    # at "x-small"); bbox_inches="tight" keeps it in the saved file.
+    chars = max(40, int(fig.get_size_inches()[0] * 72 / (0.55 * 0.694 * plt.rcParams["font.size"])))
+    fig.text(0.0, 0.0, textwrap.fill(caption, chars), va="top", fontsize="x-small")
     out.mkdir(parents=True, exist_ok=True)
     paths = [out / "pressure_consistency.png", out / "pressure_consistency.pdf"]
     for path in paths:
@@ -164,6 +196,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--atlas", type=Path, required=True)
     parser.add_argument("--analysis", type=Path)
     parser.add_argument("--analysis-tite017", type=Path)
+    parser.add_argument("--format", default="screen", help="vaft.plot presentation format, or 'legacy'")
+    parser.add_argument("--theme", default=None, help="vaft.plot presentation theme")
     args = parser.parse_args(argv)
     atlas = args.atlas.expanduser()
     with open(atlas / "state.csv", newline="") as handle:
@@ -171,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
     summary = summarize(rows, {"ti_te_1.0": args.analysis and args.analysis.expanduser(),
                                "ti_te_0.17": args.analysis_tite017 and args.analysis_tite017.expanduser()})
     (atlas / "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
-    figure(rows, atlas / "figures")
+    figure(rows, atlas / "figures", fmt=args.format, theme=args.theme)
     print(json.dumps(summary, indent=1))
     return 0
 

@@ -63,7 +63,13 @@ _SUBMODULES = {
     "transport_state": ".transport_state",
     "confinement": ".confinement",
     "impurity": ".impurity",
+    "species": ".species",
+    "kinetic_closure": ".kinetic_closure",
     "zeff_projection": ".zeff_projection",
+    "mode_frequency": ".mode_frequency",
+    "mhd_stability": ".mhd_stability",
+    "q_profile_context": ".q_profile_context",
+    "ordering_state": ".ordering_state",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -121,8 +127,28 @@ _IMPORT_ORDER = (
     # One resolved impurity composition behind every Z_eff (#1565); nothing it
     # exports collides.
     "impurity",
+    # Canonical species/population state and its projections (#1567); nothing it
+    # exports collides.
+    "species",
+    # Dilution-aware pressure and the classical fast-ion baseline (#1606); nothing
+    # it exports collides.
+    "kinetic_closure",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
+    # Predicted mode-frequency tracks from rotation at q = m/n (#460); nothing
+    # it exports collides.
+    "mode_frequency",
+    # DCON local-criterion and edge-scan post-processing from the ODS payload
+    # (#940); nothing it exports collides.
+    "mhd_stability",
+    # Equilibrium context for core low-n MHD (#1798): q landmarks, rational
+    # crossings, low-shear regions, boundary topology; nothing it exports collides.
+    # The module is q_profile_context so that its key never shadows the
+    # core_q_context function it exports (#1838).
+    "q_profile_context",
+    # Asymptotic ordering quantities of measured states (#1627 §2, #1629);
+    # nothing it exports collides.
+    "ordering_state",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

@@ -5,7 +5,8 @@ The FAST visible-light camera's raw output is a per-shot sequence of
 header (see the VEST_Fast Camera_Diagnostics repository's ``bmp_arranger.py``).
 This module reuses that donor tool's header-parsing convention and frame-to-time
 formula, but replaces its Ip/H-alpha SQL-based valid-interval gate with a purely
-image-content-based one (near-black frame rejection), and writes only raw,
+image-content-based one (near-black frame rejection against each shot's own
+dark level, see :func:`select_valid_frames`), and writes only raw,
 uncalibrated frames into ``camera_visible`` -- no radiometric calibration or
 geometry is available, so ``frame[:].radiance`` and calibration/geometry nodes
 are never populated.
@@ -24,9 +25,36 @@ import numpy as np
 from .registry import port_phi
 from .utils import resolve_data_root, set_path
 
+#: The donor's fixed near-black level. It is now used only when a caller passes
+#: it explicitly: frame selection derives its threshold from each shot's own
+#: dark level (see :func:`select_valid_frames`).
 DEFAULT_NEAR_BLACK_THRESHOLD = 35
 DEFAULT_NEAR_BLACK_PERCENTAGE = 0.98
 DEFAULT_BUFFER_FRAMES = 2
+#: A frame is near-black when more than ``percentage`` of its pixels sit below
+#: ``dark_level + DEFAULT_DARK_MARGIN``. The fixed 35 only fitted the original
+#: exports, whose sensor floor is ~25 DN. The BatchConv2 re-exports (GX-8
+#: headers) use another gain/LUT and put an empty vessel at ~48 DN, so no frame
+#: of e.g. shot 48909 counted as dark and every frame was kept. Calibrated
+#: against the I_p window on 55 plasma shots of both exports: +20 trims
+#: re-exports to the I_p window within ~1-2 ms and moves the cut on the
+#: original exports by at most a frame or two.
+DEFAULT_DARK_MARGIN = 20.0
+#: The dark level is the lower quartile, over the shot's frames, of each
+#: frame's 1st-percentile pixel. Plasma frames still have dark corners outside
+#: the port, so this tracks the sensor floor; the quartile (not the minimum)
+#: ignores a stray blank frame and still holds when up to three quarters of
+#: the recording is bright.
+DARK_LEVEL_PERCENTILE = 1.0
+DARK_LEVEL_FRAME_QUANTILE = 0.25
+#: Measured floors run 15-52 DN across both exports. A recording lit almost
+#: throughout (diffuse light, saturation) would otherwise estimate its "dark"
+#: level at the lit level and reject every frame; the cap keeps such frames.
+DARK_LEVEL_CEILING = 60.0
+#: Names the selection rule in the IDS comment and the stage manifest, so a
+#: product can be audited for which rule it was built with.
+FRAME_SELECTION_RULE = "relative-dark-v2"
+FIXED_FRAME_SELECTION_RULE = "fixed-v1"
 
 # Fixed 0-based line indices in `{shot}_bmp.txt`, verified stable across all
 # sample shots in the VEST_Fast Camera_Diagnostics repository. The "Top Frame"/
@@ -207,7 +235,12 @@ def _parse_gx8_header(path: Path, lines: Sequence[str]) -> CameraHeaderInfo:
     2500 fps. So the top and bottom times are ``frame / Frame_Rate``, and the
     exported frame count is ``BottomFrame - TopFrame + 1``. Verified against
     the three shots (26151, 26153, 26155) that exist in both layouts: same
-    start, end and exposure.
+    start, end and exposure. The frame numbers are indices into the camera's
+    source recording, whose rate is ``Frame_SRC_Rate``; ``Frame_Rate`` is the
+    export rate, read first here with ``Frame_SRC_Rate`` as the fallback.
+    Every header seen so far carries the same value in both, so a header
+    where they differ would need the source rate for the times and has not
+    been met.
     """
     values: dict[str, str] = {}
     for line in lines:
@@ -336,7 +369,7 @@ def frame_time_ms(frame_index: int, total_frames: int, start_time_ms: float, end
 def is_near_black(
     image: np.ndarray,
     *,
-    threshold: int = DEFAULT_NEAR_BLACK_THRESHOLD,
+    threshold: float = DEFAULT_NEAR_BLACK_THRESHOLD,
     percentage: float = DEFAULT_NEAR_BLACK_PERCENTAGE,
 ) -> bool:
     """Return whether ``image`` is near-black, reusing the donor `is_near_black` formula."""
@@ -346,19 +379,80 @@ def is_near_black(
     return (black_pixels / total_pixels) > percentage
 
 
-def find_valid_frame_interval(
+def estimate_dark_level(
+    frames: Sequence[np.ndarray | None],
+    *,
+    percentile: float = DARK_LEVEL_PERCENTILE,
+) -> float:
+    """Return a shot's sensor dark level (see ``DARK_LEVEL_FRAME_QUANTILE``)."""
+    levels = [float(np.percentile(frame, percentile)) for frame in frames if frame is not None]
+    if not levels:
+        raise CameraFrameSelectionError("No frames available to estimate the dark level.")
+    return float(np.quantile(levels, DARK_LEVEL_FRAME_QUANTILE))
+
+
+@dataclass(frozen=True)
+class FrameSelection:
+    """The outcome of dark-frame rejection on one shot's frame sequence."""
+
+    onset: int
+    end: int
+    total_frames: int
+    threshold: float
+    percentage: float
+    buffer_frames: int
+    rule: str
+    #: First and last frame inside ``[onset, end]`` that exists: the original
+    #: indices of the first and last frame actually stored. They differ from
+    #: ``onset``/``end`` only when padding lands on missing frames.
+    first_retained: int
+    last_retained: int
+    #: ``None`` when the caller fixed ``threshold`` (rule ``fixed-v1``).
+    dark_level: float | None = None
+
+    def as_record(self) -> dict[str, Any]:
+        """JSON-ready form, as stored in the stage manifest."""
+        return {
+            "rule": self.rule,
+            "first_retained": self.first_retained,
+            "last_retained": self.last_retained,
+            "total_frames": self.total_frames,
+            "threshold": self.threshold,
+            "percentage": self.percentage,
+            "buffer_frames": self.buffer_frames,
+            "dark_level": self.dark_level,
+        }
+
+
+def select_valid_frames(
     frames: Sequence[np.ndarray | None],
     *,
     buffer_frames: int = DEFAULT_BUFFER_FRAMES,
-    threshold: int = DEFAULT_NEAR_BLACK_THRESHOLD,
+    threshold: float | None = None,
     percentage: float = DEFAULT_NEAR_BLACK_PERCENTAGE,
-) -> tuple[int, int]:
+    dark_margin: float = DEFAULT_DARK_MARGIN,
+) -> FrameSelection:
     """Find the ``[onset, end]`` interval of non-dark frames, with padding.
 
     Mirrors the donor `find_valid_frame_range`: scans for the first/last
     non-dark, non-missing frame, then pads by ``buffer_frames`` on each side,
-    clamped to the available index range.
+    clamped to the available index range. Dark frames *inside* the interval
+    are kept.
+
+    With ``threshold=None`` (the default) the near-black level is
+    ``estimate_dark_level(frames) + dark_margin``, so the rule holds across
+    exports whose dark floor differs. Passing a number restores the donor's
+    fixed level (``DEFAULT_NEAR_BLACK_THRESHOLD`` reproduces it).
     """
+    if threshold is None:
+        dark_level: float | None = min(estimate_dark_level(frames), DARK_LEVEL_CEILING)
+        resolved = dark_level + float(dark_margin)
+        rule = FRAME_SELECTION_RULE
+    else:
+        dark_level = None
+        resolved = float(threshold)
+        rule = FIXED_FRAME_SELECTION_RULE
+
     total_frames = len(frames)
     first_valid: int | None = None
     last_valid: int | None = None
@@ -366,7 +460,7 @@ def find_valid_frame_interval(
     for index, frame in enumerate(frames):
         if frame is None:
             continue
-        if not is_near_black(frame, threshold=threshold, percentage=percentage):
+        if not is_near_black(frame, threshold=resolved, percentage=percentage):
             if first_valid is None:
                 first_valid = index
             last_valid = index
@@ -379,7 +473,75 @@ def find_valid_frame_interval(
 
     onset = max(0, first_valid - buffer_frames)
     end = min(total_frames - 1, last_valid + buffer_frames)
-    return onset, end
+    present = [index for index in range(onset, end + 1) if frames[index] is not None]
+    return FrameSelection(
+        onset=onset,
+        end=end,
+        total_frames=total_frames,
+        first_retained=present[0],
+        last_retained=present[-1],
+        threshold=resolved,
+        percentage=float(percentage),
+        buffer_frames=int(buffer_frames),
+        rule=rule,
+        dark_level=dark_level,
+    )
+
+
+def find_valid_frame_interval(
+    frames: Sequence[np.ndarray | None],
+    *,
+    buffer_frames: int = DEFAULT_BUFFER_FRAMES,
+    threshold: float | None = None,
+    percentage: float = DEFAULT_NEAR_BLACK_PERCENTAGE,
+    dark_margin: float = DEFAULT_DARK_MARGIN,
+) -> tuple[int, int]:
+    """Return only ``(onset, end)`` of :func:`select_valid_frames`."""
+    selection = select_valid_frames(
+        frames,
+        buffer_frames=buffer_frames,
+        threshold=threshold,
+        percentage=percentage,
+        dark_margin=dark_margin,
+    )
+    return selection.onset, selection.end
+
+
+_SELECTION_RANGE_PATTERN = re.compile(
+    r"retained original frame indices \[(\d+), (\d+)\] out of (\d+)"
+)
+_SELECTION_PARAMETER_PATTERN = re.compile(r"\b(rule|threshold|percentage|buffer_frames|dark_level)=([^,;)\s]+)")
+
+
+def parse_frame_selection(comment: str) -> dict[str, Any] | None:
+    """Read the frame selection back out of a ``camera_visible`` IDS comment.
+
+    Returns the :meth:`FrameSelection.as_record` fields, or ``None`` when the
+    comment carries no selection. The comment names the original indices of
+    the first and last *stored* frame, so those are what come back. Products written before the rule was named
+    have no ``rule=`` and are reported as ``fixed-v1``.
+    """
+    match = _SELECTION_RANGE_PATTERN.search(comment or "")
+    if match is None:
+        return None
+    parameters = dict(_SELECTION_PARAMETER_PATTERN.findall(comment))
+    rule = parameters.get("rule", FIXED_FRAME_SELECTION_RULE)
+
+    def number(key: str) -> float | None:
+        value = parameters.get(key)
+        return None if value is None else float(value)
+
+    buffer_frames = number("buffer_frames")
+    return {
+        "rule": rule,
+        "first_retained": int(match.group(1)),
+        "last_retained": int(match.group(2)),
+        "total_frames": int(match.group(3)),
+        "threshold": number("threshold"),
+        "percentage": number("percentage"),
+        "buffer_frames": None if buffer_frames is None else int(buffer_frames),
+        "dark_level": number("dark_level"),
+    }
 
 
 def _load_raw_frame(shot_dir: Path, shot: int, frame_index: int) -> np.ndarray | None:
@@ -583,16 +745,21 @@ def camera_visible(
     data_root: str | Path | None = None,
     frame_dir: str | Path | None = None,
     header_path: str | Path | None = None,
-    near_black_threshold: int = DEFAULT_NEAR_BLACK_THRESHOLD,
+    near_black_threshold: float | None = None,
     near_black_percentage: float = DEFAULT_NEAR_BLACK_PERCENTAGE,
     buffer_frames: int = DEFAULT_BUFFER_FRAMES,
+    dark_margin: float = DEFAULT_DARK_MARGIN,
     channel_name: str = "Fast Camera",
 ) -> None:
     """Populate ``ods`` with VEST FAST-camera raw frames for ``shot``.
 
     Valid frames are selected from image content: frames outside the
     near-black-rejection interval (padded by ``buffer_frames`` on each side)
-    are discarded, and the retained frames are reindexed from 0. This is the
+    are discarded, and the retained frames are reindexed from 0. The
+    near-black level is the shot's own dark level plus ``dark_margin`` unless
+    ``near_black_threshold`` fixes it (:func:`select_valid_frames`); the
+    outcome is written into ``ids_properties.comment`` in the form
+    :func:`parse_frame_selection` reads back. This is the
     same reindex-from-zero, image-content-based selection as the donor
     ``bmp_arranger.py`` tool, not the Ip/H-alpha SQL-based gate used by its
     ``bmp_arranger_batch.py`` variant.
@@ -606,12 +773,14 @@ def camera_visible(
         _load_raw_frame(shot_dir, int(shot), index) for index in range(header.total_frames)
     ]
 
-    onset, end = find_valid_frame_interval(
+    selection = select_valid_frames(
         raw_frames,
         buffer_frames=buffer_frames,
         threshold=near_black_threshold,
         percentage=near_black_percentage,
+        dark_margin=dark_margin,
     )
+    onset, end = selection.onset, selection.end
 
     retained_indices = [
         index for index in range(onset, end + 1) if raw_frames[index] is not None
@@ -634,10 +803,14 @@ def camera_visible(
         if header.exposure_time_s is not None
         else "exposure_time unavailable: no ShutterSpeed line found in header."
     )
+    dark_level_note = (
+        f", dark_level={selection.dark_level:g}" if selection.dark_level is not None else ""
+    )
     selection_note = (
         f"Frames selected by image-content dark-frame rejection "
-        f"(threshold={near_black_threshold}, percentage={near_black_percentage}, "
-        f"buffer_frames={buffer_frames}); retained original frame indices "
+        f"(rule={selection.rule}, threshold={selection.threshold:g}{dark_level_note}, "
+        f"percentage={selection.percentage:g}, buffer_frames={selection.buffer_frames}); "
+        f"retained original frame indices "
         f"[{retained_indices[0]}, {retained_indices[-1]}] out of {header.total_frames}, "
         f"reindexed from 0. {exposure_note}"
     )
@@ -691,17 +864,27 @@ camera_visible_from_raw_database = camera_visible
 __all__ = [
     "CameraFrameSelectionError",
     "CameraHeaderInfo",
+    "DARK_LEVEL_CEILING",
+    "DARK_LEVEL_FRAME_QUANTILE",
+    "DARK_LEVEL_PERCENTILE",
     "DEFAULT_BUFFER_FRAMES",
+    "DEFAULT_DARK_MARGIN",
     "DEFAULT_NEAR_BLACK_PERCENTAGE",
     "DEFAULT_NEAR_BLACK_THRESHOLD",
+    "FIXED_FRAME_SELECTION_RULE",
+    "FRAME_SELECTION_RULE",
+    "FrameSelection",
     "camera_visible",
     "camera_visible_from_frame_dir",
     "camera_visible_from_raw_database",
+    "estimate_dark_level",
     "find_valid_frame_interval",
     "frame_time_ms",
     "is_near_black",
     "narrow_image_storage",
+    "parse_frame_selection",
     "save_camera_visible_ods",
+    "select_valid_frames",
     "vfit_camera_visible_dynamic",
     "vfit_camera_visible_static",
 ]

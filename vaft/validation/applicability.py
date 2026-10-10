@@ -83,6 +83,7 @@ __all__ = [
     "evaluate_population",
     "ordering_margin",
     "successive_discrepancy",
+    "summarize_population",
 ]
 
 #: Identical to ``vaft.plot.operational_space.APPLICABILITY_STATUSES`` (#1664);
@@ -170,7 +171,8 @@ class ApproximationContract:
     ``applies_to`` optionally restricts the contract to states whose named
     fields hold one of the listed values (e.g. ``{"phase": ("flat",)}``); a
     state outside it is ``NOT_APPLICABLE``, not ``OUTSIDE``, and a state that
-    does not carry the field at all is ``UNASSESSED``.
+    does not carry the field at all, or carries it as something other than
+    one scalar (a list, an array), is ``UNASSESSED``.
     """
 
     name: str
@@ -291,12 +293,32 @@ def _lookup(state: Any, key: str) -> Any:
     return getattr(state, key, None)
 
 
+def _is_scalar(value: Any) -> bool:
+    """One categorical value: a string, or anything without a length (a 0-d array counts)."""
+    if isinstance(value, (str, bytes)):
+        return True
+    try:
+        len(value)
+    except TypeError:
+        return True
+    return False
+
+
 def _applies(contract: ApproximationContract, state: Any) -> tuple[str, str]:
-    """``("", "")`` in scope, else the status the scope test decides and why."""
+    """``("", "")`` in scope, else the status the scope test decides and why.
+
+    A scope field is one categorical scalar.  A list or array in it (even of
+    one element) cannot be placed in or out of scope, so it is ``UNASSESSED``
+    with a reason -- never a silent ``NOT_APPLICABLE`` for a list, nor an
+    exception out of a population evaluation for an array.
+    """
     for key, allowed in contract.applies_to.items():
         value = _lookup(state, key)
         if _missing(value):
             return "UNASSESSED", f"{key} not provided, so the contract's scope {allowed} cannot be decided"
+        if not _is_scalar(value):
+            return "UNASSESSED", (f"{key}={value!r} is not one scalar value, so the contract's scope "
+                                  f"{allowed} cannot be decided")
         if value not in allowed:
             return "NOT_APPLICABLE", f"{key}={value!r} is outside the contract's scope {allowed}"
     return "", ""
@@ -383,6 +405,55 @@ def evaluate_population(contract: ApproximationContract, table: Any, *,
     frame.attrs["contract"] = contract.name
     frame.attrs["physical_model"] = contract.physical_model
     return frame
+
+
+def summarize_population(evaluated: Any, contract: ApproximationContract) -> dict[str, Any]:
+    """Population-level applicability of one contract from :func:`evaluate_population` output.
+
+    The aggregation #1629 §9 reports, kept here so a notebook does not invent
+    its own:
+
+    ``n``
+        rows evaluated;
+    ``SUPPORTED`` / ``OUTSIDE`` / ``UNASSESSED`` / ``NOT_APPLICABLE``
+        fractions of rows with that contract status;
+    ``decided``
+        fraction of rows whose status is not ``UNASSESSED``;
+    ``evaluated_hold``
+        fraction of rows where every assumption that *could* be evaluated holds
+        and at least one could -- what the data say about the orderings it
+        reaches, separate from whether the contract as a whole is decided;
+        NaN when no assumption could be evaluated on any row;
+    ``assessable`` / ``unassessed``
+        assumptions evaluated on at least one row, and those on none;
+    ``main_limitation``
+        the most frequent limiting assumption among ``OUTSIDE`` rows (empty
+        when none).
+    """
+    import pandas as pd
+
+    n = len(evaluated)
+    assumptions = [item.quantity for item in contract.assumptions]
+    status_columns = [f"{q}_status" for q in assumptions if f"{q}_status" in evaluated]
+    statuses = evaluated["status"] if n else pd.Series(dtype=object)
+    assessable = [q for q in assumptions
+                  if f"{q}_status" in evaluated and evaluated[f"{q}_status"].isin(("SUPPORTED", "OUTSIDE")).any()]
+    summary: dict[str, Any] = {"contract": contract.name, "n": n}
+    for status in APPLICABILITY_STATUSES:
+        summary[status] = float((statuses == status).mean()) if n else math.nan
+    summary["decided"] = float((statuses != "UNASSESSED").mean()) if n else math.nan
+    if n and status_columns:
+        per_row = evaluated[status_columns]
+        held = (~per_row.eq("OUTSIDE").any(axis=1)) & per_row.eq("SUPPORTED").any(axis=1)
+        # NaN, not 0, when nothing could be evaluated: "no evidence" is not "fails"
+        summary["evaluated_hold"] = float(held.mean()) if assessable else math.nan
+    else:
+        summary["evaluated_hold"] = math.nan
+    limiting = evaluated.loc[statuses == "OUTSIDE", "limiting"].value_counts() if n else pd.Series(dtype=int)
+    summary["main_limitation"] = str(limiting.index[0]) if len(limiting) else ""
+    summary["assessable"] = tuple(assessable)
+    summary["unassessed"] = tuple(q for q in assumptions if q not in assessable)
+    return summary
 
 
 def as_evidence(result: ContractEvaluation, *, key: str | None = None):

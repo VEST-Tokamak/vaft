@@ -142,6 +142,33 @@ def test_a_state_without_the_scope_field_is_unassessed_not_out_of_scope():
         assert as_evidence(result).status is ValidationStatus.NOT_AVAILABLE
 
 
+@pytest.mark.parametrize("value", [
+    pytest.param(["flat", "ramp"], id="list"),
+    pytest.param(("flat",), id="one-element-tuple"),
+    pytest.param("ndarray-str", id="ndarray-str"),
+    pytest.param("ndarray-float", id="ndarray-float"),
+    pytest.param("ndarray-one", id="ndarray-one-element"),
+])
+def test_a_non_scalar_scope_value_is_unassessed_not_an_exception_or_silently_out_of_scope(value):
+    # cold review 0.8.0 delta-absorb-17 species-docs F7: an array raised out of evaluate_population,
+    # a list became NOT_APPLICABLE without a word
+    import numpy as np
+
+    arrays = {"ndarray-str": np.array(["flat", "ramp"]), "ndarray-float": np.array([1.0, 2.0]),
+              "ndarray-one": np.array(["flat"])}
+    value = arrays.get(value, value) if isinstance(value, str) else value
+    contract = ApproximationContract("flat_only", "toy", (OrderingAssumption("x", "small", "a"),),
+                                     applies_to={"phase": ("flat",)})
+    result = evaluate_contract(contract, {"phase": value, "x": 1e-3})
+    assert result.status == "UNASSESSED" and "not one scalar value" in result.reason
+    table = pd.DataFrame({"phase": ["flat", value, "ramp"], "x": [1e-3] * 3}, index=[7, 8, 9])
+    frame = evaluate_population(contract, table)
+    assert list(frame.index) == [7, 8, 9]
+    assert list(frame["status"]) == ["SUPPORTED", "UNASSESSED", "NOT_APPLICABLE"]
+    # a 0-d array is one value
+    assert evaluate_contract(contract, {"phase": np.array("flat"), "x": 1e-3}).status == "SUPPORTED"
+
+
 def test_a_scope_given_as_a_bare_string_is_refused():
     with pytest.raises(TypeError, match="collection"):
         ApproximationContract("c", "toy", (OrderingAssumption("x", "small", "a"),), applies_to={"phase": "flat"})
@@ -257,10 +284,12 @@ def _entry(status, **slice_fields):
     return {"status": status, "counts": {status: 1}, "slices": [one]}
 
 
-def _report(*, dia_fitted: bool) -> dict:
+def _report(*, dia_fitted: bool, dia_entry: dict | None = None) -> dict:
     fit = {"global": _entry("warn", value=3.1)}
     if dia_fitted:
-        fit["diamagnetic_flux"] = _entry("pass", value=0.4)
+        fit["diamagnetic_flux"] = _entry("pass", value=0.4, fit_role="fitted", sigma_from_weight=1.0)
+    if dia_entry is not None:
+        fit["diamagnetic_flux"] = dia_entry
     return {
         "status": "warn",
         "verification": {"convergence": _entry("pass", error=1e-5)},
@@ -299,6 +328,40 @@ def test_a_fitted_diamagnetic_flux_takes_every_check_against_it_off_v():
     for key in ("physical_validity.diamagnetic_flux", "independent_validation.virial_measured_mu_i"):
         assert (evidence[key].axis, evidence[key].role) == ("inference", "used_for_inference"), key
     assert evidence["independent_validation.thomson_pressure"].axis == "independent_validation"
+
+
+def _dia_axis(report):
+    item = {e.key: e for e in evidence_from_equilibrium_report(report)}["physical_validity.diamagnetic_flux"]
+    return item.axis, item.role
+
+
+def test_an_ungraded_but_fitted_diamagnetic_flux_is_still_inference():
+    # cold review 0.8.0 delta-absorb-17 species-docs F3: the fit decision is the weight, not the grade
+    ungraded = _entry("not_available", reason="uncertainty model is 'unknown' (#891)",
+                      fit_role="fitted", sigma_from_weight=1.0, measured=1.4e-3, chi_squared=7e-16)
+    assert _dia_axis(_report(dia_fitted=False, dia_entry=ungraded)) == ("inference", "used_for_inference")
+    older = _entry("not_available", reason="uncertainty model is 'unknown' (#891)", sigma_from_weight=0.5)
+    assert _dia_axis(_report(dia_fitted=False, dia_entry=older)) == ("inference", "used_for_inference")
+
+
+@pytest.mark.parametrize("entry", [
+    _entry("not_available", reason="no reconstructed diamagnetic_flux constraint on this slice", fit_role="absent"),
+    _entry("not_available", reason="uncertainty model is 'unknown' (#891)", fit_role="prescribed",
+           sigma_from_weight=float("nan"), measured=1.4e-3),
+    _entry("pass", value=0.4, fit_role="prescribed", sigma_from_weight=float("nan")),
+], ids=["absent", "weight-zero-ungraded", "weight-zero-graded"])
+def test_an_unfitted_diamagnetic_flux_stays_independent_validation(entry):
+    assert _dia_axis(_report(dia_fitted=False, dia_entry=entry)) == ("independent_validation", "independent_validation")
+
+
+def test_the_packaged_sample_s_fitted_flux_never_lands_on_the_independent_axis():
+    from vaft.omas import sample_ods
+    from vaft.validation import validate_equilibrium
+
+    report = validate_equilibrium(sample_ods(), checks=("diagnostic_fit", "physical_validity"), time_slice=0)
+    dia = report["diagnostic_fit"]["diamagnetic_flux"]
+    assert dia["slices"][0]["fit_role"] == "fitted" and dia["slices"][0]["sigma_from_weight"] == pytest.approx(1.0)
+    assert _dia_axis(report) == ("inference", "used_for_inference")
 
 
 def test_fitted_data_is_never_independent_validation():

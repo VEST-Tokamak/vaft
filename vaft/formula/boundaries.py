@@ -1453,6 +1453,9 @@ _WESSON_1989_TEETH = (
     (9.0, 0.674, 0.294),
     (10.0, 0.678, 0.295),
 )
+#: Both Wesson arrays stop at q_psi = 2 and 10 because JET's Fig. 6 spans only that range (#1603). They are an
+#: empirical JET operating/disruption boundary, not a universal MHD stability limit: do not extend them to fill a
+#: plot's range, and do not read the absence of a line beyond q_psi = 10 as stability or instability there.
 #: Wesson 1989 Fig. 6 upper boundary (density-limit disruptions), l_i(3) against q_psi.
 _WESSON_1989_UPPER = (
     (2.0, 0.954), (2.5, 1.029), (3.0, 1.111), (3.5, 1.190), (4.0, 1.261), (4.5, 1.324), (5.0, 1.393),
@@ -1461,6 +1464,11 @@ _WESSON_1989_UPPER = (
 )
 #: Cheng 1987 Fig. 4 lower (jig-saw) bound, l_i/2 as printed: (q(a), top, bottom) as above.
 #: Beyond q(a) = 6 the bound is a slowly rising curve, given by _CHENG_1987_LOWER_TAIL.
+#: The CFB arrays start at q(a) = 2 because for q(0) ~ 1 no monotonic profile is stable below it (p. 354, the
+#: comparison theorem: none for (m - 1) < n q(0) < n q(a) < m), and stop at q(a) = 7.75 because Fig. 4 is drawn only to
+#: q(a) ~ 8. The end is where the source figure ends, not an upper-q stability limit: do not extrapolate them (#1603).
+#: The jig-saw edges sit at integer q(a) = m, where an m/1 resonance enters the plasma; the lower bound is mainly
+#: ideal external kinks, the upper bound low-order resistive kinks (mainly 2/1 and 3/2), p. 357.
 _CHENG_1987_TEETH = (
     (2.0, 0.545, 0.345),
     (3.0, 0.505, 0.355),
@@ -1534,8 +1542,9 @@ _register(Boundary(
     branch="lower",
     applicability=Applicability(**_WESSON_APPLICABILITY),
     sources=(_WESSON_SOURCE,),
-    notes="'Empirical stability boundary': rotating MHD modes during the current rise; below it is the kink "
-          "and double tearing region. Same boundary as the legacy stability.empirical_li_qa arrays.",
+    notes="Empirical JET operating boundary (Wesson's 'empirical stability boundary'), not a universal MHD stability "
+          "limit: rotating MHD modes during JET's current rise; below it is the kink and double tearing region. Same "
+          "boundary as the legacy stability.empirical_li_qa arrays.",
 ))
 
 _register(Boundary(
@@ -1652,7 +1661,9 @@ _ELONGATION = BoundaryQuantity("elongation", "kappa", "-", "Plasma elongation.")
 _FREIDBERG_SOURCE = dict(citation="J. P. Freidberg, Plasma Physics and Fusion Energy, Cambridge University Press (2008)",
                          doi="10.1017/CBO9780511755705")
 _FREIDBERG_APPLICABILITY = dict(
-    machine_class="tokamak, elongated elliptical cross-section",
+    # "conventional aspect ratio" is the large-aspect-ratio ordering of the derivation (the third
+    # assumption), stated in the class so that an evaluator can test the plotted A against it.
+    machine_class="conventional-aspect-ratio tokamak, elongated elliptical cross-section",
     ranges={"elongation": (1.0, 2.0)},
     assumptions=(
         "low-beta external kink from the surface-current model; the coupled-harmonic result is approximate",
@@ -2037,7 +2048,7 @@ _register(Boundary(
     basis="empirical",
     event="disruption",
     applicability=Applicability(
-        machine_class="tokamak",
+        machine_class="conventional-aspect-ratio tokamak",
         ranges={},
         assumptions=(
             "the same guideline applied to the guideline's own q95 formula, as the ITER design does",
@@ -2061,7 +2072,7 @@ _register(Boundary(
     basis="empirical",
     event="disruption",
     applicability=Applicability(
-        machine_class="tokamak",
+        machine_class="conventional-aspect-ratio tokamak",
         assumptions=("'iter_1991_q95_estimate_min' (q95 >= 2.1) written as a maximum current through the "
                      "guideline formula", "conventional aspect ratio; extrapolated at A ~ 1.3",
                      "the formula takes the 95 % surface kappa and delta; LCFS values raise the current limit"),
@@ -2212,4 +2223,146 @@ _register(Boundary(
     ),
     sources=(_AKERS_2000_SOURCE, _POST_1991_SOURCE),
     notes="I_max [MA] = 5 a^2 B/R [1 + kappa^2(1 + 2 delta^2 - 1.2 delta^3)]/2 * 1.17 sqrt(A/(A - 1)) / 2.1.",
+))
+
+
+# ------------------------------------------------------------------
+# Spherical-tokamak Hugill diagram (#1602)
+# ------------------------------------------------------------------
+#
+# A. Sykes et al., "First results from MAST", IAEA FEC 2000 (Sorrento), Sec. 6 and Fig. 12 (p. 8 of the
+# conference paper; journal version Nucl. Fusion 41 (2001) 1423): the MAST density diagram plots
+# M = n_19 R/B_T against 1/q_cyl with the spherical-tokamak cylindrical q
+#     q_cyl = 2.5 a^2 (1 + kappa^2) B_T / (R I_p)                         [I_p in MA]
+# (identical to Menard's q*, since pi/mu0 * 1e-6 = 2.5) and two limits on the line-average density in
+# 1e20 m^-3: Hugill n_H = I_p/(pi a^2 kappa) and Greenwald n_G = I_p/(pi a^2). With
+# R I_p/(a^2 B_T) = 2.5 (1 + kappa^2)/q_cyl both are lines through the origin of the diagram:
+#     n_19 R/B_T = 25 (1 + kappa^2)/(pi kappa) * (1/q_cyl)   (Hugill, as Sykes et al. define it)
+#     n_19 R/B_T = 25 (1 + kappa^2)/pi         * (1/q_cyl)   (Greenwald)
+# This is a different vertical coordinate from the conventional Hugill diagram's 1/q_cyl
+# (5 a^2 kappa_a B/(R I)); the two are never substituted for each other.
+
+_INV_Q_CYL_ST = BoundaryQuantity(
+    "inverse_cylindrical_q_st", "1/q_cyl^{ST}", "-",
+    "R I_p/(2.5 a^2 (1 + kappa^2) B_T), I_p in MA: the spherical-tokamak cylindrical q of Sykes et al. (2000, MAST) "
+    "and Menard et al. (2004). Not the conventional 1/q_cyl (5 a^2 kappa_a B_T/(R I_p)).",
+)
+_SYKES_2000_SOURCE = BoundarySource(
+    "A. Sykes et al., First results from MAST, 18th IAEA Fusion Energy Conference (Sorrento, 2000); "
+    "Nucl. Fusion 41 (2001) 1423",
+    equation="Sec. 6 and Fig. 12 (p. 8 of the conference paper): n_H = I_p(MA)/(pi a^2 kappa), n_G = I_p/(pi a^2) "
+             "[1e20 m^-3, line average], q_cyl = 2.5 a^2 (1 + kappa^2) B_T/(R I_p), plotted at kappa = 1.8",
+    doi="10.1088/0029-5515/41/10/310",
+    note="read from the IAEA FEC 2000 conference paper (OSTI ETDEWEB 20261530); the journal version was not read",
+)
+
+
+def hugill_coordinates_st(n_e, R_geo, B_t, a, kappa, I_p):
+    r"""Spherical-tokamak Hugill coordinates $(\bar n_e R/B_T,\ 1/q_\mathrm{cyl}^{ST})$ of Sykes et al. (2000).
+
+    $$x = \frac{\bar n_e R}{B_T},\qquad
+      y = \frac{1}{q^{ST}_{cyl}} = \frac{R\,|I_p|}{2.5\,a^2(1+\kappa^2)B_T}\quad(I_p\ \mathrm{in\ MA})$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Line-averaged electron density [1e19 m^-3].
+    R_geo : float or np.ndarray
+        Major radius [m].
+    B_t : float or np.ndarray
+        Vacuum toroidal field at ``R_geo``; its sign is dropped [T].
+    a : float or np.ndarray
+        Minor radius [m].
+    kappa : float or np.ndarray
+        Elongation [-].
+    I_p : float or np.ndarray
+        Plasma current; its sign is dropped [MA].
+
+    Returns
+    -------
+    tuple of (float or np.ndarray)
+        Murakami parameter $\bar n_e R/B_T$ [1e19 m^-2 T^-1] and $1/q^{ST}_{cyl}$ [-].
+
+    Raises
+    ------
+    ValueError
+        A negative density, or a finite non-positive (or infinite) radius, minor
+        radius, field magnitude or elongation.
+
+    Convention
+    ----------
+    $q^{ST}_{cyl}$ is Menard's cylindrical $q^*$ (``cylindrical_kink_coordinates``),
+    as Sykes et al. plot it for MAST; it differs from the conventional Hugill
+    $q_{cyl}$ (``hugill_coordinates``) by $(1+\kappa^2)/(2\kappa_a)$, and the two are
+    separate quantities. NaN inputs propagate.
+
+    References
+    ----------
+    .. [1] A. Sykes et al., First results from MAST, IAEA FEC 2000, Sec. 6, Fig. 12;
+           Nucl. Fusion 41 (2001) 1423.
+    """
+    g = _positive_geometry(R_geo=R_geo, B_t=np.abs(np.asarray(B_t, dtype=float)), a=a, kappa=kappa)
+    n = np.asarray(n_e, dtype=float)
+    if np.any(np.isfinite(n) & (n < 0)):
+        raise ValueError("n_e must be non-negative where it is given")
+    x = n * g["R_geo"] / g["B_t"]
+    y = g["R_geo"] * np.abs(np.asarray(I_p, dtype=float)) / (2.5 * g["a"] ** 2 * (1.0 + g["kappa"] ** 2) * g["B_t"])
+    return _scalar_or_array(x), _scalar_or_array(y)
+
+
+__all__ += ["hugill_coordinates_st"]
+
+_register(Boundary(
+    key="sykes_2000_st_hugill",
+    family="density_limit",
+    target=_MURAKAMI_PARAMETER,
+    inputs=(_INV_Q_CYL_ST, _ELONGATION),
+    form="function",
+    function=lambda inverse_cylindrical_q_st, elongation: (
+        25.0 * (1.0 + np.asarray(elongation, dtype=float) ** 2) / (np.pi * np.asarray(elongation, dtype=float))
+        * np.asarray(inverse_cylindrical_q_st, dtype=float)),
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="density_limit",
+    applicability=Applicability(
+        machine_class="spherical tokamak (MAST, 2000 Ohmic and NBI discharges)",
+        assumptions=(
+            "the Hugill limit as Sykes et al. define it for MAST, n_H = I_p/(pi a^2 kappa) on the line-average density",
+            "plotted there at kappa = 1.8 (typical MAST double-null); MAST exceeded it, especially at low current",
+            "an operational reference, not a disruption criterion",
+        ),
+    ),
+    sources=(_SYKES_2000_SOURCE,),
+    notes="n R/B_T = 25 (1 + kappa^2)/(pi kappa) / q_cyl^ST on the spherical-tokamak Hugill diagram.",
+))
+
+_register(Boundary(
+    key="greenwald_hugill_st",
+    family="density_limit",
+    target=_MURAKAMI_PARAMETER,
+    inputs=(_INV_Q_CYL_ST, _ELONGATION),
+    form="function",
+    function=lambda inverse_cylindrical_q_st, elongation: (
+        25.0 * (1.0 + np.asarray(elongation, dtype=float) ** 2) / np.pi
+        * np.asarray(inverse_cylindrical_q_st, dtype=float)),
+    allowed_side="below",
+    hardness="soft",
+    origin="derived",
+    basis="empirical",
+    event="density_limit",
+    applicability=Applicability(
+        machine_class="tokamak",
+        assumptions=(
+            "the Greenwald limit n_G = I_p/(pi a^2) unchanged, written on the spherical-tokamak Hugill axes",
+            "empirical operational limit: f_G > 1 is reached (MAST, NSTX) and is not a disruption criterion",
+        ),
+    ),
+    sources=(
+        BoundarySource("M. Greenwald, Plasma Phys. Control. Fusion 44 (2002) R27", equation="Eq. (1.3), p. R28",
+                       doi="10.1088/0741-3335/44/8/201", note="n_G = I_P/(pi a^2)"),
+        _SYKES_2000_SOURCE,
+    ),
+    notes="n R/B_T = 25 (1 + kappa^2)/pi / q_cyl^ST; derived exactly as Sykes et al. compare it on Fig. 12.",
 ))

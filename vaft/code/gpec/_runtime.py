@@ -14,13 +14,20 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Mapping
 
-from ...compat import resolve_executable
+from ...compat import executable_suffixes, resolve_executable
 from .._executables import (
     ExecutableNotLaunchable,
     executable_from_home,
     missing_home_message,
 )
-from ..execution import ExecutionRequest, resolve_backend
+from ..execution import (
+    RUNTIME_MEMORY_LIMIT,
+    RUNTIME_QUEUE_TIMEOUT,
+    ExecutionRequest,
+    ExecutionResult,
+    resolve_backend,
+    timeout_reason,
+)
 from ._types import GPEC_HOME_ENV
 
 if TYPE_CHECKING:
@@ -346,6 +353,54 @@ def copy_gfile_for_gpec(
     return target
 
 
+class GPECLimitStop(subprocess.TimeoutExpired):
+    """A GPEC program stopped by a backend limit, worded by :func:`timeout_reason`.
+
+    A ``TimeoutExpired`` so every existing carve-out still catches it, but it
+    keeps the :class:`~vaft.code.execution.ExecutionResult`: a memory stop
+    (``runtime_status="memory_limit"``) or a launch never admitted for memory
+    (``"queue_timeout"``) is not "a timeout after N seconds" and must not be
+    reported as one (#1460).
+    """
+
+    def __init__(self, cmd: list[str], timeout: float, execution: ExecutionResult, reason: str) -> None:
+        super().__init__(cmd, timeout)
+        self.execution = execution
+        self.reason = reason
+
+    @property
+    def never_started(self) -> bool:
+        """True for a launch the backend never admitted (``queue_timeout``)."""
+        return self.execution.runtime_status == RUNTIME_QUEUE_TIMEOUT
+
+    @property
+    def is_time_limit(self) -> bool:
+        """True for a plain time limit; False for a memory stop or a never-admitted launch."""
+        return self.execution.runtime_status not in (RUNTIME_MEMORY_LIMIT, RUNTIME_QUEUE_TIMEOUT)
+
+
+def limit_stop_reason(exc: subprocess.TimeoutExpired) -> str:
+    """The record reason for a GPEC limit stop.
+
+    Plain time limits keep the suite's ``timeout after N seconds`` wording; a
+    memory stop or a never-admitted launch says what actually happened.
+    """
+    if isinstance(exc, GPECLimitStop) and not exc.is_time_limit:
+        return exc.reason
+    return f"timeout after {exc.timeout} seconds"
+
+
+def program_name(executable_path: str | Path) -> str:
+    """The solver's name as a record names it: ``dcon`` for ``bin/dcon.exe`` too.
+
+    A reason reads "dcon was stopped by the memory limit"; the launch suffix
+    Windows appends to the file (``.exe``, ``.cmd``) is the platform's, not the
+    program's, so it is dropped. Any other suffix is part of the name.
+    """
+    path = Path(executable_path)
+    return path.stem if path.suffix.lower() in executable_suffixes() else path.name
+
+
 def run_subprocess(
     executable_path: Path,
     cwd: Path,
@@ -367,5 +422,10 @@ def run_subprocess(
     if execution.timed_out:
         # The suite's timeout carve-out (run_gpec_module) catches this type.
         # A scheduler can kill on its own walltime with no timeout configured.
-        raise subprocess.TimeoutExpired(list(command), config.timeout or execution.elapsed_s)
+        raise GPECLimitStop(
+            list(command),
+            config.timeout or execution.elapsed_s,
+            execution,
+            timeout_reason(program_name(executable_path), execution, config.timeout),
+        )
     return int(execution.returncode), log_path

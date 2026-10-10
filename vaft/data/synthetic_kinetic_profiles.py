@@ -38,6 +38,8 @@ from typing import Any, Mapping
 import numpy as np
 
 from .analytic_plasma_state import AnalyticPlasmaState, AnalyticProfile
+from .atomic import ATOMIC_NUMBERS as _ATOMIC_NUMBERS
+from .atomic import STANDARD_ATOMIC_WEIGHTS as _ATOMIC_WEIGHTS
 from .kinetic_profiles import KineticProfiles, PsiNormalization, Species
 
 __all__ = [
@@ -70,15 +72,12 @@ _QE = 1.602176634e-19
 _CONSISTENCY_RTOL = 1e-12
 
 #: Nuclear charge and standard atomic weight [u] of the species a composition
-#: may name.  Charges from :data:`vaft.spectroscopy.ATOMIC_NUMBERS`; weights
-#: are the IUPAC 2021 abridged standard atomic weights (isotope masses for D
-#: and T).  Vocabulary, not a machine setting.
+#: may name: a view of :data:`vaft.data.atomic.ATOMIC_NUMBERS` and
+#: :data:`vaft.data.atomic.STANDARD_ATOMIC_WEIGHTS` (IUPAC 2021 abridged,
+#: isotope masses for D and T), which own the values.  Vocabulary, not a
+#: machine setting.
 ION_SPECIES: Mapping[str, tuple[int, float]] = MappingProxyType({
-    "H": (1, 1.00784), "D": (1, 2.01410), "T": (1, 3.01605),
-    "He": (2, 4.0026), "Li": (3, 6.94), "Be": (4, 9.0122), "B": (5, 10.81),
-    "C": (6, 12.011), "N": (7, 14.007), "O": (8, 15.999), "F": (9, 18.998),
-    "Ne": (10, 20.180), "Ar": (18, 39.95), "Fe": (26, 55.845), "Kr": (36, 83.798),
-    "Mo": (42, 95.95), "Xe": (54, 131.29), "W": (74, 183.84),
+    symbol: (_ATOMIC_NUMBERS[symbol], _ATOMIC_WEIGHTS[symbol]) for symbol in _ATOMIC_NUMBERS
 })
 
 #: The scalar normalizations a profile may be scaled to.

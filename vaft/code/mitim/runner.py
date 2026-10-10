@@ -16,6 +16,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from ... import compat
 from ..execution import ExecutionRequest, resolve_backend, timeout_reason
 from .availability import MITIMAvailability, mitim_availability
 from .config import MITIMConfig, MITIMResult, mitim_user_config
@@ -56,7 +57,31 @@ def _environment(config: MITIMConfig, config_path: Path) -> dict[str, str]:
     environment.pop("PYTHONHOME", None)
     environment.update({str(k): str(v) for k, v in config.env.items()
                         if k not in ("PYTHONPATH", "PYTHONHOME")})
+    if compat.IS_WINDOWS:
+        # No ``env -u`` on Windows (see _command): an empty value is how the
+        # caller's variable is taken away there. CPython ignores an empty
+        # PYTHONPATH/PYTHONHOME exactly as it ignores an unset one.
+        environment["PYTHONPATH"] = _interpreter_pythonpath(config) or ""
+        environment["PYTHONHOME"] = str(config.env.get("PYTHONHOME", ""))
     return environment
+
+
+def _interpreter_pythonpath(config: MITIMConfig) -> str:
+    """The PYTHONPATH the MITIM interpreter gets: the caller's explicit value, else GACODE's.
+
+    GACODE's own launchers parse their inputs with pygacode, and VAFT's GACODE
+    environment puts $GACODE_ROOT/f2py on PYTHONPATH for exactly that; without it
+    the launcher's parse step fails silently and NEO writes no flux files (tdst,
+    2026-10-06). Those entries are GACODE's, not the caller's, so they stay.
+    """
+    if "PYTHONPATH" in config.env:
+        return str(config.env["PYTHONPATH"])
+    from ..gacode._runtime import gacode_home
+
+    home = gacode_home(config.gacode)
+    if home is None:
+        return ""
+    return os.pathsep.join([str(home / "f2py"), str(home / "f2py" / "pygacode")])
 
 
 def _command(config: MITIMConfig, python: str, *arguments: str) -> tuple[str, ...]:
@@ -66,20 +91,37 @@ def _command(config: MITIMConfig, python: str, *arguments: str) -> tuple[str, ..
     cannot remove a variable, and a VAFT interpreter's PYTHONPATH (a worktree, a
     3.14 site-packages) would put wrong-version packages ahead of MITIM's. ``env -u``
     removes them; a value the caller set in ``config.env`` is passed explicitly.
-    """
-    explicit = [f"{key}={config.env[key]}" for key in ("PYTHONPATH", "PYTHONHOME") if key in config.env]
-    if "PYTHONPATH" not in config.env:
-        # GACODE's own launchers parse their inputs with pygacode, and VAFT's GACODE
-        # environment puts $GACODE_ROOT/f2py on PYTHONPATH for exactly that; without it
-        # the launcher's parse step fails silently and NEO writes no flux files (tdst,
-        # 2026-10-06). Those entries are GACODE's, not the caller's, so they stay.
-        from ..gacode._runtime import gacode_home
 
-        home = gacode_home(config.gacode)
-        if home is not None:
-            explicit.append("PYTHONPATH=" + os.pathsep.join(
-                [str(home / "f2py"), str(home / "f2py" / "pygacode")]))
+    Windows has no ``env``, so there the interpreter is launched directly and
+    :func:`_environment` carries the same values (empty for "removed") instead.
+    """
+    if compat.IS_WINDOWS:
+        return (python, *arguments)
+    explicit = [f"PYTHONHOME={config.env['PYTHONHOME']}"] if "PYTHONHOME" in config.env else []
+    pythonpath = _interpreter_pythonpath(config)
+    if pythonpath:
+        explicit.append(f"PYTHONPATH={pythonpath}")
     return ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME", *explicit, python, *arguments)
+
+
+def _report_partial(result: MITIMResult, missing: list, shifted: Mapping[float, Any]) -> None:
+    """Downgrade a run with unusable surfaces to ``partial``, on disk as in memory.
+
+    ``result.json`` (the driver's own verdict) and ``record.json`` (the
+    provenance) are rewritten with the new status, the surfaces without a usable
+    result and those MITIM ran elsewhere, so a later reader of the run directory
+    sees what the caller was told.
+    """
+    detail = {"status": "partial", "missing_r_over_a": list(missing),
+              "shifted_r_over_a": dict(shifted)}
+    result.result = {**(result.result or {}), **detail}
+    result.record = {**result.record, "result_status": "partial",
+                     "missing_r_over_a": detail["missing_r_over_a"],
+                     "shifted_r_over_a": detail["shifted_r_over_a"]}
+    (result.workdir / "result.json").write_text(
+        json.dumps(result.result, indent=1, default=str), encoding="utf-8")
+    (result.workdir / "record.json").write_text(
+        json.dumps(result.record, indent=1, default=str), encoding="utf-8")
 
 
 def _sha256(path: Path) -> str:
@@ -125,12 +167,13 @@ def run_mitim_driver(
     if not source.is_file():
         raise ValueError(f"no MITIM driver named {driver!r}")
     script = workdir / f"{driver}.py"
-    script.write_text(source.read_text())
+    script.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
     (workdir / "result.json").unlink(missing_ok=True)
     argument_path = workdir / "arguments.json"
-    argument_path.write_text(json.dumps(dict(arguments), indent=1, default=str))
+    argument_path.write_text(json.dumps(dict(arguments), indent=1, default=str), encoding="utf-8")
     config_path = workdir / "mitim_config.json"
-    config_path.write_text(json.dumps(mitim_user_config(config, workdir), indent=1))
+    config_path.write_text(json.dumps(mitim_user_config(config, workdir), indent=1),
+                           encoding="utf-8")
     (workdir / "mitim_scratch").mkdir(exist_ok=True)
 
     execution = resolve_backend(config).run(
@@ -146,7 +189,7 @@ def run_mitim_driver(
     result_path = workdir / "result.json"
     if result_path.is_file():
         try:
-            result = json.loads(result_path.read_text())
+            result = json.loads(result_path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as error:
             result = {"status": "error", "error": f"unreadable result.json: {error}"}
     stderr = execution.stderr
@@ -156,9 +199,9 @@ def run_mitim_driver(
     record = {
         "driver": driver,
         "driver_sha256": _sha256(script),
-        "arguments": json.loads(argument_path.read_text()),
+        "arguments": json.loads(argument_path.read_text(encoding="utf-8")),
         "mitim": availability.as_dict(),
-        "mitim_config": json.loads(config_path.read_text()),
+        "mitim_config": json.loads(config_path.read_text(encoding="utf-8")),
         "mitim_config_sha256": _sha256(config_path),
         "returncode": execution.returncode,
         "runtime_status": execution.runtime_status,
@@ -166,7 +209,8 @@ def run_mitim_driver(
         "job_id": getattr(execution, "job_id", None),
         "result_status": None if result is None else result.get("status"),
     }
-    (workdir / "record.json").write_text(json.dumps(record, indent=1, default=str))
+    (workdir / "record.json").write_text(json.dumps(record, indent=1, default=str),
+                                         encoding="utf-8")
     return MITIMResult(
         returncode=execution.returncode,
         workdir=workdir,
@@ -343,8 +387,7 @@ def run_mitim_tglf(
         if missing:
             # Some surfaces have no usable result: say so rather than return a
             # successful run with fewer surfaces than were asked for.
-            result.result = {**result.result, "status": "partial", "missing_r_over_a": missing,
-                             "shifted_r_over_a": shifted}
+            _report_partial(result, missing, shifted)
     return result, outputs
 
 
@@ -415,6 +458,5 @@ def run_mitim_neo(
                 inputs[r_over_a[index]] = parsed_input
         missing = [r for r in r_over_a if r not in outputs]
         if missing:
-            result.result = {**result.result, "status": "partial", "missing_r_over_a": missing,
-                             "shifted_r_over_a": shifted}
+            _report_partial(result, missing, shifted)
     return result, outputs, inputs

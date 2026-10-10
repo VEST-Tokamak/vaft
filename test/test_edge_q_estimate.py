@@ -233,3 +233,30 @@ def test_only_the_edge_q_views_take_the_edge_q_options(option, value):
     validate_options("summary_time_estimated_q95", {option: value})
     with pytest.raises(ValueError, match=option):
         validate_options("equilibrium_time_q95", {option: value})
+
+
+def test_a_time_base_shorter_than_the_slices_is_refused_not_truncated(sample):
+    """DD-violating input: pairing q95 values with the wrong times is a clear error, never an IndexError (cold review 0.8.0)."""
+    import copy
+
+    import vaft.omas as vomas
+    from vaft.omas.edge_q import edge_q_estimate
+
+    ods = copy.deepcopy(sample)
+    n = len(ods["equilibrium.time_slice"])
+    ods["equilibrium.time"] = np.asarray(ods["equilibrium.time"])[: n - 2]
+    for source in ("equilibrium", "magnetics"):
+        with pytest.raises(ValueError, match=f"equilibrium.time has {n - 2} values for {n} equilibrium slices"):
+            edge_q_estimate(ods, source=source)
+    with pytest.raises(ValueError, match="equilibrium.time has"):
+        vomas.extract_summary_time_estimated_q95(ods)
+
+
+def test_a_start_configuration_with_the_iter_scaling_is_refused_by_its_own_name(sample):
+    import vaft.omas as vomas
+
+    with pytest.raises(ValueError, match="start_configuration='double_null' applies to q95_scaling='start' only"):
+        vomas.extract_summary_time_estimated_q95(sample, q95_scaling="iter", start_configuration="double_null")
+    # the START scaling still takes it
+    model = vomas.extract_summary_time_estimated_q95(sample, q95_scaling="start", start_configuration="double_null")
+    assert model.series[0].label.startswith("q95 (START estimate)")

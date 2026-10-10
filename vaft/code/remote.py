@@ -83,7 +83,6 @@ import shlex
 import shutil
 import subprocess
 import time
-import uuid
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Mapping, Optional, Sequence, Union
@@ -100,6 +99,7 @@ from .slurm import (
     _job_script,
     _parse_accounting,
     _read,
+    _scratch_name,
     _slurm_path,
     walltime,
 )
@@ -561,7 +561,7 @@ class RemoteSlurmBackend:
         local_work = local_work.resolve()
 
         host = self.host
-        name = f"{request.label or 'job'}-{uuid.uuid4().hex[:8]}"
+        name = _scratch_name(request.label)  # refuses a label that is not one path component
         mapped = host.remote_path(local_work)
         remote_work = mapped or posixpath.join(host.work_root.rstrip("/"), name)
         local_scratch = local_work / SCRATCH_DIRECTORY / name

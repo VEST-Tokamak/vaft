@@ -372,13 +372,13 @@ def test_signature_markers_mean_what_they_say():
 #: (the #1090 README diagrams moved this one from 261 to 276) must not turn
 #: a documented limitation back into a red leg.  The entry is the limitation,
 #: so a fix upstream can retire it.
-WINDOWS_LIMITATIONS: dict[tuple[str, str], str] = {
-    ("README.ko.md", 'vaft.imas.save(ods, "./shot")'): (
-        "imas_core cannot close the HDF5 entry it just wrote on Windows "
-        "(al_close_pulse, ALBackendException); the same limitation is why "
-        "vaft.imas scratch cleanup is best-effort there (0.6.2 notes)"
-    ),
-}
+#: Empty since the README rewrite (#1777) dropped the README.ko.md
+#: ``vaft.imas.save(ods, "./shot")`` fence, the one fence imas_core could not
+#: close on native Windows (al_close_pulse, ALBackendException; the 0.6.2 notes);
+#: the imas.save fences that remain (Database.md, Data_structures.md,
+#: Examples.md) pass the Windows leg.  Entry shape: ``(page, a stripped source
+#: line of the fence): reason``.
+WINDOWS_LIMITATIONS: dict[tuple[str, str], str] = {}
 
 
 def _windows_limitation(fence: dict) -> str | None:

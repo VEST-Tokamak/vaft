@@ -28,7 +28,13 @@ What this deliberately misses, so nobody assumes more coverage than exists:
 names not rooted at the literal token ``vaft`` (``import vaft.plot as vp`` and
 then ``vp.foo()``), chains continued across lines, dynamic ``getattr``, and
 names in prose backticks -- prose legitimately names a removed API while
-explaining that it was removed.
+explaining that it was removed.  The one exception is ``_guide/Diagrams.md``:
+its prose is a catalog that points every concept figure at the model
+function or class behind it, so a backticked ``vaft.*`` name there is a
+reference, not history, and ``test_every_prose_reference_in_the_diagram_catalog_resolves``
+reads it (cold review 0.8.0 delta-absorb-16 diagram-docs F1: the page cited
+``vaft.process.magnetic_island.IslandSpec`` for a class named
+``MagneticIslandSpec``).
 """
 
 from __future__ import annotations
@@ -267,6 +273,59 @@ def test_every_documented_vaft_attribute_resolves(names):
     problems = [
         f"{page.relative_to(ROOT)}:{lineno}: {dotted} does not resolve\n    ({why})"
         for page, lineno, dotted in names
+        if (why := _resolve(dotted)) and not _allowed(page, dotted)
+    ]
+    assert not problems, _report(problems)
+
+
+PROSE_REFERENCE = re.compile(r"`(vaft(?:\.[A-Za-z_][A-Za-z0-9_]*)+)(?:\(\))?`")
+PROSE_CATALOG_PAGES = ("_guide/Diagrams.md",)
+#: A floor for the Diagrams.md scan, so a changed backtick style cannot make
+#: the test pass by finding nothing.
+MINIMUM_PROSE_REFERENCES = 60
+
+
+def _prose_references(path: Path) -> list[tuple[int, str]]:
+    """Every backticked ``vaft.*`` name outside a fence, with its line."""
+    found: list[tuple[int, str]] = []
+    tag: str | None = None
+    for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if FENCE.match(line):
+            tag = None if tag is not None else ""
+            continue
+        if tag is None:
+            found.extend((lineno, hit) for hit in PROSE_REFERENCE.findall(line))
+    return found
+
+
+def test_the_prose_scanner_reads_backticks_outside_fences_only(tmp_path):
+    sample = tmp_path / "sample.md"
+    sample.write_text(
+        "prose naming `vaft.omas.sample_odc` and `vaft.plot.foo()` in backticks\n"
+        "```python\n"
+        "ods = vaft.omas.sample_ods()\n"
+        "```\n"
+        "and `vaft` alone or `vaft.process.magnetic_island.MagneticIslandSpec` after\n",
+        encoding="utf-8",
+    )
+    assert _prose_references(sample) == [
+        (1, "vaft.omas.sample_odc"),
+        (1, "vaft.plot.foo"),
+        (5, "vaft.process.magnetic_island.MagneticIslandSpec"),
+    ]
+
+
+@pytest.mark.parametrize("relative", PROSE_CATALOG_PAGES)
+def test_every_prose_reference_in_the_diagram_catalog_resolves(relative):
+    """The diagram catalog's prose cites the model behind each figure; the citation must exist."""
+    page = DOCS / relative
+    references = _prose_references(page)
+    assert len(references) >= MINIMUM_PROSE_REFERENCES, (
+        f"only {len(references)} prose references found in {relative}; the backtick regex is probably broken"
+    )
+    problems = [
+        f"{page.relative_to(ROOT)}:{lineno}: {dotted} does not resolve\n    ({why})"
+        for lineno, dotted in references
         if (why := _resolve(dotted)) and not _allowed(page, dotted)
     ]
     assert not problems, _report(problems)

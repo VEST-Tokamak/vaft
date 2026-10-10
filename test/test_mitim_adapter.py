@@ -16,7 +16,10 @@ from pathlib import Path
 import pytest
 
 from vaft.code import mitim
+from vaft.compat import IS_WINDOWS
 from vaft.code.gacode._types import GACODEConfig
+
+from external_code_stubs import write_launchable_stub
 
 ROOT = Path(__file__).resolve().parents[1]
 NEO_RUN = ROOT / "test" / "data" / "gacode" / "neo_vest_48224_profile"
@@ -129,10 +132,9 @@ def _stub_mitim(root: Path, *, version="5.3.0", portals=True) -> Path:
 def _stub_gacode(root: Path) -> Path:
     home = root / "gacode"
     for code in ("neo", "tglf"):
-        launcher = home / code / "bin" / code
-        launcher.parent.mkdir(parents=True)
-        launcher.write_text("#!/bin/sh\nexit 0\n")
-        launcher.chmod(0o755)
+        # A program on this platform (a .cmd on Windows): the availability probe
+        # applies vaft.compat.is_executable, which a #!/bin/sh text file fails there.
+        write_launchable_stub(home / code / "bin" / code)
     (home / "shared" / "bin").mkdir(parents=True)
     (home / "platform" / "build").mkdir(parents=True)
     (home / "platform" / "build" / "make.inc.STUB").write_text("")
@@ -294,7 +296,7 @@ def test_drivers_import_only_mitim_and_the_standard_library():
     drivers = ROOT / "vaft" / "code" / "mitim" / "drivers"
     for path in drivers.glob("*.py"):
         assert "vaft" not in "".join(
-            line for line in path.read_text().splitlines(True) if line.lstrip().startswith(("import", "from"))
+            line for line in path.read_text(encoding="utf-8").splitlines(True) if line.lstrip().startswith(("import", "from"))
         ), path.name
 
 
@@ -311,27 +313,69 @@ def test_the_callers_pythonpath_never_reaches_the_mitim_interpreter(ready, profi
 
     from vaft.code.mitim.runner import _command, _environment
 
-    monkeypatch.setenv("PYTHONPATH", "/caller/worktree:/caller/py314/site-packages")
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(["/caller/worktree", "/caller/py314/site-packages"]))
     monkeypatch.setenv("PYTHONHOME", "/caller/home")
     bare = replace(ready, env={})
     environment = _environment(bare, tmp_path / "c.json")
-    assert "PYTHONPATH" not in environment and "PYTHONHOME" not in environment
     command = _command(bare, "/mitim/python", "driver.py")
-    assert command[:5] == ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME")
-    (path,) = [part for part in command if part.startswith("PYTHONPATH=")]
-    home = ready.gacode.home
-    assert path == "PYTHONPATH=" + os.pathsep.join([f"{home}/f2py", f"{home}/f2py/pygacode"])
+    home = Path(ready.gacode.home)
+    gacode_only = os.pathsep.join([str(home / "f2py"), str(home / "f2py" / "pygacode")])
+    if IS_WINDOWS:
+        # No `env -u` on Windows: the backend's environment carries the removal
+        # (an empty value, which CPython ignores like an unset one) and GACODE's entries.
+        assert command == ("/mitim/python", "driver.py")
+        assert environment["PYTHONHOME"] == "" and environment["PYTHONPATH"] == gacode_only
+        assert _environment(ready, tmp_path / "c.json")["PYTHONPATH"] == ready.env["PYTHONPATH"]
+        path = environment["PYTHONPATH"]
+    else:
+        assert "PYTHONPATH" not in environment and "PYTHONHOME" not in environment
+        assert command[:5] == ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME")
+        (path,) = [part for part in command if part.startswith("PYTHONPATH=")]
+        assert path == "PYTHONPATH=" + gacode_only
+        assert "PYTHONPATH=" + ready.env["PYTHONPATH"] in _command(ready, "/mitim/python", "driver.py")
     assert "/caller/" not in path   # GACODE's f2py only, never the caller's entries
-    assert "PYTHONPATH=" + ready.env["PYTHONPATH"] in _command(ready, "/mitim/python", "driver.py")
     # The probe drops it too: with the stub only on the caller's PYTHONPATH, MITIM is absent.
     monkeypatch.setenv("PYTHONPATH", ready.env["PYTHONPATH"])
     assert mitim.mitim_availability(bare).status == "not_installed"
     assert mitim.mitim_availability(ready).ready
 
 
+def test_the_windows_launch_removes_the_callers_pythonpath_without_env(ready, tmp_path, monkeypatch):
+    """Windows has no `env -u`; the environment itself must carry the removal (#1688 gate)."""
+    from dataclasses import replace
+
+    from vaft import compat
+    from vaft.code.mitim.runner import _command, _environment
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", True)
+    monkeypatch.setenv("PYTHONPATH", "caller-site")
+    monkeypatch.setenv("PYTHONHOME", "caller-home")
+    bare = replace(ready, env={})
+    assert _command(bare, "python.exe", "driver.py") == ("python.exe", "driver.py")
+    environment = _environment(bare, tmp_path / "c.json")
+    home = Path(ready.gacode.home)
+    assert environment["PYTHONHOME"] == ""
+    assert environment["PYTHONPATH"] == os.pathsep.join([str(home / "f2py"), str(home / "f2py" / "pygacode")])
+    assert "caller" not in environment["PYTHONPATH"]
+    # an explicit caller value still passes, and no GACODE home means an empty (removed) PYTHONPATH
+    assert _environment(ready, tmp_path / "c.json")["PYTHONPATH"] == ready.env["PYTHONPATH"]
+    none = replace(bare, gacode=GACODEConfig())
+    from vaft.code.gacode._runtime import GACODE_COMPATIBILITY_ENVS, GACODE_HOME_ENV
+
+    for variable in (GACODE_HOME_ENV, *GACODE_COMPATIBILITY_ENVS):
+        monkeypatch.delenv(variable, raising=False)
+    assert _environment(none, tmp_path / "c.json")["PYTHONPATH"] == ""
+
+
+@pytest.mark.skipif(
+    IS_WINDOWS,
+    reason="an extension-less #!/bin/sh file is not a program on Windows (CreateProcess, "
+           "WinError 193), so the probe would report not_installed; the timeout path is "
+           "exercised on the POSIX legs",
+)
 def test_a_slow_probe_is_a_timeout_not_a_broken_install(tmp_path):
     slow = tmp_path / "python"
-    slow.write_text("#!/bin/sh\nsleep 5\n")
+    slow.write_text("#!/bin/sh\nsleep 5\n", encoding="ascii")
     slow.chmod(0o755)
     found = mitim.mitim_availability(mitim.MITIMConfig(python=str(slow)), timeout=1)
     assert found.status == "probe_timeout"
@@ -381,6 +425,15 @@ def test_a_surface_mitim_ran_elsewhere_is_reported_missing(ready, profile, tmp_p
     assert not result.ok and result.result["status"] == "partial"
     assert result.result["missing_r_over_a"] == [0.4]
     assert result.result["shifted_r_over_a"] == {0.4: pytest.approx(0.41)}
+    # The run directory says the same as the returned result (cold review 0.8.0
+    # delta-absorb-17 transport F6): record.json, result.json and result.record.
+    assert result.record["result_status"] == "partial"
+    assert result.record["missing_r_over_a"] == [0.4]
+    on_disk = json.loads((tmp_path / "run" / "record.json").read_text(encoding="utf-8"))
+    assert on_disk["result_status"] == "partial" and on_disk["missing_r_over_a"] == [0.4]
+    assert on_disk["shifted_r_over_a"] == {"0.4": pytest.approx(0.41)}
+    written = json.loads((tmp_path / "run" / "result.json").read_text(encoding="utf-8"))
+    assert written["status"] == "partial" and written["missing_r_over_a"] == [0.4]
 
 
 def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile, tmp_path, monkeypatch):
@@ -391,6 +444,9 @@ def test_mitim_neo_checks_the_radius_it_ran_and_keeps_its_inputs(ready, profile,
     assert sorted(outputs) == [0.4] and inputs[0.4]["DENS_1"] == 0.8
     assert result.result["status"] == "partial" and result.result["missing_r_over_a"] == [0.7]
     assert result.record["arguments"]["extra_options"] == {"ROTATION_MODEL": 1}
+    assert result.record["result_status"] == "partial"
+    on_disk = json.loads((tmp_path / "run" / "record.json").read_text(encoding="utf-8"))
+    assert on_disk["result_status"] == "partial" and on_disk["missing_r_over_a"] == [0.7]
 
 
 def test_the_closed_loop_driver_is_handed_vaft_radii_and_the_bridged_rho(ready, profile, tmp_path):

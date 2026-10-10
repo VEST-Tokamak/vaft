@@ -14,10 +14,8 @@ and writes one gzipped OMAS JSON per shot plus a manifest naming its sources.
 from __future__ import annotations
 
 import argparse
-import gzip
 import hashlib
 import json
-import tempfile
 from pathlib import Path
 from typing import Sequence
 
@@ -31,24 +29,32 @@ def _sha256(path: Path) -> str:
 
 
 def compose(filedb: Path, shot: int, output: Path) -> dict:
-    from omas import save_omas_json
+    import vaft.omas
     from vaft.database.composition import compose_stage_products
+    from vaft.database.filedb import FileDB
 
-    diagnostics = filedb / "omas" / "diagnostics" / str(shot) / "output" / "diagnostics.json.gz"
-    eddy = filedb / "omas" / "eddy" / str(shot) / "output" / "eddy.json.gz"
-    manifest = filedb / "omas" / "eddy" / str(shot) / "metadata" / "manifest.json"
+    # The FileDB resolves the stage paths (container suffix, manifest name), so
+    # this script cannot drift from the layout the pipeline writes.
+    fdb = FileDB(filedb)
+    diagnostics = fdb.omas_product("diagnostics", shot=shot)
+    eddy = fdb.omas_product("eddy", shot=shot)
+    manifest = fdb.omas_manifest("eddy", shot=shot)
+    manifest_present = manifest.is_file()
+    # Without the eddy manifest compose_stage_products cannot check that the
+    # eddy product was computed from this diagnostics file; say so in the
+    # record rather than letting the skipped check pass for a performed one.
     ods, report = compose_stage_products(diagnostics=diagnostics, eddy=eddy,
-                                         eddy_manifest=manifest if manifest.is_file() else None)
+                                         eddy_manifest=manifest if manifest_present else None)
     output.mkdir(parents=True, exist_ok=True)
-    target = output / f"{shot}.json.gz"
-    with tempfile.TemporaryDirectory() as tmp:
-        staged = Path(tmp) / "product.json"
-        save_omas_json(ods, str(staged))
-        with staged.open("rb") as source, gzip.open(target, "wb") as sink:
-            sink.write(source.read())
+    # vaft.omas.save selects the encoder from the container suffix (#813), so
+    # the product cannot be plain JSON under a `.json.gz` name.
+    target = vaft.omas.save(ods, output / f"{shot}.json.gz")
     return {"shot": shot, "product": str(target), "sha256": _sha256(target),
             "diagnostics": {"path": str(diagnostics), "sha256": _sha256(diagnostics)},
             "eddy": {"path": str(eddy), "sha256": _sha256(eddy)},
+            "eddy_manifest": {"path": str(manifest), "present": manifest_present,
+                              "diagnostics_hash_check": "performed" if manifest_present
+                              else "skipped: no eddy manifest"},
             "composition": json.loads(json.dumps(report, default=str))}
 
 

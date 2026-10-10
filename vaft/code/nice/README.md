@@ -1,8 +1,12 @@
 # NICE adapter
 
 > **Experimental.** No VEST reference slice reconstructs yet: 0 of 34 in the
-> issue #666 study (see `validation/nice_issue_666/README.md`). Nothing in the
+> issue #666 study (see `vaft/validation/studies/nice_issue_666/README.md`). Nothing in the
 > routine pipeline calls this adapter, and no production default depends on it.
+
+NICE is open source under the LGPL-3.0 at
+<https://gitlab.inria.fr/blfauger/nice> (licence per the repository's
+LICENSE file); the catalog entry in `vaft/_ecosystem.py` records the same.
 
 This adapter prepares the standalone NICE `nice_recon` text-file interface
 directly from canonical ODS data. It does not translate an EFIT k-file or reuse
@@ -101,7 +105,7 @@ Eigen 3 and SuiteSparse in Release mode. Force-include `upstream_compat.h`
 pinned source. GCC 16 compiles it, but its bundled Triangle path did not finish
 the reference reconstruction, so it is not the recorded validation compiler.
 
-The issue #666 validation artifacts live in `validation/nice_issue_666`.
+The issue #666 validation artifacts live in `vaft/validation/studies/nice_issue_666`.
 They intentionally retain failed slices: a zero exit status is not considered
 a successful equilibrium unless NICE writes its native equilibrium and
 convergence tables and does not report an invalid plasma.

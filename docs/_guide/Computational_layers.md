@@ -18,7 +18,8 @@ VAFT computes in three layers that are each useful on their own: **Formula**, **
 **Code**. An optional fourth notion, the **Actor**, is a contract for comparing several realizations
 of the *same* scientific operation. Most VAFT calculations do not need one. This page fixes the
 vocabulary (issue #1078, under the umbrella #1077) so that contributors put new work in the right
-place.
+place. How these layers fit with data, validation, orchestration and the other architecture views is
+mapped on [Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}).
 
 ## Terminology
 
@@ -155,3 +156,6 @@ The follow-up issues are #1079 (a minimal Actor protocol and implementation regi
 shared inputs/outputs and the provenance, assumptions and validity metadata), and two prototypes
 in scientifically different domains, #1081 (`equilibrium_reconstruction`) and #1082 (`plasma_response`).
 Code-centric and Process-centric use stay normal and supported throughout.
+
+This page says *where* a computation lives. What physical model it represents -- which equations, which ordering,
+what "kinetic" means for it -- is on [Plasma models, orderings, and scales]({{ '/reference/plasma-models/' | relative_url }}).

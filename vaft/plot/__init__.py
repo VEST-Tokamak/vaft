@@ -138,6 +138,14 @@ Adding a renderer means adding a ``@renderer(...)``-decorated function; the
 decorator registers it and returns it unchanged, so the name stays a real
 module-level ``def`` that documentation tools and type checkers can see.
 
+What a plot is *for* lives in that function's docstring, written to the plot
+docstring contract (issue #1505): a summary, an ``Interpretation`` of what the
+figure shows and which questions it answers, ``Options`` explaining the choices
+that change the representation, and ``Limitations`` on what it cannot show.
+:func:`documentation` parses it into a :class:`PlotDocumentation` that the
+reference pages and GUI help panels read; the registry keeps no scientific
+prose of its own.
+
 Rendering from data
 -------------------
 
@@ -201,6 +209,7 @@ from .models import (
     ReferenceSlope,
     Series,
     Spectrogram,
+    SpectrogramTrack,
     Table,
     TableCell,
     TableColumn,
@@ -213,6 +222,7 @@ from .models import (
 from .composition import AxisLink, FigureCell, FigureComposition
 from .figure_options import FigureOptions
 from .request import DataSource, PlotRequest
+from ._docstring import PlotDocumentation
 from .discovery import PlotCapability, PlotCatalog
 from .display import PSI_STYLES
 from .navigation import SliceNavigator
@@ -343,6 +353,7 @@ from .renderers.panels import (
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
     current_overview,
+    current_overview_reconstruction,
     diagnostics_overview,
     kinetic_overview_profiles,
     equilibrium_overview,
@@ -365,6 +376,7 @@ from .renderers.panels import (
     magnetics_overview_plasma_residual,
     startup_proxies_time,
     magnetics_overview_vacuum,
+    magnetics_overview_vacuum_benchmark,
     mhd_linear_overview_eigenfunction,
     limiter_current_time,
     soft_x_rays_overview,
@@ -432,7 +444,10 @@ from .renderers.spectrograms import (
 from .renderers.tables import (
     equilibrium_table_fit_quality,
     equilibrium_table_summary,
+    equilibrium_table_validation,
     equilibrium_text_summary,
+    magnetics_table_vacuum_benchmark,
+    magnetics_table_vacuum_benchmark_aggregate,
 )
 from .parameter_history import plot_parameter_history
 from .analytic import (
@@ -476,6 +491,7 @@ _SUPPORT_EXPORTS = (
     "Panels",
     "PlotCapability",
     "PlotCatalog",
+    "PlotDocumentation",
     "PlotSpec",
     "PowerSpectrum",
     "Profile1D",
@@ -483,6 +499,7 @@ _SUPPORT_EXPORTS = (
     "Series",
     "SliceNavigator",
     "Spectrogram",
+    "SpectrogramTrack",
     "RenderedTable",
     "RenderedTextSummary",
     "Table",
@@ -496,6 +513,7 @@ _SUPPORT_EXPORTS = (
     "available_plots",
     "canonical_names",
     "dd",
+    "documentation",
     "extract",
     "get_spec",
     "migration_table",
@@ -544,6 +562,22 @@ def dd(name: str) -> tuple:
     from .backend.dd import dd_paths
 
     return dd_paths(name)
+
+
+def documentation(name: str) -> PlotDocumentation:
+    """The scientific documentation of canonical plot ``name``, parsed from its renderer's docstring.
+
+    A :class:`PlotDocumentation`: the summary plus the plot contract's
+    sections -- ``Interpretation`` (what the figure shows and which questions
+    it supports), ``Options`` (what the representation-changing options mean),
+    ``Limitations`` (what not to conclude from it alone) and the rest (issue
+    #1505).  Documentation pages and GUI help panels read this one parsed form;
+    the option vocabulary itself stays structural, in
+    :func:`vaft.plot.controls.controls_for` and the plot's capability.
+    """
+    from ._docstring import plot_documentation
+
+    return plot_documentation(name)
 
 
 def extract(name: str, source: Any, *, label: Any = "shot", **options: Any) -> Any:

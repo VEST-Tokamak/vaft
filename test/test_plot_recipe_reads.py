@@ -13,6 +13,7 @@ OMAS-bound under-declaration can slip through; the neutral half is exact.
 from __future__ import annotations
 
 import contextlib
+import copy
 import io
 import warnings
 
@@ -72,6 +73,10 @@ NEUTRAL = frozenset({
     # reads through vaft.ods_access.
     "summary_time_estimated_q95", "summary_time_q_star_cylindrical",
     "summary_time_q_star_kink", "summary_time_normalized_current",
+    # The I_p/PF/eddy overview reads paths through the accessor and grades
+    # each slice with vaft.validation.equilibrium.verify_convergence, which
+    # reads through vaft.ods_access.
+    "current_overview_reconstruction",
 })
 OMAS_BOUND = frozenset({
     "kinetic_overview_profiles",
@@ -86,7 +91,12 @@ OMAS_BOUND = frozenset({
     "camera_visible_image_mhd_power", "equilibrium_overview",
     # issue #1180: the slice summaries derive what a g-file omits as the overview does.
     "equilibrium_table_summary", "equilibrium_text_summary",
+    # roadmap #1242 C2: validate_equilibrium deep-copies the ODS for the virial wrapper.
+    "equilibrium_table_validation",
     "magnetics_overview_vacuum", "magnetics_overview_plasma_residual",
+    # roadmap #1242 C3: run_benchmark_case deep-copies the ODS and re-solves the wall.
+    "magnetics_overview_vacuum_benchmark", "magnetics_table_vacuum_benchmark",
+    "magnetics_table_vacuum_benchmark_aggregate",
     # issue #888: the startup views solve vessel currents on a private copy.
     "startup_proxies_time", "vacuum_field_midplane", "camera_visible_image_vacuum_field_line",
     # issue #952: the kinetic profile fits call the vaft.process.profile mappers
@@ -270,6 +280,52 @@ def test_the_ignored_reads_are_still_needed(sample, monkeypatch):
             if undeclared(via_ods, recipe.reads, without) == with_all:
                 stale.append(f"{name}: {template} no longer needs ignoring ({reason})")
     assert not stale, stale
+
+
+# ---------------------------------------------------------------------------
+# spectrogram overlays: outside _callables(), so declared and recorded here
+# ---------------------------------------------------------------------------
+
+
+def _spectrogram_reads(recipe: R.SpectrogramRecipe) -> tuple[str, ...]:
+    """The templates a ``SpectrogramRecipe`` reads on its own."""
+    paths = (recipe.signal_path, *recipe.fallback_signal_paths, *recipe.time_paths,
+             recipe.container, recipe.label_path)
+    return tuple(p for p in paths if p)
+
+
+def _with_rotation(ods):
+    """``ods`` with a toroidal-rotation profile over its equilibrium span (no packaged shot stores one)."""
+    times = np.asarray(ods["equilibrium.time"], dtype=float)
+    rho = np.linspace(0.0, 1.0, 21)
+    for k, t in enumerate((times[0], times[-1])):
+        base = f"core_profiles.profiles_1d.{k}"
+        ods[f"{base}.time"] = float(t)
+        ods[f"{base}.grid.rho_tor_norm"] = rho
+        ods[f"{base}.grid.psi"] = np.linspace(0.0, -0.01, rho.size)
+        ods[f"{base}.ion.0.velocity.toroidal"] = np.full(rho.size, 1.0e4)
+    ods["core_profiles.time"] = np.array([times[0], times[-1]], dtype=float)
+    return ods
+
+
+@pytest.mark.parametrize("name", sorted(R.MODE_OVERLAY_PLOTS))
+def test_a_mode_overlay_reads_only_what_its_annotation_declares(name, sample, monkeypatch):
+    recipe = R.RECIPES[name]
+    assert isinstance(recipe, R.SpectrogramRecipe), f"{name} is a {type(recipe).__name__}: declare it as a CallableRecipe"
+    declared = R.mode_overlay_reads(name)
+    assert declared, f"{name} declares no overlay reads"
+    for template in declared:
+        dd.from_template(template)  # raises on a malformed template
+    # The packaged EFIT stores no r_outboard, so the overlay derives it from
+    # the 2-D map: the recording covers that path, not only the stored one.
+    ods = _with_rotation(copy.deepcopy(sample))
+    with accessor_reads(monkeypatch) as via_accessor, ods_reads(monkeypatch) as via_ods:
+        model = _quiet_build(name, ods, mode_overlay=[(3, 1)])
+    assert model.metadata["mode_overlay"]["tracks"], "the overlay did not run, so nothing was recorded"
+    for path in via_accessor.paths:
+        via_ods.add(path)
+    missing = undeclared(via_ods, (*_spectrogram_reads(recipe), *declared))
+    assert not missing, missing[:40]
 
 
 # ---------------------------------------------------------------------------

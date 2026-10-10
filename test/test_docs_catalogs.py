@@ -120,6 +120,19 @@ def test_the_plot_catalog_holds_every_registered_plot_whatever_its_status(snapsh
         assert (ROOT / row["source"]["path"]).is_file()
 
 
+def test_the_plot_catalog_carries_each_renderers_parsed_docstring(snapshots):
+    """The page's scientific prose is the docstring's, parsed once (issue #1505)."""
+    from vaft.plot._docstring import plot_documentation
+
+    rows = {row["name"]: row for row in snapshots["plot"]["plots"]}
+    for name, row in rows.items():
+        assert row["documentation"] == plot_documentation(name).as_dict(), name
+    q = rows["equilibrium_profile_q"]["documentation"]
+    assert q["conforming"]
+    assert {"Interpretation", "Options", "Limitations"} <= {s["title"] for s in q["sections"]}
+    assert not any(s["title"] in ("Parameters", "Returns", "References") for s in q["sections"])
+
+
 def test_the_plot_catalog_is_ordered_subject_then_view(snapshots):
     from vaft.plot import registry, taxonomy
 
@@ -134,9 +147,12 @@ def test_the_diagram_catalog_holds_every_canonical_asset(snapshots):
 
     snapshot = snapshots["diagram"]
     assert [row["asset"] for row in snapshot["assets"]] == list(diagram_build.CANONICAL)
-    recorded = yaml.safe_load((DOCS / "assets" / "diagrams" / "manifest.json").read_text())["diagrams"]
     for row in snapshot["assets"]:
-        assert row["svg_sha256"] == recorded[row["asset"]]["svg_sha256"]
+        svg = DOCS / "assets" / "diagrams" / row["asset"]
+        # the catalog pins the published file (what validate_docs.rb re-hashes), record line included
+        assert row["svg_sha256"] == hashlib.sha256(svg.read_bytes()).hexdigest()
+        record, _ = diagram_build.read_record(svg)
+        assert record is not None and row["source_sha256"] == record["source_sha256"]
         assert (DOCS / row["svg"]).is_file()
         assert row["asset"] in next(b for b in snapshot["builders"] if b["name"] == row["builder"])["assets"]
 

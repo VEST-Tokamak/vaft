@@ -6,15 +6,20 @@ they agree on the same equilibrium, n, domain and surfaces, after a
 convention audit, and only where each code is converged on its own.
 
 ``run``
-    STRIDE ships ``delta_mhigh = 8``, while RDCON uses 16. For a
-    like-for-like truncation this reruns STRIDE with ``delta_mhigh = 16``
-    (``delta_mlow`` is 16 in both) at mpsi 256 and 512 for every atlas slice
-    and n = 1, 2, through the memory-guarded batch runner. Results land
-    beside the atlas jobs as ``stride_dmhigh16_mpsi{256,512}``.
+    STRIDE ships ``delta_mhigh = 8``, while RDCON uses 16. This reruns STRIDE
+    with the same ``delta_mhigh = 16`` setting (``delta_mlow`` is 16 in both)
+    at mpsi 256 and 512 for every atlas slice and n = 1, 2, through the
+    memory-guarded batch runner. Results land beside the atlas jobs as
+    ``stride_dmhigh16_mpsi{256,512}``. The same setting is **not** the same
+    truncation: each code forms ``mhigh = n*qmax + delta_mhigh`` from its own
+    ``qmax``, so the poloidal windows differ (``truncation_match`` was False
+    on every one of the 299 pairs of the first campaign, #1597).
 ``compare``
-    Per (slice, n) it reads RDCON (``rdcon_mpsi*``) and the like-for-like
+    Per (slice, n) it reads RDCON (``rdcon_mpsi*``) and the ``delta_mhigh=16``
     STRIDE runs, and writes one row per pair to ``benchmark_143.csv`` and one
-    row per surface to ``benchmark_143_surfaces.csv``.
+    row per surface to ``benchmark_143_surfaces.csv``. Each pair row carries
+    both codes' ``mlow..mhigh`` and ``truncation_match``; the summary counts
+    how many pairs matched.
 
 Per pair:
 * Surfaces are matched by m and ψ_N (``SURFACE_PSI_TOL``), never by position.
@@ -252,6 +257,34 @@ def run(args) -> int:
     return 0
 
 
+def summarize(pairs: list[dict[str, Any]], surfaces: list[dict[str, Any]]) -> dict[str, Any]:
+    """The ``benchmark_143_summary.json`` content: counts, the heuristics, and what was compared.
+
+    ``truncation_match`` counts the pair rows whose ``mlow..mhigh`` windows
+    agree (``true``), differ (``false``) or were not compared (``unknown``,
+    a SOLVER_FAILURE row). ``stride_truncation`` states the setting, not a
+    like-for-like window: both codes take ``delta_mhigh=16``, each with its
+    own ``qmax``.
+    """
+    counts: dict[str, int] = {}
+    for p in pairs:
+        counts[p["status"]] = counts.get(p["status"], 0) + 1
+    truncation = {"true": 0, "false": 0, "unknown": 0}
+    for p in pairs:
+        match = p.get("truncation_match")
+        truncation["unknown" if match is None else ("true" if match else "false")] += 1
+    return {
+        "pairs": len(pairs),
+        "surfaces": len(surfaces),
+        "status": counts,
+        "agreement_rtol": AGREEMENT_RTOL,
+        "convention_gain": CONVENTION_GAIN,
+        "stride_truncation": "delta_mlow=16, delta_mhigh=16 in both codes; mhigh = n*qmax + 16 with each code's "
+                             "own qmax, so the windows are not like-for-like (see truncation_match)",
+        "truncation_match": truncation,
+    }
+
+
 def compare(args) -> int:
     batch = args.batch.expanduser().resolve()
     pairs, surfaces = [], []
@@ -272,17 +305,7 @@ def compare(args) -> int:
     out.mkdir(parents=True, exist_ok=True)
     write_csv(pairs, out / "benchmark_143.csv")
     write_csv(surfaces, out / "benchmark_143_surfaces.csv")
-    counts: dict[str, int] = {}
-    for p in pairs:
-        counts[p["status"]] = counts.get(p["status"], 0) + 1
-    summary = {
-        "pairs": len(pairs),
-        "surfaces": len(surfaces),
-        "status": counts,
-        "agreement_rtol": AGREEMENT_RTOL,
-        "convention_gain": CONVENTION_GAIN,
-        "stride_truncation": "delta_mlow=16, delta_mhigh=16 (RDCON 16/16)",
-    }
+    summary = summarize(pairs, surfaces)
     (out / "benchmark_143_summary.json").write_text(json.dumps(summary, indent=1))
     print(json.dumps(summary, indent=1))
     return 0
@@ -291,12 +314,14 @@ def compare(args) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    p_run = sub.add_parser("run", help="run like-for-like STRIDE (delta_mhigh=16) on the atlas slices")
+    p_run = sub.add_parser("run", help="run STRIDE with RDCON's delta_mhigh=16 setting on the atlas slices "
+                                       "(same setting, not the same truncation)")
     p_run.add_argument("--batch", type=Path, required=True)
     p_run.add_argument("--workers", type=int, default=min(12, os.cpu_count() or 1))
     p_run.add_argument("--timeout", type=float, default=2400.0)
     p_run.add_argument("--admission-wait", type=float, default=6 * 3600.0)
-    p_cmp = sub.add_parser("compare", help="compare RDCON and like-for-like STRIDE")
+    p_cmp = sub.add_parser("compare", help="compare RDCON and the delta_mhigh=16 STRIDE runs; "
+                                           "truncation_match is recorded per pair and counted in the summary")
     p_cmp.add_argument("--batch", type=Path, required=True)
     p_cmp.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()

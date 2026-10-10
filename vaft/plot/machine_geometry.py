@@ -17,15 +17,20 @@ import numpy as np
 from .backend.access import array, count, get, has
 from .models import Geometry3DLayer, Geometry3DLayers, GeometryLayer, GeometryLayers, as_model_array
 
-__all__ = ["MachineGeometry", "MACHINE_GEOMETRY_FAMILIES", "machine_geometry_registry",
+__all__ = ["MachineGeometry", "MACHINE_GEOMETRY_FAMILIES", "CROSS_SHOT_NOTICE",
+           "cross_shot_notice", "machine_geometry_registry",
            "machine_geometry_view", "project_machine_geometry"]
 
 
 @dataclass(frozen=True)
 class MachineGeometry:
-    """One source point, trajectory, LOS, coil path, or directed launch axis.
+    """One source point, trajectory, LOS, coil path, directed launch axis or toroidal ring.
 
     ``r``, ``z`` are metres; ``phi`` is radians or absent, never implicitly zero.
+    A ``toroidal_ring`` is one (R, Z) standing for the full axisymmetric loop at
+    that radius and height (a flux loop); it has no toroidal angle by
+    construction, so ``phi`` must be absent, and no view may turn it into a
+    point at an arbitrary angle.
     ``direction_xyz`` is an explicit unit vector in machine Cartesian space for
     an axis. Provenance is serialized JSON so it cannot be mutated after the
     geometry is built. A source shot, era, and origin are supplied by the data
@@ -42,7 +47,7 @@ class MachineGeometry:
     direction_xyz: np.ndarray | None = None
 
     def __post_init__(self) -> None:
-        if self.semantic not in {"point", "trajectory", "line_of_sight", "coil_path", "directed_axis"}:
+        if self.semantic not in {"point", "trajectory", "line_of_sight", "coil_path", "directed_axis", "toroidal_ring"}:
             raise ValueError(f"unknown geometry semantic: {self.semantic}")
         for name in ("r", "z", "phi", "direction_xyz"):
             value = getattr(self, name)
@@ -54,9 +59,14 @@ class MachineGeometry:
             raise ValueError("machine radius cannot be negative")
         if self.phi is not None and self.phi.shape != self.r.shape:
             raise ValueError("phi must match r and z")
-        if self.semantic in {"point", "directed_axis"} and self.r.size != 1:
-            raise ValueError("a point or directed axis has one source position")
-        if self.semantic not in {"point", "directed_axis"} and self.r.size < 2:
+        if self.semantic in {"point", "directed_axis", "toroidal_ring"} and self.r.size != 1:
+            raise ValueError("a point, directed axis or toroidal ring has one source position")
+        if self.semantic == "toroidal_ring":
+            if self.phi is not None:
+                raise ValueError("a toroidal ring is axisymmetric: it carries no phi")
+            if not (np.isfinite(self.r).all() and self.r[0] > 0 and np.isfinite(self.z).all()):
+                raise ValueError("a toroidal ring needs a finite positive radius and a finite height")
+        if self.semantic not in {"point", "directed_axis", "toroidal_ring"} and self.r.size < 2:
             raise ValueError("a path needs at least two positions")
         if self.semantic == "directed_axis":
             if self.phi is None or self.direction_xyz is None or not np.isfinite(np.r_[self.r, self.z, self.phi]).all():
@@ -70,10 +80,23 @@ class MachineGeometry:
 
     @property
     def xyz(self) -> np.ndarray | None:
-        """Cartesian source vertices, or None when toroidal location is unknown."""
+        """Cartesian source vertices, or None when toroidal location is unknown.
+
+        A toroidal ring has no single toroidal location; its Cartesian outline
+        comes from :meth:`ring_xyz`.
+        """
         if self.phi is None:
             return None
         return as_model_array(np.column_stack((self.r * np.cos(self.phi), self.r * np.sin(self.phi), self.z)), where="MachineGeometry.xyz")
+
+    def ring_xyz(self, samples: int = 181) -> np.ndarray:
+        """The full loop of a toroidal ring in machine Cartesian space, closed."""
+        if self.semantic != "toroidal_ring":
+            raise ValueError("only a toroidal ring has a ring outline")
+        theta = np.linspace(0.0, 2.0 * np.pi, max(int(samples), 8))
+        r, z = float(self.r[0]), float(self.z[0])
+        return as_model_array(np.column_stack((r * np.cos(theta), r * np.sin(theta), np.full_like(theta, z))),
+                              where="MachineGeometry.ring_xyz")
 
 
 # Family and IDS paths are source truth for every projection. CES contributes
@@ -87,19 +110,52 @@ _POINTS = {
 # the other point families store a static ``position.r``.
 _DYNAMIC_POSITIONS = {"charge_exchange"}
 _LOS = {"interferometer": "interferometer.channel", "soft_x_rays": "soft_x_rays.channel"}
+# Magnetics (#1829).  A flux loop is a toroidal loop: the DD stores its
+# ``position`` as a list whose first entry is the loop's (R, Z); VEST stores no
+# phi there because the loop has none.  B-pol and B-tor (IMPA) probes are
+# points whose phi is used only when stored.  On VEST the probe and loop R-Z
+# are identical across every donor geometry version (21193, 2302-2311, 2409);
+# what changes by era is the DAQ wiring (field codes, see
+# ``magnetics_wiring_for_shot``) and per-probe calibration, not geometry.  The
+# B-pol phi is a family-to-port-clock convention (#718), the IMPA phi its port.
+_MAGNETIC_RINGS = {"flux_loop": "magnetics.flux_loop"}
+_MAGNETIC_POINTS = {"b_field_pol_probe": "magnetics.b_field_pol_probe",
+                    "b_field_tor_probe": "magnetics.b_field_tor_probe"}
+_MAGNETIC_MARKERS = {"b_field_pol_probe": "x", "b_field_tor_probe": "+"}
+# The IDS a family lives in, where it is not the family name itself.
+_FAMILY_IDS = {family: "magnetics" for family in (*_MAGNETIC_RINGS, *_MAGNETIC_POINTS)}
 # Only the interferometer line of sight has a reflection point in the DD.
 _REFLECTED_LOS = {"interferometer"}
-MACHINE_GEOMETRY_FAMILIES = (*_POINTS, *_LOS, "coils_non_axisymmetric", "ec_launchers", "nbi")
+MACHINE_GEOMETRY_FAMILIES = (*_POINTS, *_LOS, "coils_non_axisymmetric", "ec_launchers", "nbi",
+                             *_MAGNETIC_RINGS, *_MAGNETIC_POINTS)
 _FAMILY_LABELS = {
     "thomson_scattering": "Thomson channel sites",
     "charge_exchange": "CX measurement sites",
     "langmuir_probes": "Langmuir sites",
     "interferometer": "Interferometer LOS",
-    "soft_x_rays": "SXR LOS",
+    "soft_x_rays": "Soft X-ray LOS",
     "coils_non_axisymmetric": "3-D coil filament",
     "ec_launchers": "EC provisional CAD",
     "nbi": "NBI model geometry",
+    "flux_loop": "Flux loops (toroidal)",
+    "b_field_pol_probe": "B-pol probes",
+    "b_field_tor_probe": "B-tor probes",
 }
+
+
+CROSS_SHOT_NOTICE = "Cross-shot composite — not a physical VEST discharge"
+
+
+def cross_shot_notice(reference: Any) -> str:
+    """Two-line notice every view of the cross-shot fixture carries in its title.
+
+    The first line says the picture is not one discharge; the second says whose
+    machine geometry the other shots' diagnostic coordinates are projected onto.
+    The static renderer, the camera view and the shared machine view all take the
+    wording from here so the three cannot drift apart.
+    """
+    return (f"{CROSS_SHOT_NOTICE}\n"
+            f"Other-shot diagnostic coordinates projected onto geometry reference shot {reference}")
 
 
 def _position(data: Any, path: str, *, dynamic: bool = False) -> tuple[float, float, float | None] | None:
@@ -147,8 +203,9 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
             **(manifest or {}).get("sources", {}),
             **(manifest or {}).get("geometry_sources", {}),
         }
+        ids = _FAMILY_IDS.get(family, family)
         sources = {key: value for key, value in source_catalog.items()
-                   if family in value.get("ids", [])}
+                   if ids in value.get("ids", [])}
         if len(sources) > 1:
             # The fixture has two interferometer artifacts under one IDS. Its
             # channel identifier states the frequency; the source keys repeat
@@ -162,18 +219,45 @@ def machine_geometry_registry(data: Any, *, families: tuple[str, ...] | None = N
         return json.dumps({"sources": sources, "geometry_reference": (manifest or {}).get("geometry_reference"),
                            "kind": (manifest or {}).get("kind"), "physical_discharge": (manifest or {}).get("physical_discharge"),
                            "source_ambiguous": len(sources) > 1,
-                           "ids_comment": str(get(data, f"{family}.ids_properties.comment", "")),
-                           "ids_code_parameters": str(get(data, f"{family}.code.parameters", ""))}, sort_keys=True)
+                           "ids_comment": str(get(data, f"{ids}.ids_properties.comment", "")),
+                           "ids_code_parameters": str(get(data, f"{ids}.code.parameters", ""))}, sort_keys=True)
 
     def add(family: str, path: str, semantic: str, positions: list, label: str,
-            identifier: str = "") -> None:
+            identifier: str = "", extra: Mapping[str, Any] | None = None) -> None:
         r, z, phi = zip(*positions)
+        source = provenance(family, identifier)
+        if extra:
+            source = json.dumps({**json.loads(source), **extra}, sort_keys=True)
         records.append(MachineGeometry(family, semantic, r, z,
                        None if any(value is None for value in phi) else phi,
-                       label, path, provenance(family, identifier)))
+                       label, path, source))
 
     for family in selected:
-        if family in _POINTS:
+        if family in _MAGNETIC_RINGS:
+            container = _MAGNETIC_RINGS[family]
+            for index in range(count(data, container)):
+                base = f"{container}.{index}"
+                # position is a list in the DD; the loop is its first entry
+                path = f"{base}.position.0"
+                r = _static_scalar(data, f"{path}.r")
+                z = _static_scalar(data, f"{path}.z")
+                if r is None or z is None or r <= 0:
+                    continue
+                add(family, path, "toroidal_ring", [(r, z, None)],
+                    str(get(data, f"{base}.name", f"flux loop {index}")),
+                    extra={"phi_source": "axisymmetric loop (no toroidal angle)"})
+        elif family in _MAGNETIC_POINTS:
+            container = _MAGNETIC_POINTS[family]
+            for index in range(count(data, container)):
+                base = f"{container}.{index}"
+                position = _position(data, f"{base}.position")
+                if position is None:
+                    continue  # a missing z stays NaN, as for the other point families
+                add(family, f"{base}.position", "point", [position],
+                    str(get(data, f"{base}.name", f"{family} {index}")),
+                    extra={"phi_source": "stored position.phi" if position[2] is not None
+                           else "unknown (position.phi absent)"})
+        elif family in _POINTS:
             container = _POINTS[family]
             for index in range(count(data, container)):
                 base = f"{container}.{index}"
@@ -348,6 +432,22 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         raise ValueError("samples_per_segment must be at least two")
     label = f"{record.label or record.family} [{record.semantic}]"
     kind = "points" if record.semantic == "point" else "polyline"
+    if record.semantic == "toroidal_ring":
+        # R-Z: the loop's cross-section is its one (R, Z); every other view
+        # draws the whole loop, never a point at an invented angle.
+        if view == "rz":
+            return GeometryLayer(record.r, record.z, kind="points", label=label)
+        xyz = record.ring_xyz(max(samples_per_segment, 8) * 4)
+        if view == "3d":
+            return Geometry3DLayer(*xyz.T, kind="polyline", label=label, group=f"{record.family}/{record.semantic}")
+        if view == "top":
+            return GeometryLayer(xyz[:, 0], xyz[:, 1], kind="polyline", label=label)
+        if projection is None:
+            raise ValueError("camera view requires a calibrated CameraProjection")
+        projected, valid = projection.project(xyz * 100.0)
+        uv = np.array(projected, dtype=float, copy=True)
+        uv[~np.asarray(valid, dtype=bool)] = np.nan
+        return GeometryLayer(uv[:, 0], uv[:, 1], kind="polyline", label=label)
     xyz = record.xyz
     if xyz is None:
         # Without phi, only the stored R-Z vertices are known. A line between
@@ -356,7 +456,10 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         return (GeometryLayer(record.r, record.z, kind="points",
                               label=f"{label} (vertices; phi unknown)")
                 if view == "rz" and np.isfinite(record.z).all() else None)
-    if view in {"rz", "3d", "camera"} and not np.isfinite(record.z).all():
+    # A gap row (NaN in r, z and phi) marks a stored discontinuity and is kept
+    # as a polyline break; only a missing height at a known position makes
+    # the record undrawable in a view that needs Z.
+    if view in {"rz", "3d", "camera"} and not np.isfinite(record.z[np.isfinite(record.r)]).all():
         return None
     if record.semantic == "directed_axis":
         if not np.isfinite(axis_length) or axis_length <= 0:
@@ -373,9 +476,13 @@ def project_machine_geometry(record: MachineGeometry, view: str, *, projection: 
         return GeometryLayer(xyz[:, 0], xyz[:, 1], kind=kind, label=label)
     if projection is None:
         raise ValueError("camera view requires a calibrated CameraProjection")
-    uv, valid = projection.project(xyz * 100.0)
-    uv = np.array(uv, dtype=float, copy=True)
-    uv[~np.asarray(valid, dtype=bool)] = np.nan
+    uv = np.full((xyz.shape[0], 2), np.nan)
+    stored = np.isfinite(xyz).all(axis=1)
+    if stored.any():
+        projected, valid = projection.project(xyz[stored] * 100.0)
+        projected = np.array(projected, dtype=float, copy=True)
+        projected[~np.asarray(valid, dtype=bool)] = np.nan
+        uv[stored] = projected
     return GeometryLayer(uv[:, 0], uv[:, 1], kind=kind, label=label)
 
 
@@ -402,10 +509,15 @@ def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | N
             continue
         position = MACHINE_GEOMETRY_FAMILIES.index(record.family)
         style = {"color": f"C{position}"}
-        if record.semantic == "point":
+        if record.family in _MAGNETIC_MARKERS:
+            # the colour cycle wraps past ten families; the marker keeps them apart
+            style["marker"] = _MAGNETIC_MARKERS[record.family]
+        elif record.semantic == "point":
             style["marker"] = "x" if "derived" in record.label.lower() else "o"
         elif record.semantic in {"trajectory", "directed_axis"}:
             style["linestyle"] = "--"
+        elif record.semantic == "toroidal_ring" and view != "rz":
+            style["linestyle"] = ":"
         derived_thomson = (record.family == "thomson_scattering" and
                            (record.source_path.startswith("manifest.geometry_records") or
                             record.source_path.startswith("vaft.machine_mapping.thomson_scattering.")))
@@ -434,7 +546,7 @@ def machine_geometry_view(data: Any, view: str, *, families: tuple[str, ...] | N
     notice = (manifest or {}).get("notice", "")
     if (manifest or {}).get("kind") == "cross-shot-diagnostic-fixture":
         reference = (manifest or {}).get("geometry_reference", {}).get("source_shot")
-        notice = f"Cross-shot composite — not a physical VEST discharge; geometry reference shot {reference}"
+        notice = cross_shot_notice(reference)
     elif not notice:
         source_comment = get(data, "dataset_description.ids_properties.comment")
         if isinstance(source_comment, str) and "Cross-shot composite fixture" in source_comment:

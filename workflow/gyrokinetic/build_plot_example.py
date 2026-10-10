@@ -66,7 +66,7 @@ def _run_linear_module():
 def read_input_tglf(path: Path) -> dict[str, Any]:
     """``input.tglf`` as ``{KEY: value}`` (the parameters the mapping records)."""
     raw: dict[str, Any] = {}
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         if "=" not in line:
             continue
         key, _, value = line.partition("=")
@@ -134,7 +134,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     import matplotlib
 
     matplotlib.use("Agg")
-    from omas import ODS, load_omas_json, save_omas_json
+    from omas import ODS, load_omas_json
 
     import vaft.omas
     from vaft.code.gacode.cgyro import prepare_cgyro_input
@@ -162,7 +162,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                        / args.field_model / "cgyro").glob("ky*/gyrokinetics_local.json"))
         if runs:
             cgyro = merge_linear_scan(load_omas_json(str(path)) for path in runs)
-            save_omas_json(cgyro, str(args.out / f"gk_cgyro_{tag}_{surface}.json"))
+            vaft.omas.save(cgyro, args.out / f"gk_cgyro_{tag}_{surface}.json")
             figure, _ = vaft.omas.plot_gyrokinetics_overview(cgyro)
             save_figure(figure, args.out / f"gk_overview_cgyro_{tag}_{surface}.png", dpi=150)
             entry["cgyro_runs"] = len(runs)
@@ -178,7 +178,7 @@ def main(argv: Optional[list[str]] = None) -> int:
                 tglf, local.tglf, collect_tglf_outputs(run),
                 parameters=read_input_tglf(run / "input.tglf"), time=key.time_efit_s)
             if report["written"]:
-                save_omas_json(tglf, str(args.out / f"gk_tglf_sat{args.tglf_sat}_{tag}_{surface}.json"))
+                vaft.omas.save(tglf, args.out / f"gk_tglf_sat{args.tglf_sat}_{tag}_{surface}.json")
                 figure, _ = vaft.omas.plot_gyrokinetics_overview(tglf)
                 save_figure(figure, args.out / f"gk_overview_tglf_{tag}_{surface}.png", dpi=150)
                 if runs:
@@ -196,7 +196,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         report = core_transport_from_tglf(ods, surfaces, state.profile, time=key.time_efit_s)
         if report["written"]:
             transport[f"TGLF SAT{sat}"] = ods
-            save_omas_json(ods, str(args.out / f"core_transport_tglf_sat{sat}_{tag}.json"))
+            vaft.omas.save(ods, args.out / f"core_transport_tglf_sat{sat}_{tag}.json")
     if transport:
         figure, _ = vaft.omas.plot_turbulent_transport_overview(transport)
         save_figure(figure, args.out / f"turbulent_transport_overview_{tag}.png", dpi=150)
