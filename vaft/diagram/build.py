@@ -148,6 +148,12 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     # E_s = 8.68 eV: the sublimation energy of W, the usual surface binding energy (Behrisch & Eckstein,
     # "Sputtering by Particle Bombardment", Springer 2007, tables) -- an input, shown on the figure
     "plasma_wall_interaction_sputtering.svg": ("plasma_wall_interaction_sputtering", {"surface_binding_energy": 8.68}),
+    "plasma_wall_interaction_sputtering_threshold.svg": ("plasma_wall_interaction_sputtering_threshold",
+                                                         {"surface_binding_energy": 8.68}),
+    **{f"{name}.svg": (name, {}) for name in ("plasma_wall_interaction_reflection_energy",
+                                              "plasma_wall_interaction_angle_dependence",
+                                              "plasma_wall_interaction_particle_balance",
+                                              "plasma_wall_interaction_surface_response")},
     # spectroscopy and ionization concepts (#1046)
     "spectroscopy_ionization_stages.svg": ("spectroscopy_ionization_stages", {"term": "C III"}),
     **{f"spectroscopy_transitions_{name}.svg": ("spectroscopy_transitions", {"term": term})

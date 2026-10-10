@@ -1090,6 +1090,11 @@ vaft.diagram.plasma_wall_interaction_reflection()
 vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)   # threshold only if E_s given
 vaft.diagram.plasma_wall_interaction_recycling()
 vaft.diagram.plasma_wall_interaction_energy_partition()
+vaft.diagram.plasma_wall_interaction_reflection_energy()
+vaft.diagram.plasma_wall_interaction_angle_dependence()
+vaft.diagram.plasma_wall_interaction_sputtering_threshold(surface_binding_energy=8.68)   # E_th only if E_s given
+vaft.diagram.plasma_wall_interaction_particle_balance()
+vaft.diagram.plasma_wall_interaction_surface_response()
 ```
 
 ![processes]({{ '/assets/diagrams/plasma_wall_interaction_processes.svg' | relative_url }})
@@ -1098,6 +1103,10 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 | --- | --- |
 | ![reflection]({{ '/assets/diagrams/plasma_wall_interaction_reflection.svg' | relative_url }}) | ![sputtering]({{ '/assets/diagrams/plasma_wall_interaction_sputtering.svg' | relative_url }}) |
 | ![recycling]({{ '/assets/diagrams/plasma_wall_interaction_recycling.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/plasma_wall_interaction_energy_partition.svg' | relative_url }}) |
+| ![reflected energy]({{ '/assets/diagrams/plasma_wall_interaction_reflection_energy.svg' | relative_url }}) | ![angle]({{ '/assets/diagrams/plasma_wall_interaction_angle_dependence.svg' | relative_url }}) |
+| ![threshold]({{ '/assets/diagrams/plasma_wall_interaction_sputtering_threshold.svg' | relative_url }}) | ![particle balance]({{ '/assets/diagrams/plasma_wall_interaction_particle_balance.svg' | relative_url }}) |
+
+![surface response]({{ '/assets/diagrams/plasma_wall_interaction_surface_response.svg' | relative_url }})
 
 | Diagram | Concept |
 | --- | --- |
@@ -1106,6 +1115,11 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 | `plasma_wall_interaction_sputtering` | A collision cascade ejects a target atom. One collision passes at most $\gamma E$ (D on W: $\gamma = 0.043$), hence the high threshold |
 | `plasma_wall_interaction_recycling` | Prompt reflection plus delayed re-emission make recycling; retention is the rest |
 | `plasma_wall_interaction_energy_partition` | Particle balance and energy balance side by side. They are not the same bookkeeping |
+| `plasma_wall_interaction_reflection_energy` | Incident $f_i(E_i)$ to reflected $f_r(E_r)$ through the surface. Only the binary-collision limit $(1-\gamma)E_i$ is stated; $R_N(E_i)$, $R_E(E_i)$, $\langle E_r\rangle(E_i)$ are empty enrichment slots |
+| `plasma_wall_interaction_angle_dependence` | Normal and grazing incidence, angles from the surface normal; $R_N$, $R_E$, $Y$ as functions of $(E_i, \theta_i)$ are named, not drawn |
+| `plasma_wall_interaction_sputtering_threshold` | A schematic $Y(E_i)$ with no scale: a threshold exists. $E_\mathrm{th}$ is printed only for a supplied $E_s$ (Bohdansky) |
+| `plasma_wall_interaction_particle_balance` | The projectile balance (reflected + re-emitted + retained) with the sputtered target atoms drawn apart, as another species' source |
+| `plasma_wall_interaction_surface_response` | Inputs, surface response ($R_N$, $R_E$, $Y_\mathrm{sput}$), outputs: the extension point for tabulated data or an external PWI code (levels 2–4) |
 
 ## Spectroscopy and ionization
 
