@@ -855,6 +855,23 @@
       "shot": 41524,
       "status": "rendered"
     },
+    "magnetics_overview_vacuum_benchmark": {
+      "call": "vaft.omas.plot_magnetics_overview_vacuum_benchmark(vaft.omas.load(vaft.data.sample(39915)))",
+      "model_sha256": "70c8ae899f309957e104c2884f18f76ce3461dbcf565412ea997e1df086dbd0d",
+      "png_sha256": "12b76deaa417178b81a4621fae131b2ffd0813d399eafbeff4f2f4c4ce1cb43e",
+      "renderer_sha256": "5262d18585b7efb79ea38cc3ca5a39613377d9124f1c3eb7075827ecaf955c1e",
+      "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
+      "shot": 39915,
+      "status": "rendered"
+    },
+    "magnetics_table_vacuum_benchmark": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
+    "magnetics_table_vacuum_benchmark_aggregate": {
+      "reason": "a table/text view is presented as text, not drawn as a figure",
+      "status": "no_figure"
+    },
     "mhd_linear_field_spectrum": {
       "reason": "no packaged sample carries the data this plot needs",
       "status": "no_sample"

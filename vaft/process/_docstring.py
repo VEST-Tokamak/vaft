@@ -74,6 +74,7 @@ SECTION_VOCABULARY: tuple[str, ...] = (
     "Assumptions",
     "Applicability",
     "Limitations",
+    "Semantics",
     "Provenance",
     "Notes",
     "See Also",
@@ -91,6 +92,7 @@ CUSTOM_SECTIONS: tuple[str, ...] = (
     "Assumptions",
     "Applicability",
     "Limitations",
+    "Semantics",
     "Provenance",
 )
 

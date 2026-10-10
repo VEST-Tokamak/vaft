@@ -61,6 +61,7 @@ from ._taxonomy import (
     Reduction,
     parse_reduction,
 )
+from .._semantics import Semantics, parse_semantics
 
 __all__ = [
     "CATEGORIES",
@@ -79,7 +80,7 @@ __all__ = [
 #: ``constants`` defines no functions and appears only through :func:`categories`.
 CATEGORIES: tuple[str, ...] = tuple(key for key in _IMPORT_ORDER if key != "constants")
 
-SCHEMA_VERSION = 4  # +reduction (#1626)
+SCHEMA_VERSION = 5  # +reduction (#1626), +semantics (#1702)
 _GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
 
 #: A displayed equation of the description, ``$$...$$``, possibly over several lines.
@@ -126,6 +127,7 @@ class FormulaSpec:
     source_code: str = ""
     definitions: tuple[str, ...] = ()
     reduction: Reduction | None = None
+    semantics: Semantics | None = None
 
     @property
     def qualname(self) -> str:
@@ -297,6 +299,10 @@ class FormulaSpec:
             r = self.reduction
             return "\n".join(["**Reduction**", "", f"- mapping: {r.mapping}", f"- kind: {r.kind}",
                               f"- locality: {r.locality}", f"- role: {r.role}"])
+        if part == "semantics" and self.semantics is not None:
+            s = self.semantics
+            return "\n".join(["**Semantics**", ""] + [f"- {key}: {', '.join(terms)}" for key, terms in
+                                                       (("consumes", s.consumes), ("produces", s.produces)) if terms])
         if part == "references":
             lines = ["**References**", ""]
             lines += [f"- [{ref.label}] {_one_line(ref.text)}" for ref in self.references]
@@ -350,7 +356,7 @@ class FormulaSpec:
             "sections": [
                 {"title": title, "text": strip_roles(text)}
                 for title, text in self.sections
-                if title not in ("Parameters", "Returns", "Yields", "Raises", "References", "Reduction")
+                if title not in ("Parameters", "Returns", "Yields", "Raises", "References", "Reduction", "Semantics")
             ],
             "references": [
                 {"label": ref.label, "text": strip_roles(ref.text)} for ref in self.references
@@ -372,6 +378,7 @@ class FormulaSpec:
             "aliases": list(self.aliases),
             "shadowed_by": self.shadowed_by,
             "reduction": self.reduction.as_dict() if self.reduction is not None else None,
+            "semantics": self.semantics.as_dict() if self.semantics is not None else None,
         }
 
 
@@ -488,6 +495,7 @@ def _reduction(parsed: ParsedDocstring) -> tuple[Reduction | None, tuple[str, ..
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> FormulaSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
     reduction, reduction_errors = _reduction(parsed)
+    semantics, semantics_errors = parse_semantics(parsed.section("Semantics"))
     span = source_span(fn, Path(__file__).resolve().parents[2])
     return FormulaSpec(
         name=name,
@@ -505,7 +513,7 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         deprecated=parsed.deprecated,
         aliases=aliases,
         shadowed_by=_shadowing_category(category, name),
-        errors=parsed.errors + reduction_errors,
+        errors=parsed.errors + reduction_errors + semantics_errors,
         raises=parsed.raises,
         source_path=span["path"],
         source_line=span["line"],
@@ -513,6 +521,7 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         source_code=span["code"],
         definitions=tuple(equation.strip() for equation in _DISPLAY_MATH.findall(parsed.description)),
         reduction=reduction,
+        semantics=semantics,
     )
 
 

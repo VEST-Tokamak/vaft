@@ -650,6 +650,7 @@ rule generate_diagnostics_ods:
 rule generate_eddy_ods:
     input:
         diagnostics=PATHS.shot_pattern("diagnostics_ods"),
+        diagnostics_manifest=PATHS.shot_pattern("diagnostics_manifest"),
         static=static_ods_for_shot
     output:
         ods=PATHS.shot_pattern("eddy_ods"),
@@ -669,6 +670,7 @@ rule generate_eddy_ods:
         python {SCRIPT_DIR}/generate_eddy_ods.py \
             --shot {wildcards.shot} \
             --diagnostics-ods {input.diagnostics} \
+            --diagnostics-manifest {input.diagnostics_manifest} \
             --static-ods {input.static} \
             --output {output.ods} \
             --metadata {output.manifest} \

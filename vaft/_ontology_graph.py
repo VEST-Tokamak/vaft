@@ -21,7 +21,13 @@ edge comes from a registry that already owns the fact, and records which:
 * :mod:`vaft.validation.registry` -- named checks and their providers;
 * :mod:`vaft.data.cocos` -- the COCOS convention each code or format uses;
 * :mod:`vaft._ecosystem` (#1648) -- external codes, their adapters and the
-  IDS they are mapped into.
+  IDS they are mapped into;
+* :mod:`vaft.formula._taxonomy` (#1626) -- which quantity a formula reduces to
+  which, with each formula's ``Reduction`` section as facets;
+* the ``Semantics`` sections of :mod:`vaft.formula` and :mod:`vaft.process`
+  docstrings -- the quantities a function consumes and produces, in the vocabulary;
+* :mod:`vaft.validation.orderings` (#1627) -- the physical models' approximation
+  contracts, the ordering quantities they assume and the kernels computing them.
 
 **Identity is strict.**  A term becomes a concept only through
 :func:`resolve_term`, which accepts a canonical name or a registered alias
@@ -60,11 +66,13 @@ KINDS = {
     "code": "an external scientific code",
     "data_format": "a data model or file format with a fixed convention",
     "plot": "a canonical VAFT plot",
-    "api": "a VAFT function: a mapping, a validation provider or a code adapter",
+    "api": "a VAFT function: a mapping, a validation provider, a code adapter, a formula or a process",
     "ids": "an IMAS IDS",
     "dd_path": "a Data Dictionary path",
     "validation": "a named validation check",
     "convention": "a COCOS convention",
+    "model": "a physical model's approximation contract: the orderings it assumes",
+    "ordering_quantity": "a dimensionless ordering quantity a model's validity is judged by",
 }
 
 #: The relation vocabulary. Every edge is one of these and nothing else.
@@ -78,10 +86,13 @@ RELATIONS = {
     "visualized_by": "a concept is drawn by a canonical plot",
     "reads": "a plot reads a Data Dictionary path",
     "assessed_by": "a concept is assessed by a named validation check",
-    "provided_by": "a check is computed by a VAFT function",
+    "provided_by": "a check or an ordering quantity is computed by a VAFT function",
     "uses_convention": "a code or data format uses a COCOS convention",
     "implemented_by": "an external code is integrated through a VAFT adapter",
-    "produces": "an external code's result is mapped into an IDS",
+    "produces": "an external code's result is mapped into an IDS; a formula or process computes a quantity",
+    "consumes": "a formula or process takes a quantity as input",
+    "derived_from": "a quantity is reduced from another by a step VAFT performs outside a formula",
+    "assumes": "a physical model is valid only where an ordering quantity is small or large",
 }
 
 #: The id namespace of each kind, where it differs from the kind's name.
@@ -92,7 +103,8 @@ VIEWS = {
     "concepts": ("concept", "concept_family", "diagnostic", "machine", "code"),
     "representations": ("concept", "diagnostic", "machine", "ids", "dd_path", "api"),
     "implementations": ("concept", "diagnostic", "machine", "code", "plot", "api", "ids"),
-    "assessment": ("concept", "diagnostic", "validation", "api", "convention", "code", "data_format"),
+    "assessment": ("concept", "diagnostic", "validation", "api", "convention", "code", "data_format",
+                   "model", "ordering_quantity"),
 }
 
 #: Taxonomy subject kind -> ontology node kind.
@@ -236,7 +248,7 @@ def _taxonomy(graph: _Graph) -> None:
     for subject in taxonomy.SUBJECTS.values():
         graph.node(node_id_for_subject(subject.name), _SUBJECT_KIND[subject.kind], subject.name, origin,
                    concept_kind=subject.kind, aliases=sorted(subject.aliases))
-    quantities: dict[str, list[str]] = {}
+    quantities: dict[str, list[str]] = {name: [] for name in taxonomy.CANONICAL_QUANTITIES}
     for alias, canonical in taxonomy.QUANTITY_ALIASES.items():
         quantities.setdefault(canonical, [])
         if alias != canonical:
@@ -436,6 +448,121 @@ def _external_codes(graph: _Graph) -> None:
                 graph.edge(node_id, _ids(graph, name, origin), "produces", origin)
 
 
+def _formula_api(graph: _Graph, key: str, origin: str) -> str:
+    """The API node of a ``"category.name"`` formula, carrying its ``Reduction`` section."""
+    from vaft.formula.catalog import describe
+
+    spec = describe(key)
+    node_id = _api(graph, f"{spec.module}.{spec.qualname.rsplit('.', 1)[-1]}", origin, "formula")
+    if spec.reduction is not None:
+        reduction = spec.reduction
+        # the Reduction section is the formula catalog's fact, whichever registry reached the formula
+        graph.node(node_id, "api", graph.nodes[node_id]["label"], "vaft.formula.catalog",
+                   reduction_input=list(reduction.input),
+                   reduction_output=reduction.output, reduction_kind=reduction.kind, locality=reduction.locality,
+                   physical_role=reduction.role)
+    return node_id
+
+
+def _reductions(graph: _Graph) -> None:
+    """#1626: which quantity is reduced to which, and by which formula.
+
+    The reduction graphs name quantities by their own keys (``s_hat``,
+    ``j_phi_field``).  A key becomes an edge only through the ``concept`` its
+    ``Quantity`` declares, resolved by :func:`resolve_term`; a key without one
+    is audited, never matched by spelling.
+    """
+    from vaft.formula import _taxonomy
+
+    origin = "vaft.formula._taxonomy"
+
+    def concept(key: str) -> Optional[str]:
+        declared = _taxonomy.QUANTITIES[key].concept
+        if declared is None:
+            return None
+        resolved = resolve_term(declared, quantities_only=True)
+        if resolved is None:
+            raise OntologyError(f"reduction quantity {key} declares concept {declared}, which the vocabulary lacks")
+        return resolved
+
+    for family, relations in _taxonomy.REDUCTION_FAMILIES.items():
+        for relation in relations:
+            target = concept(relation.target)
+            sources = [(key, concept(key)) for key in relation.sources]
+            step = relation.formula or relation.kind
+            if target is None:
+                graph.miss(relation.target, origin,
+                           f"produced by {step} from {' + '.join(relation.sources)} ({family})")
+            for key, source in sources:
+                if source is None:
+                    graph.miss(key, origin, f"reduced by {step} to {relation.target} ({family})")
+            if relation.formula:
+                if target is None and not any(source for _, source in sources):
+                    continue  # nothing the vocabulary knows: the formula would be an island
+                api = _formula_api(graph, relation.formula, origin)
+                for _, source in sources:
+                    if source:
+                        graph.edge(api, source, "consumes", origin)
+                if target:
+                    graph.edge(api, target, "produces", origin)
+            elif target:
+                for _, source in sources:
+                    if source and source != target:
+                        graph.edge(target, source, "derived_from", origin)
+
+
+def _semantics(graph: _Graph) -> None:
+    """The ``Semantics`` sections of formulas and processes (#1702 phase 3).
+
+    Every term must be a quantity of the vocabulary: the section is a contract,
+    so an unknown term is an error here, not an audit row.
+    """
+    from vaft.formula.catalog import list_formulas
+    from vaft.process.catalog import list_processes
+
+    for origin, specs in (("vaft.formula.catalog", list_formulas()), ("vaft.process.catalog", list_processes())):
+        for spec in specs:
+            if spec.semantics is None:
+                continue
+            if origin == "vaft.formula.catalog":
+                api = _formula_api(graph, spec.qualname, origin)  # with its Reduction facets
+            else:
+                api = _api(graph, f"{spec.module}.{spec.name}", origin, "process")
+            for relation, terms in (("consumes", spec.semantics.consumes), ("produces", spec.semantics.produces)):
+                for term in terms:
+                    target = resolve_term(term, quantities_only=True)
+                    if target is None:
+                        named = resolve_term(term)
+                        what = (f"a {graph.nodes[named]['facets'].get('concept_kind') or named.split(':', 1)[0]} "
+                                "subject, not a quantity") if named in graph.nodes else "no term of the vocabulary"
+                        raise OntologyError(f"{spec.module}.{spec.name} Semantics {relation} {term!r}, which is "
+                                            f"{what} (vaft.plot.taxonomy)")
+                    graph.edge(api, target, relation, origin)
+
+
+def _orderings(graph: _Graph) -> None:
+    """#1627: approximation contracts, the ordering quantities they assume and their kernels."""
+    from vaft.validation import orderings
+
+    origin = "vaft.validation.orderings"
+    for name, quantity in sorted(orderings.ORDERING_QUANTITIES.items()):
+        node_id = f"ordering_quantity:{name}"
+        graph.node(node_id, "ordering_quantity", name, origin, definition=quantity.definition,
+                   scale=quantity.scale, scope=quantity.scope, group=quantity.group)
+        for kernel in quantity.kernels:
+            graph.edge(node_id, _formula_api(graph, kernel, origin), "provided_by", origin)
+    for name, contract in sorted(orderings.CONTRACTS.items()):
+        node_id = f"model:{name}"
+        graph.node(node_id, "model", name, origin, physical_model=contract.physical_model,
+                   assumptions=[f"{a.quantity} {a.ordering} ({a.scope}): {a.meaning}" for a in contract.assumptions],
+                   limitations=list(contract.limitations), references=list(contract.references))
+        for assumption in contract.assumptions:
+            target = f"ordering_quantity:{assumption.quantity}"
+            if target not in graph.nodes:
+                raise OntologyError(f"contract {name} assumes {assumption.quantity}, which is no ordering quantity")
+            graph.edge(node_id, target, "assumes", origin)
+
+
 def _ambiguous_aliases(graph: _Graph) -> None:
     """An alias that identifies two different subjects identifies nothing; drop and audit it.
 
@@ -479,11 +606,16 @@ def ontology_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
     _validation(graph)
     _conventions(graph)
     _external_codes(graph)
+    _reductions(graph)
+    _semantics(graph)
+    _orderings(graph)
     _ambiguous_aliases(graph)
     _views(graph)
 
     import vaft.data.cocos as cocos_module
+    import vaft.formula._taxonomy as reduction_module
     import vaft.plot.taxonomy as taxonomy_module
+    import vaft.validation.orderings as orderings_module
     import vaft.validation.registry as validation_module
 
     files = [
@@ -491,6 +623,7 @@ def ontology_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
         Path(validation_module.__file__).resolve(), Path(cocos_module.__file__).resolve(),
         _ROOT / "vaft" / "machine_mapping" / "vest.yaml", _ROOT / "vaft" / "_ecosystem.py",
         _ROOT / "vaft" / "plot" / "registry.py", _ROOT / "vaft" / "plot" / "backend" / "dd.py",
+        Path(reduction_module.__file__).resolve(), Path(orderings_module.__file__).resolve(),
     ]
     nodes = sorted(graph.nodes.values(), key=lambda n: n["id"])
     for node in nodes:

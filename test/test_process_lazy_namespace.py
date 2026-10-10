@@ -433,6 +433,35 @@ def test_import_order_is_not_load_bearing():
     assert conflicts == []
 
 
+def test_no_submodule_key_shadows_an_exported_name():
+    """A ``_SUBMODULES`` key wins over any exported name of the same spelling (#1838).
+
+    ``__getattr__`` checks the submodule map first, and importing a submodule
+    binds it as a package attribute, so ``vaft.process.core_q_context`` used to
+    be the module rather than the documented function it exports.  The
+    collision check in ``_resolve`` compares exports with exports only; this
+    closes the other half for every submodule, present and future.
+    """
+    package = vaft.process
+    shadowed = sorted(
+        (name, key)
+        for key in package._IMPORT_ORDER
+        for name in package._exported(package._submodule(key))
+        if name in package._SUBMODULES
+    )
+
+    assert shadowed == []
+
+
+def test_the_core_q_context_function_is_what_the_package_attribute_binds():
+    """The #1838 instance: the documented call works through the package."""
+    from vaft.process import core_q_context
+    from vaft.process.q_profile_context import core_q_context as defined
+
+    assert core_q_context is defined and vaft.process.core_q_context is defined
+    assert callable(vaft.process.core_q_context)
+
+
 def test_a_genuine_collision_is_refused_rather_than_resolved_by_order(monkeypatch):
     import vaft.process.numerical as numerical
     import vaft.process.signal_processing as signal_processing

@@ -48,6 +48,7 @@ SECTION_VOCABULARY: tuple[str, ...] = (
     "Limitations",
     "Numerical notes",
     "Reduction",
+    "Semantics",
     "References",
     "Notes",
     "See Also",
@@ -64,6 +65,7 @@ CUSTOM_SECTIONS: tuple[str, ...] = (
     "Limitations",
     "Numerical notes",
     "Reduction",
+    "Semantics",
 )
 
 #: An empirical formula opens its ``Validity`` section with this sentence.

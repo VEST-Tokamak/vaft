@@ -64,3 +64,26 @@ It writes four things:
 - Grid rows are written only when the `core_profiles` grid is the state's own equilibrium slice: the grid is placed by its own flux label (`grid.rho_pol_norm` or `grid.psi`) and its `rho_tor_norm` must agree with the slice's `rho_tor(psi_N)` within `GRID_RHO_TOLERANCE` (0.02). A `sqrt(psi_N)` proxy under `rho_tor_norm`, another equilibrium's coordinate, or a grid with no flux label is refused and `ti_state.csv` carries the reason; the channel rows are unaffected.
 
 **σ(p_EFIT)** is the spread over the shot's other good or admissible magnetics slices within 1 ms, at the same ψ_N. Its floor is 17 % (#874).
+
+## Matched single-state inference archives
+
+The executed notebooks
+[`self_consistent_kinetic_inference_vest_39915.ipynb`](../../notebooks/self_consistent_kinetic_inference_vest_39915.ipynb)
+and [`self_consistent_kinetic_inference_vest_40326.ipynb`](../../notebooks/self_consistent_kinetic_inference_vest_40326.ipynb)
+use compact, offline inputs in [`archive_data`](archive_data). The snapshots
+preserve selected equilibrium and core-profile arrays, separately mapped
+Thomson points with their 1σ errors, transient C/O charge-state results, and
+SHA-256 hashes of the campaign source products. Optional replay of the
+39915 charge-state calculation needs the hash-pinned OpenADAS tables locally.
+
+Both notebooks show magnetic-EFIT pressure partition, 2×2 and 4×1
+`vaft.plot` panels, and the electron-kinetic-EFIT branch. The 40326 kinetic
+EFIT is admissible; the 39915 kinetic EFIT has a negative edge pressure and
+is shown as a rejected comparison. `T_i` inferred from independent magnetic
+pressure is distinct from the `T_i=T_e` prior used by kinetic EFIT. The
+pressure sum `p_e+p_i=p_eq` is a closure identity. Thomson measurements used
+as fit input are shown with errors but do not independently validate their
+own fit. The notebooks do not write poster assets.
+
+Promotion of this composite view to `vaft.plot`/`vaft.omas` is tracked in
+[#1837](https://github.com/VEST-Tokamak/vaft/issues/1837).

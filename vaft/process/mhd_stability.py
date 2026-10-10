@@ -25,15 +25,20 @@ means (#939).
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Mapping, Optional
 
 import numpy as np
 
 __all__ = [
+    "StabilityAtlasPopulations",
     "criterion_intervals",
     "dcon_local_stability",
     "dcon_edge_scan",
     "dcon_edge_comparison",
+    "load_stability_atlas",
+    "stability_atlas_populations",
 ]
 
 #: DCON's sign conventions: which side of zero each local criterion is unstable on.
@@ -425,3 +430,200 @@ def dcon_edge_comparison(full: Mapping[str, Any], truncated: Mapping[str, Any]) 
         "psilim_full": full.get("psilim"),
         "psilim_truncated": truncated.get("psilim"),
     }
+
+
+#: The resolution the ideal and resistive populations are read at: the higher of
+#: the atlas's two DCON / RDCON / STRIDE resolutions (mpsi 512), for every row -- no
+#: QA cut is applied to the values themselves; QA stays a separate count (#1852).
+#: The local criteria exist only from the atlas's reference DCON run (mpsi 256).
+#: The atlas's own ``ideal_unstable_full_edge`` is read at mpsi 256, so its counts
+#: can differ from these where the sign flips between resolutions.
+ATLAS_RESOLUTION = "mpsi512"
+
+_ATLAS_KEY = ("shot", "time_efit_s", "efit_lineage")
+
+
+@dataclass(frozen=True)
+class StabilityAtlasPopulations:
+    """Per-panel value populations of the Tier A stability atlas, with their layers kept apart.
+
+    ``ideal_w_t`` maps ``n`` to DCON's least-stable ``W_t`` (full edge, mpsi
+    512) of every slice; ``delta_prime_max`` maps ``(solver, n)`` to each
+    slice's largest ``Re Delta'`` over its rational surfaces (mpsi 512);
+    ``mercier_max_d_i`` / ``ballooning_min_c_a`` are each slice's extreme local
+    criterion (from the ``n = 1`` DCON run, where they were evaluated).  These
+    are the **raw** layer.  ``summary`` carries, per series, the slice count, the
+    QA count (atlas sign class / two-resolution consistency) and the count on
+    the unstable side of the universal criterion -- the interpretation layer --
+    as a table, never folded into the values.
+    """
+
+    ideal_w_t: Mapping[int, np.ndarray]
+    delta_prime_max: Mapping[tuple[str, int], np.ndarray]
+    mercier_max_d_i: np.ndarray
+    ballooning_min_c_a: np.ndarray
+    summary: Any  # pandas.DataFrame
+    provenance: Mapping[str, Any] = field(default_factory=dict)
+
+
+def load_stability_atlas(directory) -> tuple[Any, Any]:
+    """Read the Tier A stability atlas tables from their directory.
+
+    Parameters
+    ----------
+    directory : str or Path
+        The atlas directory holding ``atlas_n.csv`` and ``atlas_surfaces.csv``
+        (on vestserver ``~/runs/campaign/atlas/stability``) [-].
+
+    Returns
+    -------
+    atlas_n : pandas.DataFrame
+        One row per (slice, n) [table].
+    atlas_surfaces : pandas.DataFrame
+        One row per (slice, n, solver, rational surface) [table].
+
+    Raises
+    ------
+    FileNotFoundError
+        Either table is missing.
+
+    Applicability
+    -------------
+    VEST-specific. The atlas is the VEST Tier A campaign product of
+    ``workflow/stability_atlas/build_atlas.py``.
+
+    Limitations
+    -----------
+    Reads the CSV form; no schema check beyond the columns
+    :func:`stability_atlas_populations` uses.
+    """
+    import pandas as pd
+
+    root = Path(directory).expanduser()
+    tables = []
+    for name in ("atlas_n.csv", "atlas_surfaces.csv"):
+        path = root / name
+        if not path.is_file():
+            raise FileNotFoundError(f"stability atlas table {path} not found")
+        tables.append(pd.read_csv(path))
+    return tables[0], tables[1]
+
+
+def stability_atlas_populations(atlas_n, atlas_surfaces) -> StabilityAtlasPopulations:
+    """The ideal, resistive and local-criterion populations of the stability atlas.
+
+    Parameters
+    ----------
+    atlas_n : pandas.DataFrame
+        The atlas's per-(slice, n) table: ``dcon_full_512_W_t``,
+        ``dcon_full_sign_class``, ``max_D_I``, ``min_C_A``,
+        ``mercier_evaluated``, ``ballooning_evaluated``, keyed by ``shot``,
+        ``time_efit_s``, ``efit_lineage``, ``n_tor`` [table].
+    atlas_surfaces : pandas.DataFrame
+        The atlas's per-surface table: ``solver``, ``n_tor``,
+        ``delta_prime_mpsi512``, ``two_resolution_consistent`` with the same
+        key [table].
+
+    Returns
+    -------
+    populations : StabilityAtlasPopulations
+        Raw values per panel and series, with the per-series counts table [-].
+
+    Processing steps
+    ----------------
+    1. Ideal: ``W_t`` (full edge, mpsi 512) of every row, grouped by ``n``.
+    2. Resistive: per slice, solver and ``n``, the largest ``Re Delta'`` at
+       mpsi 512 over all rational surfaces.
+    3. Local: ``max D_I`` and ``min C_A`` of each slice's ``n = 1`` row, where
+       the run evaluated them (the atlas's reference DCON run, mpsi 256).
+    4. Counts: per series the slices, the QA-passing slices and those on the
+       unstable side of the universal criterion.
+
+    Input semantics
+    ---------------
+    The atlas as ``build_atlas.py`` writes it (v2): raw solver values plus QA
+    annotations.
+
+    Output semantics
+    ----------------
+    Raw values with no QA cut (mpsi 512 for ``W_t`` and ``Delta'``, mpsi 256
+    for the local criteria), and a separate counts table.  The
+    QA counts are a trust annotation; the unstable counts apply only the
+    universal criteria.  Neither changes a value.
+
+    Convention
+    ----------
+    Unstable is ``W_t < 0`` (DCON's energy sign; no ``|W_t|`` band),
+    ``Delta'_max > 0`` (a classical tearing drive at **any** rational surface),
+    ``D_I > 0`` (Mercier) and ``C_A < 0`` (high-n ballooning).  QA for ``W_t``
+    is the atlas sign class (``robust_*``: the sign agrees between mpsi 256 and
+    512); for ``Delta'_max`` it is that the maximizing surface is
+    two-resolution consistent.
+
+    Applicability
+    -------------
+    VEST-specific. The VEST Tier A stability atlas (#1429).
+
+    Limitations
+    -----------
+    ``Delta'_max`` is a single number per slice and hides the surface it came
+    from; the atlas's per-surface table keeps it.  ``W_t`` is normalized
+    (DCON's units), comparable within one ``n`` and equilibrium only by sign.
+
+    Provenance
+    ----------
+    .. [1429] Issue #1429, the Tier A stability atlas; layers decided there.
+    .. [1852] Issue #1852, these population histograms.
+    """
+    import pandas as pd
+
+    key = list(_ATLAS_KEY)
+    rows = []
+    ideal: dict[int, np.ndarray] = {}
+    for n, group in atlas_n.groupby("n_tor", sort=True):
+        values = pd.to_numeric(group["dcon_full_512_W_t"], errors="coerce")
+        finite = values.notna()
+        qa = group["dcon_full_sign_class"].isin(("robust_stable", "robust_unstable")) & finite
+        ideal[int(n)] = values[finite].to_numpy(float)
+        rows.append({"panel": "ideal", "series": f"n={int(n)}", "criterion": "W_t < 0",
+                     "slices": int(finite.sum()), "qa": int(qa.sum()),
+                     "unstable": int((values[finite] < 0).sum())})
+
+    surfaces = atlas_surfaces.assign(
+        delta_prime_mpsi512=pd.to_numeric(atlas_surfaces["delta_prime_mpsi512"], errors="coerce"))
+    surfaces = surfaces[surfaces["delta_prime_mpsi512"].notna()]
+    resistive: dict[tuple[str, int], np.ndarray] = {}
+    for (solver, n), group in surfaces.groupby(["solver", "n_tor"], sort=True):
+        top = group.loc[group.groupby(key)["delta_prime_mpsi512"].idxmax()]
+        values = top["delta_prime_mpsi512"].to_numpy(float)
+        consistent = top["two_resolution_consistent"].astype(str).str.lower().isin(("true", "1"))
+        resistive[(str(solver), int(n))] = values
+        rows.append({"panel": "resistive", "series": f"{str(solver).upper()} n={int(n)}",
+                     "criterion": "Delta'_max > 0", "slices": int(values.size),
+                     "qa": int(consistent.sum()), "unstable": int((values > 0).sum())})
+
+    first = atlas_n[atlas_n["n_tor"] == atlas_n["n_tor"].min()]
+    mercier_mask = first["mercier_evaluated"].astype(str).str.lower().isin(("true", "1"))
+    ballooning_mask = first["ballooning_evaluated"].astype(str).str.lower().isin(("true", "1"))
+    d_i = pd.to_numeric(first["max_D_I"], errors="coerce")[mercier_mask].dropna().to_numpy(float)
+    c_a = pd.to_numeric(first["min_C_A"], errors="coerce")[ballooning_mask].dropna().to_numpy(float)
+    rows.append({"panel": "local", "series": "max D_I", "criterion": "D_I > 0", "slices": int(len(first)),
+                 "qa": int(d_i.size), "unstable": int((d_i > 0).sum())})
+    rows.append({"panel": "local", "series": "min C_A", "criterion": "C_A < 0", "slices": int(len(first)),
+                 "qa": int(c_a.size), "unstable": int((c_a < 0).sum())})
+
+    return StabilityAtlasPopulations(
+        ideal_w_t=ideal,
+        delta_prime_max=resistive,
+        mercier_max_d_i=d_i,
+        ballooning_min_c_a=c_a,
+        summary=pd.DataFrame(rows, columns=["panel", "series", "criterion", "slices", "qa", "unstable"]),
+        provenance={
+            "resolution": ATLAS_RESOLUTION,
+            "ideal": "dcon_full_512_W_t, full edge, every row (no QA cut)",
+            "resistive": "max over rational surfaces of delta_prime_mpsi512, per slice",
+            "local": "max_D_I / min_C_A of the lowest-n DCON reference run (mpsi 256), where evaluated",
+            "qa": "ideal: dcon_full_sign_class robust_*; resistive: maximizing surface two_resolution_consistent; "
+                  "local: evaluated",
+        },
+    )

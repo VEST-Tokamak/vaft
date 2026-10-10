@@ -1157,13 +1157,13 @@
     },
     "vest_data_platform.svg": {
       "call": "vaft.diagram.vest_data_platform()",
-      "source_sha256": "e702218c5133fb3fe5013b3d18594dd9096156ccc3a10c448e0990486d5c18a2",
-      "svg_sha256": "31f26302c83e8966b06f5e636712b1928b7f8044e000c5a4735de95b3739c7b7"
+      "source_sha256": "212f4c308a867be7477d630227fc7bd61c5e900d3a5a8b57242dc56eb14fe7e6",
+      "svg_sha256": "66b2bd446dd14500cc3612b07605062894c82932c850126bcb3c499e1e0ff7f5"
     },
     "vest_data_platform_overview.svg": {
       "call": "vaft.diagram.vest_data_platform_overview()",
-      "source_sha256": "1d4cbb0157597ecfbaf3bd8e4b87fe17638b62edb612e13b644ed03be5b39a99",
-      "svg_sha256": "09b153d454f77d7f6de0ebdd61e28cedf1fee6ee00eaf7be18181217c51fc331"
+      "source_sha256": "fe01ce0db0977c619188bb71161e91bd5f149db0c3629630f4d99f497dcf77a9",
+      "svg_sha256": "cf9390bd788dbb23d618615a675013c8b378cd7c350ccd2df99aa038a8a6d5dc"
     },
     "wall_conditioning_baking.svg": {
       "call": "vaft.diagram.wall_conditioning_baking()",

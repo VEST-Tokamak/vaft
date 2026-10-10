@@ -382,6 +382,51 @@ with `polarity=-1.0`.
 Worked example:
 [`soft_x_ray_signal_analysis.ipynb`](https://github.com/VEST-Tokamak/vaft/blob/main/notebooks/soft_x_ray_signal_analysis.ipynb).
 
+## camera_visible
+
+The FAST camera comes from per-shot BMP frames `{shot}_{frame:08d}.bmp` and a `{shot}_bmp.txt` header,
+not from the SQL DAQ. The header gives each frame's time: either the original export's `Top Frame,` rows or,
+for a BatchConv2 re-export (`TopFrame:` keys), `frame / Frame_Rate`. Only raw frames are stored
+(`frame[:].image_raw`); there is no radiometric calibration.
+
+### Frame selection convention
+
+A camera product holds only the frames from the first to the last **non-dark** frame of the recording, plus
+two frames of padding on each side. Dark frames inside that range stay. The kept frames are renumbered from 0,
+and each one keeps the time of its original frame index.
+
+- **Near-black frame:** more than 98 % of its pixels are below `dark_level + 20` DN.
+- **`dark_level`:** the shot's own sensor floor, the lower quartile over frames of each frame's 1st-percentile
+  pixel, capped at 60 DN so that a recording lit almost throughout is not rejected as dark.
+
+The level is relative because the floor depends on the export. Original exports sit near 25 DN. Re-exports
+use another gain and sit near 48 DN, so the earlier fixed 35 DN marked no frame of a re-export as dark and kept
+whole recordings. The +20 DN margin was calibrated against the plasma-current window on 55 plasma shots of both
+exports.
+
+A shot with no non-dark frame raises `CameraFrameSelectionError` and gets no product. The rule uses images
+only. Plasma current is a cross-check in the audit, not an input.
+
+Every product records which rule built it, so it can be checked without loading frames:
+
+- `camera_visible.ids_properties.comment` holds `rule=relative-dark-v2`, `dark_level`, `threshold` and
+  `retained original frame indices [a, b] out of N`. Products built before the rule had a name have no `rule=`
+  and read as `fixed-v1`.
+- The stage manifest holds the same fields under `provenance.frame_selection`.
+
+<!-- docs-snippet: skip needs-raw-source (reads raw camera frames) -->
+```python
+from vaft.machine_mapping.camera_visible import parse_frame_selection, select_valid_frames
+
+parse_frame_selection(ods["camera_visible.ids_properties.comment"])
+# {'rule': 'relative-dark-v2', 'first_retained': 33, 'last_retained': 57, 'total_frames': 101, ...}
+select_valid_frames(frames, threshold=35)   # the old fixed rule, for comparison
+```
+
+`workflow/automatic_pipeline_2_corrective_data_update/audit_camera_visible_frames.py` checks each FileDB
+product, its HSDS replication and the copy in HSDS `main` against this rule, using the raw frames and the
+plasma-current window.
+
 ## thomson_scattering and charge_exchange
 
 Both read MATLAB exports rather than the DAQ, so they take a `shotnumber` and an optional `data_root` /

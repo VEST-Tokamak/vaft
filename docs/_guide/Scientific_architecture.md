@@ -40,7 +40,9 @@ The dependency explorer is generated from imports. It is not a scientific depend
 architectural verdict: an import that crosses a layer shows where code *is*, and the normative view
 says where it *should* be. The pipeline lineage explorer keeps execution, scientific-reference, validation-evidence
 and publication relations apart, and shows artifact lineage as a view of its own.
-Where VAFT's software comes
+A third generated graph, the [Scientific ontology explorer]({{ '/reference/ontology/' | relative_url }}),
+shows what things mean: scientific concepts, the diagnostics that measure them, the Data Dictionary
+paths that represent them, and the codes, plots and checks that use them. It shares no edges with the other two. Where VAFT's software comes
 from is in [Software dependencies]({{ '/reference/software-dependencies/' | relative_url }}) and
 [External scientific codes]({{ '/reference/external-codes/' | relative_url }}).
 
@@ -213,7 +215,7 @@ A box in a diagram does not mean a public Python class exists. This table says w
 | Data and database | implemented |
 | Validation | implemented, still expanding (#1639) |
 | Declarative production pipelines | implemented |
-| Dependency explorer, pipeline lineage explorer | implemented on `develop` |
+| Dependency explorer, pipeline lineage explorer, scientific ontology explorer | implemented on `develop` |
 | Learned-model infrastructure | partial, evolving (#669) |
 | Actor | terminology defined; no protocol or registry yet (#1077) |
 | `DD` / `DDView` / `DDCollection` | target architecture, under development outside `develop` (#1127–#1133) |

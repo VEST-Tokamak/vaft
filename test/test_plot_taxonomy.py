@@ -118,3 +118,17 @@ def test_subject_separates_physical_concept_from_ids_domain():
     density = registry.get_spec("electron_density_profile")
     assert density.domain == "core_profiles"
     assert density.subject == "electron_density"
+
+
+def test_unaliased_canonical_quantities_collide_with_no_other_term():
+    # a canonical quantity must resolve in one map only: never a subject, a subject alias or a family term
+    subject_terms = set(taxonomy.SUBJECTS) | {
+        alias for subject in taxonomy.SUBJECTS.values() for alias in subject.aliases
+    }
+    family_terms = {
+        term for family in taxonomy.FAMILIES.values() for term in (family.name, *family.aliases)
+    }
+    assert not taxonomy.CANONICAL_QUANTITIES & subject_terms
+    assert not taxonomy.CANONICAL_QUANTITIES & family_terms
+    assert not taxonomy.CANONICAL_QUANTITIES & set(taxonomy.QUANTITY_ALIASES)
+    assert taxonomy.resolve_quantity("magnetic_shear") == "magnetic_shear"
