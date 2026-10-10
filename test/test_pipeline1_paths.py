@@ -523,10 +523,24 @@ def test_config_expansion_takes_the_variable_or_its_default(monkeypatch):
 
 def test_config_expansion_refuses_an_unset_variable_without_a_default(monkeypatch):
     monkeypatch.delenv("VAFT_FILEDB_DIR", raising=False)
-    with pytest.raises(ValueError, match="VAFT_FILEDB_DIR"):
+    with pytest.raises(ValueError, match="Unset environment variable.*VAFT_FILEDB_DIR"):
         MODULE.expand_config_environment({"base_dir": "${VAFT_FILEDB_DIR}"})
-    with pytest.raises(ValueError, match="VAFT_FILEDB_DIR"):
+    with pytest.raises(ValueError, match="Unset environment variable.*VAFT_FILEDB_DIR"):
         MODULE.expand_config_environment("$VAFT_FILEDB_DIR")
+
+
+def test_config_expansion_keeps_the_shell_meaning_of_an_empty_variable(monkeypatch):
+    """Set-but-empty is a value for `${VAR}` and absent for `${VAR:-default}`.
+
+    `EFIT="" snakemake ...` used to keep `executable: ""` under
+    `os.path.expandvars`; the first expander of this function reported it as
+    missing (PR #1926 review F2).
+    """
+    monkeypatch.setenv("VAFT_EMPTY_VAR", "")
+    assert MODULE.expand_config_environment("${VAFT_EMPTY_VAR}") == ""
+    assert MODULE.expand_config_environment("$VAFT_EMPTY_VAR") == ""
+    assert MODULE.expand_config_environment("${VAFT_EMPTY_VAR:-/srv/x}") == "/srv/x"
+    assert MODULE.expand_config_environment("a/${VAFT_EMPTY_VAR}/b") == "a//b"
 
 
 def test_no_shipped_workflow_config_hard_codes_a_server_path():

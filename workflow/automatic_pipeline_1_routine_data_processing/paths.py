@@ -44,13 +44,16 @@ def expand_config_environment(value):
     """Expand ``$VAR`` / ``${VAR}`` / ``${VAR:-default}`` in config values.
 
     Walks dicts and lists; strings are expanded, every other value is returned
-    as is.  A reference to an unset variable without a default is an error
-    naming the variable, so a run never falls back to a path it was not
-    given.  ``${VAR:-default}`` takes the shell's meaning: the variable when it
-    is set and non-empty, the default otherwise.  This is what lets a shipped
-    config name the production root as a default while a host that sets
-    ``VAFT_FILEDB_DIR`` is honoured -- both pipelines read their config
-    through this one function (cold review 0.7.0 data F12, #1888).
+    as is.  The forms mean what they mean in the shell: ``${VAR}`` / ``$VAR``
+    is the variable's value, the empty string included when it is set but
+    empty (``EFIT="" snakemake ...`` keeps ``executable: ""``); only an
+    *unset* variable without a default is an error naming the variable, so a
+    run never falls back to a path it was not given.  ``${VAR:-default}`` is
+    the variable when it is set and non-empty, the default otherwise.  This
+    is what lets a shipped config name the production root as a default while
+    a host that sets ``VAFT_FILEDB_DIR`` is honoured -- both pipelines read
+    their config through this one function (cold review 0.7.0 data F12,
+    #1888; PR #1926 review F2).
     """
     if isinstance(value, dict):
         return {key: expand_config_environment(item) for key, item in value.items()}
@@ -64,18 +67,22 @@ def expand_config_environment(value):
     def substitute(match: re.Match) -> str:
         name = match.group("braced") or match.group("bare")
         found = os.environ.get(name)
-        if found:
-            return found
         default = match.group("default")
         if default is not None:
-            return default
+            return found if found else default
+        if found is not None:
+            return found
         missing.append(name)
         return match.group(0)
 
     expanded = _ENV_REFERENCE.sub(substitute, value)
     if missing:
         names = ", ".join(sorted(set(missing)))
-        raise ValueError(f"Missing environment variable(s) in config.yaml: {names}")
+        raise ValueError(
+            f"Unset environment variable(s) in config.yaml: {names} "
+            "(a variable set to the empty string expands to \"\"; give it a "
+            "${VAR:-default} to fall back instead)"
+        )
     return expanded
 
 
