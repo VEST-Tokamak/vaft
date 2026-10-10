@@ -279,10 +279,10 @@ class Shell:
 
     def view(self) -> Any:
         """The page served by ``vaft gui``."""
-        pn = require_panel()
-        return pn.template.FastListTemplate(
-            title="VAFT", sidebar=self.sidebar(), main=self.main(), sidebar_width=360,
-        )
+        from .app import BRANDING
+        from .layout import page
+
+        return page(self.sidebar(), self.main(), **BRANDING)
 
     def close(self) -> None:
         """Close every built workspace, even when one of them fails to."""

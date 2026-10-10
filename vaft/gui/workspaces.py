@@ -21,6 +21,7 @@ import os
 from typing import Any
 
 from ._require import require_panel
+from .layout import scrolling_markdown
 from .shell import WORKSPACES, Shell, WorkspaceSpec
 from .state import Source
 
@@ -143,8 +144,8 @@ class DatabaseWorkspace:
         self.open_button = pn.widgets.Button(label="Open in Plots", color="primary")
         self.check_button = pn.widgets.Button(label="Test connection")
         self.connection = pn.pane.Markdown("")
-        self.credentials = pn.pane.Markdown("", sizing_mode="stretch_width")
-        self.table = pn.pane.Markdown(self._source_table(), sizing_mode="stretch_width")
+        self.credentials = scrolling_markdown("")
+        self.table = scrolling_markdown(self._source_table())
         self.detail = pn.pane.Markdown("", sizing_mode="stretch_width")
         self.namespace.param.watch(self._on_namespace, "value")
         self.open_button.on_click(lambda _event: self.open_shots())
