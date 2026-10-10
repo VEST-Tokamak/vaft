@@ -265,11 +265,13 @@ CORE_MODULES: tuple[str, ...] = (
     # read back through the readers, the edge classifier and the ntms mapping,
     # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
+    "test_gpec_plasma_formalism.py",
     "test_gpec_rdcon_criteria.py",
     "test_mhd_linear_dcon_payload.py",
     "test_rdcon_ods_closure.py",
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
+    "test_stability_atlas_population.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
     # GPEC adapter records (#1460): how a solver stop is worded and recorded --
@@ -353,7 +355,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_validation_orderings.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
-    "test_core_q_context.py",
+    "test_q_profile_context.py",
     # Ordering summary layer (lane AP, #1627 §2 / #1629): each builder against
     # its textbook definition; missing inputs stay NaN. Pure NumPy, ~3 s.
     "test_ordering_state.py",

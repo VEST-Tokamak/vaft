@@ -603,6 +603,10 @@ def greenwald_density(I_p: float,
     No dependence on shaping, heating power or fuelling; spherical tokamaks
     routinely exceed it.
 
+    Semantics
+    ---------
+    consumes: plasma_current, minor_radius
+
     References
     ----------
     .. [1] M. Greenwald et al., Nucl. Fusion 28 (1988) 2199, Eq. (1).

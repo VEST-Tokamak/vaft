@@ -199,6 +199,14 @@ def build_shot(root: Path, tree: str, shot: int) -> tuple[Any, dict[str, Any]]:
             "record_sha256": hashlib.sha256(payload).hexdigest(),
             "workbook": record.get("source", {}),
         }
+    if mapping_name == "camera_visible":
+        from vaft.machine_mapping.camera_visible import parse_frame_selection
+
+        # Machine-readable copy of the dark-frame rejection the IDS comment
+        # records, so an audit can check the rule without loading frames.
+        selection = parse_frame_selection(str(ods["camera_visible.ids_properties.comment"]))
+        if selection is not None:
+            provenance = {**provenance, "frame_selection": selection}
 
     manifest = {
         "schema_version": 1,
