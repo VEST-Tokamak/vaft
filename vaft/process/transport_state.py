@@ -1379,9 +1379,16 @@ class ClassicalHeatFluxes:
     electron_particle_flux_m2_s: Optional[float] = None
     ion_particle_flux_m2_s: Mapping[str, float] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        # Frozen all the way down: the mappings become read-only views of private copies.
+        from types import MappingProxyType
+
+        for name in ("ion_energy_flux_W_m2", "ion_particle_flux_m2_s", "model"):
+            object.__setattr__(self, name, MappingProxyType(copy.deepcopy(dict(getattr(self, name)))))
+
     def as_record(self) -> dict[str, Any]:
         """The JSON-ready mapping the atlas driver stores and the core_transport
-        projection reads; the keys of the pre-#1899 dict, unchanged."""
+        projection reads; the keys of the pre-#1899 dict, unchanged. A deep copy."""
         return {
             "r_over_a": self.r_over_a,
             "electron_energy_flux_W_m2": self.electron_energy_flux_W_m2,
@@ -1394,7 +1401,7 @@ class ClassicalHeatFluxes:
             "coulomb_logarithm_ion": self.coulomb_logarithm_ion,
             "coulomb_log_valid": self.coulomb_log_valid,
             "gamma1_perp": self.gamma1_perp, "b_tesla": self.b_tesla,
-            "model": dict(self.model),
+            "model": copy.deepcopy(dict(self.model)),
         }
 
 
@@ -1486,9 +1493,9 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> ClassicalHeatFluxes:
     """
     from scipy import constants as c
 
+    from vaft.formula.constants import AMU
     from vaft.formula.equilibrium import coulomb_logarithm_from_n_T
     from vaft.formula.kinetic import (
-        _AMU,
         braginskii_gamma1_perp_from_Z,
         classical_electron_heat_diffusivity_from_T_e_B,
         classical_ion_heat_diffusivity_from_T_i_B,
@@ -1513,11 +1520,17 @@ def classical_heat_fluxes(local: Any, b_tesla: float) -> ClassicalHeatFluxes:
     if z_i != float(charges.min()):
         raise ValueError(f"species 1 (z={z_i:g}) is not the lowest-charge ion; it is not the main ion")
     # TGLF's MASS_* are in GACODE deuterium masses; the formula layer takes amu.
-    mass_number = float(local.mass[1]) * _MASS_DEUTERIUM_KG / _AMU
+    mass_number = float(local.mass[1]) * _MASS_DEUTERIUM_KG / AMU
     n_i = float(fractions[0]) * ne
     ti_ev = float(local.taus[1]) * te_ev
     lnl_e = float(coulomb_logarithm_from_n_T(ne, te_ev))
     lnl_i = float(ion_ion_coulomb_logarithm_from_n_T(n_i, ti_ev, z_i))
+    if not lnl_i > 0.0:
+        # The NRL ion-ion form is not defined there (cold, dense ions); before #1899 a
+        # negative logarithm silently gave a negative tau_i and chi_i.
+        raise ValueError(f"ion-ion Coulomb logarithm {lnl_i:.3g} is not positive at "
+                         f"n_i = {n_i:.3g} m^-3, T_i = {ti_ev:.3g} eV, Z = {z_i:g}; "
+                         "the classical ion baseline is not defined")
 
     # tau_e against n_e Z_eff; tau_i against every ion species (like-particle form).
     tau_e = float(electron_collision_time_from_T_e_n_species(te_ev, [ne * zeff], [1.0], lnl_e))

@@ -38,7 +38,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .constants import EPS0, ME, QE
+from .constants import AMU, EPS0, ME, QE
 
 __all__ = [
     "braginskii_gamma1_perp_from_Z",
@@ -55,8 +55,8 @@ __all__ = [
 #: Z = inf knot sits at 1e9, so a linear lookup in Z is held at 3.6 for Z > 4.
 _GAMMA1_PERP = ((1.0, 4.66), (2.0, 4.0), (3.0, 3.7), (4.0, 3.6), (1e9, 3.25))
 
-#: Atomic mass unit [kg] (CODATA 2018).
-_AMU = 1.66053906660e-27
+#: Atomic mass unit [kg]; kept under its old private name for existing callers.
+_AMU = AMU
 
 
 def _out(value):
@@ -245,9 +245,13 @@ def ion_collision_time_from_T_i_n_species(T_i, A_i, Z_i, n_j, Z_j, ln_Lambda):
     equal density and $Z = 1$ (the 12 against $6\sqrt2$ of
     :func:`electron_collision_time_from_T_e_n_species`). Unlike field ions enter in
     the like-particle form, $Z_i^2\sum_j n_jZ_j^2$; for one species this is
-    $Z^4 n_i$, the NRL form, whose rounded $2.09\times10^{13}$ (m$^{-3}$, eV,
-    $\mu = m_i/m_p$) :func:`vaft.formula.ordering.braginskii_ion_collision_time`
-    uses; the exact coefficient here is $2.085\times10^{13}$, 0.24 % lower.
+    $Z^4 n_i$, the NRL form. Mass bases differ: NRL and
+    :func:`vaft.formula.ordering.braginskii_ion_collision_time` take
+    $\mu = m_i/m_p$ with the rounded coefficient $2.09\times10^{13}$ (m$^{-3}$, eV),
+    whose exact value is $2.085\times10^{13}$ (0.24 % lower); this function takes the
+    mass in atomic mass units, for which the exact coefficient is $2.078\times10^{13}$.
+    Passing the same number as ``mass_number`` there and ``A_i`` here therefore gives
+    times that differ by about 0.6 %.
 
     References
     ----------

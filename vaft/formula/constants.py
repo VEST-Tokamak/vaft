@@ -44,6 +44,7 @@ import numpy as np
 #: The physical constants this module publishes. Declared so ``np`` does not
 #: reach ``vaft.formula.__all__`` as though it were one of them (#368).
 __all__ = [
+    "AMU",
     "COLLISIONALITY_COEF",
     "C_B",
     "C_LIGHT",
@@ -68,6 +69,7 @@ EPS0 = 8.8541878128e-12     # [F m⁻¹] - Vacuum permittivity
 QE = 1.602176634e-19        # [C] - Elementary charge
 ME = 9.10938356e-31         # [kg] - Electron mass
 MI_P = 1.67262192e-27       # [kg] - Proton mass
+AMU = 1.66053906660e-27     # [kg] - Atomic mass unit (CODATA 2018)
 
 # Fusion related constants
 E_ALPHA = 3.5e6 * QE        # [J] - Alpha particle energy
