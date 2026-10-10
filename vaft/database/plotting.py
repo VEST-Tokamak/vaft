@@ -350,11 +350,11 @@ def render_to_file(
     """Render plot ``name`` for ``shot`` and write it to ``path``; returns ``path``.
 
     Draws without a display (:func:`vaft.plot.environment.
-    use_non_interactive_backend`) and saves with :func:`vaft.plot.save_figure`,
+    use_non_interactive_backend`) and saves with :func:`vaft.plot.save_rendered`,
     the format following the file extension.  This is what ``vaft plot --out``
     runs.
     """
-    from vaft.plot import save_figure
+    from vaft.plot import save_rendered
     from vaft.plot.environment import use_non_interactive_backend
     from vaft.plot.registry import NON_GRAPHICAL_VIEWS, get_spec
 
@@ -370,18 +370,14 @@ def render_to_file(
         figure.write_html(str(path), include_plotlyjs="cdn")
         return path
     if options.get("interactive"):
-        # Live controls are a window, not a file: nothing faithful can be written.
+        # Live controls are a window, not a file: refused before anything is loaded.
         raise ValueError("interactive=True draws live controls that no file can hold; drop --out or interactive=")
     use_non_interactive_backend()
     result = render(
         name, shot, source, lazy=lazy, occurrence=occurrence, show=False, label=label, **options
     )
-    if not isinstance(result, tuple) and hasattr(result, "save"):
-        # ``animation=True`` returns an Animation (issue #1050): the movie is the file.
-        return result.save(path)
-    # ``(Figure, Axes)``, or ``(Figure, Axes, FuncAnimation)`` from an
-    # image-sequence view, whose current frame is what the still holds.
-    return save_figure(result[0], path, figure_options=options.get("figure_options"))
+    # A figure tuple, or an Animation written by its own save (issue #1050).
+    return save_rendered(result, path, figure_options=options.get("figure_options"))
 
 
 def available_plots(

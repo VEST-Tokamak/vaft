@@ -446,6 +446,27 @@ def save_figure(
     return path
 
 
+def save_rendered(result: Any, path: Any, *, figure_options: Any = None) -> Any:
+    """Write whatever a canonical plot rendered to ``path``; returns the path written.
+
+    A renderer returns ``(Figure, Axes)``, an image-sequence view ``(Figure,
+    Axes, FuncAnimation)``, ``animation=True`` an :class:`vaft.plot.Animation`
+    and ``interactive=True`` an :class:`~vaft.plot.renderers.interactive.
+    Interactive`.  A tuple's first item is the figure and is saved through
+    :func:`save_figure`; an animation is written by its own ``save`` (the
+    suffix picks the writer); live controls are refused,
+    since no file can hold them.  Text views and Plotly figures are not
+    figures and are written by their callers.
+    """
+    if isinstance(result, tuple):
+        return save_figure(result[0], path, figure_options=figure_options)
+    if hasattr(result, "save"):
+        return result.save(path)
+    raise ValueError(
+        f"{type(result).__name__} draws live controls that no file can hold; drop the output path or interactive="
+    )
+
+
 #: How stored uncertainty is drawn.  ``auto`` picks a shaded band for a
 #: continuous trace and error bars for a scatter-like one.
 UNCERTAINTY_MODES = ("auto", "band", "errorbar", "none")

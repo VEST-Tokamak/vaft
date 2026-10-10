@@ -147,7 +147,9 @@ def _write(result: Any, out: str, figure_options: Any = None) -> str:
     """Save what a request drew to ``out``: HTML for Plotly, the extension's format otherwise.
 
     A table or text view (issue #1180) is text: ``.txt``, ``.md`` or ``.html``
-    writes the matching export.
+    writes the matching export; anything else goes through
+    :func:`vaft.plot.save_rendered`, so an animation is written as a movie
+    and ``interactive=True`` is refused, exactly as on the ``--shot`` path.
     """
     from vaft.plot.renderers.tables import TextView
 
@@ -158,9 +160,10 @@ def _write(result: Any, out: str, figure_options: Any = None) -> str:
             raise ValueError(f"backend='plotly' writes HTML; give --out a .html path, not {out!r}")
         result.write_html(out, include_plotlyjs="cdn")
         return out
-    from vaft.plot import save_figure
+    from vaft.plot import save_rendered
 
-    return save_figure(result[0], out, figure_options=figure_options)
+    # A figure tuple, an Animation (saved by itself) or live controls (refused).
+    return save_rendered(result, out, figure_options=figure_options)
 
 
 def main(argv: Iterable[str] | None = None) -> int:
