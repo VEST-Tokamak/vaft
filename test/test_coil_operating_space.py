@@ -68,6 +68,19 @@ def _parts():
     (lambda p: p.__setitem__("grid", {"kind": "mesh"}), "grid kind"),
     (lambda p: p.__setitem__("values", pd.concat([p["values"], p["values"].iloc[:1]])), "one value per"),
     (lambda p: p["values"].loc.__setitem__((0, "sample_id"), "nowhere"), "unknown samples"),
+    (lambda p: p.__setitem__("values", pd.concat([p["values"].assign(m=np.nan), p["values"].assign(m=np.nan).iloc[:1]])),
+     "one value per"),
+    (lambda p: p["values"].__setitem__("role", "scan"), "both carry"),
+    (lambda p: p["values"].loc.__setitem__((0, "unit"), None), "names its unit"),
+    (lambda p: p["values"].loc.__setitem__((0, "unit"), " "), "names its unit"),
+    (lambda p: p.__setitem__("values", p["values"].astype({"value": object}).assign(value="1.5")), "numeric"),
+    (lambda p: p.__setitem__("n", 0), "positive integer"),
+    (lambda p: p.__setitem__("n", 1.5), "positive integer"),
+    (lambda p: p.__setitem__("grid", {"kind": "regular"}), "names its axes"),
+    (lambda p: p.__setitem__("values", p["values"].iloc[:0]), "at least one"),
+    (lambda p: p["values"].loc.__setitem__((0, "metric"), None), "names its metric"),
+    (lambda p: p["samples"].loc.__setitem__((0, "role"), None) or p["samples"].loc.__setitem__((1, "role"), "best"),
+     "unknown roles"),
 ])
 def test_a_result_that_breaks_the_contract_is_refused(mutate, message):
     parts = _parts()
@@ -80,4 +93,31 @@ def test_vocabularies_are_the_ones_agreed_on_1886():
     assert OPERATING_SPACE_STATUSES == ("valid", "infeasible", "failed", "not_computed", "undefined")
     assert {"scan", "reference", "analytic_optimum", "numerical_optimum", "gpec_confirmation"} <= set(OPERATING_SPACE_ROLES)
     assert {"probe", "held_out", "invariance"} <= set(OPERATING_SPACE_ROLES)
-    assert COIL_EXCITATION_CONVENTION["fourier_coefficient"] == "C_n = c / 2"
+    assert COIL_EXCITATION_CONVENTION["fourier_coefficient"].startswith("C_n = c / 2 (coefficient of exp(+i n phi)")
+
+
+def test_the_result_owns_copies_of_its_tables():
+    parts = _parts()
+    result = CoilOperatingSpace(**parts)
+    parts["values"].loc[0, "value"] = 123.0
+    assert result.values.loc[0, "value"] != 123.0
+
+
+def test_the_phase_convention_is_the_one_coil_excitation_draws():
+    """delta is recovered from from_mode currents: peak at n phi = -delta, C_n = c/2 on exp(+i n phi)."""
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import CoilExcitation
+
+    n, amplitude, delta = 1, 2.0, 0.7
+    angles = np.arange(12) * 30.0
+    currents = np.asarray(CoilExcitation.from_mode("c", amplitude, n, np.degrees(delta), angles).currents_a)
+    phi = np.radians(angles)
+    c_n = np.mean(currents * np.exp(-1j * n * phi))  # coefficient of exp(+i n phi)
+    assert c_n == pytest.approx(amplitude * np.exp(1j * delta) / 2)
+    # GPEC's exp(-i n phi) coefficient is the conjugate.
+    assert np.mean(currents * np.exp(1j * n * phi)) == pytest.approx(np.conj(amplitude * np.exp(1j * delta)) / 2)
+    # The peak moves toward -phi as delta grows.
+    fine = np.linspace(-np.pi, np.pi, 3601)
+    peak = fine[np.argmax(np.cos(n * fine + delta))]
+    assert peak == pytest.approx(-delta / n, abs=1e-3)
+    assert "toward -phi" in COIL_EXCITATION_CONVENTION["phase_direction"]
+

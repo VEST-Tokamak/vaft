@@ -27,11 +27,18 @@ Conventions
 **Excitation.**  Group ``g`` drives its sectors with
 ``I_k = A_g cos(n phi_k + delta_g)``
 (:meth:`vaft.machine_mapping.coils_non_axisymmetric_geometry.CoilExcitation.from_mode`),
-so ``c_g = A_g exp(+i delta_g)`` and the complex Fourier coefficient of the
-current distribution is ``C_n = c_g / 2``.  ``A_g`` is the cosine amplitude,
-not in general the largest sector current.  ``delta_g = 0`` puts the pattern's
-peak at ``n phi_k = 0``; ``delta_g`` increases toward ``+phi`` of the frame
-the result names in ``convention["frame"]``.
+so ``I_k = Re(c_g exp(+i n phi_k))`` with ``c_g = A_g exp(+i delta_g)``.
+Written as ``I(phi) = C_n exp(+i n phi) + C_{-n} exp(-i n phi)``, the
+coefficient of ``exp(+i n phi)`` is ``C_n = c_g / 2``; in GPEC's and DCON's
+``exp(i(m theta - n phi))`` basis the coefficient of ``exp(-i n phi)`` is
+``conj(c_g) / 2`` -- the same excitation, the conjugate number.  ``A_g`` is
+the cosine amplitude, not in general the largest sector current.  The
+pattern's peak sits at ``n phi = -delta_g``: ``delta_g = 0`` puts it at
+``phi = 0`` and, for ``n > 0``, increasing ``delta_g`` rotates it toward
+``-phi`` of the frame the result names in ``convention["frame"]``.  With ``N``
+equally spaced sectors the pattern is resolved only when ``2 n mod N != 0``
+(six sectors alias ``n = 3``: the sine part vanishes and ``delta`` cannot be
+recovered); the container cannot see the sector count and does not check it.
 
 **Status per (sample, metric).**  A GPEC metric can be valid where PENTRC
 failed at the same point, so status lives on the value row.  Only a
@@ -77,19 +84,25 @@ OPERATING_SPACE_ROLES = (
 COIL_EXCITATION_CONVENTION = {
     "sector_current": "I_k = A cos(n phi_k + delta)  [A per turn]",
     "phasor": "c = A exp(+i delta)",
-    "fourier_coefficient": "C_n = c / 2",
+    "fourier_basis": "I(phi) = C_n exp(+i n phi) + C_-n exp(-i n phi)",
+    "fourier_coefficient": "C_n = c / 2 (coefficient of exp(+i n phi); of exp(-i n phi), as in GPEC, conj(c) / 2)",
     "amplitude": "cosine amplitude A of the sector currents, not the largest sector current",
-    "phase_zero": "pattern peak at n phi_k = 0",
-    "phase_direction": "delta increases toward +phi of the frame",
+    "phase_zero": "delta = 0: pattern peak at phi = 0",
+    "phase_direction": "pattern peak at n phi = -delta: for n > 0, increasing delta rotates it toward -phi",
 }
 
 _SAMPLE_COLUMNS = ("sample_id", "role")
 _VALUE_COLUMNS = ("sample_id", "metric", "value", "unit", "status")
+#: Optional value columns that tell two values of one metric at one sample apart.
+_VALUE_DISTINGUISHERS = ("m", "psi_n_rational", "psi_n")
 
 
 @dataclass(frozen=True)
 class CoilOperatingSpace:
-    """Operating points of ``K`` coil groups and the metrics evaluated at each (#1178)."""
+    """Operating points of ``K`` coil groups and the metrics evaluated at each (#1178).
+
+    The tables are validated and copied at construction; treat them as read-only.
+    """
 
     #: Toroidal mode number [-].
     n: int
@@ -112,49 +125,81 @@ class CoilOperatingSpace:
     profiles: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
+        import pandas as pd
+
+        if isinstance(self.n, bool) or int(self.n) != self.n or int(self.n) < 1:
+            raise ValueError(f"n must be a positive integer, got {self.n!r}")
+        object.__setattr__(self, "n", int(self.n))
         groups = tuple(str(g) for g in self.groups)
         object.__setattr__(self, "groups", groups)
         if not groups or len(set(groups)) != len(groups):
             raise ValueError("groups must be non-empty and unique")
-        samples, values = self.samples, self.values
+        # Copies, so neither the caller's frames nor a later edit of these can
+        # break what was validated (the dataclass is frozen; its tables too).
+        samples, values = self.samples.copy(), self.values.copy()
         missing = [c for c in (*_SAMPLE_COLUMNS, *self._coordinate_columns()) if c not in samples.columns]
         if missing:
             raise ValueError(f"samples lack {missing}")
         missing = [c for c in _VALUE_COLUMNS if c not in values.columns]
         if missing:
             raise ValueError(f"values lack {missing}")
-        if samples["sample_id"].duplicated().any():
-            raise ValueError("sample_id must be unique")
-        unknown = set(samples["role"]) - set(OPERATING_SPACE_ROLES)
+        shared = (set(samples.columns) & set(values.columns)) - {"sample_id"}
+        if shared:
+            raise ValueError(f"samples and values both carry {sorted(shared)}; to_frame would rename them")
+        if samples.empty or values.empty:
+            raise ValueError("a result needs at least one sample and one value")
+        if samples["sample_id"].isna().any() or samples["sample_id"].duplicated().any():
+            raise ValueError("sample_id must be present and unique")
+        unknown = {str(r) for r in samples["role"]} - set(OPERATING_SPACE_ROLES)
         if unknown:
             raise ValueError(f"unknown roles {sorted(unknown)}; use {OPERATING_SPACE_ROLES}")
-        amplitudes = samples[[f"amplitude_{g}" for g in groups]].to_numpy(dtype=float)
-        phases = samples[[f"phase_{g}" for g in groups]].to_numpy(dtype=float)
+        coordinates = [f"{kind}_{g}" for g in groups for kind in ("amplitude", "phase")]
+        for column in coordinates:
+            if not pd.api.types.is_numeric_dtype(samples[column]) or pd.api.types.is_bool_dtype(samples[column]):
+                raise ValueError(f"samples column {column!r} must be numeric")
+            samples[column] = samples[column].astype(float)
+        amplitudes = samples[[f"amplitude_{g}" for g in groups]].to_numpy()
+        phases = samples[[f"phase_{g}" for g in groups]].to_numpy()
         if not (np.all(np.isfinite(amplitudes)) and np.all(amplitudes >= 0)):
             raise ValueError("amplitudes must be finite and not negative")
         if not np.all(np.isfinite(phases)):
             raise ValueError("phases must be finite")
-        orphans = set(values["sample_id"]) - set(samples["sample_id"])
+        orphans = {str(v) for v in set(values["sample_id"]) - set(samples["sample_id"])}
         if orphans:
             raise ValueError(f"values name unknown samples {sorted(orphans)[:5]}")
-        unknown = set(values["status"]) - set(OPERATING_SPACE_STATUSES)
+        if values["metric"].isna().any() or (values["metric"].astype(str).str.strip() == "").any():
+            raise ValueError("every value names its metric")
+        unknown = {str(v) for v in values["status"]} - set(OPERATING_SPACE_STATUSES)
         if unknown:
             raise ValueError(f"unknown statuses {sorted(unknown)}; use {OPERATING_SPACE_STATUSES}")
-        number = values["value"].to_numpy(dtype=float)
+        if not pd.api.types.is_numeric_dtype(values["value"]) or pd.api.types.is_bool_dtype(values["value"]):
+            raise ValueError("the value column must be numeric (NaN for a non-valid row)")
+        values["value"] = values["value"].astype(float)
+        number = values["value"].to_numpy()
         valid = (values["status"] == "valid").to_numpy()
         if not np.all(np.isfinite(number[valid])):
             raise ValueError("a valid value must be finite")
         if np.any(np.isfinite(number[~valid])):
             raise ValueError("only a valid row carries a number; the others carry NaN, never zero")
-        if values[["sample_id", "metric"]].duplicated().any() and not {"m", "psi_n_rational", "psi_n"} & set(values.columns):
-            raise ValueError("one value per (sample_id, metric) unless a surface or radius column distinguishes them")
-        if (values["unit"].astype(str).str.len() == 0).any():
+        key = ["sample_id", "metric", *[c for c in _VALUE_DISTINGUISHERS if c in values.columns]]
+        if values.duplicated(subset=key).any():
+            raise ValueError(f"one value per {tuple(key)}")
+        if values["unit"].isna().any() or (values["unit"].astype(str).str.strip() == "").any():
             raise ValueError("every value names its unit ('-' for dimensionless)")
         missing = [key for key in (*COIL_EXCITATION_CONVENTION, "frame") if key not in self.convention]
         if missing:
             raise ValueError(f"convention lacks {missing}")
-        if self.grid.get("kind") not in ("regular", "irregular"):
+        kind = self.grid.get("kind")
+        if kind not in ("regular", "irregular"):
             raise ValueError("grid kind must be 'regular' or 'irregular'")
+        if kind == "regular" and not self.grid.get("axes"):
+            raise ValueError("a regular grid names its axes")
+        object.__setattr__(self, "samples", samples)
+        object.__setattr__(self, "values", values)
+        object.__setattr__(self, "convention", dict(self.convention))
+        object.__setattr__(self, "grid", dict(self.grid))
+        object.__setattr__(self, "provenance", {k: dict(v) for k, v in self.provenance.items()})
+        object.__setattr__(self, "profiles", dict(self.profiles))
 
     def _coordinate_columns(self) -> list[str]:
         return [f"{kind}_{g}" for g in self.groups for kind in ("amplitude", "phase")]
