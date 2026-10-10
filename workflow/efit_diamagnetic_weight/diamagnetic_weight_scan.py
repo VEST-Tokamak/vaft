@@ -783,7 +783,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "end": float(window.end),
                 "requested": int(times.size),
             },
-            "phase_dcurrent_dt_threshold": threshold,
+            # `_phase_map`'s second value is the flat-current floor in
+            # amperes (peak * flat_fraction), under the key the profile and
+            # constraint-information studies use for it (cold review F10).
+            "phase_flat_current_threshold": threshold,
             "rungs": {},
         }
         runs: dict[str, dict[str, Any]] = {}

@@ -538,3 +538,18 @@ def test_reading_the_stored_measurement_does_not_grow_the_constraints(scan):
     assert stored == {315: {"measured_wb": -1.4e-3}}
     assert list(constraints[node].keys()) == ["measured"]
     assert f"{node}.measured_error_upper" not in constraints
+
+
+def test_the_phase_threshold_is_stored_under_its_sibling_studies_key(profile_study):
+    """Cold review 0.7.0 efit-workflows F10 (#1888).
+
+    ``_phase_map`` returns the flat-current floor in amperes; the scan used
+    to store it as ``phase_dcurrent_dt_threshold`` while the profile and
+    constraint-information studies call it ``phase_flat_current_threshold``.
+    The payload is only built by ``main`` (which runs EFIT), so the key is
+    pinned at the source.
+    """
+    text = SCAN.read_text(encoding="utf-8")
+    assert "phase_dcurrent_dt_threshold" not in text
+    assert '"phase_flat_current_threshold": threshold' in text
+    assert '"phase_flat_current_threshold"' in PROFILE_STUDY.read_text(encoding="utf-8")
