@@ -12,6 +12,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
 from typing import Sequence
 
 import h5py
@@ -131,6 +132,7 @@ def _run(
 ) -> None:
     executable = _require_command(command)
     _log_progress(command, remote_uri, total_size, staging_path, "starting")
+    started = time.perf_counter()
     try:
         result = subprocess.run(
             [executable, *(str(value) for value in arguments)],
@@ -145,6 +147,10 @@ def _run(
     if result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
         raise HSDSCommandError(command, result.returncode, detail)
+    # Opt-in (#1869): a no-op unless vaft.database.instrumentation.record_io is active.
+    from .instrumentation import record_subprocess
+
+    record_subprocess(command, remote_uri, time.perf_counter() - started, total_size)
     _log_progress(command, remote_uri, total_size, staging_path, "complete")
 
 
