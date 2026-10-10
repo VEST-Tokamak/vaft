@@ -8,7 +8,8 @@ change only the arrangement:
 
 * **tablet** (narrower than 1100 px): the sidebar narrows so the figure keeps
   room;
-* **phone** (narrower than 768 px, or a phone held sideways): the controls
+* **phone** (narrower than 768 px, or a screen under 500 px tall and
+  950 px wide -- a phone held sideways, or a very small desktop window): the controls
   become a drawer over the page at full width, and the main area -- status,
   errors, the figure -- has the whole width beneath it.  The ☰ button opens
   and closes the drawer; on a phone the page opens with the drawer closed, so
@@ -43,7 +44,7 @@ RESPONSIVE_CSS = f"""
   #content {{ position: relative; }}
   #main {{ width: 100%; min-width: 0; }}
   #sidebar:not(.hidden) {{
-    position: absolute; top: 0; left: 0; z-index: 10;
+    position: absolute; top: 0; left: 0; z-index: 10; box-sizing: border-box;
     width: 100%; min-width: 100%; max-width: 100%;
     background: var(--background-color, #fff); border-right: 0;
   }}
@@ -73,6 +74,7 @@ PHONE_QUERY = f"(max-width: {PHONE_MAX_WIDTH}px), (max-height: 500px) and (max-w
 #: template's own ``closeNav`` (the function behind the ☰ button), so the
 #: figure is what the reader sees first and ☰ reopens the controls.
 PHONE_START_JS = (
+    "// vaft gui: on a phone, open on the figure (#1865)\n"
     "window.addEventListener('load', function () {"
     f"  if (!window.matchMedia('{PHONE_QUERY}').matches) return;"
     "  var tries = 0;"
@@ -85,9 +87,18 @@ PHONE_START_JS = (
 
 
 def _data_uri(script: str) -> str:
-    import base64
+    """``script`` as a ``data:`` URL that Panel serves untouched.
 
-    return "data:text/javascript;base64," + base64.b64encode(script.encode()).decode()
+    Panel prefixes the app's relative path to a ``js_files`` entry with no
+    ``//`` in it, which would turn a ``data:`` URL into a broken relative one
+    on a nested route.  The script is URL-encoded (``/`` kept) and starts with
+    a ``//`` comment, so the URL always contains ``//``.
+    """
+    from urllib.parse import quote
+
+    if not script.lstrip().startswith("//"):
+        raise ValueError("the script must start with a // comment (see the docstring)")
+    return "data:text/javascript;charset=utf-8," + quote(script, safe="/;,'()= {}.!&|:")
 
 
 def page(sidebar: list[Any], main: list[Any], *, title: str = "VAFT", **template: Any) -> Any:

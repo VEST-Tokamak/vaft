@@ -31,7 +31,8 @@ def test_the_phone_rules_and_the_phone_script_name_the_same_screens():
 def test_page_carries_the_rules_the_script_and_the_branding():
     built = layout.page([pn.pane.Markdown("side")], [pn.pane.Markdown("main")], logo="x.png", raw_css=["/* mine */"])
     assert built.config.raw_css[0] == layout.RESPONSIVE_CSS and "/* mine */" in built.config.raw_css
-    assert built.config.js_files["vaft_phone_start"].startswith("data:text/javascript;base64,")
+    uri = built.config.js_files["vaft_phone_start"]
+    assert uri.startswith("data:text/javascript") and "//" in uri, "Panel must not prefix a relative path"
     assert built.sidebar_width == layout.SIDEBAR_WIDTH and built.logo == "x.png"
 
 
@@ -97,3 +98,30 @@ def test_a_phone_opens_on_the_figure_and_a_desktop_on_the_controls(ods, monkeypa
     assert 'data-probe="' in dom, "the page did not finish loading"
     state = dom.split('data-probe="', 1)[1].split('"', 1)[0]
     assert ("hidden" in state) is closed, f"{size}: sidebar class {state!r}"
+
+
+_DRAWER = (
+    '<script>window.addEventListener("load",function(){setTimeout(function(){openNav();'
+    'setTimeout(function(){var r=document.getElementById("sidebar").getBoundingClientRect();'
+    'document.body.setAttribute("data-probe",Math.round(r.right)+"/"+innerWidth)},500)},5500)})</script>'
+)
+
+
+@pytest.mark.skipif(_chrome() is None, reason="no headless Chromium (set VAFT_GUI_CHROME)")
+def test_the_open_drawer_fits_the_phone(ods, monkeypatch, tmp_path):
+    monkeypatch.setattr("vaft.gui.state.load_source", lambda source: ods)
+    monkeypatch.setattr(pn.state, "onload", lambda callback: callback())
+    shell = gui_app.build_shell(sample=39915, plot="plasma_current_time")
+    try:
+        path = tmp_path / "page.html"
+        shell.view().save(str(path), resources="inline")
+    finally:
+        shell.close()
+    path.write_text(path.read_text().replace("</body>", _DRAWER + "</body>"))
+    dom = subprocess.run(
+        [_chrome(), "--headless", "--disable-gpu", "--window-size=375,812", "--virtual-time-budget=9000",
+         "--dump-dom", path.as_uri()],
+        capture_output=True, text=True, timeout=180,
+    ).stdout
+    right, width = (int(v) for v in dom.split('data-probe="', 1)[1].split('"', 1)[0].split("/"))
+    assert right <= width, f"the drawer reaches {right} px on a {width} px screen"

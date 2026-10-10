@@ -156,7 +156,7 @@ install.
 
 - **Desktop:** the controls stay in a sidebar beside the figure.
 - **Tablet** (narrower than 1100 px): the sidebar narrows to 300 px so the figure keeps room.
-- **Phone** (narrower than 768 px, or a phone held sideways):
+- **Phone** (narrower than 768 px, or under 500 px tall and 950 px wide: a phone held sideways, or a very small desktop window):
   - The controls become a drawer over the page, and the page opens with the drawer closed, so
     the figure and the status line are the first thing you see.
   - The ☰ button in the header opens the drawer to change the workspace, source, plot or
