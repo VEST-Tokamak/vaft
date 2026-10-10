@@ -38,10 +38,11 @@ Usage: bash install/nubeam/uninstall.sh --nubeam-root PATH [--dry-run]
   --dry-run            list what would be removed and remove nothing
   -h, --help
 
-Removes the installation prefix (<root>/local), the generated build directory,
-the downloaded NTCC sources and the configs the installer wrote, then the
-manifest itself. Running it twice is not an error: the second run reports that
-there is nothing recorded and exits 0.
+Removes what the manifest records: the installation prefix (<root>/local),
+the generated build directory and the configs the installer wrote, then the
+manifest itself. The NTCC modules under <root>/vendor/ntcc are not recorded by
+the POSIX recipes and are left in place. Running it twice is not an error: the
+second run reports that there is nothing recorded and exits 0.
 EOF
 }
 
@@ -90,8 +91,8 @@ is_child_of_root() {
 # kind of mistake this script exists to not make.
 #
 # So the installer records the root (`root\t<path>`), and that is used when
-# present. For a manifest written before that -- macos.sh still writes none --
-# fall back to the common prefix, but only accept it when its last component
+# present. For a manifest written before the recipes recorded it, fall back to
+# the common prefix, but only accept it when its last component
 # matches this tree's, which is what a relocated copy of the same tree looks
 # like. Anything else is refused rather than guessed at.
 recorded_root() {

@@ -16,9 +16,8 @@
 # https://w3.pppl.gov/NTCC/NUBEAM/downloads.shtml. The script never accepts the
 # agreement implicitly.
 #
-# macOS/Apple Silicon only. Native Windows is install/nubeam/windows.ps1.
-# There is no Linux recipe yet: it needs a NUBEAM tree to be written against,
-# and NTCC gates the source behind a licence each user accepts themselves.
+# macOS/Apple Silicon only. Linux is install/nubeam/linux.sh and native Windows
+# is install/nubeam/windows.ps1.
 
 set -euo pipefail
 IFS=$'\n\t'
@@ -180,6 +179,10 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 GENERATED_CONFIGS=("$ROOT_DIR/share/Make.local")
 write_manifest() {
   {
+    # The root is recorded rather than inferred. uninstall.sh otherwise has to
+    # guess it from the entries, and the longest common prefix is wrong the
+    # moment they all share a subdirectory.
+    printf 'root\t%s\n' "$ROOT_DIR"
     printf 'managed_dir\t%s\n' "$PREFIX"
     printf 'managed_dir\t%s\n' "$BUILD_DIR"
     for config in "${GENERATED_CONFIGS[@]}"; do

@@ -3154,3 +3154,30 @@ def test_nubeam_windows_wrapper_verifies_what_the_checker_verifies():
     tail = text[text.index("Write-ExternalSummary"):]
     assert "if ($script:Failed) { exit 1 }" in tail
     assert "check_nubeam.py" in tail and tail.rstrip().endswith("exit $LASTEXITCODE")
+
+
+def test_nubeam_uninstall_usage_matches_what_the_posix_recipes_record():
+    """Cold review install F16: the usage text promised more than the manifest holds.
+
+    uninstall.sh said it removes "the downloaded NTCC sources"; neither POSIX
+    recipe records vendor/ntcc, so they stayed. macos.sh also wrote no `root`
+    line (linux.sh does), leaving the remover to guess the root of a relocated
+    tree, and its header still said there was no Linux recipe.
+    """
+    usage = (NUBEAM_DIR / "uninstall.sh").read_text(encoding="utf-8")
+    usage = usage[usage.index("usage() {"): usage.index("\nEOF\n", usage.index("usage() {"))]
+    assert "downloaded NTCC sources" not in usage
+    assert "vendor/ntcc" in usage and "left in place" in usage
+
+    for name in ("linux.sh", "macos.sh"):
+        recipe = (NUBEAM_DIR / name).read_text(encoding="utf-8")
+        manifest = recipe[recipe.index("write_manifest() {"): recipe.index("\n}\n", recipe.index("write_manifest() {"))]
+        assert "printf 'root\\t%s\\n' \"$ROOT_DIR\"" in manifest, f"{name} must record the root"
+        kinds = set(re.findall(r"printf '(\w+)\\t", manifest))
+        assert kinds == {"root", "managed_dir", "generated_config"}, (
+            f"{name} records {sorted(kinds)}; the usage text describes exactly these"
+        )
+
+    header = (NUBEAM_DIR / "macos.sh").read_text(encoding="utf-8").split("set -euo pipefail")[0]
+    assert "no Linux recipe" not in header
+    assert "linux.sh" in header
