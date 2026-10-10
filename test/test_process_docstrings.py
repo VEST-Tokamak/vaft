@@ -123,6 +123,10 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # gyrokinetics (#1820): peaks -> periods -> peak lag -> correlation lag -> verdict;
+    # initial guess -> integrate -> log residual -> least squares
+    "predator_prey_cycle_metrics",
+    "fit_predator_prey_model",
     # ordering_state (#1627 §2): inputs -> v_A, eta -> ratios; gradients -> gyroradii,
     # collision times -> Knudsen, magnetization, collisionality; columns -> rows
     "global_ordering_quantities",
@@ -335,6 +339,12 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # gyrokinetics (#1820): |phi|^2 is a proxy, ky = 0 is zonal, positive lag = zonal
+    # after turbulence, c1/c2 carry the intensity normalisation
+    "zonal_turbulence_intensity",
+    "zonal_shear_proxy",
+    "predator_prey_cycle_metrics",
+    "fit_predator_prey_model",
     # #1627 §2: S and tau ratios on a, n_i = n_e, v_t = sqrt(T/m), L_T on r in metres
     "global_ordering_quantities",
     "time_history_ordering_quantities",
