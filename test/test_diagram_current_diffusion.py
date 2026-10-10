@@ -61,12 +61,21 @@ def test_a_driven_current_equal_to_the_total_is_steady():
     {"r": np.array([0.0, 0.5])},
     {"eta": np.array([1.0, 0.0, 1.0])},
     {"I": np.zeros(2)},
+    {"I": np.array([0.1, 0.1, 0.1])},   # no current is enclosed on the axis
     {"j_ni": np.zeros(4)},
 ])
 def test_the_rate_refuses_bad_input(bad):
     kwargs = {"r": np.array([0.0, 0.5, 1.0]), "I": np.zeros(3), "eta": np.ones(3), **bad}
     with pytest.raises(ValueError):
         cylindrical_current_diffusion_rate(**kwargs)
+
+
+def test_an_axis_current_is_refused_by_name():
+    # An offset in I is invisible to the interior differences, so only the
+    # axis value (promised exact) would be silently wrong: the formula says so.
+    r = np.linspace(0.0, 1.0, 11)
+    with pytest.raises(ValueError, match=r"I must vanish on the axis"):
+        cylindrical_current_diffusion_rate(r, r**2 + 0.1, np.ones_like(r))
 
 
 # ---------------------------------------------------------------------------

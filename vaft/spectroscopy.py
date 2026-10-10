@@ -7,8 +7,8 @@ codec, ``emission=`` terms, line matching) to :mod:`vaft.data.spectroscopy`
 domain.  Importing this module warns and re-exports the old names with their
 old behaviour; ``Species`` is :class:`vaft.data.atomic.AtomicSpecies` and
 ``LineIdentity`` is :class:`vaft.data.spectroscopy.SpectralLineIdentity`.
-Scheduled for removal two minor releases after the move ships (current
-version 0.7.1; remove in 0.10.0).
+The move ships in 0.8.0; this alias is removed two minor releases later,
+in 0.10.0.
 """
 
 from __future__ import annotations

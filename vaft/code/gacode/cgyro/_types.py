@@ -57,6 +57,7 @@ __all__ = [
     "MAX_SPECIES",
     "TGLF_FIELD_MODEL",
     "formalism",
+    "plasma_formalism",
 ]
 
 
@@ -144,6 +145,39 @@ class CGYROConfig(GACODEConfig):
         }
 
 
+def plasma_formalism(config: Optional[CGYROConfig] = None):
+    """The solver-neutral #1727 record of a CGYRO run (:class:`vaft.code.formalism.PlasmaFormalism`).
+
+    Local delta-f gyrokinetics on a closed flux surface, linear or nonlinear, with the
+    field model coarsened to electrostatic / electromagnetic.  What is CGYRO's own --
+    the ``em-aperp`` / ``em-aperp-bpar`` split, the continuum representation, Miller
+    geometry, gyrokinetic electrons -- stays in ``extensions``, from which
+    :func:`formalism` rebuilds the #1353 record, so the two cannot disagree.
+    """
+    from ...formalism import PlasmaFormalism
+
+    configuration = config or CGYROConfig()
+    return PlasmaFormalism(
+        scientific_operation="turbulent_transport" if configuration.nonlinear else "microstability",
+        bulk_description="kinetic",
+        kinetic_equation="gyrokinetic",
+        kinetic_population=("all",),
+        distribution_formulation="delta_f",
+        orbit_representation="gyrocenter",
+        spatial_domain="local",
+        topology_domain="closed_flux_surface",
+        regime=configuration.regime,
+        field_model="electrostatic" if configuration.field_model == "es" else "electromagnetic",
+        solver="cgyro",
+        extensions={
+            "field_model": configuration.field_model,
+            "numerical_representation": "continuum",
+            "geometry_model": "miller",
+            "species_model": "kinetic_electrons",
+        },
+    )
+
+
 def formalism(
     config: Optional[CGYROConfig] = None, *, solver_version: Optional[str] = None
 ) -> dict[str, Any]:
@@ -152,18 +186,23 @@ def formalism(
     Fixed by the solver except for the field model and the regime. ``spatial_domain`` is
     ``local`` -- never a bare ``global`` flag: CGYRO's global-spectral mode is a later,
     separately named phase (#1354 non-goal) and is not equivalent to GENE-global or GTC.
+
+    Every value is read from :func:`plasma_formalism`, the solver-neutral record
+    (#1727), so the two records of one run cannot disagree; the keys and values are
+    unchanged from #1353.
     """
-    configuration = config or CGYROConfig()
+    record = plasma_formalism(config)
+    extensions = record.extensions
     return {
-        "distribution_formulation": "delta_f",
-        "spatial_domain": "local",
-        "numerical_representation": "continuum",
-        "field_model": configuration.field_model,
-        "regime": configuration.regime,
-        "topology_domain": "closed_flux_surface",
-        "geometry_model": "miller",
-        "species_model": "kinetic_electrons",
-        "solver": "cgyro",
+        "distribution_formulation": record.distribution_formulation,
+        "spatial_domain": record.spatial_domain,
+        "numerical_representation": extensions["numerical_representation"],
+        "field_model": extensions["field_model"],
+        "regime": record.regime,
+        "topology_domain": record.topology_domain,
+        "geometry_model": extensions["geometry_model"],
+        "species_model": extensions["species_model"],
+        "solver": record.solver,
         "solver_version": solver_version,
     }
 

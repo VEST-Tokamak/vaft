@@ -73,6 +73,7 @@
    ".models.series:color=red": 3
   },
   "machine_geometry3d": {
+   ".layers:color=#377eb8": 11,
    ".layers:color=#d62728": 19,
    ".layers:color=#e41a1c": 4,
    ".layers:color=#ff7f00": 1,
@@ -86,6 +87,7 @@
    ".layers:color=0.55": 950
   },
   "machine_geometry_topview": {
+   ".layers:color=#377eb8": 11,
    ".layers:color=#e41a1c": 2,
    ".layers:color=#ff7f00": 1,
    ".layers:color=0.4": 2
@@ -93,6 +95,17 @@
   "magnetics_geometry_poloidal": {
    ".layers:color=#377eb8": 12,
    ".layers:color=#ff7f00": 65
+  },
+  "magnetics_overview_vacuum_benchmark": {
+   ".models.series:color=#377eb8": 3,
+   ".models.series:color=#4daf4a": 3,
+   ".models.series:color=#984ea3": 3,
+   ".models.series:color=#a65628": 3,
+   ".models.series:color=#ff7f00": 3,
+   ".models.series:color=0.35": 3,
+   ".models.series:color=0.5": 1,
+   ".models.series:markeredgecolor=0.35": 3,
+   ".models.series:markerfacecolor=none": 3
   },
   "passive_structure_field_wall_reduction": {
    ".overlays:color=k": 1

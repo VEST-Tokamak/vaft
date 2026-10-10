@@ -25,6 +25,7 @@ from ._types import (
     CGYROConfig,
     CGYROResult,
     formalism,
+    plasma_formalism,
 )
 from .inputs import (
     CGYROInput,
@@ -79,6 +80,7 @@ __all__ = [
     "formalism",
     "gacode_revision",
     "input_sha256",
+    "plasma_formalism",
     "prepare_cgyro_case",
     "prepare_cgyro_input",
     "read_cgyro_case",

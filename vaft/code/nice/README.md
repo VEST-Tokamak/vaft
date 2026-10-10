@@ -4,6 +4,10 @@
 > issue #666 study (see `vaft/validation/studies/nice_issue_666/README.md`). Nothing in the
 > routine pipeline calls this adapter, and no production default depends on it.
 
+NICE is open source under the LGPL-3.0 at
+<https://gitlab.inria.fr/blfauger/nice> (licence per the repository's
+LICENSE file); the catalog entry in `vaft/_ecosystem.py` records the same.
+
 This adapter prepares the standalone NICE `nice_recon` text-file interface
 directly from canonical ODS data. It does not translate an EFIT k-file or reuse
 TokaMaker geometry.

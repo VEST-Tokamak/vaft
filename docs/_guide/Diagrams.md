@@ -340,11 +340,31 @@ explains them.
 
 ```python
 vaft.diagram.timescale_hierarchy()
+vaft.diagram.ordering_contract_map()
 ```
 
 | Diagram | Concept |
 | --- | --- |
-| `timescale_hierarchy` | Gyroperiods, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
+| `timescale_hierarchy` | Inverse gyrofrequencies, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
+| `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered |
+
+## Reduced representations
+
+How formulas compress plasma information, from fields to profiles to scalars and from dimensional to
+dimensionless quantities, is classified on
+[Reduced representations]({{ '/reference/reduced-representations/' | relative_url }}) (#1626). The figures
+are built from the formulas' `Reduction` docstring sections and the relation metadata in
+`vaft.formula._taxonomy`.
+
+```python
+vaft.diagram.reduced_representation_hierarchy()
+vaft.diagram.reduction_graph(family="current_q")   # "pressure_energy", "kinetic_profiles", "dimensionless_similarity"
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `reduced_representation_hierarchy` | Spatial reduction (field, profile, scalar) down, dimensionless normalisation across, so a dimensionless quantity can still be a profile. Each cell counts the catalogued formulas that land there |
+| `reduction_graph` | One family as a layered graph of quantities. A solid edge is a formula, and its catalogued reduction kind is shown as *via*. A dashed edge is a step VAFT performs elsewhere |
 
 ## Tokamak geometry and flux coordinates
 
@@ -625,6 +645,22 @@ vaft.diagram.field_aligned_xpoint_limitation(n_theta=24)
 ![X-point limitation]({{ '/assets/diagrams/field_aligned_xpoint_limitation.svg' | relative_url }})
 
 ![shear]({{ '/assets/diagrams/magnetic_shear_field_aligned.svg' | relative_url }})
+
+### Ballooning formulations
+
+How the reduced $s$–$\alpha$ equation follows from the general ballooning equation, and how DCON's $C_A$
+and GPEC.jl's ballooning $\Delta'$ relate to it, is on
+[Ballooning formulations]({{ '/reference/ballooning-formulations/' | relative_url }}) (#1637).
+
+```python
+vaft.diagram.ballooning_formulation_hierarchy()
+```
+
+![ballooning formulations]({{ '/assets/diagrams/ballooning_formulation_hierarchy.svg' | relative_url }})
+
+| Diagram | Concept |
+| --- | --- |
+| `ballooning_formulation_hierarchy` | The general equation either loses its geometry step by step (large aspect ratio, shifted circles, the $1 + \Lambda^2$ metric, the $\cos\theta + \Lambda\sin\theta$ curvature) to become the CHT equation VAFT solves, or keeps it, as DCON ($C_A$, stable when positive) and GPEC.jl ($\Delta'$, stable when negative, with poles) do. All three must share the normalisation of `shear_from_volume` and `ballooning_alpha_from_volume` before their boundaries can be compared |
 
 ## Slab resonant layers: tearing and twisting parity
 
@@ -1054,6 +1090,11 @@ vaft.diagram.plasma_wall_interaction_reflection()
 vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)   # threshold only if E_s given
 vaft.diagram.plasma_wall_interaction_recycling()
 vaft.diagram.plasma_wall_interaction_energy_partition()
+vaft.diagram.plasma_wall_interaction_reflection_energy()
+vaft.diagram.plasma_wall_interaction_angle_dependence()
+vaft.diagram.plasma_wall_interaction_sputtering_threshold(surface_binding_energy=8.68)   # E_th only if E_s given
+vaft.diagram.plasma_wall_interaction_particle_balance()
+vaft.diagram.plasma_wall_interaction_surface_response()
 ```
 
 ![processes]({{ '/assets/diagrams/plasma_wall_interaction_processes.svg' | relative_url }})
@@ -1062,6 +1103,10 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 | --- | --- |
 | ![reflection]({{ '/assets/diagrams/plasma_wall_interaction_reflection.svg' | relative_url }}) | ![sputtering]({{ '/assets/diagrams/plasma_wall_interaction_sputtering.svg' | relative_url }}) |
 | ![recycling]({{ '/assets/diagrams/plasma_wall_interaction_recycling.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/plasma_wall_interaction_energy_partition.svg' | relative_url }}) |
+| ![reflected energy]({{ '/assets/diagrams/plasma_wall_interaction_reflection_energy.svg' | relative_url }}) | ![angle]({{ '/assets/diagrams/plasma_wall_interaction_angle_dependence.svg' | relative_url }}) |
+| ![threshold]({{ '/assets/diagrams/plasma_wall_interaction_sputtering_threshold.svg' | relative_url }}) | ![particle balance]({{ '/assets/diagrams/plasma_wall_interaction_particle_balance.svg' | relative_url }}) |
+
+![surface response]({{ '/assets/diagrams/plasma_wall_interaction_surface_response.svg' | relative_url }})
 
 | Diagram | Concept |
 | --- | --- |
@@ -1070,6 +1115,11 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 | `plasma_wall_interaction_sputtering` | A collision cascade ejects a target atom. One collision passes at most $\gamma E$ (D on W: $\gamma = 0.043$), hence the high threshold |
 | `plasma_wall_interaction_recycling` | Prompt reflection plus delayed re-emission make recycling; retention is the rest |
 | `plasma_wall_interaction_energy_partition` | Particle balance and energy balance side by side. They are not the same bookkeeping |
+| `plasma_wall_interaction_reflection_energy` | Incident $f_i(E_i)$ to reflected $f_r(E_r)$ through the surface. Only the binary-collision limit $(1-\gamma)E_i$ is stated; $R_N(E_i)$, $R_E(E_i)$, $\langle E_r\rangle(E_i)$ are empty enrichment slots |
+| `plasma_wall_interaction_angle_dependence` | Normal and grazing incidence, angles from the surface normal; $R_N$, $R_E$, $Y$ as functions of $(E_i, \theta_i)$ are named, not drawn |
+| `plasma_wall_interaction_sputtering_threshold` | A schematic $Y(E_i)$ with no scale: a threshold exists. $E_\mathrm{th}$ is printed only for a supplied $E_s$ (Bohdansky) |
+| `plasma_wall_interaction_particle_balance` | The projectile balance (reflected + re-emitted + retained) with the sputtered target atoms drawn apart, as another species' source |
+| `plasma_wall_interaction_surface_response` | Inputs, surface response ($R_N$, $R_E$, $Y_\mathrm{sput}$), outputs: the extension point for tabulated data or an external PWI code (levels 2–4) |
 
 ## Spectroscopy and ionization
 
@@ -1480,7 +1530,10 @@ simulation run. Experiment and simulation are parallel, epistemically distinct p
 validation and synthesis yield qualified states and feed new questions back to planning. Knowledge is
 preserved and transferred, and the states serve generic research contexts; only the reference
 implementation, VEST, is named. The `"presentation"` figure is a one-slide projection of the same model,
-and a test checks that every item it draws stands for items of the full figure.
+with shared scientific states feeding experimental planning and operation, physics interpretation and
+discovery, and modelling, prediction and validation. Curved arrows show exchange between neighbouring uses;
+they do not prescribe a fixed sequence. A test checks that its roles, verbs, states and uses map back to
+the detailed figure's roles, activities and states.
 
 `scientific_ownership_architecture` shows where scientific logic lives as research software matures (#1645).
 Research groups Studies by membership, not by execution order, and neither executes anything. A workflow or
@@ -1488,7 +1541,9 @@ notebook composes computation and matures reusable logic out of itself. Data and
 Process, Code and learned models, produce results and evidence. Validation interprets that evidence, and an
 optional use policy decides what a workflow does about it. The Actor contract is an optional overlay, off
 every edge. The graduation rule promotes matured logic by meaning. [Computational
-layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed view of the computation band.
+layers]({{ '/reference/computational-layers/' | relative_url }}) is the zoomed view of the computation band, and
+[Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}) uses this figure as VAFT's
+normative architecture.
 
 Related issues: #1090 (the concept family), #1550 (the VEST workflow), #497 (placement of canonical visuals),
 #248, #252, #1505, #1626-#1629 (provenance, contracts and applicability), #1077, #1165, #1170, #1639,
@@ -2102,10 +2157,12 @@ python -m vaft.diagram.build            # re-render diagrams whose TikZ source c
 python -m vaft.diagram.build --check    # verify the committed assets; needs no TeX
 ```
 
-`manifest.json`, stored next to the SVGs, records the SHA-256 of the generated TikZ document each SVG
-was rendered from, together with the SHA-256 of the SVG itself. `--check` rebuilds the TikZ in pure
-Python and fails in four cases: an asset is stale, an asset was edited by hand, an asset is
-missing, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
+Each SVG carries its own build record: one comment line after the XML declaration holding the call,
+the SHA-256 of the generated TikZ document it was rendered from, and the SHA-256 of the SVG without
+that line. Because the record lives in the diagram's own file, two pull requests that change different
+diagrams share no generated file and do not conflict (#1750). `--check` rebuilds the TikZ in pure
+Python and fails in five cases: an asset is stale, an asset was edited by hand, an asset is missing,
+an asset has no record, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
 and not on SVG bytes, because two `dvisvgm` releases write different but equally correct SVG for the
 same picture. Rendering needs `latex` and `dvisvgm`, which TeX Live and MacTeX provide. The generated
 `.tex`, PDF, PNG and LaTeX by-products are never committed.

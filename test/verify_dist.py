@@ -26,8 +26,10 @@ _ALLOWED_DATA_FILES = {
     "legacy/sxr_te_ratio_be_al.csv",
     "legacy/langmuir_probe_positions.csv",
     "samples/39915/manifest.yaml",
+    # The IMAS netCDF twin of the same product (samples/39915/imas.nc) is
+    # repository-only since 0.8.0: listing it here would both require it
+    # and allow it, and the wheel went over its size budget carrying it.
     "samples/39915/omas.json.gz",
-    "samples/39915/imas.nc",
     "samples/41524/manifest.yaml",
     "samples/40600/manifest.yaml",
     "samples/41672/manifest.yaml",
@@ -40,10 +42,12 @@ _ALLOWED_DATA_FILES = {
 # the same sample ships twice against the size budget. Kept out of
 # ``_ALLOWED_DATA_FILES`` because that set is also what every distribution is
 # *required* to contain.
+# Exactly the files setup.py's build_py hook reads: its IMAS netCDF twin
+# (wheel_samples/39915/imas.nc) is repository-only since 0.8.0 and ships in
+# neither artifact.
 _SDIST_ONLY_DATA_FILES = {
     "wheel_samples/39915/manifest.yaml",
     "wheel_samples/39915/omas.json.gz",
-    "wheel_samples/39915/imas.nc",
 }
 _ALLOWED_DATA_SUFFIXES = {
     # Code, not data: the public-database readers ship; the databases they

@@ -319,6 +319,10 @@ def solve_electron_temperature(
     to arbitrate; this deliberately does not reproduce that apparent transcription
     error.
 
+    Semantics
+    ---------
+    produces: electron_temperature
+
     Provenance
     ----------
     .. [1] The classical triple-probe relation; the transcription discrepancy is
@@ -414,6 +418,11 @@ def electron_density(
     mask must be honoured. Inherits the assumptions of
     :func:`solve_electron_temperature` and the thin-sheath geometric area of
     :func:`probe_surface_area`.
+
+    Semantics
+    ---------
+    consumes: electron_temperature
+    produces: electron_density
 
     Provenance
     ----------

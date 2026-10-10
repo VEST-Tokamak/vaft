@@ -24,7 +24,7 @@ from .._runtime import (
     run_gacode,
     stopped_reason,
 )
-from ._types import CGYROConfig, CGYROResult, formalism
+from ._types import CGYROConfig, CGYROResult, formalism, plasma_formalism
 from .inputs import CGYROInputs, input_sha256, prepare_cgyro_case
 from .outputs import CgyroOutputs, collect_cgyro_outputs
 
@@ -151,6 +151,7 @@ def run_cgyro(
                 configuration,
                 solver_version=revision or (None if version is None else version.get("commit")),
             ),
+            "plasma_formalism": plasma_formalism(configuration).as_dict(),
             "parameters": dict(inputs.parameters),
             "inputs": staged,
         },

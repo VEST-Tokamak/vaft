@@ -108,6 +108,14 @@ def normalized_gradient_scale_length(x: np.ndarray, y: np.ndarray, a: float) -> 
     amplifies noise, and dividing by ``y`` amplifies it again where the
     profile is small -- the edge -- so smooth or fit the profile first.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: differential
+    locality: flux_surface_local
+    role: closure_input
+
     References
     ----------
     .. [1] G. M. Staebler, J. E. Kinsey and R. E. Waltz, Phys. Plasmas 14
@@ -454,6 +462,14 @@ def calculate_peaking_factor(central: float,
     Numerical notes
     ---------------
     A zero volume average warns and returns ``nan``.
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: profile_descriptor
     """
     return _guarded_ratio(
         central, volume_avg, what="calculate_peaking_factor", because="volume_avg"

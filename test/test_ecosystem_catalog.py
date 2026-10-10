@@ -176,6 +176,21 @@ def test_links_are_typed_and_references_carry_dois():
         assert code.access in {"public", "registration", "not_open_source", "not_stated"}
 
 
+def test_every_public_code_names_where_it_is_obtained():
+    # cold review 0.8.0: NICE was catalogued "not_stated" with only its DOI, although
+    # it is open source (LGPL-3.0) at gitlab.inria.fr/blfauger/nice
+    by_id = {code.id: code for code in ecosystem.EXTERNAL_CODES}
+    assert by_id["nice"].access == "public"
+    assert "LGPL" in by_id["nice"].note
+    for code in ecosystem.EXTERNAL_CODES:
+        # a public code VAFT launches or imports says where it is obtained, not only how it is
+        # cited (a reader describes output of a code obtained elsewhere: PENTRC ships with GPEC)
+        if code.access == "public" and code.mode != "native_reader":
+            assert any(link.role in {"repository", "homepage"} for link in code.links), code.id
+    readme = (ROOT / "vaft" / "code" / "nice" / "README.md").read_text(encoding="utf-8")
+    assert "https://gitlab.inria.fr/blfauger/nice" in readme and "LGPL" in readme
+
+
 def test_platforms_come_from_installers_never_from_vaft(snapshot):
     rows = {row["id"]: row for row in snapshot["codes"]}
     assert "Windows" not in rows["genray"]["platforms"]  # no Windows installer

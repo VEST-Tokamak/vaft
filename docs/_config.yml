@@ -67,6 +67,7 @@ exclude:
   - package-lock.json
   - playwright.config.js
   - README.md
+  - assets/brand/fonts/README.md
 
 collections:
   guide:

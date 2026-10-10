@@ -18,8 +18,8 @@ from pathlib import Path
 from typing import NamedTuple, Sequence
 
 import numpy as np
-from omas import save_omas_json
 
+import vaft.omas
 from vaft.code.efit import correct_flux_loop, generate_constraints_ods as build_constraints
 from vaft.code.efit.applicability import not_applicable_constraints
 from vaft.database.composition import EddyNoOutputError, compose_stage_products
@@ -486,7 +486,7 @@ def main() -> int:
         # shot to `gave_up` for a product that can never exist.
         reason = f"eddy produced no output: {error.reason}"
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        save_omas_json(not_applicable_constraints(reason), str(args.output))
+        vaft.omas.save(not_applicable_constraints(reason), args.output)
         LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, reason)
         return 0
     LOGGER.info("composed inputs: %s", json.dumps(composition, default=str))
@@ -502,7 +502,7 @@ def main() -> int:
         # A result, not a failure: the k-file and EFIT steps pass it on as
         # `skipped: not applicable`, the way they pass on efit.run=false.
         args.output.parent.mkdir(parents=True, exist_ok=True)
-        save_omas_json(not_applicable_constraints(reason), str(args.output))
+        vaft.omas.save(not_applicable_constraints(reason), args.output)
         LOGGER.info("EFIT not applicable to shot %s: %s", args.shot, reason)
         return 0
     if vacuum:

@@ -51,6 +51,7 @@ from ._docstring import (
     source_span,
     strip_roles,
 )
+from .._semantics import Semantics, parse_semantics
 
 __all__ = [
     "CATEGORIES",
@@ -70,7 +71,7 @@ __all__ = [
 #: functions are public through ``equilibrium``, and that is where they appear.
 CATEGORIES: tuple[str, ...] = (*_IMPORT_ORDER, "cocos")
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3  # +semantics (#1702)
 _GENERATOR = "python -m vaft.process.catalog --output docs/_data/process_catalog.yml"
 _PACKAGE = Path(__file__).resolve().parent
 
@@ -106,6 +107,7 @@ class ProcessSpec:
     source_line: int = 0
     source_end_line: int = 0
     source_code: str = ""
+    semantics: Semantics | None = None
 
     @property
     def qualname(self) -> str:
@@ -203,7 +205,7 @@ class ProcessSpec:
             "sections": [
                 {"title": title, "text": strip_roles(text)}
                 for title, text in self.sections
-                if title not in ("Parameters", "Returns", "Yields", "Raises", "Provenance")
+                if title not in ("Parameters", "Returns", "Yields", "Raises", "Provenance", "Semantics")
             ],
             "provenance": [
                 {"label": ref.label, "text": strip_roles(ref.text)} for ref in self.references
@@ -224,6 +226,7 @@ class ProcessSpec:
             },
             "aliases": list(self.aliases),
             "errors": list(self.errors),
+            "semantics": self.semantics.as_dict() if self.semantics is not None else None,
         }
 
 
@@ -342,7 +345,8 @@ def _structural_violations(parsed: ParsedDocstring, fn) -> list[str]:
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> ProcessSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
     span = source_span(fn, _PACKAGE.parent.parent)
-    errors = list(dict.fromkeys([*parsed.errors, *_structural_violations(parsed, fn)]))
+    semantics, semantics_errors = parse_semantics(parsed.section("Semantics"))
+    errors = list(dict.fromkeys([*parsed.errors, *_structural_violations(parsed, fn), *semantics_errors]))
     return ProcessSpec(
         name=name,
         category=category,
@@ -364,6 +368,7 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         source_line=span["line"],
         source_end_line=span["end_line"],
         source_code=span["code"],
+        semantics=semantics,
     )
 
 

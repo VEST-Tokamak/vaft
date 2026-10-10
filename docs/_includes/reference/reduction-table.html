@@ -1,0 +1,25 @@
+{%- comment -%}
+The generated reduced-representation taxonomy (#1626): every formula whose
+docstring has a Reduction section, grouped by one axis.
+
+  include.by    "mapping", "kind", "locality" or "role"
+
+Rows come from site.data.formula_catalog; nothing here is hand-maintained.
+{%- endcomment -%}
+{%- assign rows = site.data.formula_catalog.formulas | where_exp: "f", "f.reduction" -%}
+{%- if include.by == "kind" -%}{%- assign groups = rows | group_by_exp: "f", "f.reduction.kind" | sort: "name" -%}
+{%- elsif include.by == "locality" -%}{%- assign groups = rows | group_by_exp: "f", "f.reduction.locality" | sort: "name" -%}
+{%- elsif include.by == "role" -%}{%- assign groups = rows | group_by_exp: "f", "f.reduction.role" | sort: "name" -%}
+{%- else -%}{%- assign groups = rows | group_by_exp: "f", "f.reduction.mapping" | sort: "name" -%}{%- endif -%}
+{%- for group in groups %}
+<h4 class="no_toc">{{ group.name | replace: "_", " " | replace: "->", "&rarr;" }}</h4>
+<table class="ref-table">
+<thead><tr><th>Formula</th><th>Mapping</th><th>Kind</th><th>Locality</th><th>Role</th></tr></thead>
+<tbody>
+{%- assign items = group.items | sort: "name" -%}
+{%- for f in items %}
+<tr><td><a href="{{ '/reference/formula/' | append: f.category | append: '/' | relative_url }}#{{ f.name }}"><code>{{ f.name }}</code></a></td><td>{{ f.reduction.mapping | replace: "_", " " | replace: "->", "&rarr;" }}</td><td>{{ f.reduction.kind | replace: "_", " " }}</td><td>{{ f.reduction.locality | replace: "_", " " }}</td><td>{{ f.reduction.role | replace: "_", " " }}</td></tr>
+{%- endfor %}
+</tbody>
+</table>
+{%- endfor %}

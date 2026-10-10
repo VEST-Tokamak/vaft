@@ -960,6 +960,16 @@ $EDITOR /srv/vaft/worker.yaml                  # first_shot, cores, run_timeout,
    the shot:
    - It moves the shot's raw dump and manifest to `log_dir/superseded/<shot>/<time>/`. They are
      moved, never deleted.
+   - The EFIT k-file stage, re-run on the regenerated constraints, moves the shot's earlier
+     k/g/a/m-files to `<shot's efit dir>/{kfile,gfile,afile,mfile}/superseded/<UTC stamp>/` (and
+     what EFIT left in the run directory itself to `superseded/<stamp>/`) so they are never run or
+     collected as this run's (#1786). That record is bounded: only the newest superseded
+     generation is kept per shot (`generate_kfile.py --keep-superseded N`, default 1, which never
+     deletes the tree just moved aside); older stamps are deleted and listed in the stage's log
+     (`Pruned ... superseded generation(s)`). A generation is 22-28 MB per shot, ~100 GB over a
+     full regeneration pass, which is why they are not kept indefinitely. The sha256 of every
+     executed k-file stays in the EFIT execution record. The disk guard below counts the kept
+     trees, since they live under `base_dir`.
    - It returns the shot to `detected`, so it is classified and run again.
    - Snakemake then re-exports the raw dump and reruns every product downstream of it, because
      that input is newer. **This includes HSDS replication, which replaces what was published.**

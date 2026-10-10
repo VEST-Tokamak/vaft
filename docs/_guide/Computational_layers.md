@@ -18,7 +18,8 @@ VAFT computes in three layers that are each useful on their own: **Formula**, **
 **Code**. An optional fourth notion, the **Actor**, is a contract for comparing several realizations
 of the *same* scientific operation. Most VAFT calculations do not need one. This page fixes the
 vocabulary (issue #1078, under the umbrella #1077) so that contributors put new work in the right
-place.
+place. How these layers fit with data, validation, orchestration and the other architecture views is
+mapped on [Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}).
 
 ## Terminology
 

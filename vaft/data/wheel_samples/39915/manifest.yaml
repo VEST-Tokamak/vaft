@@ -56,7 +56,7 @@ representations:
   imas:
     path: imas.nc
     media_type: application/x-netcdf
-    package: wheel-and-sdist
+    package: repository-only
     compatible_adapters:
     - imas
     - omas

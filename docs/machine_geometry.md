@@ -84,3 +84,55 @@ example `overlay=("thomson_scattering", "coils_non_axisymmetric")`, using
 the same registry. The notebook atlas instead plots the calibrated geometry against
 pixel axes without loading a large camera frame. Its four panels all carry
 the cross-shot notice and shot-39915 geometry reference.
+
+## Same-shot equilibrium section over a real FAST-camera frame
+
+`overlay="equilibrium_section"` uses one physical shot. It combines the mapped
+PF active rectangles, PF passive loop outlines, limiter, EFIT flux-loop and
+B-pol sensor locations, and one stored equilibrium slice. Only sensors named
+by that slice's `constraints.flux_loop` and `constraints.bpol_probe` are used;
+their measured and reconstructed values are not encoded by the markers.
+Axisymmetric contours are placed in an explicit toroidal plane, by default
+the camera port 6MR (`section_phi=π` in IMAS radians). B-pol probes retain
+their own mapped phi. A flux loop with R and Z but no scalar phi is projected
+as a full toroidal ring. The calibrated camera model converts the resulting
+machine coordinates from metres to centimetres, and invalid vertices break
+the projected line. This is a geometric overlay, not an occlusion model.
+
+From a Git checkout, `sample_ods(39915)` and
+`sample_camera_visible_frame_paths(39915)` provide a same-shot offline example:
+
+```python
+import cv2
+import vaft.omas as vomas
+from vaft.omas.sample import sample_ods
+from vaft.data.resources import sample_camera_visible_frame_paths
+from vaft.machine_mapping.camera_visible import (
+    vfit_camera_visible_dynamic, vfit_camera_visible_static,
+)
+
+ods = sample_ods(39915)
+frames = [(t, p) for t, p in sample_camera_visible_frame_paths(39915)
+          if 0.316 <= t <= 0.326]  # the stored complete EFIT sections
+images = [cv2.imread(str(path), cv2.IMREAD_GRAYSCALE) for _, path in frames]
+vfit_camera_visible_static(ods, lines_n=images[0].shape[0],
+                           columns_n=images[0].shape[1], source="archived 39915 FAST frames")
+vfit_camera_visible_dynamic(ods, images=images, times_s=[t for t, _ in frames])
+
+rz_figure, rz_axes = vomas.plot_machine_geometry_poloidal(
+    ods, overlay="equilibrium_section", time_slice=3)
+camera_figure, camera_axes = vomas.plot_camera_visible_image(
+    ods, overlay="equilibrium_section", frame_index=7)
+movie = vomas.plot_camera_visible_image(ods, overlay="equilibrium_section",
+                                        animation=True, fps=10)
+movie.save("vest-39915-equilibrium-section.mp4")
+```
+
+The animation uses VAFT's existing MP4/WebM/GIF export and JSON sidecar. Each
+frame title and sidecar pair the actual camera time with the nearest stored
+equilibrium time and their difference; there is no interpolated equilibrium.
+The sample's 331 ms equilibrium has no LCFS and `psi_axis=psi_boundary`, so
+the complete-section interval ends at 326 ms: 26 camera frames. The movie
+plays at a presentation rate of 10 fps; the physical camera times remain in
+the sidecar. MP4/WebM needs `vaft[video]`. The archived camera PNGs are part
+of the repository sample and are not included in the wheel.

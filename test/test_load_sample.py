@@ -13,7 +13,11 @@ import pytest
 import yaml
 
 import vaft
-from vaft.data.reference_samples import semantic_sample_view, verify_sample_artifacts
+from vaft.data.reference_samples import (
+    semantic_sample_view,
+    sha256_file,
+    verify_sample_artifacts,
+)
 from vaft.omas import compare_ods
 
 
@@ -28,6 +32,9 @@ def test_sample_registry_returns_both_packaged_artifacts():
     assert imas_path.is_file()
     manifest = vaft.data.sample_manifest(39915)
     assert manifest["imas_dd_version"] == "3.41.0"
+    # the OMAS form ships; its IMAS netCDF twin is repository-only (0.8.0)
+    assert manifest["representations"]["omas"]["package"] == "wheel-and-sdist"
+    assert manifest["representations"]["imas"]["package"] == "repository-only"
     assert verify_sample_artifacts(omas_path.parent, manifest) == {
         "omas": manifest["representations"]["omas"]["sha256"],
         "imas": manifest["representations"]["imas"]["sha256"],
@@ -116,6 +123,46 @@ def test_repository_only_lookup_explains_missing_wheel_artifact(monkeypatch, tmp
     monkeypatch.setattr(resources, "data_path", installed_data_path)
     with pytest.raises(FileNotFoundError, match="Clone the VAFT GitHub repository"):
         resources.sample(41524, representation="omas")
+
+
+def test_installed_39915_loads_as_omas_and_names_the_repository_only_imas_twin(
+    monkeypatch, tmp_path
+):
+    """The wheel ships samples/39915 without imas.nc (release 0.8.0).
+
+    Simulated by copying the sample minus imas.nc under ``tmp_path`` and
+    pointing ``data_path`` there: the default (omas) adapter loads, and asking
+    for the imas representation raises the repository-only error that names
+    the missing file and the adapter that is shipped.
+    """
+    import shutil
+
+    from vaft.data import resources
+
+    checkout_root = resources.data_path("samples/39915")
+    installed_root = tmp_path / "samples" / "39915"
+    installed_root.mkdir(parents=True)
+    for name in ("manifest.yaml", "omas.json.gz"):
+        shutil.copy2(checkout_root / name, installed_root / name)
+    assert not (installed_root / "imas.nc").exists()
+
+    monkeypatch.setattr(resources, "data_path", lambda name="": tmp_path / name)
+
+    assert resources.sample(39915) == installed_root / "omas.json.gz"
+    assert resources.sample(39915, representation="omas") == installed_root / "omas.json.gz"
+    ods = vaft.omas.load(resources.sample(39915), imas_version="3.41.0")
+    assert ods["dataset_description.data_entry.pulse"] == 39915
+    assert "equilibrium" in ods
+
+    with pytest.raises(FileNotFoundError) as excinfo:
+        resources.sample(39915, representation="imas")
+    message = str(excinfo.value)
+    assert "imas.nc" in message
+    assert "IMAS netCDF" in message
+    assert "not included in the PyPI distribution" in message
+    assert "Clone the VAFT GitHub repository" in message
+    assert 'representation="omas"' in message
+    assert "omas.json.gz" in message
 
 
 def test_legacy_sample_ods_wrapper_uses_registry_and_sample_odc_is_removed():
@@ -285,12 +332,21 @@ def test_wheel_build_uses_the_three_slice_39915_variant(tmp_path):
     manifest = yaml.safe_load((sample_root / "manifest.yaml").read_text(encoding="utf-8"))
     assert manifest["generation"]["distribution_variant"] == "wheel"
     assert manifest["generation"]["equilibrium_time_slices"] == 3
-    verify_sample_artifacts(sample_root, manifest)
+    # Only the OMAS form ships (0.8.0): the IMAS netCDF twin is the same
+    # product and stays repository-only, so the build must not copy it.
+    assert manifest["representations"]["omas"]["package"] == "wheel-and-sdist"
+    assert manifest["representations"]["imas"]["package"] == "repository-only"
+    assert not (sample_root / "imas.nc").exists()
+    omas_record = manifest["representations"]["omas"]
+    assert sha256_file(sample_root / "omas.json.gz") == omas_record["sha256"]
+    assert (sample_root / "omas.json.gz").stat().st_size == omas_record["size"]
     wheel_ods = vaft.omas.load(sample_root / "omas.json.gz")
     np.testing.assert_allclose(wheel_ods["equilibrium.time"], [0.316, 0.317, 0.318])
     assert len(wheel_ods["magnetics.b_field_pol_probe"]) == 64
     assert len(wheel_ods["magnetics.flux_loop"]) == 11
-    with vaft.imas.load(sample_root / "imas.nc") as handle:
+    # The imas adapter still reads the shipped OMAS file (compatible_adapters).
+    assert "imas" in omas_record["compatible_adapters"]
+    with vaft.imas.load(sample_root / "omas.json.gz") as handle:
         wheel_native = handle.to_omas()
     np.testing.assert_allclose(
         wheel_native["equilibrium.time"], [0.316, 0.317, 0.318]

@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import re
 import shutil
 import subprocess
 import tempfile
 from importlib import resources
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
 from ._scene import Arrow, Image, Label, Marker, Polyline, Scene
 
@@ -67,7 +68,7 @@ def _tikz_item(item) -> str:
     if isinstance(item, Label):
         return f"\\node[{item.style},anchor={item.anchor}] at {_xy(item.at)} {{{item.text}}};"
     if isinstance(item, Image):
-        # the hash makes the source -- and so the manifest -- change when the picture does
+        # the hash makes the source -- and so the SVG's build record -- change when the picture does
         return (f"\\node[inner sep=0pt] at {_xy(item.at)} "
                 f"{{\\vaftimage{{{_num(item.width)}cm}}{{{_num(item.height)}cm}}{{{item.name}}}}};"
                 f" % image sha256={image_sha256(item.name)}")
@@ -300,33 +301,72 @@ def committed_assets_dir() -> Path:
     return Path(__file__).resolve().parents[2] / "docs" / "assets" / "diagrams"
 
 
+#: The first comment of a committed SVG: how it was built, so freshness needs no manifest (#1750).
+RECORD_PREFIX = "<!-- vaft.diagram "
+RECORD_SUFFIX = " -->"
+
+
+def svg_record_line(call: str, source_sha256: str, svg_sha256: str) -> str:
+    """The record line :func:`with_svg_record` writes: JSON inside an XML comment.
+
+    ``--`` may not appear inside an XML comment, so it is written as ``-\\u002d``,
+    which :func:`json.loads` reads back unchanged.
+    """
+    payload = json.dumps({"call": call, "source_sha256": source_sha256, "svg_sha256": svg_sha256},
+                         sort_keys=True).replace("--", "-\\u002d")
+    return f"{RECORD_PREFIX}{payload}{RECORD_SUFFIX}"
+
+
+def split_svg_record(text: str) -> Tuple[Optional[dict], str]:
+    """``(record, body)``: the build record of a committed SVG (``None`` if it has none) and the SVG without it.
+
+    The record is the line right after the XML declaration (or the first line
+    when there is none); ``body`` is the file exactly as the renderer wrote it,
+    which is what ``svg_sha256`` hashes.
+    """
+    lines = text.split("\n")
+    index = 1 if lines and lines[0].startswith("<?xml") else 0
+    if len(lines) > index and lines[index].startswith(RECORD_PREFIX) and lines[index].endswith(RECORD_SUFFIX):
+        try:
+            record = json.loads(lines[index][len(RECORD_PREFIX):-len(RECORD_SUFFIX)])
+        except ValueError:
+            return None, text
+        return record, "\n".join(lines[:index] + lines[index + 1:])
+    return None, text
+
+
+def with_svg_record(body: str, call: str, source_sha256: str) -> str:
+    """``body`` (rendered SVG text) with its build record inserted after the XML declaration."""
+    record = svg_record_line(call, source_sha256, hashlib.sha256(body.encode("utf-8")).hexdigest())
+    lines = body.split("\n")
+    index = 1 if lines and lines[0].startswith("<?xml") else 0
+    return "\n".join(lines[:index] + [record] + lines[index:])
+
+
 def committed_svg(source_sha256: str) -> Optional[str]:
     """The committed SVG rendered from exactly this TikZ source, if there is one.
 
+    Each committed SVG carries its own build record (:func:`split_svg_record`).
     An installed package has no ``docs/`` beside it, and an asset whose
-    manifest hash differs was drawn from different source; both return
-    ``None``.
+    recorded source hash differs was drawn from different source; both return
+    ``None``. The returned text is the SVG as rendered, without the record.
     """
-    import json
-
     directory = committed_assets_dir()
-    try:
-        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+    if not directory.is_dir():
         return None
-    for name, entry in manifest.get("diagrams", {}).items():
-        if entry.get("source_sha256") != source_sha256:
+    for path in sorted(directory.glob("*.svg")):
+        try:
+            record, body = split_svg_record(path.read_text(encoding="utf-8"))
+        except OSError:
             continue
-        path = directory / name
-        if not path.is_file():
-            return None
-        raw = path.read_bytes()
+        if record is None or record.get("source_sha256") != source_sha256:
+            continue
         # The source hash says which picture the asset should be; the SVG hash
-        # (over the bytes, as the build writes it) says the file still is that
+        # (over the body, as the renderer wrote it) says the file still is that
         # picture, not a stale or hand-edited one.
-        if hashlib.sha256(raw).hexdigest() != entry.get("svg_sha256"):
+        if hashlib.sha256(body.encode("utf-8")).hexdigest() != record.get("svg_sha256"):
             return None
-        return raw.decode("utf-8")
+        return body
     return None
 
 
@@ -358,8 +398,8 @@ class Diagram:
         """The rendered, normalised SVG text. Renders on first access.
 
         Without the TeX toolchain, a diagram whose TikZ source matches a
-        committed asset is served from ``docs/assets/diagrams/``: the manifest
-        records the source hash each asset was rendered from, so the file is
+        committed asset is served from ``docs/assets/diagrams/``: each asset's build
+        record holds the source hash it was rendered from, so the file is
         the picture this call would have drawn, not a nearby one. Anything
         else still raises :class:`DiagramToolchainError`.
         """

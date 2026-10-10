@@ -67,7 +67,17 @@ def render_spectrogram(
             model.ridge_time, model.ridge_frequency, color=resolve_color("palette:2"),
             linewidth=1.4, label=model.ridge_label or "tracked ridge",
         )
-        axes.legend(loc="upper right", fontsize="small")
+    for track in model.tracks:
+        # Predicted tracks (issue #460): NaN samples are gaps, never bridged.
+        line_style = dict(track.style)
+        if "color" in line_style:
+            line_style["color"] = resolve_color(line_style["color"])
+        axes.plot(track.time, track.frequency, label=track.label, **line_style)
+    if model.ridge_time is not None or model.tracks:
+        axes.legend(
+            loc="upper right", fontsize="small",
+            title=model.tracks_title or None, title_fontsize="small",
+        )
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 

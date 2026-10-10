@@ -719,6 +719,20 @@ equally, including ones the diagnostic itself flagged as unreliable.
 
 ## Equilibrium reconstruction with EFIT
 
+EFIT's process-level `result.ok` is retained for compatibility. For scientific
+use, inspect `result.usable` and `result.slice_statuses`: each time slice
+separately reports runtime, output, numerical, and physical status, with stable
+codes in `vaft.code.EFIT_FAILURE_CODES`. A status can be serialized through
+`to_dict()` and `from_dict()`.
+
+Typed `EFITConfig`, `EFITProfileConfig`, and `EFITNumericsConfig` make
+routine k-file settings explicit. `prepare_efit_inputs(ods, config)` records
+the resolved settings, stable hash, VAFT version, provenance, and k-file
+checksums in `efit_configuration.json`. For deterministic parameter scans
+that do not run the EFIT binary, `vaft.code.efit_parameter_grid()` accepts
+dotted paths such as `profile.kppcur` and
+`constraints.group_weights.bpol_probe`.
+
 The profiles above are mapped on an equilibrium, and on VEST that equilibrium is an EFIT
 reconstruction: `vaft.code.efit` writes the k-files, runs the code and collects its output. The
 per-shot stages live in [Automated pipelines]({{ site.baseurl }}/workflows/automated-pipelines/) and

@@ -78,12 +78,27 @@ def _subset(rule: dict, func) -> dict:
     return {k: v for k, v in rule.items() if k in accepted}
 
 
-def review(data: dict[str, np.ndarray], title: str, out: Path, *, policy: PlasmaTimingPolicy | None = None, timing=None) -> Path:
+def review(data: dict[str, np.ndarray], title: str, out: Path, *, policy: PlasmaTimingPolicy | None = None, timing=None,
+           fmt: str = "screen", theme: str | None = None) -> Path:
+    """One review PNG at a :mod:`vaft.plot.presentation` format (``legacy``: no format, 11 in wide)."""
+    from vaft.plot.presentation import Presentation, resolve_presentation
+
+    pres = resolve_presentation(fmt, theme) or Presentation(None, None)
+    with pres.context():
+        return _review(data, title, out, policy=policy, timing=timing, pres=pres)
+
+
+def _review(data, title, out, *, policy, timing, pres) -> Path:
     policy = policy or resolve_plasma_timing_policy()
     window = (policy.baseline_start, policy.window.tend)
     baseline_end = policy.window.tstart
     panels = 3 if timing is not None else 2
-    fig, axes = plt.subplots(panels, 1, figsize=(11, 3.5 * panels), sharex=True)
+    # The text panel below the two traces takes a shorter row and stays out
+    # of the shared time axis, so the H-alpha panel keeps its tick labels.
+    fig, axes = plt.subplots(panels, 1, figsize=pres.grid_figsize(panels, 1, aspect=0.45, fallback=(11, 3.5 * panels)),
+                             gridspec_kw={"height_ratios": [1.0, 1.0, 0.6][:panels]})
+    axes[0].sharex(axes[1])
+    axes[0].tick_params(labelbottom=False)
     for ax, key, label, kind in ((axes[0], "ip", "plasma current [kA]", "ip"), (axes[1], "ha", "H-alpha [a.u.]", "ha")):
         t, y = data["t_" + key], data[key]
         m = (t >= window[0]) & (t < window[1])
@@ -115,7 +130,7 @@ def review(data: dict[str, np.ndarray], title: str, out: Path, *, policy: Plasma
         if rec.found:
             ax.axvline(rec.time * 1e3, color="tab:green", lw=1.5, label=f"onset {rec.time * 1e3:.2f} ms ({rec.method})")
         else:
-            ax.text(0.02, 0.9, "no onset: " + ", ".join(rec.flags), transform=ax.transAxes, color="tab:red", fontsize=9)
+            ax.text(0.02, 0.9, "no onset: " + ", ".join(rec.flags), transform=ax.transAxes, color="tab:red", fontsize="small")
         # the active window with the same rule: principal pulse for Ip, envelope for H-alpha
         win = active_window(t, y, reference_mask=ref, search_mask=~ref, **rule)
         if win.found:
@@ -123,13 +138,13 @@ def review(data: dict[str, np.ndarray], title: str, out: Path, *, policy: Plasma
                        label=f"window {win.start * 1e3:.1f}-{win.end * 1e3:.1f} ms" + (f" {list(win.flags)}" if win.flags else ""))
             ax.axvline(win.end * 1e3, color="tab:green", lw=1.0, ls="--")
         ax.set_ylabel(label)
-        ax.legend(fontsize=7, loc="upper left")
+        ax.legend(fontsize="x-small", loc="upper left")
     if timing is not None:
         ax = axes[2]
         ax.axis("off")
         if isinstance(timing, str):
-            ax.text(0.0, 1.0, timing, transform=ax.transAxes, va="top", fontsize=8, color="tab:red", family="monospace")
-            axes[-1].set_xlabel("time [ms]")
+            ax.text(0.0, 1.0, timing, transform=ax.transAxes, va="top", fontsize="x-small", color="tab:red", family="monospace")
+            axes[1].set_xlabel("time [ms]")
             fig.tight_layout()
             out.mkdir(parents=True, exist_ok=True)
             path = out / f"onset_review_{title.replace(' ', '_').replace('#', '')}.png"
@@ -153,10 +168,11 @@ def review(data: dict[str, np.ndarray], title: str, out: Path, *, policy: Plasma
                 f"MAD={m.get('baseline_mad', float('nan')):.2e} peak/sigma={m.get('peak_over_sigma', float('nan')):.0f} "
                 f"railed={m.get('railed_fraction', float('nan')):.4f} resampled={c['notes'].get('resampled')}"
             )
-        ax.text(0.0, 1.0, "\n".join(lines), transform=ax.transAxes, va="top", fontsize=7.5, family="monospace")
-    axes[-1].set_xlabel("time [ms]")
-    fig.suptitle(f"{title}: rejected runs shaded orange, onset and offset in green, active window tinted", fontsize=10)
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
+        ax.text(0.0, 1.0, "\n".join(lines), transform=ax.transAxes, va="top", fontsize="xx-small", family="monospace")
+    axes[1].set_xlabel("time [ms]")
+    fig.suptitle(f"{title}\nrejected runs shaded orange, onset and offset in green, active window tinted",
+                 fontsize="medium")
+    fig.tight_layout()
     out.mkdir(parents=True, exist_ok=True)
     path = out / f"onset_review_{title.replace(' ', '_').replace('#', '')}.png"
     fig.savefig(path, dpi=110)
@@ -169,6 +185,8 @@ def main(argv=None) -> int:
     parser.add_argument("--shot", type=int, action="append", default=[], help="packaged sample shot(s)")
     parser.add_argument("--npz", action="append", default=[], help="corpus file(s) from the raw-database scan")
     parser.add_argument("--out", type=Path, default=Path("onset_review"))
+    parser.add_argument("--format", default="screen", help="vaft.plot presentation format, or 'legacy'")
+    parser.add_argument("--theme", default=None, help="vaft.plot presentation theme")
     args = parser.parse_args(argv)
     policy = resolve_plasma_timing_policy()
     for shot in args.shot:
@@ -179,9 +197,9 @@ def main(argv=None) -> int:
             timing = plasma_timing(ods, policy=policy)
         except PlasmaTimingError as exc:
             timing = f"plasma_timing refused: {exc}"
-        print(review(load_sample(ods), f"#{shot}", args.out, policy=policy, timing=timing))
+        print(review(load_sample(ods), f"#{shot}", args.out, policy=policy, timing=timing, fmt=args.format, theme=args.theme))
     for path in args.npz:
-        print(review(load_npz(path), Path(path).stem, args.out, policy=policy))
+        print(review(load_npz(path), Path(path).stem, args.out, policy=policy, fmt=args.format, theme=args.theme))
     return 0
 
 

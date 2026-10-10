@@ -8,6 +8,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import logging
 from vaft.formula import normalize_psi
+from vaft.formula.equilibrium import thermal_energy_from_p_V
 from vaft.formula.constants import MU0
 from vaft.process.equilibrium import psi_to_rz, volume_average
 from omas import *
@@ -1379,7 +1380,9 @@ def update_equilibrium_stored_energy(ods, time_slice=None):
             continue
         pressure_equil = ts['profiles_1d.pressure']
         volume_equil = ts['profiles_1d.volume']
-        ts['global_quantities.energy_mhd'] = 3.0 / 2.0 * trapz_compat(pressure_equil, x=volume_equil)
+        # W = 3/2 int p dV: the integral already carries the volume, so the
+        # formula's V is 1 -- one definition for every VAFT energy (#1768)
+        ts['global_quantities.energy_mhd'] = thermal_energy_from_p_V(trapz_compat(pressure_equil, x=volume_equil), 1.0)
 
 
 def update_core_profiles_global_quantities_volume_average(ods, time_slice=None):

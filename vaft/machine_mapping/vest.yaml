@@ -2347,6 +2347,8 @@ port_map:
 
 # Canonical ownership and availability registry. This top-level namespace is
 # intentionally not part of the `0:` / shot-override runtime configuration.
+# `subject` (optional) names the vaft.plot.taxonomy subject a record is: the
+# scientific ontology (#1702) identifies them by it, never by spelling.
 diagnostic_registry:
   dataset_description:
     name: Data description
@@ -2363,6 +2365,7 @@ diagnostic_registry:
     quantities: {static: [machine], measured: [date, shot_remark, label, wall_condition, trigger_timing], derived: [shot_summary]}
   pf_active:
     name: PF coils
+    subject: pf_coil
     family: machine_systems
     category: Information and control
     ids: pf_active
@@ -2376,6 +2379,7 @@ diagnostic_registry:
     quantities: {static: [geometry, circuit], measured: [current, charging_voltage], derived: []}
   coils_non_axisymmetric:
     name: Non-axisymmetric 3D coils
+    subject: coil_3d
     family: machine_systems
     category: Information and control
     ids: coils_non_axisymmetric
@@ -2389,6 +2393,7 @@ diagnostic_registry:
     quantities: {static: [geometry, turns], measured: [], derived: [current]}
   tf:
     name: TF coils
+    subject: tf_coil
     family: machine_systems
     category: Information and control
     ids: tf
@@ -2442,6 +2447,7 @@ diagnostic_registry:
     quantities: {static: [pipe_position], measured: [gas_puffing_timing, duration, flow_rate, species], derived: []}
   ech:
     name: Electron cyclotron heating
+    subject: ec_launchers
     family: heating_current_drive
     category: Heating and current drive
     ids: ec_launchers
@@ -2458,6 +2464,7 @@ diagnostic_registry:
     quantities: {static: [frequency, launching_position, steering_angle, mode], measured: [forward_power, reflected_power], derived: []}
   nbi:
     name: Neutral beam injection
+    subject: nbi
     family: heating_current_drive
     category: Heating and current drive
     ids: nbi
@@ -2482,6 +2489,7 @@ diagnostic_registry:
     quantities: {static: [gun_position], measured: [injection_voltage, injection_current, arc_voltage, arc_current, limit_voltage], derived: []}
   magnetics.ip:
     name: Plasma current
+    subject: magnetics
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2497,6 +2505,7 @@ diagnostic_registry:
     quantities: {static: [], measured: [], derived: [plasma_current]}
   magnetics.flux_loop:
     name: Flux loops
+    subject: flux_loop
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2515,6 +2524,7 @@ diagnostic_registry:
   # by inventing an IDS sub-path that IMAS does not define.
   magnetics.b_field_pol_probe:
     name: Magnetic probes (Mirnov coils)
+    subject: b_field_probe
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2528,6 +2538,7 @@ diagnostic_registry:
     quantities: {static: [position, poloidal_angle, toroidal_angle], measured: [voltage], derived: [poloidal_magnetic_field, toroidal_mode_number]}
   magnetics.diamagnetic_flux:
     name: Diamagnetic flux
+    subject: magnetics
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2543,6 +2554,7 @@ diagnostic_registry:
     quantities: {static: [], measured: [], derived: [diamagnetic_flux]}
   magnetics.rogowski_coil:
     name: Rogowski coils
+    subject: rogowski_coil
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2559,6 +2571,7 @@ diagnostic_registry:
     quantities: {static: [], measured: [rogowski_current], derived: []}
   magnetics.internal_probe:
     name: Internal magnetic probes
+    subject: magnetics
     family: magnetic_diagnostics
     category: Diagnostics
     ids: magnetics
@@ -2577,6 +2590,7 @@ diagnostic_registry:
     quantities: {static: [type, position, angle], measured: [voltage], derived: [poloidal_magnetic_field, toroidal_mode_number]}
   camera_visible:
     name: FAST camera
+    subject: camera_visible
     family: imaging
     category: Diagnostics
     ids: camera_visible
@@ -2610,6 +2624,7 @@ diagnostic_registry:
     quantities: {static: [geometry_matrix, filter, lens], measured: [image, resolution, timeframe], derived: []}
   spectrometer_uv:
     name: Filterscope spectroscopy
+    subject: spectrometer_uv
     family: spectroscopy_radiation
     category: Diagnostics
     ids: spectrometer_uv
@@ -2639,6 +2654,7 @@ diagnostic_registry:
     quantities: {static: [vertical_position, surface_area], measured: [], derived: [electron_density, electron_temperature, radial_position]}
   interferometer:
     name: Interferometer
+    subject: interferometer
     family: edge_diagnostics
     category: Diagnostics
     ids: interferometer
@@ -2676,6 +2692,7 @@ diagnostic_registry:
     quantities: {static: [filter_wavelength, line_of_sight], measured: [channel_intensity], derived: [z_effective]}
   barometry.gauge:
     name: Vacuum gauges
+    subject: barometry
     family: edge_diagnostics
     category: Diagnostics
     ids: barometry
@@ -2689,6 +2706,7 @@ diagnostic_registry:
     quantities: {static: [position, gauge_type], measured: [pressure], derived: []}
   charge_exchange.ces:
     name: Charge-exchange / beam-emission spectroscopy
+    subject: charge_exchange
     family: kinetic_diagnostics
     category: Diagnostics
     ids: charge_exchange
@@ -2702,6 +2720,7 @@ diagnostic_registry:
     quantities: {static: [line_of_sight, position], measured: [intensity, ion_temperature, toroidal_velocity], derived: []}
   charge_exchange.ion_doppler:
     name: Ion Doppler spectroscopy
+    subject: charge_exchange
     family: kinetic_diagnostics
     category: Diagnostics
     ids: charge_exchange
@@ -2733,6 +2752,7 @@ diagnostic_registry:
     quantities: {static: [channel, line_of_sight, energy_band], measured: [radiance], derived: []}
   soft_x_rays:
     name: Soft X-ray detector
+    subject: soft_x_rays
     family: spectroscopy_radiation
     category: Diagnostics
     ids: soft_x_rays
@@ -2750,6 +2770,7 @@ diagnostic_registry:
     quantities: {static: [channel, line_of_sight, energy_band, filter_window], measured: [digitizer_voltage], derived: [brightness_proxy, power_proxy, electron_temperature_proxy]}
   thomson_scattering:
     name: Thomson scattering spectroscopy
+    subject: thomson_scattering
     family: kinetic_diagnostics
     category: Diagnostics
     ids: thomson_scattering
@@ -2763,6 +2784,7 @@ diagnostic_registry:
     quantities: {static: [radial_position, vertical_position, toroidal_angle], measured: [electron_density, electron_temperature], derived: []}
   wall:
     name: First wall and limiter geometry
+    subject: wall
     family: machine_models
     category: Device and model
     ids: wall
@@ -2776,6 +2798,7 @@ diagnostic_registry:
     quantities: {static: [limiter_position, material, vessel_volume], measured: [], derived: [wall_inventory, recycling_particles_coefficient, pumping_speed, particle_flux]}
   pf_passive:
     name: Passive structures
+    subject: passive_structure
     family: machine_models
     category: Device and model
     ids: pf_passive

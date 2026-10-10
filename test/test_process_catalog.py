@@ -215,7 +215,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "provenance", "machine_scope",
     "convention_sensitive", "deprecated", "conforming", "aliases", "errors",
-    "raises", "source",
+    "raises", "source", "semantics",
 }
 _CATEGORY_KEYS = {
     "name", "module", "title", "overview", "notation", "conventions",

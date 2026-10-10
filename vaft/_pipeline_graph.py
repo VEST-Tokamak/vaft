@@ -52,7 +52,7 @@ import sys
 import tempfile
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePath
 from typing import Any
 
 SCHEMA_VERSION = 1
@@ -433,6 +433,17 @@ class _Graph:
         edge["views"] = sorted(set(edge["views"]) | set(views))
 
 
+def _workspace_prefixes(workspace: PurePath) -> tuple[str, str]:
+    """The FileDB root and the dummy-variable root, spelled as the dry run spells them.
+
+    PipelinePaths renders every path with ``PurePosixPath`` (``C:/Users/...`` on
+    Windows), so the prefixes ``tidy`` strips must be POSIX too: with ``str()``
+    the Windows leg stripped nothing and every artifact kept its temporary
+    directory in its id (release gate 0.8.0).
+    """
+    return (workspace / "filedb").as_posix(), (workspace / "unused").as_posix()
+
+
 def _pipeline_graph(pipeline: DocumentationPipeline, graph: _Graph, paths_module, patterns_by_pipeline) -> dict:
     snakefile = WORKFLOW / pipeline.directory / "Snakefile"
     static, checkpoints, templates = rule_locations(snakefile)
@@ -441,8 +452,7 @@ def _pipeline_graph(pipeline: DocumentationPipeline, graph: _Graph, paths_module
         rule_dot = _dry_run(pipeline, workspace, "rulegraph")
         file_dot = _dry_run(pipeline, workspace, "filegraph")
         job_dot = _dry_run(pipeline, workspace, "dag")
-        base = str(workspace / "filedb")
-        unused = str(workspace / "unused")
+        base, unused = _workspace_prefixes(workspace)
         patterns = product_patterns(paths_module, base)
 
     def tidy(path: str) -> str:

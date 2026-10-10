@@ -509,7 +509,7 @@ def test_a_truncated_profile_or_cylindrical_output_fails_the_check(tmp_path):
 
 @pytest.mark.parametrize(
     ("module", "companion_file"),
-    [("dcon", "solutions.bin"), ("rdcon", "globalsol.bin")],
+    [("dcon", "solutions.bin"), ("rdcon", "delta.out")],
 )
 def test_a_cell_missing_only_companion_output_is_not_solved_again(
     monkeypatch, tmp_path, case, module, companion_file
@@ -517,7 +517,7 @@ def test_a_cell_missing_only_companion_output_is_not_solved_again(
     """An installation without `match`/`rmatch` must not re-solve every cell forever.
 
     The companion writes files the solver itself never will (match/ideal.f:378
-    for solutions.bin, rmatch/match.f:1372 for globalsol.bin), so judging
+    for solutions.bin, rmatch/match.f:814 for delta.out), so judging
     completeness on the full `output_patterns` makes those cells permanently
     incomplete: they are re-run on every pipeline invocation, at full solver
     cost, and produce the same directory again.
@@ -616,6 +616,80 @@ def test_required_outputs_is_derived_from_output_patterns(tmp_path):
         # A solver that chains nothing owes every file it declares.
         if not solver.companion_executables():
             assert companion == set(), module
+
+
+def _namelist_flag(text: str, key: str) -> bool:
+    """The Fortran logical ``key`` is set to in a namelist, ignoring ``!`` comments."""
+    import re
+
+    lines = [line.split("!", 1)[0] for line in text.splitlines()]
+    (value,) = [
+        match.group(1).lower()
+        for line in lines
+        if (match := re.match(rf"\s*{re.escape(key)}\s*=\s*\.?([tf])", line, re.IGNORECASE))
+    ]
+    return value == "t"
+
+
+def test_rdcon_companion_outputs_are_what_the_packaged_rmatch_path_writes():
+    """rmatch's two exits write disjoint files; expect the one VAFT selects.
+
+    Under ``coil%rpec_flag`` (read back from RDCON's ``deltabin``, so set in
+    ``rdcon.in``) rmatch runs ``match_rpec``, writes ``globalsol.bin`` and stops
+    (rmatch/match.f:266-272, :1463). Under ``match_flag`` ``match_solution``
+    writes ``delta.out``/``insol.bin``/``outsol_tot.bin`` (match.f:814, :750,
+    :715) and never ``globalsol.bin``. Expecting the RPEC file on the
+    ``match_flag`` path reported every successful RDCON+RMATCH cell as missing
+    a companion output -- and, with ``rmatch`` installed, re-solved it on every
+    call. If the packaged namelists ever switch to RPEC this fails, and
+    ``companion_outputs`` must switch to ``RMATCH_RPEC_OUTPUTS`` with them.
+    """
+    from vaft.data.resources import data_path
+
+    solvers = gpec._solvers
+    rdcon_in = data_path("gpec/rdcon.in").read_text(encoding="utf-8")
+    rmatch_in = data_path("gpec/rmatch.in").read_text(encoding="utf-8")
+    assert not _namelist_flag(rdcon_in, "coil%rpec_flag")
+    assert _namelist_flag(rmatch_in, "match_flag")
+
+    rdcon = solvers.SOLVERS["rdcon"]
+    assert rdcon.companion_outputs(1) == solvers.RMATCH_MATCH_OUTPUTS
+    assert "delta.out" in rdcon.companion_outputs(1)
+    assert "globalsol.bin" not in rdcon.output_patterns(1)
+    assert not set(solvers.RMATCH_MATCH_OUTPUTS) & set(solvers.RMATCH_RPEC_OUTPUTS)
+
+
+def test_a_successful_rmatch_completes_an_rdcon_cell(monkeypatch, tmp_path, case):
+    """A cell holding rmatch's match_flag outputs is finished, with nothing missing.
+
+    Before, the expected ``globalsol.bin`` never appeared on this path, so even
+    a fully successful cell reported it missing and -- ``rmatch`` being
+    installed -- was solved again. The stubs exit 99, so reaching either one
+    fails the test.
+    """
+    solver = gpec._solvers.SOLVERS["rdcon"]
+    write_launchable_stub(tmp_path / "gpec/bin/rdcon", exit_code=99)
+    write_launchable_stub(tmp_path / "gpec/bin/rmatch", exit_code=99)
+    monkeypatch.setenv(gpec.GPEC_HOME_ENV, str(tmp_path / "gpec"))
+
+    run_dir = case.workdir / "00325" / "rdcon" / "nn=1"
+    run_dir.mkdir(parents=True)
+    # RDCON's own files plus exactly what match_solution leaves -- spelled out
+    # rather than taken from the solver, which is the thing under test.
+    rmatch_wrote = ("delta.out", "insol.bin", "outsol_tot.bin")
+    for filename in (*gpec._solvers.required_outputs(solver, 1), *rmatch_wrote):
+        (run_dir / filename).write_text("existing", encoding="utf-8")
+
+    result = gpec.run_gpec_suite_case(
+        case,
+        gpec.GPECSuiteConfig(modules=("rdcon",), modes=(1,), run_mode="auto"),
+    )
+
+    (record,) = result.records
+    assert record.status == "completed"
+    assert record.commands == ()
+    assert record.missing_optional_outputs == ()
+    assert {path.name for path in record.outputs} >= set(rmatch_wrote)
 
 
 def test_a_netcdf_whose_variable_holds_no_finite_value_is_not_success(tmp_path):
@@ -1035,6 +1109,34 @@ def test_a_memory_stop_is_not_reported_as_a_timeout(monkeypatch, tmp_path, case,
     assert record.status == "failed" and record.returncode is None
     assert expected in record.reason and absent not in record.reason
     assert record.reason.startswith("dcon ")
+
+
+@pytest.mark.parametrize("filename", ["dcon.exe", "dcon.cmd"])
+def test_a_limit_stop_names_the_solver_without_its_windows_launch_suffix(monkeypatch, filename):
+    """The gate's Windows leg read "dcon.cmd was stopped ..." (#1689 tests, PR #1533 stubs)."""
+    from vaft import compat
+    from vaft.code.execution import ExecutionResult
+    from vaft.code.gpec import _runtime as rt
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", True)
+    assert rt.program_name(Path("gpec") / "bin" / filename) == "dcon"
+    assert rt.program_name(Path("gpec") / "bin" / "dcon.x") == "dcon.x"
+    execution = ExecutionResult(returncode=None, timed_out=True, runtime_status="memory_limit",
+                                peak_rss_mb=100.0, elapsed_s=3.0)
+    monkeypatch.setattr(rt, "resolve_backend", lambda config: type("B", (), {"run": lambda self, request: execution})())
+    with pytest.raises(rt.GPECLimitStop) as caught:
+        rt.run_subprocess(Path("gpec") / "bin" / filename, Path("."), Path("dcon.log"),
+                          config=gpec.GPECSuiteConfig(modules=("dcon",), modes=(1,), timeout=7.0))
+    assert caught.value.reason.startswith("dcon was stopped by the memory limit")
+
+
+def test_a_limit_stop_keeps_a_posix_program_name_whole(monkeypatch):
+    from vaft import compat
+    from vaft.code.gpec import _runtime as rt
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", False)
+    assert rt.program_name(Path("gpec") / "bin" / "dcon") == "dcon"
+    assert rt.program_name(Path("gpec") / "bin" / "dcon.exe") == "dcon.exe"
 
 
 def test_find_gpec_executable_is_none_without_an_installation(no_gpec_env):

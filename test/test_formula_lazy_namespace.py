@@ -54,6 +54,7 @@ _IMPORT_ORDER = (
     "ordering",
     "fast_ion",
     "kinetic",
+    "turbulence",
 )
 
 
@@ -246,6 +247,7 @@ def test_importing_the_catalog_alone_loads_only_its_parser():
     assert _import_in_subprocess("import vaft.formula.catalog") == {
         "vaft.formula.catalog",
         "vaft.formula._docstring",
+        "vaft.formula._taxonomy",  # the Reduction vocabulary (#1626): tuples, no physics
     }
 
 

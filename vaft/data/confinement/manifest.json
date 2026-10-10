@@ -59,9 +59,11 @@
   "files": {
     "vest_39915_power_balance_series.csv": "c52471e88eb78aa0e0b2ce88e5f50a7a93e9938f36f2cf85a3c9a654d6a97854",
     "vest_42894_power_balance_series.csv": "5137f0e4ab06c52216d1789b5f989c41b317442de87b53f3e34e49c0fd47fafc",
-    "vest_tier_a_confinement.csv": "b557b71fe1b0f3bd01f389b2836b690d1c88d261b351f9b8b63ccfe848693e20"
+    "vest_tier_a_confinement.csv": "b557b71fe1b0f3bd01f389b2836b690d1c88d261b351f9b8b63ccfe848693e20",
+    "vest_39917_power_balance_series.csv": "cdc22175e6ce28e761665f5387fbe1a85be1bdc88e1012d2f270a1e4c3c55e69",
+    "vest_42962_power_balance_series.csv": "037d48d72a590b2452f87d0cd3973b79d22b1db2d504d5dc5b0a4a233c32609d"
   },
-  "series": "per-shot power balance on the labelled EFIT slices (atlas series/<shot>.csv) for 39915 (block 399xx-403xx) and 42894 (block 429xx-430xx)",
+  "series": "per-shot power balance on the labelled EFIT slices (atlas series/<shot>.csv) for 39915 (block 399xx-403xx) and 42894 (block 429xx-430xx); 39917 and 42962 are the #1905 reference regressions (reference_inputs)",
   "caveat": "429xx-430xx block (criteria v2, #1521): 2 of 80 state keys are fit-quality good; 84 % of its Thomson-matched slices are Thomson-inconsistent (48 % for 399xx-403xx); it is 1.6x denser (2.7x in the primary selection). At fixed I_p and I_p V_loop its W_mhd is x1.8 the 399xx block's; with density included the offset is +0.01 +- 0.12 (log) on Thomson-consistent state keys (only 5 of them in 429xx) and +0.37 +- 0.09 on inconsistent ones. On the primary selection the consistent offset stays (+0.61 +- 0.27, 4 slices), and the Thomson-only W_e of the inconsistent 429xx slices is low (log offset -1.3), so the disagreement is not one-sided. A block-wide magnetics-EFIT bias is not decided by Tier A. See #1490.",
   "selection": {
     "thresholds": {
@@ -70,5 +72,30 @@
       "max_ip_change_per_tau": 0.2
     },
     "status": "primary selection decided 2026-10-02 on #1490; accepted/selected apply it; the sensitivity set is fit.py SELECTIONS['sensitivity']; threshold_sweep.csv gives the count on a grid"
+  },
+  "reference_inputs": {
+    "description": "Frozen per-slice inputs of the #1905 reference regressions: the atlas series/<shot>.csv of the same 2026-10-02 build as vest_tier_a_confinement.csv (labelled magnetics EFIT slices only). test/test_confinement_power_balance.py re-derives V_ind, V_res, P_OH, dW/dt, P_net and tau_E from the ip_meas_A, dip_dt_A_s, v_loop_V, li_3 and w_mhd_J columns with vaft.process.confinement.ohmic_confinement_series.",
+    "settings": {
+      "rate_window_s": 0.003,
+      "rate_polyorder": 1,
+      "hold_li3_where_missing": true,
+      "dip_dt": "local quadratic fit over 0.001 s of the measured Ip (already applied in dip_dt_A_s)",
+      "v_loop_ip_average_s": 0.0005
+    },
+    "shots": {
+      "39917": {
+        "reference": "tau_E at 0.321 s",
+        "r0_m": 0.4,
+        "efit_product_sha256": "50e74c4ad692c8629d00211a86ba3a3cd13c01f5236fc6360db673f94d358f6e",
+        "diagnostics_sha256": "1304b95281cbb39e1feb2c0e6ef1e094d10e3f83e966d1dfb469dd5f8c892198"
+      },
+      "42962": {
+        "reference": "H_89 at 0.333 s (thomson_consistent=False: a numerical reference only)",
+        "r0_m": 0.4,
+        "efit_product_sha256": "1defd70db54322639cf04ad6725118f6a42865d38fc7a37055939085964a5b32",
+        "diagnostics_sha256": "8f9599ae37fb76c2a8e8d9a2648d46938a7ed9948a22cc8dcc8d9aee8efd7d10"
+      }
+    },
+    "r0": "vaft.omas.update.resolve_reference_major_radius of the magnetics EFIT product (verified 2026-10-11; product sha256 unchanged since the 2026-10-02 build)"
   }
 }

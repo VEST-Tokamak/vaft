@@ -403,6 +403,14 @@ def electron_collisionality_sauter(
     The prefactor bundles physical constants evaluated for the Sauter unit
     choice; it is not dimensionally reusable with temperatures in keV.
 
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: dimensionless_normalization
+    locality: flux_surface_local
+    role: regime_coordinate
+
     References
     ----------
     .. [1] O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999)
@@ -489,6 +497,14 @@ def ion_collisionality_sauter(
     Validity
     --------
     Positive $\epsilon$, as for the electron expression.
+
+    Reduction
+    ---------
+    input: profile_1d
+    output: profile_1d
+    kind: dimensionless_normalization
+    locality: flux_surface_local
+    role: regime_coordinate
 
     References
     ----------

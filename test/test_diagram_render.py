@@ -1,5 +1,6 @@
 """SVG rendering, notebook display and freshness of the committed assets (#890)."""
 
+import json
 import re
 import shutil
 import subprocess
@@ -51,10 +52,12 @@ def test_rendering_without_the_toolchain_says_what_is_missing(monkeypatch):
 
 def test_without_the_toolchain_a_canonical_diagram_is_served_from_its_committed_asset(monkeypatch):
     """The tutorials run offline with no TeX: a diagram built with the exact
-    arguments of a committed asset displays that asset, byte for byte."""
+    arguments of a committed asset displays that asset, byte for byte as the
+    renderer wrote it (its build record line is not part of the picture)."""
     monkeypatch.setattr(shutil, "which", lambda name: None)
     d = vaft.diagram.rational_surface()
-    assert d.svg == (ASSETS / "rational_surface.svg").read_text(encoding="utf-8")
+    _, body = build.read_record(ASSETS / "rational_surface.svg")
+    assert d.svg == body
 
 
 def test_without_the_toolchain_a_non_canonical_diagram_still_refuses(monkeypatch):
@@ -65,13 +68,12 @@ def test_without_the_toolchain_a_non_canonical_diagram_still_refuses(monkeypatch
 
 
 def test_without_the_toolchain_an_edited_committed_asset_is_not_served(monkeypatch, tmp_path):
-    """The manifest's SVG hash guards the file itself: a stale or hand-edited
-    asset beside a correct manifest entry is refused, not displayed."""
-    import shutil as _shutil
-
-    for name in ("manifest.json", "rational_surface.svg"):
-        _shutil.copy(ASSETS / name, tmp_path / name)
-    (tmp_path / "rational_surface.svg").write_text("<svg>edited</svg>\n", encoding="utf-8")
+    """The record's SVG hash guards the file itself: a hand-edited body under a
+    correct build record is refused, not displayed."""
+    record, _ = build.read_record(ASSETS / "rational_surface.svg")
+    edited = _render.svg_record_line(record["call"], record["source_sha256"], record["svg_sha256"])
+    (tmp_path / "rational_surface.svg").write_text(f"<?xml version='1.0'?>\n{edited}\n<svg>edited</svg>\n",
+                                                   encoding="utf-8")
     monkeypatch.setattr(shutil, "which", lambda name: None)
     monkeypatch.setattr(_render, "committed_assets_dir", lambda: tmp_path)
     with pytest.raises(vaft.diagram.DiagramToolchainError):
@@ -157,7 +159,7 @@ def test_check_catches_a_stale_or_missing_asset(tmp_path, monkeypatch):
 
 def test_the_committed_assets_are_checked_out_with_lf_everywhere():
     out = subprocess.run(
-        ["git", "check-attr", "eol", "--", "docs/assets/diagrams/manifest.json",
+        ["git", "check-attr", "eol", "--", "docs/assets/diagrams/x_point.svg",
          "docs/assets/diagrams/magnetic_island_poloidal.svg"],
         cwd=ASSETS.parents[2], capture_output=True, text=True,
     )
@@ -191,3 +193,46 @@ def test_the_tex_pipe_is_decoded_as_utf8_with_replacement(monkeypatch, tmp_path)
     monkeypatch.setattr(_render.subprocess, "run", fake_run)
     _render._run(["latex"], tmp_path, "latex")
     assert seen["encoding"] == "utf-8" and seen["errors"] == "replace" and seen["text"] is True
+
+
+def test_every_committed_svg_carries_its_own_build_record():
+    """#1750: freshness lives in each SVG, so diagram PRs share no generated manifest."""
+    assert not (ASSETS / build.LEGACY_MANIFEST).exists()
+    for name, (builder, kwargs) in build.CANONICAL.items():
+        record, body = build.read_record(ASSETS / name)
+        assert record is not None, name
+        assert record["call"] == build._call_text(builder, kwargs)
+        assert record["svg_sha256"] == build._sha256(body.encode("utf-8")), name
+
+
+def test_the_record_round_trips_and_survives_a_double_hyphen():
+    body = "<?xml version='1.0' encoding='UTF-8'?>\n<svg>x</svg>\n"
+    text = _render.with_svg_record(body, "vaft.diagram.f(label='a--b')", "s" * 64)
+    assert "--b" not in text.split("\n")[1][len(_render.RECORD_PREFIX):-len(_render.RECORD_SUFFIX)]
+    record, back = _render.split_svg_record(text)
+    assert back == body and record["call"] == "vaft.diagram.f(label='a--b')" and record["source_sha256"] == "s" * 64
+
+
+def test_check_refuses_an_unrecorded_svg_and_a_resurrected_manifest(tmp_path):
+    _copy_assets(tmp_path)
+    name = next(iter(build.CANONICAL))
+    _, body = build.read_record(tmp_path / name)
+    (tmp_path / name).write_text(body, encoding="utf-8")  # a stale branch's pre-#1750 file
+    (tmp_path / build.LEGACY_MANIFEST).write_text("{}\n", encoding="utf-8")
+    problems = build.check(tmp_path)
+    assert f"{name}: no build record; run python -m vaft.diagram.build" in problems
+    assert any(p.startswith(f"{build.LEGACY_MANIFEST}: obsolete") for p in problems)
+
+
+def test_build_migrates_a_legacy_manifest_without_re_rendering(tmp_path, monkeypatch):
+    _copy_assets(tmp_path)
+    legacy = {}
+    for name in build.CANONICAL:
+        record, body = build.read_record(tmp_path / name)
+        (tmp_path / name).write_text(body, encoding="utf-8")
+        legacy[name] = {"source_sha256": record["source_sha256"], "svg_sha256": record["svg_sha256"]}
+    (tmp_path / build.LEGACY_MANIFEST).write_text(json.dumps({"diagrams": legacy}), encoding="utf-8")
+    monkeypatch.setattr(_render, "render_svg", lambda tikz: pytest.fail("a fresh asset was re-rendered"))
+    assert build.build(tmp_path) == []
+    assert not (tmp_path / build.LEGACY_MANIFEST).exists()
+    assert build.check(tmp_path) == []

@@ -14,10 +14,8 @@ and writes one gzipped OMAS JSON per shot plus a manifest naming its sources.
 from __future__ import annotations
 
 import argparse
-import gzip
 import hashlib
 import json
-import tempfile
 from pathlib import Path
 from typing import Sequence
 
@@ -31,7 +29,7 @@ def _sha256(path: Path) -> str:
 
 
 def compose(filedb: Path, shot: int, output: Path) -> dict:
-    from omas import save_omas_json
+    import vaft.omas
     from vaft.database.composition import compose_stage_products
     from vaft.database.filedb import FileDB
 
@@ -48,12 +46,9 @@ def compose(filedb: Path, shot: int, output: Path) -> dict:
     ods, report = compose_stage_products(diagnostics=diagnostics, eddy=eddy,
                                          eddy_manifest=manifest if manifest_present else None)
     output.mkdir(parents=True, exist_ok=True)
-    target = output / f"{shot}.json.gz"
-    with tempfile.TemporaryDirectory() as tmp:
-        staged = Path(tmp) / "product.json"
-        save_omas_json(ods, str(staged))
-        with staged.open("rb") as source, gzip.open(target, "wb") as sink:
-            sink.write(source.read())
+    # vaft.omas.save selects the encoder from the container suffix (#813), so
+    # the product cannot be plain JSON under a `.json.gz` name.
+    target = vaft.omas.save(ods, output / f"{shot}.json.gz")
     return {"shot": shot, "product": str(target), "sha256": _sha256(target),
             "diagnostics": {"path": str(diagnostics), "sha256": _sha256(diagnostics)},
             "eddy": {"path": str(eddy), "sha256": _sha256(eddy)},

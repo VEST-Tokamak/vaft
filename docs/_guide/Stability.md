@@ -194,6 +194,26 @@ recovered to 0.01. The older `vaft.formula.empirical_li_qa()` arrays are the Wes
 boundary of Fig. 6 (not Fig. 5, which is the Hugill diagram) and agree with the audit to about
 0.03. Prefer the registered entries.
 
+### Atlas population histograms
+
+The Tier A stability atlas population (#1852) is drawn as three stacked histograms, each against
+its own criterion: DCON ideal $W_t$ for $n = 1$–$6$ (unstable by sign only, $W_t < 0$; no
+$|W_t|$ band), each slice's largest RDCON/STRIDE $\Delta'$ over its rational surfaces at
+$n = 1, 2$ (unstable if $\Delta'_{\max} > 0$), and the local Mercier $\max D_I$ (unstable $> 0$)
+and ballooning $\min C_A$ (unstable $< 0$). All values are the mpsi 512 run. The QA flags are
+counted in the reader's `summary` table and do not filter the histograms.
+
+<!-- docs-snippet: skip needs-file (reads the campaign atlas tables on vestserver) -->
+```python
+from vaft.process.mhd_stability import load_stability_atlas, stability_atlas_populations
+from vaft.plot.stability_atlas import stability_atlas_population
+populations = stability_atlas_populations(*load_stability_atlas("~/runs/campaign/atlas/stability"))
+print(populations.summary)           # slices, QA and unstable counts per series
+fig, axes = stability_atlas_population(populations)
+```
+
+`notebooks/stability_atlas_population.ipynb` re-runs it from `$VAFT_ATLAS_DIR`.
+
 ---
 
 # Running the GPEC suite
@@ -396,6 +416,8 @@ which produce the refined equilibria the GPEC suite consumes — see the
 - [Physics formulas]({{ site.baseurl }}/guide/Formula/) — full signature reference for
   `vaft.formula.stability`, including the beta conversions, characteristic speeds and unit traps.
 - [Equilibrium]({{ site.baseurl }}/guide/Equilibrium/) — producing the equilibrium the codes consume.
+- [Ballooning formulations]({{ '/reference/ballooning-formulations/' | relative_url }}) — how the
+  reduced $s$–$\alpha$ model, DCON's $C_A$ and GPEC.jl's ballooning $\Delta'$ relate, and the shared normalisation.
 - [MHD mode representations across geometries]({{ '/reference/geometric-approximations/#mhd-mode-representations-across-geometries' | relative_url }})
   — how slab, cylindrical and toroidal mode families relate, and which tool sits where.
 - [Reduced stability diagnostics]({{ '/reference/reduced-stability-diagnostics/' | relative_url }}) — the

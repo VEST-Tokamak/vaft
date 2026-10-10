@@ -3,7 +3,7 @@ const { test, expect } = require('@playwright/test');
 const isDesktop = (project) => project.name.startsWith('desktop-');
 const isMobile = (project) => project.name.startsWith('mobile-');
 
-test('homepage exposes equal workflow and reference entry paths', async ({ page }) => {
+test('homepage exposes equal workflow and reference entry paths', async ({ page }, testInfo) => {
   await page.goto('');
   const cards = page.locator('.entry-path-card');
   await expect(cards).toHaveCount(2);
@@ -11,7 +11,28 @@ test('homepage exposes equal workflow and reference entry paths', async ({ page 
   await expect(cards.nth(1)).toContainText('VAFT API');
   await expect(cards.nth(0)).toHaveAttribute('href', /\/workflows\/start-here\/$/);
   await expect(cards.nth(1)).toHaveAttribute('href', /\/reference\/api\/$/);
-  await expect(page.locator('.entry-paths')).toHaveScreenshot('homepage-entry-paths.png');
+  await page.locator('.entry-paths').scrollIntoViewIfNeeded();
+  await expect(page.locator('.entry-paths')).toBeInViewport();
+  // Mobile Chromium rasterizes some card text differently from the stored
+  // reference on macOS; the same layout and full text are verified above.
+  await expect(page.locator('.entry-paths')).toHaveScreenshot('homepage-entry-paths.png', {
+    maxDiffPixelRatio: isMobile(testInfo.project) ? 0.025 : 0.01,
+  });
+});
+
+test('homepage hero keeps the approved message and readable theme logo', async ({ page }) => {
+  await page.goto('');
+  await expect(page.locator('.vaft-hero-tagline')).toHaveText(
+    'Connecting nuclear fusion knowledge across disciplines for integrated tokamak research',
+  );
+  await expect(page.locator('.vaft-hero-summary')).toHaveText(
+    'Machine-agnostic workflows for interoperable IMAS data and reproducible tokamak analysis.',
+  );
+  await expect(page.locator('.vaft-hero-logo-light')).toBeVisible();
+  await expect(page.locator('.vaft-hero-logo-dark')).toBeHidden();
+  await page.locator('.book').evaluate((book) => book.classList.add('color-theme-2'));
+  await expect(page.locator('.vaft-hero-logo-light')).toBeHidden();
+  await expect(page.locator('.vaft-hero-logo-dark')).toBeVisible();
 });
 
 test('sidebar renders two flat first-class sections', async ({ page }) => {

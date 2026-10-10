@@ -222,6 +222,42 @@ from the equilibrium (`straight_field_line_map`).
 
 ## The hierarchy in VAFT
 
+`EquilibriumData` is a single-slice, axisymmetric working model for numerical
+algorithms, not a persistence format. GEQDSK, ODS, and native IDS remain the
+storage and interchange records. A `DerivedValue` records its SI unit,
+definition, source fields, convention, method, tolerances, and quality; missing
+or ambiguous inputs produce an unavailable value with a reason. VAFT does not
+guess one COCOS index when observable signs admit several.
+
+The normalized radial coordinates are
+$\psi_N=(\psi-\psi_{axis})/(\psi_{boundary}-\psi_{axis})$,
+$\rho_{pol,N}=\sqrt{\psi_N}$, and
+$\rho_{tor,N}=\sqrt{\int q\,d\psi/\int_{boundary}q\,d\psi}$.
+A non-monotonic toroidal-flux mapping is reported, rather than repaired by
+taking absolute values. Shape descriptors use
+`major_radius=(R_out+R_in)/2`; the LCFS area centroid is recorded separately
+because it is the radius needed for Pappus's volume theorem. Poloidal-field
+calculations honor the COCOS `e_Bp` factor, so `beta_p` and `li` agree across
+Wb and Wb/rad representations.
+
+Local Miller fits report RMS, maximum, and Hausdorff contour errors. Fits near
+the separatrix (`psi_n >= 0.995`) or within `0.05a` of an X-point are flagged
+because the local form is unreliable there. The analytic Solov'ev model assumes
+axisymmetric constant-`p'` and constant-`FF'` solutions; it is an example and
+regression model rather than a general experimental equilibrium solver. Edge
+`dRsep` is the upper-minus-lower X-point flux-surface radius at the outboard
+midplane, and is reported only for diverted configurations.
+
+Boundary topology is inferred from the flux map without machine-specific
+geometry. Stationary points are classified by the Hessian determinant; a
+saddle becomes an active X-point only if its flux matches the boundary within
+a curvature- and grid-dependent window and the confined region reaches it.
+Irrelevant numerical saddles remain in `x_points` with `active=False`.
+A diverted boundary yields upper single-null, lower single-null, or
+double-null topology. A wall-contacting LCFS without an active X-point is
+limited; a clipped region, missing wall, or indeterminate boundary is
+`AMBIGUOUS` with a reason.
+
 The branches of #1201 §2, their category, and where each starts in the code. **Status** follows the
 acceptance audit posted on #1201: *met* means a public API plus a test or documentation demonstrates
 it.

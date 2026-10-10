@@ -18,7 +18,9 @@ class build_py(_build_py):
         wheel_variant = project_root / "vaft" / "data" / "wheel_samples" / "39915"
         destination = Path(self.build_lib) / "vaft" / "data" / "samples" / "39915"
         destination.mkdir(parents=True, exist_ok=True)
-        for filename in ("manifest.yaml", "omas.json.gz", "imas.nc"):
+        # The IMAS netCDF twin (imas.nc) is the same product and is
+        # repository-only since 0.8.0; only the OMAS form is swapped in.
+        for filename in ("manifest.yaml", "omas.json.gz"):
             source = wheel_variant / filename
             if not source.is_file():
                 raise FileNotFoundError(f"Missing generated wheel sample artifact: {source}")

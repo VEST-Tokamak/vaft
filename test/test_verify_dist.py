@@ -16,6 +16,7 @@ from importlib.resources import files
 from pathlib import Path
 
 import pytest
+import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "test"))
@@ -187,3 +188,93 @@ def test_no_reference_to_the_old_study_paths_remains():
         pytest.skip(out.stderr.strip())
     offenders = [line for line in out.stdout.split() if not line.startswith("vaft/validation/studies/")]
     assert offenders == [], offenders
+
+
+# ---------------------------------------------------------------------------
+# release 0.8.0: samples/39915/imas.nc is repository-only; only the OMAS form ships
+# ---------------------------------------------------------------------------
+
+IMAS_TWIN = "vaft/data/samples/39915/imas.nc"
+OMAS_SAMPLE = "vaft/data/samples/39915/omas.json.gz"
+
+
+def test_the_39915_imas_twin_is_in_no_packaging_rule():
+    """The wheel was 26.04 MiB against a 26 MiB cap with both forms of the same
+    product; the IMAS netCDF form is repository-only and the OMAS form ships."""
+    globs = _package_data_globs()
+    assert not any(fnmatch.fnmatch("data/samples/39915/imas.nc", pattern) for pattern in globs)
+    assert any(fnmatch.fnmatch("data/samples/39915/omas.json.gz", pattern) for pattern in globs)
+    includes = _manifest_includes()
+    assert not any(fnmatch.fnmatch(IMAS_TWIN, pattern) for pattern in includes)
+    assert any(fnmatch.fnmatch(OMAS_SAMPLE, pattern) for pattern in includes)
+    assert IMAS_TWIN not in verify_dist.REQUIRED_FILES
+    assert "samples/39915/imas.nc" not in verify_dist._ALLOWED_DATA_FILES
+    assert OMAS_SAMPLE in verify_dist.REQUIRED_FILES
+    # the build hook no longer swaps the twin into the build output either
+    setup_py = (ROOT / "setup.py").read_text(encoding="utf-8")
+    assert '"imas.nc"' not in setup_py
+    assert '"omas.json.gz"' in setup_py
+
+
+def test_sample_manifests_mark_the_39915_imas_twin_repository_only():
+    for root in ("samples", "wheel_samples"):
+        manifest = (ROOT / "vaft" / "data" / root / "39915" / "manifest.yaml").read_text(encoding="utf-8")
+        representations = yaml.safe_load(manifest)["representations"]
+        assert representations["omas"]["package"] == "wheel-and-sdist", root
+        assert representations["imas"]["package"] == "repository-only", root
+        assert "imas" in representations["omas"]["compatible_adapters"], root
+
+
+def test_verify_dist_refuses_a_distribution_carrying_the_39915_imas_twin(tmp_path):
+    base = verify_dist.REQUIRED_FILES
+    verify_dist._verify_distribution(_wheel_of(tmp_path, base, "no-imas-twin"))
+    with pytest.raises(ValueError, match="repository-only data.*samples/39915/imas\\.nc"):
+        verify_dist._verify_distribution(_wheel_of(tmp_path, base | {IMAS_TWIN}, "imas-twin"))
+    with pytest.raises(ValueError, match="missing required files.*omas\\.json\\.gz"):
+        verify_dist._verify_distribution(_wheel_of(tmp_path, base - {OMAS_SAMPLE}, "no-omas"))
+
+
+WHEEL_SAMPLE_HOOK_FILES = {
+    "vaft/data/wheel_samples/39915/manifest.yaml",
+    "vaft/data/wheel_samples/39915/omas.json.gz",
+}
+WHEEL_SAMPLE_IMAS_TWIN = "vaft/data/wheel_samples/39915/imas.nc"
+
+
+def _sdist_of(tmp_path: Path, names: set[str], tag: str) -> Path:
+    import io
+    import tarfile
+
+    path = tmp_path / f"vaft-0.0-{tag}.tar.gz"
+    with tarfile.open(path, "w:gz") as archive:
+        for name in sorted(names):
+            info = tarfile.TarInfo(f"vaft-0.0/{name}")
+            info.size = 1
+            archive.addfile(info, io.BytesIO(b"x"))
+    return path
+
+
+def test_the_sdist_carries_only_the_wheel_sample_files_the_build_hook_reads(tmp_path):
+    """The compact 39915 variant exists for setup.py's build_py hook, which
+    reads manifest.yaml and omas.json.gz from wheel_samples/; its imas.nc was
+    9.5 MiB of sdist that nothing reads once the hook stops copying it."""
+    includes = _manifest_includes()
+    for name in WHEEL_SAMPLE_HOOK_FILES:
+        assert any(fnmatch.fnmatch(name, pattern) for pattern in includes), name
+    assert not any(fnmatch.fnmatch(WHEEL_SAMPLE_IMAS_TWIN, pattern) for pattern in includes)
+    assert {name.removeprefix("vaft/data/") for name in WHEEL_SAMPLE_HOOK_FILES} == verify_dist._SDIST_ONLY_DATA_FILES
+    # nothing under vaft/data/wheel_samples/ is package data for the wheel
+    assert not any("wheel_samples" in pattern for pattern in _package_data_globs())
+
+    base = verify_dist.REQUIRED_FILES
+    verify_dist._verify_distribution(_sdist_of(tmp_path, base | WHEEL_SAMPLE_HOOK_FILES, "hook-files"))
+    with pytest.raises(ValueError, match="repository-only data.*wheel_samples/39915/imas\\.nc"):
+        verify_dist._verify_distribution(
+            _sdist_of(tmp_path, base | WHEEL_SAMPLE_HOOK_FILES | {WHEEL_SAMPLE_IMAS_TWIN}, "imas-twin")
+        )
+    with pytest.raises(ValueError, match="missing the compact sample the build hook reads"):
+        verify_dist._verify_distribution(_sdist_of(tmp_path, base, "no-hook-files"))
+    # and no wheel_samples/ path ships in the wheel at all
+    for name in sorted(WHEEL_SAMPLE_HOOK_FILES | {WHEEL_SAMPLE_IMAS_TWIN}):
+        with pytest.raises(ValueError, match="wheel_samples"):
+            verify_dist._verify_distribution(_wheel_of(tmp_path, base | {name}, Path(name).stem))

@@ -28,10 +28,14 @@ What the graph deliberately does **not** say:
 - No edge is a verdict. A cross-layer import or an import cycle is a fact to inspect, and many are
   legitimate; which boundaries VAFT intends is the conceptual question of
   [Computational layers]({{ site.baseurl }}/reference/computational-layers/) and of scientific ownership (#1645).
+  [Scientific architecture]({{ site.baseurl }}/reference/scientific-architecture/) says how this observed view
+  relates to the normative one and to production lineage.
 - External scientific codes (EFIT, CHEASE, GPEC, ...) are executables VAFT invokes, not Python
   imports, so they never appear here. How the production pipelines run them, and what flows between
   their stages, is the [pipeline lineage explorer]({{ site.baseurl }}/reference/pipeline-graph/). *External packages* are third-party top-level import names;
   the standard library is left out.
+- Scientific meaning is a third, separate graph: the
+  [scientific ontology explorer]({{ site.baseurl }}/reference/ontology/).
 
 Layers are the package hierarchy and nothing more: `vaft.<layer>.*` belongs to `<layer>`, and the
 private packages and modules directly under `vaft` are `other`. Public objects, their summaries

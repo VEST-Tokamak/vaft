@@ -8,7 +8,7 @@ import numpy as np
 
 from ..models import Spectrogram
 from . import require_plotly
-from ._style import plain_axis_label
+from ._style import plain_axis_label, translate_style
 from .fields import colorscale
 
 __all__ = ["add_spectrogram", "render_spectrogram"]
@@ -47,6 +47,14 @@ def add_spectrogram(
             x=np.asarray(model.ridge_time), y=np.asarray(model.ridge_frequency), mode="lines",
             name=model.ridge_label or "tracked ridge", connectgaps=False,
             meta={"vaft": "spectrogram_ridge"},
+        ), **cell)
+    for track in model.tracks:
+        # Predicted tracks (issue #460); NaN samples stay gaps.
+        figure.add_trace(go.Scatter(
+            x=np.asarray(track.time), y=np.asarray(track.frequency), name=track.label,
+            connectgaps=False, legendgrouptitle={"text": model.tracks_title} if model.tracks_title else None,
+            legendgroup="spectrogram_tracks", meta={"vaft": "spectrogram_track"},
+            **translate_style(track.style),
         ), **cell)
     figure.update_xaxes(title_text=model.x_label if x_title else None, **cell)
     figure.update_yaxes(title_text=model.y_label,

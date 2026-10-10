@@ -2427,9 +2427,9 @@ def time_virial_equilibrium_quantities(ods, figsize=(8, 10)):
             if 'global_quantities.volume' in eq_ts else np.nan
         )
         if p_vol_avg_cp is not None and i < len(p_vol_avg_cp) and not np.isnan(p_vol_avg_cp[i]) and np.isfinite(volume):
-            W_th_cp[k] = p_vol_avg_cp[i] * (3.0 / 2.0) * volume
+            W_th_cp[k] = thermal_energy_from_p_V(p_vol_avg_cp[i], volume)
         if p_vol_avg_eq is not None and i < len(p_vol_avg_eq) and not np.isnan(p_vol_avg_eq[i]) and np.isfinite(volume):
-            W_th_eq[k] = p_vol_avg_eq[i] * (3.0 / 2.0) * volume
+            W_th_eq[k] = thermal_energy_from_p_V(p_vol_avg_eq[i], volume)
 
     fig, axes = plt.subplots(8, 1, figsize=(figsize[0], figsize[1]), sharex=True)
 

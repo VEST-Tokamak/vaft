@@ -6,7 +6,7 @@ category: guide
 layout: post
 permalink: /reference/plasma-models/
 guide:
-  architecture: What physical model each VAFT backend mode represents, from an audit of upstream sources and primary literature (issue #1725, under #1723).
+  architecture: "What physical model each VAFT backend mode represents, from an audit of upstream sources and primary literature (issue #1725, under #1723)."
   prerequisites: The Computational layers page, for where a computation lives in VAFT; this page says what physics it represents.
   expected: Which equations a mode solves, which ordering it assumes, what "kinetic" means in each VAFT name, and which classifications are still open.
 ---
@@ -526,9 +526,108 @@ the model, so it stays separate.
 whose physics is not documented.
 
 **Backend gaps this audit found, for Phase C:**
-- **GPEC (#1734).** VAFT exposes no DCON kinetic options. Its `mhd_linear` provenance does not record `kin_flag`,
-  `con_flag` or the `pentrc.in` settings, so a kinetic run would be indistinguishable from an ideal one.
+- **GPEC (#1734), resolved.** Every GPEC-suite run now records its formalism from the prepared `dcon.in` /
+  `pentrc.in` / `gpec.in` (see "GPEC suite" in §11), so a kinetic run is distinguishable from an ideal one.
 - **GACODE (#1735):**
   - `cgyro.formalism()` hard-codes values that `extra_parameters` can contradict (`AE_FLAG`, `EQUILIBRIUM_MODEL`,
     `GLOBAL_FLAG`), and it omits the collision model and the zeroed rotation;
   - NEO's `equilibrium_model=0` silently means s-α if `profile_model=1` is ever used.
+
+## 11. The implemented record (#1727)
+
+Phase B encodes the vocabulary of §10 as `vaft.code.formalism.PlasmaFormalism`. It is an immutable record with
+controlled values and is not a model class:
+
+<!-- docs-snippet: skip fragment (`config` is the caller's CGYRO run configuration, which the page never builds; shows the call shape) -->
+```python
+from vaft.code.gacode import cgyro
+cgyro.plasma_formalism(config).as_dict()   # versioned, JSON-ready
+```
+
+**What the record enforces:**
+- `None` means not applicable and `"unknown"` means undocumented. The two required fields can be neither.
+- Only generically impossible combinations are refused:
+  - **fluid:** a kinetic equation, or no fluid model;
+  - **kinetic:** a fluid model, no kinetic equation, or the test-species `fokker_planck` equation;
+  - **hybrid:** missing a fluid model, a kinetic equation or a coupling;
+  - **particle:** a fluid model, an equation other than `fokker_planck`, or no orbit representation;
+  - **reduced:** a kinetic equation or a fluid model, since its parent theory goes in `derived_from`;
+  - **any bulk description:**
+    - `derived_from` outside a reduced model;
+    - a coupling outside hybrid and particle formulations;
+    - a drift-kinetic or gyrokinetic equation with full orbits (both remove the gyro-phase);
+    - a distribution formulation without a kinetic equation;
+    - an orbit representation or a population where neither has meaning.
+- There is no field for "kinetic profiles were used": that is a property of the inputs.
+- Solver-specific physics goes in `extensions`. These are JSON values only, copied and frozen on construction, so the
+  record pickles, deep-copies and round-trips through `to_json()` unchanged.
+- **Mixed modes.** A mode that switches representation mid-run records its dominant representation, with the
+  switch in `extensions`. Examples: ASCOT5 `SIM_MODE=3`, guiding centre then full orbit near the wall; NUBEAM's
+  guiding centre plus FLR sampling.
+
+**Where the implemented names differ from the §10 proposal:**
+- `fokker_planck` (proposed as `fokker_planck_test_particle`) and `guiding_center` (proposed as `guiding_centre`).
+- New values: `gyrocenter` (the gyrokinetic orbit representation); `mhd_displacement` and `prescribed` field models;
+  `time_dependent`; and the `equilibrium` operation.
+- `reduced_mhd` is **not** a fluid model: it is an ordering on one (§2.1).
+- `numerical_representation` (continuum vs PIC) is deliberately not a common axis. It changes no physics, so it
+  stays in `extensions`.
+- `SCHEMA_VERSION` changes with any field or vocabulary change, and `from_dict` reads only its own version.
+
+**IMAS.** The record is not mapped to an IMAS field. No standard location for it has been identified (#1727 §12), so
+VAFT run provenance stays authoritative. CGYRO runs store the record as `provenance["plasma_formalism"]`, beside
+the #1353 `provenance["formalism"]` that the `gyrokinetics_local` mapping already writes.
+
+| theory concept (§2) | field | example backend mode |
+| --- | --- | --- |
+| ideal / resistive MHD | `bulk_description="fluid"`, `fluid_model` | DCON ideal; RDCON + RMATCH |
+| MHD + drift-kinetic response | `"hybrid"`, `kinetic_equation="drift_kinetic"`, `kinetic_coupling="energy"`, `orbit_representation="bounce_averaged"` | DCON `kin_flag=t` |
+| kinetic closure on a given displacement | `"hybrid"`, `kinetic_coupling="closure"` | PENTRC on a GPEC ξ |
+| standalone drift kinetics | `"kinetic"`, `"drift_kinetic"` | NEO |
+| local δf gyrokinetics | `"kinetic"`, `"gyrokinetic"`, `spatial_domain="local"`, `distribution_formulation="delta_f"` | CGYRO |
+| gyrokinetic-derived reduced model | `"reduced"`, `derived_from="gyrokinetic"`, `regime="quasilinear"` | TGLF, TGLF-NN |
+| test particles | `"particle"`, `kinetic_equation="fokker_planck"` or `None`, `orbit_representation` | ASCOT5, NUBEAM; SIMPLE (no equation) |
+
+**CGYRO is the reference integration.**
+- `cgyro.plasma_formalism(config)` builds the shared record.
+- The existing #1353 record, `cgyro.formalism()`, is now read from it, with unchanged keys and values. The two cannot
+  disagree.
+- CGYRO's own detail stays in `extensions`: the `em-aperp` / `em-aperp-bpar` split, the continuum representation,
+  Miller geometry and gyrokinetic electrons.
+
+**Deferred to Phase C.**
+- **GPEC suite (#1734):** done -- see below.
+- **GACODE (#1735):**
+  - derive NEO and TGLF records;
+  - read `AE_FLAG`, `EQUILIBRIUM_MODEL`, `GLOBAL_FLAG` and the collision model back from `input.cgyro.gen`, instead
+    of trusting the configuration object.
+- **NUBEAM and ASCOT5:** no Phase C issue yet.
+
+**GPEC suite (#1734).** `vaft.code.gpec` resolves a record for every DCON, RDCON, STRIDE, ideal-GPEC and PENTRC run
+from the namelists the cell was prepared with (upstream defaults where a key is absent), stores it on
+`GPECModuleRun.plasma_formalism` (the versioned `as_dict()`, so run manifests carry it) and inside each `mhd_linear`
+fragment as `<plasma_formalism>`, read back by `extract_dcon_stability` / `extract_rdcon_stability`. The physics
+map -- a classification, not the software dependency graph:
+
+```text
+GPEC software suite
+|
++-- DCON      kin_flag=f  ideal_stability       fluid  / ideal_mhd                       static
+|             kin_flag=t  ideal_stability       hybrid / drift_kinetic, coupling energy, bounce_averaged, delta_f
+|                                               populations from ion_flag / electron_flag (never "all")
++-- RDCON                 resistive_stability   fluid  / resistive_mhd when RMATCH solved the inner layer
+|                                               (match_flag writes delta.out), else ideal_mhd (outer region);
+|                                               an RPEC run (globalsol.bin) is perturbed_equilibrium; Te/ne ->
+|                                               Spitzer eta stays an extension, never a kinetic equation
++-- STRIDE                resistive_stability   fluid  / ideal_mhd (outer-region Delta-prime, no eta)
++-- GPEC                  perturbed_equilibrium fluid or hybrid, inherited from the DCON run it reads
+|                                               (singthresh_* layer models stay auxiliary, in extensions)
+`-- PENTRC                toroidal_torque       hybrid / drift_kinetic, coupling closure on the GPEC xi,
+                                                one species per run; methods, nutype, f0type in extensions
+```
+
+A run whose governing namelist is absent, or whose physics flag cannot be read, gets **no** record rather than
+the upstream defaults. MATCH and RMATCH get no record of their own: they are numerical stages of the DCON and RDCON calculations they
+complete, recorded in those runs' extensions. No named kinetic limit (Kruskal-Oberman, ...) is recorded from
+`kin_flag` alone.
+

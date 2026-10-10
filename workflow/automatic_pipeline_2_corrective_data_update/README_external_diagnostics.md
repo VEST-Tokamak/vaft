@@ -218,6 +218,15 @@ reason. They are data properties, not tooling faults:
 - **85 camera shots** have no non-dark frames at all: the camera was armed but
   recorded nothing visible.
 
+Camera frame selection compares each frame with the shot's own dark level, not
+with a fixed 35 DN. The convention is in the data access guide
+(`docs/_guide/Machine_mapping.md`, "camera_visible"). Re-exported frames sit
+about 20 DN brighter, and the fixed level kept whole recordings. Products built
+under the fixed level read `fixed-v1` in their comment.
+`audit_camera_visible_frames.py` lists which products disagree with the
+current rule. It also lists the cross-checks: HSDS, replication and the plasma
+current window.
+
 Coverage is thinner than the raw frame counts suggest, in both diagnostics.
 Dark-frame rejection keeps a median of 41 frames per camera shot, and 179 of
 the 200 soft X-ray shots were recorded on one digitizer rather than two, so

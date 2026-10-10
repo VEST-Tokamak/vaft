@@ -51,8 +51,12 @@ from vaft.plot.style import UNCERTAINTY_MODES, VALIDITY_MODES
 
 from .recipes import (
     entry_supports,
+    MODE_OVERLAY_MODEL,
+    MODE_OVERLAY_OPTIONS,
+    MODE_OVERLAY_PLOTS,
     RATIONAL_SURFACE_OPTIONS,
     RATIONAL_SURFACE_PLOTS,
+    mode_overlay_reads,
     rational_surface_reads,
     CAMERA_OVERLAYS,
     ChannelProfileRecipe,
@@ -316,6 +320,17 @@ def _declare(record: PlotCapability) -> PlotCapability:
             "rational_surfaces": {
                 "options": RATIONAL_SURFACE_OPTIONS,
                 "reads": rational_surface_reads(record.name),
+            },
+        }
+    if record.name in MODE_OVERLAY_PLOTS:
+        # Predicted mode-frequency tracks on request (issue #460); the base
+        # spectrogram needs none of their inputs.
+        updates["annotations"] = {
+            **updates.get("annotations", {}),
+            "mode_overlay": {
+                "options": MODE_OVERLAY_OPTIONS,
+                "model": MODE_OVERLAY_MODEL,
+                "reads": mode_overlay_reads(record.name),
             },
         }
     unit = getattr(recipe, "y_unit", None)

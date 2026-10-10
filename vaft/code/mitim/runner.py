@@ -16,6 +16,7 @@ from importlib import resources
 from pathlib import Path
 from typing import Any, Mapping, Optional
 
+from ... import compat
 from ..execution import ExecutionRequest, resolve_backend, timeout_reason
 from .availability import MITIMAvailability, mitim_availability
 from .config import MITIMConfig, MITIMResult, mitim_user_config
@@ -56,7 +57,31 @@ def _environment(config: MITIMConfig, config_path: Path) -> dict[str, str]:
     environment.pop("PYTHONHOME", None)
     environment.update({str(k): str(v) for k, v in config.env.items()
                         if k not in ("PYTHONPATH", "PYTHONHOME")})
+    if compat.IS_WINDOWS:
+        # No ``env -u`` on Windows (see _command): an empty value is how the
+        # caller's variable is taken away there. CPython ignores an empty
+        # PYTHONPATH/PYTHONHOME exactly as it ignores an unset one.
+        environment["PYTHONPATH"] = _interpreter_pythonpath(config) or ""
+        environment["PYTHONHOME"] = str(config.env.get("PYTHONHOME", ""))
     return environment
+
+
+def _interpreter_pythonpath(config: MITIMConfig) -> str:
+    """The PYTHONPATH the MITIM interpreter gets: the caller's explicit value, else GACODE's.
+
+    GACODE's own launchers parse their inputs with pygacode, and VAFT's GACODE
+    environment puts $GACODE_ROOT/f2py on PYTHONPATH for exactly that; without it
+    the launcher's parse step fails silently and NEO writes no flux files (tdst,
+    2026-10-06). Those entries are GACODE's, not the caller's, so they stay.
+    """
+    if "PYTHONPATH" in config.env:
+        return str(config.env["PYTHONPATH"])
+    from ..gacode._runtime import gacode_home
+
+    home = gacode_home(config.gacode)
+    if home is None:
+        return ""
+    return os.pathsep.join([str(home / "f2py"), str(home / "f2py" / "pygacode")])
 
 
 def _command(config: MITIMConfig, python: str, *arguments: str) -> tuple[str, ...]:
@@ -66,19 +91,16 @@ def _command(config: MITIMConfig, python: str, *arguments: str) -> tuple[str, ..
     cannot remove a variable, and a VAFT interpreter's PYTHONPATH (a worktree, a
     3.14 site-packages) would put wrong-version packages ahead of MITIM's. ``env -u``
     removes them; a value the caller set in ``config.env`` is passed explicitly.
-    """
-    explicit = [f"{key}={config.env[key]}" for key in ("PYTHONPATH", "PYTHONHOME") if key in config.env]
-    if "PYTHONPATH" not in config.env:
-        # GACODE's own launchers parse their inputs with pygacode, and VAFT's GACODE
-        # environment puts $GACODE_ROOT/f2py on PYTHONPATH for exactly that; without it
-        # the launcher's parse step fails silently and NEO writes no flux files (tdst,
-        # 2026-10-06). Those entries are GACODE's, not the caller's, so they stay.
-        from ..gacode._runtime import gacode_home
 
-        home = gacode_home(config.gacode)
-        if home is not None:
-            explicit.append("PYTHONPATH=" + os.pathsep.join(
-                [str(home / "f2py"), str(home / "f2py" / "pygacode")]))
+    Windows has no ``env``, so there the interpreter is launched directly and
+    :func:`_environment` carries the same values (empty for "removed") instead.
+    """
+    if compat.IS_WINDOWS:
+        return (python, *arguments)
+    explicit = [f"PYTHONHOME={config.env['PYTHONHOME']}"] if "PYTHONHOME" in config.env else []
+    pythonpath = _interpreter_pythonpath(config)
+    if pythonpath:
+        explicit.append(f"PYTHONPATH={pythonpath}")
     return ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME", *explicit, python, *arguments)
 
 

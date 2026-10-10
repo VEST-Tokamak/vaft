@@ -113,3 +113,5 @@ The snapshot records the SHA-256 of every `vaft/formula/*.py` source file; docum
 validation compares them when `VAFT_REGISTRY_SOURCE` points to the corresponding source checkout.
 The same text is available offline as `vaft.formula.describe("<name>")`,
 `vaft.formula.search("<text>")` and `vaft.formula.list_formulas(category="<category>")`.
+
+What these objects mean scientifically -- which concept a plot draws, which diagnostic measures it, which Data Dictionary path represents it -- is generated in the [scientific ontology explorer]({{ site.baseurl }}/reference/ontology/).

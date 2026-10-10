@@ -73,6 +73,27 @@ def site(tmp_path_factory):
     # Source links are pinned to the generating commit (#1069), as docs/build.py records it.
     commit = subprocess.run(["git", "rev-parse", "HEAD"], cwd=str(ROOT), check=True,
                             capture_output=True, text=True).stdout.strip()
+    # The copied docs may carry a provenance receipt from an earlier local
+    # build.  This fixture generates fresh catalogs, so give the test site the
+    # matching receipt just as docs/build.py does for a real track build.  The
+    # receipt is gitignored, so a fresh checkout has none: write one then.
+    receipt = source / "_data" / "provenance.yml"
+    if receipt.is_file():
+        provenance = yaml.safe_load(receipt.read_text(encoding="utf-8"))
+    else:
+        import vaft
+
+        provenance = {
+            "schema_version": 1,
+            "track": "test",
+            "ref": "test",
+            "commit_date": "",
+            "vaft_version": vaft.__version__,
+            "generated_at": "",
+        }
+    provenance["commit"] = commit
+    provenance["short_commit"] = commit[:7]
+    receipt.write_text(yaml.safe_dump(provenance, sort_keys=False), encoding="utf-8")
     for generator in generators:
         subprocess.run(
             [sys.executable, "-m", generator["module"], "--output", str(source / generator["output"]),
@@ -193,8 +214,8 @@ def test_no_tooling_is_published(site):
      "diagram hugill is in the catalog but not rendered on /vaft/develop/reference/diagram/"),
     ("reference/formula/stability/index.html", "greenwald_density",
      "formula greenwald_density is in the catalog but not rendered on /vaft/develop/reference/formula/stability/"),
-    ("reference/api/code/index.html", "vaft.code.efit.run_efit",
-     "api vaft.code.efit.run_efit is in the catalog but not rendered on /vaft/develop/reference/api/code/"),
+    ("reference/api/code/index.html", "vaft.code.efit.magnetic.run_efit",
+     "api vaft.code.efit.magnetic.run_efit is in the catalog but not rendered on /vaft/develop/reference/api/code/"),
 ])
 def test_a_catalog_entry_missing_from_its_rendered_page_is_caught(site, tmp_path, page, entry, message):
     """validate_docs.rb reads the built HTML, so a page that drops an entry fails the build."""

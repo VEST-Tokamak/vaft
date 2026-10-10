@@ -792,7 +792,16 @@ def markdown(payload: Mapping[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
+def plots(payload: Mapping[str, Any], output: Path, *, fmt: str = "screen", theme: str | None = None) -> list[str]:
+    """The study PNGs at a :mod:`vaft.plot.presentation` format (``legacy``: the pre-format sizes)."""
+    from vaft.plot.presentation import Presentation, resolve_presentation
+
+    pres = resolve_presentation(fmt, theme) or Presentation(None, None)
+    with pres.context():
+        return _plots(payload, output, pres)
+
+
+def _plots(payload: Mapping[str, Any], output: Path, pres: Any) -> list[str]:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -807,7 +816,7 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
             if item.get("constraint_audit")
         ]
         times = np.asarray([item["time_ms"] for item in rows])
-        fig, axes = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+        fig, axes = plt.subplots(2, 1, figsize=pres.grid_figsize(2, 1, aspect=0.4, fallback=(10, 8)), sharex=True)
         ax = axes[0]
         bottom = np.zeros(times.size)
         by_family = {}
@@ -830,7 +839,7 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
             bottom += values
         ax.set_yscale("log")
         ax.set_ylabel("family chi²")
-        ax.legend(ncol=3, fontsize=8)
+        ax.legend(ncol=3, fontsize="small")
         ax.set_title(f"Shot {shot}: stacked objective contributions")
         for family in FAMILIES:
             if family != "plasma_current":
@@ -843,7 +852,7 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
         axes[1].set_yscale("log")
         axes[1].set_xlabel("time [ms]")
         axes[1].set_ylabel("non-Ip family chi²")
-        axes[1].legend(ncol=2, fontsize=8)
+        axes[1].legend(ncol=2, fontsize="small")
         path = output / f"shot_{shot}_chi2_contributions.png"
         fig.tight_layout()
         fig.savefig(path, dpi=160)
@@ -857,7 +866,7 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
         for item in block["variants"][BASELINE]["run"]["slices"]
         if item.get("constraint_audit") and item["phase"] in PLASMA_PHASES
     ]
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+    fig, axes = plt.subplots(1, 2, figsize=pres.grid_figsize(1, 2, aspect=0.82, fallback=(11, 4.5)))
     residual_data, weight_data, labels = [], [], []
     for family in FAMILIES:
         residuals, weights = [], []
@@ -869,13 +878,17 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
             )
         residual_data.append(np.maximum(residuals, 1e-30))
         weight_data.append(np.maximum(weights, 1e-30))
-        labels.append(family.replace("_", "\n"))
+        labels.append(family.replace("_", " "))
     axes[0].boxplot(residual_data, tick_labels=labels, showfliers=False)
     axes[0].set_yscale("log")
     axes[0].set_ylabel("|physical residual|")
     axes[1].boxplot(weight_data, tick_labels=labels, showfliers=False)
     axes[1].set_yscale("log")
     axes[1].set_ylabel("processed m-file weight")
+    for ax in axes:  # five family names do not fit side by side in half a format width
+        ax.tick_params(axis="x", labelrotation=30)
+        for label in ax.get_xticklabels():
+            label.set_horizontalalignment("right")
     path = output / "residual_and_weight_distributions.png"
     fig.tight_layout()
     fig.savefig(path, dpi=160)
@@ -895,7 +908,8 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
                 abs(item["acceptance_change_percentage_points"]) / 10,
             ]
         )
-    fig, ax = plt.subplots(figsize=(8, max(3, 0.55 * len(ablations))))
+    height = max(3, 0.55 * len(ablations))  # one bar row per ablation
+    fig, ax = plt.subplots(figsize=pres.grid_figsize(aspect=height / 8, fallback=(8, height)))
     if heat:
         image = ax.imshow(heat, aspect="auto", cmap="magma")
         ax.set_xticks(
@@ -912,7 +926,7 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
     plt.close(fig)
     created.append(path.name)
 
-    fig, ax = plt.subplots(figsize=(9, 5))
+    fig, ax = plt.subplots(figsize=pres.grid_figsize(aspect=5 / 9, fallback=(9, 5)))
     for shot, shot_block in payload["shots"].items():
         records = [
             item
@@ -941,14 +955,14 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
     ax.set_yscale("log")
     ax.set_xlabel("time [ms]")
     ax.set_ylabel("chipasma")
-    ax.legend(fontsize=8, ncol=2)
+    ax.legend(fontsize="small", ncol=2)
     path = output / "ip_vcurrt_accounting.png"
     fig.tight_layout()
     fig.savefig(path, dpi=160)
     plt.close(fig)
     created.append(path.name)
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+    fig, axes = plt.subplots(1, 2, figsize=pres.grid_figsize(1, 2, aspect=0.82, fallback=(11, 4.5)))
     if rows:
         middle = rows[len(rows) // 2]["constraint_audit"]
         pf = middle["families"]["pf_current"]
@@ -981,7 +995,7 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
     plt.close(fig)
     created.append(path.name)
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+    fig, axes = plt.subplots(1, 2, figsize=pres.grid_figsize(1, 2, aspect=0.82, fallback=(11, 4.5)))
     for shot, shot_block in payload["shots"].items():
         scales = []
         produced = []
@@ -1014,11 +1028,11 @@ def plots(payload: Mapping[str, Any], output: Path) -> list[str]:
     axes[0].axhline(0.0, color="black", linewidth=0.6)
     axes[0].set_xlabel("diamagnetic objective scale")
     axes[0].set_ylabel("count or percentage points")
-    axes[0].legend(fontsize=8)
+    axes[0].legend(fontsize="small")
     axes[1].set_yscale("log")
     axes[1].set_xlabel("diamagnetic objective scale")
-    axes[1].set_ylabel("median common-slice LCFS shift [mm]")
-    axes[1].legend(fontsize=8)
+    axes[1].set_ylabel("median LCFS shift [mm]\n(common slices)")
+    axes[1].legend(fontsize="small")
     path = output / "diamagnetic_strength_sweep.png"
     fig.tight_layout()
     fig.savefig(path, dpi=160)
@@ -1040,6 +1054,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--efit-home", default=None)
     parser.add_argument("--tstep", type=float, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
+    parser.add_argument("--format", default="screen", help="vaft.plot presentation format of the plots, or 'legacy'")
+    parser.add_argument("--theme", default=None, help="vaft.plot presentation theme of the plots")
     args = parser.parse_args(argv)
     if args.efit_home:
         os.environ["EFITHOME"] = str(Path(args.efit_home).expanduser())
@@ -1173,7 +1189,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             json.dumps(payload, indent=1, sort_keys=True, allow_nan=False) + "\n",
             encoding="utf-8",
         )
-    payload["plots"] = plots(payload, output)
+    payload["plots"] = plots(payload, output, fmt=args.format, theme=args.theme)
     (output / "constraint_information.json").write_text(
         json.dumps(payload, indent=1, sort_keys=True, allow_nan=False) + "\n",
         encoding="utf-8",

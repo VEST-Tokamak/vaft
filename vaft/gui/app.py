@@ -16,6 +16,7 @@ import warnings
 from collections.abc import Callable, Sequence
 from typing import Any
 
+from ._brand import FAVICON_URL, LOGO_DATA_URI
 from ._require import require_panel
 from .catalog_view import describe, group_options, matching_names
 from .composer import CompositionEditor
@@ -881,6 +882,7 @@ class BrowserApp:
         pn = require_panel()
         return pn.template.FastListTemplate(
             title="VAFT", sidebar=self.sidebar(), main=self.main(), sidebar_width=360,
+            logo=LOGO_DATA_URI, favicon=FAVICON_URL, header_background="#0b1a2e",
         )
 
     def close(self) -> None:

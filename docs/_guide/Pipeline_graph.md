@@ -18,7 +18,8 @@ related:
 This page shows **what the implemented production pipelines actually do**, generated from the
 documented commit
 {% if g.provenance.commit %}(<a href="https://github.com/VEST-Tokamak/vaft/tree/{{ g.provenance.commit }}"><code>{{ g.provenance.commit | slice: 0, 7 }}</code></a>){% endif %}.
-It complements the conceptual workflow diagrams and the
+It is the production-lineage view of the
+[Scientific architecture]({{ site.baseurl }}/reference/scientific-architecture/), and complements the conceptual workflow diagrams and the
 [Automated pipelines]({{ site.baseurl }}/workflows/automated-pipelines/) guide; it does not
 replace either, and it shows no live run state.
 
@@ -62,7 +63,9 @@ server, runs no solver, and needs no credentials.
 themselves are described in <a href="{{ site.baseurl }}/workflows/automated-pipelines/">Automated pipelines</a>.</p></noscript>
 
 The source dependency graph of the library itself is a different relation; see the
-[dependency explorer]({{ site.baseurl }}/reference/dependency-graph/). Regenerate this snapshot
+[dependency explorer]({{ site.baseurl }}/reference/dependency-graph/). What the stages' products
+*mean* -- which concept an IDS represents, which diagnostic measures it -- is the
+[scientific ontology explorer]({{ site.baseurl }}/reference/ontology/). Regenerate this snapshot
 locally with:
 
 ```bash

@@ -23,6 +23,9 @@ v_t      : thermal speed sqrt(T / m)                               [m/s]
 tau_e, tau_i : Braginskii electron and ion collision times         [s]
 lambda   : mean free path v_t tau                                  [m]
 Kn       : Knudsen number lambda / L                               [-]
+lambda_D : electron Debye length                                   [m]
+M        : Mach number U / v of a flow against a reference speed   [-]
+Delta    : pressure anisotropy (p_perp - p_par) / p                [-]
 
 Conventions
 -----------
@@ -42,7 +45,7 @@ References
 
 import numpy as np
 
-from .constants import C_LIGHT, MU0, QE
+from .constants import C_LIGHT, EPS0, MU0, QE
 from .waves import plasma_frequency
 
 __all__ = [
@@ -59,6 +62,9 @@ __all__ = [
     "knudsen_number",
     "magnetization",
     "evolution_time",
+    "debye_length",
+    "mach_number",
+    "pressure_anisotropy",
 ]
 
 
@@ -669,3 +675,132 @@ def evolution_time(X, dX_dt):
     with np.errstate(divide="ignore"):
         result = np.where(rate == 0.0, np.inf, np.abs(X / np.where(rate == 0.0, 1.0, rate)))
     return _out(result)
+
+
+def debye_length(n_e, T_e):
+    r"""Electron Debye length.
+
+    $$\lambda_D = \sqrt{\frac{\epsilon_0 T_e}{n_e e^2}}$$
+
+    Parameters
+    ----------
+    n_e : float or np.ndarray
+        Electron density, positive [m^-3].
+    T_e : float or np.ndarray
+        Electron temperature, positive [eV].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\lambda_D$ [m].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    The electron Debye length of the NRL formulary,
+    $7.43\times10^{2}\,T_e^{1/2}n_e^{-1/2}$ cm with $n_e$ in cm$^{-3}$. Ion
+    shielding, which shortens the total Debye length, is left out.
+
+    Physical interpretation
+    -----------------------
+    $\lambda_D/L \ll 1$ is quasineutrality: charge separation is confined
+    below the Debye scale, the Poisson equation reduces to $n_e = \sum Z n_i$
+    and the plasma oscillation drops out of every fluid and gyrokinetic model.
+    In a fusion core it holds by many decades; it fails in sheaths.
+
+    References
+    ----------
+    .. [1] J. D. Huba, *NRL Plasma Formulary*, Naval Research Laboratory (2019).
+    """
+    n = _positive(n_e, "n_e")
+    T = _positive(T_e, "T_e")
+    return _out(np.sqrt(EPS0 * T / (n * QE)))
+
+
+def mach_number(U, v):
+    r"""Mach number of a flow against a reference speed.
+
+    $$M = \frac{|U|}{v}$$
+
+    Parameters
+    ----------
+    U : float or np.ndarray
+        Flow speed, either sign [m/s].
+    v : float or np.ndarray
+        Reference speed, positive: the ion thermal speed
+        (:func:`thermal_speed`), the sound speed or the Alfven speed [m/s].
+
+    Returns
+    -------
+    float or np.ndarray
+        $M$ [-].
+
+    Raises
+    ------
+    ValueError
+        ``v`` is not positive, or an input is not finite.
+
+    Convention
+    ----------
+    The reference speed names the ordering: $M = U/v_{ti}$ is the sonic
+    Mach number of gyrokinetic and equilibrium flow orderings,
+    $M_A = U/v_A$ the Alfvenic one. Below $\beta \sim 1$, $M_A < M$.
+
+    Physical interpretation
+    -----------------------
+    $M \ll 1$ lets a static equilibrium and a low-flow gyrokinetic model
+    drop centrifugal and Coriolis terms; $M \sim 1$ needs the rotating
+    (high-flow) forms, and $M_A \sim 1$ changes the force balance itself.
+
+    References
+    ----------
+    .. [1] F. I. Parra and P. J. Catto, Plasma Phys. Control. Fusion 52 (2010) 045004.
+    """
+    return _out(np.abs(_array(U, "U")) / _positive(v, "v"))
+
+
+def pressure_anisotropy(p_perp, p_par):
+    r"""Pressure anisotropy relative to the scalar pressure.
+
+    $$\Delta = \frac{p_\perp - p_\parallel}{p},\qquad p = \frac{2p_\perp + p_\parallel}{3}$$
+
+    Parameters
+    ----------
+    p_perp : float or np.ndarray
+        Perpendicular pressure, positive [Pa].
+    p_par : float or np.ndarray
+        Parallel pressure, positive [Pa].
+
+    Returns
+    -------
+    float or np.ndarray
+        $\Delta$, signed, in $(-3, 3/2)$ [-].
+
+    Raises
+    ------
+    ValueError
+        An input is not positive and finite.
+
+    Convention
+    ----------
+    Signed: $\Delta > 0$ for perpendicular heating (ICRH, perpendicular
+    NBI), $\Delta < 0$ for parallel. The ordering is on $|\Delta|$, and the
+    mirror and firehose thresholds on $\beta\Delta$.
+
+    Physical interpretation
+    -----------------------
+    $|\Delta| \ll 1$ is the scalar-pressure assumption of single-fluid MHD;
+    collisions keep it, and a weakly collisional plasma with directional
+    heating or fast ions breaks it, needing CGL or kinetic pressure.
+
+    References
+    ----------
+    .. [1] G. F. Chew, M. L. Goldberger and F. E. Low, Proc. R. Soc. Lond. A 236 (1956) 112.
+    """
+    perp = _positive(p_perp, "p_perp")
+    par = _positive(p_par, "p_par")
+    return _out((perp - par) / ((2.0 * perp + par) / 3.0))

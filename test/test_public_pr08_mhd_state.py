@@ -346,3 +346,24 @@ def test_the_pinned_corrections_name_files_of_the_release():
     for key, corrections in pr08_mhd_state.SOURCE_CORRECTIONS.items():
         assert key in inventory.index, key
         assert all(name in ("IP", "BETMHD") and factor in (1e6, 0.01) for name, factor, _ in corrections)
+
+
+def test_both_tables_declare_which_field_and_radius_normalize_the_current(tmp_path):
+    # PR08 I_N = I_p / (a |BT|) with BT at RGEO; the equilibrium-state table's I_N uses b0
+    # at R_ref (R_ref/R_geo = 1.00-1.65 on the VEST sample). Neither table said so in its
+    # attrs, so a merge drew two conventions as one population
+    # (cold review 0.8.0 delta-absorb-18 stability-opspace F2; the numbers are unchanged).
+    from vaft.omas.equilibrium_state import EQUILIBRIUM_STATE_CONVENTIONS, EQUILIBRIUM_STATE_UNITS
+
+    table = pr08_mhd_state_table([_zero_d(tmp_path, JETLIKE)])
+    conventions = table.attrs["conventions"]
+    assert conventions == pr08_mhd_state.PR08_CONVENTIONS
+    for column in ("normalized_current", "normalized_beta"):
+        assert "geometric" in conventions[column]["radius_reference"]
+        assert "BT" in conventions[column]["b_field_definition"]
+        assert "reference" in EQUILIBRIUM_STATE_CONVENTIONS[column]["radius_reference"]
+        assert "b0" in EQUILIBRIUM_STATE_CONVENTIONS[column]["b_field_definition"]
+        assert conventions[column]["radius_reference"] != EQUILIBRIUM_STATE_CONVENTIONS[column]["radius_reference"]
+        assert table.attrs["units"][column] == EQUILIBRIUM_STATE_UNITS[column]   # same unit, different field
+    [row] = table.to_dict("records")
+    assert row["normalized_current"] == pytest.approx(row["plasma_current"] / (row["minor_radius"] * row["toroidal_field"]))

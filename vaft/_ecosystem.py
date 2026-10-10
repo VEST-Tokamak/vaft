@@ -325,12 +325,14 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
     ),
     ExternalCode(
         "nice", "NICE", ("equilibrium reconstruction",), "vaft.code.nice", "subprocess_executable",
-        home="vaft.code.nice.runner:NICE_HOME_ENV", installation="site_managed", access="not_stated",
+        home="vaft.code.nice.runner:NICE_HOME_ENV", installation="site_managed",
         maturity="experimental",
         native="NICE inputs in, its reconstruction files out",
-        links=(_doi("J. Blum, C. Boulbe and B. Faugeras, J. Comput. Phys. 231, 960 (2012)",
-                    "10.1016/j.jcp.2011.04.005"),),
-        note="Experimental: none of the 34 VEST reference slices reconstructs yet.",
+        links=(Reference("repository", "Inria GitLab", "https://gitlab.inria.fr/blfauger/nice"),
+               _doi("J. Blum, C. Boulbe and B. Faugeras, J. Comput. Phys. 231, 960 (2012)",
+                    "10.1016/j.jcp.2011.04.005")),
+        note="Open source under the LGPL-3.0 (the repository's LICENSE file). "
+             "Experimental: none of the 34 VEST reference slices reconstructs yet.",
     ),
     ExternalCode(
         "flare", "FLARE", ("magnetic field-line tracing",), "vaft.code.flare", "subprocess_executable",

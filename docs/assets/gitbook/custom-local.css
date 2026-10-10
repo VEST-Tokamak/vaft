@@ -979,3 +979,167 @@
     min-width: 13em;
   }
 }
+
+/* Landing page hero, entry points and pipeline strip (#1763). */
+@font-face {
+  font-family: "IBM Plex Sans Condensed VAFT";
+  src: url("../brand/fonts/IBMPlexSansCondensed-SemiBold.ttf") format("truetype");
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+}
+
+.vaft-hero {
+  margin: 0.4rem 0 2.6rem;
+  padding: 2.8rem 2.2rem 2.4rem;
+  text-align: center;
+  background: var(--vaft-panel-surface);
+  border: 1px solid var(--vaft-border);
+  border-radius: 12px;
+}
+
+.vaft-hero .vaft-hero-logo {
+  display: block;
+  width: min(100%, 46rem);
+  height: auto;
+  margin: 0 auto 1.6rem;
+}
+
+.vaft-hero .vaft-hero-logo-dark,
+.book.color-theme-2 .vaft-hero .vaft-hero-logo-light {
+  display: none;
+}
+
+.book.color-theme-2 .vaft-hero .vaft-hero-logo-dark {
+  display: block;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .vaft-hero .vaft-hero-tagline {
+  max-width: 68rem;
+  margin: 0 auto 0.7rem;
+  color: var(--vaft-heading-color);
+  font-family: "IBM Plex Sans Condensed VAFT", sans-serif;
+  font-size: clamp(2.2rem, 3vw, 3rem);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.book .book-body .page-wrapper .page-inner section.normal .vaft-hero .vaft-hero-summary {
+  max-width: 58rem;
+  margin: 0 auto 1.5rem;
+  color: var(--vaft-body-color);
+  font-size: 1.6rem;
+  line-height: 1.5;
+}
+
+.vaft-hero .vaft-hero-commands code {
+  margin: 0 0.4rem;
+  padding: 0.35rem 0.9rem;
+  font-size: 1.4rem;
+  border: 1px solid var(--vaft-border);
+  border-radius: 6px;
+}
+
+.vaft-hero .vaft-hero-commands code::before,
+.vaft-hero .vaft-hero-commands code::after {
+  content: none;
+}
+
+.vaft-start {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1.2rem;
+  margin: 0 0 2.8rem;
+}
+
+.vaft-start-card {
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1.6rem;
+  color: var(--vaft-body-color) !important;
+  background: var(--vaft-panel-surface);
+  border: 1px solid var(--vaft-border);
+  border-radius: 10px;
+}
+
+.vaft-start-card:hover,
+.vaft-start-card:focus-visible {
+  border-color: var(--vaft-link-color);
+  text-decoration: none;
+}
+
+.vaft-start-card strong {
+  margin-bottom: 0.5rem;
+  color: var(--vaft-heading-color);
+  font-size: 1.7rem;
+}
+
+.vaft-start-card span {
+  font-size: 1.3rem;
+  line-height: 1.5;
+}
+
+.vaft-pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0.8rem;
+  margin: 1.2rem 0 1.4rem;
+  padding: 0;
+  list-style: none;
+}
+
+.vaft-pipeline li {
+  position: relative;
+  flex: 1 1 0;
+  margin: 0;
+  padding: 1.1rem 1.2rem;
+  background: var(--vaft-panel-surface);
+  border: 1px solid var(--vaft-border);
+  border-radius: 10px;
+  font-size: 1.3rem;
+  line-height: 1.45;
+}
+
+.vaft-pipeline li strong {
+  display: block;
+  color: var(--vaft-heading-color);
+  font-size: 1.6rem;
+}
+
+.vaft-pipeline li + li::before {
+  position: absolute;
+  top: 50%;
+  left: -0.85rem;
+  color: var(--vaft-link-color);
+  content: "\2192";
+  font-weight: 700;
+  transform: translate(-50%, -50%);
+}
+
+.book-header .book-logo {
+  position: absolute;
+  top: 11px;
+  left: 64px;
+  line-height: 0;
+}
+
+.book-header .book-logo img {
+  width: 28px;
+  height: 28px;
+}
+
+@media (max-width: 1000px) {
+  .vaft-start {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .vaft-pipeline {
+    flex-direction: column;
+  }
+
+  .vaft-pipeline li + li::before {
+    top: -0.85rem;
+    left: 50%;
+    content: "\2193";
+  }
+}

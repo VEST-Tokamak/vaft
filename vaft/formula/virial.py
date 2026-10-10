@@ -81,6 +81,14 @@ def virial_magnetic_energy(B: np.ndarray,
     ---------------
     A Riemann sum, first order in the cell size.
 
+    Reduction
+    ---------
+    input: field_2d
+    output: scalar_0d
+    kind: quadratic_integral
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] V. D. Shafranov, in *Reviews of Plasma Physics*, Vol. 2, Consultants
@@ -151,6 +159,14 @@ def virial_thermal_energy(n: np.ndarray,
     Assumptions
     -----------
     Equal-volume samples (``V`` is the cell volume); three degrees of freedom.
+
+    Reduction
+    ---------
+    input: field_2d
+    output: scalar_0d
+    kind: integral
+    locality: global
+    role: global_descriptor
 
     References
     ----------
@@ -286,6 +302,14 @@ def virial_beta_p_from_volume(p: np.ndarray,
     ---------------
     Plain weighted sum over the supplied cells.
 
+    Reduction
+    ---------
+    input: field_2d, scalar_0d
+    output: scalar_0d
+    kind: integral
+    locality: global
+    role: global_descriptor
+
     References
     ----------
     .. [1] L. L. Lao, H. St. John, R. D. Stambaugh and W. Pfeiffer, Nucl. Fusion
@@ -323,6 +347,14 @@ def virial_li_from_volume(B_p: np.ndarray,
     ----------
     Lao/EFIT normalisation by $B_{pa}$; not the IMAS $l_{i,3}$ (normalised by
     $(\mu_0 I_p)^2 R_0/2$) nor the cylindrical $l_i$.
+
+    Reduction
+    ---------
+    input: field_2d, scalar_0d
+    output: scalar_0d
+    kind: quadratic_integral
+    locality: global
+    role: global_descriptor
 
     References
     ----------

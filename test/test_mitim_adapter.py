@@ -19,6 +19,8 @@ from vaft.code import mitim
 from vaft.compat import IS_WINDOWS
 from vaft.code.gacode._types import GACODEConfig
 
+from external_code_stubs import write_launchable_stub
+
 ROOT = Path(__file__).resolve().parents[1]
 NEO_RUN = ROOT / "test" / "data" / "gacode" / "neo_vest_48224_profile"
 TGLF_RUN = ROOT / "test" / "data" / "gacode" / "tglf_reg05"
@@ -130,10 +132,9 @@ def _stub_mitim(root: Path, *, version="5.3.0", portals=True) -> Path:
 def _stub_gacode(root: Path) -> Path:
     home = root / "gacode"
     for code in ("neo", "tglf"):
-        launcher = home / code / "bin" / code
-        launcher.parent.mkdir(parents=True)
-        launcher.write_text("#!/bin/sh\nexit 0\n")
-        launcher.chmod(0o755)
+        # A program on this platform (a .cmd on Windows): the availability probe
+        # applies vaft.compat.is_executable, which a #!/bin/sh text file fails there.
+        write_launchable_stub(home / code / "bin" / code)
     (home / "shared" / "bin").mkdir(parents=True)
     (home / "platform" / "build").mkdir(parents=True)
     (home / "platform" / "build" / "make.inc.STUB").write_text("")
@@ -312,22 +313,58 @@ def test_the_callers_pythonpath_never_reaches_the_mitim_interpreter(ready, profi
 
     from vaft.code.mitim.runner import _command, _environment
 
-    monkeypatch.setenv("PYTHONPATH", "/caller/worktree:/caller/py314/site-packages")
+    monkeypatch.setenv("PYTHONPATH", os.pathsep.join(["/caller/worktree", "/caller/py314/site-packages"]))
     monkeypatch.setenv("PYTHONHOME", "/caller/home")
     bare = replace(ready, env={})
     environment = _environment(bare, tmp_path / "c.json")
-    assert "PYTHONPATH" not in environment and "PYTHONHOME" not in environment
     command = _command(bare, "/mitim/python", "driver.py")
-    assert command[:5] == ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME")
-    (path,) = [part for part in command if part.startswith("PYTHONPATH=")]
-    home = ready.gacode.home
-    assert path == "PYTHONPATH=" + os.pathsep.join([f"{home}/f2py", f"{home}/f2py/pygacode"])
+    home = Path(ready.gacode.home)
+    gacode_only = os.pathsep.join([str(home / "f2py"), str(home / "f2py" / "pygacode")])
+    if IS_WINDOWS:
+        # No `env -u` on Windows: the backend's environment carries the removal
+        # (an empty value, which CPython ignores like an unset one) and GACODE's entries.
+        assert command == ("/mitim/python", "driver.py")
+        assert environment["PYTHONHOME"] == "" and environment["PYTHONPATH"] == gacode_only
+        assert _environment(ready, tmp_path / "c.json")["PYTHONPATH"] == ready.env["PYTHONPATH"]
+        path = environment["PYTHONPATH"]
+    else:
+        assert "PYTHONPATH" not in environment and "PYTHONHOME" not in environment
+        assert command[:5] == ("env", "-u", "PYTHONPATH", "-u", "PYTHONHOME")
+        (path,) = [part for part in command if part.startswith("PYTHONPATH=")]
+        assert path == "PYTHONPATH=" + gacode_only
+        assert "PYTHONPATH=" + ready.env["PYTHONPATH"] in _command(ready, "/mitim/python", "driver.py")
     assert "/caller/" not in path   # GACODE's f2py only, never the caller's entries
-    assert "PYTHONPATH=" + ready.env["PYTHONPATH"] in _command(ready, "/mitim/python", "driver.py")
     # The probe drops it too: with the stub only on the caller's PYTHONPATH, MITIM is absent.
     monkeypatch.setenv("PYTHONPATH", ready.env["PYTHONPATH"])
     assert mitim.mitim_availability(bare).status == "not_installed"
     assert mitim.mitim_availability(ready).ready
+
+
+def test_the_windows_launch_removes_the_callers_pythonpath_without_env(ready, tmp_path, monkeypatch):
+    """Windows has no `env -u`; the environment itself must carry the removal (#1688 gate)."""
+    from dataclasses import replace
+
+    from vaft import compat
+    from vaft.code.mitim.runner import _command, _environment
+
+    monkeypatch.setattr(compat, "IS_WINDOWS", True)
+    monkeypatch.setenv("PYTHONPATH", "caller-site")
+    monkeypatch.setenv("PYTHONHOME", "caller-home")
+    bare = replace(ready, env={})
+    assert _command(bare, "python.exe", "driver.py") == ("python.exe", "driver.py")
+    environment = _environment(bare, tmp_path / "c.json")
+    home = Path(ready.gacode.home)
+    assert environment["PYTHONHOME"] == ""
+    assert environment["PYTHONPATH"] == os.pathsep.join([str(home / "f2py"), str(home / "f2py" / "pygacode")])
+    assert "caller" not in environment["PYTHONPATH"]
+    # an explicit caller value still passes, and no GACODE home means an empty (removed) PYTHONPATH
+    assert _environment(ready, tmp_path / "c.json")["PYTHONPATH"] == ready.env["PYTHONPATH"]
+    none = replace(bare, gacode=GACODEConfig())
+    from vaft.code.gacode._runtime import GACODE_COMPATIBILITY_ENVS, GACODE_HOME_ENV
+
+    for variable in (GACODE_HOME_ENV, *GACODE_COMPATIBILITY_ENVS):
+        monkeypatch.delenv(variable, raising=False)
+    assert _environment(none, tmp_path / "c.json")["PYTHONPATH"] == ""
 
 
 @pytest.mark.skipif(

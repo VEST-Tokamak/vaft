@@ -1,8 +1,11 @@
 """Asymptotic ordering parameters (#1627): values against the NRL formulary and their identities."""
 
+import math
+
 import numpy as np
 import pytest
 
+from vaft.formula import ordering
 from vaft.formula.constants import ME, MI_P, QE
 from vaft.formula.ordering import (
     alfven_time,
@@ -101,3 +104,30 @@ def test_evolution_time_is_positive_and_infinite_when_stationary():
 def test_bad_inputs_raise(call):
     with pytest.raises(ValueError):
         call()
+
+
+def test_debye_length_matches_the_nrl_formulary():
+    # NRL: lambda_De = 7.43e2 T^1/2 n^-1/2 cm with n in cm^-3
+    assert ordering.debye_length(1e19, 50.0) == pytest.approx(7.43e2 * math.sqrt(50.0 / 1e13) * 1e-2, rel=1e-3)
+    # quadrupling the density halves it
+    assert ordering.debye_length(4e19, 50.0) == pytest.approx(0.5 * ordering.debye_length(1e19, 50.0))
+    with pytest.raises(ValueError):
+        ordering.debye_length(0.0, 50.0)
+
+
+def test_mach_number_is_the_flow_magnitude_over_the_reference_speed():
+    assert ordering.mach_number(-3.0e4, 6.0e4) == pytest.approx(0.5)
+    v_ti = ordering.thermal_speed(100.0, MI_P)
+    assert ordering.mach_number(v_ti, v_ti) == pytest.approx(1.0)
+    with pytest.raises(ValueError):
+        ordering.mach_number(1.0, 0.0)
+
+
+def test_pressure_anisotropy_is_relative_to_the_scalar_pressure():
+    assert ordering.pressure_anisotropy(2.0, 2.0) == 0.0
+    # p = (2 p_perp + p_par)/3: p_perp = 2, p_par = 1 gives p = 5/3 and Delta = 3/5
+    assert ordering.pressure_anisotropy(2.0, 1.0) == pytest.approx(0.6)
+    assert ordering.pressure_anisotropy(1.0, 2.0) == pytest.approx(-0.75)
+    # the bounds: p_par -> 0 gives 3/2, p_perp -> 0 gives -3
+    assert ordering.pressure_anisotropy(1.0, 1e-12) == pytest.approx(1.5)
+    assert ordering.pressure_anisotropy(1e-12, 1.0) == pytest.approx(-3.0)

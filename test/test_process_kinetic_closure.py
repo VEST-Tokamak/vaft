@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import copy
+
 import numpy as np
 import pytest
 from omas import ODS
 
+import vaft
+from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text, policy_for_ods
 from vaft.process.impurity import composition_from_fractions
 from vaft.process.kinetic_closure import (
     assemble_pressure,
@@ -73,6 +77,117 @@ def test_a_stored_ion_temperature_wins_over_the_ratio():
     np.testing.assert_allclose(closure.ion_temperatures["H+"], ti)
     with pytest.raises(ValueError, match="ti_te_ratio"):
         infer_kinetic_closure(_ods(), dilution="none")
+
+
+@pytest.fixture(scope="module")
+def sample_48224():
+    """The packaged kinetic equilibrium: one core_profiles slice at 0.3 s with a stored T_i."""
+    return vaft.omas.load(vaft.data.sample(48224, representation="omas"))
+
+
+def _ti_records(ods):
+    """The four spellings a stored main-ion T_i carries in this repository."""
+    return {
+        "no record (measured)": None,
+        "legacy fallback": "ti_te_ratio=1; status=assumed; source=legacy Ti=Te fallback",
+        "policy record": policy_for_ods(ods, 48224).ti_te_ratio_text(),
+        "lane K inferred": inferred_ti_text(),
+    }
+
+
+@pytest.mark.parametrize("dilution", ["species", "none"])
+@pytest.mark.parametrize("spelling", ["no record (measured)", "legacy fallback", "policy record", "lane K inferred"])
+def test_only_a_measured_ti_record_outranks_the_callers_ratio(sample_48224, spelling, dilution):
+    """A stored T_i the product assumed (Ti = Te, #1414) or inferred (lane K) is not a
+    measurement: the caller's ratio applies and the provenance says so.  Before
+    this guard every stored array won, p_i was halved against a ratio of 2 and
+    ``provenance["ti"]`` carried no status (cold review 0.8.0 delta-absorb-19 F1)."""
+    base = "core_profiles.profiles_1d.0"
+    te = np.asarray(sample_48224[f"{base}.electrons.temperature"], dtype=float)
+    record = _ti_records(sample_48224)[spelling]
+    kw = dict(dilution=dilution, ti_te_ratio=2.0, ti_record="caller ratio 2.0")
+    if dilution == "species":
+        kw.update(machine_preset="vest", shot=48224)
+    ods = copy.deepcopy(sample_48224)
+    ods[f"{base}.ion.0.temperature"] = te.copy()              # what the fallback / lane K writer stores
+    if record is not None:
+        ods[f"{base}.ion.0.temperature_fit.parameters"] = record
+    reference = copy.deepcopy(sample_48224)
+    del reference[f"{base}.ion.0.temperature"]                 # no stored T_i: the ratio by construction
+    want = infer_kinetic_closure(reference, **kw)
+    got = infer_kinetic_closure(ods, **kw)
+    ti = next(iter(got.ion_temperatures.values()))
+    valid = te > 0
+    if classify_ti_record(record) == "measured":
+        np.testing.assert_allclose(ti[valid], te[valid])
+        np.testing.assert_allclose(got.pressure.p_i_thermal[valid], 0.5 * want.pressure.p_i_thermal[valid], rtol=1e-12)
+        assert got.provenance["ti"]["status"] == "measured" and got.provenance["ti"]["lineage"] == "measured"
+    else:
+        np.testing.assert_allclose(ti[valid], 2.0 * te[valid])
+        np.testing.assert_allclose(got.pressure.p_i_thermal, want.pressure.p_i_thermal, rtol=1e-12)
+        np.testing.assert_allclose(got.pressure.p_thermal, want.pressure.p_thermal, rtol=1e-12)
+        assert got.provenance["ti"]["status"] == "assumed"
+        assert got.provenance["ti"]["lineage"] == "ti_te_2_assumed"
+        assert got.provenance["ti"]["record"] == "caller ratio 2.0"
+        outranked = got.provenance["ti"]["outranked_record"]
+        assert outranked["status"] == classify_ti_record(record) and outranked["record"] == record
+
+
+def test_an_assumed_ti_record_without_a_ratio_is_used_as_assumed_at_its_own_ratio():
+    ods = _ods(ti=0.5 * TE)
+    ods["core_profiles.profiles_1d.0.ion.0.temperature_fit.parameters"] = "ti_te_ratio=0.5; sigma=0.2; status=assumed; source=test"
+    closure = infer_kinetic_closure(ods, dilution="none")
+    np.testing.assert_allclose(closure.ion_temperatures["H+"], 0.5 * TE)
+    assert closure.provenance["ti"] == {
+        "source": "core_profiles.profiles_1d.0.ion.0.temperature", "ratio": 0.5, "status": "assumed",
+        "lineage": "ti_te_ratio_assumed",
+        "record": "ti_te_ratio=0.5; sigma=0.2; status=assumed; source=test",
+    }
+
+
+def test_an_inferred_ti_needs_the_opt_in_or_a_ratio_and_an_unknown_record_is_refused():
+    ods = _ods(ti=0.5 * TE)
+    ods["core_profiles.profiles_1d.0.ion.0.temperature_fit.parameters"] = inferred_ti_text()
+    with pytest.raises(ValueError, match="inferred, not measured"):
+        infer_kinetic_closure(ods, dilution="none")
+    opted = infer_kinetic_closure(ods, dilution="none", use_stored_inferred_ti=True)
+    np.testing.assert_allclose(opted.ion_temperatures["H+"], 0.5 * TE)
+    assert opted.provenance["ti"]["status"] == "inferred"
+    assert opted.provenance["ti"]["lineage"] == "pressure_partition_inferred"
+    assert opted.provenance["ti"]["method"] == "equilibrium_pressure_partition"
+    ods["core_profiles.profiles_1d.0.ion.0.temperature_fit.parameters"] = "free text, no field"
+    with pytest.raises(ValueError, match="no known grammar"):
+        infer_kinetic_closure(ods, dilution="none", ti_te_ratio=1.0)
+
+
+def test_no_dilution_keys_the_main_ion_by_its_stored_label():
+    """A deuterium slice under dilution="none" was keyed "H+" (cold review 0.8.0 delta-absorb-19 F4)."""
+    ods = _ods()
+    ods["core_profiles.profiles_1d.0.ion.0.label"] = "D+"
+    ods["core_profiles.profiles_1d.0.ion.0.element.0.a"] = 2.014
+    closure = infer_kinetic_closure(ods, dilution="none", ti_te_ratio=1.0)
+    assert set(closure.ion_densities) == {"D+"} and set(closure.ion_temperatures) == {"D+"}
+    np.testing.assert_allclose(closure.ion_densities["D+"], NE)
+    del ods["core_profiles.profiles_1d.0.ion"]                               # no stored ion at all
+    assert set(infer_kinetic_closure(ods, dilution="none", ti_te_ratio=1.0).ion_densities) == {"H+"}
+
+
+@pytest.mark.parametrize("length", [3, 1])
+def test_a_composition_on_another_grid_than_n_e_is_named_not_broadcast(length):
+    """A measured zeff of another length than the slice's grid reached a bare numpy
+    broadcast error (length 3) or was silently taken as constant (length 1)
+    (cold review 0.8.0 delta-absorb-19 F5)."""
+    from vaft.process.impurity import ImpurityComposition, ImpuritySpecies
+
+    ods = _ods()
+    ods["core_profiles.profiles_1d.0.zeff"] = np.full(length, 2.0)
+    ods["core_profiles.profiles_1d.0.zeff_fit.parameters"] = "origin=measured; method=bremsstrahlung"
+    comp = ImpurityComposition(species=(ImpuritySpecies("C", 6),), target_zeff=2.0)
+    with pytest.raises(ValueError, match=rf"grid of {length} points, n_e has {NE.size}"):
+        infer_kinetic_closure(ods, composition=comp, ti_te_ratio=1.0)
+    ods["core_profiles.profiles_1d.0.zeff"] = np.full(NE.size, 2.0)   # the well-formed slice resolves
+    closure = infer_kinetic_closure(ods, composition=comp, ti_te_ratio=1.0)
+    assert closure.ion_densities["C6+"].shape == NE.shape
 
 
 def test_thermal_and_fast_stay_separate():

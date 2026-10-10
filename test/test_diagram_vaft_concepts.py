@@ -143,11 +143,11 @@ def test_the_provenance_chain_records_every_step_and_traces_back():
     assert len(ticks) == len(steps)  # it cuts across every product
 
 
-def test_the_four_pillars_are_the_readme_sections_and_vest_is_not_the_foundation():
+def test_the_four_pillars_remain_documented_and_vest_is_not_the_foundation():
     d = vaft.diagram.vaft_four_pillars()
-    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
+    gallery = (Path(__file__).resolve().parents[1] / "docs/_guide/Diagrams.md").read_text(encoding="utf-8")
     for title in d.model["titles"]:
-        assert f"### {title}" in readme
+        assert title in gallery
     assert "edges" not in d.model  # an architecture figure: the research process is the cycle's job
     (principles_box, principles_text) = d.scene.role("principles")
     for p in vc.DESIGN_PRINCIPLES:
@@ -242,10 +242,10 @@ def test_the_archive_is_an_input_to_new_research_not_an_end():
     d = vaft.diagram.machine_research_archive()
     kinds = {(a, b): k for a, b, k in d.model["edges"]}
     assert d.model["tracks"] == ("machine", "studies", "research")
-    # the research actually done on VEST follows the README's list of it
-    readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8").lower()
+    # Detailed VEST history lives in the reference page beyond the README.
+    reference = " ".join((Path(__file__).resolve().parents[1] / "docs/_pages/about.md").read_text(encoding="utf-8").lower().split())
     for topic in ("diagnostic development", "disruptions", "equilibrium reconstruction", "current drive"):
-        assert any(topic in entry for entry in d.model["entries"]["studies"]) and topic in readme
+        assert any(topic in entry for entry in d.model["entries"]["studies"]) and topic in reference
     assert all((f"track:{t}", "archive") in kinds for t in d.model["tracks"])
     assert ("archive", "next") in kinds
     assert kinds[("archive", "next")] == "forward"
