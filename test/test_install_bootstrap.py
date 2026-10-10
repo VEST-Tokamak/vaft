@@ -3612,3 +3612,24 @@ def test_nubeam_uninstall_does_not_follow_a_symlinked_component(tmp_path):
     # A real directory inside the tree is still removed.
     accepted = _nubeam_uninstall(root, ("root", str(root)), ("managed_dir", f"{root}/build/linux-x86_64"))
     assert accepted.returncode == 0 and "would remove directory" in accepted.stdout
+
+
+@posix_only
+def test_load_probe_reads_only_what_the_loader_prints(tmp_path):
+    """Review of PR #1921, F3: a benign stdout line matched a loader needle.
+
+    The needles were scanned over stdout as well, so a program greeting the
+    console with "input symbol not found in namelist, using default" failed
+    the load layer. Loaders complain on stderr; stdout is the program's own.
+    """
+    common = _load_external_checker("_external_code_common.py")
+    bin_directory = tmp_path / "prefix" / "bin"
+    bin_directory.mkdir(parents=True)
+    chatty = bin_directory / "chatty"
+    chatty.write_text(
+        '#!/bin/sh\necho "WARNING: input symbol not found in namelist, using default"; exit 0\n',
+        encoding="utf-8",
+    )
+    chatty.chmod(0o755)
+    result = common.check_executables_load(tmp_path / "prefix", ["chatty"], project="NUBEAM")
+    assert result.status == common.PASS, result

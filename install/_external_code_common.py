@@ -467,8 +467,10 @@ def check_executables_load(
                     unloadable.append(f"{name}: missing runtime libraries")
                 continue
             # A POSIX loader has no reserved status: ld.so exits 127, dyld
-            # aborts the process. Both say what they could not find.
-            output = (completed.stderr + completed.stdout).lower()
+            # aborts the process. Both say what they could not find, and both
+            # say it on stderr -- stdout is the program's own, where a banner
+            # such as "input symbol not found in namelist" is not a defect.
+            output = completed.stderr.lower()
             complaint = next((line for line in output.splitlines()
                               if any(needle in line for needle in LOADER_FAILURE_NEEDLES)), None)
             if complaint is not None:
