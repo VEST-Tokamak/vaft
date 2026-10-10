@@ -56,6 +56,7 @@ def test_probes_read_scalars_always_and_large_arrays_only_when_asked():
     assert "equilibrium.time_slice.1.global_quantities.li_3" not in small  # absent leaves are skipped
     assert not any("psi" in p for p in small) and any("psi" in p for p in large)
     assert "magnetics.b_field_pol_probe.0.position.r" in small and "magnetics.b_field_pol_probe.0.field.data" in large
+    assert set(small) <= set(large)  # every lazy scalar value is compared against the eager runs
     assert bench.digest(np.ones(3)) != bench.digest(np.ones(4)) != bench.digest(np.ones((2, 2)))
 
 

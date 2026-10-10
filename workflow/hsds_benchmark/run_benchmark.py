@@ -77,7 +77,11 @@ def _count(ods: Any, path: str) -> int:
 
 
 def read_probes(ods: Any, *, large: bool) -> dict[str, str]:
-    """Read the probe set from an ODS (lazy or eager) and return value digests."""
+    """Read the probe set from an ODS (lazy or eager) and return value digests.
+
+    The large set is a superset of the small one, so every value a lazy
+    scalar traversal reads is also read -- and compared -- by the eager runs.
+    """
     digests: dict[str, str] = {}
 
     def keep(path: str) -> None:
@@ -95,7 +99,9 @@ def read_probes(ods: Any, *, large: bool) -> dict[str, str]:
     for i in range(_count(ods, "pf_active.coil")):
         keep(f"pf_active.coil.{i}.current.data")
     for i in range(_count(ods, "magnetics.b_field_pol_probe")):
-        keep(f"magnetics.b_field_pol_probe.{i}.field.data" if large else f"magnetics.b_field_pol_probe.{i}.position.r")
+        keep(f"magnetics.b_field_pol_probe.{i}.position.r")
+        if large:
+            keep(f"magnetics.b_field_pol_probe.{i}.field.data")
     return digests
 
 
