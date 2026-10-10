@@ -44,7 +44,7 @@ flowchart LR
 | `vaft.formula.atomic` | OPEN-ADAS ADF11 interpolation, coronal charge-state fractions, line-radiation cooling coefficients |
 | `vaft.formula.impurity` | Impurity-mixture moments, densities for a target $Z_\mathrm{eff}$, the reduced pseudo-impurity, main-ion dilution |
 | `vaft.formula.fast_ion` | Classical fast-ion slowing down: critical speed and energy, slowing-down times, distribution, density, energy density and pressure |
-| `vaft.formula.kinetic` | Multi-species electron collision time and electron–ion energy-exchange time |
+| `vaft.formula.kinetic` | Multi-species electron and ion collision times, electron–ion energy-exchange time, and the Braginskii perpendicular heat diffusivities (classical baseline) |
 | `vaft.formula.turbulence` | Turbulence–zonal-flow predator–prey (Lotka–Volterra) model: right-hand side, fixed point, invariant, small-amplitude period and response lag |
 | `vaft.formula.statistics` | Residual, goodness-of-fit and solver-convergence statistics used by the validation layer |
 

@@ -571,7 +571,7 @@ def test_classical_collision_times_match_the_nrl_forms(sample):
 
     state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
     local = assess_tglf_readiness(state, (0.5,)).surfaces[0].local_input
-    d = classical_heat_fluxes(local, surface_toroidal_field(state.profile, local))
+    d = classical_heat_fluxes(local, surface_toroidal_field(state.profile, local)).as_record()
     norm = local.normalisation
     ne_cm3 = norm.electron_density * 1e-6
     te_ev = norm.electron_temperature / 1.602176634e-19
@@ -606,10 +606,10 @@ def test_classical_flux_runs_down_the_gradient_and_scales_as_one_over_b_squared(
 
     state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
     local = assess_tglf_readiness(state, (0.6,)).surfaces[0].local_input
-    d = classical_heat_fluxes(local, 0.3)
+    d = classical_heat_fluxes(local, 0.3).as_record()
     assert np.sign(d["electron_energy_flux_W_m2"]) == np.sign(local.rlts[0])
     assert np.sign(d["ion_energy_flux_W_m2"]["z=1"]) == np.sign(local.rlts[1])
-    assert classical_heat_fluxes(local, 0.6)["chi_e_m2_s"] == pytest.approx(d["chi_e_m2_s"] / 4.0)
+    assert classical_heat_fluxes(local, 0.6).chi_e_m2_s == pytest.approx(d["chi_e_m2_s"] / 4.0)
     assert d["electron_particle_flux_m2_s"] is None  # not modelled: missing, not zero
 
 
@@ -668,7 +668,8 @@ def test_classical_refuses_a_non_positive_field_and_the_row_stays_standard_json(
 
 def test_classical_gamma1_table_is_braginskii_table_2(sample):
     """F3: the Z -> inf knot is Braginskii's 3.25; above Z = 4 the coefficient is held at 3.6."""
-    from vaft.process.transport_state import _GAMMA1_PERP, classical_heat_fluxes
+    from vaft.formula.kinetic import _GAMMA1_PERP
+    from vaft.process.transport_state import classical_heat_fluxes
 
     table = dict(_GAMMA1_PERP)
     assert table[1.0] == 4.66 and table[2.0] == 4.0 and table[4.0] == 3.6
@@ -676,7 +677,7 @@ def test_classical_gamma1_table_is_braginskii_table_2(sample):
     gamma = np.interp([4.0, 10.0, max(table)], *zip(*_GAMMA1_PERP))
     assert gamma[0] == 3.6 and gamma[1] == pytest.approx(3.6, abs=1e-6) and gamma[2] == 3.25
     _, local = _classical_state(sample)
-    assert classical_heat_fluxes(local, 0.3)["model"]["coefficients"]["electron"].count("3.25") == 1
+    assert classical_heat_fluxes(local, 0.3).model["coefficients"]["electron"].count("3.25") == 1
 
 
 def test_surface_toroidal_field_docstring_tags_rcentr_as_a_length():
@@ -1843,3 +1844,81 @@ def test_a_bad_ti_te_ratio_string_is_refused_at_entry(sample):
                                 ti_te_ratio="bogus")
     with pytest.raises(ValueError, match="ti_te_ratio must be"):
         resolve_transport_state(sample, _key(0.3), efit_quality="good", ti_te_ratio="auto")
+
+
+def test_classical_result_is_typed_and_reproduces_the_pre_1899_numbers(sample):
+    """#1899 moved every coefficient and collision time to vaft.formula.kinetic.
+
+    The reference was written by the pre-#1899 classical_heat_fluxes (process-layer
+    formulas) on this state; the formula-layer path must give the same numbers. The
+    only differences are CODATA constant versions (vaft.formula.constants vs SciPy).
+    """
+    import dataclasses
+    import json
+
+    from vaft.process.transport_state import (
+        ClassicalHeatFluxes,
+        classical_heat_fluxes,
+        surface_toroidal_field,
+    )
+
+    reference = json.loads((ROOT / "test" / "data" / "transport" / "classical_48224_reference.json")
+                           .read_text(encoding="utf-8"))["records"]
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    surfaces = [s for s in assess_tglf_readiness(state, DEFAULT_SURFACES).surfaces if s.local_input is not None]
+    assert len(surfaces) == len(reference)
+    for surface, old in zip(surfaces, reference):
+        result = classical_heat_fluxes(surface.local_input,
+                                       surface_toroidal_field(state.profile, surface.local_input))
+        assert isinstance(result, ClassicalHeatFluxes)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            result.chi_e_m2_s = 0.0
+        new = result.as_record()
+        assert set(old) <= set(new)
+        for key, value in old.items():
+            if isinstance(value, float):
+                assert new[key] == pytest.approx(value, rel=1e-7, abs=0.0), key
+            elif isinstance(value, dict):
+                assert new[key] == pytest.approx(value, rel=1e-7)
+            else:
+                assert new[key] == value, key
+
+
+def test_no_classical_coefficient_is_defined_in_the_process_layer():
+    """#1899 acceptance: the coefficients and collision times live in vaft.formula.
+
+    Checked on the syntax tree of the whole module, not on strings: the process layer
+    may not reach for the physical constants a collision time or gyrofrequency is
+    built from, nor carry Braginskii's tabulated numbers as literals.
+    """
+    import ast
+
+    import vaft.process.transport_state as module
+
+    tree = ast.parse(Path(module.__file__).read_text(encoding="utf-8"))
+    attributes = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+    assert not attributes & {"epsilon_0", "m_e", "m_p", "pi"}, attributes & {"epsilon_0", "m_e", "m_p", "pi"}
+    numbers = {node.value for node in ast.walk(tree)
+               if isinstance(node, ast.Constant) and isinstance(node.value, float)}
+    assert not numbers & {4.66, 3.7, 3.6, 3.25, 3.44e5, 2.09e7, 23.0}, numbers & {4.66, 3.7, 3.6, 3.25}
+    assert not hasattr(module, "_GAMMA1_PERP")
+
+
+def test_the_classical_result_is_frozen_all_the_way_down(sample):
+    from vaft.process.transport_state import CLASSICAL_MODEL, classical_heat_fluxes
+
+    state = resolve_transport_state(sample, _key(0.3), efit_quality="good")
+    local = assess_tglf_readiness(state, (0.5,)).surfaces[0].local_input
+    result = classical_heat_fluxes(local, 0.3)
+    with pytest.raises(TypeError):
+        result.ion_energy_flux_W_m2["z=1"] = 0.0
+    record = result.as_record()
+    record["model"]["coefficients"]["ion"] = -1.0
+    assert CLASSICAL_MODEL["coefficients"]["ion"] == 2.0
+    assert result.model["coefficients"]["ion"] == 2.0
+
+
+def test_a_non_positive_ion_coulomb_logarithm_is_refused_not_used():
+    from vaft.formula.kinetic import ion_ion_coulomb_logarithm_from_n_T
+
+    assert ion_ion_coulomb_logarithm_from_n_T(1e21, 0.5, 6.0) < 0.0   # cold, dense, C6+
