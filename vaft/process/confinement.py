@@ -27,7 +27,7 @@ removes so a threshold sweep can be read off directly.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Mapping, Optional
 
 import numpy as np
@@ -47,6 +47,8 @@ __all__ = [
     "ResistiveLoopVoltage",
     "resistive_loop_voltage",
     "confinement_power_balance",
+    "OhmicConfinement",
+    "ohmic_confinement_series",
     "confinement_slice_evidence",
     "confinement_slice_decision",
     "confinement_exclusion_table",
@@ -182,12 +184,20 @@ class ResistiveLoopVoltage:
     The single home of $V_R$ and $R_p$ in VAFT (#548 Lane D, shared with the
     resistive $Z_\\mathrm{eff}$ inference of #1214): ``v_ind`` and ``v_res``
     [V], ``r_p = v_res / i_p`` [Ohm], ``l_int`` [H], one value per sample.
+    ``v_ind = v_ind_current + v_ind_profile`` (#1905): the current-evolution
+    term $L_i\\,dI_p/dt$ and the profile-evolution term
+    $\\tfrac14\\mu_0 R_0 I_p\\,dl_{i,3}/dt$ [V]. ``li3_rate_fallback`` is
+    True where no $dl_{i,3}/dt$ entered, i.e. the inductance was held fixed
+    (a numerical fallback, not evidence of a stationary current profile).
     """
 
     v_ind: np.ndarray
     v_res: np.ndarray
     r_p: np.ndarray
     l_int: np.ndarray
+    v_ind_current: Optional[np.ndarray] = field(default=None)
+    v_ind_profile: Optional[np.ndarray] = field(default=None)
+    li3_rate_fallback: Optional[np.ndarray] = field(default=None)
 
 
 def resistive_loop_voltage(
@@ -198,6 +208,7 @@ def resistive_loop_voltage(
     r0: float,
     *,
     dli3_dt: Optional[np.ndarray] = None,
+    hold_li3_where_missing: bool = False,
 ) -> "ResistiveLoopVoltage":
     """Inductive and resistive parts of a loop voltage, and the plasma resistance, from the internal inductance.
 
@@ -216,6 +227,10 @@ def resistive_loop_voltage(
     dli3_dt : numpy.ndarray, optional
         Time derivative of $l_{i,3}$; ``None`` holds the inductance fixed, so
         only $L_i\\,dI_p/dt$ is removed [1/s].
+    hold_li3_where_missing : bool, optional
+        Where ``dli3_dt`` is NaN, hold the inductance fixed there (profile
+        term zero, ``li3_rate_fallback`` True) instead of returning NaN
+        voltages [-].
 
     Returns
     -------
@@ -223,7 +238,10 @@ def resistive_loop_voltage(
         ``v_ind``, the inductive voltage $(1/I_p)\\,dW_\\mathrm{int}/dt$, and
         ``v_res = v_loop - v_ind`` [V]; ``r_p = v_res / i_p``, the plasma
         resistance seen by the total current (NaN where $I_p = 0$) [Ohm];
-        ``l_int``, the internal inductance $\\mu_0 R_0 l_{i,3}/2$ [H] [any].
+        ``l_int``, the internal inductance $\\mu_0 R_0 l_{i,3}/2$ [H];
+        ``v_ind_current`` and ``v_ind_profile``, the two terms of ``v_ind``
+        [V]; ``li3_rate_fallback``, True where the profile term was not
+        evaluated [-] [any].
 
     Raises
     ------
@@ -235,7 +253,8 @@ def resistive_loop_voltage(
     1. $L_i = \\mu_0 R_0 l_{i,3}/2$, so $W_\\mathrm{int} = L_i I_p^2/2$.
     2. $V_\\mathrm{ind} = (1/I_p)\\,dW_\\mathrm{int}/dt
        = L_i\\,dI_p/dt + \\tfrac14\\mu_0 R_0 I_p\\,dl_{i,3}/dt$, the second
-       term only when ``dli3_dt`` is given.
+       term only where ``dli3_dt`` is given and finite (or, with
+       ``hold_li3_where_missing``, zero where it is not).
     3. $V_\\mathrm{res} = V_\\mathrm{loop} - V_\\mathrm{ind}$ and
        $R_p = V_\\mathrm{res}/I_p$.
 
@@ -264,13 +283,24 @@ def resistive_loop_voltage(
     if not float(r0) > 0:
         raise ValueError(f"r0 must be positive, got {r0!r}")
     l_int = 0.5 * MU0 * float(r0) * li
-    v_ind = l_int * didt
-    if dli3_dt is not None:
-        v_ind = v_ind + 0.25 * MU0 * float(r0) * ip * _series("dli3_dt", dli3_dt, n)
+    v_ind_current = l_int * didt
+    if dli3_dt is None:  # no profile term at all, exactly as before #1905
+        v_ind_profile = np.zeros(n)
+        fallback = np.ones(n, dtype=bool)
+    else:
+        rate = _series("dli3_dt", dli3_dt, n)
+        fallback = ~np.isfinite(rate)
+        if hold_li3_where_missing:
+            rate = np.where(fallback, 0.0, rate)
+        else:
+            fallback = np.zeros(n, dtype=bool)  # a NaN rate propagates; nothing was held fixed
+        v_ind_profile = 0.25 * MU0 * float(r0) * ip * rate
+    v_ind = v_ind_current + v_ind_profile
     v_res = v - v_ind
     with np.errstate(divide="ignore", invalid="ignore"):
         r_p = np.where(ip != 0.0, v_res / ip, np.nan)
-    return ResistiveLoopVoltage(v_ind=v_ind, v_res=v_res, r_p=r_p, l_int=l_int)
+    return ResistiveLoopVoltage(v_ind=v_ind, v_res=v_res, r_p=r_p, l_int=l_int, v_ind_current=v_ind_current,
+                                v_ind_profile=v_ind_profile, li3_rate_fallback=fallback)
 
 
 @dataclass(frozen=True)
@@ -384,6 +414,227 @@ def confinement_power_balance(
     return ConfinementPowerBalance(
         time=t, p_ohmic=p_ohmic, dwdt=dwdt, p_net=p_net, p_transport=p_transport,
         tau_e_net=_tau(p_net), tau_e_transport=_tau(p_transport),
+    )
+
+
+#: Named approximation carried by every inferred resistive voltage (#1905 Sec. 4).
+BOUNDARY_VOLTAGE_APPROXIMATION = (
+    "V_res is inferred, not measured: the loop voltage minus the internal-inductive voltage "
+    "(Romero 2010 eq. 24), exact only at the plasma boundary; a loop away from the LCFS still "
+    "sees the external inductive flux between loop and boundary, which is not removed"
+)
+
+
+@dataclass(frozen=True)
+class OhmicConfinement:
+    """The Ohmic confinement chain of one discharge, every intermediate kept (#1905 Sec. 3.4).
+
+    One value per sample of ``time`` in every array: the inputs (``i_p``,
+    ``v_loop``, ``dip_dt``, ``li_3``, ``w``), the rates (``dli3_dt``, NaN where
+    the window held none; ``dwdt``), the voltage split (``l_int``,
+    ``v_ind_current``, ``v_ind_profile``, ``v_ind``, ``v_res``, ``r_p``,
+    ``li3_rate_fallback``), the power balance (``p_ohmic``, ``p_net``,
+    ``p_transport``) and the confinement times (``tau_e_net``,
+    ``tau_e_transport``). ``missing_reason`` names why ``tau_e_net`` is NaN
+    ('' where it is finite). ``r0`` is the radius normalising $l_{i,3}$;
+    ``orientation`` the median sign of $I_p V_\\mathrm{loop}$ (negative: every
+    P_OH is negative, an orientation error). ``settings`` holds the numerical
+    choices, ``assumptions`` the physical ones, both as recorded strings.
+    """
+
+    time: np.ndarray
+    i_p: np.ndarray
+    v_loop: np.ndarray
+    dip_dt: np.ndarray
+    li_3: np.ndarray
+    dli3_dt: np.ndarray
+    r0: float
+    l_int: np.ndarray
+    v_ind_current: np.ndarray
+    v_ind_profile: np.ndarray
+    v_ind: np.ndarray
+    v_res: np.ndarray
+    r_p: np.ndarray
+    li3_rate_fallback: np.ndarray
+    w: np.ndarray
+    dwdt: np.ndarray
+    p_ohmic: np.ndarray
+    p_net: np.ndarray
+    p_transport: np.ndarray
+    tau_e_net: np.ndarray
+    tau_e_transport: np.ndarray
+    missing_reason: np.ndarray
+    orientation: float
+    settings: Mapping[str, object]
+    assumptions: Mapping[str, str]
+
+    def power_balance(self) -> ConfinementPowerBalance:
+        """The :class:`ConfinementPowerBalance` view of this chain."""
+        return ConfinementPowerBalance(
+            time=self.time, p_ohmic=self.p_ohmic, dwdt=self.dwdt, p_net=self.p_net,
+            p_transport=self.p_transport, tau_e_net=self.tau_e_net, tau_e_transport=self.tau_e_transport,
+        )
+
+
+def ohmic_confinement_series(
+    time: np.ndarray,
+    i_p: np.ndarray,
+    dip_dt: np.ndarray,
+    v_loop: np.ndarray,
+    li_3: np.ndarray,
+    r0: float,
+    w: np.ndarray,
+    *,
+    rate_window_s: float,
+    rate_polyorder: int = 1,
+    p_rad: Optional[np.ndarray] = None,
+    hold_li3_where_missing: bool = True,
+    assumptions: Optional[Mapping[str, str]] = None,
+) -> OhmicConfinement:
+    """Ohmic power balance and confinement time from a loop voltage, the internal inductance and a stored energy.
+
+    Parameters
+    ----------
+    time : numpy.ndarray
+        Times of the samples, strictly increasing; the slices an energy rate
+        may be taken across, so only validated equilibrium slices [s].
+    i_p : numpy.ndarray
+        Plasma current at ``time``, in the orientation of ``v_loop`` [A].
+    dip_dt : numpy.ndarray
+        Its time derivative, from the current record (finer than ``time``) [A/s].
+    v_loop : numpy.ndarray
+        Loop voltage at ``time``, measured or flux-derived (say which in
+        ``assumptions``) [V].
+    li_3 : numpy.ndarray
+        Normalised internal inductance $l_{i,3}$ at ``time`` [-].
+    r0 : float
+        Major radius normalising $l_{i,3}$, not the instantaneous $R_\\mathrm{geo}$ [m].
+    w : numpy.ndarray
+        Stored energy whose rate and confinement are wanted; its definition
+        (EFIT pressure integral, kinetic, global) belongs in ``assumptions`` [J].
+    rate_window_s : float
+        Full width of the local-polynomial window of $dl_{i,3}/dt$ and $dW/dt$ [s].
+    rate_polyorder : int, optional
+        Degree of that local polynomial [-].
+    p_rad : numpy.ndarray, optional
+        Measured radiated power; ``None`` leaves ``p_transport`` NaN [W].
+    hold_li3_where_missing : bool, optional
+        Hold the inductance fixed where the window holds no $l_{i,3}$ rate, so
+        ``v_res``, ``r_p`` and ``p_ohmic`` survive (flagged in
+        ``li3_rate_fallback``); ``False`` leaves them NaN there [-].
+    assumptions : Mapping[str, str], optional
+        Caller's physical choices to record (voltage source, energy
+        definition, current source); merged over the defaults [-].
+
+    Returns
+    -------
+    OhmicConfinement
+        Every input, rate, voltage term, power and confinement time on
+        ``time``, with ``missing_reason``, ``settings`` and ``assumptions`` [any].
+
+    Raises
+    ------
+    ValueError
+        Arrays of different length, a non-increasing time axis, a
+        non-positive ``r0`` or window, or ``rate_polyorder`` below 1.
+
+    Processing steps
+    ----------------
+    1. $dl_{i,3}/dt$ by :func:`smoothed_time_derivative` over ``rate_window_s``
+       (NaN with fewer than two samples).
+    2. :func:`resistive_loop_voltage`: $V_\\mathrm{ind} = L_i\\,dI_p/dt +
+       \\tfrac14\\mu_0 R_0 I_p\\,dl_{i,3}/dt$, $V_\\mathrm{res} =
+       V_\\mathrm{loop} - V_\\mathrm{ind}$, $R_p = V_\\mathrm{res}/I_p$.
+    3. :func:`confinement_power_balance`: $P_\\mathrm{OH} = I_p V_\\mathrm{res}$,
+       $dW/dt$ over the same window, $P_\\mathrm{net} = P_\\mathrm{OH} - dW/dt$,
+       $P_\\mathrm{transport} = P_\\mathrm{net} - P_\\mathrm{rad}$,
+       $\\tau_E = W/P$ where that power is positive.
+    4. With a single sample no rate exists: $P_\\mathrm{OH}$ is kept (inductance
+       held fixed), $dW/dt$ and everything built on it are NaN. A missing
+       energy rate is never replaced by zero.
+
+    Defaults
+    --------
+    ``rate_polyorder = 1`` and ``hold_li3_where_missing = True`` are the VEST
+    Tier A reference settings of #548 (3 ms holds about three EFIT slices),
+    numerical choices recorded in ``settings``, not physical constants.
+
+    Applicability
+    -------------
+    Machine-independent. Ohmic plasmas: no auxiliary heating and no
+    non-inductive current (with one, $R_p$ needs $I_p - I_\\mathrm{ni}$).
+
+    Limitations
+    -----------
+    ``v_res`` is inferred, and exact only for a loop on the plasma boundary
+    (recorded in ``assumptions['v_res']``). Holding $l_{i,3}$ fixed is a
+    numerical fallback, not evidence of a stationary current profile.
+    Smoothing windows bias rates that change within them.
+
+    Provenance
+    ----------
+    .. [Romero] J. A. Romero et al., *Nucl. Fusion* **50** (2010) 115002, eq. 24.
+    .. [548] Issue #548 Sec. 1 and ``workflow/confinement_scaling``: the VEST
+       Tier A reference chain this function was moved out of.
+    .. [1905] Issue #1905 Sec. 3: the shared confinement contract and its
+       required result fields.
+    """
+    t = _series("time", time)
+    n = t.size
+    ip = _series("i_p", i_p, n)
+    v = _series("v_loop", v_loop, n)
+    li = _series("li_3", li_3, n)
+    wv = _series("w", w, n)
+    if not float(rate_window_s) > 0:
+        raise ValueError(f"rate_window_s must be positive, got {rate_window_s!r}")
+    has_rate = n >= 2
+
+    if has_rate:
+        dli3_dt = smoothed_time_derivative(t, li, window_s=rate_window_s, polyorder=rate_polyorder)
+    else:
+        dli3_dt = np.full(n, np.nan)
+    split = resistive_loop_voltage(v, ip, dip_dt, li, r0, dli3_dt=dli3_dt,
+                                   hold_li3_where_missing=hold_li3_where_missing)
+    if has_rate:
+        pb = confinement_power_balance(t, ip, split.v_res, wv, p_rad=p_rad, dwdt_window_s=rate_window_s,
+                                       dwdt_polyorder=rate_polyorder)
+    else:
+        nan = np.full(n, np.nan)
+        pb = ConfinementPowerBalance(time=t, p_ohmic=np.asarray(ohmic_heating_power_from_I_p_V_res(ip, split.v_res),
+                                                                dtype=float),
+                                     dwdt=nan, p_net=nan, p_transport=nan, tau_e_net=nan, tau_e_transport=nan)
+
+    reason = np.full(n, "", dtype=object)
+    reason[~(pb.p_net > 0)] = "P_net not positive"
+    reason[~np.isfinite(pb.p_net)] = "P_net undefined"
+    reason[~np.isfinite(split.v_res)] = "V_res undefined"
+    reason[~np.isfinite(pb.dwdt)] = "no energy rate in the window"
+    reason[~np.isfinite(wv)] = "W undefined"
+    reason[np.isfinite(pb.tau_e_net)] = ""
+    with np.errstate(invalid="ignore"):
+        signs = np.sign(ip * v)
+    orientation = float(np.nanmedian(signs)) if np.isfinite(signs).any() else float("nan")
+
+    recorded = {
+        "v_res": BOUNDARY_VOLTAGE_APPROXIMATION,
+        "p_rad": "measured" if p_rad is not None else "unmeasured: P_transport is NaN, P_net is not radiation-corrected",
+        "heating": "Ohmic only: P_heat = P_OH = I_p V_res",
+    }
+    recorded.update(dict(assumptions or {}))
+    settings = {
+        "rate_window_s": float(rate_window_s),
+        "rate_polyorder": int(rate_polyorder),
+        "li3_rate_fallback": ("hold l_i3 fixed where the window holds no rate (constant-inductance numerical "
+                              "fallback)" if hold_li3_where_missing else "none: NaN where the window holds no rate"),
+        "dwdt_fallback": "none: NaN where the window holds no rate",
+    }
+    return OhmicConfinement(
+        time=t, i_p=ip, v_loop=v, dip_dt=_series("dip_dt", dip_dt, n), li_3=li, dli3_dt=np.asarray(dli3_dt, float),
+        r0=float(r0), l_int=split.l_int, v_ind_current=split.v_ind_current, v_ind_profile=split.v_ind_profile,
+        v_ind=split.v_ind, v_res=split.v_res, r_p=split.r_p, li3_rate_fallback=split.li3_rate_fallback, w=wv,
+        dwdt=pb.dwdt, p_ohmic=pb.p_ohmic, p_net=pb.p_net, p_transport=pb.p_transport, tau_e_net=pb.tau_e_net,
+        tau_e_transport=pb.tau_e_transport, missing_reason=reason, orientation=orientation,
+        settings=settings, assumptions=recorded,
     )
 
 
