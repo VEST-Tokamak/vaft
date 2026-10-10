@@ -265,6 +265,28 @@ def test_native_row_audit_keeps_measurements_weights_and_soft_relations():
     assert flux["submitted_fwt"] == {"min": 1.0, "median": 1.0, "max": 1.0}
 
 
+def test_zero_weight_rows_do_not_enter_the_family_residual_statistics():
+    """Cold review 0.7.0 efit-workflows F16 (#1888).
+
+    ``active`` counted the channels and the residual statistics ignored it,
+    so one zero-weight row with a residual of 100 set the family's rms and
+    maximum although it never entered the fit.
+    """
+    study = _study()
+    rows = [
+        {"reference": "r", "block": "b", "family": "probe",
+         "physical_residual": 0.01, "processed_weight": 1.0},
+        {"reference": "r", "block": "b", "family": "probe",
+         "physical_residual": 100.0, "processed_weight": 0.0},
+    ]
+    summary = study.summarize_native_rows(rows)[0]
+    assert summary["row_count"] == 2
+    assert summary["active_channel_count"] == 1
+    assert summary["inactive_row_count"] == 1
+    assert summary["residual_rms"] == pytest.approx(0.01)
+    assert summary["maximum_absolute_residual"] == pytest.approx(0.01)
+
+
 def test_mfile_family_chi2_gate_uses_a_relative_or_absolute_floor_and_excludes_ip():
     study = _study()
     rows = [

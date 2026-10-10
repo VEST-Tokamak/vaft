@@ -1671,17 +1671,19 @@ def summarize_native_rows(
         residual = np.asarray(
             [row.get("physical_residual", np.nan) for row in selected], dtype=float
         )
-        finite_residual = residual[np.isfinite(residual)]
         processed = np.asarray(
             [row.get("processed_weight", np.nan) for row in selected], dtype=float
         )
+        # A row with zero processed weight is exported but never entered the
+        # fit, so its residual is not the fit's (cold review F16).
+        active = np.isfinite(processed) & (processed != 0.0)
+        finite_residual = residual[active & np.isfinite(residual)]
         uncertainty = np.asarray(
             [row.get("uncertainty", np.nan) for row in selected], dtype=float
         )
         submitted = np.asarray(
             [row.get("submitted_fwt", np.nan) for row in selected], dtype=float
         )
-        active = np.isfinite(processed) & (processed != 0.0)
         diagnostic = np.asarray(
             [row.get("diagnostic_chi2", np.nan) for row in selected], dtype=float
         )
@@ -1704,6 +1706,7 @@ def summarize_native_rows(
                 "family": family,
                 "row_count": len(selected),
                 "active_channel_count": int(np.count_nonzero(active)),
+                "inactive_row_count": int(np.count_nonzero(~active)),
                 "residual_bias": (
                     float(np.mean(finite_residual)) if finite_residual.size else None
                 ),
