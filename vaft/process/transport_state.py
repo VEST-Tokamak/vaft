@@ -1216,7 +1216,14 @@ def _profile_nuclide(label: str, charge: float, mass: float):
 
     parsed = parse_species(str(label).replace("(", "").replace(")", ""))
     if parsed is not None and parsed.element in ATOMIC_NUMBERS:
-        return _nuclide(ATOMIC_NUMBERS[parsed.element], mass)
+        # A label is trusted only where it agrees with the stored mass and charge:
+        # "SI" parses as neutral sulphur, not silicon, and "NI" as neutral nitrogen.
+        z_n = ATOMIC_NUMBERS[parsed.element]
+        if parsed.element == "H" and mass < 3.5:
+            return _nuclide(1, mass)
+        if (parsed.element != "H" and z_n >= charge
+                and abs(STANDARD_ATOMIC_WEIGHTS[parsed.element] - mass) <= 1.0):
+            return _nuclide(z_n, mass)
     if mass < 3.5:
         return _nuclide(1, mass)
     candidates = [(abs(STANDARD_ATOMIC_WEIGHTS[s] - mass), s) for s, z in ATOMIC_NUMBERS.items()
@@ -1245,12 +1252,15 @@ def transport_species_state(state: ResolvedTransportState):
     Raises
     ------
     ValueError
-        An unresolved state, or a species whose label and mass match no element.
+        An unresolved state, a profile that is itself a projection, or a species
+        whose label and mass match no element.
 
     Convention
     ----------
     A species the converter lumped from a bundled ion (``provenance["ni"]
     ["bundled_ions"]``) or with a non-integer charge is a bundled component.  The
+    element comes from the label only where its standard weight lies within 1 u
+    of the stored mass and its Z_n bounds the charge, else from the mass.  The
     density origin is ``assumed`` for a policy composition closure and
     ``unlabelled`` otherwise; the state's own record says which.
 
@@ -1267,6 +1277,9 @@ def transport_species_state(state: ResolvedTransportState):
     if not state.resolved:
         raise ValueError(f"the transport state is not resolved ({', '.join(state.reasons)})")
     profile = state.profile
+    if "species_projection" in (getattr(profile, "provenance", {}) or {}):
+        raise ValueError("this profile is already a species projection; take the canonical state "
+                         "from the resolved state it was projected from")
     ni = np.atleast_2d(np.asarray(profile.ni, dtype=float))
     ti = np.atleast_2d(np.asarray(profile.ti, dtype=float))
     charges = np.atleast_1d(np.asarray(profile.z, dtype=float))
@@ -1309,7 +1322,11 @@ def _species_profile(profile: Any, species_state: Any, projection: Any) -> Any:
 
     index = {id(c): k for k, c in enumerate(species_state.components)}
     ti = np.atleast_2d(np.asarray(profile.ti, dtype=float))
-    names, kinds = list(profile.name), list(profile.type)
+    count = len(species_state.components)
+    names = list(profile.name) or [f"ion{k}" for k in range(count)]
+    kinds = list(profile.type) or ["[therm]"] * count
+    merged_ids = set(projection.notes.get("merged", ()))
+    merged = [k for k, m in enumerate(species_state.components) if m.component_id in merged_ids]
 
     def rows(field_value, picks):
         if field_value is None:
@@ -1329,8 +1346,6 @@ def _species_profile(profile: Any, species_state: Any, projection: Any) -> Any:
             types.append(kinds[k])
             picks.append(k)
             continue
-        merged = [k for k, m in enumerate(species_state.components)
-                  if not m.hydrogenic and m.population == "thermal"]
         weights = np.stack([species_state.components[k].density for k in merged])
         temps = np.stack([ti[min(k, ti.shape[0] - 1)] for k in merged])
         with np.errstate(invalid="ignore", divide="ignore"):
@@ -1340,7 +1355,7 @@ def _species_profile(profile: Any, species_state: Any, projection: Any) -> Any:
         masses.append(_constant(c.mass_amu, "mass"))
         densities.append(c.density / _DENSITY_SCALE)
         temperatures.append(pseudo_t)
-        labels.append("".join(c.pseudo_of) + "_eff")
+        labels.append("+".join(c.pseudo_of) + "_eff")
         types.append("[therm]")
         picks.append(max(merged, key=lambda k: species_state.components[k].z_n))
     provenance = dict(getattr(profile, "provenance", {}) or {})
@@ -1393,6 +1408,14 @@ def project_transport_state(state: ResolvedTransportState, target_physics: str,
     -------------
     Machine-independent.
 
+    Limitations
+    -----------
+    The effective impurity keeps the charge density and the Z^2 moment at every
+    point, not the impurity thermal pressure: its density
+    ``(sum n Z)^2 / sum n Z^2`` is below ``sum n``, so the impurity ``n T`` (and
+    a gyrokinetic ``p'``) is slightly lower than the explicit species give;
+    ``ptot`` is left as the state carries it.
+
     Provenance
     ----------
     .. [issue] #1567 Sec. 6-7 and Phase C; policy from #1709.
@@ -1424,6 +1447,8 @@ def _projected_state(state: ResolvedTransportState, projection: Optional[Transpo
     target = SOLVER_TARGET_PHYSICS[solver]
     if projection.canonical_state_id != state.identity:
         raise ValueError("the projection was made from another transport state")
+    if (projection.fill_probe is None) != (state.fill_probe is None):
+        raise ValueError("the projection and the state disagree on the inferred-Ti fill probe")
     if projection.target_physics != target:
         raise ValueError(f"{solver} reads a {target!r} projection, not {projection.target_physics!r}")
     if projection.method not in PROJECTION_POLICY[target][1] or projection.profile is None:
@@ -1463,9 +1488,10 @@ def run_identity(
     solver_revision : str, optional
         The GACODE revision the run used or will use [-].
     projection : TransportProjection, optional
-        The species projection the run used (#1567); its ``projection_id`` is folded
-        in, so an explicit and an effective-impurity run on one state differ.
-        Omitted, the identity is the one this function always gave [-].
+        The species projection the run used (#1567).  A reduced projection's
+        ``projection_id`` is folded in, so an effective-impurity run differs from
+        the explicit one; an explicit projection is the state's own species list
+        and gives the identity this function always gave [-].
 
     Returns
     -------
@@ -1491,7 +1517,9 @@ def run_identity(
     if projection is not None:
         if projection.canonical_state_id != state.identity:
             raise ValueError("the projection was made from another transport state")
-        payload["species_projection"] = projection.projection_id
+        if projection.method != "explicit":
+            # an explicit projection is the state's own species list: same run, same key
+            payload["species_projection"] = projection.projection_id
     return _digest(payload)
 
 

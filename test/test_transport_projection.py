@@ -80,7 +80,7 @@ def test_one_state_many_projections(state):
     assert resistive.profile is None and explicit.profile is co.profile and neo.profile is co.profile
     # the effective impurity keeps the charge density and the Z^2 moment, with one impurity
     full, lumped = co.profile, reduced.profile
-    assert list(lumped.name) == ["H+", "CO_eff"] and len(lumped.z) == 2
+    assert list(lumped.name) == ["H+", "C+O_eff"] and len(lumped.z) == 2
     for power in (1, 2):
         np.testing.assert_allclose(
             np.sum(np.atleast_2d(lumped.ni) * np.asarray(lumped.z)[:, None] ** power, axis=0),
@@ -117,7 +117,8 @@ def test_the_run_identity_names_the_projection_only_when_one_is_used(state):
     reduced = run_identity(co, solver="tglf", parameters=parameters, surface=0.5,
                            projection=project_transport_state(co, "turbulence", "effective_impurity"))
     assert base == run_identity(co, solver="tglf", parameters=parameters, surface=0.5)
-    assert len({base, explicit, reduced}) == 3
+    assert explicit == base                # the state's own species: one run, one cache key
+    assert reduced != base
     with pytest.raises(ValueError, match="another transport state"):
         run_identity(state, solver="tglf", parameters=parameters,
                      projection=project_transport_state(co, "turbulence"))
@@ -137,3 +138,55 @@ def test_an_unresolved_state_has_no_species(state):
     broken = dataclasses.replace(copy.copy(state), status="insufficient", reasons=("no_profile",), profile=None)
     with pytest.raises(ValueError, match="not resolved"):
         transport_species_state(broken)
+
+
+def _with_fast_and_rotation(co):
+    """``co`` with a fast H species after the main ion and per-species rotation rows."""
+    p = co.profile
+    n = len(p.z)
+    ni, ti = np.atleast_2d(p.ni), np.atleast_2d(p.ti)
+    order = [0, 0] + list(range(1, n))
+    vtor = np.vstack([np.full(ni.shape[1], 10.0 * (k + 1)) for k in range(n + 1)])
+    new = dataclasses.replace(
+        p, z=np.asarray(p.z)[order], mass=np.asarray(p.mass)[order],
+        name=(p.name[0], "H_fast", *p.name[1:]), type=(p.type[0], "[fast]", *p.type[1:]),
+        ni=np.vstack([ni[0] * 0.9, ni[0] * 0.1, *ni[1:]]), ti=np.vstack([ti[0], ti[0] * 20, *ti[1:]]),
+        vtor=vtor, vpol=None)
+    return dataclasses.replace(co, profile=new)
+
+
+def test_the_effective_impurity_keeps_fast_ions_and_takes_rows_by_species(state):
+    co = _with_fast_and_rotation(_with_oxygen(state))
+    before = {k: np.array(v, copy=True) for k, v in (("ni", co.profile.ni), ("ti", co.profile.ti),
+                                                       ("vtor", co.profile.vtor))}
+    lumped = project_transport_state(co, "turbulence", "effective_impurity").profile
+    assert list(lumped.name) == ["H+", "H_fast", "C+O_eff"] and list(lumped.type)[1] == "[fast]"
+    np.testing.assert_array_equal(np.atleast_2d(lumped.ti)[1], np.atleast_2d(co.profile.ti)[1])
+    # the pseudo-ion carries the rotation row of the heaviest merged element (O, row 3)
+    np.testing.assert_array_equal(lumped.vtor, np.asarray(co.profile.vtor)[[0, 1, 3]])
+    for name, value in before.items():                         # the state is not touched
+        np.testing.assert_array_equal(getattr(co.profile, name), value)
+
+
+def test_the_inferred_ti_probe_follows_the_projection(state):
+    co = _with_oxygen(state)
+    probe = dataclasses.replace(co.profile, ti=np.atleast_2d(co.profile.ti) * 1.1)
+    with_probe = dataclasses.replace(co, fill_probe=probe)
+    reduced = project_transport_state(with_probe, "turbulence", "effective_impurity")
+    assert len(reduced.fill_probe.z) == 2
+    np.testing.assert_allclose(np.atleast_2d(reduced.fill_probe.ti), np.atleast_2d(reduced.profile.ti) * 1.1)
+    stripped = project_transport_state(co, "turbulence", "effective_impurity")
+    stripped = dataclasses.replace(stripped, canonical_state_id=with_probe.identity)
+    with pytest.raises(ValueError, match="fill probe"):
+        assess_tglf_readiness(with_probe, (0.5,), projection=stripped)
+
+
+def test_a_label_is_trusted_only_where_its_mass_agrees(state):
+    from vaft.process.transport_state import _profile_nuclide
+
+    assert _profile_nuclide("SI", 14.0, 28.085)[0].element == "Si"      # not neutral sulphur
+    assert _profile_nuclide("C6+", 6.0, 12.011)[0].element == "C"
+    assert _profile_nuclide("D+", 1.0, 2.014)[0].mass_number == 2
+    projected = project_transport_state(_with_oxygen(state), "turbulence", "effective_impurity")
+    with pytest.raises(ValueError, match="already a species projection"):
+        transport_species_state(dataclasses.replace(state, profile=projected.profile))
