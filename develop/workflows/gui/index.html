@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>6f5a45f</code>. What is described
+  <code>734f9c5</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -425,7 +425,7 @@ vaft gui <span class="nt">--sample</span> 39915 41524     <span class="c"># two 
 vaft gui <span class="nt">--file</span> equilibrium.json
 vaft gui <span class="nt">--shot</span> 39915 41524       <span class="c"># database shots (needs HSDS read access)</span>
 vaft gui <span class="nt">--plot</span> equilibrium_field_psi <span class="nt">--port</span> 5010
-vaft gui <span class="nt">--workspace</span> diagnostics  <span class="c"># start in another workspace (plots, diagnostics, database)</span>
+vaft gui <span class="nt">--workspace</span> diagnostics  <span class="c"># start in another workspace (plots, diagnostics, equilibrium, database)</span>
 </code></pre></div></div>
 
 <p>The page is an application shell. The sidebar starts with the <strong>workspaces</strong>:</p>
@@ -433,6 +433,7 @@ vaft gui <span class="nt">--workspace</span> diagnostics  <span class="c"># star
 <ul>
   <li><strong>Plots:</strong> the plot explorer described below.</li>
   <li><strong>Diagnostics:</strong> the same explorer narrowed to one diagnostic.</li>
+  <li><strong>Equilibrium:</strong> equilibrium plots by mode with one shared time slice, and validation verdicts.</li>
   <li><strong>Database:</strong> the database sources, the connection, and opening database shots.</li>
 </ul>
 
@@ -503,6 +504,29 @@ open shots compare on each plot, and controls, figure options and export work th
 mapping status, measured and derived quantities, and the recorded source.</li>
   <li><strong>Not yet available.</strong> Raw-versus-processed comparison and raw field inspection need an API
 that names each diagnostic’s raw DAQ fields; they come when that API lands.</li>
+</ul>
+
+<p>The <strong>Equilibrium</strong> workspace inspects reconstructed equilibria, after Tutorial 03:</p>
+
+<ul>
+  <li><strong>One time slice.</strong> Pick a slice on any plot that has one. Every other equilibrium plot you
+open shows the same slice, and the status strip names it.</li>
+  <li><strong>Modes.</strong>
+    <ul>
+      <li><strong>Inspect:</strong> the 2-D state (flux map, boundary) and 1-D profiles.</li>
+      <li><strong>Constraints &amp; fit:</strong> constraints, their coverage and weights, residuals and convergence.</li>
+      <li><strong>Time evolution:</strong> global quantities across the discharge.</li>
+      <li><strong>Quality:</strong> fit-quality plots and table.</li>
+    </ul>
+
+    <p>The plots come from plot discovery. A plot no mode claims is shown under Inspect.</p>
+  </li>
+  <li><strong>Validation verdicts.</strong> In Quality, <strong>Check this slice</strong> (or <strong>Check all slices</strong>) runs
+<code class="language-plaintext highlighter-rouge">vaft.validation.equilibrium.validate_equilibrium</code> on each open shot. It shows the verdict of
+every check (verification, diagnostic fit, physical validity, independent validation) with its
+reason, exactly as the validation layer states it.</li>
+  <li><strong>Several shots</strong> compare on each plot as in <strong>Plots</strong>. Nothing in this workspace edits or
+reruns a reconstruction.</li>
 </ul>
 
 <p>The <strong>Database</strong> workspace contains:</p>
@@ -900,7 +924,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 17:41:17 +0000"
+        "time": "2026-10-10 19:07:17 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
