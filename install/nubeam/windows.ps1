@@ -124,8 +124,10 @@ $CodeName = 'nubeam'
 $HomeVariable = 'NUBEAMHOME'
 $Title = 'NUBEAM (Windows native)'
 
-# What a NUBEAM case drives, in the order it uses them.
-$Executables = @('nubeam_comp_exec')
+# What a NUBEAM case drives, in the order it uses them: the same three names
+# install\check_nubeam.py verifies, so the wrapper and the checker agree on
+# what a complete installation is. windows.sh builds all three.
+$Executables = @('vaft_plasma_state', 'nubeam_comp_exec', 'update_state')
 
 # The directories windows.sh creates unconditionally, relative to the source
 # tree. It refuses to start when either exists without its manifest, so with a
@@ -386,7 +388,9 @@ Write-Result -Status PASS -Name 'Executables' -Detail (($Executables | ForEach-O
 # ---------------------------------------------------------------------------
 
 Copy-RuntimeDependencies -Msys2Root $root -MinGWEnvironment $MinGWEnvironment -BinDirectory $binDirectory
-Test-ExecutableLoads -Executables (@($Executables | ForEach-Object { Join-Path $binDirectory "$_.exe" }))
+if (-not (Test-ExecutableLoads -Executables (@($Executables | ForEach-Object { Join-Path $binDirectory "$_.exe" })))) {
+    Stop-WithGuidance 'The installed executables could not load their runtime libraries. See install\README.md.'
+}
 
 Write-InstallManifest -Prefix $prefix -Record @{
     code        = $CodeName
@@ -410,3 +414,11 @@ Write-ExternalSummary -Title $Title -NextSteps @(
     'The reference-case harness (install/nubeam/run-local-validation.sh) supports Linux and macOS only.',
     'NUBEAM profiles map to the core_sources and distributions IDS; birth and lost-particle markers stay in the native container (issue #490).'
 )
+
+if ($script:Failed) { exit 1 }
+
+Write-Host ''
+Write-Step 'Verifying the installation ...'
+Write-Host ''
+Invoke-InVaft @('python', (Join-Path $RepositoryRoot 'install\check_nubeam.py'), '--source', $source, '--prefix', $prefix)
+exit $LASTEXITCODE

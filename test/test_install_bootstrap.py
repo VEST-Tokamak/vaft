@@ -3128,3 +3128,29 @@ def test_gpec_windows_clears_stale_executables_on_every_build():
         assert removal not in _brace_block(text, gate.end()), (
             "the stale-executable removal must not be gated on -Clean"
         )
+
+
+def test_nubeam_windows_wrapper_verifies_what_the_checker_verifies():
+    """Cold review install F12: the load probe's verdict was discarded.
+
+    nubeam\\windows.ps1 called `Test-ExecutableLoads` bare, probed one of the
+    three executables check_nubeam.py requires, and ended without an exit code
+    for a FAIL row or the checker run every other wrapper finishes with -- so
+    an unloadable build still wired NUBEAMHOME and exited 0.
+    """
+    checker = _load_external_checker("check_nubeam.py")
+    text = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    declared = re.search(r"(?m)^\$Executables = @\((.*)\)$", text)
+    assert declared, "the wrapper declares the executables it verifies"
+    assert set(re.findall(r"'([^']+)'", declared.group(1))) == set(checker.EXECUTABLES)
+
+    for path in _ALL_POWERSHELL:
+        wrapper = path.read_text(encoding="utf-8")
+        for call in re.finditer(r"(?m)^(.*)Test-ExecutableLoads -Executables", wrapper):
+            assert call.group(1).startswith("if (-not ("), (
+                f"{path.name}: Test-ExecutableLoads must stop the install when it fails"
+            )
+
+    tail = text[text.index("Write-ExternalSummary"):]
+    assert "if ($script:Failed) { exit 1 }" in tail
+    assert "check_nubeam.py" in tail and tail.rstrip().endswith("exit $LASTEXITCODE")
