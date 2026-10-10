@@ -275,7 +275,10 @@ def _write_ods_file(ods, path, suffixes, compression, reopenable_temporary_file)
     import gzip
     import shutil
 
-    if compression is not None:
+    if compression is not None or path.suffix.lower() == ".hdf5":
+        # ``ODS.save`` picks ``save_omas_<ext>`` from the suffix and OMAS has
+        # no ``save_omas_hdf5``, so the ``.hdf5`` spelling the validation
+        # accepts goes to the HDF5 writer directly (PR #1926 review F6).
         from omas.omas_h5 import dict2hdf5
 
         dict2hdf5(str(path), ods, lists_as_dicts=True, compression=compression)

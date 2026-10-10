@@ -294,6 +294,13 @@ def load_ods(
                     with plain_path.open("wb") as plain:
                         shutil.copyfileobj(compressed, plain)
                 ods.load(str(plain_path), consistency_check=False)
+        elif source_path.suffix.lower() == ".hdf5":
+            # `ODS.load` picks `load_omas_<ext>` from the suffix and OMAS has
+            # no `load_omas_hdf5`; the `.hdf5` spelling `_detect` accepts goes
+            # to the HDF5 reader directly (PR #1926 review F6).
+            from omas import load_omas_h5
+
+            ods = load_omas_h5(str(source_path), consistency_check=False)
         else:
             ods.load(str(source_path), consistency_check=False)
         if descriptor.format == "omas_hdf5":

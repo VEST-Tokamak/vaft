@@ -108,6 +108,18 @@ def test_threads_saving_the_same_target_do_not_share_a_staging_file(tmp_path):
     assert list(vaft.omas.load(target)["magnetics.time"]) == list(range(2000))
 
 
+def test_the_hdf5_spelling_is_written_by_the_hdf5_writer(tmp_path):
+    """`.hdf5` passed validation but reached `ODS.save`, which has no
+    `save_omas_hdf5` (PR #1926 review F6)."""
+    from omas import ODS
+
+    ods = ODS()
+    ods["magnetics.time"] = [0.0, 1.0, 2.0]
+    target = tmp_path / "magnetics.hdf5"
+    assert vaft.omas.save(ods, target) == target
+    assert list(vaft.omas.load(target)["magnetics.time"]) == [0.0, 1.0, 2.0]
+
+
 def test_imas_handle_detects_netcdf_and_converts_omas_source(tmp_path):
     with vaft.imas.load(IMAS_NC) as handle:
         assert handle.info.format == "imas_netcdf"
