@@ -3318,3 +3318,62 @@ def test_efit_windows_records_the_netcdf_it_got_not_the_netcdf_it_asked_for():
     assert not re.search(r"enabled\s+=\s+\[bool\] \$netcdfUnix", text)
     # And the remedy the message names is a switch the script declares.
     assert "-WithoutNetcdf" in after and "[switch] $WithoutNetcdf" in text
+
+
+def _gpec_dependency_fetch_function() -> str:
+    """The bash `fetch` the GPEC Windows installer runs inside MSYS2, as text."""
+    text = (INSTALL / "install_gpec_windows.ps1").read_text(encoding="utf-8")
+    lines = re.findall(r"(?m)^        '([^']*)',?$", text)
+    start = lines.index("fetch() {")
+    return "\n".join(lines[start: lines.index("}", start) + 1]) + "\n"
+
+
+@requires_bash
+def test_gpec_windows_never_reuses_a_partial_download(tmp_path):
+    """Cold review install F25: `[ -f x.tar.gz ] || curl -o x.tar.gz` kept any bytes.
+
+    A download cut short left a truncated archive that the next run accepted
+    as complete, failing in `tar` with no hint of why. Downloads now land in a
+    .part, are checked to be a whole gzip stream, and are only then renamed.
+    """
+    import gzip
+
+    text = (INSTALL / "install_gpec_windows.ps1").read_text(encoding="utf-8")
+    assert "] || curl" not in text
+    assert len(re.findall(r"(?m)^        'fetch \S+\.tar\.gz https://", text)) == 3
+
+    whole = gzip.compress(b"a whole archive " * 64)
+    truncated = whole[: len(whole) // 2]
+    served = tmp_path / "served.bin"
+    bin_directory = tmp_path / "bin"
+    bin_directory.mkdir()
+    fake_curl = bin_directory / "curl"
+    # `curl -fsSL -o OUT URL`: deliver whatever is staged at served.bin.
+    fake_curl.write_text(f'#!/bin/sh\ncp "{served}" "$3"\n', encoding="utf-8")
+    fake_curl.chmod(0o755)
+    work = tmp_path / "work"
+    work.mkdir()
+    script = "set -euo pipefail\n" + _gpec_dependency_fetch_function() + 'fetch "$1" "$2"\n'
+
+    def fetch():
+        return subprocess.run(
+            [BASH, "-c", script, "x", "x.tar.gz", "https://example.invalid/x.tar.gz"],
+            capture_output=True, text=True, timeout=60, cwd=work,
+            env={**os.environ, "PATH": f"{bin_directory}{os.pathsep}{os.environ['PATH']}"},
+        )
+
+    # A truncated archive left by an earlier run is replaced, not reused.
+    (work / "x.tar.gz").write_bytes(truncated)
+    served.write_bytes(whole)
+    assert fetch().returncode == 0
+    assert (work / "x.tar.gz").read_bytes() == whole
+    # A download that arrives truncated is refused and leaves nothing behind.
+    (work / "x.tar.gz").unlink()
+    served.write_bytes(truncated)
+    refused = fetch()
+    assert refused.returncode == 4 and "did not download whole" in refused.stderr
+    assert not (work / "x.tar.gz").exists() and not (work / "x.tar.gz.part").exists()
+    # A whole archive already present is kept without a download.
+    (work / "x.tar.gz").write_bytes(whole)
+    fake_curl.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+    assert fetch().returncode == 0
