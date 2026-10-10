@@ -17,6 +17,8 @@ Only the Snakefile imports this module; the stage scripts receive explicit
 
 from __future__ import annotations
 
+import os
+import re
 from pathlib import PurePosixPath
 from typing import NamedTuple
 
@@ -30,6 +32,51 @@ from vaft.database.filedb import (
     StabilityProduct,
     stage_lineage,
 )
+
+
+_ENV_REFERENCE = re.compile(
+    r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)(?::-(?P<default>[^}]*))?\}"
+    r"|(?P<bare>[A-Za-z_][A-Za-z0-9_]*))"
+)
+
+
+def expand_config_environment(value):
+    """Expand ``$VAR`` / ``${VAR}`` / ``${VAR:-default}`` in config values.
+
+    Walks dicts and lists; strings are expanded, every other value is returned
+    as is.  A reference to an unset variable without a default is an error
+    naming the variable, so a run never falls back to a path it was not
+    given.  ``${VAR:-default}`` takes the shell's meaning: the variable when it
+    is set and non-empty, the default otherwise.  This is what lets a shipped
+    config name the production root as a default while a host that sets
+    ``VAFT_FILEDB_DIR`` is honoured -- both pipelines read their config
+    through this one function (cold review 0.7.0 data F12, #1888).
+    """
+    if isinstance(value, dict):
+        return {key: expand_config_environment(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [expand_config_environment(item) for item in value]
+    if not isinstance(value, str):
+        return value
+
+    missing: list[str] = []
+
+    def substitute(match: re.Match) -> str:
+        name = match.group("braced") or match.group("bare")
+        found = os.environ.get(name)
+        if found:
+            return found
+        default = match.group("default")
+        if default is not None:
+            return default
+        missing.append(name)
+        return match.group(0)
+
+    expanded = _ENV_REFERENCE.sub(substitute, value)
+    if missing:
+        names = ", ".join(sorted(set(missing)))
+        raise ValueError(f"Missing environment variable(s) in config.yaml: {names}")
+    return expanded
 
 
 SHOT_FIRST = "shot_first"

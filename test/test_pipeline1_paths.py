@@ -493,3 +493,56 @@ def test_a_run_config_file_without_base_dir_or_shots_is_still_refused(tmp_path):
     with pytest.raises(ValueError, match="base_dir"):
         MODULE.require_run_config_keys(_Workflow([run]))
     MODULE.require_run_config_keys(_Workflow([]))  # no config file: the workflow's defaults are intended
+
+
+# ---------------------------------------------------------------------------
+# Environment expansion shared by both pipelines (cold review 0.7.0 data F12)
+# ---------------------------------------------------------------------------
+
+def test_config_expansion_takes_the_variable_or_its_default(monkeypatch):
+    monkeypatch.delenv("VAFT_FILEDB_DIR", raising=False)
+    config = {
+        "base_dir": "${VAFT_FILEDB_DIR:-/srv/vest.filedb}",
+        "external": {"data_root": "${VAFT_FILEDB_DIR:-/srv/vest.filedb}/ext"},
+        "shots": [48226],
+        "conda": None,
+    }
+    assert MODULE.expand_config_environment(config) == {
+        "base_dir": "/srv/vest.filedb",
+        "external": {"data_root": "/srv/vest.filedb/ext"},
+        "shots": [48226],
+        "conda": None,
+    }
+
+    monkeypatch.setenv("VAFT_FILEDB_DIR", "/data/filedb")
+    expanded = MODULE.expand_config_environment(config)
+    assert expanded["base_dir"] == "/data/filedb"
+    assert expanded["external"]["data_root"] == "/data/filedb/ext"
+    assert MODULE.expand_config_environment("$VAFT_FILEDB_DIR/x") == "/data/filedb/x"
+
+
+def test_config_expansion_refuses_an_unset_variable_without_a_default(monkeypatch):
+    monkeypatch.delenv("VAFT_FILEDB_DIR", raising=False)
+    with pytest.raises(ValueError, match="VAFT_FILEDB_DIR"):
+        MODULE.expand_config_environment({"base_dir": "${VAFT_FILEDB_DIR}"})
+    with pytest.raises(ValueError, match="VAFT_FILEDB_DIR"):
+        MODULE.expand_config_environment("$VAFT_FILEDB_DIR")
+
+
+def test_no_shipped_workflow_config_hard_codes_a_server_path():
+    """A literal `/srv/...` appears only as the default of a `${VAR:-...}`.
+
+    Pipeline 2 shipped `base_dir: /srv/vest.filedb` while pipeline 1 read
+    `${VAFT_FILEDB_DIR}` through the expander, so the same host setting
+    steered one pipeline and not the other (cold review 0.7.0 data F12).
+    """
+    import re
+
+    for config in sorted(SCRIPT.parents[1].glob("*/config.yaml")):
+        text = config.read_text(encoding="utf-8")
+        for line in text.splitlines():
+            if "/srv/" not in line or line.lstrip().startswith("#"):
+                continue
+            assert re.search(r"\$\{[A-Za-z_][A-Za-z0-9_]*:-[^}]*/srv/", line), (
+                f"{config.relative_to(SCRIPT.parents[2])}: {line.strip()!r}"
+            )
