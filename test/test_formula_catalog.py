@@ -116,6 +116,7 @@ def test_the_catalog_counts_the_known_public_surface():
         "ordering": 16,  # asymptotic ordering parameters (#1627), +Debye length, Mach number, pressure anisotropy (#1627 phase C)
         "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure (#1606)
         "kinetic": 2,  # electron collision time and electron-ion energy exchange, multi-species (#1606)
+        "turbulence": 5,  # turbulence-zonal-flow predator-prey rhs, fixed point, invariant, period, lag (#1820)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
