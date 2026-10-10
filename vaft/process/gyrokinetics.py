@@ -323,7 +323,7 @@ def zonal_shear_proxy(phi, kx, ky, *, ky_tolerance=1e-12):
 
 
 def predator_prey_cycle_metrics(time, turbulence, zonal, *, transport=None, min_cycles=2,
-                                prominence=0.2):
+                                prominence=0.2, scale="log"):
     r"""Cycle observables of a turbulence / zonal-flow pair: periods, peak lag, correlation lag.
 
     Parameters
@@ -341,6 +341,8 @@ def predator_prey_cycle_metrics(time, turbulence, zonal, *, transport=None, min_
         Complete turbulence cycles needed for ``qualified`` [-].
     prominence : float, optional
         Peak prominence as a fraction of each trace's range [-].
+    scale : {"log", "linear"}, optional
+        Detect peaks and correlate on $\ln N, \ln E$ or on $N, E$ [-].
 
     Returns
     -------
@@ -360,8 +362,8 @@ def predator_prey_cycle_metrics(time, turbulence, zonal, *, transport=None, min_
 
     Processing steps
     ----------------
-    1. Find peaks of $N$ and $E$ with a prominence of ``prominence`` times each
-       trace's range.
+    1. Take $\ln N, \ln E$ (``scale="log"``) or $N, E$; find peaks of each with
+       a prominence of ``prominence`` times that trace's range.
     2. Periods are the spacings of successive $N$ peaks; ``n_cycles`` counts them.
     3. For each $N$ peak, the first $E$ peak before the next $N$ peak gives the
        peak response lag.
@@ -376,6 +378,9 @@ def predator_prey_cycle_metrics(time, turbulence, zonal, *, transport=None, min_
     ``min_cycles=2`` is the conventional minimum for a period estimate with a
     spread; ``prominence=0.2`` is a numerical convenience that ignores
     sub-burst wiggles and should be lowered for weak, regular oscillations.
+    ``scale="log"`` is a numerical convenience for bursty gyrokinetic traces
+    that span decades, where a linear-range prominence sees only the largest
+    burst; peak *times* do not depend on the scale, only which peaks pass.
 
     Convention
     ----------
@@ -402,6 +407,12 @@ def predator_prey_cycle_metrics(time, turbulence, zonal, *, transport=None, min_
     t, n, e = _traces(time, turbulence, zonal)
     if int(min_cycles) < 1:
         raise ValueError("min_cycles must be at least 1")
+    if scale == "log":
+        if np.any(n <= 0) or np.any(e <= 0):
+            raise ValueError('scale="log" needs strictly positive intensities')
+        n, e = np.log(n), np.log(e)
+    elif scale != "linear":
+        raise ValueError(f"scale must be 'log' or 'linear', not {scale!r}")
     reasons: list[str] = []
     n_peaks = _peaks(t, n, prominence)
     e_peaks = _peaks(t, e, prominence)

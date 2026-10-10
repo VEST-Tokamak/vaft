@@ -161,3 +161,18 @@ def test_invalid_inputs_are_refused():
         gk.fit_predator_prey_model(t, n, e, method="per_capita")
     with pytest.raises(ValueError, match="increasing"):
         gk.predator_prey_cycle_metrics(t[::-1], n, e)
+
+
+def test_log_scale_finds_bursts_a_linear_range_misses():
+    """A large burst followed by smaller ones (a trace spanning decades): with a
+    prominence fraction of the linear range only the large one passes."""
+    t = np.linspace(0.0, 400.0, 4001)
+    amp = np.array([100.0, 3.0, 3.0, 3.0])
+    n = 0.01 + sum(a * np.exp(-((t - 50 - 100 * k) / 8.0) ** 2) for k, a in enumerate(amp))
+    e = 0.01 + sum(a * np.exp(-((t - 75 - 100 * k) / 8.0) ** 2) for k, a in enumerate(amp))
+    linear = gk.predator_prey_cycle_metrics(t, n, e, scale="linear")
+    log = gk.predator_prey_cycle_metrics(t, n, e, scale="log")
+    assert linear.n_cycles == 0
+    assert log.n_cycles == 3
+    assert log.period_mean == pytest.approx(100.0, rel=0.01)
+    assert log.peak_response_lag_mean == pytest.approx(25.0, rel=0.02)
