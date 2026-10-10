@@ -168,6 +168,25 @@ A workspace is built the first time it is shown. It reads and changes the shared
 through `shell.selection` (a `vaft.gui.SelectionState`), and draws through the public VAFT APIs
 like every other workspace.
 
+## Phones and tablets
+
+The GUI is one web page for every screen. There is no separate mobile app, and nothing else to
+install.
+
+- **Desktop:** the controls stay in a sidebar beside the figure.
+- **Tablet** (narrower than 1100 px): the sidebar narrows to 300 px so the figure keeps room.
+- **Phone** (narrower than 768 px, or under 500 px tall and 950 px wide: a phone held sideways, or a very small desktop window):
+  - The controls become a drawer over the page, and the page opens with the drawer closed, so
+    the figure and the status line are the first thing you see.
+  - The ☰ button in the header opens the drawer to change the workspace, source, plot or
+    figure options; press it again to see the figure.
+  - Wide tables, such as the database namespaces, scroll sideways inside their own box instead
+    of widening the page.
+
+Every control is reachable at every width; nothing is hidden on small screens. The rules live
+in `vaft.gui.layout`, and a new workspace gets them by using `vaft.gui.layout.page`, as the
+shell does.
+
 ## Run on a remote host over SSH
 
 The server binds to `127.0.0.1` by default, so it is not reachable from other machines. Forward
