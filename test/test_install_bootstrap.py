@@ -3588,3 +3588,27 @@ def test_plasma_state_verdict_cannot_be_carried_by_a_good_median_alone():
     assert ok, reason
     ok, reason = comparator.verdict(zeroed, 0.25, 0.5, 12)
     assert not ok and "11 of 13" in reason
+
+
+@posix_only
+@requires_bash
+def test_nubeam_uninstall_does_not_follow_a_symlinked_component(tmp_path):
+    """Review of PR #1921, F2: `rm -rf <root>/build/sym/sub` followed the link.
+
+    A planted `build/sym -> /elsewhere` plus a manifest entry under it passed
+    both lexical guards; rm -rf then removed /elsewhere/sub. When the
+    directory exists its real location is now compared with the tree's.
+    """
+    root = tmp_path / "nubeam"
+    (root / "build" / "linux-x86_64").mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    (elsewhere / "sub").mkdir(parents=True)
+    (root / "build" / "sym").symlink_to(elsewhere)
+
+    refused = _nubeam_uninstall(root, ("root", str(root)), ("managed_dir", f"{root}/build/sym/sub"))
+    assert refused.returncode == 1 and "outside the source tree" in refused.stderr, refused.stderr
+    assert "would remove" not in refused.stdout
+    assert (elsewhere / "sub").is_dir()
+    # A real directory inside the tree is still removed.
+    accepted = _nubeam_uninstall(root, ("root", str(root)), ("managed_dir", f"{root}/build/linux-x86_64"))
+    assert accepted.returncode == 0 and "would remove directory" in accepted.stdout

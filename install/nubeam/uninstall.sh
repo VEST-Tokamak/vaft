@@ -174,6 +174,12 @@ while IFS=$'\t' read -r kind path; do
     managed_dir)
       is_managed_subtree "$path" || die "refusing to remove a directory outside local, build/ and vendor/ntcc/: $path"
       if [[ -d "$path" ]]; then
+        # The lexical guards above cannot see a symlinked component
+        # (<root>/build/sym -> /elsewhere), and rm -rf follows it into
+        # whatever it points at. The directory exists here, so its real
+        # location can be checked against the tree's.
+        resolved="$(cd "$path" 2>/dev/null && pwd -P)" || die "cannot resolve $path"
+        [[ "$resolved" == "$ROOT_DIR"/?* ]] || die "refusing $path: it resolves to $resolved, outside the source tree"
         if ((DRY_RUN)); then
           note "would remove directory $path"
         else
