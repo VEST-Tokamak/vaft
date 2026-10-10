@@ -44,6 +44,8 @@ from ..gpec._pentrc_output import (
     torque_profile,
 )
 
+from . import outputs  # noqa: F401  (``vaft.code.pentrc.outputs`` stays an attribute)
+
 __all__ = [
     "PROFILE_VARIABLES",
     "TORQUE_GRIDS",

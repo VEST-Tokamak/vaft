@@ -350,7 +350,8 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
     ),
     ExternalCode(
         "pentrc", "PENTRC", ("neoclassical toroidal viscosity",), "vaft.code.gpec", "subprocess_executable",
-        # install_gpec.sh builds the pentrc target; the Windows installer and check_gpec.py do not.
+        # install_gpec.sh builds and installs pentrc into $GPECHOME/bin; the Windows installer does not
+        # build it and check_gpec.py does not check it.
         home="vaft.code.gpec._types:GPEC_HOME_ENV", installation="vaft_managed_source_build",
         installers=("install/install_gpec.sh",), provenance=("install/install_gpec.sh",),
         native="pentrc.in and a .kin in a completed ideal-GPEC cell, pentrc_output_n*.nc out",

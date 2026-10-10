@@ -48,8 +48,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 MANIFEST_NAME="$VAFT_EXTERNAL_MANIFEST_NAME"
 PREFIX_CREATED=0
 
-#: The executables install/check_gpec.py looks for, in its order.
-PROGRAMS=(dcon match rdcon rmatch stride gpec)
+#: The executables install/check_gpec.py looks for, in its order, then pentrc:
+#: run_pentrc resolves $GPECHOME/bin/pentrc, so it is installed with the suite (#1883).
+PROGRAMS=(dcon match rdcon rmatch stride gpec pentrc)
 #: `all` minus `v` (a no-op report) and `xdraw` (X11).
 TARGETS=(neededdeps equil lsode zlange zvode orbit vacuum pentrc dcon match
          rdcon rmatch multi sum slayer coil gpec stride)
