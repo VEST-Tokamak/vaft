@@ -16076,9 +16076,10 @@ RECIPES["kinetic_overview_profiles"] = CallableRecipe(
 # One matched kinetic state in four panels (issue #1837)
 #
 # Reads the stored state only: the pipeline-2 stages (#1842) write the
-# composition, T_i and Z_eff into core_profiles and the evidence roles and
-# T_i validity into its code.parameters; the view maps Thomson through the
-# selected equilibrium and draws.  No EFIT, fit, OpenADAS or composition call.
+# composition, T_i and Z_eff into core_profiles, with their evidence roles,
+# equilibrium lineage and Z_eff target in the per-quantity *_fit.parameters
+# records (the contract as amended on #1837); the view maps Thomson through
+# the selected equilibrium and draws.  No EFIT, fit, OpenADAS or composition call.
 # ---------------------------------------------------------------------------
 
 from .kinetic_state import (  # noqa: E402
@@ -16103,26 +16104,37 @@ RECIPES["kinetic_overview_state"] = CallableRecipe(
     available=_kinetic_state_available,
     reads=(*_PROFILE_FIT_READS["thomson_scattering"],
            *_PROFILE_FIT_EQUILIBRIUM_READS,
+           "thomson_scattering.ids_properties.homogeneous_time",
+           "thomson_scattering.channel.{i}.n_e.time", "thomson_scattering.channel.{i}.t_e.time",
+           "thomson_scattering.channel.{i}.n_e.validity", "thomson_scattering.channel.{i}.n_e.validity_timed",
+           "thomson_scattering.channel.{i}.t_e.validity", "thomson_scattering.channel.{i}.t_e.validity_timed",
            "equilibrium.time_slice.{i}.profiles_1d.rho_tor_norm",
            "core_profiles.time", f"{_KINETIC_STATE_CORE}.time",
            f"{_KINETIC_STATE_CORE}.grid.rho_tor_norm", f"{_KINETIC_STATE_CORE}.grid.psi",
            f"{_KINETIC_STATE_CORE}.grid.rho_pol_norm",
            f"{_KINETIC_STATE_CORE}.electrons.density",
            f"{_KINETIC_STATE_CORE}.electrons.density_error_upper",
+           f"{_KINETIC_STATE_CORE}.electrons.density_fit.parameters",
            f"{_KINETIC_STATE_CORE}.electrons.density_thermal",
            f"{_KINETIC_STATE_CORE}.electrons.density_thermal_error_upper",
+           f"{_KINETIC_STATE_CORE}.electrons.density_thermal_fit.parameters",
            f"{_KINETIC_STATE_CORE}.electrons.temperature",
            f"{_KINETIC_STATE_CORE}.electrons.temperature_error_upper",
+           f"{_KINETIC_STATE_CORE}.electrons.temperature_fit.parameters",
            f"{_KINETIC_STATE_CORE}.electrons.pressure",
            f"{_KINETIC_STATE_CORE}.electrons.pressure_error_upper",
            f"{_KINETIC_STATE_CORE}.ion.{{j}}.label",
            f"{_KINETIC_STATE_CORE}.ion.{{j}}.element.0.z_n",
            f"{_KINETIC_STATE_CORE}.ion.{{j}}.density",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.density_fit.parameters",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.state.{{k}}.density",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.temperature_fit.parameters",
            f"{_KINETIC_STATE_CORE}.t_i_average",
+           f"{_KINETIC_STATE_CORE}.t_i_average_fit.parameters",
            f"{_KINETIC_STATE_CORE}.pressure_ion_total",
            f"{_KINETIC_STATE_CORE}.zeff",
-           "core_profiles.global_quantities.z_eff_resistive",
-           "core_profiles.code.parameters"),
+           f"{_KINETIC_STATE_CORE}.zeff_fit.parameters",
+           "core_profiles.global_quantities.z_eff_resistive"),
     backend=OMAS_BOUND,
     reason="vaft.process.profile.equilibrium_mapping_points maps the Thomson channels through the input equilibrium",
     time_axis=OWN_TIME,

@@ -4,50 +4,60 @@ A workflow-side reconstruction, not package code: the archive notebooks, the
 plotting sample notebook and the tests import it by putting this directory on
 ``sys.path``.
 
-The ``kinetic_overview_state`` plot reads stored IMAS paths only.  The two
-archived cases (``workflow/kinetic_state/archive_data/vest_40326_322ms.json``
-and ``vest_39915_316ms.json``) are not ODS files: they hold the selected
-equilibrium and core-profile arrays, the mapped Thomson channels and the
-transient C/O charge states, and the archive notebooks derive the ion
-composition, ``T_i`` and ``Z_eff`` inline.  This converter does that
-derivation -- **exactly as the notebooks do it**, here, beside the
-archive, and never in the plot -- and stores the results into the paths the plot reads:
+The ``kinetic_overview_state`` plot reads stored IMAS paths only, under the
+contract Lane KP amended on #1837: evidence roles come from the per-quantity
+``*_fit.parameters`` records, ``T_i`` validity is carried by the data (NaN),
+and the equilibrium lineage, occurrence and ``Z_eff`` target are ``key=value``
+fields of those records.  The archived cases
+(``archive_data/vest_40326_322ms.json`` and ``vest_39915_316ms.json``) are
+not ODS files, so this converter rebuilds one, writing through the **real
+writers** wherever one exists so that a drift in a writer breaks the tests:
 
-* ``equilibrium.time_slice[0]``: ``profiles_1d.{psi, rho_tor_norm, pressure,
-  volume, q}``, ``global_quantities.{psi_axis, psi_boundary, magnetic_axis}``
-  and a ``profiles_2d[0]`` psi map;
-* ``core_profiles.profiles_1d[0]``: ``grid.{rho_tor_norm, psi}``,
-  ``electrons.{density, density_thermal, temperature, pressure}``, one
-  ``ion[k]`` per species (H+, C, O; charged densities), ``t_i_average``,
-  ``pressure_ion_total`` and ``zeff``;
-* ``core_profiles.code.parameters``: the JSON ``kinetic_state`` record
-  proposed on #1837 (lineage, occurrence, evidence roles, ``t_i_valid`` on the
-  core grid, composition preset and target);
-* ``thomson_scattering``: one time sample, every channel's ``position.{r, z}``
-  and ``n_e``/``t_e`` with ``data_error_upper``.
+* the C/O composition goes through
+  :func:`vaft.process.impurity.populate_radial_impurity_profiles`, fed a
+  :class:`~vaft.process.impurity.RadialImpurityComposition` assembled from the
+  archived OpenADAS transient charge-state fractions and scale (the ADF11
+  replay itself needs the tables, which tests must not download).  It writes
+  the diluted main ion, one bundled entry per element with its charge-state
+  densities, ``zeff`` and their ``origin=derived`` records;
+* ``T_i`` is :func:`vaft.validation.kinetic_state.infer_ti_pressure_partition`,
+  point by point, exactly as the notebooks call it, with its record spelled by
+  :func:`vaft.machine_mapping.core_profiles.inferred_ti_text`; written into
+  ``ion[0]`` before the composition writer, which carries it onto the
+  impurity ions as the stages do.  On the electron-kinetic lineage the
+  partition is refused (circular) and the slice carries that EFIT's own
+  ``T_i = ratio T_e`` prior with a ``ti_te_ratio=...; status=assumed`` record.
+
+Hand-built, because no writer exists yet (each says so in a comment below):
+
+* the electron arrays and their ``coordinate=rho_tor_norm; method=external``
+  fit records (the spelling ``vaft.process.profile`` writes for an external
+  profile), ``electrons.pressure = e n_e T_e``;
+* ``t_i_average`` / ``pressure_ion_total`` (Lane KP #1842 item 3) and the
+  ``equilibrium_lineage=...; equilibrium_occurrence=...`` fields on the T_i
+  records and ``target_zeff=...`` on the ``zeff`` record (the amended
+  contract; the writers do not emit them yet);
+* the equilibrium slice and the Thomson channels.
 
 **Thomson positions and the psi map are synthetic, and say so.**  The archive
 keeps each channel's *mapped* coordinate, not the 2-D equilibrium it was mapped
 through.  The plot maps every channel from its native ``(R, Z)`` through the
-selected equilibrium (``vaft.process.profile.equilibrium_mapping_points``), so
-the fixture has to provide a map.  It builds the smallest honest one: the
-channels sit at the archived VEST Thomson radii (``R_m``, ``Z = 0``) -- 39915
-stores none, and is given the 40326 radii, the same system -- and
-``psi_N(R, Z) = s(R)^2 + (Z / b)^2``, where ``s(R)`` is the monotone
-(PCHIP) signed square root of the archived channel ``psi_N`` through those
-radii.  Every channel therefore maps back to its archived ``psi_N`` exactly
-(it sits on a grid node), and ``q`` is set to ``d(rho_tor^2)/d psi_N`` of the
-archived ``rho_tor_norm`` table so the equilibrium's own ``rho_tor_norm(psi_N)``
-reproduces that table.  The resulting channel ``rho_tor_norm`` agrees with the
-archived mapping within the trapezoid error of that integral (tested), which
-is what makes the comparison against the notebook numbers meaningful.  The map
-is not a Grad-Shafranov solution and away from the midplane it is invented;
-only its midplane and its 1-D flux tables are used.
+selected equilibrium, so the converter provides a map: the channels sit at the
+archived VEST Thomson radii (``R_m``, ``Z = 0``) -- 39915 stores none and is
+given the 40326 radii, the same system -- and ``psi_N(R, Z) = s(R)^2 + (Z/b)^2``
+with ``s(R)`` the monotone (PCHIP) signed square root of the archived channel
+``psi_N``.  Every channel maps back to its archived ``psi_N`` exactly (it sits on
+a grid node); ``q = d(rho_tor^2)/d psi_N`` of the archived table reproduces the
+equilibrium's ``rho_tor_norm(psi_N)``.  The map is not a Grad-Shafranov
+solution; only its midplane and its 1-D tables are used.  For 39915 the
+archive maps Thomson through the magnetic EFIT only, so its electron-kinetic
+case places the channels at the *magnetic* ``psi_N``.
 
-For 39915 the archive maps Thomson through the magnetic EFIT only.  Its
-electron-kinetic fixture places the channels at the *magnetic* ``psi_N``
-(the kinetic mapping is not archived), so its Thomson ``rho_tor_norm`` there is
-approximate; that case exists to test the refused ``T_i``, not the mapping.
+**Where the writer and the notebook differ.**  The composition writer fills a
+point whose charge states are undefined (one of 129 in each case) from its
+neighbours (``filled_points=1`` in the record), where the notebooks leave it
+NaN.  The converter checks the written densities and ``Z_eff`` against the
+notebook algebra at every *defined* point and raises if they differ.
 """
 
 from __future__ import annotations
@@ -72,10 +82,13 @@ _VEST_TS_R = (0.475, 0.425, 0.37, 0.31, 0.255)
 #: Vertical scale of the synthetic psi map [m] (only the midplane is used).
 _Z_SCALE = 0.6
 
+#: The record ``vaft.process.profile`` writes beside a profile it did not fit itself.
+_EXTERNAL_FIT_RECORD = "coordinate=rho_tor_norm; method=external"
+
 
 @dataclass
 class KineticStateCase:
-    """The fixture ODS and the notebook-derived arrays it was built from."""
+    """The ODS and the notebook-algebra arrays it was built from."""
 
     ods: Any
     shot: int
@@ -107,6 +120,8 @@ class KineticStateCase:
 
 
 def load_archive(shot: int) -> dict:
+    if shot not in CASES:
+        raise ValueError(f"no archived kinetic state for shot {shot}; archived: {sorted(CASES)}")
     return json.loads((ARCHIVE / CASES[shot]).read_text())
 
 
@@ -135,8 +150,10 @@ def _composition(s: dict, ne: np.ndarray, rho: np.ndarray, volume: np.ndarray) -
     dV = np.clip(np.diff(np.interp(edges, rho, volume)), 0, None)
     zeff_mean = np.nansum((ne * dV * zeff)[valid_charge]) / np.nansum((ne * dV)[valid_charge])
     return {"nH": nH, "nC_ion": nC_ion, "nO_ion": nO_ion, "nimp": nimp, "nion": nion,
-            "zeff": zeff, "valid_charge": valid_charge, "zeff_mean": zeff_mean,
-            "target_zeff": float(model["target_zeff"])}
+            "zeff": zeff, "valid_charge": valid_charge, "zeff_mean": zeff_mean, "scale": scale,
+            "fractions": (fC, fO), "target_zeff": float(model["target_zeff"]),
+            "ionization": str(model.get("ionization", "transient")),
+            "normalization": str(model.get("normalization", "ne_weighted_mean"))}
 
 
 def _partition(peq, ne, te, comp, lineage):
@@ -151,18 +168,44 @@ def _partition(peq, ne, te, comp, lineage):
             composition={"ion_density_per_electron": float(comp["nion"][0] / ne[0]),
                          "composition_source": "transient C/O"},
             sigma_p_eq=np.nan, sigma_n_e=np.nan, sigma_t_e=np.nan, equilibrium_lineage=lineage)
-        assert not refused["eligible"] and "circular" in refused["reason"]
-        return ti, np.zeros(rho_size, bool), refused["reason"]
+        if refused["eligible"] or "circular" not in str(refused["reason"]):
+            raise ValueError(f"the {lineage} partition was expected to be refused as circular: {refused!r}")
+        return ti, np.zeros(rho_size, bool), str(refused["reason"])
     for j in np.flatnonzero(comp["valid_charge"]):
         result = infer_ti_pressure_partition(
             peq[j], ne[j], te[j],
             composition={"ion_density_per_electron": comp["nion"][j] / ne[j],
                          "composition_source": "transient C/O, equal elemental densities, mean Zeff=2"},
             sigma_p_eq=np.nan, sigma_n_e=np.nan, sigma_t_e=np.nan, equilibrium_lineage="magnetics")
-        assert result["eligible"]
+        if not result["eligible"]:
+            raise ValueError(f"the magnetic partition was refused at point {j}: {result.get('reason')!r}")
         ti[j] = float(np.asarray(result["t_i"]))
     valid_ti = comp["valid_charge"] & np.isfinite(ti) & (comp["nion"] > 0)
     return ti, valid_ti, ""
+
+
+def _radial_composition(comp: dict, rho, te, ne, time):
+    """The archived charge states as the composition writer's input type."""
+    from vaft.process.impurity import RadialImpurityComposition
+
+    fC, fO = comp["fractions"]
+    weights = np.array([0.5, 0.5])  # n_C = n_O, normalised as the resolver does
+    mean = np.column_stack([fC @ np.arange(7), fO @ np.arange(9)])
+    mean2 = np.column_stack([fC @ np.arange(7) ** 2, fO @ np.arange(9) ** 2])
+    s1, s2 = mean @ weights, mean2 @ weights
+    scale = comp["scale"]
+    main = 1.0 - scale * s1
+    nan = np.full(mean.shape, np.nan)
+    return RadialImpurityComposition(
+        kind="derived", rho=rho, te_eV=te, ne_m3=ne, elements=("C", "O"), weights=weights, scale=scale,
+        elemental_fractions=np.broadcast_to(scale * weights, mean.shape).copy(),
+        charge_state_fractions=(fC, fO), mean_charge=mean, mean_square_charge=mean2, S1=s1, S2=s2,
+        effective_charge=s2 / s1, zeff=main + scale * s2, main_ion_fraction=main,
+        dilution_fraction=1.0 - main, coronal_mean_charge=nan, relaxation_time_s=nan, coronal_valid=None,
+        main_ion="H", time=time,
+        normalization={"method": comp["normalization"], "target_zeff": comp["target_zeff"]},
+        provenance={"ionization": comp["ionization"], "source": "#1839 archive charge states"},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -222,38 +265,37 @@ def _q_from_rho(psi_wb: np.ndarray, rho_tor: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 
-def _roles(lineage: str) -> dict:
-    independent = lineage == "magnetics"
-    return {
-        "equilibrium.pressure": "reconstruction",
-        "electrons.density": "fit",
-        "electrons.temperature": "fit",
-        "electrons.pressure": "derived",
-        "ion.density": "assumed",
-        "zeff": "assumed",
-        "composition": "assumed",
-        "t_i_average": "inferred" if independent else "invalid",
-        "pressure_ion_total": "inferred" if independent else "invalid",
-        "p_kin": "closure identity" if independent else "invalid",
-        "thomson_scattering.n_e": "fit input",
-        "thomson_scattering.t_e": "fit input",
-        "thomson_scattering.p_e": "independent validation" if independent else "fit input",
-    }
+def _ti_te_ratio(s: dict) -> float:
+    """The T_i/T_e ratio the archived electron-kinetic EFIT assumed."""
+    block = s.get("state_assessment", {}).get("electron_kinetic") or s.get("electron_kinetic_assessment") or {}
+    if "ti_te_ratio_assumed" not in block:
+        raise ValueError("the archive records no T_i/T_e ratio for its electron-kinetic EFIT")
+    return float(block["ti_te_ratio_assumed"])
+
+
+def _check(name: str, written, expected, where) -> None:
+    written = np.asarray(written, dtype=float)
+    if not np.allclose(written[where], np.asarray(expected, dtype=float)[where], rtol=1e-10, atol=0.0):
+        raise ValueError(f"the writer's {name} differs from the archive notebook algebra at defined points")
 
 
 def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurrence: int | None = None,
-                       roles: bool = True, kinetic_state: bool = True) -> KineticStateCase:
+                       records: bool = True, lineage_fields: bool = True) -> KineticStateCase:
     """One archived case as a plot-ready ODS plus the notebook arrays.
 
     ``lineage`` selects the equilibrium the ODS carries (``magnetics`` or
-    ``electron_kinetic``); ``occurrence`` is recorded in ``kinetic_state`` (default
-    0 for magnetics, 1 for electron-kinetic).  ``roles=False`` leaves the roles
-    out of the record and ``kinetic_state=False`` writes no record at all.
+    ``electron_kinetic``); ``occurrence`` is recorded on the T_i records
+    (default 0 for magnetics, 1 for electron-kinetic).  ``records=False``
+    strips every ``*_fit.parameters`` record after writing, and
+    ``lineage_fields=False`` leaves the lineage/occurrence fields off.
     """
     from omas import ODS
 
+    from vaft.machine_mapping.core_profiles import inferred_ti_text
+    from vaft.process.impurity import populate_radial_impurity_profiles
+
     if lineage not in LINEAGES:
-        raise ValueError(f"lineage must be one of {LINEAGES}")
+        raise ValueError(f"lineage must be one of {LINEAGES}, got {lineage!r}")
     s = load_archive(shot)
     t = float(s["time_s"])
     cp = s["core_profiles"]
@@ -267,6 +309,8 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
     rho_eq = np.asarray(eq["rho_tor_norm"], float)
     psi_eq = np.asarray(eq["psi_Wb"], float)
     volume = np.asarray(eq_mag["volume_m3"], float)  # the notebooks weight by the magnetic volume
+    if occurrence is None:
+        occurrence = 0 if lineage == "magnetics" else 1
 
     comp = _composition(s, ne, rho, volume)
     ti, valid_ti, refusal = _partition(peq, ne, te, comp, lineage)
@@ -275,8 +319,7 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
     pkin = pe + pi
 
     # Thomson: the archived channels, at the archived (or 40326) radii.
-    # 40326 keeps one mapping per equilibrium; 39915 one (magnetic) mapping.
-    mapped = s["mapped_thomson"]
+    mapped = s["mapped_thomson"]  # 40326 keeps one mapping per equilibrium; 39915 one (magnetic) mapping
     ts = mapped[lineage] if isinstance(mapped.get(lineage), dict) else mapped
     ts_r = np.asarray(ts.get("R_m", _VEST_TS_R), float)
     ts_z = np.asarray(ts.get("Z_m", np.zeros(ts_r.size)), float)
@@ -284,8 +327,9 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
     if "psi_norm" in ts:
         ts_psi = np.asarray(ts["psi_norm"], float)
     else:  # 39915: invert the magnetic table the channels were mapped through
-        psi_n_mag = (np.asarray(eq_mag["psi_Wb"], float) - eq_mag["psi_Wb"][0]) / (eq_mag["psi_Wb"][-1] - eq_mag["psi_Wb"][0])
-        ts_psi = np.interp(ts_rho, np.asarray(eq_mag["rho_tor_norm"], float), psi_n_mag)
+        psi_mag = np.asarray(eq_mag["psi_Wb"], float)
+        ts_psi = np.interp(ts_rho, np.asarray(eq_mag["rho_tor_norm"], float),
+                           (psi_mag - psi_mag[0]) / (psi_mag[-1] - psi_mag[0]))
     ne_ts = np.asarray(ts["electron_density_m3"], float)
     te_ts = np.asarray(ts["electron_temperature_eV"], float)
     sne_ts = np.asarray(ts["electron_density_error_m3"], float)
@@ -297,7 +341,7 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
     ods["dataset_description.data_entry.pulse"] = shot
     ods["dataset_description.data_entry.machine"] = "VEST"
 
-    # --- equilibrium ---------------------------------------------------------
+    # --- equilibrium (hand-built: the archive keeps 1-D tables only) ---------
     r_grid, z_grid, psi_n_map, axis_r = _psi_map(ts_r, ts_psi)
     psi_axis, psi_boundary = float(psi_eq[0]), float(psi_eq[-1])
     ods["equilibrium.ids_properties.homogeneous_time"] = 1
@@ -322,7 +366,7 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
     ods[f"{base}.profiles_2d.0.psi"] = psi_axis + psi_n_map * (psi_boundary - psi_axis)
     ods["equilibrium.code.name"] = "efit"
 
-    # --- core_profiles -------------------------------------------------------
+    # --- core_profiles: the electron fit (hand-built; archived arrays) -------
     cpb = "core_profiles.profiles_1d.0"
     ods["core_profiles.ids_properties.homogeneous_time"] = 1
     ods["core_profiles.time"] = np.array([t])
@@ -332,42 +376,51 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
     ods[f"{cpb}.electrons.density"] = ne
     ods[f"{cpb}.electrons.density_thermal"] = ne
     ods[f"{cpb}.electrons.temperature"] = te
+    ods[f"{cpb}.electrons.density_fit.parameters"] = _EXTERNAL_FIT_RECORD
+    ods[f"{cpb}.electrons.temperature_fit.parameters"] = _EXTERNAL_FIT_RECORD
     ods[f"{cpb}.electrons.pressure"] = pe
-    for k, (label, z_n, a, density) in enumerate((
-        ("H+", 1.0, 1.008, comp["nH"]),
-        ("C", 6.0, 12.011, comp["nC_ion"]),
-        ("O", 8.0, 15.999, comp["nO_ion"]),
-    )):
-        ods[f"{cpb}.ion.{k}.label"] = label
-        ods[f"{cpb}.ion.{k}.element.0.z_n"] = z_n
-        ods[f"{cpb}.ion.{k}.element.0.a"] = a
-        ods[f"{cpb}.ion.{k}.density"] = np.where(comp["valid_charge"], density, np.nan)
-    if lineage == "magnetics":
-        ods[f"{cpb}.t_i_average"] = ti
-        ods[f"{cpb}.pressure_ion_total"] = pi
-    else:
-        # The electron-kinetic EFIT's own prior, T_i = T_e: stored so the test
-        # can prove the plot hides it when t_i_valid says it is not a result.
-        ods[f"{cpb}.t_i_average"] = te.copy()
-        ods[f"{cpb}.pressure_ion_total"] = E * comp["nion"] * te
-    ods[f"{cpb}.zeff"] = np.where(comp["valid_charge"], comp["zeff"], np.nan)
-    ods["core_profiles.code.name"] = "kinetic_state archive fixture (#1837)"
-    if kinetic_state:
-        record: dict[str, Any] = {
-            "schema": 1,
-            "equilibrium": {"lineage": lineage,
-                            "occurrence": (0 if lineage == "magnetics" else 1) if occurrence is None else occurrence},
-            "t_i_valid": [bool(v) for v in valid_ti],
-            "composition": {"preset": "VEST transient C/O, n_C = n_O, <Z_eff>_ne dV",
-                            "target_zeff": comp["target_zeff"]},
-        }
-        if refusal:
-            record["t_i_refused"] = refusal
-        if roles:
-            record["roles"] = _roles(lineage)
-        ods["core_profiles.code.parameters"] = json.dumps({"kinetic_state": record})
 
-    # --- thomson_scattering --------------------------------------------------
+    # --- the main-ion temperature, before the composition writer carries it --
+    lineage_text = f"; equilibrium_lineage={lineage}; equilibrium_occurrence={occurrence}" if lineage_fields else ""
+    if lineage == "magnetics":
+        t_ion = ti
+        t_record = inferred_ti_text("equilibrium_pressure_partition") + lineage_text
+    else:
+        ratio = _ti_te_ratio(s)
+        t_ion = ratio * te  # the EFIT's own prior; its partition is refused as circular
+        t_record = f"ti_te_ratio={ratio:g}; sigma=0.5; status=assumed; source=electron_efit prior" + lineage_text
+    ods[f"{cpb}.ion.0.label"] = "H+"
+    ods[f"{cpb}.ion.0.z_ion"] = 1.0
+    ods[f"{cpb}.ion.0.element.0.z_n"] = 1.0
+    ods[f"{cpb}.ion.0.element.0.a"] = 1.008
+    ods[f"{cpb}.ion.0.element.0.atoms_n"] = 1
+    ods[f"{cpb}.ion.0.temperature"] = t_ion
+    ods[f"{cpb}.ion.0.temperature_fit.parameters"] = t_record
+
+    # --- the composition: the real writer -----------------------------------
+    radial = _radial_composition(comp, rho, te, ne, t)
+    ods = populate_radial_impurity_profiles(ods, radial, time=t)
+    defined = comp["valid_charge"]
+    _check("main-ion density", ods[f"{cpb}.ion.0.density"], comp["nH"], defined)
+    charged = sum(np.asarray(ods[f"{cpb}.ion.{k}.state.{q}.density"], float)
+                  for k in (1, 2) for q in range(len(ods[f"{cpb}.ion.{k}.state"])))
+    _check("charged impurity density", charged, comp["nimp"], defined)
+    _check("Z_eff", ods[f"{cpb}.zeff"], comp["zeff"], defined)
+    # The amended contract's target field; the writer does not emit it yet.
+    ods[f"{cpb}.zeff_fit.parameters"] = f"{ods[f'{cpb}.zeff_fit.parameters']}; target_zeff={comp['target_zeff']:g}"
+
+    # --- t_i_average and pressure_ion_total (Lane KP #1842 item 3: no writer yet)
+    ods[f"{cpb}.t_i_average"] = t_ion
+    ods[f"{cpb}.t_i_average_fit.parameters"] = t_record
+    if lineage == "magnetics":
+        n_ion = np.asarray(ods[f"{cpb}.ion.0.density"], float) + charged
+        ods[f"{cpb}.pressure_ion_total"] = E * n_ion * t_ion
+    ods["core_profiles.code.name"] = "workflow/kinetic_state/archive_to_ods.py (#1837)"
+    if not records:
+        for path in [p for p in ods.flat() if p.endswith("_fit.parameters")]:
+            del ods[path]
+
+    # --- thomson_scattering (hand-built; archived channels) ------------------
     ods["thomson_scattering.ids_properties.homogeneous_time"] = 1
     ods["thomson_scattering.time"] = np.array([t])
     for c in range(ts_r.size):
@@ -387,7 +440,7 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
         zeff=comp["zeff"], valid_charge=comp["valid_charge"], valid_ti=valid_ti,
         ts_rho=ts_rho, ts_psi_norm=ts_psi, ts_r=ts_r, ts_p_e=p_ts, ts_sigma_p_e=sp_ts,
         ts_n_e=ne_ts, ts_t_e=te_ts, target_zeff=comp["target_zeff"],
-        notes={"zeff_mean": comp["zeff_mean"], "refusal": refusal},
+        notes={"zeff_mean": comp["zeff_mean"], "refusal": refusal, "occurrence": occurrence},
     )
 
 

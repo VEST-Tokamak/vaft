@@ -68,8 +68,6 @@ def test_the_style_set_is_read_off_the_renderers():
     assert STYLE_OPTIONS == frozenset({
         "cmap", "colorbar", "colorbar_ax", "figsize", "figure_options", "format", "fps", "grid", "interval_ms",
         "label_contours", "legend", "row_heights", "save_path", "theme", "uncertainty", "validity",
-        # issue #1837: where a profile panel's legend goes, in how many columns, at what size.
-        "legend_loc", "legend_ncols", "legend_fontsize",
     })
     assert not (STYLE_OPTIONS & EXTRACTION_OPTIONS)
 

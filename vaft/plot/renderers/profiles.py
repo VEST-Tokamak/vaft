@@ -62,9 +62,6 @@ def render_profile_1d(
     show: bool = False,
     figsize: tuple[float, float] | None = None,
     legend: bool | None = None,
-    legend_loc: str = "best",
-    legend_ncols: int = 1,
-    legend_fontsize: Any = "small",
     grid: bool = True,
     uncertainty: str = "auto",
     validity: str = "show",
@@ -74,10 +71,14 @@ def render_profile_1d(
 ) -> tuple[Figure, Axes]:
     """Draw a :class:`Profile1D` into one axes.
 
-    ``legend_loc`` places the legend (:data:`vaft.plot.style.LEGEND_PLACEMENTS`;
-    ``"outside"`` beside the axes), ``legend_ncols`` sets its columns and
-    ``legend_fontsize`` its text size.
+    A composite may place a member's legend through its ``member_styles``
+    with the internal keys ``_legend_loc`` (:data:`vaft.plot.style.LEGEND_PLACEMENTS`;
+    ``"outside"`` beside the axes), ``_legend_ncols`` and ``_legend_fontsize``;
+    they are not caller options (issue #1837, to be unified with #1845).
     """
+    legend_loc = style.pop("_legend_loc", "best")
+    legend_ncols = style.pop("_legend_ncols", 1)
+    legend_fontsize = style.pop("_legend_fontsize", "small")
     if not isinstance(model, Profile1D):
         raise TypeError(
             f"expected a vaft.plot.models.Profile1D; got {type(model).__name__}. "
