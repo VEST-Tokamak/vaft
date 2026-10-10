@@ -372,7 +372,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4787c74</code>. What is described
+  <code>b6b65e4</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -2413,6 +2413,11 @@ $R_E$. The canonical sputtering figure uses $E_s = 8.68$ eV, the sublimation ene
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_sputtering</span><span class="p">(</span><span class="n">surface_binding_energy</span><span class="o">=</span><span class="mf">8.68</span><span class="p">)</span>   <span class="c1"># threshold only if E_s given
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_recycling</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_energy_partition</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_reflection_energy</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_angle_dependence</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_sputtering_threshold</span><span class="p">(</span><span class="n">surface_binding_energy</span><span class="o">=</span><span class="mf">8.68</span><span class="p">)</span>   <span class="c1"># E_th only if E_s given
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_particle_balance</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">plasma_wall_interaction_surface_response</span><span class="p">()</span>
 </code></pre></div></div>
 
 <p><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_processes.svg" alt="processes" /></p>
@@ -2433,8 +2438,18 @@ $R_E$. The canonical sputtering figure uses $E_s = 8.68$ eV, the sublimation ene
       <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_recycling.svg" alt="recycling" /></td>
       <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_energy_partition.svg" alt="energy" /></td>
     </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_reflection_energy.svg" alt="reflected energy" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_angle_dependence.svg" alt="angle" /></td>
+    </tr>
+    <tr>
+      <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_sputtering_threshold.svg" alt="threshold" /></td>
+      <td><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_particle_balance.svg" alt="particle balance" /></td>
+    </tr>
   </tbody>
 </table>
+
+<p><img src="/vaft/develop/assets/diagrams/plasma_wall_interaction_surface_response.svg" alt="surface response" /></p>
 
 <table>
   <thead>
@@ -2463,6 +2478,26 @@ $R_E$. The canonical sputtering figure uses $E_s = 8.68$ eV, the sublimation ene
     <tr>
       <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_energy_partition</code></td>
       <td>Particle balance and energy balance side by side. They are not the same bookkeeping</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_reflection_energy</code></td>
+      <td>Incident $f_i(E_i)$ to reflected $f_r(E_r)$ through the surface. Only the binary-collision limit $(1-\gamma)E_i$ is stated; $R_N(E_i)$, $R_E(E_i)$, $\langle E_r\rangle(E_i)$ are empty enrichment slots</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_angle_dependence</code></td>
+      <td>Normal and grazing incidence, angles from the surface normal; $R_N$, $R_E$, $Y$ as functions of $(E_i, \theta_i)$ are named, not drawn</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_sputtering_threshold</code></td>
+      <td>A schematic $Y(E_i)$ with no scale: a threshold exists. $E_\mathrm{th}$ is printed only for a supplied $E_s$ (Bohdansky)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_particle_balance</code></td>
+      <td>The projectile balance (reflected + re-emitted + retained) with the sputtered target atoms drawn apart, as another species’ source</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plasma_wall_interaction_surface_response</code></td>
+      <td>Inputs, surface response ($R_N$, $R_E$, $Y_\mathrm{sput}$), outputs: the extension point for tabulated data or an external PWI code (levels 2–4)</td>
     </tr>
   </tbody>
 </table>
@@ -5284,7 +5319,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 16:00:20 +0000"
+        "time": "2026-10-10 16:24:00 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
