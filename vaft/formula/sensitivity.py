@@ -422,25 +422,30 @@ def _relative_steps(x: np.ndarray, names: Sequence[str], fd_step) -> np.ndarray:
     if fd_step is not None:
         if isinstance(fd_step, Mapping):
             missing = [name for name in names if name not in fd_step]
-            if missing:
-                raise ValueError(f"fd_step gives no step for {', '.join(missing)}")
-            steps = np.array([float(fd_step[name]) for name in names])
-        else:
-            steps = np.broadcast_to(np.asarray(fd_step, dtype=float), x.shape).copy()
-        return steps
+            extra = [name for name in fd_step if name not in names]
+            if missing or extra:
+                raise ValueError(f"fd_step must name exactly the uncertain inputs {', '.join(names)}")
+            return np.array([float(fd_step[name]) for name in names])
+        steps = np.asarray(fd_step, dtype=float)
+        if steps.ndim == 0:
+            return np.full(x.shape, float(steps))
+        if steps.shape != x.shape:
+            raise ValueError(f"fd_step has {steps.size} entries for {x.size} inputs")
+        return steps.copy()
     zero = [name for name, value in zip(names, x) if value == 0.0]
     if zero:
         raise ValueError(f"no scale for a finite-difference step at {', '.join(zero)} = 0; give fd_step")
     return np.finfo(float).eps ** (1 / 3) * np.abs(x)
 
 
-def _linearity(evaluate, x0: np.ndarray, sigma: np.ndarray, jac: np.ndarray) -> Optional[float]:
-    """Largest :func:`linearity_ratio` over a +/- one-sigma step along each input.
+def _linearity(evaluate, x0: np.ndarray, f0: np.ndarray, sigma: np.ndarray, jac: np.ndarray) -> Optional[float]:
+    """Largest linearization miss (as :func:`linearity_ratio`) over a +/- one-sigma step along each input.
 
-    A step that leaves the formula's domain (an exception or a non-finite
-    output, e.g. a ratio's denominator crossing zero) makes the
-    linearization meaningless there: ``inf``, never a silently dropped NaN.
-    ``None`` when every input is exact (zero spread), so nothing was tested.
+    A step that leaves the formula's domain (outside its declared domain, an
+    exception or a non-finite output) makes the linearization meaningless
+    there: ``inf``.  A step whose response is zero while the Jacobian predicts
+    one is ``inf`` too.  ``None`` when every input is exact, so nothing was
+    tested.  One model call per step.
     """
     worst: Optional[float] = None
     for j, s in enumerate(sigma):
@@ -455,11 +460,19 @@ def _linearity(evaluate, x0: np.ndarray, sigma: np.ndarray, jac: np.ndarray) -> 
                 return float("inf")
             if not np.all(np.isfinite(shifted)):
                 return float("inf")
-            ratio = linearity_ratio(lambda x: evaluate(x).ravel(), x0, step, jac)
-            if np.isnan(ratio):  # zero response along this step: linear by definition
-                ratio = 0.0
+            response = shifted - f0
+            predicted = jac @ step
+            norm = float(np.linalg.norm(response))
+            if norm == 0.0:
+                ratio = 0.0 if float(np.linalg.norm(predicted)) == 0.0 else float("inf")
+            else:
+                ratio = float(np.linalg.norm(response - predicted) / norm)
             worst = ratio if worst is None else max(worst, ratio)
     return worst
+
+
+class _OutsideDomain(ValueError):
+    """An evaluation point the formula declares itself undefined at."""
 
 
 def propagate_formula_uncertainty(
@@ -472,6 +485,7 @@ def propagate_formula_uncertainty(
     method: str = "linear",
     derivative: str = "auto",
     fd_step=None,
+    domain: Optional[Callable[..., bool]] = None,
     samples: int = 2000,
     seed: int = 0,
 ) -> FormulaPropagation:
@@ -506,6 +520,10 @@ def propagate_formula_uncertainty(
     fd_step : float, array-like or mapping, optional
         Absolute finite-difference step per input; default
         $\epsilon^{1/3}|x_j|$, scaled to each input's own magnitude [any].
+    domain : callable, optional
+        Predicate on the call's arguments, ``True`` where the formula is
+        physically defined; default the domain the formula declares
+        (:mod:`vaft.formula._propagation`), else none [-].
     samples : int, optional
         Monte Carlo draws [-].
     seed : int, optional
@@ -521,17 +539,20 @@ def propagate_formula_uncertainty(
     ValueError
         No uncertainty given (unknown is not zero), both ``covariance`` and
         ``std``, an uncertain input missing, non-scalar, unknown to the
-        formula or non-finite, an uncertainty that is NaN, negative, not
-        symmetric or not positive semi-definite, a non-finite value or
-        Jacobian at the input means (outside the formula's domain), or an
-        unknown ``method``/``derivative``.
+        formula or non-finite, an uncertainty that is NaN, infinite, negative,
+        not symmetric or not positive semi-definite, input means outside the
+        formula's domain (declared, or a raised or non-finite evaluation), a
+        non-finite Jacobian, a Monte Carlo run that accepts fewer than two
+        draws, or an unknown or inconsistent ``method``/``derivative``.
 
     Assumptions
     -----------
     ``"linear"`` is a *local* first-order result at the input means; it is
     not a verified global uncertainty and carries no model-form or
     fitted-coefficient uncertainty. ``"monte_carlo"`` assumes Gaussian
-    inputs, and its statistics cover the accepted draws only.
+    inputs (no other input distribution is supported), and its statistics
+    cover the accepted draws only: a draw outside the domain is rejected and
+    counted in ``rejected``.
 
     Limitations
     -----------
@@ -546,12 +567,14 @@ def propagate_formula_uncertainty(
     .. [2] JCGM 101:2008, *Propagation of distributions using a Monte Carlo
            method*, Sec. 7.
     """
-    from ._propagation import analytic_jacobian
+    from ._propagation import analytic_jacobian, formula_domain
 
     if method not in ("linear", "monte_carlo"):
         raise ValueError(f"method must be 'linear' or 'monte_carlo', got {method!r}")
     if derivative not in ("auto", "analytic", "finite_difference"):
         raise ValueError(f"derivative must be 'auto', 'analytic' or 'finite_difference', got {derivative!r}")
+    if method == "monte_carlo" and derivative != "auto":
+        raise ValueError("a Monte Carlo propagation takes no derivative: leave derivative='auto'")
     parameters = list(inspect.signature(formula).parameters)
     unknown = [name for name in inputs if name not in parameters]
     if unknown:
@@ -579,30 +602,48 @@ def propagate_formula_uncertainty(
     if (covariance is None) == (std is None):
         raise ValueError("give exactly one of covariance and std: an unstated uncertainty is unknown, not zero")
     if std is not None:
-        sigma = _vector(std)
+        sigma = np.asarray(std, dtype=float)
+        if sigma.ndim == 0 and len(names) == 1:
+            sigma = sigma.reshape(1)
         if sigma.shape != (len(names),):
-            raise ValueError(f"std has {sigma.size} entries for {len(names)} inputs")
-        if np.any(np.isnan(sigma)) or np.any(sigma < 0):
-            raise ValueError("standard deviations must be known (not NaN) and non-negative")
+            raise ValueError(f"std must be 1-D with one entry per input: shape {sigma.shape} for {len(names)} inputs")
+        if np.any(np.isnan(sigma)) or np.any(sigma < 0) or not np.all(np.isfinite(sigma)):
+            raise ValueError("standard deviations must be known (not NaN), finite and non-negative")
         cov = np.diag(sigma ** 2)
     else:
         raw = np.asarray(covariance, dtype=float)
+        if raw.ndim == 0 and len(names) == 1:
+            raw = raw.reshape(1, 1)
         if np.any(np.isnan(raw)):
             raise ValueError("covariance must be known: NaN is an unknown uncertainty, not a value")
+        if not np.all(np.isfinite(raw)):
+            raise ValueError("covariance must be finite")
         if raw.ndim == 1 and np.any(raw < 0):
             raise ValueError("variances must be non-negative")
+        if raw.ndim > 2:
+            raise ValueError(f"covariance must be (n, n) or 1-D variances, got shape {raw.shape}")
         cov = _covariance(raw, len(names))
     eigenvalues = np.linalg.eigvalsh(cov)
     if eigenvalues.size and eigenvalues.min() < -1e-12 * max(abs(eigenvalues.max()), np.finfo(float).tiny):
         raise ValueError("input covariance must be positive semi-definite")
 
-    def evaluate(x: np.ndarray):
+    defined = domain if domain is not None else formula_domain(formula)
+
+    def arguments_at(x: np.ndarray) -> dict:
         arguments = dict(fixed)
         arguments.update({name: float(value) for name, value in zip(names, x)})
+        return arguments
+
+    def evaluate(x: np.ndarray):
+        arguments = arguments_at(x)
+        if defined is not None and not defined(**arguments):
+            raise _OutsideDomain(f"{formula.__name__} is not defined at {arguments}")
         return np.asarray(formula(**arguments), dtype=float)
 
     try:
         value = evaluate(x0)
+    except _OutsideDomain:
+        raise ValueError(f"the input means are outside the declared domain of {formula.__name__}") from None
     except (ArithmeticError, ValueError) as error:
         raise ValueError(f"{formula.__name__} cannot be evaluated at the input means: outside its domain "
                          f"({error})") from None
@@ -611,6 +652,9 @@ def propagate_formula_uncertainty(
 
     if method == "monte_carlo":
         mc = monte_carlo_propagation(lambda x: evaluate(x).ravel(), x0, cov, samples=samples, seed=seed)
+        if mc["samples"] < 2:
+            raise ValueError(f"Monte Carlo accepted {mc['samples']} of {samples} draws: the input distribution lies "
+                             f"outside the domain of {formula.__name__}")
         out = np.atleast_2d(mc["covariance"])
         return FormulaPropagation(value=value, covariance=out, std=np.sqrt(np.clip(np.diag(out), 0, None)),
                                   input_names=names, input_covariance=cov, method="monte_carlo",
@@ -625,9 +669,8 @@ def propagate_formula_uncertainty(
         absent = [name for name in names if name not in wrt]
         if absent:
             raise ValueError(f"the analytic Jacobian of {formula.__name__} has no column for {', '.join(absent)}")
-        arguments = dict(fixed)
-        arguments.update({name: float(v) for name, v in zip(names, x0)})
-        full = np.atleast_2d(np.asarray(function(**{k: arguments[k] for k in wrt if k in arguments}), dtype=float))
+        # the derivative sees the whole call, fixed configuration included
+        full = np.atleast_2d(np.asarray(function(**arguments_at(x0)), dtype=float))
         jac = full[:, [wrt.index(name) for name in names]]
         derivative_method = "analytic"
     else:
@@ -639,7 +682,7 @@ def propagate_formula_uncertainty(
     if not np.all(np.isfinite(jac)):
         raise ValueError(f"the Jacobian of {formula.__name__} is not finite at the input means")
     out = linear_covariance_propagation(jac, cov)
-    linearity = _linearity(evaluate, x0, np.sqrt(np.diag(cov)), jac)
+    linearity = _linearity(evaluate, x0, value.ravel(), np.sqrt(np.diag(cov)), jac)
     return FormulaPropagation(value=value, covariance=out, std=np.sqrt(np.clip(np.diag(out), 0, None)),
                               input_names=names, input_covariance=cov, method="linear", jacobian=jac,
                               derivative_method=derivative_method, linearity=linearity, fixed=fixed)

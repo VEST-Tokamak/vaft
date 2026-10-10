@@ -47,7 +47,7 @@ def test_the_catalog_reads_the_attribute_the_decorator_writes():
     from vaft.formula import _propagation, catalog
 
     assert catalog._JACOBIAN_ATTRIBUTE == _propagation._ATTRIBUTE
-    assert catalog.analytic_jacobian(TAU) == _propagation.analytic_jacobian(TAU)
+    assert catalog._analytic_jacobian(TAU) == _propagation.analytic_jacobian(TAU)
 
 
 def test_importing_the_formula_package_does_not_load_the_propagation_api():
@@ -147,8 +147,14 @@ def test_the_output_covariance_is_symmetric_and_positive_semidefinite():
     ({"std": [1.0, 1.0], "covariance": [1.0, 1.0]}, "exactly one"),
     ({"std": [np.nan, 1.0]}, "known"),
     ({"covariance": [[1.0, np.nan], [np.nan, 1.0]]}, "NaN is an unknown"),
-    ({"std": [1.0]}, "entries for 2 inputs"),
+    ({"std": [1.0]}, "one entry per input"),
     ({"std": [-1.0, 1.0]}, "non-negative"),
+    ({"std": [np.inf, 1.0]}, "finite"),
+    ({"covariance": [np.inf, 1.0]}, "finite"),
+    ({"std": [[1.0, 1.0]]}, "1-D"),
+    ({"std": [1.0, 1.0], "derivative": "finite_difference", "fd_step": [1.0]}, "entries for 2 inputs"),
+    ({"std": [1.0, 1.0], "derivative": "finite_difference", "fd_step": {"P_loss": 1.0}}, "exactly the uncertain"),
+    ({"std": [1.0, 1.0], "derivative": "finite_difference", "fd_step": [1.0, -1.0]}, "positive"),
     ({"covariance": [[1.0, 2.0], [0.0, 1.0]]}, "symmetric"),
     ({"covariance": [[1.0, 2.0], [2.0, 1.0]]}, "positive semi-definite"),
     ({"std": [1.0, 1.0], "method": "bootstrap"}, "method"),
@@ -169,9 +175,17 @@ def test_an_unknown_parameter_and_an_array_input_are_refused():
                   std=[1.0, 1.0])
 
 
-def test_a_point_outside_the_domain_is_refused_not_propagated():
-    with pytest.raises(ValueError, match="outside its domain"):
-        propagate(inputs={"P_loss": 0.0, "W_th": 1.0e3}, std=[1.0, 1.0], derivative="analytic")
+@pytest.mark.parametrize("point", [{"P_loss": 0.0, "W_th": 1.0e3}, {"P_loss": -1.0e5, "W_th": 2.0e3},
+                                   {"P_loss": 1.0e5, "W_th": -2.0e3}])
+def test_a_point_outside_the_domain_is_refused_not_propagated(point):
+    # a negative P_loss gives a finite W/P, but tau has no meaning there
+    with pytest.raises(ValueError, match="domain"):
+        propagate(inputs=point, std=[1.0, 1.0])
+
+
+def test_a_caller_domain_overrides_the_declared_one():
+    with pytest.raises(ValueError, match="domain"):
+        propagate(std=[1.0, 1.0], domain=lambda P_loss, W_th: P_loss > 2.0e5)
 
 
 def test_analytic_is_refused_for_a_formula_without_one():
@@ -194,9 +208,10 @@ def test_a_zero_input_needs_an_explicit_step():
 def test_linearity_grows_with_the_relative_spread_and_is_infinite_across_the_pole():
     small = propagate(std=[1.0e3, 0.0]).linearity
     large = propagate(std=[5.0e4, 0.0]).linearity
-    across = propagate(std=[1.0e5, 0.0]).linearity  # P_loss - 1 sigma reaches the pole
+    at_pole = propagate(std=[1.0e5, 0.0]).linearity  # P_loss - 1 sigma reaches the pole
+    beyond = propagate(std=[1.5e5, 0.0]).linearity  # ... and crosses it into P_loss < 0
     assert small < 0.02 < large < 1.0
-    assert across == float("inf")
+    assert at_pole == beyond == float("inf")
     # exact inputs test nothing: no ratio is reported
     assert propagate(std=[0.0, 0.0]).linearity is None
 
@@ -214,10 +229,21 @@ def test_linear_and_sampled_propagation_agree_when_linear_and_part_when_not():
     assert far.linearity > 0.3
 
 
-def test_monte_carlo_reports_rejected_draws():
+def test_monte_carlo_rejects_draws_outside_the_declared_domain():
+    # 1/P is finite for a negative draw, but tau is undefined there: the domain rejects it
     result = propagate(std=[6.0e4, 2.0e1], method="monte_carlo", samples=5000, seed=2)
-    assert result.rejected == 0  # 1/P is finite for any nonzero draw ...
-    assert result.samples + result.rejected == 5000
+    assert result.rejected > 0 and result.samples + result.rejected == 5000
+
+
+def test_monte_carlo_refuses_when_almost_every_draw_is_rejected():
+    with pytest.raises(ValueError, match="accepted"):
+        propagate(inputs={"P_loss": 1.0, "W_th": 2.0e3}, std=[1.0e6, 1.0], method="monte_carlo", samples=50,
+                  seed=0, domain=lambda P_loss, W_th: abs(P_loss - 1.0) < 1.0e-3)  # the mean only
+
+
+def test_monte_carlo_takes_no_derivative_choice():
+    with pytest.raises(ValueError, match="no derivative"):
+        propagate(std=[1.0, 1.0], method="monte_carlo", derivative="analytic")
 
 
 # --- the catalog contract -------------------------------------------------------
@@ -253,3 +279,47 @@ def test_the_catalog_reports_the_contract_and_requires_the_section():
 
     spec = catalog._spec(toy, "toy", "utils", "vaft.formula.utils", ())
     assert any("Uncertainty propagation" in error for error in spec.errors)
+
+
+# --- the facade beyond the pilots ------------------------------------------------
+
+
+def test_auto_falls_back_to_a_finite_difference_without_an_analytic_jacobian():
+    result = propagate(equilibrium.beta_toroidal_from_p_B0, {"p_average": 1.0e3, "B0": 0.3}, std=[10.0, 0.003])
+    assert result.derivative_method == "finite_difference"
+
+
+def test_a_single_input_takes_a_scalar_uncertainty():
+    by_std = propagate(input_names=("W_th",), std=1.0e2)
+    by_variance = propagate(input_names=("W_th",), covariance=1.0e4)
+    np.testing.assert_allclose(by_std.std, by_variance.std, rtol=1e-12)
+
+
+def test_the_analytic_jacobian_sees_fixed_configuration():
+    from vaft.formula._propagation import jacobian
+
+    @jacobian(lambda x, k, **_: [[k]], wrt=("x",))
+    def scaled(x, k):
+        return k * x
+
+    result = sensitivity.propagate_formula_uncertainty(scaled, {"x": 2.0, "k": 3.0}, input_names=("x",), std=[0.1])
+    np.testing.assert_allclose(result.jacobian, [[3.0]])
+    np.testing.assert_allclose(result.std, [0.3])
+
+
+def test_a_vector_output_keeps_its_shape_and_ravel_order():
+    def field(a, b):
+        return np.array([[a * b, a + b], [a - b, a / b]])
+
+    result = sensitivity.propagate_formula_uncertainty(field, {"a": 2.0, "b": 4.0}, std=[0.1, 0.2])
+    assert result.value.shape == (2, 2) and result.jacobian.shape == (4, 2) and result.covariance.shape == (4, 4)
+    np.testing.assert_allclose(result.jacobian, [[4.0, 2.0], [1.0, 1.0], [1.0, -1.0], [0.25, -0.125]], rtol=1e-6)
+    np.testing.assert_allclose(result.covariance, result.covariance.T)
+    assert np.linalg.eigvalsh(result.covariance).min() >= -1e-12
+
+
+def test_a_zero_response_the_jacobian_does_not_predict_is_not_linear():
+    # x(x-1)(x+1) at 0: J = -1, but the +/- 1 response is exactly zero
+    result = sensitivity.propagate_formula_uncertainty(lambda x: x * (x - 1.0) * (x + 1.0), {"x": 0.0},
+                                                       std=[1.0], fd_step=1e-6)
+    assert result.linearity == float("inf")

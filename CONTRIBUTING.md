@@ -201,8 +201,9 @@ A formula whose uncertainty propagation is worth stating may add an
 `Uncertainty propagation` section: the input order, the analytic Jacobian or
 differential relation, what is held fixed, and where first order fails.
 Attach a domain-owned Jacobian with
-`vaft.formula._propagation.jacobian(derivative, wrt=(...))`, which returns the
-same function object. Such a formula must have the section; the catalog flags
+`vaft.formula._propagation.jacobian(derivative, wrt=(...), domain=...)`, which
+returns the same function object; `derivative` and `domain` receive every
+argument of the call by name, so give them `**_`. Such a formula must have the section; the catalog flags
 it otherwise. `vaft.formula.sensitivity.propagate_formula_uncertainty` is the
 opt-in way to use either (#1874).
 

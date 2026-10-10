@@ -68,7 +68,7 @@ from .._semantics import Semantics, parse_semantics
 _JACOBIAN_ATTRIBUTE = "__vaft_jacobian__"
 
 
-def analytic_jacobian(fn):
+def _analytic_jacobian(fn):
     """The ``(derivative, wrt)`` a formula carries, or ``None``."""
     return getattr(fn, _JACOBIAN_ATTRIBUTE, None)
 
@@ -510,7 +510,7 @@ def _reduction(parsed: ParsedDocstring) -> tuple[Reduction | None, tuple[str, ..
 
 def _propagation(fn, parsed: ParsedDocstring) -> tuple[str, ...]:
     """An analytic Jacobian is a contract only when the docstring states it (#1874)."""
-    if analytic_jacobian(fn) is not None and not parsed.flags.get("uncertainty_propagation", False):
+    if _analytic_jacobian(fn) is not None and not parsed.flags.get("uncertainty_propagation", False):
         return ("an analytic Jacobian is attached but there is no Uncertainty propagation section",)
     return ()
 
@@ -547,7 +547,7 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         reduction=reduction,
         semantics=semantics,
         uncertainty_propagation=parsed.flags.get("uncertainty_propagation", False),
-        analytic_jacobian=analytic_jacobian(fn) is not None,
+        analytic_jacobian=_analytic_jacobian(fn) is not None,
     )
 
 

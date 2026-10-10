@@ -4029,7 +4029,7 @@ def inductive_voltage_from_dW_magdt_I_p(dW_magdt: float, I_p: float) -> float:
 # Power Balance
 # ------------------------------------------------------------------
 
-def _ohmic_heating_power_jacobian(I_p, V_res):
+def _ohmic_heating_power_jacobian(I_p, V_res, **_):
     """``[dP/dI_p, dP/dV_res]`` of :func:`ohmic_heating_power_from_I_p_V_res`."""
     return [[V_res, I_p]]
 
@@ -4064,9 +4064,10 @@ def ohmic_heating_power_from_I_p_V_res(I_p: float,
     Inputs in order $(I_p, V_{res})$ [A, V]; analytic Jacobian
     $J = (V_{res},\ I_p)$ [V, A], so
     $\sigma_P^2 = V_{res}^2\sigma_{I}^2 + I_p^2\sigma_{V}^2 + 2I_pV_{res}\,\mathrm{cov}(I_p, V_{res})$.
-    The product is bilinear, so first order is exact up to the
-    $\mathrm{cov}(I_p, V_{res})^2 + \sigma_I^2\sigma_V^2$ term of the variance, negligible
-    when both relative uncertainties are small. $I_p$ and $V_{res}$ share the
+    The product is bilinear: for Gaussian inputs first order misses only the
+    $\mathrm{cov}(I_p, V_{res})^2 + \sigma_I^2\sigma_V^2$ term of the variance and the
+    mean shift $E[I_pV_{res}] - I_pV_{res} = \mathrm{cov}(I_p, V_{res})$, both negligible
+    when the relative uncertainties are small. $I_p$ and $V_{res}$ share the
     loop-voltage and Rogowski calibration chain, so their covariance is rarely
     zero. $V_{res}$ already carries the inductive correction; its uncertainty
     includes that of $L\,dI_p/dt$, which this formula cannot see.
@@ -5237,12 +5238,13 @@ calc_omega_i_tau_E = omega_i_tau_E_from_B_tau_E_M
 # ------------------------------------------------------------------
 # Confinement Time
 # ------------------------------------------------------------------
-def _confinement_time_jacobian(P_loss, W_th):
+def _confinement_time_jacobian(P_loss, W_th, **_):
     """``[dtau/dP_loss, dtau/dW_th]`` of :func:`confinement_time_from_P_loss_W_th`."""
     return [[-W_th / P_loss ** 2, 1.0 / P_loss]]
 
 
-@_jacobian(_confinement_time_jacobian, wrt=("P_loss", "W_th"))
+@_jacobian(_confinement_time_jacobian, wrt=("P_loss", "W_th"),
+           domain=lambda P_loss, W_th, **_: P_loss > 0 and W_th >= 0)
 def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     r"""Energy confinement time as stored energy over loss power.
 
@@ -5278,7 +5280,8 @@ def confinement_time_from_P_loss_W_th(P_loss: float, W_th: float) -> float:
     First order is local: the ratio is nonlinear in $P_{loss}$, and the
     linearization stops describing the spread as $\sigma_P/P_{loss}$ grows
     (it is singular at $P_{loss} = 0$ and undefined for $P_{loss} \le 0$, a
-    transient with $dW/dt$ larger than the heating power). A positive
+    transient with $dW/dt$ larger than the heating power; the declared domain is
+    $P_{loss} > 0$, $W_{th} \ge 0$, so such a point or Monte Carlo draw is refused). A positive
     correlation (both inputs from one equilibrium reconstruction, or $dW/dt$
     in $P_{loss}$ from the same $W_{th}$) *reduces* the spread. Measured-input
     covariance only; no confinement-scaling or model-form uncertainty.

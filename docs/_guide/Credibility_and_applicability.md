@@ -199,9 +199,12 @@ result.linearity                    # largest linearity_ratio over +/- 1 sigma: 
 - **An unstated uncertainty is an error, not zero.** Pass explicit zeros for an exact input.
 - **A 1-D `covariance` holds variances; `std` holds standard deviations.**
 - **The finite-difference step follows each input's own magnitude.**
-- **A point outside the formula's domain is refused** rather than given a covariance.
-- **A $\pm1\sigma$ step that leaves the domain** (here $P_{loss} - \sigma \le 0$) reports `linearity = inf`.
-- **`method="monte_carlo"` samples the formula itself** and reports `rejected`.
+- **A formula may declare its domain** next to its Jacobian ($P_{loss} > 0$, $W_{th} \ge 0$ here): a finite
+  $W/P$ at negative $P$ is still not a confinement time. Pass `domain=` to override it.
+  - Input means outside the domain are refused rather than given a covariance.
+  - A $\pm1\sigma$ step that leaves the domain (here $P_{loss} - \sigma \le 0$) reports `linearity = inf`.
+- **`method="monte_carlo"` samples the formula itself** from Gaussian inputs (no other distribution is
+  supported). It counts out-of-domain draws in `rejected`, and refuses a run that accepts fewer than two.
 
 The result is local and first order. It carries only measured-input uncertainty, not the fitted coefficients
 or scatter of an empirical law. `compare_linear_to_monte_carlo` and `compare_jacobians` interpret it.
