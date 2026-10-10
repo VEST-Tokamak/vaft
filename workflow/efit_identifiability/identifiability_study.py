@@ -5051,6 +5051,17 @@ def _direction_point(
         updates.update(
             {
                 **asdict(baseline_metrics),
+                **achieved_direction_value(
+                    payload.get("parameter_state"),
+                    baseline.get("parameter_state"),
+                    report.parameter_scale,
+                    next(
+                        item.scaled_parameter_direction
+                        for item in report.modes
+                        if int(item.index) == mode.mode_index
+                    ),
+                    target,
+                ),
                 "displacement": displacement,
                 "adjacent_displacement": nonlinear_displacement(adjacent_metrics),
                 "response_onset": (
@@ -5981,6 +5992,32 @@ def _execute_direction_chain(
     return results
 
 
+def achieved_direction_value(
+    state: Sequence[float] | None,
+    baseline_state: Sequence[float] | None,
+    parameter_scale: Sequence[float],
+    scaled_direction: Sequence[float],
+    target: float,
+) -> dict[str, Any]:
+    """Where the solve actually landed on the direction, beside where it was sent.
+
+    The equality row is ``physical_c . (theta - theta0) = target`` with
+    ``physical_c = mode / column_scale``. A case that converged with the
+    row inert reports the requested target and nothing else, so the achieved
+    coordinate is recorded with the request (cold review F15).
+    """
+    if state is None or baseline_state is None:
+        return {"achieved_value": None, "target_residual": None}
+    theta = np.asarray(state, dtype=float)
+    theta0 = np.asarray(baseline_state, dtype=float)
+    scale = np.asarray(parameter_scale, dtype=float)
+    mode = np.asarray(scaled_direction, dtype=float)
+    if theta.shape != theta0.shape or theta.shape != scale.shape or theta.shape != mode.shape:
+        return {"achieved_value": None, "target_residual": None}
+    achieved = float(np.dot(mode / scale, theta - theta0))
+    return {"achieved_value": achieved, "target_residual": achieved - float(target)}
+
+
 def _direction_linearity(
     records: Sequence[Mapping[str, Any]],
     baseline_state: Sequence[float],
@@ -6033,25 +6070,35 @@ def _direction_linearity(
         left_derivative = derivatives[index]
         right_derivative = derivatives[index + 1]
         relative = _relative_norm(right_derivative, left_derivative)
-        denominator = float(
-            np.linalg.norm(left_derivative) * np.linalg.norm(right_derivative)
-        )
+        left_norm = float(np.linalg.norm(left_derivative))
+        right_norm = float(np.linalg.norm(right_derivative))
+        denominator = left_norm * right_norm
+        # Two zero derivatives are not parallel, they are absent: the step
+        # left the parameters where they were, so the constraint did not act
+        # and there is nothing to call linear (cold review F15).
+        moved = denominator > 0.0
         cosine = (
             float(np.dot(left_derivative, right_derivative) / denominator)
-            if denominator > 0.0
-            else 1.0
+            if moved
+            else None
         )
         comparison = {
             "left_segment": list(segments[index]),
             "right_segment": list(segments[index + 1]),
+            "derivative_norms": [left_norm, right_norm],
             "derivative_relative_difference": relative,
             "derivative_cosine": cosine,
-            "passed": relative <= 0.05 and cosine >= 0.995,
+            "passed": moved and relative <= 0.05 and cosine >= 0.995,
         }
         result[name] = comparison
         comparisons.append(comparison)
     result["adjacent_comparisons"] = comparisons
     result["passed"] = all(item["passed"] for item in comparisons)
+    if not result["passed"] and any(item["derivative_cosine"] is None for item in comparisons):
+        result["reason"] = (
+            "a direction step left the parameter state at its neighbour's: "
+            "the constraint did not act, so the response is inert, not linear"
+        )
     return result
 
 

@@ -914,6 +914,36 @@ def test_direction_linearity_compares_adjacent_not_baseline_secants():
     assert not result["passed"]
 
 
+def test_direction_linearity_does_not_pass_on_a_constraint_that_never_acted():
+    """Cold review 0.7.0 efit-workflows F15 (#1888).
+
+    Four converged points whose parameter state equals the baseline give
+    zero derivatives on every segment. A zero-by-zero cosine used to read
+    as 1.0 and the gate passed an inert constraint as perfectly linear.
+    """
+    study = _study()
+    base = [1.0, 2.0, 3.0]
+    records = [
+        {"alpha": alpha, "status": "succeeded", "parameter_state": base}
+        for alpha in (-0.25, -0.125, 0.125, 0.25)
+    ]
+    result = study._direction_linearity(records, base, [1.0] * 3, np.eye(3))
+    assert result["passed"] is False
+    assert "inert" in result["reason"]
+    assert all(item["derivative_cosine"] is None for item in result["adjacent_comparisons"])
+    assert all(item["derivative_norms"] == [0.0, 0.0] for item in result["adjacent_comparisons"])
+
+
+def test_the_achieved_direction_coordinate_is_recorded_beside_the_request():
+    study = _study()
+    out = study.achieved_direction_value([1.0, 2.5], [1.0, 2.0], [1.0, 0.5], [0.0, 1.0], 1.0)
+    assert out["achieved_value"] == pytest.approx(1.0)
+    assert out["target_residual"] == pytest.approx(0.0)
+    inert = study.achieved_direction_value([1.0, 2.0], [1.0, 2.0], [1.0, 0.5], [0.0, 1.0], 1.0)
+    assert inert["target_residual"] == pytest.approx(-1.0)
+    assert study.achieved_direction_value(None, [1.0], [1.0], [1.0], 1.0)["achieved_value"] is None
+
+
 def test_native_restart_stdout_audit_is_machine_readable():
     study = _study()
     audit = study._native_restart_audit(
