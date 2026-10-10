@@ -37,7 +37,7 @@ calibration, mappings and conventions, the processing and model configuration, a
 | Pipeline | Orchestration | Purpose |
 |---|---|---|
 | `automatic_pipeline_1_routine_data_processing` | Snakemake DAG (10 rules) + `Makefile` | Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite |
-| `automatic_pipeline_2_corrective_data_update` | none (long-running daemon) | Back-fills Thomson scattering and fitted core profiles into already-stored shots |
+| `automatic_pipeline_2_corrective_data_update` | Snakemake DAG (5 stages + one replication rule each) | Builds Thomson, CES, `core_profiles` and the two kinetic EFIT lineages from externally uploaded profile diagnostics |
 | `automatic_pipeline_3_data_summary` | partial Snakefile (2 rules) + manual scripts | Mines the file database into cross-shot `.xlsx` history sheets and plots |
 | `running_linear_stability` | Snakemake DAG (1 rule, fanned out) | Runs DCON / RDCON / STRIDE per (shot, time, n-mode) on refined equilibria |
 
@@ -283,62 +283,67 @@ leave them behind.
 
 ## Pipeline 2 — corrective data update
 
-This pipeline back-fills data that arrives *after* a shot has already been processed. It consists of one
-polling daemon (`update_thomson_scattering_and_core_profile.py`); the sibling `update_equilibrium.py` is an
-empty placeholder with no behavior.
+This pipeline builds the products that depend on data uploaded *after* a shot was processed: Thomson
+scattering, charge exchange (CES), the `core_profiles` mapped from them, and the two kinetic EFIT lineages.
+It is a Snakemake stage-product DAG, like pipeline 1.
 
 ```bash
 cd workflow/automatic_pipeline_2_corrective_data_update
-nohup python3 update_thomson_scattering_and_core_profile.py \
-    > thomson_scattering_update_fitting.log 2>&1 &
+snakemake --snakefile Snakefile --configfile config.yaml --cores 8
 ```
 
-There are no command-line flags; the paths are module constants (`WATCH_DIAG = /srv/vest.diagnostic`,
-`PUBLIC_BASE = /srv/vest.filedb/public`, `CHECK_INTERVAL = 10` seconds). Despite what its docstring says, the
-daemon does **not** use `watchdog` — `main()` is a `while True:` loop that re-lists the watch directory every
-ten seconds.
+`config.yaml` ships with `base_dir: /srv/vest.filedb`, `shots: [48226]` and `layout: filedb`. Only the
+canonical `filedb` layout is accepted; these stages have no shot-first equivalent. `external.data_root` is
+where the hand-uploaded `.mat` files are searched for, `external.ces_options` picks the ion layout (`ces` for
+`CES_{shot}.mat`, `ids` for `IDS_{shot}.mat`), and `kinetic.*` selects the pressure-point encoding, the EFIT
+executable and the named EFIT preset used for the base magnetic k-file.
 
-Each cycle it scans for new Thomson `*.mat` files, parses the shot number (both `Shot40330_v10.mat` and
-`40330_NeTe.mat` spellings are accepted), skips files whose mtime it has already recorded, copies the file
-into the shot's `diagnostics/` directory, and then:
+### Stages
 
-<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
-```python
-from vaft import database, machine_mapping, process
+| Stage | Builder (`vaft.omas.vest_upstream`) | Needs | Replicated IDS and source |
+|---|---|---|---|
+| `thomson` | `build_thomson_ods` | an uploaded Thomson file | `thomson_scattering` → `main` |
+| `ces` | `build_ces_ods` | an uploaded CES file | `charge_exchange` → `main` |
+| `core_profiles` | `build_core_profiles_ods` | `thomson` (+ `ces`), pipeline 1's EFIT | `core_profiles` → `main` |
+| `electron_efit` | `build_kinetic_efit_ods` | `core_profiles` without ion data | `equilibrium` → `electron-efit` |
+| `kinetic_efit` | `build_kinetic_efit_ods` | `core_profiles` with ion data | `equilibrium` → `kinetic-efit` |
 
-ods = database.load(shotnumber, 'public')
-machine_mapping.thomson_scattering(ods, shotnumber, filepath)
-database.save(ods, shotnumber)
+Pipeline 1's EFIT and constraints products are passed to these rules as `params`, not `input`: a shot that
+pipeline 1 never reconstructed is then *recorded* as unavailable instead of making Snakemake raise. Which of
+the two kinetic lineages runs for a shot is decided by whether the `core_profiles` slice carries ion
+temperature, not by configuration. The destinations come from `STAGE_REPLICATION` in
+`vaft/database/sources.py`; the two kinetic lineages go to their own sources because they share the
+`equilibrium` IDS with the baseline EFIT.
 
-# and, when a refined equilibrium exists for that shot, per time slice:
-mapped = process.equilibrium_mapping_thomson_scattering(ods, geq)   # psi_norm, rho_pol_norm, rho_tor_norm
-n_e_fn, T_e_fn, *_ = process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped, Te_order=2, Ne_order=2,                    # fitted in rho_tor_norm by default
-    fitting_function_te='polynomial', fitting_function_ne='exponential')
-ods = process.core_profiles(ods, time_ms, mapped, n_e_fn, T_e_fn)
-```
+### Reading the result
 
-The equilibrium it maps against is the CHEASE-refined g-file at
-`{base}/{shot}/chease/g0{shot}.00{ms:03d}`, so profile fitting only happens for shots pipeline 1 has already
-refined. Shots with Thomson data but no refined equilibrium get the raw Thomson IDS and nothing more.
+Every stage always writes a product and a manifest and exits 0; read the manifest `status`, not the exit code.
 
-### The registry
+| Manifest status | Meaning | Replicated? |
+|---|---|---|
+| `success` (also `partial`, `completed`) | the stage produced its product | yes |
+| `unavailable` | the upstream data does not exist for this shot (the normal case for most shots) | no — recorded as `skipped` |
+| `no_output` | the stage ran and had nothing to write | no — recorded as `skipped` |
+| `failed` | the builder raised; the product is an empty ODS | no — recorded as `skipped` |
 
-Progress is recorded in an HSDS-backed registry, `hdf5://public/processed_shots.h5`, keyed by shot with a
-timestamp and one of three statuses:
+All five stages are `optional`, so a skipped replication does not change the pipeline's exit state.
+`hsds.replicate: true` adds one `replicate_<stage>_to_hsds` rule per stage; each stage owns only its own IDS,
+and readers union the stages explicitly with `vaft.database.composition.compose_stage_products`.
 
-| Status | Meaning |
-|---|---|
-| `core_profile` | Thomson stored **and** profile fits succeeded |
-| `thomson_only` | Thomson stored, no fits (usually: no refined equilibrium yet) |
-| `invalid` | load or parse failed |
+### The legacy daemons and the registry
 
-An existing `core_profile` / `thomson_only` entry is never downgraded to `invalid`. **This registry is the
-input to pipeline 3** — three of its generators take their shot list from it, so if this daemon has never
-run, those sheets come out empty no matter how much data sits on disk. The module also contains a registry
-reset routine that wipes the H5 file and strips `thomson_scattering` / `core_profiles` back out of every ODS.
-It is commented out in `__main__`, it is destructive, and its default branch iterates the wrong keys. Do not
-run it.
+The pre-Snakemake implementation — three polling scripts that wrote the shot-first `public/` tree and the
+HSDS registry `processed_shots.h5` — is quarantined under `workflow/automatic_pipeline_2_corrective_data_update/legacy/`
+with its own README. It is not part of the supported pipeline and must not be run against `main`.
+
+The registry is therefore no longer maintained. `vaft.database.exist_shot(data_filter='ts'|'cx'|'cp')` still
+reads whatever the old daemons left in it, and returns `None` for a source that never had one; treat it as a
+historical record. **Pipeline 3 does not use it**: its generators list shots with
+`vaft.database.exist_shot(source=..., strict=True)` (no filter) inside `vaft.database.summary`, i.e. the shots
+present in the named HSDS source.
+
+The worker (`vaft pipeline-worker`) does not yet drive this pipeline, and there is no era table, static
+product or stage plot for it; those are tracked in issue #1842.
 
 ---
 
@@ -410,22 +415,6 @@ generators rebuild from scratch and overwrite.
   schema that can no longer be joined. Do not run it. `plot_stability_history.py` is an empty file.
 * `gen_efit_reliability.py` currently emits only diamagnetic-flux rows — the append calls in its magnetic-probe
   and flux-loop branches are unreachable — so do not read its output as per-probe reliability data.
-
-### Known breakage on `main`
-
-The three incremental generators listed above resolve their shot list from pipeline 2's registry, and load each
-shot, by calling two helpers on `vaft.database.ods` that the module **does not define on `main`** — it exposes
-`load_ods` and `save_ods`. As committed they will raise `AttributeError` before doing any work. The equivalent
-supported entry points are:
-
-<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
-```python
-import vaft
-ods = vaft.database.load(shot, source="public")   # -> ODS
-vaft.database.save(ods, shot)
-```
-
-See [Data structures]({{ site.baseurl }}/guide/Data_structures/) for the loader's semantics.
 
 ---
 
