@@ -13,6 +13,7 @@ import json
 import sys
 from dataclasses import fields, replace
 from pathlib import Path
+from types import SimpleNamespace
 
 import f90nml
 import numpy as np
@@ -223,3 +224,39 @@ def test_write_mhdin_emits_the_envelope_and_leaves_the_geometry_alone(static, tm
     for key in ("rvs", "zvs", "rf", "zf", "xmp2", "rsi"):
         assert plain["in3"][key] == with_envelope["in3"][key], key
     assert plain["in5"] == with_envelope["in5"]
+
+
+def test_the_audit_reads_only_the_baseline_s_plasma_slices(module, tmp_path, monkeypatch):
+    """Cold review 0.7.0 efit-workflows F11 (#1888).
+
+    A vacuum-phase or collapsed slice still writes an a-file, and its scalars
+    need not be zero. Counted as a real equilibrium, a 5 cm garbage minor
+    radius would blame the bound for rejecting a plasma that never existed.
+    """
+    import vaft.data
+
+    shot = tmp_path / "shot_39915"
+    shot.mkdir()
+    for suffix in ("00310", "00315", "00319"):
+        (shot / f"a039915.{suffix}").write_text("stub", encoding="utf-8")
+    (tmp_path / "baseline.json").write_text(json.dumps({"shots": [{
+        "shot": 39915,
+        "slices": [
+            {"time_ms": 310, "phase": "vacuum", "collapsed": False, "afile": {"jflag": 1}},
+            {"time_ms": 315, "phase": "plasma", "collapsed": True, "afile": {"jflag": 0}},
+            {"time_ms": 319, "phase": "plasma", "collapsed": False, "afile": {"jflag": 1}},
+        ],
+    }]}), encoding="utf-8")
+    aminor = {"00310": 5.0, "00315": 0.0, "00319": 21.0}
+
+    def fake_read(path):
+        return SimpleNamespace(scalars={"aminor": aminor[Path(path).name.split(".")[1]]})
+
+    monkeypatch.setattr(vaft.data, "read_aeqdsk", fake_read)
+
+    values, counts = module.observed(tmp_path)
+
+    assert values == {"aminor": [21.0]}
+    assert counts == {"afiles": 3, "plasma": 1, "excluded_vacuum_or_collapsed": 2}
+    with pytest.raises(FileNotFoundError, match="baseline.json"):
+        module.observed(tmp_path / "shot_39915")
