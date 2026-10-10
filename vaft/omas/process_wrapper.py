@@ -1072,7 +1072,9 @@ def _vacuum_currents(ods: ODS, indices) -> ndarray:
     taking the wrong sample or failing with an ``IndexError``.  An unequal
     base is resampled onto the coil base once (:func:`vaft.process.
     resample_to_time`, so a finer passive record is low-passed rather than
-    aliased) and then indexed like the coils.
+    aliased) and then indexed like the coils; a requested instant that the
+    passive record does not cover, beyond one coil step, is refused rather
+    than clamped to the record's end.
     """
     pf, pfp = ods["pf_active"], ods["pf_passive"]
     take = np.asarray(indices, dtype=int).ravel()
@@ -1084,6 +1086,14 @@ def _vacuum_currents(ods: ODS, indices) -> ndarray:
     if loop_time.shape != coil_time.shape or not np.array_equal(loop_time, coil_time):
         from vaft.process.signal_processing import resample_to_time
 
+        wanted = coil_time[take]
+        step = float(np.median(np.diff(coil_time))) if coil_time.size > 1 else 0.0
+        if wanted.min() < loop_time[0] - step or wanted.max() > loop_time[-1] + step:
+            raise ValueError(
+                f"pf_passive.time ({loop_time[0]:.6g}..{loop_time[-1]:.6g} s, {loop_time.size} samples) "
+                f"does not cover the requested instant(s) {wanted.min():.6g}..{wanted.max():.6g} s on "
+                f"pf_active.time ({coil_time[0]:.6g}..{coil_time[-1]:.6g} s, {coil_time.size} samples)"
+            )
         loops = [resample_to_time(loop_time, current, coil_time) for current in loops]
     columns += [current[take] for current in loops]
     return np.column_stack(columns)

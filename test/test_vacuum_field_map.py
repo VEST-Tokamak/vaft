@@ -452,3 +452,19 @@ def _coil_only_dpsi_dt(ods, wanted):
         frozen[f"pf_passive.loop.{index}.current"] = np.full_like(current, current[len(current) // 2])
     pw.clear_vacuum_field_cache()
     return pw.compute_vacuum_field_map(frozen, time=wanted, grid=COARSE)["dpsi_dt"]
+
+
+def test_a_passive_base_that_does_not_cover_the_instant_is_refused():
+    """A record that ends before (or starts after) the request must not be clamped to its end."""
+    ods = vaft.omas.sample_ods()
+    vaft.omas.compute_eddy_currents(ods, [], [])
+    time_base = np.asarray(ods["pf_active.time"], dtype=float)
+    ods["pf_passive.time"] = time_base + 1.0  # no overlap with the coil programme at all
+    with pytest.raises(ValueError, match="pf_passive.time .* does not cover"):
+        pw.compute_vacuum_field_map(ods, time=float(time_base[len(time_base) // 2]), grid=COARSE)
+    # A record one coil step short at the end still serves an instant inside it.
+    ods["pf_passive.time"] = time_base[:-1]
+    for index in range(len(ods["pf_passive.loop"])):
+        ods[f"pf_passive.loop.{index}.current"] = np.asarray(ods[f"pf_passive.loop.{index}.current"], dtype=float)[:-1]
+    pw.clear_vacuum_field_cache()
+    assert np.isfinite(pw.compute_vacuum_field_map(ods, time=float(time_base[-1]), grid=COARSE)["psi"]).all()
