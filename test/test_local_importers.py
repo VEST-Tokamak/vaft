@@ -32,6 +32,47 @@ def test_omas_json_and_hdf5_round_trip(tmp_path):
         )
 
 
+@pytest.mark.parametrize("name", ["magnetics.json.gz", "magnetics.json", "magnetics.h5"])
+def test_a_failed_save_leaves_the_previous_product_intact(tmp_path, monkeypatch, name):
+    """A writer that dies mid-way must not disturb the canonical file.
+
+    ``save`` used to open the target in place, so a disk-full or a killed
+    worker left a short file under the canonical name that the next reader
+    failed on with ``JSONDecodeError`` (cold review 0.7.0 data F16, #1888).
+    Every format now writes beside the target and ``os.replace``s it, so a
+    failure at any point of the write leaves the previous product as it was.
+    The fault here fires after the bytes of the new product were written, the
+    latest point a failure can occur.
+    """
+    import shutil
+
+    from omas import ODS
+
+    ods = ODS()
+    ods["magnetics.time"] = [0.0, 1.0, 2.0]
+    target = tmp_path / name
+    vaft.omas.save(ods, target)
+    good = target.read_bytes()
+
+    def failing(real):
+        def wrapper(*args, **kwargs):
+            real(*args, **kwargs)
+            raise OSError("disk full mid-write")
+        return wrapper
+
+    if name.endswith(".gz"):
+        monkeypatch.setattr(shutil, "copyfileobj", failing(shutil.copyfileobj))
+    else:
+        monkeypatch.setattr(ODS, "save", failing(ODS.save))
+    bigger = ODS()
+    bigger["magnetics.time"] = list(range(50))
+    with pytest.raises(OSError, match="disk full"):
+        vaft.omas.save(bigger, target)
+
+    assert target.read_bytes() == good
+    assert sorted(p.name for p in tmp_path.iterdir()) == [name], "no staging file left behind"
+
+
 def test_imas_handle_detects_netcdf_and_converts_omas_source(tmp_path):
     with vaft.imas.load(IMAS_NC) as handle:
         assert handle.info.format == "imas_netcdf"
