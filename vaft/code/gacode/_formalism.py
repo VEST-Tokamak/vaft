@@ -144,6 +144,10 @@ def neo_plasma_formalism(parameters: Optional[Mapping[str, Any]] = None) -> Plas
         "threed_model": _integer(p, _NEO_DEFAULTS, "THREED_MODEL"),
         "species_model": "adiabatic_electrons" if adiabatic else "kinetic_electrons",
     }
+    if sim == 4:
+        # NEO's network is a learned surrogate of its drift-kinetic solution, not an
+        # analytic reduction: the realization keeps the two apart in any grouping (#1738).
+        extensions["realization"] = "learned_surrogate"
     population = ("ions",) if adiabatic else ("all",)
     common = dict(scientific_operation="neoclassical_transport", spatial_domain="local",
                   topology_domain="closed_flux_surface", regime="steady_state", solver="neo",
