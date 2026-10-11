@@ -367,6 +367,9 @@ CORE_MODULES: tuple[str, ...] = (
     # records, the generic impossibilities, serialization and CGYRO's derived
     # #1353 record. Pure Python, ~3 s.
     "test_plasma_formalism.py",
+    # Cross-backend formalism consistency (lane AP, #1738): schema/semantic/backend layers,
+    # reference and future fixtures, pairwise non-conflation, queries, grouping keys. Under 10 s.
+    "test_formalism_consistency.py",
     # Ordering contracts (#1627 phase C): the registry against applicability's rules,
     # the cited kernels against the catalog, and evaluation on synthetic states.
     "test_validation_orderings.py",
