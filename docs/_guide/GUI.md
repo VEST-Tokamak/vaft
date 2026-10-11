@@ -295,7 +295,10 @@ the host needs the maintainer's approval of the concrete configuration first.
    - Grant it **read only** (`+r`) on the approved dataset domains, preferably through a group.
      Existing domains do not inherit a later folder ACL, so check every in-scope domain.
    - Never reuse the production GUI's or an administrator's credentials.
-2. **Install the service.** Follow the comments in `vaft-gui-test.service`:
+2. **Install the service.** Either run `sudo bash test-instance.sh install <commit>` from the
+   installed `vaft/deploy/gui/` directory (add `--dry-run` to only print the commands; it never
+   starts the service while the environment file still holds the placeholder), or follow the
+   comments in `vaft-gui-test.service`:
    - create the user and the venv, installing a fixed commit;
    - put the account in `/etc/vaft-gui-test.env` (mode 0600);
    - install and start the unit.
@@ -319,6 +322,8 @@ the host needs the maintainer's approval of the concrete configuration first.
    - Include `nginx-vaft-gui-test-locations.conf` in the 443 server of the hosted GUI's live
      site, next to its `/gui/` locations.
    - Fill in the `allow` lines with the approved internal ranges; `deny all` stays last.
+     `sudo bash test-instance.sh nginx <cidr>...` does these three steps. It keeps a copy of the
+     site, runs `nginx -t`, and restores the copy if the test fails.
    - Run `nginx -t`, reload, and repeat the smoke check against `https://<host>/gui-test/` **from
      an allowed address**. From anywhere else the check reports "blocked with 403", which is the
      restriction working, not a sign-in result.
@@ -330,7 +335,7 @@ the host needs the maintainer's approval of the concrete configuration first.
    - the hosted restrictions seen in the page (no server file browser, no uploads, no file
      sources);
    - the remaining risks.
-6. **Rollback.**
+6. **Rollback** (`sudo bash test-instance.sh remove` does the first two items).
    - `systemctl disable --now vaft-gui-test`, then remove the unit, venv, environment file and
      user.
    - Remove the `include` line and the `conf.d` file, run `nginx -t` and reload.

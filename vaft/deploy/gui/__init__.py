@@ -22,6 +22,9 @@ venv, port 5016 and ``/gui-test/`` prefix, loopback only:
 ``nginx-vaft-gui-test-http.conf``
     its own login rate-limit zone, for ``/etc/nginx/conf.d/``
 
+``test-instance.sh``
+    installs, publishes (``nginx <cidr>...``) and removes it, as root; ``--dry-run`` prints only
+
 and :mod:`vaft.deploy.gui.smoke`, the smoke checks to run after an install,
 upgrade or rollback (``python -m vaft.deploy.gui.smoke URL``).
 

@@ -257,6 +257,7 @@ vaft = [
   "deploy/gui/*.service",
   "deploy/gui/*.example",
   "deploy/gui/*.conf",
+  "deploy/gui/*.sh",
 ]
 
 [tool.uv.sources]
