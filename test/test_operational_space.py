@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import subprocess
 import sys
 import warnings
@@ -946,3 +947,87 @@ def test_the_discharge_diamond_is_named_only_on_the_axis_it_is_drawn_on():
     legend = " ".join(x.get_text() for x in ax.get_legend().get_texts())
     assert "discharge" not in legend
     assert not [l for l in ax.get_lines() if l.get_marker() == "D"]
+
+
+# --- aspect-ratio-robust beta views (#1691 stage 2B) ---------------------------------
+
+
+def _beta_table(n=24, seed=3):
+    rng = np.random.default_rng(seed)
+    i_n = rng.uniform(0.5, 3.0, n)
+    beta_n_b = rng.uniform(1.0, 4.0, n)
+    t = pd.DataFrame({
+        "normalized_current": i_n,
+        "volume_beta": beta_n_b * i_n,
+        "normalized_volume_beta": beta_n_b,
+        "normalized_beta": beta_n_b * rng.uniform(1.0, 1.8, n),   # B_T normalization adds at low A
+        "aspect_ratio": rng.uniform(1.2, 1.6, n),
+    })
+    t.attrs["machine_class"] = "spherical_tokamak"
+    return t
+
+
+def test_the_volume_beta_quantities_are_not_the_toroidal_ones():
+    q = ops.AXIS_QUANTITIES
+    assert not B.same_quantity(q["volume_beta"], q["toroidal_beta"])
+    assert not B.same_quantity(q["normalized_volume_beta"], q["normalized_beta"])
+    assert q["normalized_volume_beta"].unit == q["normalized_beta"].unit == "% m T/MA"
+    assert ops.get_projection("volume_beta_in").ratio is q["normalized_volume_beta"]
+
+
+def test_no_beta_n_reference_is_placed_on_a_volume_beta_axis():
+    references = ops.get_projection("troyon").default_boundaries
+    for key in ("volume_beta_in", "aspect_ratio_volume_beta_n"):
+        plan = ops.overlay_plan(key, list(references), x_range=(0.0, 3.0), y_range=(0.0, 10.0))
+        assert plan.curves == () and {k for k, _ in plan.omitted} == set(references)
+        assert all("normalized_beta" in reason for _, reason in plan.omitted)
+
+
+@pytest.mark.parametrize("style", ["shade", "inline"])
+def test_the_two_normalizations_are_compared_on_y_equals_x(style):
+    fig, ax = operational_space_population(_beta_table(), "beta_n_normalizations", boundary_style=style)
+    guides = [line for line in ax.get_lines() if line.get_linestyle() == ":"]
+    assert len(guides) == 1
+    gx, gy = guides[0].get_data()
+    assert np.allclose(gx, gy) and gx[0] < gx[-1]
+    labels = [h.get_label() for h in ax.get_legend_handles_labels()[0]] + [t.get_text() for t in (
+        ax.get_legend().get_texts() if ax.get_legend() else [])]
+    assert any(r"\langle \beta_{N}\rangle" in text for text in labels)
+    assert r"\langle \beta_{N}\rangle" in ax.get_xlabel()
+
+
+def test_the_equality_guide_needs_the_projection_axes():
+    table = _beta_table().assign(other=lambda t: t["normalized_beta"] * 2)
+    fig, ax = operational_space_population(table, "beta_n_normalizations", y="other")
+    assert not [line for line in ax.get_lines() if line.get_linestyle() == ":"]
+
+
+@pytest.mark.parametrize("key", ["volume_beta_in", "aspect_ratio_beta_n", "aspect_ratio_volume_beta_n"])
+def test_the_companion_views_draw_the_population_without_boundaries(key):
+    fig, ax = operational_space_population(_beta_table(), key)
+    assert ax.vaft_overlay.curves == ()
+    assert len(ax.collections[0].get_offsets()) == len(_beta_table())
+
+
+@pytest.mark.parametrize("style", ["shade", "inline"])
+def test_the_4_li_envelope_is_drawn_without_a_forbidden_side(style):
+    rng = np.random.default_rng(5)
+    table = pd.DataFrame({"internal_inductance_li1": rng.uniform(0.5, 1.0, 20),
+                          "normalized_beta": rng.uniform(0.3, 2.4, 20)})
+    table.attrs["units"] = {"normalized_beta": "% m T/MA"}
+    fig, ax = operational_space_population(table, "beta_n_li1", boundary_style=style)
+    assert "strait_1994_beta_n_li" in ax.vaft_overlay.keys
+    hatched = [p for p in ax.patches + ax.collections if getattr(p, "get_hatch", lambda: None)()]
+    fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
+    assert not hatched and not fills   # a reference (Troyon) and an envelope: nothing is forbidden
+
+
+def test_a_linear_reference_is_labelled_from_the_registry(monkeypatch):
+    from vaft.plot import operational_space as m
+
+    entry = B.get_boundary("strait_1994_beta_n_li")
+    curve = ops.overlay_plan("beta_n_li1", ["strait_1994_beta_n_li"], x_range=(0.3, 2), y_range=(0, 9)).curves[0]
+    assert r"= 4\,l_{i}(1)$" in m._reference_label(curve, "", "internal_inductance_li1")
+    monkeypatch.setattr(B, "get_boundary", lambda key: dataclasses.replace(entry, coefficient=3.0))
+    monkeypatch.setattr(m._b, "get_boundary", B.get_boundary)
+    assert r"= 3\,l_{i}(1)$" in m._reference_label(curve, "", "internal_inductance_li1")

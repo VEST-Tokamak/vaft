@@ -143,7 +143,9 @@ by quantity identity (`murakami_parameter`, `inverse_cylindrical_q`, `normalized
 units in `table.attrs["units"]`. A boundary is drawn only when both plotted columns are exactly the
 projection's quantities in its units: a `q95` column never carries a $q_\psi$ or $q_\mathrm{cyl}$
 boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`,
-`li_qa_wesson`, `li_qa_cheng`. See
+`li_qa_wesson`, `li_qa_cheng`, `beta_n_li1` (Strait's $\beta_N = 4\,l_i(1)$ envelope), and the #1691 beta-normalisation views `volume_beta_in`,
+`beta_n_normalizations` (with a $y = x$ guide), `aspect_ratio_beta_n`, `aspect_ratio_volume_beta_n`;
+`list_projections()` gives the full set. See
 #944 and #636.
 
 ### Dimensionless similarity spaces
@@ -341,12 +343,14 @@ explains them.
 ```python
 vaft.diagram.timescale_hierarchy()
 vaft.diagram.ordering_contract_map()
+vaft.diagram.adapter_contract_map()
 ```
 
 | Diagram | Concept |
 | --- | --- |
 | `timescale_hierarchy` | Inverse gyrofrequencies, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
-| `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered |
+| `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered. |
+| `adapter_contract_map` | Which ordering contracts each VAFT code-adapter mode consumes, and how each enters the calculation: governing (filled), RDCON's outer solution and layer solution, DCON-kinetic's fluid part and kinetic part, PENTRC's closure, inherited by a reduced model that does not solve its parent theory (dashed). An empty cell is no registered contract, not physical independence (`vaft.validation.model_contracts`, #1823) |
 
 ## Reduced representations
 
@@ -358,12 +362,14 @@ are built from the formulas' `Reduction` docstring sections and the relation met
 
 ```python
 vaft.diagram.reduced_representation_hierarchy()
+vaft.diagram.reduced_representation_hierarchy_compact()
 vaft.diagram.reduction_graph(family="current_q")   # "pressure_energy", "kinetic_profiles", "dimensionless_similarity"
 ```
 
 | Diagram | Concept |
 | --- | --- |
 | `reduced_representation_hierarchy` | Spatial reduction (field, profile, scalar) down, dimensionless normalisation across, so a dimensionless quantity can still be a profile. Each cell counts the catalogued formulas that land there |
+| `reduced_representation_hierarchy_compact` | The same axes and arrows with only the example symbols in each box, without the counts, at reduced box height and spacing, for slides and overview pages |
 | `reduction_graph` | One family as a layered graph of quantities. A solid edge is a formula, and its catalogued reduction kind is shown as *via*. A dashed edge is a step VAFT performs elsewhere |
 
 ## Tokamak geometry and flux coordinates
