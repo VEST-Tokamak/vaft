@@ -241,3 +241,115 @@ def test_both_iter97_paths_state_which_elongation_they_use():
     # Scalings without an elongation term say so instead of naming a column.
     assert predict_confinement_time(table, "NSTX2006H").attrs["kappa_definition"] == "no elongation term"
     assert figures.h_factor_of(table, "NeoAlcator").attrs["kappa_definition"] == "no elongation term"
+
+
+# --- #1946: presentation of the tau_E figures --------------------------------
+
+
+def _tau_table():
+    from vaft.data.public.schema import CONFINEMENT_COLUMNS
+
+    base = {c: np.nan for c in CONFINEMENT_COLUMNS}
+    rng = np.random.default_rng(2)
+    rows = []
+    for machine, n, ip, bt, ne, p, r, a, tau in (("JET", 30, 2e6, 2.5, 3e19, 5e6, 2.9, 0.95, 0.3),
+                                                 ("NSTX", 20, 8e5, 0.45, 4e19, 3e6, 0.85, 0.6, 0.04)):
+        for _ in range(n):
+            f = np.exp(0.2 * rng.standard_normal())
+            rows.append({**base, "machine": machine, "population": machine, "selected": True,
+                         "i_p_A": ip * f, "b_t_T": bt, "n_e_line_avg_m3": ne, "p_loss_W": p,
+                         "r_geo_m": r, "a_m": a, "epsilon": a / r, "kappa": 1.7, "kappa_area": 1.6,
+                         "m_eff_amu": 2.0, "tau_e_th_s": tau * f})
+    for i in range(6):
+        rows.append({**base, "machine": "VEST", "population": "VEST (ohmic, this work)", "i_p_A": 1e5,
+                     "b_t_T": 0.2, "n_e_line_avg_m3": 1e19 if i < 4 else np.nan, "p_loss_W": 2e5,
+                     "r_geo_m": 0.4, "a_m": 0.3, "epsilon": 0.75, "kappa": 1.6, "kappa_area": 1.5,
+                     "m_eff_amu": 1.0, "tau_e_th_s": 1e-3, "thomson_consistent": i % 2 == 0})
+    return pd.DataFrame(rows)
+
+
+def _direct_texts(ax):
+    from vaft.plot._direct_labels import LABEL_GID
+
+    return [t.get_text() for t in ax.texts if str(t.get_gid() or "").startswith(LABEL_GID)]
+
+
+def test_predicted_vs_measured_figure_defaults_name_scaling_and_note_vest_details():
+    figures = _figures()
+    table = _tau_table()
+    fig, axes = figures.predicted_vs_measured_figure(table, ("ITER89P", "ITER97L"))
+    for ax, scaling in zip(axes, ("ITER89P", "ITER97L")):
+        assert ax.get_title() == f"{figures.LABELS[scaling]}{figures.basis_marker(scaling)}"
+        assert ax.get_ylabel() == r"$\tau_E$ measured [s]"
+        names = _direct_texts(ax)
+        assert figures.VEST_LABEL in names  # no row counts
+        if scaling == "ITER97L":  # ITER89-P needs DB5's global tau, absent from this table
+            assert "JET" in names
+        assert not any("(" in n and n.endswith(")") and n.split("(")[-1][:-1].isdigit() for n in names)
+        assert not any(c.get_edgecolor().size and np.allclose(c.get_edgecolor()[0][:3], (0.863, 0.078, 0.235),
+                                                                atol=0.01) for c in ax.collections)
+    note = fig._supxlabel.get_text().replace("\n", " ")
+    assert "VEST: tau_E,th" in note and "rows" in note and "EFIT p outside [1, 2] p_e" in note
+    matplotlib.pyplot.close(fig)
+
+
+def test_predicted_vs_measured_figure_options_restore_counts_and_rings():
+    figures = _figures()
+    table = _tau_table()
+    fig, axes = figures.predicted_vs_measured_figure(table, ("ITER97L",), label_counts=True, mark_thomson=True)
+    names = _direct_texts(axes[0])
+    assert any(n.startswith("JET (") for n in names)
+    assert any(n.startswith(figures.THOMSON_RING_SHORT) for n in names)  # the ring's direct label
+    matplotlib.pyplot.close(fig)
+
+
+def test_h_factor_figure_draws_on_a_small_table():
+    figures = _figures()
+    fig, axes = figures.h_factor_figure(_tau_table(), ("ITER97L",))
+    assert "VEST" in axes[0].get_title()
+    matplotlib.pyplot.close(fig)
+
+
+def test_mark_thomson_inconsistent_adds_a_short_direct_label():
+    from vaft.plot.population import confinement_population
+
+    figures = _figures()
+    table = _population_with_verdict()
+    fig, ax = matplotlib.pyplot.subplots()
+    confinement_population(table, x="i_p_A", y="tau_e_th_s", by="population",
+                           highlight="VEST (ohmic, this work)", ax=ax)
+    figures.mark_thomson_inconsistent(ax, table, "i_p_A", "tau_e_th_s")
+    assert f"{figures.THOMSON_RING_SHORT} (2)" in _direct_texts(ax)
+    matplotlib.pyplot.close(fig)
+
+
+def test_wrap_to_width_breaks_at_spaces_keeps_newlines_and_is_idempotent():
+    figures = _figures()
+    fig, ax = matplotlib.pyplot.subplots(figsize=(3, 2))
+    text = ax.set_title("alpha beta gamma delta epsilon zeta eta theta\nshort")
+    renderer = fig.canvas.get_renderer()
+    width = 0.5 * text.get_window_extent(renderer).width
+    assert figures._wrap_to_width(text, width, renderer)
+    lines = text.get_text().split("\n")
+    assert lines[-1] == "short" and len(lines) > 2
+    assert " ".join(" ".join(lines[:-1]).split()) == "alpha beta gamma delta epsilon zeta eta theta"
+    wrapped = text.get_text()
+    assert not figures._wrap_to_width(text, width, renderer)
+    assert text.get_text() == wrapped
+    math = ax.set_xlabel(r"$\tau_E$ a long label with math " * 3)
+    assert not figures._wrap_to_width(math, 10.0, renderer)
+    matplotlib.pyplot.close(fig)
+
+
+def test_fit_titles_and_footnote_keeps_titles_inside_their_axes():
+    figures = _figures()
+    fig, axes = figures._grid(2, figsize=(5, 3))
+    for ax in axes:
+        ax.set_title("a deliberately long panel title that cannot fit in a narrow axes")
+    fig.supxlabel("a footnote " * 20, fontsize="x-small", x=0.01, ha="left")
+    figures._fit_titles_and_footnote(fig, axes)
+    renderer = fig.canvas.get_renderer()
+    for ax in axes:
+        assert ax.title.get_window_extent(renderer).width <= ax.get_window_extent(renderer).width + 1
+    assert fig._supxlabel.get_window_extent(renderer).x1 <= fig.bbox.width + 1
+    matplotlib.pyplot.close(fig)
