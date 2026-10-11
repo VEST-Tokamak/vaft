@@ -1319,6 +1319,60 @@ _register(Boundary(
     notes="Verification level: full text. A record, not a stability limit.",
 ))
 
+# The DIII-D/JET current-profile scaling beta_N <= 4 l_i (#1691, #1700). Its l_i is l_i(1), <B_p^2>/B_pa^2 with
+# B_pa = mu0 I / Gamma (Strait 1994, p. 1421), not the IMAS l_i(3): a quantity of its own, so the line is never
+# placed on an l_i(3) axis.
+_LI1 = BoundaryQuantity(
+    "internal_inductance_li1", "l_i(1)", "-",
+    "<B_p^2>_V / B_pa^2 with B_pa = mu0 I_p / Gamma, Gamma the boundary circumference "
+    "(equilibrium.li_1_from_Bp2_volume_integral); the DIII-D l_i. Not l_i(3): l_i(1) = l_i(3) R_0 Gamma^2 / (2V).",
+)
+
+_register(Boundary(
+    key="strait_1994_beta_n_li",
+    family="beta_reference",
+    target=_NORMALIZED_BETA,
+    inputs=(_LI1,),
+    form="power_law",
+    coefficient=4.0,
+    exponents={"internal_inductance_li1": 1.0},
+    allowed_side="below",
+    hardness="soft",
+    origin="published",
+    basis="empirical",
+    event="beta_reference",
+    kind="experimental_envelope",
+    applicability=Applicability(
+        machine_class="conventional tokamak (DIII-D, JET)",
+        assumptions=(
+            "an empirical scaling of the experimental beta limit with the current profile, 'which describes "
+            "DIII-D and JET data well' (Strait 1994, p. 1422); 'l_i cannot be increased indefinitely, but within "
+            "the stable range of l_i this scaling seems to provide a reasonable first-order representation'",
+            "beta is 2 mu0 <p> / B^2 with B the toroidal field (Strait 1994, abstract and p. 1415)",
+            "wall-stabilised DIII-D discharges exceed it at l_i < 1 (Strait et al. 1995, Fig. 2)",
+            "the PRL's l_i, which bounds the evidence range, is not defined there; it is taken to be Strait 1994's "
+            "l_i(1) (same first author, same DIII-D data and relation)",
+        ),
+        evidence_ranges={"internal_inductance_li1": (1.0, 2.0)},
+    ),
+    sources=(
+        BoundarySource("E.J. Strait, 'Stability of high beta tokamak plasmas', Phys. Plasmas 1 (1994) 1415",
+                       doi="10.1063/1.870691",
+                       equation="p. 1422: 'beta_max = 4 l_i (I/aB)'; l_i defined on p. 1421 as <B_p^2>/B_pa^2, "
+                                "B_pa = mu0 I/Gamma",
+                       note="read from the full text; the relation is cited there to Strait et al., 18th EPS "
+                            "(1991), Vol. 15C, Part II, p. 105 (ref. 72)"),
+        BoundarySource("E.J. Strait, T.S. Taylor, A.D. Turnbull et al., 'Wall stabilization of high beta tokamak "
+                       "discharges in DIII-D', Phys. Rev. Lett. 74 (1995) 2483",
+                       equation="p. 2484: beta_N <= 4 l_i is 'a good representation of the beta limit for DIII-D "
+                                "discharges with 1 < l_i < 2'",
+                       note="read from the full text; the source of the evidence range 1 < l_i < 2. The PRL does "
+                            "not define l_i: read as Strait 1994's l_i(1)"),
+    ),
+    notes="Verification level: full text (both sources). An empirical envelope of conventional tokamaks, drawn "
+          "without a forbidden side; beyond 1 < l_i < 2 the line is an extrapolated reference slope.",
+))
+
 
 # ------------------------------------------------------------------
 # L-H power threshold (#1066)

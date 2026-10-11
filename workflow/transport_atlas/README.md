@@ -23,7 +23,7 @@ Runs go on tdst (`lowpri-short`, GACODE `TDST_GNU`). The branch worktree sits on
 
 ## Linear check against CGYRO (Lane Y, #1484)
 
-How linear TGLF-vs-CGYRO validation differs from nonlinear saturation validation, and the rule that picks the nonlinear CGYRO surfaces, is written down in [`tglf_cgyro_validation.md`](tglf_cgyro_validation.md) (#1900).
+How linear TGLF-vs-CGYRO validation differs from nonlinear saturation validation, and the rule that picks the nonlinear CGYRO surfaces, is written down in [`tglf_cgyro_validation.md`](tglf_cgyro_validation.md) (#1900). The nonlinear CGYRO plan for the selected surfaces (candidates, budget, acceptance criteria; not launched) is [`cgyro_nonlinear_plan.md`](cgyro_nonlinear_plan.md).
 
 Lane Y ran linear CGYRO on the five #1482 sensitivity states at r/a 0.6/0.7/0.8, k_yρ_s 0.1–6, ES and EM. Both codes read the same resolved state (`state_identity`) and the same local input; TGLF was rerun single-k_y on it. The product is `vestserver:~/runs/campaign/atlas/gyrokinetic_linear/` (`linear.csv`, `linear_summary.csv`, `schema.json`). Only `cgyro_status == "converged"` is a growth rate; `max_time` means marginal and `decayed` means stable.
 

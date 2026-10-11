@@ -213,6 +213,10 @@ _PRODUCT_LINEAGE = {"product": "dcon-peeling"}
 def _contract(stage):
     """The replication contract for `stage`, with the lineage it requires."""
     key = stage.value if hasattr(stage, "value") else str(stage)
+    if key == "turbulent_transport":
+        # One TGLF configuration's result (#1900): its product is a
+        # configuration, not a stability product.
+        return sources.replication_for_stage(stage, product="tglf-sat3-em-bper")
     needs_product = key in {"mhd_linear", "gpec_ideal"}
     return sources.replication_for_stage(
         stage, **(_PRODUCT_LINEAGE if needs_product else {})
@@ -484,7 +488,9 @@ def test_a_child_source_is_navigable_from_its_parent():
     conflating the two would make "does this source exist" depend on whether an
     administrator had got to it yet.
     """
-    assert [entry.name for entry in sources.children("main")] == ["main/chease"]
+    assert [entry.name for entry in sources.children("main")] == [
+        "main/chease", *(f"main/{c}" for c in sources.tglf_configurations())
+    ]
     assert [entry.name for entry in sources.children("main/chease")] == [
         "main/chease/dcon-peeling",
         "main/chease/dcon-kink",

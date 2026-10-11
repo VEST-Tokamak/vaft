@@ -143,7 +143,7 @@ by quantity identity (`murakami_parameter`, `inverse_cylindrical_q`, `normalized
 units in `table.attrs["units"]`. A boundary is drawn only when both plotted columns are exactly the
 projection's quantities in its units: a `q95` column never carries a $q_\psi$ or $q_\mathrm{cyl}$
 boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`,
-`li_qa_wesson`, `li_qa_cheng`, and the #1691 beta-normalisation views `volume_beta_in`,
+`li_qa_wesson`, `li_qa_cheng`, `beta_n_li1` (Strait's $\beta_N = 4\,l_i(1)$ envelope), and the #1691 beta-normalisation views `volume_beta_in`,
 `beta_n_normalizations` (with a $y = x$ guide), `aspect_ratio_beta_n`, `aspect_ratio_volume_beta_n`;
 `list_projections()` gives the full set. See
 #944 and #636.

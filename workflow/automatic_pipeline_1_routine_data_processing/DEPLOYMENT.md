@@ -181,7 +181,9 @@ except ReadOnlySourceError:
 
 # A stage that is one solve's result goes to one source per stability product,
 # so it has no destination until the product is named.
-PER_PRODUCT = {"mhd_linear": ("dcon-peeling", "dcon-kink", "rdcon", "stride")}
+# TGLF's result goes to one transitional source per configuration (#1900).
+PER_PRODUCT = {"mhd_linear": ("dcon-peeling", "dcon-kink", "rdcon", "stride"),
+               "turbulent_transport": s.tglf_configurations()}
 
 for stage in s.replicable_stages():
     for product in PER_PRODUCT.get(stage, (None,)):
@@ -192,7 +194,8 @@ PY
 ```
 
 Expect `read-only: ['public', 'chease-mhd-stability', 'magnetic-efit']` and one
-`ok:` line per stage, four for `mhd_linear` (one per stability product).
+`ok:` line per stage, four for `mhd_linear` (one per stability product) and
+twelve for `turbulent_transport` (one per TGLF configuration, magnetic family).
 
 ```bash
 # user= cannot falsify the destination -- must raise before connecting

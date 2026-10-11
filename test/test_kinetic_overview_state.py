@@ -401,11 +401,15 @@ def test_per_channel_time_is_honoured_without_a_homogeneous_base(ods, case_40326
     assert len(traces["n_e_thomson"][0].x) == 5 and len(traces["T_e_thomson"][0].x) == 4
 
 
-def test_thomson_validity_flags_demote_points_and_shrink_the_span(ods):
+def test_a_non_finite_thomson_sigma_demotes_points_and_shrinks_the_span(ods):
     full = _extract(ods).models[0].reference_lines[0]
     # Channel 4 (R = 0.255 m) is the outermost mapped channel, rho_tor_norm 0.476.
-    ods["thomson_scattering.channel.4.n_e.validity"] = -1
-    ods["thomson_scattering.channel.4.t_e.validity_timed"] = np.array([-2])
+    # The DD carries no validity flag on Thomson n_e/t_e: a non-finite value or
+    # stored sigma is the invalid sample, as in the Thomson mapping.
+    for signal in ("n_e", "t_e"):
+        sigma = np.asarray(ods[f"thomson_scattering.channel.4.{signal}.data_error_upper"], dtype=float).copy()
+        sigma[:] = np.nan
+        ods[f"thomson_scattering.channel.4.{signal}.data_error_upper"] = sigma
     model = _extract(ods)
     traces = _traces(model)
     for quantity in ("n_e_thomson", "T_e_thomson", "p_e_thomson"):
@@ -502,8 +506,10 @@ def test_the_plot_is_discoverable_and_declares_its_paths(case_40326):
     assert NAME in vaft.plot.__all__
     paths = {path.canonical for path in vaft.omas.dd_kinetic_overview_state()}
     assert {"core_profiles/profiles_1d(:)/zeff_fit/parameters", "core_profiles/profiles_1d(:)/t_i_average",
-            "thomson_scattering/channel(:)/n_e/validity_timed", "thomson_scattering/channel(:)/position/r",
+            "thomson_scattering/channel(:)/position/r",
             "core_profiles/profiles_1d(:)/ion(:)/state(:)/density"} <= paths
     assert "core_profiles/code/parameters" not in paths
+    assert not any(path.endswith(("/validity", "/validity_timed")) and path.startswith("thomson_scattering")
+                   for path in paths)
     sample = vaft.omas.load(vaft.data.sample(39915, representation="omas"))
     assert missing_required_path(sample, NAME) is not None

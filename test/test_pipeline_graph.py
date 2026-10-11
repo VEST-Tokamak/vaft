@@ -260,6 +260,18 @@ def test_generation_is_a_dry_run_without_credentials(monkeypatch, tmp_path):
         assert environment[name].startswith(str(tmp_path)) and not Path(environment[name]).exists()
 
 
+def test_windows_application_data_folders_point_into_the_workspace(monkeypatch, tmp_path):
+    """Snakemake's CLI asks Windows for the common and per-user app-data folders; they must resolve,
+    and only to the workspace (a real APPDATA or ProgramData could carry a Snakemake profile)."""
+    for name in ("APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "ALLUSERSPROFILE"):
+        monkeypatch.setenv(name, str(Path("C:/real") / name))
+    environment = pipeline_graph._environment(tmp_path)
+    for name in ("APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "ALLUSERSPROFILE"):
+        assert environment[name].startswith(str(tmp_path)), name
+        assert Path(environment[name]).is_dir(), name
+    assert environment["APPDATA"].startswith(environment["USERPROFILE"])
+
+
 def test_the_source_receipt_build_py_checks(snapshot):
     spec = importlib.util.spec_from_file_location("vaft_docs_build_for_pipeline_graph", DOCS / "build.py")
     build = importlib.util.module_from_spec(spec)

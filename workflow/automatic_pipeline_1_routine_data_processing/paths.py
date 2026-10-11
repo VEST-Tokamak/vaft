@@ -546,7 +546,14 @@ class PipelinePaths:
         `mhd_linear` and `gpec_ideal` -- and is refused for every other stage by
         `stage_lineage`, so passing it where it does not belong is an error
         rather than something silently dropped.
+
+        `turbulent_transport` is the exception: its product is a TGLF
+        configuration (`tglf-sat<n>-<field>`, #1900), not a stability product,
+        and it takes no refinement, so it is passed through for the FileDB
+        grammar to validate rather than through `stability_product`.
         """
+        if stage == "turbulent_transport":
+            return stage_lineage(stage, family=self.family, product=product)
         return stage_lineage(
             stage,
             family=self.family,

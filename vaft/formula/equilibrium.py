@@ -2236,6 +2236,60 @@ def li_3_from_Bp2_volume_integral(Bp2_dV: float,
     return 2 * float(Bp2_dV) / (MU0**2 * float(Ip) ** 2 * float(R0))
 
 
+def li_1_from_Bp2_volume_integral(Bp2_dV: float,
+                                  volume: float,
+                                  Ip: float,
+                                  perimeter: float) -> float:
+    r"""Internal inductance in the circumference-normalized ``l_i(1)`` definition.
+
+    $$l_{i1} = \frac{\langle B_p^2 \rangle_V}{B_{pa}^2},\qquad
+      \langle B_p^2 \rangle_V = \frac{\int B_p^2 \, dV}{V},\qquad
+      B_{pa} = \frac{\mu_0 I_p}{\Gamma}$$
+
+    $B_{pa}$ is the poloidal field averaged along the boundary circumference $\Gamma$.
+    This is the $\ell_i$ of the DIII-D beta-limit scaling $\beta_{max} = 4\,\ell_i\,I/aB$
+    (Strait 1994), not the IMAS ``li_3`` of :func:`li_3_from_Bp2_volume_integral`.
+    The two differ by $l_{i1} = l_{i3}\,R_0 \Gamma^2 / (2V)
+    = l_{i3}\,(R_0/R_c)\,\Gamma^2/(4\pi A)$, with $A$ the cross-section area and
+    $R_c = V/(2\pi A)$ its centroid radius: a shape part $\Gamma^2/(4\pi A) \ge 1$ (1 for a
+    circle) and a radius part $R_0/R_c$ from the radius $l_{i3}$ normalizes by.
+
+    Parameters
+    ----------
+    Bp2_dV : float
+        Poloidal field squared integrated over the plasma volume [T^2 m^3].
+    volume : float
+        Plasma volume inside the boundary [m^3].
+    Ip : float
+        Plasma current; only its magnitude enters [A].
+    perimeter : float
+        Poloidal circumference of the boundary, Gamma [m].
+
+    Returns
+    -------
+    float
+        Internal inductance, ``l_i(1)`` definition [-].
+
+    Reduction
+    ---------
+    input: scalar_0d
+    output: scalar_0d
+    kind: dimensionless_normalization
+    locality: global
+    role: global_descriptor
+
+    References
+    ----------
+    .. [1] E. J. Strait, Phys. Plasmas 1 (1994) 1415, doi:10.1063/1.870691, p. 1421:
+           $l_i = \langle B_p^2\rangle/B_{pa}^2$ with $B_{pa} = \mu_0 I/\Gamma$.
+    """
+    volume, perimeter = float(volume), float(perimeter)
+    if not (volume > 0 and perimeter > 0):
+        raise ValueError(f"volume and perimeter must be positive, got {volume!r} and {perimeter!r}")
+    b_pa = MU0 * abs(float(Ip)) / perimeter
+    return float(Bp2_dV) / volume / b_pa ** 2
+
+
 def internal_inductance_from_W_int_Ip(W_int: float, Ip: float) -> float:
     r"""Dimensional internal inductance from the poloidal-field energy inside the plasma.
 

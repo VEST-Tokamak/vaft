@@ -3714,6 +3714,524 @@ def write_neoclassical_product(
     return native.write_json(native_path)
 
 
+# --------------------------------------------------------------------------- #
+# turbulent_transport: one TGLF configuration on one state (#1900)
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class _AtlasSurface:
+    """The part of a ``TGLFInput`` the ``core_transport`` mapper reads.
+
+    The routine driver does not keep the ``TGLFInput`` object, but it keeps
+    everything the mapper needs from it: the species names and the gyro-Bohm
+    normalisation in ``state.json``, and the charges and masses in the native
+    ``input.tglf`` the run read. Rebuilding this view rather than restating the
+    mapping keeps one statement of how TGLF's fluxes reach IMAS.
+    """
+
+    rho: float
+    names: tuple[str, ...]
+    zs: np.ndarray
+    mass: np.ndarray
+    vexb_shear: float | None
+    normalisation: Any
+
+    def missing(self) -> tuple[str, ...]:
+        # The mapper's momentum guard reads `vexb_shear` *and* `missing()`. An
+        # empty `missing()` is safe today only because the routine driver never
+        # gives TGLF a rotation: `vexb_shear` is always None in its state.json,
+        # so the value check alone refuses the toroidal stress. If the driver
+        # starts recording rotation, this must report the provenance the
+        # summary does not carry, or a momentum flux could be published from a
+        # rotation whose source nobody recorded.
+        return ()
+
+
+@dataclass(frozen=True)
+class _SurfaceBridge:
+    """``r/a`` against ``rho_tor_norm`` at the surfaces the atlas mapped.
+
+    The mapper interpolates ``rho`` against ``rmin/rmin[-1]``. The axis and the
+    boundary are added because both coordinates are 0 and 1 there by
+    definition; at every solved surface the interpolation then returns exactly
+    the ``rho_tor_norm`` the driver's own projection computed from the full
+    profile.
+    """
+
+    rmin: np.ndarray
+    rho: np.ndarray
+
+
+def _tglf_field_model(parameters: Mapping[str, Any]) -> str | None:
+    bper, bpar = bool(parameters.get("use_bper")), bool(parameters.get("use_bpar"))
+    if bper and bpar:
+        return "em-bper-bpar"
+    if bper:
+        return "em-bper"
+    return None if bpar else "es"
+
+
+def _normalisation_from_summary(record: Mapping[str, Any]) -> Any:
+    """Rebuild ``TGLFNormalisation`` from the driver's JSON summary of it.
+
+    The summary keeps ``a``, ``B_unit``, ``rho_s``, ``c_s``, ``Q_GB`` and
+    ``Gamma_GB``; density and temperature follow from the last two by the
+    definitions ``Gamma_GB = n_e c_s (rho_s/a)^2`` and ``Q_GB = Gamma_GB T_e``.
+    """
+    from vaft.code.gacode.tglf.inputs import TGLFNormalisation
+
+    a = float(record["a_m"])
+    rho_s = float(record["rho_s_m"])
+    c_s = float(record["c_s_m_s"])
+    gamma_gb = float(record["gamma_gb_m2_s"])
+    q_gb = float(record["q_gb_W_m2"])
+    if not all(np.isfinite([a, rho_s, c_s, gamma_gb, q_gb])) or 0.0 in (a, rho_s, c_s, gamma_gb):
+        raise ValueError(f"normalisation record {dict(record)!r} cannot be inverted")
+    return TGLFNormalisation(
+        electron_density=gamma_gb / (c_s * (rho_s / a) ** 2),
+        electron_temperature=q_gb / gamma_gb,
+        sound_speed=c_s,
+        gyroradius=rho_s,
+        minor_radius=a,
+        b_unit=float(record["b_unit_T"]),
+    )
+
+
+def _read_tglf_state(directory: Path) -> dict[str, Any]:
+    """Load and qualify one routine-TGLF state tree, or raise saying why."""
+    from vaft.code.gacode.tglf.outputs import TglfOutputs
+    from vaft.code.mitim.compare import read_input_tglf
+    from vaft.database.sources import (
+        family_for_atlas_lineage,
+        parse_tglf_configuration,
+    )
+    from vaft.process.transport_state import EFIT_QUALITIES
+
+    path = directory / "state.json"
+    state = json.loads(path.read_text(encoding="utf-8"))
+    label = state.get("tglf_config")
+    sat_rule, field_model = parse_tglf_configuration(label)
+    parameters = dict(state.get("tglf_parameters") or {})
+    named = (parameters.get("sat_rule"), _tglf_field_model(parameters))
+    if named != (sat_rule, field_model):
+        raise ValueError(
+            f"{path}: tglf_config {label!r} does not name its settings "
+            f"(tglf_parameters give SAT_RULE={named[0]!r}, field model {named[1]!r}); "
+            "a product filed under the wrong configuration would overwrite another's."
+        )
+    quality = state.get("efit_quality")
+    if quality not in EFIT_QUALITIES:
+        raise ValueError(
+            f"{path}: efit_quality {quality!r} is not one of {EFIT_QUALITIES}; a state "
+            "the #1331 labels do not admit is not promoted."
+        )
+    family = family_for_atlas_lineage(state.get("efit_lineage"))
+    if state.get("status") not in ("solved", "partial"):
+        raise ValueError(f"{path}: state status {state.get('status')!r} has no TGLF result")
+
+    projected = {
+        round(float(row["r_over_a"]), 6): row
+        for row in ((state.get("core_transport") or {}).get("surfaces") or [])
+    }
+    surfaces = []
+    unsolved = []
+    for record in state.get("surfaces") or []:
+        radius = float(record["r_over_a"])
+        if record.get("status") != "solved":
+            unsolved.append({"r_over_a": radius, "status": record.get("status")})
+            continue
+        workdir = directory / f"r{radius:.2f}"
+        native = TglfOutputs.read_json(workdir / "outputs.json")
+        if not native.solved:
+            raise ValueError(f"{workdir}: recorded solved, but outputs.json is not a solved run")
+        settings = read_input_tglf(workdir / "input.tglf")
+        ran = (
+            int(settings.get("SAT_RULE", 0)),
+            _tglf_field_model({"use_bper": settings.get("USE_BPER", False),
+                               "use_bpar": settings.get("USE_BPAR", False)}),
+        )
+        if ran != (sat_rule, field_model):
+            raise ValueError(
+                f"{workdir}: input.tglf ran SAT_RULE={ran[0]} with field model {ran[1]!r}, "
+                f"but the tree is labelled {label!r}."
+            )
+        local = record.get("local") or {}
+        names = tuple(str(name) for name in local.get("species") or ())
+        count = int(settings.get("NS", 0))
+        if count != len(names) or count == 0:
+            raise ValueError(
+                f"{workdir}: input.tglf declares NS={count} but state.json names "
+                f"{len(names)} species"
+            )
+        row = projected.get(round(radius, 6))
+        if row is None:
+            raise ValueError(
+                f"{path}: surface r/a={radius} solved but the driver projected no "
+                "rho_tor_norm for it, so it cannot be placed on core_transport's grid"
+            )
+        if local.get("normalisation") is None:
+            raise ValueError(f"{path}: surface r/a={radius} carries no normalisation")
+        surfaces.append({
+            "local": _AtlasSurface(
+                rho=radius,
+                names=names,
+                zs=np.asarray([float(settings[f"ZS_{i}"]) for i in range(1, count + 1)]),
+                mass=np.asarray([float(settings[f"MASS_{i}"]) for i in range(1, count + 1)]),
+                vexb_shear=local.get("vexb_shear"),
+                normalisation=_normalisation_from_summary(local["normalisation"]),
+            ),
+            "native": native,
+            "projected": row,
+            "run_identity": record.get("run_identity"),
+            "input_sha256": sha256_file(workdir / "input.tglf"),
+        })
+    if not surfaces:
+        raise ValueError(f"{path}: no solved surface to promote")
+    return {
+        "path": path,
+        "state": state,
+        "configuration": label,
+        "family": family,
+        "surfaces": sorted(surfaces, key=lambda item: item["local"].rho),
+        "unsolved": unsolved,
+    }
+
+
+def _check_against_projection(
+    ods: ODS, base: str, surfaces: Sequence[Mapping[str, Any]], rtol: float, where: Path
+) -> None:
+    """Refuse a rebuild that disagrees with the driver's own projection.
+
+    Electron and per-ion energy and particle fluxes are compared. A rebuild that
+    could be compared with nothing is refused too: a check that passes by
+    comparing no values is no evidence that the tree is consistent.
+    """
+
+    def stored(column: str, label: str | None = None) -> np.ndarray:
+        values = []
+        for item in surfaces:
+            value = item["projected"].get(column)
+            if label is not None:
+                value = value.get(label) if isinstance(value, Mapping) else None
+            values.append(np.nan if value is None else value)
+        return np.asarray(values, dtype=float)
+
+    checks = [
+        ("electrons.energy.flux", stored("electron_energy_flux_W_m2")),
+        ("electrons.particles.flux", stored("electron_particle_flux_m2_s")),
+    ]
+    index = 0
+    while f"{base}.ion.{index}.label" in ods:
+        label = str(ods[f"{base}.ion.{index}.label"])
+        checks.append((f"ion.{index}.energy.flux", stored("ion_energy_flux_W_m2", label)))
+        checks.append((f"ion.{index}.particles.flux", stored("ion_particle_flux_m2_s", label)))
+        index += 1
+
+    compared = 0
+    for leaf, expected in checks:
+        if f"{base}.{leaf}" not in ods:
+            continue
+        rebuilt = np.asarray(ods[f"{base}.{leaf}"], dtype=float)
+        known = np.isfinite(expected)
+        compared += int(known.sum())
+        if not np.allclose(rebuilt[known], expected[known], rtol=rtol, atol=0.0):
+            raise ValueError(
+                f"{where}: {leaf} rebuilt from the native outputs ({rebuilt.tolist()}) "
+                f"disagrees with the driver's projection ({expected.tolist()}) beyond "
+                f"rtol={rtol}; the tree is not internally consistent."
+            )
+    if compared == 0:
+        raise ValueError(
+            f"{where}: no rebuilt flux could be compared with the driver's projection, "
+            "so the rebuild is unverified and is not promoted."
+        )
+
+
+def build_turbulent_transport_ods(
+    *,
+    state_directories: str | Path | Sequence[str | Path],
+    run: int = 1,
+    rtol: float = 1e-6,
+) -> tuple[ODS, dict[str, Any], dict[str, Any]]:
+    """Build the ``turbulent_transport`` stage product from routine TGLF trees (#1900).
+
+    ``state_directories`` are ``<config>/<shot>/<lineage>/<time_ms>/`` trees written
+    by ``workflow/transport_atlas/run_tglf.py``: one ``state.json`` and one
+    ``r<r/a>/`` native directory (``outputs.json`` and ``input.tglf``) per surface.
+    One directory is the usual case. Several are accepted only when they are
+    distinct times of one shot, lineage and configuration, because the product is
+    per shot and a second build for the same shot would replace the first.
+
+    Each state is qualified before anything is mapped. A state is refused when its
+    ``efit_quality`` is not good/admissible, when its ``tglf_config`` label does not
+    match its ``tglf_parameters``, or when the native ``input.tglf`` ran another
+    configuration than the label says. Only surfaces whose status is ``solved`` are
+    mapped, through :func:`vaft.machine_mapping.turbulence.core_transport_from_tglf`,
+    and the rebuilt fluxes are checked against the driver's own projection.
+
+    The product owns ``core_transport`` only. Every IDS it owns carries
+    ``ids_properties.name`` set to
+    :func:`vaft.database.sources.turbulent_transport_occurrence_name`, the name the
+    occurrence will carry under #1128/#1129, so the payload is self-describing now
+    and its migration out of the transitional source renames nothing. The identity
+    of the upstream state -- ``state_identity``, the per-surface run identities, the
+    TGLF parameters and the GACODE revision -- is recorded in
+    ``core_transport.model[:].code.parameters`` (JSON) and in the manifest.
+
+    Several states in one product must also agree on ``ti_lineage``,
+    ``tglf_parameters`` and ``gacode_revision``, which the product states once.
+
+    Coexistence holds across configurations and lineages. Alternative Ti
+    assumptions of one state share the product's path and source, so they are
+    refused at write time (:func:`write_turbulent_transport_product`), not stored
+    side by side, until #1128/#1129.
+
+    Returns ``(ods, manifest, native)``; ``native`` is TGLF's own per-surface
+    result for :func:`write_turbulent_transport_product` to keep beside the
+    product.
+    """
+    from vaft.database.sources import (
+        FAMILY_LINEAGE_NAMES,
+        TRANSITIONAL_UNTIL,
+        turbulent_transport_occurrence_name,
+        turbulent_transport_source,
+    )
+    from vaft.machine_mapping.turbulence import core_transport_from_tglf
+
+    if isinstance(state_directories, (str, Path)):
+        state_directories = [state_directories]
+    states = [_read_tglf_state(Path(directory)) for directory in state_directories]
+    if not states:
+        raise ValueError("no state directory given")
+
+    first = states[0]
+    shot = int(first["state"]["shot"])
+    for item in states[1:]:
+        key = (int(item["state"]["shot"]), item["family"], item["configuration"])
+        if key != (shot, first["family"], first["configuration"]):
+            raise ValueError(
+                f"{item['path']}: one product holds one shot, family and configuration; "
+                f"got {key} beside {(shot, first['family'], first['configuration'])}"
+            )
+    # The top-level code.parameters and manifest describe every time at once, so
+    # the times must agree on everything stated there once: a Ti assumption, a
+    # TGLF setting or a GACODE revision that differed between times would be
+    # misdescribed for some of them.
+    for item in states[1:]:
+        for key in ("ti_lineage", "tglf_parameters", "gacode_revision"):
+            if item["state"].get(key) != first["state"].get(key):
+                raise ValueError(
+                    f"{item['path']}: {key} {item['state'].get(key)!r} differs from "
+                    f"{first['state'].get(key)!r} in {first['path']}; one product "
+                    "states it once for all its times, so they cannot share one."
+                )
+    states.sort(key=lambda item: float(item["state"]["time_efit_s"]))
+    times = [float(item["state"]["time_efit_s"]) for item in states]
+    if len(set(times)) != len(times):
+        raise ValueError(
+            f"shot {shot}: two states at one time {times}; the second would replace the first"
+        )
+
+    family = first["family"]
+    configuration = first["configuration"]
+    name = turbulent_transport_occurrence_name(family, configuration)
+    source = turbulent_transport_source(family, configuration)
+
+    ods = ODS(consistency_check=False)
+    dataset_description(
+        ods,
+        shot,
+        {
+            "source_type": "shot",
+            "run": run,
+            "machine": "VEST",
+            "user": "vaft",
+            "description": (
+                f"VEST turbulent transport from TGLF ({configuration}, "
+                f"{FAMILY_LINEAGE_NAMES[family]}); machine era "
+                f"{machine_era_for_shot(shot).name}"
+            ),
+        },
+    )
+
+    written: list[str] = []
+    skipped: list[str] = []
+    provenance_states = []
+    native_states = []
+    model = 0
+    for index, item in enumerate(states):
+        state = item["state"]
+        bridge = _SurfaceBridge(
+            rmin=np.asarray([0.0, *(s["local"].rho for s in item["surfaces"]), 1.0]),
+            rho=np.asarray(
+                [0.0, *(float(s["projected"]["rho_tor_norm"]) for s in item["surfaces"]), 1.0]
+            ),
+        )
+        report = core_transport_from_tglf(
+            ods,
+            [(s["local"], s["native"]) for s in item["surfaces"]],
+            bridge,
+            time=float(state["time_efit_s"]),
+            time_index=index,
+        )
+        model = report["model"]
+        base = f"core_transport.model.{model}.profiles_1d.{index}"
+        if not report["written"]:
+            raise ValueError(
+                f"{item['path']}: the mapper wrote nothing ({'; '.join(report['skipped'])})"
+            )
+        _check_against_projection(ods, base, item["surfaces"], rtol, item["path"])
+        written.extend(f"t={state['time_efit_s']}: {leaf}" for leaf in report["written"])
+        skipped.extend(f"t={state['time_efit_s']}: {leaf}" for leaf in report["skipped"])
+        provenance_states.append({
+            "time_s": float(state["time_efit_s"]),
+            "state_identity": state.get("state_identity"),
+            "efit_lineage": state.get("efit_lineage"),
+            "efit_quality": state.get("efit_quality"),
+            "ti_lineage": state.get("ti_lineage"),
+            "gacode_revision": state.get("gacode_revision"),
+            "surfaces": [
+                {"r_over_a": s["local"].rho, "run_identity": s["run_identity"],
+                 "input_tglf_sha256": s["input_sha256"]}
+                for s in item["surfaces"]
+            ],
+            "unsolved_surfaces": item["unsolved"],
+        })
+        native_states.append({
+            "time_s": float(state["time_efit_s"]),
+            "state_identity": state.get("state_identity"),
+            "surfaces": [
+                {"r_over_a": s["local"].rho, "run_identity": s["run_identity"],
+                 "outputs": s["native"].to_dict()}
+                for s in item["surfaces"]
+            ],
+        })
+
+    parameters = {
+        "schema_version": 1,
+        "occurrence_name": name,
+        "transitional_source": source,
+        "transitional_until": TRANSITIONAL_UNTIL,
+        "tglf_config": configuration,
+        "tglf_parameters": _jsonable(first["state"].get("tglf_parameters") or {}),
+        "family": family,
+        "states": provenance_states,
+    }
+    # One JSON string: it survives the stage product and the Access Layer verbatim,
+    # where a nested block would not (#561).
+    ods[f"core_transport.model.{model}.code.parameters"] = json.dumps(
+        _jsonable(parameters), sort_keys=True
+    )
+    ods["core_transport.ids_properties.name"] = name
+    ods["core_transport.ids_properties.comment"] = (
+        f"TGLF {configuration} on the {FAMILY_LINEAGE_NAMES[family]} lineage; "
+        f"stored in the transitional source {source!r} until {TRANSITIONAL_UNTIL}"
+    )
+    ods["core_transport.ids_properties.provenance.node.0.path"] = f"model.{model}"
+    ods["core_transport.ids_properties.provenance.node.0.sources"] = [
+        f"equilibrium/{FAMILY_LINEAGE_NAMES[family]}"
+    ]
+
+    partial = any(item["unsolved"] for item in states)
+    manifest = {
+        "schema_version": 1,
+        "stage": "turbulent_transport",
+        "shot": shot,
+        "machine_version": machine_era_for_shot(shot).name,
+        "status": "partial" if partial else "success",
+        "family": family,
+        "configuration": configuration,
+        "occurrence_name": name,
+        "transitional_source": source,
+        "transitional_until": TRANSITIONAL_UNTIL,
+        "input": [
+            {"state": "/".join(item["path"].parts[-5:]),
+             "state_sha256": sha256_file(item["path"])}
+            for item in states
+        ],
+        "solver": {"code": "tglf", "parameters": parameters["tglf_parameters"]},
+        "states": provenance_states,
+        "written": written,
+        "skipped": skipped,
+    }
+    native = {
+        "schema": "vaft.turbulent_transport.native",
+        "schema_version": 1,
+        "shot": shot,
+        "configuration": configuration,
+        "family": family,
+        "states": native_states,
+    }
+    return ods, manifest, native
+
+
+def _state_identities(manifest: Mapping[str, Any]) -> dict[float, Any]:
+    return {
+        round(float(state["time_s"]), 9): state.get("state_identity")
+        for state in manifest.get("states") or []
+    }
+
+
+def _refuse_a_different_state(manifest: Mapping[str, Any], metadata: Path, output: Path) -> None:
+    """Raise when ``output`` already holds a product of other states."""
+    if not metadata.is_file():
+        if output.exists():
+            raise ValueError(
+                f"{output} exists without its manifest {metadata}; its states cannot "
+                "be compared with this one's, so it is not overwritten."
+            )
+        return
+    existing = json.loads(metadata.read_text(encoding="utf-8"))
+    before, after = _state_identities(existing), _state_identities(manifest)
+    if before != after:
+        raise ValueError(
+            f"{output} already holds the states {before}; this product's are {after}. "
+            "The path does not name the Ti assumption or the state identity, so "
+            "replacing it would silently drop the stored result. Alternative states "
+            "of one shot and configuration are refused, not stored side by side, "
+            "until the #1128/#1129 occurrence model; remove the old product "
+            "deliberately if it is superseded."
+        )
+
+
+def write_turbulent_transport_product(
+    ods: ODS,
+    manifest: Mapping[str, Any],
+    native: Mapping[str, Any],
+    *,
+    output: str | Path,
+    metadata: str | Path,
+    compression: str | None = None,
+) -> Path:
+    """Write the stage product, its manifest, and TGLF's own results beside them.
+
+    As for NEO (#527): the standardized ``core_transport`` is the query contract,
+    and the native per-surface outputs -- spectra, saturation parameters -- sit
+    beside it for the question the mapping did not anticipate.
+
+    The path ``{family}/{configuration}/{shot}`` -- and its transitional source --
+    does not name the Ti assumption or the rest of the state's identity. A
+    product already there whose states differ from this one's (by time and
+    ``state_identity``) is therefore refused rather than replaced: coexistence
+    holds across configurations and lineages, but alternative Ti assumptions of
+    one state are refused, not stored side by side, until the #1128/#1129
+    occurrence model can name them. Rewriting the same states is allowed.
+
+    Returns the path the native result was written to.
+    """
+    _refuse_a_different_state(manifest, Path(metadata), Path(output))
+    write_stage_product(
+        ods, dict(manifest), output=output, metadata=metadata, compression=compression
+    )
+    native_path = Path(output).with_suffix("")
+    native_path = native_path.with_name(native_path.name + ".tglf.json")
+    native_path.write_text(
+        json.dumps(native, indent=1, allow_nan=False) + "\n", encoding="utf-8"
+    )
+    return native_path
+
+
 def write_stage_product(
     ods: ODS,
     manifest: dict[str, Any],
