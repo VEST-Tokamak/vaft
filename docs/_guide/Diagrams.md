@@ -343,12 +343,14 @@ explains them.
 ```python
 vaft.diagram.timescale_hierarchy()
 vaft.diagram.ordering_contract_map()
+vaft.diagram.adapter_contract_map()
 ```
 
 | Diagram | Concept |
 | --- | --- |
 | `timescale_hierarchy` | Inverse gyrofrequencies, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
-| `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered |
+| `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered. |
+| `adapter_contract_map` | Which ordering contracts each VAFT code-adapter mode consumes, and how each enters the calculation: governing (filled), RDCON's outer solution and layer solution, DCON-kinetic's fluid part and kinetic part, PENTRC's closure, inherited by a reduced model that does not solve its parent theory (dashed). An empty cell is no registered contract, not physical independence (`vaft.validation.model_contracts`, #1823) |
 
 ## Reduced representations
 
