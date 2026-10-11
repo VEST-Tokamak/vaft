@@ -5362,6 +5362,7 @@ def confinement_time_from_engineering_parameters(
     scaling: str = "ITER89P",
     input_density_definition: str = "line_avg",
     line_to_volume_factor: Optional[float] = None,
+    delta: Optional[float] = None,
 ) -> float:
     r"""Thermal energy confinement time from an engineering-parameter scaling law.
 
@@ -5369,6 +5370,8 @@ def confinement_time_from_engineering_parameters(
 
     with the product running only over the variables the selected scaling
     declares, in the engineering units MA, T, MW, $10^{19}$ m^-3, amu and m.
+    The ITPA20 and ITPA20-IL fits also carry a triangularity factor
+    $(1+\delta)^{\alpha_{1+\delta}}$.
 
     Parameters
     ----------
@@ -5391,13 +5394,17 @@ def confinement_time_from_engineering_parameters(
     scaling : str, optional
         Scaling-law name; default ``"ITER89P"`` [str].
         One of ``"ITER89P"``, ``"H98y2"``, ``"ITER97L"``, ``"NSTX2006H"``,
-        ``"NSTX2006L"``, ``"Kurskiev2022"``.
+        ``"NSTX2006L"``, ``"Kurskiev2022"``, ``"ITPA20"``, ``"ITPA20_IL"``.
     input_density_definition : str, optional
         What ``n_e`` is: ``"line_avg"`` (default) or ``"volume_avg"`` [str].
     line_to_volume_factor : float or None, optional
         Volume-to-line density ratio, default ``None`` [-].
         Used only when the input and the scaling's density definitions differ,
         and required then.
+    delta : float or None, optional
+        Average LCFS triangularity $(\delta_u+\delta_l)/2$, default ``None`` [-].
+        Required by the scalings with a $(1+\delta)$ term (ITPA20, ITPA20-IL),
+        where $1+\delta$ must be > 0; ignored by the others.
 
     Returns
     -------
@@ -5407,8 +5414,9 @@ def confinement_time_from_engineering_parameters(
     Raises
     ------
     ValueError
-        Unknown scaling, non-positive input, or a density-definition mismatch
-        without ``line_to_volume_factor``.
+        Unknown scaling, non-positive input, a density-definition mismatch
+        without ``line_to_volume_factor``, or a triangularity scaling without
+        ``delta``.
 
     Convention
     ----------
@@ -5425,8 +5433,13 @@ def confinement_time_from_engineering_parameters(
     Empirical fit.  Multi-machine regressions of the ITER L-mode (ITER89P [1]_)
     and ELMy H-mode (IPB98(y,2) [2]_) databases, the ITER97-L thermal L-mode fit
     [5]_, the NSTX H- and L-mode fits of Kaye [3]_, and the spherical-tokamak
-    multi-machine H-mode fit of Kurskiev [4]_; each is valid over its database's parameter range and the ST fits are
-    the only ones that include low-aspect-ratio data.
+    multi-machine H-mode fit of Kurskiev [4]_, and the ITPA20 (all DB5.2.3-STD5
+    ELMy H-modes) and ITPA20-IL (its ITER-like subset) fits of Verdoolaege [6]_,
+    both on the thermal loss power $P_{l,th}$ (radiation inside the LCFS not
+    subtracted), the volume elongation $\kappa_a = V/(2\pi R\,\pi a^2)$ and the
+    average triangularity; each is valid over its database's parameter range and the ST fits and
+    ITPA20 (which keeps the NSTX, MAST and START points of STD5) are the only
+    ones that include low-aspect-ratio data.
 
     Limitations
     -----------
@@ -5450,6 +5463,8 @@ def confinement_time_from_engineering_parameters(
     .. [3] S. M. Kaye et al., Nucl. Fusion 46 (2006) 848, Table 2.
     .. [4] G. S. Kurskiev et al., Nucl. Fusion 62 (2022) 016011.
     .. [5] S. M. Kaye et al., Nucl. Fusion 37 (1997) 1303 (ITER97-L).
+    .. [6] G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006, eqs. (5)
+           (ITPA20-IL) and (7) (ITPA20).
     """
     def _normalise_density_definition(label: str) -> str:
         mapping = {
@@ -5533,6 +5548,13 @@ def confinement_time_from_engineering_parameters(
         "epsilon": epsilon,
         "kappa": kappa,
     }
+    if "one_plus_delta" in exponents:
+        if delta is None:
+            raise ValueError(
+                f"Scaling '{scaling}' has a (1 + delta) triangularity term; pass delta "
+                "(average LCFS triangularity)."
+            )
+        variable_values["one_plus_delta"] = 1.0 + np.asarray(delta, dtype=float)
 
     result = C
     used_variables = []
@@ -5778,7 +5800,8 @@ def confinement_scaling_basis(scaling: str) -> ConfinementScalingBasis:
     ----------
     scaling : str
         Scaling name: a key of ``_SCALING_COEFS`` (``"ITER89P"``, ``"ITER97L"``,
-        ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``, ``"Kurskiev2022"``) or
+        ``"H98y2"``, ``"NSTX2006H"``, ``"NSTX2006L"``, ``"Kurskiev2022"``,
+        ``"ITPA20"``, ``"ITPA20_IL"``) or
         one of the ohmic/L-mode forms ``"NeoAlcator"``, ``"Goldston84L"``,
         ``"Goldston84OhmicL"`` [str].
 

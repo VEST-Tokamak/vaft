@@ -33,6 +33,9 @@ SCALING_INPUTS: dict[str, tuple[str, str]] = {
     "R": ("R", "r_geo_m"),
     "epsilon": ("epsilon", "epsilon"),
     "kappa": ("kappa", None),
+    # The ITPA20 fits use (1 + delta): the column is the triangularity itself,
+    # which may be zero or negative; the row is valid when 1 + delta > 0.
+    "one_plus_delta": ("delta", "delta"),
 }
 
 #: What each elongation column of the canonical table is, for the
@@ -89,6 +92,9 @@ def predict_confinement_time(
     -----
     Density is the line average (``n_e_line_avg_m3``), which is what every
     scaling in ``_SCALING_COEFS`` declares, so no density conversion happens.
+    The ITPA20 / ITPA20-IL triangularity factor reads the ``delta`` column (the
+    average of upper and lower LCFS triangularity); a row without it is
+    ``NaN``, never evaluated at an assumed delta.
     """
     from vaft.formula import confinement_time_from_engineering_parameters
 
@@ -104,8 +110,9 @@ def predict_confinement_time(
     values = {name: pd.to_numeric(table[col], errors="coerce").to_numpy(float)
               for name, col in columns.items()}
     valid = np.ones(len(table), dtype=bool)
-    for array in values.values():
-        valid &= np.isfinite(array) & (array > 0.0)
+    for name, array in values.items():
+        positive = (1.0 + array) if name == "one_plus_delta" else array
+        valid &= np.isfinite(array) & (positive > 0.0)
 
     result = np.full(len(table), np.nan)
     # The formula is scalar-valued; evaluate it once per complete row.

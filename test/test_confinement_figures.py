@@ -207,6 +207,24 @@ def test_every_scaling_is_tagged_and_the_vest_h_figure_draws():
 
 
 
+def test_itpa20_scalings_sit_in_the_h_mode_block_and_draw_in_the_vest_h_figure():
+    figures = _figures()
+    order = list(figures.ALL_SCALINGS)
+    assert order.index("H98y2") + 1 == order.index("ITPA20") and order.index("ITPA20") + 1 == order.index("ITPA20_IL")
+    assert figures.SCALING_TAGS["ITPA20"] == figures.SCALING_TAGS["ITPA20_IL"] == ("multi", "H")
+    assert figures.LABELS["ITPA20_IL"] == "ITPA20-IL"
+    vest = pd.DataFrame([{**ROW.iloc[0].to_dict(), "delta": 0.3, "machine": "VEST", "tau_e_th_s": 1.5e-3 * k}
+                         for k in (1.0, 1.2, 0.8)])
+    h = figures.h_factor_of(vest, "ITPA20_IL")
+    assert h.notna().all() and h.attrs["approximation"] is None
+    fig, ax = figures.vest_h_factor_figure(vest, ("H98y2", "ITPA20", "ITPA20_IL"))
+    by_position = {tick: label.get_text() for tick, label in zip(ax.get_yticks(), ax.get_yticklabels())}
+    assert [by_position[p] for p in sorted(by_position, reverse=True)] == ["IPB98(y,2)", "ITPA20", "ITPA20-IL"]
+    matplotlib.pyplot.close(fig)
+    # Without a triangularity the ITPA20 rows are empty, not evaluated at a default.
+    assert figures.h_factor_of(vest.drop(columns="delta").assign(delta=np.nan), "ITPA20").isna().all()
+
+
 def test_observed_tau_uses_the_scaling_basis_and_approximates_only_for_ohmic_machines():
     figures = _figures()
     table = pd.DataFrame({"machine": ["VEST", "JET"], "tau_e_th_s": [1e-3, 0.3]})
