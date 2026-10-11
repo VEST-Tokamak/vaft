@@ -74,6 +74,27 @@ def test_ip_record_carries_the_calibration_the_mapper_applies():
     assert signal.raw_unit == "V"
 
 
+def test_windowed_fl10_era_reads_the_fl10_block():
+    from vaft.machine_mapping.magnetics import _plasma_processing_for_shot
+
+    _config, reference, _baseline, _sign = _plasma_processing_for_shot(46500)
+    assert reference["mode"] == "subtract_fl10_windowed"
+    fl10 = raw_sources("magnetics.ip", 46500)[1]
+    assert fl10.field == int(reference["fl10"]["field"])
+    assert fl10.calibration["gain_numerator"] == reference["fl10"]["gain_numerator"]
+
+
+def test_impa_hall_channels_sit_where_the_mapper_writes_them():
+    channels = [record.channel for record in raw_sources("magnetics.internal_probe", 45000)]
+    assert channels[0].startswith("magnetics.b_field_tor_probe")
+    assert any(channel.startswith("magnetics.b_field_pol_probe (IMPA Bz") for channel in channels)
+
+
+def test_calibration_numbers_are_numbers():
+    (tf,) = raw_sources("tf", 48224)
+    assert tf.calibration["factor"] == -3.0e4
+
+
 def test_unknown_and_non_raw_ids_are_refused():
     with pytest.raises(KeyError):
         raw_sources("no.such.diagnostic", 48224)

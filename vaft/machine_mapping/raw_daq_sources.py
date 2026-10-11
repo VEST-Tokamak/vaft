@@ -92,6 +92,20 @@ def _daq_type(value: Any) -> str | None:
     return {0: "slow", 1: "fast"}.get(value, str(value)) if not isinstance(value, str) else value
 
 
+def _numeric(value: Any) -> Any:
+    """Calibration numbers as numbers: PyYAML reads ``-3.0e4`` (no exponent
+    sign) as a string, which the mappers ``float()`` and a consumer should not
+    have to."""
+    if isinstance(value, Mapping):
+        return {key: _numeric(item) for key, item in value.items()}
+    if isinstance(value, str):
+        try:
+            return float(value)
+        except ValueError:
+            return value
+    return value
+
+
 def _record(
     field: int,
     label: str,
@@ -112,7 +126,7 @@ def _record(
         daq_type=_daq_type(daq_type),
         role=role,
         channel=channel,
-        calibration=dict(calibration or {}),
+        calibration=_numeric(dict(calibration or {})),
         config=config,
         known_fault=known_fault,
     )
@@ -211,16 +225,31 @@ def _plasma_current_fields(shot: int, role: str) -> tuple[RawField, ...]:
             config="0.diagnostics.plasma_current",
         )
     ]
-    if reference.get("mode", "subtract") != "disabled":
+    mode = reference.get("mode", "subtract")
+    if mode != "disabled":
+        # The two compensation modes read their FL10 field and gain from
+        # different keys, as vfit_plasma_current / _apply_fl10_windowed_compensation do.
+        if mode == "subtract_fl10_windowed":
+            fl10 = reference["fl10"]
+            field = fl10["field"]
+            calibration = {
+                **{key: value for key, value in fl10.items() if key != "field"},
+                "effective_resistance_ohm": reference["effective_resistance_ohm"],
+            }
+            config_path = "0.diagnostics.plasma_current.processing.reference.fl10"
+        else:
+            field = reference["field"]
+            calibration = {
+                key: reference[key] for key in ("flux_gain", "effective_resistance_ohm") if key in reference
+            }
+            config_path = "0.diagnostics.plasma_current.processing.reference"
         records.append(
             _record(
-                reference["field"],
+                field,
                 "Flux loop #10 voltage (limiter-current compensation)",
                 "fl10_reference" if role == "signal" else role,
-                calibration={
-                    key: reference[key] for key in ("flux_gain", "effective_resistance_ohm") if key in reference
-                },
-                config="0.diagnostics.plasma_current.processing.reference",
+                calibration={"mode": mode, **calibration},
+                config=config_path,
             )
         )
     return tuple(records)
@@ -234,6 +263,12 @@ def _diamagnetic_record(shot: int) -> RawField | None:
         return None
     config = _diamagnetic_config(int(shot))
     source = config.get("source") or {}
+    processing = config.get("processing") or {}
+    # No `calibration` block: the conversion is the shunt and the TF circuit
+    # (vest_diamagnetic_flux_detailed).
+    calibration = {
+        key: processing[key] for key in ("rogowski_shunt", "tf_circuit") if key in processing
+    }
     return _record(
         field,
         "Diamagnetic hi-sensitivity TF-current Rogowski coil",
@@ -241,7 +276,7 @@ def _diamagnetic_record(shot: int) -> RawField | None:
         channel="magnetics.rogowski_coil[1].current",
         raw_unit=source.get("raw_unit", "V"),
         daq_type=source.get("daq_type"),
-        calibration=config.get("calibration"),
+        calibration=calibration,
         config="0.diagnostics.diamagnetic_flux",
     )
 
@@ -316,7 +351,11 @@ def flux_loop_raw_fields(shot: int) -> tuple[RawField, ...]:
 
 def b_field_pol_probe_raw_fields(shot: int) -> tuple[RawField, ...]:
     """Equilibrium probes, then the toroidal phase references, then the
-    fluctuation Mirnovs -- the order the mapper appends them in."""
+    fluctuation Mirnovs -- the order the mapper appends them in.
+
+    The Mirnov voltages are stored raw; their amplifier gain is a divisor a
+    reader applies (``"applied": "downstream"``), not one the ODS carries.
+    """
     from .magnetics import (
         FLUCTUATION_MIRNOV_FIRST_SHOT,
         _load_fluctuation_mirnov_channels,
@@ -333,7 +372,7 @@ def b_field_pol_probe_raw_fields(shot: int) -> tuple[RawField, ...]:
                 "signal",
                 channel=f"magnetics.b_field_pol_probe[{index}].voltage",
                 daq_type="slow",
-                calibration={"operation": "multiply", "factor": float(channel["gain"])},
+                calibration={"operation": "divide", "factor": float(channel["gain"]), "applied": "downstream"},
                 config="0.diagnostics.toroidal_mirnov_reference",
             )
         )
@@ -348,7 +387,7 @@ def b_field_pol_probe_raw_fields(shot: int) -> tuple[RawField, ...]:
                     channel=f"magnetics.b_field_pol_probe[{index}].voltage",
                     raw_unit=channel.get("unit", "V"),
                     daq_type="fast",
-                    calibration={"operation": "multiply", "factor": float(channel["gain"])},
+                    calibration={"operation": "divide", "factor": float(channel["gain"]), "applied": "downstream"},
                     config="0.diagnostics.fluctuation_mirnov",
                 )
             )
@@ -376,17 +415,18 @@ def halo_currents_raw_fields(shot: int) -> tuple[RawField, ...]:
 
 def internal_probe_raw_fields(shot: int) -> tuple[RawField, ...]:
     """IMPA Hall and Bz channels, then the TF, Ip and PF context it compensates with."""
-    from .impa import _bz_specs, _channel_specs, _resolve_gain, resolve_impa_config
+    from .impa import _bz_specs, _channel_specs, _probe_node, _resolve_gain, resolve_impa_config
 
     config = resolve_impa_config(int(shot))
     calibration = config.get("calibration") or {}
     gain = _resolve_gain(calibration, int(shot))
+    hall_node = _probe_node(str((config.get("tf_compensation") or {}).get("orientation", "toroidal")))
     records = [
         _record(
             spec["field"],
             spec.get("label", f"IMPA {spec['index']}"),
             "signal",
-            channel=f"magnetics.b_field_pol_probe (IMPA {spec['index']})",
+            channel=f"{hall_node} (IMPA {spec['index']})",
             daq_type=spec.get("daq_type"),
             calibration={"gain": gain},
             config="impa.channels",
@@ -414,7 +454,7 @@ def internal_probe_raw_fields(shot: int) -> tuple[RawField, ...]:
 
 
 def spectrometer_uv_raw_fields(shot: int) -> tuple[RawField, ...]:
-    from .spectrometer_uv import SIGNALS
+    from .spectrometer_uv import CHANNEL_CADENCE_HZ, SIGNALS
 
     del shot
     return tuple(
@@ -423,6 +463,9 @@ def spectrometer_uv_raw_fields(shot: int) -> tuple[RawField, ...]:
             label,
             "signal",
             channel=f"spectrometer_uv.channel[{channel}].processed_line[{line}].intensity",
+            daq_type="fast" if CHANNEL_CADENCE_HZ.get(channel, 0.0) > 25e3 else "slow",
+            # The mapper stores the negated raw voltage (spectrometer_uv).
+            calibration={"type": "linear", "operation": "multiply", "factor": -1.0},
             config="vaft.machine_mapping.spectrometer_uv.SIGNALS",
         )
         for field, channel, line, label, _wavelength in SIGNALS
@@ -430,11 +473,15 @@ def spectrometer_uv_raw_fields(shot: int) -> tuple[RawField, ...]:
 
 
 def langmuir_probes_raw_fields(shot: int) -> tuple[RawField, ...]:
-    """Voltage and current of each assembly installed for the shot."""
+    """Voltage and current of each assembly installed for the shot.
+
+    The channel names the assembly's identifier, not a slot: the mapper fills
+    ``embedded[]`` contiguously and skips an installed assembly whose voltage
+    field is empty for the shot, which only the waveform can tell.
+    """
     from .langmuir_probes import ASSEMBLIES, resolve_langmuir_probe_config
 
     records = []
-    slot = 0
     for assembly in ASSEMBLIES:
         config = resolve_langmuir_probe_config(assembly["key"], int(shot))
         first_shot = config.get("first_shot")
@@ -451,14 +498,13 @@ def langmuir_probes_raw_fields(shot: int) -> tuple[RawField, ...]:
                     source[key],
                     f"{assembly['name']} {quantity}",
                     "signal",
-                    channel=f"langmuir_probes.embedded[{slot}]",
+                    channel=f"langmuir_probes.embedded (identifier langmuir_probes:{assembly['key']})",
                     raw_unit=source.get("raw_unit", "V"),
                     daq_type=source.get("daq_type"),
                     calibration=cal,
                     config=f"0.langmuir_probes.{assembly['key']}",
                 )
             )
-        slot += 1
     return tuple(records)
 
 

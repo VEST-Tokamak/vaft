@@ -29,8 +29,9 @@ from vaft.machine_mapping.registry import load_diagnostic_registry
 #: (<=19283), the borrowed diamagnetic field 4 (38110-38569), PF2 on field 4
 #: (>=38570), the 39437/39438 wiring swap, no diamagnetic sensor (42000),
 #: the upper Langmuir probe (>=42675), the fluctuation Mirnovs (>=44156),
-#: FL10 compensation off (>=47117), and the toroidal references' end.
-ERA_SHOTS = (19000, 30000, 38200, 38600, 39437, 39438, 42000, 42700, 44156, 47200, 48224)
+#: windowed FL10 compensation (46403-47116), FL10 compensation off
+#: (>=47117), and the toroidal references' end.
+ERA_SHOTS = (19000, 30000, 38200, 38600, 39437, 39438, 42000, 42700, 44156, 46500, 47200, 48224)
 
 #: `disruption.halo_currents` is `not_implemented` in the registry, with no
 #: `mapping`, but its fields are mapped today, by magnetics (magnetics.shunt).
