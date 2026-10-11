@@ -298,8 +298,10 @@ def _thomson(ods: Any, target: float) -> dict | None:
     otherwise ``thomson_scattering.time``.  A channel whose data length does
     not match its time base is skipped, never clamped; a signal whose nearest
     sample lies more than one sampling step of its time base from ``target``
-    is left empty.  ``validity`` (channel) and ``validity_timed`` (sample)
-    below zero mark a value invalid.  Returns ``None`` without channels.
+    is left empty.  A sample whose value or stored σ is not finite is invalid,
+    the convention the Thomson mapping uses (``equilibrium_mapping_points``
+    drops such channels); the DD carries no validity flag on Thomson
+    ``n_e``/``t_e``.  Returns ``None`` without channels.
     """
     total = count(ods, "thomson_scattering.channel")
     if not total:
@@ -334,10 +336,7 @@ def _thomson(ods: Any, target: float) -> dict | None:
                         value = float(data[k])
                         sigma = array(ods, path + ".data_error_upper")
                         error = float(sigma[k]) if sigma is not None and sigma.size == data.size else np.nan
-                        flag = _scalar(get(ods, path + ".validity"))
-                        timed = array(ods, path + ".validity_timed")
-                        valid = (flag is None or flag >= 0) and (
-                            timed is None or timed.size != data.size or timed[k] >= 0)
+                        valid = bool(np.isfinite(value)) and (sigma is None or bool(np.isfinite(error)))
                     else:
                         skipped.append((c, f"{signal}: nearest sample {abs(float(axis[k]) - target) * 1e3:.3g} ms "
                                            "away, more than one sampling step"))
@@ -472,7 +471,9 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
     te = array(ods, f"{base}.electrons.temperature")
     if ne is None or te is None or ne.size != size or te.size != size:
         raise ValueError(f"{base} needs electrons.density and electrons.temperature on its grid")
-    ne_record = f"{base}.electrons.{ne_leaf}_fit.parameters"
+    # The DD keeps one fit record for the electron density, ``density_fit``,
+    # whichever density leaf carries the values.
+    ne_record = f"{base}.electrons.density_fit.parameters"
     te_record = f"{base}.electrons.temperature_fit.parameters"
     ne_text, te_text = _record(ods, ne_record), _record(ods, te_record)
     ne_role, te_role = _origin_role(ne_record, ne_text), _origin_role(te_record, te_text)
