@@ -92,7 +92,7 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
         _b.BoundaryQuantity(
             "normalized_volume_beta", "<beta_N>", "% m T/MA",
             "beta_B[%] a[m] B_T[T] / I_p[MA] (equilibrium.beta_normal_from_beta_volume), with the a and B_T of "
-            "normalized_current; Menard's <beta_N>. Not beta_N, whose beta is the toroidal beta.",
+            "normalized_current (B_T at r0); Menard's <beta_N> form, but Menard et al. take B_T at the geometric centre. Not beta_N, whose beta is the toroidal beta.",
         ),
         _registered("takizuka_2004_lh", "aspect_ratio"),
     )
@@ -225,7 +225,8 @@ _register(OperationalProjection(
     y=_q("normalized_beta"),
     references=_MENARD_ASPECT_RATIO,
     assumptions=(
-        "both share I_p, a and B_T; they differ only in the beta (2 mu0 <p> over B_T^2 or over <B^2>)",
+        "both normalize by I_p/(a B_T) with B_T at r0 (a and I_p from two routines that agree to about 1 %); they "
+        "differ in the beta (2 mu0 <p> over B_T^2 or over <B^2>)",
         "y = x is drawn as a guide: the distance above it is how much the toroidal-field normalization "
         "adds at this aspect ratio and beta",
     ),

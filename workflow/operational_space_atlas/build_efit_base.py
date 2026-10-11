@@ -22,7 +22,8 @@ population renderer can check identity and unit:
                               R_0 = resolve_reference_major_radius (the r0 leaf can be corrupt, #325)
     volume_beta               100 * 2 mu0 int p dV / int B^2 dV, B the total equilibrium field (#1691 stage 1),
                               from the summary's own helper so the atlas and the summary share one definition, %
-    normalized_volume_beta    volume_beta a B_0 / |I_p| with the a and B_0 of normalized_current (Menard's <beta_N>)
+    normalized_volume_beta    volume_beta a B_0 / |I_p| with the a and B_0 of normalized_current: Menard's <beta_N>
+                              form with B_0 at r0 (Menard et al. take B_T at the geometric centre)
     aspect_ratio              R_geo / a (derive_global_descriptors)
 
 Before #1477 that routine returned li_3 up to 10x and beta_normal up to 4x on many

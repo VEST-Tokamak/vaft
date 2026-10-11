@@ -71,3 +71,7 @@ def test_the_volume_beta_columns_share_the_normalization_of_the_troyon_plane(pro
     # at VEST's aspect ratio the total field energy is not B_0^2: the two betas are different numbers
     assert abs(row["volume_beta"] / row["toroidal_beta"] - 1.0) > 0.05
     assert {"volume_beta", "normalized_volume_beta", "aspect_ratio"} <= set(beb.UNITS)
+    # y = x on beta_n_normalizations compares like with like only while both betas share one normalization:
+    # the DD routine's beta_N and this <beta_N> take a and I_p by different paths, which agree to about 1 %
+    assert row["normalized_beta"] / row["normalized_volume_beta"] == pytest.approx(
+        row["toroidal_beta"] / row["volume_beta"], rel=0.02)
