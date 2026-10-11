@@ -505,7 +505,7 @@ def main() -> int:
     # reason reaches build_constraints and fails there, by name.
     absent = (
         efit_constraint_inputs_absent_from_data(args.diagnostics_ods, args.diagnostics_manifest)
-        if args.diagnostics_manifest is not None
+        if args.diagnostics_manifest is not None and "tf.b_field_tor_vacuum_r.data" not in ods
         else None
     )
     if absent is not None:
