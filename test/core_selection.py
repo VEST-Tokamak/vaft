@@ -283,6 +283,8 @@ CORE_MODULES: tuple[str, ...] = (
     # read back through the readers, the edge classifier and the ntms mapping,
     # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
+    # The advisory ordering state passed through every suite driver (#1987).
+    "test_gpec_ordering_passthrough.py",
     "test_gpec_plasma_formalism.py",
     "test_gpec_rdcon_criteria.py",
     "test_mhd_linear_dcon_payload.py",

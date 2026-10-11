@@ -41,6 +41,7 @@ from vaft.code.gpec import (
     find_gpec_executable,
     read_dcon_output,
     read_pest3_matching_output,
+    ordering_state_for_case,
     run_gpec_suite_case,
 )
 from vaft.code.gpec._runtime import package_vest_dir, write_template
@@ -197,6 +198,8 @@ def run_job(
         if cached["status"] != "failed":
             return cached
     jobdir.mkdir(parents=True, exist_ok=True)
+    # Advisory ordering state of the equilibrium (#1987); never raises.
+    ordering_state, ordering = ordering_state_for_case(eq.gfile)
     config = GPECSuiteConfig(
         modules=(variant.module,),
         modes=(mode,),
@@ -207,6 +210,7 @@ def run_job(
         timeout=timeout,
         dcon=variant.dcon,
         backend=backend,
+        ordering_state=ordering_state,
     )
     start = time.monotonic()
     result = run_gpec_suite_case(
@@ -230,6 +234,7 @@ def run_job(
         # Which GPEC build ran: a locally patched build is used only where the
         # stock one cannot run, and the row must say so.
         "gpec_home": os.environ.get("GPECHOME"),
+        "ordering": json.dumps(ordering, sort_keys=True),
     }
     if record.ok:
         row.update(metrics(variant.module, Path(record.workdir), mode))
