@@ -53,12 +53,14 @@ The maintainer's chain -- equilibrium and Thomson in, ``T_i = T_e`` and
 ``n_C = n_O`` assumed, the Romero ``Z_eff`` first, then ``n_I,eff``, ``n_i``
 and ``Z_eff(rho)`` -- fixes the stage of every trace by its *quantity* alone
 (:data:`QUANTITY_STAGES`); the data never does.  ``stage=k`` cuts the figure
-at stage ``k``: only quantities of stage ``<= k`` are drawn, the newest
-stage's traces at full opacity in front, earlier ones faded
-(:data:`EARLIER_STAGE_ALPHA`) in their own colours, every panel on the limits
-of the full figure so a sequence of stages does not jump.  ``stage=None``
-(the default) is the full figure without emphasis.  ``layout="stages"`` puts
-the cumulative figure at several stages side by side, one column per stage.
+at stage ``k``: only quantities of stage ``<= k`` are drawn, every one as in
+the full figure (no stage is faded), every panel on the limits of the full
+figure so a sequence of stages does not jump; the newest stage's traces are
+marked ``emphasis="newest"`` in the trace records.  ``stage=None`` (the
+default) is the full figure.  ``layout="stages"`` puts the cumulative figure
+at several stages side by side, one column per stage.  A procedure is shown as
+one image per stage by a loop over ``stage=k`` (each ``savefig``'d), and
+``animation=True`` walks the same stages as one movie.
 The electron pressure profile ``p_e`` is a closure input (stage 8), not a fit
 product: the Thomson pressure points ``e n_e T_e`` are the stage-1 data.  The
 stage names are neutral (``T_i``, not ``T_i = T_e``): what a stage assumed is
@@ -141,8 +143,10 @@ _SYMBOLS = {
 #: six columns, what an 11-inch slide holds legibly.  ``stages=range(1, 9)``
 #: draws all eight.
 DEFAULT_STAGE_COLUMNS = (1, 2, 4, 5, 7, 8)
-#: Opacity of a trace from a stage before the one shown.
-EARLIER_STAGE_ALPHA = 0.45
+#: Thomson points: marker size as a fraction of the format's, so the error
+#: bars stand out of the markers; bars in the points' colour, capped.
+THOMSON_POINT_STYLE = {"markersize_scale": 0.4, "elinewidth": 1.3, "capsize": 2.5, "capthick": 1.3,
+                       "zorder": 4}
 #: How far apart two samples may be [s] when the time base they are matched on
 #: has a single sample, so no step to compare with -- the composition
 #: resolver's own pairing tolerance.
@@ -649,9 +653,10 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
             return None
         order = np.argsort(ts_x[keep])
         err = (np.asarray(sigma, dtype=float)[keep] * scale)[order]
-        return _series(ts_x[keep][order], (np.asarray(values)[keep] * scale)[order], label, colour,
-                       yerr=err if np.isfinite(err).any() else None, marker=marker,
-                       valid=np.asarray(valid, dtype=bool)[keep][order])
+        points = _series(ts_x[keep][order], (np.asarray(values)[keep] * scale)[order], label, colour,
+                         yerr=err if np.isfinite(err).any() else None, marker=marker,
+                         valid=np.asarray(valid, dtype=bool)[keep][order])
+        return replace(points, style={**points.style, **THOMSON_POINT_STYLE})
 
     ts_fit_input = {"n_e": "fit input" if ne_role == "fit" else "measured",
                     "t_e": "fit input" if te_role == "fit" else "measured"}
@@ -752,7 +757,7 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         if finite.any():
             valid_range = [float(np.min(x[finite])), float(np.max(x[finite]))]
         note = f", {int(finite.sum())}/{size} finite" if not finite.all() else ""
-        add(temperature, _series(x, ti, rf"$T_i$ ({ti_role}{note})", _COLOURS["ion"]),
+        add(temperature, _series(x, ti, rf"$T_i$ ({ti_role}{note})", _COLOURS["ion"], linestyle="--"),
             "T_i", f"{base}.t_i_average", ti_role, "none")
     if ts_x is not None:
         role = ts_fit_input["t_e"]
@@ -783,7 +788,7 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
             return ()
         return (ReferenceLine(x=span_line[0], x_end=span_line[1], label="TS span" if first else ""),)
 
-    assumptions = _assumptions(records)
+    assumptions = _assumptions(records, None if reference is None or reference[3] != "stored" else reference[0])
     selection = {
         "time": t_core, "core_profiles_slice": j, "equilibrium_time": t_eq, "equilibrium_slice": i,
         "equilibrium_lineage": lineage, "equilibrium_occurrence": occurrence,
@@ -813,7 +818,7 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         records_ = [t for t in traces if t["panel"] == name]
         if at is not None:
             kept = [(s, dict(t)) for s, t in zip(series, records_) if t["stage"] <= at]
-            series = [_staged(s, t["stage"] == at) for s, t in kept]
+            series = [s for s, _ in kept]
             records_ = [t for _, t in kept]
             for t in records_:
                 t["emphasis"] = "newest" if t["stage"] == at else "earlier"
@@ -909,12 +914,6 @@ def _symbol(label: str) -> str:
     return found[-1] if found else label
 
 
-def _staged(series: Series, newest: bool) -> Series:
-    """``series`` emphasised as the newest stage's, or faded as an earlier one's, in its own colour."""
-    style = {**series.style, "alpha": 1.0, "zorder": 3} if newest else {**series.style, "alpha": EARLIER_STAGE_ALPHA}
-    return replace(series, style=style)
-
-
 def _y_limits(series: list[Series]) -> tuple[float, float] | None:
     """The y range Matplotlib would autoscale every series (and error bar) of a panel to."""
     low, high = np.inf, -np.inf
@@ -948,11 +947,43 @@ def _statement(quantity: str, fields: Mapping[str, str]) -> str | None:
     return f"{quantity} ({method})" if method else quantity
 
 
-def _assumptions(records: list[tuple[str, str, str | None]]) -> list[tuple[str, str, str]]:
+def _zeff_constraint(records: list, resistive: float | None) -> tuple[str, str, str] | None:
+    """The total ``Z_eff`` a composition was partitioned to, as the records state it, or ``None``.
+
+    ``normalization=resistive_closure`` names a resistive value: the record's
+    ``resistive_target=``, else the stored ``z_eff_resistive`` of the slice,
+    named by ``resistive_method=`` (``<Z_eff> = 2 (Romero)``).  Any other
+    normalization with a ``target_zeff=`` on a record names that target
+    (``<Z_eff> = 2 (target)``).  Attributed to the composition record that
+    states the normalization.
+    """
+    fields = [(quantity, path, _fields(path, text)) for quantity, path, text in records if text is not None]
+    normalized = [(q, path, f) for q, path, f in fields if "normalization" in f]
+    if not normalized:
+        return None
+    quantity, path, first = min(normalized, key=lambda item: QUANTITY_STAGES[item[0]])
+    pooled = {key: value for _, _, f in fields for key, value in f.items()}
+    if first["normalization"] == "resistive_closure":
+        value = pooled.get("resistive_target")
+        if value is None and resistive is not None:
+            value = f"{resistive:g}"
+        if value is None:
+            return None
+        method = pooled.get("resistive_method", "resistive")
+        return quantity, path, f"<Z_eff> = {value} ({method[:1].upper() + method[1:]})"
+    if "target_zeff" in pooled:
+        return quantity, path, f"<Z_eff> = {pooled['target_zeff']} (target)"
+    return None
+
+
+def _assumptions(records: list[tuple[str, str, str | None]], resistive: float | None = None
+                 ) -> list[tuple[str, str, str]]:
     """``(quantity, record path, statement)`` for every record stating an assumption, once per statement.
 
     A statement several records make is kept with the earliest stage's
     quantity, so a stage cut names it from the stage that first relies on it.
+    The total ``Z_eff`` the composition was partitioned to
+    (:func:`_zeff_constraint`) is listed with them.
     """
     out, seen = [], set()
     for quantity, path, text in sorted(records, key=lambda item: QUANTITY_STAGES[item[0]]):
@@ -962,6 +993,9 @@ def _assumptions(records: list[tuple[str, str, str | None]]) -> list[tuple[str, 
         if statement is not None and statement not in seen:
             seen.add(statement)
             out.append((quantity, path, statement))
+    constraint = _zeff_constraint(records, resistive)
+    if constraint is not None:
+        out.append(constraint)
     return out
 
 
@@ -970,8 +1004,15 @@ def _assumptions(records: list[tuple[str, str, str | None]]) -> list[tuple[str, 
 _RELATION = re.compile(r"[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)?(\s*[=<>]\s*([0-9.]+\s*)?[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)?)+")
 
 
+_ZEFF_CONSTRAINT = re.compile(r"<Z_eff> = ([^ ]+)( \(.*\))?")
+
+
 def _math(statement: str) -> str:
     """``T_i = T_e`` -> ``$T_i = T_e$``; a statement in no such form is left as it is."""
+    total = _ZEFF_CONSTRAINT.fullmatch(statement.strip())
+    if total:
+        method = f" {_plain(total.group(2))}" if total.group(2) else ""
+        return rf"$\langle Z_{{\mathrm{{eff}}}}\rangle = {total.group(1)}$" + method
     return f"${statement}$" if _RELATION.fullmatch(statement.strip()) else _plain(statement)
 
 
@@ -985,7 +1026,10 @@ def _caption(stage: int | None, assumptions: list, newest: list) -> str:
         parts.append(text)
     if assumptions:
         parts.append("Assumed: " + "; ".join(_math(statement) for _, _, statement in assumptions))
-    return ("\n" + " | ".join(parts)) if parts else ""
+    elif stage is not None:
+        # One line count for every stage, so a sequence of stages keeps one layout.
+        parts.append("Assumed: none")
+    return "".join("\n" + part for part in parts)
 
 
 def _equilibrium_psi_norm(ods: Any, eq_base: str) -> np.ndarray | None:

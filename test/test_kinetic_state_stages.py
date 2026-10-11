@@ -28,7 +28,7 @@ import vaft.omas  # noqa: E402
 from vaft.omas.plotting import normalize_entries  # noqa: E402
 from vaft.plot.backend.discovery import describe_one, sequence_values  # noqa: E402
 from vaft.plot.backend.kinetic_state import (  # noqa: E402
-    DEFAULT_STAGE_COLUMNS, EARLIER_STAGE_ALPHA, QUANTITY_STAGES, STAGES,
+    DEFAULT_STAGE_COLUMNS, QUANTITY_STAGES, STAGES, THOMSON_POINT_STYLE,
 )
 from vaft.plot.controls import controls_for  # noqa: E402
 
@@ -125,16 +125,27 @@ def test_stage_one_is_the_data_and_stage_four_adds_the_reference(romero):
     assert _extract(romero.ods, stage=1).models[0].reference_lines
 
 
-def test_the_newest_stage_is_emphasised_in_its_own_colour(romero):
+def test_every_stage_draws_its_traces_as_the_full_figure_does(romero):
+    """No stage is faded (user review on #1957): a cut only leaves later stages out."""
     full = _traces(_extract(romero.ods))
     for quantity, (series, record) in _traces(_extract(romero.ods, stage=6)).items():
-        assert series.style["color"] == full[quantity][0].style["color"], quantity
-        if QUANTITY_STAGES[quantity] == 6:
-            assert record["emphasis"] == "newest" and series.style["alpha"] == 1.0 and series.style["zorder"] == 3
-        else:
-            assert record["emphasis"] == "earlier" and series.style["alpha"] == EARLIER_STAGE_ALPHA
-    # The static call emphasises nothing.
-    assert all("alpha" not in series.style for series, _ in full.values())
+        assert dict(series.style) == dict(full[quantity][0].style), quantity
+        assert "alpha" not in series.style
+        assert record["emphasis"] == ("newest" if QUANTITY_STAGES[quantity] == 6 else "earlier")
+
+
+def test_thomson_points_are_small_with_capped_bars(romero, archive):
+    for case in (romero, archive):
+        traces = _traces(_extract(case.ods))
+        for quantity in ("p_e_thomson", "n_e_thomson", "T_e_thomson"):
+            series = traces[quantity][0]
+            assert series.yerr is not None
+            assert {k: series.style[k] for k in THOMSON_POINT_STYLE} == THOMSON_POINT_STYLE, quantity
+    figure, axes = _quiet(vaft.omas.plot_kinetic_overview_state, romero.ods, format="slide")
+    (container,) = [c for c in np.asarray(axes)[1, 0].containers if type(c).__name__ == "ErrorbarContainer"]
+    data_line, caps, bars = container.lines
+    assert data_line.get_markersize() == pytest.approx(0.4 * 6.0 * 1.8)  # slide: 1.8 x Matplotlib's 6 pt
+    assert caps and bars[0].get_linewidth()[0] == pytest.approx(1.3)
 
 
 def test_every_stage_keeps_the_full_figures_limits(romero):
@@ -176,19 +187,39 @@ def test_an_invalid_stage_is_refused(romero, value):
 
 def test_assumptions_are_read_from_the_records(romero):
     model = _extract(romero.ods)
-    assert model.suptitle.endswith("Assumed: $T_i = T_e$; $n_C = n_O$")
+    assert model.suptitle.endswith(
+        r"Assumed: $T_i = T_e$; $n_C = n_O$; $\langle Z_{\mathrm{eff}}\rangle = 2$ (Romero)")
     stated = model.models[0].metadata["assumptions"]
-    assert [a["statement"] for a in stated] == ["T_i = T_e", "n_C = n_O"]
+    assert [a["statement"] for a in stated] == ["T_i = T_e", "n_C = n_O", "<Z_eff> = 2 (Romero)"]
+    assert stated[2]["record"].endswith("ion.1.density_fit.parameters")  # normalization=resistive_closure
     assert stated[1]["record"].endswith("ion.1.density_fit.parameters")  # the stage that first relies on it
     # A cut names only what its stages assumed.
     assert "n_C" not in _extract(romero.ods, stage=4).suptitle
     assert "n_C = n_O" in _extract(romero.ods, stage=5).suptitle
-    assert "Assumed" not in _extract(romero.ods, stage=2).suptitle
+    assert _extract(romero.ods, stage=2).suptitle.endswith("Assumed: none")  # one line count per stage
 
 
-def test_nothing_is_listed_without_an_assumed_record(archive):
+def test_a_preset_composition_lists_its_target_and_nothing_else(archive):
     model = _extract(archive.ods)
+    assert model.suptitle.endswith(r"Assumed: $\langle Z_{\mathrm{eff}}\rangle = 2$ (target)")
+    assert [a["statement"] for a in model.models[0].metadata["assumptions"]] == ["<Z_eff> = 2 (target)"]
+
+
+def test_nothing_is_listed_without_an_assumed_record():
+    model = _extract(_quiet(kinetic_state_case, 40326, "magnetics", records=False).ods)
     assert "Assumed" not in model.suptitle and model.models[0].metadata["assumptions"] == []
+
+
+def test_the_romero_constraint_is_read_from_the_records(romero):
+    ods = copy.deepcopy(romero.ods)
+    ods["core_profiles.global_quantities.z_eff_resistive"] = [1.7]
+    ods[f"{CP}.zeff_fit.parameters"] = ods[f"{CP}.zeff_fit.parameters"].replace("romero", "spitzer")
+    assert "<Z_eff> = 1.7 (Spitzer)" in [a["statement"] for a in
+                                         _extract(ods).models[0].metadata["assumptions"]]
+    for k in (1, 2):
+        ods[f"{CP}.ion.{k}.density_fit.parameters"] += "; resistive_target=1.9"
+    assert "<Z_eff> = 1.9 (Spitzer)" in [a["statement"] for a in
+                                         _extract(ods).models[0].metadata["assumptions"]]
 
 
 def test_an_assumption_is_never_hard_coded(romero):
@@ -197,12 +228,13 @@ def test_an_assumption_is_never_hard_coded(romero):
         ods[f"{CP}.ion.{k}.density_fit.parameters"] = "origin=inferred; method=romero_partition; assumption=n_C=2n_O"
     ods[f"{CP}.zeff_fit.parameters"] = "origin=inferred; method=romero_partition"
     assert "Assumed: $T_i = T_e$; $n_C = 2n_O$" in _extract(ods).suptitle
+    assert "(Resistive)" in _extract(ods).suptitle  # resistive_closure stated, its method no longer
 
 
 def test_a_ratio_prior_is_listed_as_assumed():
     case = _quiet(kinetic_state_case, 39915, "electron_kinetic")
     stated = [a["statement"] for a in _extract(case.ods).models[0].metadata["assumptions"]]
-    assert len(stated) == 1 and stated[0].startswith("T_i = ") and stated[0].endswith(" T_e")
+    assert stated[0].startswith("T_i = ") and stated[0].endswith(" T_e")
 
 
 # --- impurity pressure ---------------------------------------------------------------------------

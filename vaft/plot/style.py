@@ -577,6 +577,13 @@ def draw_series(
         # A single sample has no line to draw; without a marker it is invisible.
         options["marker"] = "o"
 
+    # ``markersize_scale`` sizes markers against the presentation format's own
+    # (``lines.markersize`` in force), so a small marker stays small on every
+    # format (issue #1957: error bars that must stand out of their points).
+    scale = options.pop("markersize_scale", None)
+    if scale is not None and "markersize" not in options and "ms" not in options:
+        options["markersize"] = float(scale) * float(plt.rcParams["lines.markersize"])
+
     # A recipe says what a colour means; the theme in force says what it is
     # (issue #709).  Resolved before the invalid demotion so precedence is
     # unchanged: a recipe's colour still wins over the invalid grey.

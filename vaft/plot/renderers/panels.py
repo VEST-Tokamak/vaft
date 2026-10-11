@@ -1073,12 +1073,12 @@ def kinetic_overview_state(
     radius (refused when it is the sqrt(psi_N) proxy, never relabelled) or
     the normalized poloidal flux.  ``layout=`` arranges the same four panels
     as a 2 x 2 grid or a 4 x 1 stack; ``format=`` and ``theme=`` size and
-    style the figure.  ``stage=`` (1-8) draws the chain up to that stage: the
-    newest stage's traces in front at full opacity, earlier ones faded in
-    their own colours, every axis on the full figure's limits and every
-    legend keeping the full figure's room, so a sequence of stages does not
-    move.  ``animation=True`` walks the eight stages (``stage=[...]`` picks
-    some) at the selected ``time=``.  ``layout="stages"`` draws the four
+    style the figure.  ``stage=`` (1-8) draws the chain up to that stage,
+    every trace as in the full figure, every axis on the full figure's limits
+    and every legend keeping the full figure's room, so the images of a
+    procedure -- one per stage, from a loop over ``stage=k`` -- line up.
+    ``animation=True`` walks the eight stages (``stage=[...]`` picks some) at
+    the selected ``time=`` as one movie.  ``layout="stages"`` draws the four
     quantities as rows and one column per stage of ``stages=`` (default 1,
     2, 4, 5, 7, 8), each the cumulative figure at that stage, with one
     legend of symbols per row; it is sized for ``format="slide"``.
@@ -1125,8 +1125,6 @@ def kinetic_overview_state(
         # figure's y range, so the first carries the row's label and ticks.
         # The last column holds each row's legend, the symbols of the row's
         # last stage (the roles are the single figure's to state).
-        from ..backend.kinetic_state import EARLIER_STAGE_ALPHA
-
         hosts, data = grid[:, -1], grid[:, :-1]
         legend_pt = _kinetic_stage_legend_pt(data[-1, 0])
         for axis in data.ravel():
@@ -1140,13 +1138,9 @@ def kinetic_overview_state(
             handles, labels = source.get_legend_handles_labels()
             if handles:
                 # Two columns past five symbols: a row is short, the cell wide enough.
-                key = host.legend(handles, labels, loc="center left", frameon=False, borderaxespad=0.0,
-                                  fontsize=legend_pt, labelspacing=0.2, handlelength=1.4, handletextpad=0.4,
-                                  ncols=1 if len(handles) <= 5 else 2, columnspacing=0.8)
-                # A key identifies; the fading of earlier stages is the panels' to show.
-                for handle in getattr(key, "legend_handles", getattr(key, "legendHandles", ())):
-                    if hasattr(handle, "get_alpha") and handle.get_alpha() == EARLIER_STAGE_ALPHA:
-                        handle.set_alpha(1.0)
+                host.legend(handles, labels, loc="center left", frameon=False, borderaxespad=0.0,
+                            fontsize=legend_pt, labelspacing=0.2, handlelength=1.4, handletextpad=0.4,
+                            ncols=1 if len(handles) <= 5 else 2, columnspacing=0.8)
         for axis in data[0]:
             axis.title.set_fontsize(axis.title.get_fontsize() * _KINETIC_STAGE_TITLE_SCALE)
         for axis in data[:, 0]:
@@ -1188,7 +1182,8 @@ def kinetic_overview_state(
             title = figure._suptitle
             caption = title.get_text() if title is not None else ""
             if "\n" in caption:
-                title.set_text(caption.split("\n", 1)[0] + "\n" + _KINETIC_CAPTION_STRUT)
+                lines = caption.split("\n")
+                title.set_text("\n".join([lines[0]] + [_KINETIC_CAPTION_STRUT] * (len(lines) - 1)))
             for _ in range(6):
                 before = [tuple(a.get_position().bounds) for a in grid.ravel()]
                 finalize(figure, grid, show=False, tight_layout=True, pad=_kinetic_pad(style, ax))
