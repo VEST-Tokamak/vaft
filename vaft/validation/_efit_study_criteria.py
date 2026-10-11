@@ -39,8 +39,10 @@ The fit-quality criteria:
 The physical-consistency criterion:
 
 * **thomson** -- only where Thomson samples lie in the slice's window:
-  ``p_e <= p_recon <= 2 p_e`` at the sampled points, i.e.
-  ``-ln 2 <= ln(sum p_e / sum p_recon) <= 0``.  An ohmic VEST plasma carries
+  ``1 <= sum p_recon / sum p_e <= 2`` over the sampled points, equivalently
+  ``-ln 2 <= ln(sum p_e / sum p_recon) <= 0``.  The pointwise interval
+  ``p_e <= p_recon <= 2 p_e`` motivates this aggregate comparison but is not
+  itself the pass/fail test.  An ohmic VEST plasma carries
   no fast-ion pressure, so ``p = p_e (1 + f_i T_i/T_e)`` with
   ``f_i = n_i,tot / n_e <= 1`` (impurities dilute the ions) and
   ``T_i <= T_e`` (the ions are heated only by the electrons); hence

@@ -1,0 +1,141 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "title": "VAFT kinetic state profiles table, contract v1 (#1454)",
+ "type": "object",
+ "required": [
+  "contract_version",
+  "shot",
+  "time_efit_s",
+  "efit_lineage",
+  "efit_quality"
+ ],
+ "properties": {
+  "contract_version": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "state key contract version (#1454)"
+  },
+  "shot": {
+   "type": [
+    "integer",
+    "null"
+   ],
+   "description": "VEST shot number"
+  },
+  "time_efit_s": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "EFIT slice time, rounded to 1e-4 s"
+  },
+  "efit_lineage": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "magnetics | electron_kinetic",
+   "enum": [
+    "magnetics",
+    "electron_kinetic"
+   ]
+  },
+  "efit_quality": {
+   "type": [
+    "string",
+    "null"
+   ],
+   "description": "good | admissible",
+   "enum": [
+    "good",
+    "admissible"
+   ]
+  },
+  "channel": {
+   "type": [
+    "integer",
+    "null"
+   ],
+   "description": "Thomson channel index"
+  },
+  "r_m": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "channel major radius [m]"
+  },
+  "z_m": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "channel height [m]"
+  },
+  "psi_norm": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "normalized poloidal flux at the channel"
+  },
+  "rho_tor_norm": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "normalized toroidal-flux radius at the channel; empty when unavailable"
+  },
+  "n_e_m3": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "Thomson n_e [m^-3]"
+  },
+  "n_e_error_m3": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "Thomson n_e error (upper) [m^-3]"
+  },
+  "t_e_ev": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "Thomson T_e [eV]"
+  },
+  "t_e_error_ev": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "Thomson T_e error (upper) [eV]"
+  },
+  "p_e_pa": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "e n_e T_e [Pa]"
+  },
+  "p_efit_pa": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "EFIT pressure at the channel's psi_N [Pa]"
+  },
+  "r_p": {
+   "type": [
+    "number",
+    "null"
+   ],
+   "description": "p_EFIT / p_e"
+  }
+ }
+}
