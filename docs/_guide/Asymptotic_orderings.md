@@ -203,8 +203,9 @@ as a reason, never as a guessed contract:
 [Plasma models](Plasma_models.md). CGYRO's two modes are the records its own `plasma_formalism` builds. A test
 checks the GPEC-suite modes field by field against the records `vaft.code.gpec` resolves from the packaged
 namelists. The modes the audit leaves unresolved are listed with no record, together with the reason. Today
-these are the GPEC threshold layer models. The contract map draws the modes as a second matrix under the
-contract columns.
+these are the GPEC threshold layer models.
+
+![adapter contracts]({{ '/assets/diagrams/adapter_contract_map.svg' | relative_url }})
 
 `advisory_ordering_check(formalism, state, points)` evaluates those contracts on a run's input:
 - `state` is the global and time-history quantities of `vaft.process.ordering_state`;
