@@ -126,6 +126,9 @@ CORE_MODULES: tuple[str, ...] = (
     # The #1887 direct GPEC -> PENTRC reference replayed without a solver: the
     # committed 18 + 4 run table qualifies Q at converged tolerances only.
     "test_ntv_coil_reference_1887.py",
+    # The verified resonant-field operator Phi = H conj(c) and stages A-D (#1884):
+    # synthetic operators plus the committed 19-run GPEC reference, no solver.
+    "test_resonant_coil_response.py",
     # The #1178 coil operating-space result schema (#1886 contract): synthetic
     # fixtures only, under a second.
     "test_coil_operating_space.py",
