@@ -458,8 +458,12 @@ def test_the_closed_loop_driver_is_handed_vaft_radii_and_the_bridged_rho(ready, 
     assert arguments["r_over_a"] == [0.3, 0.6] and arguments["perturbation"] == -0.2
     assert arguments["rho_tor_norm"] == pytest.approx(list(mitim.rho_tor_norm_at(profile, [0.3, 0.6])))
     assert arguments["model"] == "analytic" and arguments["chi_e"] == 0.8
-    # The stub has no powertorch, so the driver reports the failure instead of raising.
-    assert not result.ok and report is None and "powertorch" in result.result["error"]
+    # The stub has no MITIM stack, so the driver reports the failure instead of raising. The
+    # first missing import names it: torch where torch is absent (the Windows runner),
+    # powertorch where torch is installed but MITIM is not.
+    error = result.result["error"]
+    assert not result.ok and report is None and error.startswith("ModuleNotFoundError")
+    assert "torch" in error
 
 
 def test_the_tglf_closed_loop_can_switch_off_portals_early_stops(ready, profile, tmp_path):
