@@ -54,9 +54,16 @@ def main() -> int:
         )
     except Exception as error:  # noqa: BLE001 - the containment is the point
         LOGGER.exception("composition stage failed for shot %s; recording", args.shot)
+        # The kinetic stages read this product in place of the measured one, so a
+        # failure must leave them the measured profiles, not an empty ODS.
         from omas import ODS
 
-        ods = ODS(consistency_check=False)
+        from vaft.database._local import load_ods
+
+        try:
+            ods, _ = load_ods(args.core_profiles_product)
+        except Exception:  # noqa: BLE001 - an unreadable input leaves nothing to pass on
+            ods = ODS(consistency_check=False)
         manifest = {
             "schema_version": 1,
             "stage": "composition",

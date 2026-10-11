@@ -29,6 +29,10 @@ kinetic:
   # `routine` the legacy one. Use the preset the magnetic EFIT product was built
   # with (efit.preset there).
   efit_preset: ""
+  # species: the ion part of the pressure uses the composition stage's n_i/n_e
+  # (the C/O dilution); none: the legacy n_i = n_e. Without a composed slice the
+  # stage falls back to n_i = n_e whatever this says, and records why.
+  dilution: species
 
 composition:
   # transient needs the plasma age (diagnostics onset); a slice without one is

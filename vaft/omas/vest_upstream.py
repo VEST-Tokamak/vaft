@@ -2491,7 +2491,83 @@ def _has_kinetic_slice(ods: ODS) -> bool:
     )
 
 
-def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
+KINETIC_DILUTIONS = ("species", "none")
+
+
+def _ion_density_ratio_function(
+    ods: ODS, time_ms: float, *, tolerance_s: float = 5e-4
+) -> tuple[Callable[[np.ndarray], np.ndarray] | None, dict[str, Any]]:
+    """``f(psi_N) = n_i,tot / n_e`` of the composed slice at ``time_ms``, and the record of it.
+
+    Taken from the ions the composition stage stored, through the species
+    kinetic closure, so the EFIT pressure points count the same ions the
+    product's ``pressure_thermal`` does.  ``(None, {"applied": False, ...})``
+    names why when the slice carries no composition -- the pressure is then the
+    legacy ``n_i = n_e``, and the record says so rather than leaving it to be
+    inferred from a number.  ``T_i`` plays no part: a placeholder ratio only
+    lets the closure run on a slice with no ion temperature.
+    """
+    from vaft.machine_mapping.core_profiles import ti_record_fields
+    from vaft.ods_access import path_value
+    from vaft.process.kinetic_closure import infer_kinetic_closure
+
+    record: dict[str, Any] = {"mode": "species", "applied": False}
+    times = path_value(ods, "core_profiles.time", None)
+    if times is None:
+        record["reason"] = "the product carries no core_profiles slice"
+        return None, record
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+    index = int(np.argmin(np.abs(times - time_ms * 1e-3)))
+    if abs(float(times[index]) - time_ms * 1e-3) > tolerance_s:
+        record["reason"] = "no core_profiles slice at the reconstruction time"
+        return None, record
+    base = f"core_profiles.profiles_1d.{index}"
+    origin = ti_record_fields(path_value(ods, f"{base}.zeff_fit.parameters", None)).get("origin")
+    if origin not in ("assumed", "derived"):
+        record["reason"] = f"the slice carries no composition (zeff record origin={origin})"
+        return None, record
+    try:
+        closure = infer_kinetic_closure(
+            ods, time=float(times[index]), dilution="species", ti_te_ratio=1.0
+        )
+    except ValueError as error:
+        record["reason"] = f"{type(error).__name__}: {error}"[:200]
+        return None, record
+    with np.errstate(invalid="ignore", divide="ignore"):
+        ratio = np.sum(list(closure.ion_densities.values()), axis=0) / closure.n_e
+    psi = path_value(ods, f"{base}.grid.psi", None)
+    if psi is not None:
+        psi = np.asarray(psi, dtype=float)
+        psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
+    else:
+        rho_pol = path_value(ods, f"{base}.grid.rho_pol_norm", None)
+        if rho_pol is None:
+            record["reason"] = "the slice has neither grid.psi nor grid.rho_pol_norm"
+            return None, record
+        psi_n = np.asarray(rho_pol, dtype=float) ** 2
+    ok = np.isfinite(ratio) & np.isfinite(psi_n) & (ratio > 0.0)
+    if ok.sum() < 2:
+        record["reason"] = "fewer than two usable n_i/n_e points"
+        return None, record
+    order = np.argsort(psi_n[ok])
+    x, y = psi_n[ok][order], ratio[ok][order]
+
+    def ion_density_ratio(psi_normalised: np.ndarray) -> np.ndarray:
+        # np.interp holds the end values, so a point in the scrape-off layer
+        # (psi_N > 1) takes the last confined ratio rather than extrapolating.
+        return np.interp(np.asarray(psi_normalised, dtype=float), x, y)
+
+    record.update(
+        applied=True, closure="infer_kinetic_closure", slice_time_s=float(times[index]),
+        n_i_over_n_e_axis=float(y[0]), n_i_over_n_e_edge=float(y[-1]),
+        composition_source=str(closure.provenance["composition"]["source"]),
+    )
+    return ion_density_ratio, record
+
+
+def kinetic_efit_parameters(
+    stage: str, efit_preset: str | None, dilution: Mapping[str, Any] | None = None
+) -> str:
     """The ``equilibrium.code.parameters`` payload of a kinetic EFIT product.
 
     Names the preset that built the base k-file and, as the top-level
@@ -2500,6 +2576,10 @@ def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
     named is the default (``DEFAULT_PRESET``), which is what
     :func:`vaft.code.efit.kinetic.prepare_kinetic_efit_inputs` builds the
     k-file with then, so it is recorded by that name.
+
+    ``dilution`` is the record of the ion-density correction the pressure
+    constraint was built with (:func:`_ion_density_ratio_function`), so a
+    reader can tell ``n_i = n_e`` from a diluted composition.
     """
     from vaft.code.efit.presets import DEFAULT_PRESET
     from vaft.code.efit.presets import efit_preset as _efit_preset
@@ -2509,7 +2589,10 @@ def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
     scientific = preset.scientific
     return json.dumps(
         {
-            "kinetic_efit": {"stage": stage, "efit_preset": record},
+            "kinetic_efit": {
+                "stage": stage, "efit_preset": record,
+                **({"dilution": dict(dilution)} if dilution is not None else {}),
+            },
             "uncertainty_model": scientific.constraints.uncertainty_mode,
         },
         sort_keys=True,
@@ -2619,6 +2702,7 @@ def build_kinetic_efit_ods(
     encoding: str = "raw6",
     run: int = 1,
     efit_preset: str | None = None,
+    dilution: str = "species",
 ) -> tuple[ODS, dict[str, Any]]:
     """Reconstruct a kinetic-pressure equilibrium from products already on disk.
 
@@ -2642,6 +2726,13 @@ def build_kinetic_efit_ods(
     that quietly produced the other kind would be published into the wrong
     lineage.  A mismatch is recorded, not raised, because both stages are asked
     for and only one of them can apply to a given shot.
+
+    ``dilution="species"`` (default) builds the raw pressure points with the ion
+    density the composition stage stored, ``p = e n_e (T_e + f T_i)`` with
+    ``f = n_i,tot / n_e`` at each Thomson radius; a slice that carries no
+    composition falls back to ``n_i = n_e`` and the manifest says why.
+    ``"none"`` is the legacy pressure.  Read the composed product
+    (``composition``) to get the dilution; the measured one has none to apply.
     """
     from vaft.code.efit.kinetic import KineticEFITConfig, run_kinetic_chain
     from vaft.data.eqdsk import from_equilibrium, to_omas
@@ -2649,6 +2740,8 @@ def build_kinetic_efit_ods(
 
     if stage not in ("electron_efit", "kinetic_efit"):
         raise ValueError(f"stage must be electron_efit or kinetic_efit; got {stage!r}")
+    if dilution not in KINETIC_DILUTIONS:
+        raise ValueError(f"dilution must be one of {KINETIC_DILUTIONS}, got {dilution!r}")
 
     shot = int(shot)
     era = machine_era_for_shot(shot)
@@ -2659,6 +2752,7 @@ def build_kinetic_efit_ods(
         "efit_product": str(efit_product),
     }
     manifest["configuration"]["encoding"] = encoding
+    manifest["configuration"]["dilution"] = dilution
     # Always: a product names the configuration that built it, the default
     # included (DEFAULT_PRESET when none was named).
     from vaft.code.efit.presets import DEFAULT_PRESET
@@ -2811,6 +2905,11 @@ def build_kinetic_efit_ods(
                 record(time_ms, status="unavailable", reason=message)
                 continue
 
+            if dilution == "species":
+                ion_density_ratio, dilution_record = _ion_density_ratio_function(ods, float(time_ms))
+            else:
+                ion_density_ratio, dilution_record = None, {"mode": "none", "applied": False}
+            manifest["dilution"] = dilution_record
             config = KineticEFITConfig(
                 executable=executable,
                 workdir=work / f"t{time_ms:.3f}" if retry else work,
@@ -2821,6 +2920,7 @@ def build_kinetic_efit_ods(
                 # has no ion data -- which is exactly the electron_efit case.
                 ti_te_ratio="auto",
                 efit_preset=efit_preset or None,
+                ion_density_ratio=ion_density_ratio,
             )
             try:
                 chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
@@ -2863,7 +2963,9 @@ def build_kinetic_efit_ods(
             # The g-file carries no record of how the constraints were weighted;
             # the preset (or its absence) does.  Serialized, as `code.parameters`
             # is a STR_0D that a nested tree does not survive (#380/#642).
-            out["equilibrium.code.parameters"] = kinetic_efit_parameters(stage, efit_preset)
+            out["equilibrium.code.parameters"] = kinetic_efit_parameters(
+                stage, efit_preset, manifest.get("dilution")
+            )
             manifest["status"] = "success"
             manifest["quality_summary"]["unavailable"] = []
             # Recording a path under a directory about to be deleted would name a

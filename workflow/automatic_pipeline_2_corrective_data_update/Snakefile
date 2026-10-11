@@ -66,6 +66,11 @@ KINETIC_ENCODING = KINETIC_CONFIG.get("encoding", "raw6")
 KINETIC_EXECUTABLE = KINETIC_CONFIG.get("executable", "")
 # Named EFIT configuration for the base magnetic kfile (vaft.code.efit.PRESETS);
 # empty is the library default (statistical_891), `routine` the legacy one. Checked here so a typo fails the DAG.
+KINETIC_DILUTION = KINETIC_CONFIG.get("dilution", "species")
+if KINETIC_DILUTION not in ("species", "none"):
+    raise WorkflowError(
+        "kinetic.dilution must be 'species' or 'none', got " + repr(KINETIC_DILUTION)
+    )
 KINETIC_EFIT_PRESET = KINETIC_CONFIG.get("efit_preset") or ""
 if KINETIC_EFIT_PRESET:
     from vaft.code.efit import efit_preset as _efit_preset
@@ -256,7 +261,10 @@ for _stage in ("electron_efit", "kinetic_efit"):
     rule:
         name: "generate_" + _stage + "_ods"
         input:
-            core_profiles=PATHS.shot_pattern("core_profiles_ods")
+            # The composed product: it is the measured one plus the diluted ions
+            # when the composition stage succeeded, and the measured one itself
+            # (unchanged) when it did not, so this never depends on its outcome.
+            core_profiles=PATHS.shot_pattern("composition_ods")
         output:
             ods=PATHS.shot_pattern(_stage + "_ods"),
             manifest=PATHS.shot_pattern(_stage + "_manifest")
@@ -268,6 +276,7 @@ for _stage in ("electron_efit", "kinetic_efit"):
             efit=scientific_reference(PATHS, "generate_" + _stage + "_ods", "efit"),
             encoding=KINETIC_ENCODING,
             executable=KINETIC_EXECUTABLE,
+            dilution=KINETIC_DILUTION,
             efit_preset=KINETIC_EFIT_PRESET
         conda:
             CONDA if CONDA else None
@@ -281,6 +290,7 @@ for _stage in ("electron_efit", "kinetic_efit"):
                 --constraints-product {params.constraints} \
                 --efit-product {params.efit} \
                 --encoding {params.encoding} \
+                --dilution {params.dilution} \
                 --executable "{params.executable}" \
                 --efit-preset "{params.efit_preset}" \
                 --output {output.ods} \

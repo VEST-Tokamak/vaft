@@ -56,6 +56,7 @@ def _core_profiles(tmp_path, *, kinetic=(0,), times=(0.300, 0.301), zeff_record=
     for index in range(len(times)):
         base = f"core_profiles.profiles_1d.{index}"
         ods[f"{base}.grid.rho_tor_norm"] = RHO
+        ods[f"{base}.grid.rho_pol_norm"] = RHO
         ods[f"{base}.electrons.temperature"] = TE
         ods[f"{base}.electrons.density"] = NE
         ods[f"{base}.electrons.temperature_fit.parameters"] = (
@@ -264,3 +265,111 @@ def test_an_ion_temperature_the_product_assumed_keeps_the_pressure_it_was_writte
     assert np.allclose(np.asarray(ods[f"{base}.pressure_thermal"], dtype=float), E * NE * (TE + 0.8 * TE))
     assert path_value(ods, f"{base}.pressure_ion_total", None) is None
     assert manifest["pressure"]["unchanged"] == 1
+
+
+# --- the kinetic EFIT stage reading the composed product --------------------------------------
+
+
+def _composed(tmp_path, tables):
+    ods, _ = _build(tmp_path, tables)
+    return ods
+
+
+def test_the_ion_density_ratio_is_the_stored_ions_per_electron_at_each_psi_n(tmp_path, tables):
+    ods = _composed(tmp_path, tables)
+    fn, record = vu._ion_density_ratio_function(ods, 300.0)
+    assert record["applied"] is True and record["mode"] == "species"
+    expected = _charged_ion_density(ods, "core_profiles.profiles_1d.0") / NE
+    psi_n = RHO**2                                   # rho_pol_norm is RHO in this fixture
+    inside = slice(0, -1)                            # the edge point carries neutrals
+    assert np.allclose(fn(psi_n)[inside], expected[inside], rtol=2e-3)
+    assert record["n_i_over_n_e_axis"] == pytest.approx(expected[0], rel=2e-3)
+    assert 0.0 < record["n_i_over_n_e_axis"] < 1.0, "dilution lowers the ion density per electron"
+    assert np.all(fn(np.array([1.3, 2.0])) == fn(np.array([1.0, 1.0]))), "the scrape-off layer is held, not extrapolated"
+
+
+def test_a_product_with_no_composition_falls_back_and_says_why(tmp_path):
+    product = _core_profiles(tmp_path)
+    from vaft.database._local import load_ods
+    from pathlib import Path
+
+    measured, _ = load_ods(Path(product))
+    fn, record = vu._ion_density_ratio_function(measured, 300.0)
+    assert fn is None and record["applied"] is False
+    assert "no composition" in record["reason"]
+
+
+def test_no_slice_at_the_reconstruction_time_is_named(tmp_path, tables):
+    fn, record = vu._ion_density_ratio_function(_composed(tmp_path, tables), 350.0)
+    assert fn is None and "no core_profiles slice at the reconstruction time" in record["reason"]
+
+
+def _kinetic_stage(tmp_path, tables, monkeypatch, *, dilution):
+    """build_kinetic_efit_ods over the composed product, with a fake EFIT that records its config."""
+    import json
+    from types import SimpleNamespace
+
+    import vaft.code.efit.kinetic as kinetic
+    import vaft.data.eqdsk as eqdsk
+    import vaft.process.equilibrium as process_equilibrium
+
+    composed = _composed(tmp_path, tables)
+    composed["thomson_scattering.time"] = np.array([0.300])
+    constraints = ODS(consistency_check=False)
+    constraints["equilibrium.time"] = np.array([0.300])
+    solution = ODS(consistency_check=False)
+    solution["equilibrium.time"] = np.array([0.300])
+    solution["equilibrium.time_slice.0.global_quantities.ip"] = 1.0
+    solution["equilibrium.code.parameters"] = json.dumps({"efit_collection": {"slice_statuses": [
+        {"time": 0.300, "overall_status": "usable"}]}})
+    paths = {n: tmp_path / f"{n}.json" for n in ("core_profiles", "constraints", "efit")}
+    for path in paths.values():
+        path.write_text("{}")
+    products = {str(paths["core_profiles"]): composed, str(paths["constraints"]): constraints,
+                str(paths["efit"]): solution}
+    monkeypatch.setattr(vu, "load_ods", lambda path: (products[str(path)], {}))
+    monkeypatch.setattr(process_equilibrium, "as_equilibrium", lambda sol, time_index: time_index)
+    monkeypatch.setattr(eqdsk, "from_equilibrium", lambda index: index)
+    monkeypatch.setattr(eqdsk, "to_omas", lambda geq, ods: ods)
+    monkeypatch.setattr(vu, "read_geqdsk_file", lambda path: path)
+    seen = {}
+
+    def fake_chain(ods, geq, time_ms, efit_config):
+        seen["fn"] = efit_config.ion_density_ratio
+        return {"kinetic_efit": SimpleNamespace(status="ok", converged=True, scale=1.0, chi2=1.0,
+                                                reason="", gfile="g")}
+
+    monkeypatch.setattr(kinetic, "run_kinetic_chain", fake_chain)
+    out, manifest = vu.build_kinetic_efit_ods(
+        shot=SHOT, stage="kinetic_efit", core_profiles_product=paths["core_profiles"],
+        constraints_product=paths["constraints"], efit_product=paths["efit"],
+        workdir=tmp_path / "work", dilution=dilution,
+    )
+    return out, manifest, seen
+
+
+def test_the_kinetic_stage_hands_the_ratio_to_the_efit_and_records_it(tmp_path, tables, monkeypatch):
+    import json
+
+    out, manifest, seen = _kinetic_stage(tmp_path, tables, monkeypatch, dilution="species")
+    assert manifest["status"] == "success", manifest.get("error")
+    assert callable(seen["fn"]) and 0.0 < float(seen["fn"](np.array([0.0]))[0]) < 1.0
+    assert manifest["configuration"]["dilution"] == "species"
+    assert manifest["dilution"]["applied"] is True
+    parameters = json.loads(str(out["equilibrium.code.parameters"]))
+    assert parameters["kinetic_efit"]["dilution"]["applied"] is True
+
+
+def test_dilution_none_is_the_legacy_pressure_and_is_recorded_as_such(tmp_path, tables, monkeypatch):
+    import json
+
+    out, manifest, seen = _kinetic_stage(tmp_path, tables, monkeypatch, dilution="none")
+    assert seen["fn"] is None
+    assert manifest["dilution"] == {"mode": "none", "applied": False}
+    assert json.loads(str(out["equilibrium.code.parameters"]))["kinetic_efit"]["dilution"]["mode"] == "none"
+
+
+def test_an_unknown_dilution_is_refused(tmp_path, tables):
+    with pytest.raises(ValueError, match="dilution"):
+        vu.build_kinetic_efit_ods(shot=SHOT, stage="kinetic_efit", core_profiles_product="a",
+                                  constraints_product="b", efit_product="c", dilution="partial")

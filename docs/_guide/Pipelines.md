@@ -307,8 +307,8 @@ executable and the named EFIT preset used for the base magnetic k-file.
 | `ces` | `build_ces_ods` | an uploaded CES file | `charge_exchange` → `main` |
 | `core_profiles` | `build_core_profiles_ods` | `thomson` (+ `ces`), pipeline 1's EFIT | `core_profiles` → `main` |
 | `composition` | `build_composition_ods` | `core_profiles`, pipeline 1's EFIT and diagnostics | `core_profiles` → `main`, after the stage above |
-| `electron_efit` | `build_kinetic_efit_ods` | `core_profiles` without ion data | `equilibrium` → `electron-efit` |
-| `kinetic_efit` | `build_kinetic_efit_ods` | `core_profiles` with ion data | `equilibrium` → `kinetic-efit` |
+| `electron_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) without ion data | `equilibrium` → `electron-efit` |
+| `kinetic_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) with ion data | `equilibrium` → `kinetic-efit` |
 
 Pipeline 1's EFIT and constraints products are passed to these rules as `params`, not `input`: a shot that
 pipeline 1 never reconstructed is then *recorded* as unavailable instead of making Snakemake raise. Which of
@@ -332,9 +332,25 @@ fit record and, when it has an ion temperature, in that record.
   manifest rather than silently computed as `coronal`, which overstates the charge on VEST's short discharges.
 * **ADF11 atomic data** come from OPEN-ADAS and are fetched on first use. A server without network needs the cache
   warmed and `composition.adf11_cache_dir` pointing at it.
+* **Pressure counts the diluted ions.** The composed slice's `pressure_thermal` is recomputed with the species
+  kinetic closure (`infer_kinetic_closure`), so it no longer counts one ion per electron: a measured `T_i` gives
+  `electrons.pressure`, `pressure_ion_total` and `pressure_thermal`; a slice with no `T_i` gets the electron pressure
+  only; a `T_i` the product assumed keeps the pressure it was written with. The closure is named in
+  `ion.0.density_fit.parameters` (`pressure_closure=infer_kinetic_closure; dilution=species`).
 * **Replication is an overlay.** `core_profiles` and `composition` both own the `core_profiles` IDS in `main`,
   which the registry otherwise avoids. The `composition` replication waits for the `core_profiles` record, so `main`
   holds the composed product when the stage succeeded and the measured one when it was skipped.
+
+### Dilution in the kinetic EFIT
+
+Both kinetic lineages read the `composition` product (the measured one itself when composition was skipped, so they
+never depend on its outcome). With `kinetic.dilution: species` (the default) the raw pressure points are
+`p = e n_e (T_e + f T_i)` with `f = n_i,tot / n_e` at each Thomson radius, from the stored ions; the `spline` encoding
+gets the same through `pressure_thermal`. `f` is an assumed composition and is not added to `SIGPRE`. The effect is
+`f - 1` times the ion term: about 2-3 % of the pressure where `T_i/T_e ~ 0.15` (48224), and up to ~8 % for the assumed
+`T_i = T_e` of `electron_efit`. A slice with no composition falls back to `n_i = n_e`; the manifest `dilution` block
+and `equilibrium.code.parameters` (`kinetic_efit.dilution`) say which was used and why. `kinetic.dilution: none` restores
+the legacy pressure.
 
 ### Reading the result
 

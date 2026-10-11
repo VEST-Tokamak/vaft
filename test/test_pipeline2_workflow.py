@@ -211,3 +211,25 @@ def test_the_run_config_reads_the_filedb_root_from_the_environment(tmp_path):
     refused = _dry_run(tmp_path, base_dir="${VAFT_FILEDB_DIR}", env=env)
     assert refused.returncode != 0
     assert "VAFT_FILEDB_DIR" in refused.stdout + refused.stderr
+
+
+def test_both_kinetic_lineages_read_the_composed_product_and_default_to_species_dilution(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    for stage in ("electron_efit", "kinetic_efit"):
+        job = _job(result.stdout, f"generate_{stage}_ods")
+        inputs = _input_line(job)
+        assert "omas/composition/48226/output/composition" in inputs, inputs
+        assert "omas/core_profiles/" not in inputs, "they no longer read the measured product directly"
+        assert "--dilution species" in job
+
+
+def test_the_kinetic_dilution_is_configurable_and_validated(tmp_path):
+    result = _dry_run(
+        tmp_path,
+        extra=["-p", "--config", 'kinetic={"encoding": "raw6", "executable": "", "dilution": "none"}'],
+    )
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert result.stdout.count("--dilution none") == 2
+    bad = _dry_run(tmp_path, extra=["--config", 'kinetic={"dilution": "partial"}'])
+    assert bad.returncode != 0 and "dilution" in (bad.stdout + bad.stderr)
