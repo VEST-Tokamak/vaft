@@ -264,10 +264,32 @@ def save(ods, target, *, compression=None):
     staged = target_path.with_name(f".{target_path.stem}.tmp-{token}{target_path.suffix}")
     try:
         _write_ods_file(ods, staged, suffixes, compression, reopenable_temporary_file)
-        os.replace(staged, target_path)
+        _replace_with_retry(staged, target_path)
     finally:
         staged.unlink(missing_ok=True)
     return target_path
+
+
+def _replace_with_retry(staged, target_path, attempts: int = 20, pause: float = 0.05) -> None:
+    """``os.replace`` that tolerates Windows' transient sharing violations.
+
+    On NTFS a rename onto a name that another thread or process has open for a
+    moment (a concurrent save of the same product, an indexer) fails with
+    ``PermissionError`` instead of waiting, where POSIX renames atomically.
+    The replace is retried briefly on that error only; anything else, and the
+    error after the last attempt, propagate unchanged.
+    """
+    import os
+    import time
+
+    for attempt in range(attempts):
+        try:
+            os.replace(staged, target_path)
+            return
+        except PermissionError:
+            if os.name != "nt" or attempt == attempts - 1:
+                raise
+            time.sleep(pause)
 
 
 def _write_ods_file(ods, path, suffixes, compression, reopenable_temporary_file):
