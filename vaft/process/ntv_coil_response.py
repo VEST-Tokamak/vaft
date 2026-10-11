@@ -72,6 +72,7 @@ __all__ = [
     "fit_inhomogeneous_torque",
     "fixed_amplitude_phase_extrema",
     "hermitian_torque_matrix",
+    "ntv_operating_space",
     "quadratic_invariance_checks",
     "quadratic_probe_design",
     "quadratic_torque",
@@ -814,6 +815,129 @@ def fixed_amplitude_phase_extrema(
         result[f"T_{name}"] = best_value
     result["evaluations"] = evaluations
     return result
+
+
+def ntv_operating_space(
+    groups: Sequence[str],
+    n: int,
+    phasors: np.ndarray,
+    torques: Sequence[float],
+    *,
+    sample_ids: Sequence[str],
+    roles: Sequence[str],
+    amplitude_unit: float,
+    frame: str,
+    provenance: Mapping[str, object],
+    qualification: TorqueMatrixQualification | None = None,
+):
+    """Direct NTV torques (and a qualified model) as a #1178 coil operating-space result.
+
+    Parameters
+    ----------
+    groups : sequence of str
+        Coil-group names in phasor order [-].
+    n : int
+        Toroidal mode number [-].
+    phasors : numpy.ndarray
+        ``(N, K)`` excitations in phasor units [phasor].
+    torques : sequence of float
+        Direct signed torque per sample; NaN for a failed evaluation [N m].
+    sample_ids : sequence of str
+        Stable id per sample [-].
+    roles : sequence of str
+        Role per sample, from :data:`vaft.process.coil_operating_space.OPERATING_SPACE_ROLES` [-].
+    amplitude_unit : float
+        Cosine amplitude of one phasor unit [A per turn].
+    frame : str
+        The toroidal frame the sector angles were taken in [-].
+    provenance : mapping
+        What produced the direct torques: method, scalar radius, kinetic
+        identity, solver tolerances [-].
+    qualification : TorqueMatrixQualification, optional
+        A ``qualified`` result of :func:`qualify_torque_matrix`; its ``Q``
+        adds ``ntv_torque_model`` rows for every sample [-].
+
+    Returns
+    -------
+    result : vaft.process.coil_operating_space.CoilOperatingSpace
+        ``ntv_torque`` rows (``valid`` or ``failed``) and, with a qualified
+        model, ``ntv_torque_model`` rows [-].
+
+    Raises
+    ------
+    ValueError
+        Lengths disagree, ``amplitude_unit`` is not positive, or the
+        qualification given is not ``qualified``.
+
+    Processing steps
+    ----------------
+    1. Amplitudes ``|c| * amplitude_unit`` and phases ``arg c mod 2 pi``.
+    2. One ``ntv_torque`` row per sample: ``valid`` with its value, or
+       ``failed`` with NaN.
+    3. With a qualified model, one ``ntv_torque_model`` row per sample,
+       ``c^H Q c``; its provenance records the qualification.
+
+    Convention
+    ----------
+    The excitation convention is
+    :data:`vaft.process.coil_operating_space.COIL_EXCITATION_CONVENTION`
+    (``c = A exp(+i delta)``); measured and modelled torques never share a
+    metric.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    A model row is a prediction valid only within the qualified domain the
+    qualification's provenance describes.
+
+    Provenance
+    ----------
+    .. [1887] Issue #1887, NTV torque on the #1178 operating space.
+    .. [1886] Issue #1886, the result schema.
+    """
+    import pandas as pd
+
+    from .coil_operating_space import COIL_EXCITATION_CONVENTION, CoilOperatingSpace
+
+    c = np.atleast_2d(np.asarray(phasors, dtype=complex))
+    t = np.asarray(torques, dtype=float).ravel()
+    ids, role = [str(s) for s in sample_ids], [str(r) for r in roles]
+    if not (c.shape[0] == t.size == len(ids) == len(role)) or c.shape[1] != len(groups):
+        raise ValueError("phasors, torques, sample_ids, roles and groups disagree in length")
+    if not amplitude_unit > 0:
+        raise ValueError("amplitude_unit must be positive")
+    if qualification is not None and qualification.status != "qualified":
+        raise ValueError(f"a {qualification.status!r} model adds no prediction rows")
+    samples = pd.DataFrame({"sample_id": ids, "role": role})
+    for index, group in enumerate(groups):
+        samples[f"amplitude_{group}"] = np.abs(c[:, index]) * float(amplitude_unit)
+        samples[f"phase_{group}"] = np.mod(np.angle(c[:, index]), 2 * np.pi)
+    finite = np.isfinite(t)
+    rows = [{"sample_id": i, "metric": "ntv_torque", "value": v if ok else np.nan, "unit": "N m",
+             "status": "valid" if ok else "failed"} for i, v, ok in zip(ids, t, finite)]
+    record = {"ntv_torque": dict(provenance)}
+    if qualification is not None:
+        model = quadratic_torque(qualification.Q, c)
+        rows += [{"sample_id": i, "metric": "ntv_torque_model", "value": float(v), "unit": "N m",
+                  "status": "valid"} for i, v in zip(ids, model)]
+        record["ntv_torque_model"] = {
+            "model": "T = c^H Q c", "qualification": qualification.status,
+            "eigenvalues": [float(e) for e in qualification.eigenvalues],
+            **{key: value for key, value in qualification.provenance.items()},
+            "phasor_unit_a_per_turn": float(amplitude_unit),
+        }
+    return CoilOperatingSpace(
+        n=n,
+        groups=tuple(groups),
+        samples=samples,
+        values=pd.DataFrame(rows),
+        convention={**COIL_EXCITATION_CONVENTION, "frame": frame},
+        grid={"kind": "irregular"},
+        provenance=record,
+    )
 
 
 def _hermitian(matrix: np.ndarray) -> np.ndarray:
