@@ -114,8 +114,8 @@ def test_reference_indices_read_both_548_fits(scan, tmp_path):
     (tmp_path / "extensions").mkdir()
     (tmp_path / "closures").mkdir()
     (tmp_path / "extensions" / "coefficients.csv").write_text(
-        "fit,term,coef,se_cluster\ndimensionless:rho,beta,nu,q,nu_star,0.42,0.35\n"
-        .replace("dimensionless:rho,beta,nu,q", '"dimensionless:rho,beta,nu,q"'))
+        'fit,term,coef,se_cluster\n"dimensionless:rho,beta,nu,q",nu_star,0.42,0.35\n'
+        '"dimensionless:rho,beta,nu",nu_star,0.51,0.29\n')   # a reduced fit must not win
     (tmp_path / "closures" / "closures.csv").write_text(
         "data,model,mu_nu_completed,mu_nu_completed_se\nprimary:A,free,-2.2,1.5\nprimary:A,bohm,,\n")
     found = scan.reference_indices(tmp_path)

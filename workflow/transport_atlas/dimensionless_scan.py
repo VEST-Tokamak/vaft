@@ -72,6 +72,8 @@ DELTA = 0.1
 QUANTITIES = ("qe", "qi", "q_tot")
 #: #548's names for the indices of Omega_i tau_E = C rho*^mu_rho beta^mu_beta nu*^mu_nu q^mu_q.
 INDEX = {"rho_star": "mu_rho", "beta": "mu_beta", "nu_star": "mu_nu", "q": "mu_q"}
+#: The #548 direct dimensionless fit with all four indices (extensions.py).
+DIRECT_FIT = "dimensionless:rho,beta,nu,q"
 
 
 def perturbed(parameters: dict[str, Any], scan: str, sign: float, delta: float = DELTA) -> dict[str, Any]:
@@ -263,7 +265,9 @@ def reference_indices(confinement: Optional[Path]) -> dict[str, dict[str, Option
     coefficients = confinement / "extensions" / "coefficients.csv"
     if coefficients.is_file():
         for row in csv.DictReader(open(coefficients, encoding="utf-8")):
-            if row["fit"].startswith("dimensionless:") and row["term"] in terms:
+            # Only the full four-index fit: extensions.py also writes reduced fits
+            # (q left out, rho* and q only) under the same prefix.
+            if row["fit"] == DIRECT_FIT and row["term"] in terms:
                 found[terms[row["term"]]].update(direct=float(row["coef"]), direct_se=float(row["se_cluster"]))
     closures = confinement / "closures" / "closures.csv"
     if closures.is_file():
