@@ -110,6 +110,11 @@ REQUIRED_FILES = {
     "vaft/deploy/gui/vaft-gui.env.example",
     "vaft/deploy/gui/nginx-vaft-gui.conf",
     "vaft/deploy/gui/vaft-gui-proxy.conf",
+    "vaft/deploy/gui/vaft-gui-test.service",
+    "vaft/deploy/gui/vaft-gui-test.env.example",
+    "vaft/deploy/gui/nginx-vaft-gui-test-locations.conf",
+    "vaft/deploy/gui/vaft-gui-test-proxy-headers.conf",
+    "vaft/deploy/gui/smoke.py",
 } | {f"vaft/data/{name}" for name in _ALLOWED_DATA_FILES} | {
     f"{_STUDIES}{name}" for name in _SHIPPED_STUDY_SCRIPTS
 }

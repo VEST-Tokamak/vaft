@@ -282,6 +282,57 @@ need internet access; the server does not.
 Hosted, one process holds every reader's session, and each session keeps the IDS it has read in
 memory until its tab closes. `MemoryMax` in the unit bounds the whole service.
 
+### Validate a test instance before team access
+
+A hosted GUI is first validated as an isolated **test instance** next to any production one. It
+gets its own systemd unit, user, venv, environment file, port (5016) and URL prefix
+(`/gui-test/`). Nothing in the production unit, site or HSDS accounts changes, and every step on
+the host needs the maintainer's approval of the concrete configuration first.
+
+1. **Service account.** Create a dedicated HSDS login (for example `gui-test-reader`) through
+   the server's HSDS account procedure.
+   - Adding a login means restarting the HSDS stack, which is a production change.
+   - Grant it **read only** (`+r`) on the approved dataset domains, preferably through a group.
+     Existing domains do not inherit a later folder ACL, so check every in-scope domain.
+   - Never reuse the production GUI's or an administrator's credentials.
+2. **Install the service.** Follow the comments in `vaft-gui-test.service`:
+   - create the user and the venv, installing a fixed commit;
+   - put the account in `/etc/vaft-gui-test.env` (mode 0600);
+   - install and start the unit.
+
+   It listens on 127.0.0.1:5016 only.
+3. **First check, through an SSH tunnel** (no Nginx change):
+   `ssh -L 5016:127.0.0.1:5016 <host>`, then
+   `VAFT_SMOKE_USERNAME=... VAFT_SMOKE_PASSWORD=... python -m vaft.deploy.gui.smoke http://localhost:5016/gui-test/`.
+   The checks:
+   - the page needs sign-in;
+   - a wrong password is refused;
+   - the account signs in;
+   - the websocket upgrades.
+
+   The password comes from the environment and is never printed.
+4. **Restricted route.** Include `nginx-vaft-gui-test-locations.conf` in the existing 443 server,
+   and fill in its `allow` lines with the approved internal ranges (`deny all` stays last). Run
+   `nginx -t`, reload, and repeat the smoke check against `https://<host>/gui-test/`
+   (`--insecure` for a self-signed certificate).
+5. **Record the evidence:**
+   - the tested commit, install method and redacted host/proxy settings;
+   - each smoke result and a failed-sign-in result;
+   - the hosted restrictions seen in the page (no server file browser, no uploads, no file
+     sources);
+   - the remaining risks.
+6. **Rollback.**
+   - `systemctl disable --now vaft-gui-test`, then remove the unit, venv, environment file and
+     user.
+   - Remove the `include` line, run `nginx -t` and reload.
+   - Remove the HSDS login through the account procedure: drop its ACL rows first, then the
+     login, then restart.
+
+What sign-in does **not** do: `--auth hsds` decides who may open the page. It is not per-user
+data authorization, because every session reads with the service account. Give that account
+only what every signed-in reader may see. Also note that this HSDS deployment allows
+unauthenticated reads, so its default ACL is what anonymous clients of HSDS itself get.
+
 ## What comes next
 
 The browser application is Track A of the GUI roadmap (#1359). A fuller plot explorer follows,
