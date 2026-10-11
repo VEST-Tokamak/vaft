@@ -384,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>17693cb</code>. What is described
+  <code>3016b26</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -992,9 +992,15 @@ caller value takes precedence over a derived one, and a caller’s NaN does not 
 override species keys (a gradient scan), nothing is derived from the staged input, and the record says why.
 State keys that are not ordering quantities are listed under <code class="language-plaintext highlighter-rouge">ignored</code>.</p>
 
-<p><strong>For now this is plumbing.</strong> No production workflow passes <code class="language-plaintext highlighter-rouge">ordering_state</code> yet, so a routine EFIT or GPEC
-record lists the consumed contracts with every ordering <code class="language-plaintext highlighter-rouge">UNASSESSED</code>. The kinetic EFIT chain
-(<code class="language-plaintext highlighter-rouge">KineticEFITConfig</code>) builds its own <code class="language-plaintext highlighter-rouge">EFITConfig</code> and has no <code class="language-plaintext highlighter-rouge">ordering_state</code> yet.
+<p><strong>Building the state from an ODS.</strong> <code class="language-plaintext highlighter-rouge">vaft.process.ordering_state.ordering_inputs_from_ods(ods, t)</code> returns
+<code class="language-plaintext highlighter-rouge">state</code>, <code class="language-plaintext highlighter-rouge">points</code> and a <code class="language-plaintext highlighter-rouge">provenance</code> record for one equilibrium slice. It matches that slice to <code class="language-plaintext highlighter-rouge">t</code>, and the
+<code class="language-plaintext highlighter-rouge">core_profiles</code> slice to the equilibrium, by time within 0.5 ms, never by index. $Z_{\rm eff}$ comes from the
+caller or from the stored profile, never from an assumption; without it the resistive orderings stay
+<code class="language-plaintext highlighter-rouge">UNASSESSED</code>. The plasma age needs the caller’s onset time. The kinetic EFIT chain passes
+<code class="language-plaintext highlighter-rouge">KineticEFITConfig.ordering_state</code> to every PLASMA-scale run’s <code class="language-plaintext highlighter-rouge">EFITConfig</code>.</p>
+
+<p><strong>Not yet wired.</strong> No production workflow passes <code class="language-plaintext highlighter-rouge">ordering_state</code> yet, so a routine EFIT or GPEC record lists
+the consumed contracts with every ordering <code class="language-plaintext highlighter-rouge">UNASSESSED</code> until its stage calls the builder (#1823).
 CGYRO’s two local quantities are in GACODE’s units: $\rho_s$ is deuterium-normalised in $B_{unit}$. That is an
 order-one difference from the local field, inside the order-unity thresholds.</p>
 
@@ -1239,7 +1245,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 22:56:33 +0000"
+        "time": "2026-10-11 23:17:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

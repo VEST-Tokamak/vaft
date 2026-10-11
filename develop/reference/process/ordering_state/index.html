@@ -384,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>17693cb</code>. What is described
+  <code>3016b26</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -415,7 +415,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.ordering_state</code>:
-<strong>7</strong> public functions. Each entry is what
+<strong>8</strong> public functions. Each entry is what
 <code>vaft.process.describe("ordering_state.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -479,7 +479,7 @@ a sign.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 7 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 8 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="contract_population"><td><a href="#contract_population"><code>contract_population</code></a></td><td>Evaluate one contract on the table its orderings live on.
@@ -488,6 +488,8 @@ a sign.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="ordering_coverage"><td><a href="#ordering_coverage"><code>ordering_coverage</code></a></td><td>The fraction of states (or profile points) with a finite value, per ordering quantity, by #1627 tier.
 </td></tr>
+  <tr data-ref-row="ordering_inputs_from_ods"><td><a href="#ordering_inputs_from_ods"><code>ordering_inputs_from_ods</code></a></td><td>The ordering quantities of one ODS state, by name, for an adapter’s advisory check (#1823).
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="ordering_margins"><td><a href="#ordering_margins"><code>ordering_margins</code></a></td><td>Median ordering margin and the fraction on the permitted side, per assessable ordering.
 </td></tr>
   <tr data-ref-row="ordering_table"><td><a href="#ordering_table"><code>ordering_table</code></a></td><td>The global and time-history ordering quantities of every state in a table.
@@ -507,11 +509,11 @@ a sign.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#contract_population"><code>contract_population</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="contract_population" href="https://github.com/VEST-Tokamak/vaft/blob/17693cbc75743eebdf15fa475a7df1c44606e3bd/vaft/process/ordering_state.py#L709-L754" title="vaft/process/ordering_state.py, lines 709–754 at 17693cb">source</a>
+<a class="ref-source" data-source="contract_population" href="https://github.com/VEST-Tokamak/vaft/blob/3016b260a20f6e64d128ae0c4f01d0fe8d87da5e/vaft/process/ordering_state.py#L720-L765" title="vaft/process/ordering_state.py, lines 720–765 at 3016b26">source</a>
 </header>
     <pre class="ref-signature"><code>contract_population(contract, states, points=None)</code></pre>
 
-    <details class="ref-code" data-source-code="contract_population"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 709–754</span></summary>
+    <details class="ref-code" data-source-code="contract_population"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 720–765</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">contract_population</span><span class="p">(</span><span class="n">contract</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">points</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Evaluate one contract on the table its orderings live on.
@@ -612,7 +614,7 @@ profiles is then absent from it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#global_ordering_quantities"><code>global_ordering_quantities</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="global_ordering_quantities" href="https://github.com/VEST-Tokamak/vaft/blob/17693cbc75743eebdf15fa475a7df1c44606e3bd/vaft/process/ordering_state.py#L132-L226" title="vaft/process/ordering_state.py, lines 132–226 at 17693cb">source</a>
+<a class="ref-source" data-source="global_ordering_quantities" href="https://github.com/VEST-Tokamak/vaft/blob/3016b260a20f6e64d128ae0c4f01d0fe8d87da5e/vaft/process/ordering_state.py#L135-L229" title="vaft/process/ordering_state.py, lines 135–229 at 3016b26">source</a>
 </header>
     <pre class="ref-signature"><code>global_ordering_quantities(*, minor_radius, major_radius, b0, n_e=None, t_e=None, z_eff=None, ln_lambda=None, ion_mass_amu=1.0, beta=None)</code></pre>
 
@@ -698,11 +700,11 @@ to edge, so <code class="language-plaintext highlighter-rouge">S</code> is an or
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ordering_coverage"><code>ordering_coverage</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="ordering_coverage" href="https://github.com/VEST-Tokamak/vaft/blob/17693cbc75743eebdf15fa475a7df1c44606e3bd/vaft/process/ordering_state.py#L587-L640" title="vaft/process/ordering_state.py, lines 587–640 at 17693cb">source</a>
+<a class="ref-source" data-source="ordering_coverage" href="https://github.com/VEST-Tokamak/vaft/blob/3016b260a20f6e64d128ae0c4f01d0fe8d87da5e/vaft/process/ordering_state.py#L598-L651" title="vaft/process/ordering_state.py, lines 598–651 at 3016b26">source</a>
 </header>
     <pre class="ref-signature"><code>ordering_coverage(states, points=None)</code></pre>
 
-    <details class="ref-code" data-source-code="ordering_coverage"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 587–640</span></summary>
+    <details class="ref-code" data-source-code="ordering_coverage"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 598–651</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ordering_coverage</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">points</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">The fraction of states (or profile points) with a finite value, per ordering quantity, by #1627 tier.
@@ -803,15 +805,140 @@ quantity is determined.</p>
 
   </section>
 
+  <section class="ref-entry" id="ordering_inputs_from_ods" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ordering_inputs_from_ods"><code>ordering_inputs_from_ods</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="ordering_inputs_from_ods" href="https://github.com/VEST-Tokamak/vaft/blob/3016b260a20f6e64d128ae0c4f01d0fe8d87da5e/vaft/process/ordering_state.py#L854-L1091" title="vaft/process/ordering_state.py, lines 854–1091 at 3016b26">source</a>
+</header>
+    <pre class="ref-signature"><code>ordering_inputs_from_ods(ods, time, *, time_tolerance=0.0005, z_eff=None, ln_lambda=None, ion_mass_amu=1.0, plasma_onset=None, use_ion_temperature=False)</code></pre>
+
+    <p>The ordering quantities of one ODS state, by name, for an adapter’s advisory check (#1823).</p>
+
+\[\left\{S,\ \frac{d_i}{a},\ \epsilon,\ \beta,\ \frac{\beta}{\epsilon},\
+  \frac{\tau_{evol}}{\tau_A},\ \frac{\tau_{age}}{\tau_R}\right\}
+  \ \text{per state},\qquad
+  \left\{\frac{\rho_s}{L_{T_e}},\ Kn_e,\ \Omega_{ce}\tau_e,\ \nu_{*e},\ \ldots\right\}
+  \ \text{per flux surface}\]
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>ods</code></td><td class="ref-type">omas.ODS</td><td class="ref-unit">-</td><td><p>Carries <code class="language-plaintext highlighter-rouge">equilibrium</code> and, optionally, <code class="language-plaintext highlighter-rouge">core_profiles</code>; read only, never modified.</p>
+</td></tr>
+  <tr><td><code>time</code></td><td class="ref-type">float</td><td class="ref-unit">s</td><td><p>State time; the equilibrium slice nearest to it is used.</p>
+</td></tr>
+  <tr><td><code>time_tolerance</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><table>
+  <tbody>
+    <tr>
+      <td>Largest accepted</td>
+      <td>t_equilibrium - time</td>
+      <td>and</td>
+      <td>t_core_profiles - t_equilibrium</td>
+      <td>.</td>
+    </tr>
+  </tbody>
+</table>
+</td></tr>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Effective charge for the resistivity and the electron collisions; when <code class="language-plaintext highlighter-rouge">None</code>, the area mean of <code class="language-plaintext highlighter-rouge">core_profiles</code> <code class="language-plaintext highlighter-rouge">zeff</code> if the matched slice carries it, otherwise the resistive quantities are NaN.</p>
+</td></tr>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Coulomb logarithm; <code class="language-plaintext highlighter-rouge">None</code> evaluates the NRL electron value at the mean <code class="language-plaintext highlighter-rouge">n_e</code> and <code class="language-plaintext highlighter-rouge">T_e</code>, a form valid above about 10 eV.</p>
+</td></tr>
+  <tr><td><code>ion_mass_amu</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion mass number.</p>
+</td></tr>
+  <tr><td><code>plasma_onset</code></td><td class="ref-type">float, optional</td><td class="ref-unit">s</td><td><p>Plasma onset time for the plasma age; without it <code class="language-plaintext highlighter-rouge">tau_age_over_tau_resistive</code> is NaN.</p>
+</td></tr>
+  <tr><td><code>use_ion_temperature</code></td><td class="ref-type">bool, optional</td><td class="ref-unit">-</td><td><p>Use <code class="language-plaintext highlighter-rouge">core_profiles</code> ion temperature for the ion quantities. Off by default: a stored <code class="language-plaintext highlighter-rouge">T_i</code> may be a ratio fill or a pressure partition, which this function cannot tell from a measurement.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">OrderingInputs</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">state</code> (global and time-history quantities by registry name), <code class="language-plaintext highlighter-rouge">points</code> (profile quantities per surface with a <code class="language-plaintext highlighter-rouge">rho_tor_norm</code> column, or <code class="language-plaintext highlighter-rouge">None</code>) and <code class="language-plaintext highlighter-rouge">provenance</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p><code class="language-plaintext highlighter-rouge">b0</code> is the vacuum field scaled to the geometric centre,
+<code class="language-plaintext highlighter-rouge">B0 = b0 r0 / R0</code>; the profile field is <code class="language-plaintext highlighter-rouge">B0 R0 / (R0 + r)</code> (vacuum,
+outboard midplane) and <code class="language-plaintext highlighter-rouge">r = rho_tor_norm a</code> (circular approximation).
+The global <code class="language-plaintext highlighter-rouge">n_e</code> and <code class="language-plaintext highlighter-rouge">T_e</code> are cross-section means
+<code class="language-plaintext highlighter-rouge">int f rho drho / int rho drho</code>. <code class="language-plaintext highlighter-rouge">beta</code> is IMAS <code class="language-plaintext highlighter-rouge">beta_tor</code>, a
+fraction. These are the conventions of the #1629 ordering atlas.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> The ODS has no equilibrium slice within <code class="language-plaintext highlighter-rouge">time_tolerance</code> of <code class="language-plaintext highlighter-rouge">time</code>, or the slice has no positive minor radius, major radius or vacuum field.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Defaults · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Match the equilibrium slice to <code class="language-plaintext highlighter-rouge">time</code> by its own <code class="language-plaintext highlighter-rouge">time</code> (the IDS
+<code class="language-plaintext highlighter-rouge">time</code> vector fills a slice without one), within the tolerance; never
+by index. The vacuum <code class="language-plaintext highlighter-rouge">b0</code> is matched on the IDS <code class="language-plaintext highlighter-rouge">time</code> vector.</li>
+        <li>Read <code class="language-plaintext highlighter-rouge">a</code> (<code class="language-plaintext highlighter-rouge">boundary.minor_radius</code>, else half the outline’s radial
+width), <code class="language-plaintext highlighter-rouge">R0</code> (<code class="language-plaintext highlighter-rouge">boundary.geometric_axis.r</code>, else the outline’s radial
+centre), the vacuum <code class="language-plaintext highlighter-rouge">b0</code> at that slice scaled to <code class="language-plaintext highlighter-rouge">R0</code>, <code class="language-plaintext highlighter-rouge">I_p</code>,
+<code class="language-plaintext highlighter-rouge">beta_tor</code> and the <code class="language-plaintext highlighter-rouge">q</code> profile.</li>
+        <li><code class="language-plaintext highlighter-rouge">dI_p/dt</code> from the equilibrium <code class="language-plaintext highlighter-rouge">I_p</code> history,
+<code class="language-plaintext highlighter-rouge">numpy.gradient(I_p, t)</code> at the slice.</li>
+        <li>Match the <code class="language-plaintext highlighter-rouge">core_profiles</code> slice to the equilibrium time within the
+tolerance; area-mean <code class="language-plaintext highlighter-rouge">n_e</code> and <code class="language-plaintext highlighter-rouge">T_e</code> for the global quantities.</li>
+        <li><code class="language-plaintext highlighter-rouge">global_ordering_quantities</code> and
+<code class="language-plaintext highlighter-rouge">time_history_ordering_quantities</code> give <code class="language-plaintext highlighter-rouge">state</code>;
+<code class="language-plaintext highlighter-rouge">profile_ordering_quantities</code> on <code class="language-plaintext highlighter-rouge">r = rho_tor_norm a</code> gives
+<code class="language-plaintext highlighter-rouge">points</code>.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Defaults</h4>
+
+      <p><code class="language-plaintext highlighter-rouge">time_tolerance</code> = 0.5 ms is a validated-workflow default, the pairing
+tolerance of <code class="language-plaintext highlighter-rouge">vaft.process.transport_state</code>. <code class="language-plaintext highlighter-rouge">use_ion_temperature</code>
+= False is a conventional choice: no ion temperature is assumed.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>Mode and layer quantities (<code class="language-plaintext highlighter-rouge">k_perp_rho_i</code>, <code class="language-plaintext highlighter-rouge">ion_skin_depth_over_layer</code>,
+…) need mode numbers or a layer width the ODS does not carry; the caller
+adds them to <code class="language-plaintext highlighter-rouge">state</code>. The circular <code class="language-plaintext highlighter-rouge">r</code> overstates <code class="language-plaintext highlighter-rouge">r</code> in an elongated
+plasma by up to <code class="language-plaintext highlighter-rouge">sqrt(kappa)</code>, which shortens <code class="language-plaintext highlighter-rouge">L_T</code> in metres by the
+same factor.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1823 (advisory ordering check in adapter run provenance) and its follow-up proposal: one builder from a stage’s ODS to the <code class="language-plaintext highlighter-rouge">ordering_state</code> mapping, matched by time.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="ordering_margins" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ordering_margins"><code>ordering_margins</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="ordering_margins" href="https://github.com/VEST-Tokamak/vaft/blob/17693cbc75743eebdf15fa475a7df1c44606e3bd/vaft/process/ordering_state.py#L643-L706" title="vaft/process/ordering_state.py, lines 643–706 at 17693cb">source</a>
+<a class="ref-source" data-source="ordering_margins" href="https://github.com/VEST-Tokamak/vaft/blob/3016b260a20f6e64d128ae0c4f01d0fe8d87da5e/vaft/process/ordering_state.py#L654-L717" title="vaft/process/ordering_state.py, lines 654–717 at 3016b26">source</a>
 </header>
     <pre class="ref-signature"><code>ordering_margins(contracts, states, points=None)</code></pre>
 
-    <details class="ref-code" data-source-code="ordering_margins"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 643–706</span></summary>
+    <details class="ref-code" data-source-code="ordering_margins"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 654–717</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ordering_margins</span><span class="p">(</span><span class="n">contracts</span><span class="p">,</span> <span class="n">states</span><span class="p">,</span> <span class="n">points</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">Median ordering margin and the fraction on the permitted side, per assessable ordering.
@@ -932,11 +1059,11 @@ state, never repeated per profile point) and any other from <code class="languag
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#ordering_table"><code>ordering_table</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="ordering_table" href="https://github.com/VEST-Tokamak/vaft/blob/17693cbc75743eebdf15fa475a7df1c44606e3bd/vaft/process/ordering_state.py#L514-L574" title="vaft/process/ordering_state.py, lines 514–574 at 17693cb">source</a>
+<a class="ref-source" data-source="ordering_table" href="https://github.com/VEST-Tokamak/vaft/blob/3016b260a20f6e64d128ae0c4f01d0fe8d87da5e/vaft/process/ordering_state.py#L525-L585" title="vaft/process/ordering_state.py, lines 525–585 at 3016b26">source</a>
 </header>
     <pre class="ref-signature"><code>ordering_table(states, *, columns=None, ion_mass_amu=1.0)</code></pre>
 
-    <details class="ref-code" data-source-code="ordering_table"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 514–574</span></summary>
+    <details class="ref-code" data-source-code="ordering_table"><summary>Show source <span class="ref-note">vaft/process/ordering_state.py, lines 525–585</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">ordering_table</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">columns</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="bp">None</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span> <span class="n">ion_mass_amu</span><span class="o">=</span><span class="mf">1.0</span><span class="p">):</span>
     <span class="sa">r</span><span class="sh">"""</span><span class="s">The global and time-history ordering quantities of every state in a table.
@@ -1059,7 +1186,7 @@ state, never repeated per profile point) and any other from <code class="languag
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#profile_ordering_quantities"><code>profile_ordering_quantities</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="profile_ordering_quantities" href="https://github.com/VEST-Tokamak/vaft/blob/17693cbc75743eebdf15fa475a7df1c44606e3bd/vaft/process/ordering_state.py#L342-L511" title="vaft/process/ordering_state.py, lines 342–511 at 17693cb">source</a>
+<a class="ref-source" data-source="profile_ordering_quantities" href="https://github.com/VEST-Tokamak/vaft/blob/3016b260a20f6e64d128ae0c4f01d0fe8d87da5e/vaft/process/ordering_state.py#L345-L522" title="vaft/process/ordering_state.py, lines 345–522 at 3016b26">source</a>
 </header>
     <pre class="ref-signature"><code>profile_ordering_quantities(*, minor_radius_coordinate, n_e, t_e, magnetic_field, safety_factor, major_radius, z_eff, ln_lambda, ion_mass_amu=1.0, t_i=None)</code></pre>
 
@@ -1083,9 +1210,9 @@ state, never repeated per profile point) and any other from <code class="languag
 </td></tr>
   <tr><td><code>major_radius</code></td><td class="ref-type">float</td><td class="ref-unit">m</td><td><p>Major radius for the connection length <code class="language-plaintext highlighter-rouge">qR</code> and <code class="language-plaintext highlighter-rouge">epsilon = r/R</code>.</p>
 </td></tr>
-  <tr><td><code>z_eff</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Effective charge for the electron collisions.</p>
+  <tr><td><code>z_eff</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Effective charge for the electron collisions; NaN leaves the electron collisional quantities NaN and the gyroradius and Debye ones intact.</p>
 </td></tr>
-  <tr><td><code>ln_lambda</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Coulomb logarithm.</p>
+  <tr><td><code>ln_lambda</code></td><td class="ref-type">float</td><td class="ref-unit">-</td><td><p>Coulomb logarithm; NaN leaves every collisional quantity NaN.</p>
 </td></tr>
   <tr><td><code>ion_mass_amu</code></td><td class="ref-type">float, optional</td><td class="ref-unit">-</td><td><p>Main-ion mass number.</p>
 </td></tr>
@@ -1161,7 +1288,7 @@ Sauter’s own ion value – a 10-20 % effect on the ion quantities.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#time_history_ordering_quantities"><code>time_history_ordering_quantities</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="time_history_ordering_quantities" href="https://github.com/VEST-Tokamak/vaft/blob/17693cbc75743eebdf15fa475a7df1c44606e3bd/vaft/process/ordering_state.py#L229-L316" title="vaft/process/ordering_state.py, lines 229–316 at 17693cb">source</a>
+<a class="ref-source" data-source="time_history_ordering_quantities" href="https://github.com/VEST-Tokamak/vaft/blob/3016b260a20f6e64d128ae0c4f01d0fe8d87da5e/vaft/process/ordering_state.py#L232-L319" title="vaft/process/ordering_state.py, lines 232–319 at 3016b26">source</a>
 </header>
     <pre class="ref-signature"><code>time_history_ordering_quantities(*, minor_radius, b0, n_e=None, t_e=None, z_eff=None, ln_lambda=None, ion_mass_amu=1.0, plasma_current=None, current_rate=None, plasma_age=None)</code></pre>
 
@@ -1463,7 +1590,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 22:56:33 +0000"
+        "time": "2026-10-11 23:17:20 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
