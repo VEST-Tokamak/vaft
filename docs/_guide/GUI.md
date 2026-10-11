@@ -300,7 +300,9 @@ the host needs the maintainer's approval of the concrete configuration first.
    - put the account in `/etc/vaft-gui-test.env` (mode 0600);
    - install and start the unit.
 
-   It listens on 127.0.0.1:5016 only.
+   It listens on 127.0.0.1:5016 only. Local accounts on the host can still reach that port
+   without passing through Nginx's allow list or rate limit, as with production's 5006. Sign-in
+   still applies there.
 3. **First check, through an SSH tunnel** (no Nginx change):
    `ssh -L 5016:127.0.0.1:5016 <host>`, then
    `VAFT_SMOKE_USERNAME=... VAFT_SMOKE_PASSWORD=... python -m vaft.deploy.gui.smoke http://localhost:5016/gui-test/`.
@@ -311,10 +313,17 @@ the host needs the maintainer's approval of the concrete configuration first.
    - the websocket upgrades.
 
    The password comes from the environment and is never printed.
-4. **Restricted route.** Include `nginx-vaft-gui-test-locations.conf` in the existing 443 server,
-   and fill in its `allow` lines with the approved internal ranges (`deny all` stays last). Run
-   `nginx -t`, reload, and repeat the smoke check against `https://<host>/gui-test/`
-   (`--insecure` for a self-signed certificate).
+4. **Restricted route.**
+   - Install `nginx-vaft-gui-test-http.conf` as `/etc/nginx/conf.d/vaft-gui-test.conf`. It gives
+     the test instance its own login rate limit, so test sign-ins never use up production's.
+   - Include `nginx-vaft-gui-test-locations.conf` in the 443 server of the hosted GUI's live
+     site, next to its `/gui/` locations.
+   - Fill in the `allow` lines with the approved internal ranges; `deny all` stays last.
+   - Run `nginx -t`, reload, and repeat the smoke check against `https://<host>/gui-test/` **from
+     an allowed address**. From anywhere else the check reports "blocked with 403", which is the
+     restriction working, not a sign-in result.
+   - `--insecure` turns certificate checks off entirely. Use it only for the self-signed or
+     IP-only certificate of the test host.
 5. **Record the evidence:**
    - the tested commit, install method and redacted host/proxy settings;
    - each smoke result and a failed-sign-in result;
@@ -324,7 +333,7 @@ the host needs the maintainer's approval of the concrete configuration first.
 6. **Rollback.**
    - `systemctl disable --now vaft-gui-test`, then remove the unit, venv, environment file and
      user.
-   - Remove the `include` line, run `nginx -t` and reload.
+   - Remove the `include` line and the `conf.d` file, run `nginx -t` and reload.
    - Remove the HSDS login through the account procedure: drop its ACL rows first, then the
      login, then restart.
 

@@ -4,8 +4,12 @@ Run against a deployed instance -- through its nginx route, or an SSH tunnel to
 its port -- after an install, an upgrade or a rollback.  Each check prints one
 line, PASS or FAIL with the reason; the exit status is the number of failures.
 
-* ``login-required`` -- the page is not served without signing in;
-* ``bad-login-refused`` -- a wrong password does not sign in;
+* ``login-required`` -- without signing in, the page redirects to this
+  instance's own ``login`` (an nginx ``deny`` 403 or a redirect elsewhere is
+  a FAIL: it says nothing about the GUI's sign-in);
+* ``login-page`` -- that login page is served, with a password field;
+* ``bad-login-refused`` -- after a wrong password the page still redirects
+  to the login;
 * ``login`` -- the account in ``VAFT_SMOKE_USERNAME`` / ``VAFT_SMOKE_PASSWORD``
   signs in and the page is served;
 * ``websocket`` -- the page's websocket upgrades (HTTP 101) with that sign-in,
@@ -13,7 +17,8 @@ line, PASS or FAIL with the reason; the exit status is the number of failures.
 
 The password is read from the environment and never printed or logged, nor
 put on the command line.  Without credentials only the first two checks run.
-``--insecure`` accepts a self-signed certificate (the test instance's).
+``--insecure`` turns certificate verification off altogether -- only for a
+test instance behind a self-signed or IP-only certificate.
 """
 
 from __future__ import annotations
@@ -48,11 +53,32 @@ def _opener(context: ssl.SSLContext | None, jar: http.cookiejar.CookieJar, *, fo
 
 def _status(opener: urllib.request.OpenerDirector, url: str, data: bytes | None = None) -> tuple[int, str]:
     """``(status, Location header)`` of one request, redirects not followed."""
+    status, location, _ = _fetch(opener, url, data)
+    return status, location
+
+
+def _fetch(opener: urllib.request.OpenerDirector, url: str, data: bytes | None = None) -> tuple[int, str, str]:
+    """``(status, Location header, body text)`` of one request, redirects not followed."""
     try:
         with opener.open(urllib.request.Request(url, data=data), timeout=30) as response:
-            return response.status, response.headers.get("Location", "")
+            return response.status, response.headers.get("Location", ""), response.read(200_000).decode("utf-8", "replace")
     except urllib.error.HTTPError as error:
-        return error.code, error.headers.get("Location", "")
+        return error.code, error.headers.get("Location", ""), ""
+
+
+def _to_login(base: str, status: int, location: str) -> bool:
+    """Whether a response is a redirect to this instance's own login page."""
+    if status not in (301, 302, 303, 307, 308) or not location:
+        return False
+    target = urllib.parse.urlsplit(urllib.parse.urljoin(base, location))
+    login = urllib.parse.urlsplit(urllib.parse.urljoin(base, "login"))
+    return (target.netloc, target.path) == (login.netloc, login.path)
+
+
+def _gate_detail(base: str, status: int, location: str) -> str:
+    if status == 403:
+        return "blocked with 403 before the GUI (nginx deny? run from an allowed address)"
+    return f"GET without sign-in -> {status} {location}".strip()
 
 
 def _login(opener, base: str, username: str, password: str) -> tuple[int, str]:
@@ -97,29 +123,45 @@ def run_checks(
         status, location = _status(anonymous, base)
     except (OSError, urllib.error.URLError) as error:
         return [("reachable", False, f"{base}: {error}")]
-    gated = status in (301, 302, 303, 307, 401, 403) and (status != 302 or "login" in location)
-    results.append(("login-required", gated, f"GET without sign-in -> {status} {location}".strip()))
+    results.append(("login-required", _to_login(base, status, location), _gate_detail(base, status, location)))
+    if status == 403:
+        return results  # nothing behind the deny can be judged from here
 
-    jar = http.cookiejar.CookieJar()
-    wrong = _opener(context, jar, follow=False)
-    status, location = _login(wrong, base, username or "vaft-smoke", secrets.token_urlsafe(18))
-    page_status, _ = _status(wrong, base)
-    refused = page_status != 200
-    results.append(("bad-login-refused", refused, f"wrong password -> login {status}, page {page_status}"))
+    def check(name: str, run) -> None:
+        try:
+            passed, detail = run()
+        except (OSError, urllib.error.URLError) as error:  # one failed request, not a crash
+            passed, detail = False, f"request failed: {error}"
+        results.append((name, passed, detail))
+
+    def login_page():
+        status, _, body = _fetch(anonymous, urllib.parse.urljoin(base, "login"))
+        has_form = "<form" in body and 'name="password"' in body
+        return status == 200 and has_form, f"GET login -> {status}" + ("" if has_form else ", no password form")
+
+    def bad_login():
+        wrong = _opener(context, http.cookiejar.CookieJar(), follow=False)
+        login_status, _ = _login(wrong, base, username or "vaft-smoke", secrets.token_urlsafe(18))
+        page_status, page_location = _status(wrong, base)
+        return _to_login(base, page_status, page_location), f"wrong password -> login {login_status}, page {page_status}"
+
+    check("login-page", login_page)
+    check("bad-login-refused", bad_login)
 
     if username and password:
         jar = http.cookiejar.CookieJar()
         signed = _opener(context, jar, follow=False)
-        status, location = _login(signed, base, username, password)
-        page_status, _ = _status(signed, base)
-        results.append(("login", page_status == 200, f"sign-in as {username} -> login {status}, page {page_status}"))
-        if page_status == 200:
-            try:
-                upgrade = _websocket_upgrade(base, jar, context)
-            except OSError as error:
-                results.append(("websocket", False, f"upgrade failed: {error}"))
-            else:
-                results.append(("websocket", upgrade == 101, f"upgrade -> {upgrade}"))
+        state: dict[str, int] = {}
+
+        def good_login():
+            login_status, _ = _login(signed, base, username, password)
+            state["page"], _ = _status(signed, base)
+            return state["page"] == 200, f"sign-in as {username} -> login {login_status}, page {state['page']}"
+
+        check("login", good_login)
+        if state.get("page") == 200:
+            check("websocket", lambda: (lambda code: (code == 101, f"upgrade -> {code}"))(
+                _websocket_upgrade(base, jar, context)))
     return results
 
 
