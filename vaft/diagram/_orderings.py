@@ -162,40 +162,6 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
 # which model assumes which ordering
 # ---------------------------------------------------------------------------
 
-#: row symbols for the ordering quantities of vaft.validation.orderings
-_SYMBOLS = {
-    "debye_length_over_L": "$\\lambda_D/L$",
-    "omega_over_ion_gyrofrequency": "$\\omega/\\Omega_{ci}$",
-    "lundquist_number": "$S$",
-    "ion_skin_depth_over_a": "$d_i/a$",
-    "inverse_aspect_ratio": "$\\epsilon = a/R_0$",
-    "beta": "$\\beta$",
-    "beta_over_inverse_aspect_ratio": "$\\beta/\\epsilon$",
-    "rho_i_over_LTi": "$\\rho_i/L_{T_i}$",
-    "rho_s_over_LTe": "$\\rho_s/L_{T_e}$",
-    "electron_parallel_knudsen_number": "$\\lambda_e/qR$",
-    "ion_parallel_knudsen_number": "$\\lambda_i/qR$",
-    "electron_magnetization": "$\\Omega_{ce}\\tau_e$",
-    "ion_magnetization": "$\\Omega_{ci}\\tau_i$",
-    "electron_collisionality": "$\\nu_{*e}$",
-    "ion_collisionality": "$\\nu_{*i}$",
-    "ion_orbit_width_over_L": "$\\Delta_{b,i}/L_p$",
-    "sonic_mach_number": "$M = U/v_{ti}$",
-    "alfven_mach_number": "$M_A = U/v_A$",
-    "pressure_anisotropy": "$|p_\\perp - p_\\parallel|/p$",
-    "k_perp_rho_i": "$k_\\perp\\rho_i$",
-    "k_ion_skin_depth": "$k\\,d_i$",
-    "k_electron_skin_depth": "$k\\,d_e$",
-    "omega_tau_i": "$\\omega\\tau_i$",
-    "k_par_over_k_perp": "$k_\\parallel/k_\\perp$",
-    "fluctuation_amplitude": "$\\delta n/n$",
-    "ion_skin_depth_over_layer": "$d_i/\\delta$",
-    "electron_skin_depth_over_layer": "$d_e/\\delta$",
-    "rho_s_over_layer": "$\\rho_s/\\delta$",
-    "tau_evolution_over_tau_alfven": "$\\tau_{evol}/\\tau_A$",
-    "tau_age_over_tau_resistive": "$\\tau_{age}/\\tau_R$",
-    "tau_transport_over_tau_turbulence": "$\\tau_{transp}/\\tau_{turb}$",
-}
 
 _GROUP_TITLES = {
     "foundational": "foundational",
@@ -249,7 +215,7 @@ def ordering_contract_map(*, labels: bool = True) -> Diagram:
     MHD. Every threshold is order unity, and evaluating a state gives a
     continuous margin per cell ($\mp\log_{10}x$), not one valid/invalid flag.
     """
-    from vaft.validation.orderings import CONTRACTS, GROUPS, ORDERING_QUANTITIES
+    from vaft.validation.orderings import CONTRACTS, GROUPS, ORDERING_QUANTITIES, SYMBOLS as _SYMBOLS
 
     labels = _check_labels(labels)
     columns = [name for _, names in _FAMILIES for name in names]
