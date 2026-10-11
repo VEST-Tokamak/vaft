@@ -1,0 +1,1641 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Characteristic scales and orderings · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/ntv_coil_response/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Characteristic scales and orderings</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>803c3d0</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Characteristic_scales_and_orderings">Characteristic scales and orderings</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>The conceptual bridge from a plasma state to its characteristic frequencies, times and lengths, from ratios of those scales to asymptotic orderings, and from orderings to reduced models, applicability and resolvability - with the VAFT function that computes each scale today.</dd>
+    <dt>Prerequisites / inputs</dt><dd>None. The Asymptotic orderings and Plasma models pages go deeper on the orderings and on the models.</dd>
+    <dt>Expected result</dt><dd>Which kind of quantity a number is (scale, ordering, regime, similarity coordinate, applicability verdict or resolution), which comparison scale an ordering must name, and where each one is computed.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p>This page answers one question: <strong>how does a plasma state become a statement about which model may describe it?</strong>
+VAFT spreads the answer over several layers. This page names the steps and the vocabulary that keeps them apart
+(issue #1724), and links to where each step is implemented.</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>physical plasma state                    n, T, B, q, a, R, I_p(t), ...
+        ↓
+dimensional characteristic scales        Ω_ci, ρ_i, d_i, λ_mfp, L_T, τ_A, τ_R, ...
+        ↓
+ratios of scales                         ρ_i/L_T, d_i/a, λ_e/qR, τ_evol/τ_A, ...
+        ↓
+asymptotic orderings                     ρ_i/L_T ≪ 1, S ≫ 1, ...
+        ↓
+reduced physical models                  ideal MHD, drift kinetics, gyrokinetics, ...
+        ↓
+state-specific applicability             SUPPORTED / OUTSIDE / UNASSESSED / NOT_APPLICABLE
+        ↓
+diagnostic / numerical resolvability     is the structure resolved at all?
+</code></pre></div></div>
+
+<p>Each arrow is a separate step, and none of them is implied by the one before.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>step</th>
+      <th>owned by</th>
+      <th>page</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>scales</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula</code> (domain modules; a canonical scale layer is planned in #1064)</td>
+      <td>this page, <a href="/vaft/develop/reference/formula/">Formula reference</a></td>
+    </tr>
+    <tr>
+      <td>ratios and orderings</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.formula.ordering</code>, <code class="language-plaintext highlighter-rouge">vaft.validation.orderings</code> (#1627)</td>
+      <td><a href="/vaft/develop/reference/asymptotic-orderings/">Asymptotic orderings</a></td>
+    </tr>
+    <tr>
+      <td>models</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.code.formalism</code>, <code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts</code> (#1727, #1823)</td>
+      <td><a href="/vaft/develop/reference/plasma-models/">Plasma models</a></td>
+    </tr>
+    <tr>
+      <td>applicability</td>
+      <td><code class="language-plaintext highlighter-rouge">vaft.validation.applicability</code>, <code class="language-plaintext highlighter-rouge">vaft.process.ordering_state</code> (#1639, #1628, #1627 §2)</td>
+      <td><a href="/vaft/develop/reference/credibility-applicability/">Credibility and applicability</a></td>
+    </tr>
+    <tr>
+      <td>resolvability</td>
+      <td>not implemented</td>
+      <td><a href="#physical-scales-are-not-resolution">below</a></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="four-different-kinds-of-statement">Four different kinds of statement</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>kind</th>
+      <th>what it is</th>
+      <th>example</th>
+      <th>what it does <strong>not</strong> say</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>characteristic scale</strong></td>
+      <td>a dimensional quantity of the state</td>
+      <td>$\rho_i$, $d_i$, $\lambda_{\rm mfp}$, $L_T$, $\tau_A$, $\tau_R$, $\Omega_{ci}$</td>
+      <td>anything about an approximation</td>
+    </tr>
+    <tr>
+      <td><strong>ordering parameter</strong></td>
+      <td>a dimensionless ratio of two named scales</td>
+      <td>$\rho_i/L_T$, $d_i/a$, $\lambda_e/qR$, $\omega/\Omega_{ci}$, $\tau_A/\tau_R$</td>
+      <td>which model is valid</td>
+    </tr>
+    <tr>
+      <td><strong>physical regime</strong></td>
+      <td>a qualitative name for where one or more orderings sit</td>
+      <td>banana / plateau / Pfirsch–Schlüter; ideal / resistive; strongly / weakly magnetized</td>
+      <td>an exact boundary, unless a theory defines one</td>
+    </tr>
+    <tr>
+      <td><strong>model applicability</strong></td>
+      <td>whether the assumptions of one formula, approximation or solver are supported by one state</td>
+      <td><code class="language-plaintext highlighter-rouge">evaluate_contract(contract("ideal_single_fluid_mhd"), state)</code></td>
+      <td>that the model’s <em>output</em> is correct</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>A characteristic scale on its own establishes nothing. $\rho_i = 3$ mm is neither small nor large until it
+is divided by something, and the answer changes with the divisor (<a href="#name-the-comparison-scale">§ Name the comparison scale</a>).
+A regime name is a reading of orderings. The banana regime is $\nu_* \ll 1$, and the plateau regime has no
+ordering of its own (Asymptotic orderings, “Ordering contracts”). The neoclassical and NTV regime diagrams
+of #1111 (<code class="language-plaintext highlighter-rouge">ntv_precession_regimes</code> and the collisionality-regime figures in
+<a href="/vaft/develop/reference/diagrams/">Scientific diagrams</a>) draw regimes the same way: as readings of
+ratios, with boundaries only where the theory gives one [7]. Applicability is a verdict on a state and
+belongs to the validation layer. It is never a property of the ordering’s definition.</p>
+
+<h2 id="what-exists-today">What exists today</h2>
+
+<p>The page distinguishes three states, and says which applies everywhere it names an interface:</p>
+
+<ul>
+  <li><strong>implemented on develop.</strong> A function name in <code class="language-plaintext highlighter-rouge">code</code> is importable from <code class="language-plaintext highlighter-rouge">develop</code>.</li>
+  <li><strong>planned under an open issue.</strong> Named with its issue; no interface is promised.</li>
+  <li><strong>open PR only.</strong> None at the time of writing. Interfaces in open PRs are not documented here as stable.</li>
+</ul>
+
+<p>The main gap is <strong>#1064 (open)</strong>: a canonical scale layer (<code class="language-plaintext highlighter-rouge">vaft.formula.scales</code>) does not exist yet. Today
+each scale lives in the domain module that first needed it, listed below. When #1064 lands, the tables
+below should point at it and the domain functions stay as convention-bearing variants.</p>
+
+<h2 id="scale-taxonomy-by-physical-role">Scale taxonomy, by physical role</h2>
+
+<p>Scales are grouped by what they mean physically, not by the module that computes them. All functions are in
+<code class="language-plaintext highlighter-rouge">vaft.formula</code> unless the path says otherwise. Units are SI, temperatures in eV.</p>
+
+<h3 id="frequencies-and-rates">Frequencies and rates</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>scale</th>
+      <th>meaning</th>
+      <th>VAFT function</th>
+      <th>returns</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\omega_{ps}$</td>
+      <td>plasma frequency of species $s$ [1]</td>
+      <td><code class="language-plaintext highlighter-rouge">waves.plasma_frequency(n, q, m)</code></td>
+      <td>rad/s</td>
+    </tr>
+    <tr>
+      <td>$\Omega_{cs}$</td>
+      <td>gyrofrequency, signed with the charge</td>
+      <td><code class="language-plaintext highlighter-rouge">particle.gyrofrequency(q, m, B)</code></td>
+      <td>rad/s</td>
+    </tr>
+    <tr>
+      <td>$\tau_e$, $\tau_i$</td>
+      <td>Braginskii collision times [2]</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.braginskii_electron_collision_time</code>, <code class="language-plaintext highlighter-rouge">ordering.braginskii_ion_collision_time</code></td>
+      <td>s</td>
+    </tr>
+    <tr>
+      <td>$\tau_e$, $\tau_i$ (several ion species)</td>
+      <td>Braginskii, multi-species</td>
+      <td><code class="language-plaintext highlighter-rouge">kinetic.electron_collision_time_from_T_e_n_species</code>, <code class="language-plaintext highlighter-rouge">kinetic.ion_collision_time_from_T_i_n_species</code></td>
+      <td>s</td>
+    </tr>
+    <tr>
+      <td>$\omega_t$</td>
+      <td>transit frequency $v/qR_0$</td>
+      <td><code class="language-plaintext highlighter-rouge">neoclassical.transit_frequency(v, q, R0)</code></td>
+      <td>rad/s</td>
+    </tr>
+    <tr>
+      <td>$\omega_b$</td>
+      <td>deeply trapped bounce frequency</td>
+      <td><code class="language-plaintext highlighter-rouge">neoclassical.deeply_trapped_bounce_frequency(v_perp, q, R0, epsilon)</code></td>
+      <td>rad/s</td>
+    </tr>
+    <tr>
+      <td>$\nu_{\rm eff}$</td>
+      <td>effective trapped-particle collision frequency $\nu/\epsilon$</td>
+      <td><code class="language-plaintext highlighter-rouge">neoclassical.trapped_particle_effective_collision_frequency</code></td>
+      <td>1/s</td>
+    </tr>
+    <tr>
+      <td>$\omega_A$</td>
+      <td>shear-Alfvén frequency $k_\parallel v_A$</td>
+      <td><code class="language-plaintext highlighter-rouge">stability.shear_alfven_frequency(k_parallel, v_A)</code></td>
+      <td>rad/s</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Not implemented:</strong></p>
+<ul>
+  <li>a direct NRL $\nu_{ei}$ or $\nu_{ee}$ frequency function. Use the inverse of a collision time, and say so.</li>
+  <li>magnetic-drift precession $\omega_D$ and $E\times B$ precession $\omega_E$ as <em>computed</em> quantities. They are
+inputs [rad/s] to <code class="language-plaintext highlighter-rouge">ntv.ntv_precession_frequency</code> and <code class="language-plaintext highlighter-rouge">particle.bounce_harmonic_detuning</code>. The drift
+<em>velocities</em> (<code class="language-plaintext highlighter-rouge">particle.exb_drift_velocity</code>, <code class="language-plaintext highlighter-rouge">grad_b_drift_velocity</code>, <code class="language-plaintext highlighter-rouge">curvature_drift_velocity</code>) are
+velocities, not frequencies. <code class="language-plaintext highlighter-rouge">vaft.code.transp.profiles.exb_frequency</code> reads $\omega_E$ from TRANSP output.</li>
+</ul>
+
+<p><strong>Angular frequency, ordinary frequency and inverse time are different quantities.</strong></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>quantity</th>
+      <th>unit</th>
+      <th>relation</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>angular frequency $\omega$</td>
+      <td>rad/s</td>
+      <td>$\omega = 2\pi f$</td>
+    </tr>
+    <tr>
+      <td>ordinary frequency $f$</td>
+      <td>Hz</td>
+      <td>what a spectrum or a DAQ rate is quoted in</td>
+    </tr>
+    <tr>
+      <td>inverse time $1/\tau$</td>
+      <td>1/s</td>
+      <td>a rate; carries no phase</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Every angular-frequency function above returns rad/s; the collision times are in s and $\nu_{\rm eff}$ in 1/s. At $B = 0.1$ T, $\Omega_{ce} \approx 1.76\times10^{10}$ rad/s
+is $f_{ce} \approx 2.8$ GHz. Comparing $\Omega_{ce}$ with a 2.8 GHz bandwidth without the $2\pi$ is an
+error of 6.3. A period is $2\pi/\omega$, not $1/\omega$: $1/\Omega$ is the time to turn one radian, and that
+is what <code class="language-plaintext highlighter-rouge">timescale_hierarchy</code> plots as the gyration time.</p>
+
+<h3 id="speeds">Speeds</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>scale</th>
+      <th>VAFT function</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>thermal speed $v_t = \sqrt{T/m}$ (NRL convention, no factor 2)</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.thermal_speed(T, m)</code></td>
+    </tr>
+    <tr>
+      <td>ion sound speed $c_s$</td>
+      <td><code class="language-plaintext highlighter-rouge">sol.ion_sound_speed(T_e, T_i, m_i, Z, gamma_i)</code></td>
+    </tr>
+    <tr>
+      <td>Alfvén speed $v_A$</td>
+      <td><code class="language-plaintext highlighter-rouge">stability.v_alfven_from_B_n_mi(B, n, m_i)</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="microscopic-lengths">Microscopic lengths</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>scale</th>
+      <th>physical meaning</th>
+      <th>VAFT function</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\lambda_D$</td>
+      <td>Debye screening</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.debye_length(n_e, T_e)</code> (electron)</td>
+    </tr>
+    <tr>
+      <td>$\rho_e$, $\rho_i$</td>
+      <td>gyro-orbit, finite-Larmor-radius scale</td>
+      <td><code class="language-plaintext highlighter-rouge">particle.larmor_radius(q, m, v_perp, B)</code></td>
+    </tr>
+    <tr>
+      <td>$\rho_s$</td>
+      <td>sound gyroradius, the drift-wave scale</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.sound_gyroradius(T_e, m_i, B, Z)</code></td>
+    </tr>
+    <tr>
+      <td>$d_e$</td>
+      <td>electron inertia scale</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.inertial_length(n, m, q)</code> with the electron mass</td>
+    </tr>
+    <tr>
+      <td>$d_i$</td>
+      <td>ion inertia, Hall scale</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.inertial_length(n, m, q)</code> with the ion mass</td>
+    </tr>
+    <tr>
+      <td>$\lambda_{\rm mfp}$</td>
+      <td>mean free path $v_t\tau$</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.mean_free_path(v_t, tau)</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These are not universally ordered by magnitude. With $v_t=\sqrt{T/m}$, $d_i/\rho_i = \sqrt{2/\beta_i}$: in a
+low-$\beta$ tokamak $d_i$ exceeds $\rho_i$, by a factor that depends on the state, and the two meet only at
+$\beta_i\sim1$. $d_e/\rho_e$ is $\sqrt{2/\beta_e}$ in the same way. $\lambda_D$ is the smallest in a fusion
+plasma, but not by a fixed factor.</p>
+
+<h3 id="orbit-and-parallel-motion-scales">Orbit and parallel-motion scales</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>scale</th>
+      <th>VAFT function</th>
+      <th>assumption</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>banana width $\Delta_b \approx q\rho/\sqrt\epsilon$ [6, 7]</td>
+      <td><code class="language-plaintext highlighter-rouge">neoclassical.banana_width(rho, q, epsilon)</code></td>
+      <td>large aspect ratio, deeply trapped</td>
+    </tr>
+    <tr>
+      <td>transit and bounce frequency</td>
+      <td>above</td>
+      <td>circular large-aspect-ratio flux surfaces</td>
+    </tr>
+    <tr>
+      <td>connection length $qR$</td>
+      <td>no analytic function; field-line maps in <code class="language-plaintext highlighter-rouge">vaft.process.equilibrium.connection_length_map</code> and <code class="language-plaintext highlighter-rouge">vaft.process.field_line_topology.connection_length_weight</code></td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The analytic orbit scales carry the large-aspect-ratio ordering $\epsilon \ll 1$. In VEST $\epsilon \approx 0.7$
+(the #1629 atlas median), so they are order-of-magnitude estimates there, not results.</p>
+
+<h3 id="fluctuation-and-layer-lengths">Fluctuation and layer lengths</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>scale</th>
+      <th>meaning</th>
+      <th>where it comes from</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$1/k_\perp$, $1/k_\parallel$</td>
+      <td>perpendicular and parallel wavelength of a perturbation</td>
+      <td>the caller: mode numbers, a $k_y$ grid, a measured spectrum</td>
+    </tr>
+    <tr>
+      <td>$\delta_{\rm layer}$</td>
+      <td>width of a resonant (tearing, resistive) layer</td>
+      <td>the caller, or a scaling estimate such as $a S^{-2/5}$ [4]</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Neither is a property of the equilibrium state alone, so VAFT has no function that returns them. The
+mode-scope and layer-scope ordering quantities take them as inputs and are <code class="language-plaintext highlighter-rouge">UNASSESSED</code> without them.</p>
+
+<h3 id="profile-and-equilibrium-scales">Profile and equilibrium scales</h3>
+
+\[L_n=-\left(\frac{d\ln n}{dr}\right)^{-1},\qquad L_T=-\left(\frac{d\ln T}{dr}\right)^{-1},\qquad
+L_p=-\left(\frac{d\ln p}{dr}\right)^{-1}.\]
+
+<p>These need three choices before they are numbers, and VAFT keeps them apart (#551 and #563, closed):</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>concept</th>
+      <th>what it fixes</th>
+      <th>VAFT name</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>profile coordinate</strong></td>
+      <td>the grid the profile is given on ($\rho_{\rm tor,N}$, $\psi_N$, $R$, …)</td>
+      <td><code class="language-plaintext highlighter-rouge">profile_coordinate</code></td>
+    </tr>
+    <tr>
+      <td><strong>gradient coordinate</strong></td>
+      <td>what $r$ in $d/dr$ is ($r_{\rm minor}$, $\rho$, $\psi$, …)</td>
+      <td><code class="language-plaintext highlighter-rouge">gradient_coordinate</code></td>
+    </tr>
+    <tr>
+      <td><strong>reference length</strong></td>
+      <td>what a gradient is normalized by: $a/L$, $R/L$, or none</td>
+      <td><code class="language-plaintext highlighter-rouge">reference_length</code> (<code class="language-plaintext highlighter-rouge">a_minor</code>, <code class="language-plaintext highlighter-rouge">R_major_axis</code>, <code class="language-plaintext highlighter-rouge">R_major_surface</code>, <code class="language-plaintext highlighter-rouge">L_ref</code>, <code class="language-plaintext highlighter-rouge">"none"</code>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.profile_gradients.profile_gradient</code> takes all three explicitly, and its <code class="language-plaintext highlighter-rouge">convention</code> presets
+(<code class="language-plaintext highlighter-rouge">tglf</code>, <code class="language-plaintext highlighter-rouge">cgyro</code>, <code class="language-plaintext highlighter-rouge">gs2</code>, <code class="language-plaintext highlighter-rouge">gkw</code>, <code class="language-plaintext highlighter-rouge">gene</code>) fix them the way each code does. The table of combinations is in
+<a href="/vaft/develop/reference/equilibrium-representations/">Equilibrium representations</a>, “Profile
+gradients”. The pure kernel is <code class="language-plaintext highlighter-rouge">utils.normalized_gradient_scale_length(x, y, a)</code>, which returns $a/L_y$.
+There is no bare <code class="language-plaintext highlighter-rouge">L_n</code>/<code class="language-plaintext highlighter-rouge">L_T</code> function on purpose: a gradient length without its coordinate is ambiguous.</p>
+
+<p>Other equilibrium scales: minor radius $a$ and major radius $R_0$ with
+<code class="language-plaintext highlighter-rouge">equilibrium.inverse_aspect_ratio_from_a_R</code>; the magnetic shear length <code class="language-plaintext highlighter-rouge">geometry.shear_length_from_q_R0_s</code>
+(shear itself from <code class="language-plaintext highlighter-rouge">equilibrium.shear_from_r_q</code>).</p>
+
+<h3 id="macroscopic-times">Macroscopic times</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>scale</th>
+      <th>construction</th>
+      <th>VAFT function</th>
+      <th> </th>
+      <th> </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$\tau_A = L/v_A$</td>
+      <td>crossing time</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.alfven_time(L, v_A)</code></td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>$\tau_s = L/c_s$</td>
+      <td>crossing time</td>
+      <td>compose from <code class="language-plaintext highlighter-rouge">sol.ion_sound_speed</code></td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>$\tau_R = \mu_0L^2/\eta$</td>
+      <td>diffusion time</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.resistive_diffusion_time(L, eta)</code>, with $\eta$ from <code class="language-plaintext highlighter-rouge">equilibrium.spitzer_resistivity_from_T_e_Z_eff_ln_Lambda</code></td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>$S = \tau_R/\tau_A$</td>
+      <td>ratio</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.lundquist_number(L, v_A, eta)</code>; <code class="language-plaintext highlighter-rouge">vaft.process.perturbation.lundquist_number(tau_resistive, tau_alfven)</code></td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>$\tau_E = W/P_{\rm loss}$</td>
+      <td>confinement time</td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium.confinement_time_from_P_loss_W_th</code>; scalings in <code class="language-plaintext highlighter-rouge">equilibrium</code>; series in <code class="language-plaintext highlighter-rouge">vaft.process.confinement</code></td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>$\tau_w = \mu_0\sigma d b$</td>
+      <td>wall diffusion time</td>
+      <td><code class="language-plaintext highlighter-rouge">vde.thin_wall_time</code>, <code class="language-plaintext highlighter-rouge">vde.wall_mode_decay_time</code>; <code class="language-plaintext highlighter-rouge">vaft.process.wall_modes.global_time_constants</code></td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>$\tau_{\rm evol} =</td>
+      <td>I_p/\dot I_p</td>
+      <td>$</td>
+      <td>evolution time</td>
+      <td><code class="language-plaintext highlighter-rouge">ordering.evolution_time(X, dX_dt)</code> with $X=I_p$</td>
+    </tr>
+    <tr>
+      <td>$L/R$ time</td>
+      <td>circuit time</td>
+      <td><code class="language-plaintext highlighter-rouge">startup.lr_time_from_L_R</code></td>
+      <td> </td>
+      <td> </td>
+    </tr>
+    <tr>
+      <td>$\tau_D = L^2/D$</td>
+      <td>diffusion time</td>
+      <td>planned under #1112 (transport and turbulence scales)</td>
+      <td> </td>
+      <td> </td>
+    </tr>
+  </tbody>
+</table>
+
+<p>These are different physical constructions. One state can have several “times” with the same name, and they
+must not be swapped:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>construction</th>
+      <th>example</th>
+      <th>note</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>oscillation period</td>
+      <td>$2\pi/\omega$</td>
+      <td>includes the $2\pi$</td>
+    </tr>
+    <tr>
+      <td>inverse rate</td>
+      <td>$1/\nu$, $1/\Omega$</td>
+      <td>one radian or one e-fold, not one cycle</td>
+    </tr>
+    <tr>
+      <td>crossing time</td>
+      <td>$\tau_A$, $\tau_s$</td>
+      <td>depends on the length it crosses</td>
+    </tr>
+    <tr>
+      <td>diffusion time</td>
+      <td>$\tau_R$, $\tau_D$</td>
+      <td>$\propto L^2$; the slowest cylindrical mode of $\tau_R$ decays $j_{01}^2\approx5.8$ times faster</td>
+    </tr>
+    <tr>
+      <td>confinement time</td>
+      <td>$\tau_E$</td>
+      <td>a ratio of an inventory to a loss, not a microscopic rate</td>
+    </tr>
+    <tr>
+      <td>growth or damping time</td>
+      <td>$1/\gamma$</td>
+      <td>a property of a mode, not of the state alone</td>
+    </tr>
+    <tr>
+      <td>plasma age, pulse length</td>
+      <td>$\tau_{\rm age}$, $\tau_{\rm pulse}$</td>
+      <td>a property of the discharge history</td>
+    </tr>
+    <tr>
+      <td>measurement cadence</td>
+      <td>EFIT slice spacing</td>
+      <td>not a physical scale at all (<a href="#physical-scales-are-not-resolution">below</a>)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="scale-classes-are-not-a-magnitude-ordering">Scale classes are not a magnitude ordering</h2>
+
+<p>A schematic ladder is useful for orientation:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>lengths:  Debye → gyro / inertial → orbit / turbulence → profile gradient → minor radius → major radius
+times:    gyro motion → orbit / collisions → Alfvénic → mode / wall response → transport → current diffusion → discharge evolution
+</code></pre></div></div>
+
+<p><strong>These are scale classes, not a universal magnitude ordering.</strong> The actual order is a property of one state
+and must be computed from it. <code class="language-plaintext highlighter-rouge">vaft.diagram.timescale_hierarchy</code> does exactly that: it evaluates each time
+from a formula kernel for one illustrative low-field state (only the pulse length is an input) and places it by value, so the hierarchy is a
+result, not an assumption (Asymptotic orderings, “A worked hierarchy”).</p>
+
+<p>The ladder fails in practice:</p>
+<ul>
+  <li>In a low-field device the electron transit frequency can reach the ion gyrofrequency. In VEST,
+$\omega_{t,e}\approx5\times10^6$ against $\Omega_{ci}\approx10^7$ rad/s (<a href="/vaft/develop/reference/plasma-models/">Plasma models</a> §7).</li>
+  <li>A short pulse compresses the slow end. In the #1629 atlas the median $\tau_{\rm age}/\tau_R$ is 0.57: current
+diffusion is not slower than the discharge, so “discharge evolution” is not the last rung.</li>
+</ul>
+
+<h2 id="name-the-comparison-scale">Name the comparison scale</h2>
+
+<p><strong><code class="language-plaintext highlighter-rouge">L</code> is part of an ordering’s definition. It is never universal.</strong> The same numerator over different
+denominators answers different questions:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>ratio</th>
+      <th>question</th>
+      <th>VAFT registry name</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$d_i/a$</td>
+      <td>is the Hall term negligible on the scale of the device?</td>
+      <td><code class="language-plaintext highlighter-rouge">ion_skin_depth_over_a</code> (global)</td>
+    </tr>
+    <tr>
+      <td>$d_i/L_T$</td>
+      <td>is it negligible on the scale of the temperature profile?</td>
+      <td>not registered</td>
+    </tr>
+    <tr>
+      <td>$d_i/\delta_{\rm layer}$</td>
+      <td>is it negligible inside a resonant layer?</td>
+      <td><code class="language-plaintext highlighter-rouge">ion_skin_depth_over_layer</code> (layer)</td>
+    </tr>
+    <tr>
+      <td>$\rho_i/a$</td>
+      <td>where is the device in similarity space?</td>
+      <td>not an ordering: $\rho_*$ (<a href="#similarity-coordinates-are-not-orderings">next section</a>)</td>
+    </tr>
+    <tr>
+      <td>$\rho_i/L_{T_i}$</td>
+      <td>is the FLR correction to the background small?</td>
+      <td><code class="language-plaintext highlighter-rouge">rho_i_over_LTi</code> (profile)</td>
+    </tr>
+    <tr>
+      <td>$k_\perp\rho_i$</td>
+      <td>is a fluctuation larger than a gyro-orbit?</td>
+      <td><code class="language-plaintext highlighter-rouge">k_perp_rho_i</code> (mode)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Every ordering quantity in <code class="language-plaintext highlighter-rouge">vaft.validation.orderings.ORDERING_QUANTITIES</code> records its comparison scale
+explicitly. The issue’s proposed vocabulary maps onto those fields:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>concept</th>
+      <th>where VAFT records it</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>scale value</td>
+      <td>the kernel’s return value (<code class="language-plaintext highlighter-rouge">OrderingQuantity.kernels</code> names the kernels)</td>
+    </tr>
+    <tr>
+      <td>scale kind</td>
+      <td><code class="language-plaintext highlighter-rouge">OrderingQuantity.definition</code>, e.g. <code class="language-plaintext highlighter-rouge">"d_i / a"</code></td>
+    </tr>
+    <tr>
+      <td>reference scale</td>
+      <td><code class="language-plaintext highlighter-rouge">OrderingQuantity.scale</code>, e.g. <code class="language-plaintext highlighter-rouge">"a"</code>, <code class="language-plaintext highlighter-rouge">"q R"</code>, <code class="language-plaintext highlighter-rouge">"delta_layer"</code>, <code class="language-plaintext highlighter-rouge">"1 / k_perp"</code></td>
+    </tr>
+    <tr>
+      <td>scope</td>
+      <td><code class="language-plaintext highlighter-rouge">OrderingQuantity.scope</code>: <code class="language-plaintext highlighter-rouge">global</code>, <code class="language-plaintext highlighter-rouge">profile</code>, <code class="language-plaintext highlighter-rouge">mode</code>, <code class="language-plaintext highlighter-rouge">local</code>, <code class="language-plaintext highlighter-rouge">time_history</code></td>
+    </tr>
+    <tr>
+      <td>group</td>
+      <td><code class="language-plaintext highlighter-rouge">OrderingQuantity.group</code>: <code class="language-plaintext highlighter-rouge">foundational</code>, <code class="language-plaintext highlighter-rouge">global</code>, <code class="language-plaintext highlighter-rouge">profile</code>, <code class="language-plaintext highlighter-rouge">perturbation</code>, <code class="language-plaintext highlighter-rouge">layer</code>, <code class="language-plaintext highlighter-rouge">time_history</code></td>
+    </tr>
+    <tr>
+      <td>species</td>
+      <td>in the name: <code class="language-plaintext highlighter-rouge">electron_...</code>, <code class="language-plaintext highlighter-rouge">ion_...</code>, <code class="language-plaintext highlighter-rouge">rho_s</code> (electron temperature, ion mass)</td>
+    </tr>
+    <tr>
+      <td>radial location</td>
+      <td>a column of the point table built by <code class="language-plaintext highlighter-rouge">vaft.process.ordering_state.profile_ordering_quantities</code></td>
+    </tr>
+    <tr>
+      <td>mode / event</td>
+      <td>the caller’s input (mode numbers, $k_y$ grid, layer width); missing gives <code class="language-plaintext highlighter-rouge">UNASSESSED</code></td>
+    </tr>
+    <tr>
+      <td>provenance</td>
+      <td>the atlas manifest (#1629) and the run provenance of each adapter (#1823)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The kernels in <code class="language-plaintext highlighter-rouge">vaft.formula.ordering</code> take the length as an explicit argument for the same reason. A global
+length cannot be silently swapped for a layer length.</p>
+
+<h2 id="similarity-coordinates-are-not-orderings">Similarity coordinates are not orderings</h2>
+
+<p>Some dimensionless numbers place a state in <strong>similarity space</strong>. Others are the <strong>small or large parameters</strong>
+a derivation expands in. Some symbols appear in both lists, but the role decides what a value means.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>role</th>
+      <th>quantities</th>
+      <th>answers</th>
+      <th>used by</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>similarity coordinate [11, 12]</td>
+      <td>$\rho_<em>$, $\beta$, $\nu_</em>$, $q$, $\epsilon$, $\kappa$</td>
+      <td>is this state comparable with another machine’s?</td>
+      <td>confinement scalings, operational space</td>
+    </tr>
+    <tr>
+      <td>asymptotic ordering</td>
+      <td>$\rho_i/L_T$, $d_i/a$, $\lambda/qR$, $k_\perp\rho_i$, $S$</td>
+      <td>may this reduced model be used here?</td>
+      <td>ordering contracts, applicability</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Concretely:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>rho_i / a      → machine similarity / finite-size coordinate     (ρ*: equilibrium.rho_star_from_M_T_B_R_epsilon, on a = R_geo ε)
+rho_i / L_T    → local FLR / background-scale ordering            (rho_i_over_LTi)
+k_perp rho_i   → fluctuation-scale ordering                       (k_perp_rho_i)
+</code></pre></div></div>
+
+<p>The same function can serve both roles. $\epsilon = a/R_0$ is a shape coordinate in a confinement fit and the
+expansion parameter of the large-aspect-ratio ordering. Sauter’s $\nu_{*e}$ is a regime coordinate in a
+neoclassical fit and the ordering of the banana-regime contract. The number is identical; the claim is not.</p>
+
+<p>Similarity coordinates in VAFT:</p>
+<ul>
+  <li>$\rho_*$: <code class="language-plaintext highlighter-rouge">equilibrium.rho_star_from_M_T_B_R_epsilon</code> (Verdoolaege form, on $a$),
+<code class="language-plaintext highlighter-rouge">equilibrium.normalized_larmor_radius_from_M_T_a_Bt</code> ($\rho_i/a$);</li>
+  <li>$\nu_*$: <code class="language-plaintext highlighter-rouge">neoclassical.electron_collisionality_sauter</code>, <code class="language-plaintext highlighter-rouge">neoclassical.ion_collisionality_sauter</code>,
+<code class="language-plaintext highlighter-rouge">equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I</code> (Verdoolaege form);</li>
+  <li>$\beta$, $\beta_N$, $q$: <code class="language-plaintext highlighter-rouge">equilibrium.beta_t_from_n_T_B</code>, <code class="language-plaintext highlighter-rouge">stability.beta_N_from_beta_a_B0_Ip</code>,
+<code class="language-plaintext highlighter-rouge">equilibrium.q_cyl_from_B_R_epsilon_kappa_I</code>.</li>
+</ul>
+
+<p>Different $\nu_<em>$ definitions [8, 12] differ by order-unity factors. Never compare two without naming both.
+<code class="language-plaintext highlighter-rouge">vaft.process.confinement.dimensionless_confinement_indices</code> turns fitted engineering exponents into
+$\rho_</em>$, $\beta$, $\nu_*$, $q$ exponents; its docstring says they are not measured dimensionless dependences.</p>
+
+<h2 id="geometry-is-not-an-ordering">Geometry is not an ordering</h2>
+
+<p>Slab, cylindrical and toroidal describe <strong>geometry</strong> [3]. Local or global, $a/R\ll1$, $\rho/L\ll1$,
+$k_\parallel/k_\perp\ll1$ and $\omega/\Omega\ll1$ describe <strong>scale separation</strong>. They are two axes, not one
+accuracy ladder. “Large aspect ratio” is an ordering, not a geometry, and a local slab may keep coefficients
+inherited from a realistic toroidal equilibrium (#1062). The full treatment, with <code class="language-plaintext highlighter-rouge">geometry_ordering_map</code>, is
+<a href="/vaft/develop/reference/geometric-approximations/">Geometric approximations</a>, “Two axes, not one
+hierarchy”.</p>
+
+<h2 id="from-orderings-to-models">From orderings to models</h2>
+
+<p>Each plasma description is defined by the orderings it adopts and the ones it relaxes. It is not a rung on one
+fidelity ladder. <a href="/vaft/develop/reference/plasma-models/">Plasma models</a> is the reference:</p>
+<ul>
+  <li>§1 explains why a single “fidelity” axis fails;</li>
+  <li>§2 derives the fluid hierarchy (ideal, resistive, Hall/two-fluid, reduced MHD [5]), drift kinetics,
+gyrokinetics, particle orbits and kinetic-MHD hybrids;</li>
+  <li>§6 says what “kinetic” means in each VAFT name;</li>
+  <li>§7 is the compact table of what each family removes and which ordering justifies it.</li>
+</ul>
+
+<p>The comparison axes are:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>ρ/L    d_i/L    ω/Ω_i    k⊥ρ_i    k∥/k⊥    collisionality    resistivity    locality    distribution-function dynamics
+</code></pre></div></div>
+
+<p>The ordering contracts of #1627 encode them per model (<code class="language-plaintext highlighter-rouge">vaft.validation.orderings.CONTRACTS</code>, drawn as
+<code class="language-plaintext highlighter-rouge">ordering_contract_map</code>). The adapter modes of #1823 say which contracts each VAFT code mode consumes,
+and in which <strong>role</strong> (<code class="language-plaintext highlighter-rouge">governing</code>, <code class="language-plaintext highlighter-rouge">outer_solution</code>, <code class="language-plaintext highlighter-rouge">layer_solution</code>, <code class="language-plaintext highlighter-rouge">fluid_part</code>, <code class="language-plaintext highlighter-rouge">kinetic_response</code>,
+<code class="language-plaintext highlighter-rouge">closure</code>, <code class="language-plaintext highlighter-rouge">inherited</code>, <code class="language-plaintext highlighter-rouge">transport_coupling</code>). That is <code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts.ADAPTER_MODES</code>, drawn as
+<code class="language-plaintext highlighter-rouge">adapter_contract_map</code> (<a href="/vaft/develop/reference/asymptotic-orderings/">Asymptotic orderings</a>,
+“Which codes consume which contracts”).</p>
+
+<h3 id="drift-kinetics-and-gyrokinetics-are-not-one-ladder">Drift kinetics and gyrokinetics are not one ladder</h3>
+
+<p>A guiding-centre or drift-kinetic description assumes fields that vary slowly compared with gyromotion,
+$\rho/L\ll1$ and $\omega/\Omega\ll1$, on every scale it keeps [6]. A gyrokinetic description keeps the low
+frequency ordering but allows perpendicular structure at the gyroradius, $k_\perp\rho_i\sim O(1)$, at the cost
+of ordering the fluctuation amplitude and $k_\parallel/k_\perp$ small [9, 14]. So:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>drift kinetic   ≠  a lower-fidelity gyrokinetic model
+gyrokinetic     ≠  "more kinetic" MHD
+</code></pre></div></div>
+
+<p>They keep different scale information for different problems. Drift kinetics is the natural description of
+equilibrium-scale kinetic response (neoclassical transport, NTV, kinetic stabilization). Gyrokinetics is the
+description of $\rho$-scale turbulence, with transport on a separate, slower scale [10]. Plasma models §2.2–§2.3; the gyrokinetic framework is #1353 (open).</p>
+
+<h3 id="kinetic-gpec-is-not-on-the-gyrokinetic-branch">Kinetic GPEC is not on the gyrokinetic branch</h3>
+
+<p>Kinetic DCON/GPEC and PENTRC are not on the same branch as CGYRO. Both evolve a gyro-averaged kinetic equation
+under $\omega/\Omega\ll1$, and gyrokinetics reduces to drift kinetics at long wavelength, but they answer
+different questions:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>MHD perturbed equilibrium
+  + kinetic orbit / distribution response
+  + bounce / transit / drift resonances
+        ↓
+kinetic correction to the global plasma response            (DCON kinetic, GPEC kinetic, PENTRC) [15-17]
+
+gyrokinetic microturbulence
+        ↓
+turbulent transport                                          (CGYRO, TGLF)
+</code></pre></div></div>
+
+<p>They differ on every axis that matters: physical formalism (bounce-harmonic drift kinetics against $\delta f$
+gyrokinetics), spatial domain (global against flux-tube local), frequency ordering (precession and bounce
+resonances against drift-wave frequencies) and the problem solved (response or stability against turbulent
+flux). <code class="language-plaintext highlighter-rouge">vaft.code.formalism.PlasmaFormalism</code> records these as separate fields for exactly this reason (Plasma
+models §3, §4, §11).</p>
+
+<h2 id="from-orderings-to-applicability">From orderings to applicability</h2>
+
+<p>An applicability verdict is assembled from <strong>separate assumptions, each with its own evidence</strong>. The
+<code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code> contract needs, among others,</p>
+
+\[S\gg1,\qquad d_i/a\ll1,\qquad \rho_i/L_{T_i}\ll1,\qquad \omega/\Omega_{ci}\ll1,\]
+
+<p>and these fail independently. Slow evolution, $\tau_{\rm evol}/\tau_A\gg1$, is <strong>not</strong> one of them: ideal
+MHD describes Alfvénic dynamics, $\omega\tau_A\sim1$. Slow evolution is the separate
+<code class="language-plaintext highlighter-rouge">quasi_static_equilibrium</code> contract, which an equilibrium sequence consumes. VAFT never reduces them to <code class="language-plaintext highlighter-rouge">ideal_mhd_valid = True</code>.
+<code class="language-plaintext highlighter-rouge">vaft.validation.applicability.evaluate_contract</code> returns a margin and a status for every assumption, names
+the limiting one, and reports a missing quantity as <code class="language-plaintext highlighter-rouge">UNASSESSED</code>. Local gyrokinetic applicability likewise
+involves $\rho_s/L_T$, $\rho_s/L_n$ and $\rho_s$ over the geometric scale, plus fluctuation orderings where a
+spectrum is available.</p>
+
+<p>This page defines no verdicts. The evaluation, its statuses and its margins are
+<a href="/vaft/develop/reference/credibility-applicability/">Credibility and applicability</a>. The state
+tables are built by <code class="language-plaintext highlighter-rouge">vaft.process.ordering_state</code>. The VEST population study is the notebook
+<code class="language-plaintext highlighter-rouge">vest_ordering_and_model_applicability.ipynb</code> (#1629).</p>
+
+<h2 id="one-model-two-scales">One model, two scales</h2>
+
+<p><strong>A model can be asymptotically appropriate at one scale and inadequate at another.</strong> Tearing is the standard
+example. Take the #1629 atlas medians for VEST: $d_i/a\approx0.32$ and $S\approx1\times10^5$.</p>
+<ul>
+  <li>Globally, $d_i/a\approx0.3$ is below one. The Hall term is not negligible, but single-fluid MHD is not
+obviously wrong on the device scale.</li>
+  <li>The resistive layer is much thinner than $a$. Its width scales as $\delta/a\propto S^{-2/5}$ for the
+Furth–Killeen–Rosenbluth tearing layer [4] and $S^{-1/3}$ for the resistive internal kink [13], so $\delta/a\sim0.01$–$0.02$
+here, up to factors of mode number and shear.</li>
+  <li>Inside the layer, $d_i/\delta\sim15$–$30$. The two-fluid ordering fails by more than a decade. A
+single-fluid resistive layer model is outside its contract, even though the device-scale ordering looked
+acceptable.</li>
+</ul>
+
+<p>The same holds for resistivity: $S_{\rm global}\gg1$ does not make resistivity negligible in the layer,
+because the layer is where it is not. This is why VAFT registers layer quantities
+(<code class="language-plaintext highlighter-rouge">ion_skin_depth_over_layer</code>, <code class="language-plaintext highlighter-rouge">electron_skin_depth_over_layer</code>, <code class="language-plaintext highlighter-rouge">rho_s_over_layer</code>) separately from the
+global ones, and why the RDCON/RMATCH adapter mode consumes <code class="language-plaintext highlighter-rouge">resistive_mhd</code>, which orders $d_i/\delta$ and
+$\rho_s/\delta$, in the <code class="language-plaintext highlighter-rouge">layer_solution</code> role, next to <code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code> in the <code class="language-plaintext highlighter-rouge">outer_solution</code>
+role.</p>
+
+<h2 id="physical-scales-are-not-resolution">Physical scales are not resolution</h2>
+
+<p>Whether a structure is <strong>resolved</strong> is a different question from how big it is. A diagnostic cadence or a
+grid spacing is never a characteristic scale of the plasma, and this page does not define one.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>resolution</th>
+      <th>temporal examples</th>
+      <th>spatial examples</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>diagnostic</td>
+      <td>DAQ sample period, Mirnov bandwidth, fast-camera frame interval, Thomson repetition period</td>
+      <td>chord spacing, optical resolution, tomographic resolution</td>
+    </tr>
+    <tr>
+      <td>reconstruction</td>
+      <td>EFIT cadence</td>
+      <td>equilibrium grid spacing</td>
+    </tr>
+    <tr>
+      <td>numerical</td>
+      <td>time step, output cadence</td>
+      <td>finite-element mesh, gyrokinetic radial and perpendicular resolution</td>
+    </tr>
+    <tr>
+      <td>control</td>
+      <td>control-system update period</td>
+      <td>—</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Comparing the two belongs to an analysis layer above both, for example “is the EFIT cadence shorter than
+$\tau_{\rm evol}$?” or “does the Thomson chord spacing resolve $L_{T_e}$?”. <strong>Not implemented.</strong> Only the
+time-grid description exists today (<code class="language-plaintext highlighter-rouge">vaft.process.signal_processing.describe_time_grid</code>). Nothing compares a
+cadence or a grid with a physical scale yet. When it is built, it is evidence on the <code class="language-plaintext highlighter-rouge">numerical</code> or
+<code class="language-plaintext highlighter-rouge">transformation</code> axis of the credibility vocabulary, not a new kind of scale.</p>
+
+<h2 id="diagram-contracts">Diagram contracts</h2>
+
+<p>Four diagrams make the chain visible. Two exist. All of them follow the rule of this page: a magnitude order
+is drawn only when it comes from values.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>diagram</th>
+      <th>kind</th>
+      <th>contract</th>
+      <th>state</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">characteristic_scale_map</code></td>
+      <td>conceptual, state-independent</td>
+      <td>primitive state → frequencies, speeds, lengths → times → dimensionless ratios → model orderings; no numerical ranking</td>
+      <td>planned</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">length_scale_ladder</code></td>
+      <td>state-dependent, or labelled illustrative</td>
+      <td>$\lambda_D$, $\rho_e$, $d_e$, $\rho_i$/$\rho_s$, $d_i$, $\lambda_{\rm mfp}$, orbit width, gradient length, $a$, $R$; placed by value, never in a hard-coded order</td>
+      <td>planned</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">time_scale_ladder</code></td>
+      <td>state-dependent, or labelled illustrative</td>
+      <td>gyration, collision, transit/bounce, Alfvén, growth, wall, confinement, transport, resistive diffusion, age/pulse; placed by value</td>
+      <td><strong>exists</strong> as <code class="language-plaintext highlighter-rouge">timescale_hierarchy</code> (illustrative state, eight times, placed by value)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">model_ordering_map</code></td>
+      <td>multidimensional relationship map</td>
+      <td>fluid ↔ kinetic closure, ideal ↔ dissipative, single- ↔ two-fluid, long wavelength ↔ finite $k_\perp\rho$, local ↔ global, equilibrium ↔ fluctuation scale; no single fidelity axis</td>
+      <td><strong>exists</strong> in parts: <code class="language-plaintext highlighter-rouge">ordering_contract_map</code>, <code class="language-plaintext highlighter-rouge">adapter_contract_map</code>, <code class="language-plaintext highlighter-rouge">reduced_representation_hierarchy</code>, <code class="language-plaintext highlighter-rouge">geometry_ordering_map</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>Diagrams live in <code class="language-plaintext highlighter-rouge">vaft.diagram</code> and are conceptual. Ladders of measured states belong to <code class="language-plaintext highlighter-rouge">vaft.plot</code>, with the
+values from <code class="language-plaintext highlighter-rouge">vaft.process</code>. The two planned diagrams wait for #1064, so that they draw canonical scale
+functions rather than define their own.</p>
+
+<h2 id="who-owns-what">Who owns what</h2>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>vaft.formula.scales           generic dimensional scale primitives                          planned, #1064
+vaft.formula.&lt;domain&gt;         convention-bearing scales (neoclassical, wall, equilibrium, ...)   implemented
+vaft.formula.ordering         ordering kernels with explicit lengths                          implemented, #1627
+vaft.process                  state- and profile-aware construction, coordinate and time alignment
+                              (profile_gradients, ordering_state)                            implemented
+vaft.validation               ordering registry, contracts, applicability, credibility       implemented, #1627 / #1639 / #1628
+vaft.diagram                  conceptual scale and ordering diagrams                          partly implemented
+vaft.plot                     scale ladders and ordering spaces of real states                ordering spaces implemented (#1627 §3)
+</code></pre></div></div>
+
+<p>This page consumes those layers. It defines no formula: every expression above is either the definition a
+linked kernel implements, or a scaling quoted with its source.</p>
+
+<h2 id="references">References</h2>
+
+<ol>
+  <li>J. D. Huba, <em>NRL Plasma Formulary</em>, Naval Research Laboratory (2019). Plasma and gyrofrequencies, Debye
+length, gyroradii, inertial lengths, collision rates.</li>
+  <li>S. I. Braginskii, in <em>Reviews of Plasma Physics</em>, Vol. 1, Consultants Bureau (1965), p. 205. Collision
+times and the collisional fluid ordering.</li>
+  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014). The ideal-MHD ordering and the
+large-aspect-ratio expansion.</li>
+  <li>H. P. Furth, J. Killeen and M. N. Rosenbluth, Phys. Fluids 6 (1963) 459. Resistive layer width and its
+Lundquist-number scaling.</li>
+  <li>H. R. Strauss, Phys. Fluids 19 (1976) 134. Reduced MHD.</li>
+  <li>R. D. Hazeltine and J. D. Meiss, <em>Plasma Confinement</em>, Dover (2003). Drift-kinetic ordering and orbit
+scales.</li>
+  <li>F. L. Hinton and R. D. Hazeltine, Rev. Mod. Phys. 48 (1976) 239. Neoclassical regimes and collisionality.</li>
+  <li>O. Sauter, C. Angioni and Y. R. Lin-Liu, Phys. Plasmas 6 (1999) 2834. The $\nu_*$ definitions VAFT uses.</li>
+  <li>E. A. Frieman and L. Chen, Phys. Fluids 25 (1982) 502. The nonlinear gyrokinetic ordering.</li>
+  <li>I. G. Abel et al., Rep. Prog. Phys. 76 (2013) 116201. Multiscale gyrokinetics and the separation of
+turbulence and transport scales.</li>
+  <li>B. B. Kadomtsev, Sov. J. Plasma Phys. 1 (1975) 295. Dimensionless similarity.</li>
+  <li>G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006. The $\rho_<em>$ and $\nu_</em>$ forms of the ITPA20
+scaling.</li>
+  <li>B. Coppi, R. Galvão, R. Pellat, M. N. Rosenbluth and P. H. Rutherford, Sov. J. Plasma Phys. 2 (1976) 533.
+The resistive internal kink and its $S^{-1/3}$ layer.</li>
+  <li>J. A. Krommes, Annu. Rev. Fluid Mech. 44 (2012) 175. The gyrokinetic description of microturbulence.</li>
+  <li>M. D. Kruskal and C. R. Oberman, Phys. Fluids 1 (1958) 275. The kinetic energy principle.</li>
+  <li>J.-K. Park, A. H. Boozer and A. H. Glasser, Phys. Plasmas 14 (2007) 052110. Ideal perturbed equilibrium.</li>
+  <li>N. C. Logan, J.-K. Park, K. Kim, Z. Wang and J. W. Berkery, Phys. Plasmas 20 (2013) 122507. NTV from the
+perturbed equilibrium (PENT).</li>
+</ol>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="formula"><a href="/vaft/develop/reference/formula/"><code>vaft.formula</code></a></li>
+        
+          
+          <li data-resource-id="process"><a href="/vaft/develop/reference/process/"><code>vaft.process</code></a></li>
+        
+          
+          <li data-resource-id="validation"><a href="/vaft/develop/reference/api/validation/"><code>vaft.validation</code></a></li>
+        
+          
+          <li data-resource-id="diagram"><a href="/vaft/develop/reference/diagrams/"><code>vaft.diagram</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/ntv_coil_response/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: ntv_coil_response">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#four-different-kinds-of-statement" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Four different kinds of statement</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-exists-today" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What exists today</a></li><li class="page-toc-item page-toc-level-2"><a href="#scale-taxonomy-by-physical-role" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Scale taxonomy, by physical role</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#frequencies-and-rates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Frequencies and rates</a></li><li class="page-toc-item page-toc-level-3"><a href="#speeds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Speeds</a></li><li class="page-toc-item page-toc-level-3"><a href="#microscopic-lengths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Microscopic lengths</a></li><li class="page-toc-item page-toc-level-3"><a href="#orbit-and-parallel-motion-scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Orbit and parallel-motion scales</a></li><li class="page-toc-item page-toc-level-3"><a href="#fluctuation-and-layer-lengths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Fluctuation and layer lengths</a></li><li class="page-toc-item page-toc-level-3"><a href="#profile-and-equilibrium-scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Profile and equilibrium scales</a></li><li class="page-toc-item page-toc-level-3"><a href="#macroscopic-times" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Macroscopic times</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#scale-classes-are-not-a-magnitude-ordering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Scale classes are not a magnitude ordering</a></li><li class="page-toc-item page-toc-level-2"><a href="#name-the-comparison-scale" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Name the comparison scale</a></li><li class="page-toc-item page-toc-level-2"><a href="#similarity-coordinates-are-not-orderings" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Similarity coordinates are not orderings</a></li><li class="page-toc-item page-toc-level-2"><a href="#geometry-is-not-an-ordering" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Geometry is not an ordering</a></li><li class="page-toc-item page-toc-level-2"><a href="#from-orderings-to-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From orderings to models</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#drift-kinetics-and-gyrokinetics-are-not-one-ladder" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Drift kinetics and gyrokinetics are not one ladder</a></li><li class="page-toc-item page-toc-level-3"><a href="#kinetic-gpec-is-not-on-the-gyrokinetic-branch" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Kinetic GPEC is not on the gyrokinetic branch</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#from-orderings-to-applicability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">From orderings to applicability</a></li><li class="page-toc-item page-toc-level-2"><a href="#one-model-two-scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">One model, two scales</a></li><li class="page-toc-item page-toc-level-2"><a href="#physical-scales-are-not-resolution" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Physical scales are not resolution</a></li><li class="page-toc-item page-toc-level-2"><a href="#diagram-contracts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Diagram contracts</a></li><li class="page-toc-item page-toc-level-2"><a href="#who-owns-what" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Who owns what</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "VEST diagnostics and data availability",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/VEST_diagnostics.md",
+            "ref": "_guide/VEST_diagnostics.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Characteristic_scales_and_orderings.md",
+        "mtime": "2026-10-11 12:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-11 17:28:10 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

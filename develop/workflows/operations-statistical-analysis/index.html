@@ -247,6 +247,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
                     
                         <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
@@ -378,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4cf7def</code>. What is described
+  <code>803c3d0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -924,11 +930,28 @@ equilibrium and profile stages are filled:</p>
 <p><code class="language-plaintext highlighter-rouge">compute_tau_E_scaling</code> picks the line- or volume-averaged density out of <code class="language-plaintext highlighter-rouge">eng</code> to match whatever the
 requested scaling declares, so you never pass <code class="language-plaintext highlighter-rouge">input_density_definition</code> at the ODS level.</p>
 
+<p><code class="language-plaintext highlighter-rouge">scaling=</code> is required. The wrappers are skip-tolerant: an unknown key or a missing input logs a warning
+and returns <code class="language-plaintext highlighter-rouge">NaN</code> for that time slice instead of raising.</p>
+
 <blockquote>
-  <p><strong>Pass <code class="language-plaintext highlighter-rouge">scaling=</code> explicitly.</strong> The default value of that argument in <code class="language-plaintext highlighter-rouge">compute_tau_E_scaling</code> is the
-misspelled <code class="language-plaintext highlighter-rouge">"IBP98y2"</code>, which is not a key of the coefficient table. The wrappers are skip-tolerant:
-instead of raising, they log a warning and return <code class="language-plaintext highlighter-rouge">NaN</code> for that time slice — a silent column of NaNs
-is the symptom.</p>
+  <p><strong>Two experimental confinement times, kept apart (#1905).</strong> <code class="language-plaintext highlighter-rouge">compute_tau_E_exp</code> and the <code class="language-plaintext highlighter-rouge">P_loss</code> above
+are the <em>legacy modelled budget</em>: Spitzer $\int\eta J^2 dV$ heating ($Z_\mathrm{eff}=2$,
+$\ln\Lambda=17$), modelled radiation (line + bremsstrahlung + synchrotron) always subtracted, and
+$W = \tfrac32\langle p\rangle V$ with $p = 2n_eT_e$. They keep that definition, and calling
+<code class="language-plaintext highlighter-rouge">compute_tau_E_exp</code> says so with a <code class="language-plaintext highlighter-rouge">FutureWarning</code>. The experimental Ohmic chain is
+<code class="language-plaintext highlighter-rouge">vaft.omas.confinement.ohmic_confinement_ods</code>:</p>
+
+  <ul>
+    <li>$P_\mathrm{OH} = I_p V_\mathrm{res}$, from the measured inboard-midplane loop voltage with the
+internal-inductive voltage removed (Romero 2010 eq. 24). Both terms, $L_i\dot I_p$ and
+$\tfrac14\mu_0R_0I_p\dot l_{i3}$, are kept.</li>
+    <li>$P_\mathrm{net} = P_\mathrm{OH} - dW/dt$, with unmeasured radiation <strong>not</strong> subtracted.</li>
+    <li>An explicit stored-energy source (<code class="language-plaintext highlighter-rouge">w_source</code>) and recorded windows.</li>
+    <li>A <code class="language-plaintext highlighter-rouge">NaN</code> with a reason where a rate is missing, never $dW/dt = 0$.</li>
+  </ul>
+
+  <p>$V_\mathrm{res}$ is inferred, not measured, and exact only at the plasma boundary. The <code class="language-plaintext highlighter-rouge">core_profiles</code>
+summary sheet carries both definitions in separate columns (<code class="language-plaintext highlighter-rouge">CORE_PROFILES_DEFINITIONS</code>).</p>
 </blockquote>
 
 <hr />
@@ -991,7 +1014,11 @@ is the symptom.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">vaft.omas.compute_tau_E_scaling</code></td>
-      <td>Default <code class="language-plaintext highlighter-rouge">scaling="IBP98y2"</code> is not a valid key → warning + <code class="language-plaintext highlighter-rouge">NaN</code>.</td>
+      <td><code class="language-plaintext highlighter-rouge">scaling=</code> is required; an unknown key or a missing input → warning + <code class="language-plaintext highlighter-rouge">NaN</code>.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">vaft.omas.compute_tau_E_exp</code></td>
+      <td>The legacy modelled budget (Spitzer heating, modelled radiation), not the measured-loop Ohmic $\tau_E$ of <code class="language-plaintext highlighter-rouge">vaft.omas.confinement.ohmic_confinement_ods</code> (#1905).</td>
     </tr>
   </tbody>
 </table>
@@ -1332,7 +1359,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 16:47:34 +0000"
+        "time": "2026-10-11 17:28:10 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

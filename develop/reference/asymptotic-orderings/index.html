@@ -247,6 +247,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
                     <li class="chapter active" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
                     
                         <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
@@ -378,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4cf7def</code>. What is described
+  <code>803c3d0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -420,6 +426,9 @@ inputs come from VAFT’s Alfvén speed, Spitzer resistivity, gyrofrequency and 
 the inertial length calls the plasma frequency. The
 characteristic length, the resistivity and the collision time are always explicit arguments, so a global
 scale cannot be silently swapped for a layer scale.</p>
+
+<p>How a characteristic scale becomes an ordering, why the comparison length must be named, and how orderings
+differ from similarity coordinates and from resolution is <a href="/vaft/develop/reference/characteristic-scales/">Characteristic scales and orderings</a>.</p>
 
 <h2 id="the-parameters-and-what-they-test">The parameters and what they test</h2>
 
@@ -703,7 +712,20 @@ reaches one. They are not empirical stability or operating boundaries. The space
   </tbody>
 </table>
 
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.plot.ordering_space</span> <span class="kn">import</span> <span class="n">ordering_space</span><span class="p">,</span> <span class="n">ordering_margins_plot</span>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">pandas</span> <span class="k">as</span> <span class="n">pd</span>
+<span class="kn">from</span> <span class="n">vaft.process.ordering_state</span> <span class="kn">import</span> <span class="n">ordering_table</span>
+<span class="kn">from</span> <span class="n">vaft.plot.ordering_space</span> <span class="kn">import</span> <span class="n">ordering_space</span><span class="p">,</span> <span class="n">ordering_margins_plot</span>
+
+<span class="c1"># One row per state (illustrative VEST-like inputs); ordering_table adds the ordering columns.
+</span><span class="n">inputs</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">({</span>
+    <span class="sh">"</span><span class="s">a_m</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span> <span class="sh">"</span><span class="s">r_geo_m</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.45</span><span class="p">,</span> <span class="mf">0.45</span><span class="p">,</span> <span class="mf">0.45</span><span class="p">],</span> <span class="sh">"</span><span class="s">b_t_T</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">],</span>
+    <span class="sh">"</span><span class="s">n_e_m3</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">5e18</span><span class="p">,</span> <span class="mf">1e19</span><span class="p">,</span> <span class="mf">2e19</span><span class="p">],</span> <span class="sh">"</span><span class="s">t_e_eV</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">20.0</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">,</span> <span class="mf">100.0</span><span class="p">],</span> <span class="sh">"</span><span class="s">z_eff</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">,</span> <span class="mf">2.0</span><span class="p">],</span>
+    <span class="sh">"</span><span class="s">ln_lambda</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">12.0</span><span class="p">,</span> <span class="mf">12.0</span><span class="p">,</span> <span class="mf">12.0</span><span class="p">],</span> <span class="sh">"</span><span class="s">beta_t</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.01</span><span class="p">,</span> <span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.03</span><span class="p">],</span>
+    <span class="sh">"</span><span class="s">efit_quality</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="sh">"</span><span class="s">good</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">good</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">poor</span><span class="sh">"</span><span class="p">],</span>
+<span class="p">})</span>
+<span class="n">states</span> <span class="o">=</span> <span class="nf">ordering_table</span><span class="p">(</span><span class="n">inputs</span><span class="p">).</span><span class="nf">join</span><span class="p">(</span><span class="n">inputs</span><span class="p">[[</span><span class="sh">"</span><span class="s">efit_quality</span><span class="sh">"</span><span class="p">]])</span>
+<span class="c1"># One row per flux-surface point, with the profile orderings.
+</span><span class="n">points</span> <span class="o">=</span> <span class="n">pd</span><span class="p">.</span><span class="nc">DataFrame</span><span class="p">({</span><span class="sh">"</span><span class="s">rho_i_over_LTi</span><span class="sh">"</span><span class="p">:</span> <span class="p">[</span><span class="mf">0.02</span><span class="p">,</span> <span class="mf">0.05</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">,</span> <span class="mf">0.8</span><span class="p">]})</span>
 
 <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="nf">ordering_space</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="sh">"</span><span class="s">resistive_two_fluid</span><span class="sh">"</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="sh">"</span><span class="s">efit_quality</span><span class="sh">"</span><span class="p">)</span>
 <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="nf">ordering_margins_plot</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">points</span><span class="p">)</span>   <span class="c1"># global orderings per state, profile ones per point
@@ -904,6 +926,10 @@ packaged namelists.</li>
 though the resolver can classify it.</li>
   <li>The modes the audit leaves unresolved, today the GPEC threshold layer models, are listed with no record and
 a reason.</li>
+  <li><strong>Every physics adapter in <code class="language-plaintext highlighter-rouge">vaft/code</code> has a mode.</strong> A test enforces this. FLARE traces field lines through a
+given equilibrium and perturbation, and solves no plasma model. MITIM is a driver: the NEO and TGLF runs it
+launches are those modes, and its PORTALS loop (#1588) will be the first <code class="language-plaintext highlighter-rouge">transport_coupled</code> workflow. Both
+are listed with a reason and no record.</li>
 </ul>
 
 <p><code class="language-plaintext highlighter-rouge">advisory_ordering_check(formalism, state, points)</code> evaluates those contracts on a run’s input:</p>
@@ -1206,7 +1232,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 16:47:34 +0000"
+        "time": "2026-10-11 17:28:10 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

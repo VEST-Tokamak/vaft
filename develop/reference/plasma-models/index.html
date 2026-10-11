@@ -247,6 +247,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
                     
                         <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
@@ -378,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4cf7def</code>. What is described
+  <code>803c3d0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1347,7 +1353,7 @@ profiles.</p>
 <h2 id="7-orderings-and-scales">7. Orderings and scales</h2>
 
 <p><strong>Purpose of this section.</strong> It is a compact map from scales to the classifications above. The full reference for
-characteristic scales and orderings is #1724. The ordering parameters themselves are #1627. The ordering contracts
+characteristic scales and orderings is <a href="/vaft/develop/reference/characteristic-scales/">Characteristic scales and orderings</a> (#1724). The ordering parameters themselves are #1627. The ordering contracts
 each mode of §3–§5 and §12 consumes are <code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts.ADAPTER_MODES</code> (#1823), drawn under the
 contract map in <a href="/vaft/develop/reference/asymptotic-orderings/">Asymptotic orderings</a>.</p>
 
@@ -1635,11 +1641,12 @@ whose physics is not documented.</p>
 <ul>
   <li><strong>GPEC (#1734), resolved.</strong> Every GPEC-suite run now records its formalism from the prepared <code class="language-plaintext highlighter-rouge">dcon.in</code> /
 <code class="language-plaintext highlighter-rouge">pentrc.in</code> / <code class="language-plaintext highlighter-rouge">gpec.in</code> (see “GPEC suite” in §11), so a kinetic run is distinguishable from an ideal one.</li>
-  <li><strong>GACODE (#1735):</strong>
+  <li><strong>GACODE (#1735), resolved.</strong>
     <ul>
-      <li><code class="language-plaintext highlighter-rouge">cgyro.formalism()</code> hard-codes values that <code class="language-plaintext highlighter-rouge">extra_parameters</code> can contradict (<code class="language-plaintext highlighter-rouge">AE_FLAG</code>, <code class="language-plaintext highlighter-rouge">EQUILIBRIUM_MODEL</code>,
-<code class="language-plaintext highlighter-rouge">GLOBAL_FLAG</code>), and it omits the collision model and the zeroed rotation;</li>
-      <li>NEO’s <code class="language-plaintext highlighter-rouge">equilibrium_model=0</code> silently means s-α if <code class="language-plaintext highlighter-rouge">profile_model=1</code> is ever used.</li>
+      <li>CGYRO reads <code class="language-plaintext highlighter-rouge">AE_FLAG</code>, <code class="language-plaintext highlighter-rouge">EQUILIBRIUM_MODEL</code>, <code class="language-plaintext highlighter-rouge">GLOBAL_FLAG</code>, the collision model and the rotation inputs from the
+written input.</li>
+      <li>NEO records its geometry the way NEO reads it, so <code class="language-plaintext highlighter-rouge">equilibrium_model=0</code> with <code class="language-plaintext highlighter-rouge">profile_model=1</code> is recorded as
+s-α (see “GACODE suite” in §11).</li>
     </ul>
   </li>
 </ul>
@@ -1757,14 +1764,67 @@ Miller geometry and gyrokinetic electrons.</li>
 <p><strong>Deferred to Phase C.</strong></p>
 <ul>
   <li><strong>GPEC suite (#1734):</strong> done – see below.</li>
-  <li><strong>GACODE (#1735):</strong>
+  <li><strong>GACODE (#1735):</strong> done – see below.</li>
+  <li><strong>NUBEAM and ASCOT5:</strong> no Phase C issue yet.</li>
+</ul>
+
+<p><strong>GACODE suite (#1735).</strong> Every NEO, TGLF and CGYRO run, and every TGLF-NN prediction, stores its record as
+<code class="language-plaintext highlighter-rouge">provenance["plasma_formalism"]</code>. The record is derived from the <code class="language-plaintext highlighter-rouge">KEY=VALUE</code> input the run was written with
+(<code class="language-plaintext highlighter-rouge">vaft.code.gacode._formalism</code>), with upstream defaults for absent keys. A shared input format does not imply shared
+governing physics:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>GACODE suite
+|
++-- NEO      kinetic / drift_kinetic, neoclassical_transport, steady_state
+|            (SIM_MODEL 0/3/5 analytic theory, 4 neural network: reduced, derived_from drift_kinetic)
++-- TGLF     reduced, derived_from gyrokinetic: gyro-Landau-fluid quasilinear transport
+|            (microstability / linear with USE_TRANSPORT_MODEL=F)
++-- TGLF-NN  the TGLF variant it was trained on, realized as a learned surrogate (extensions.realization)
++-- CGYRO    kinetic / gyrokinetic, local delta-f continuum (microstability or turbulent_transport)
+</code></pre></div></div>
+
+<ul>
+  <li><strong>NEO.</strong>
     <ul>
-      <li>derive NEO and TGLF records;</li>
-      <li>read <code class="language-plaintext highlighter-rouge">AE_FLAG</code>, <code class="language-plaintext highlighter-rouge">EQUILIBRIUM_MODEL</code>, <code class="language-plaintext highlighter-rouge">GLOBAL_FLAG</code> and the collision model back from <code class="language-plaintext highlighter-rouge">input.cgyro.gen</code>, instead
-of trusting the configuration object.</li>
+      <li><code class="language-plaintext highlighter-rouge">AE_FLAG=1</code> removes the electrons from the kinetic population.</li>
+      <li>The analytic models carry no kinetic population, because they solve for no distribution.</li>
+      <li><code class="language-plaintext highlighter-rouge">EQUILIBRIUM_MODEL</code> (s-α / large aspect ratio / Miller) applies only with <code class="language-plaintext highlighter-rouge">PROFILE_MODEL=1</code>. With
+<code class="language-plaintext highlighter-rouge">PROFILE_MODEL=2</code>, VAFT’s default, the shape is <code class="language-plaintext highlighter-rouge">input_gacode_shape</code>.</li>
+      <li>The collision, rotation, Spitzer and 3-D switches stay in <code class="language-plaintext highlighter-rouge">extensions</code>.</li>
     </ul>
   </li>
-  <li><strong>NUBEAM and ASCOT5:</strong> no Phase C issue yet.</li>
+  <li><strong>TGLF.</strong>
+    <ul>
+      <li>The saturation rule is recorded with the linear controls TGLF’s start-up presets impose with it (<code class="language-plaintext highlighter-rouge">XNU_MODEL</code>,
+<code class="language-plaintext highlighter-rouge">WDIA_TRAPPED</code>, <code class="language-plaintext highlighter-rouge">UNITS</code>, <code class="language-plaintext highlighter-rouge">NMODES</code>), as the <em>effective</em> values, together with the field switches, the geometry
+and the electron model.</li>
+      <li><code class="language-plaintext highlighter-rouge">vaft.code.mitim.compare.effective_tglf_controls</code>, used to compare MITIM’s inputs with VAFT’s, keeps its own
+implementation. A test pins that the two agree on every canonical input.</li>
+    </ul>
+  </li>
+  <li><strong>TGLF-NN.</strong>
+    <ul>
+      <li>The physical fields are those of the TGLF variant, read from the model identity (SAT rule, field model), never
+from the request; <code class="language-plaintext highlighter-rouge">unknown</code> where the model does not say.</li>
+      <li>The SAT rule implies <code class="language-plaintext highlighter-rouge">XNU_MODEL</code> and <code class="language-plaintext highlighter-rouge">WDIA_TRAPPED</code>. The variant’s <code class="language-plaintext highlighter-rouge">UNITS</code> and <code class="language-plaintext highlighter-rouge">NMODES</code> are recorded as
+<code class="language-plaintext highlighter-rouge">unknown</code>.</li>
+      <li>The realization is <code class="language-plaintext highlighter-rouge">extensions.realization="learned_surrogate"</code>, <code class="language-plaintext highlighter-rouge">surrogate_of="tglf"</code>. No kinetic equation is
+“neural network”.</li>
+    </ul>
+  </li>
+  <li><strong>CGYRO.</strong>
+    <ul>
+      <li><code class="language-plaintext highlighter-rouge">plasma_formalism(config, parameters=...)</code> reads the field model (<code class="language-plaintext highlighter-rouge">N_FIELD</code>), the regime (<code class="language-plaintext highlighter-rouge">NONLINEAR_FLAG</code>), the
+electron model, the geometry (<code class="language-plaintext highlighter-rouge">EQUILIBRIUM_MODEL</code> 1 s-α,
+2 MXH, recorded as VAFT’s historical <code class="language-plaintext highlighter-rouge">miller</code>), <code class="language-plaintext highlighter-rouge">GLOBAL_FLAG</code> (1 gives <code class="language-plaintext highlighter-rouge">spatial_domain="unknown"</code>, never a
+bare global), the collision model and the rotation. The rotation is <code class="language-plaintext highlighter-rouge">"none"</code> when <code class="language-plaintext highlighter-rouge">GAMMA_E</code>, <code class="language-plaintext highlighter-rouge">GAMMA_P</code> and
+<code class="language-plaintext highlighter-rouge">MACH</code> are all zero, and <code class="language-plaintext highlighter-rouge">unknown</code> with <code class="language-plaintext highlighter-rouge">PROFILE_MODEL=2</code>, which takes them from <code class="language-plaintext highlighter-rouge">input.gacode</code>.</li>
+      <li>The #1353 <code class="language-plaintext highlighter-rouge">formalism()</code> is still derived from this record.</li>
+    </ul>
+  </li>
+  <li><strong>Not covered.</strong> The classical (Braginskii) result in <code class="language-plaintext highlighter-rouge">vaft.process.transport_state</code> has no record yet: the
+vocabulary has no operation for classical collisional transport, and adding one is a <code class="language-plaintext highlighter-rouge">SCHEMA_VERSION</code> change for
+#1727, not part of this phase.</li>
 </ul>
 
 <p><strong>GPEC suite (#1734).</strong> <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code> resolves a record for every DCON, RDCON, STRIDE, ideal-GPEC and PENTRC run
@@ -2063,7 +2123,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 16:47:34 +0000"
+        "time": "2026-10-11 17:28:10 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

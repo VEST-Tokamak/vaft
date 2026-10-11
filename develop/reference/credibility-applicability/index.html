@@ -247,6 +247,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
                     
                         <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
@@ -378,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4cf7def</code>. What is described
+  <code>803c3d0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -787,6 +793,25 @@ supported). It counts out-of-domain draws in <code class="language-plaintext hig
 <p>The result is local and first order. It carries only measured-input uncertainty, not the fitted coefficients
 or scatter of an empirical law. <code class="language-plaintext highlighter-rouge">compare_linear_to_monte_carlo</code> and <code class="language-plaintext highlighter-rouge">compare_jacobians</code> interpret it.</p>
 
+<p><strong>Operational boundaries.</strong> <code class="language-plaintext highlighter-rouge">vaft.formula.boundaries.propagate_boundary_uncertainty(boundary, x, inputs=..., std= | covariance=)</code>
+carries measurement uncertainty into both the boundary value $b$ and the signed margin of an operating point.
+The operating value can share a covariance with the boundary inputs, for example a density and the current
+from one shot. Three kinds of uncertainty stay apart:</p>
+<ul>
+  <li><strong>measurement:</strong> <code class="language-plaintext highlighter-rouge">boundary</code> (on $b$) and <code class="language-plaintext highlighter-rouge">margin</code>, both full propagation results;</li>
+  <li><strong>source parameters:</strong> <code class="language-plaintext highlighter-rouge">source_parameters_relative</code>, the relative spread of $b$ from the coefficient and
+exponent uncertainty the source reports, taken as uncorrelated because no covariance is published.
+<code class="language-plaintext highlighter-rouge">source_parameters_complete</code> is False when the source reports only some of them;</li>
+  <li><strong>source scatter:</strong> <code class="language-plaintext highlighter-rouge">source_scatter_relative</code>, the source’s RMS scatter about its fit.</li>
+</ul>
+
+<p>The last two are also given on the margin’s scale (<code class="language-plaintext highlighter-rouge">margin_std_from_source_*</code>). A part the source does not
+report, or reports in a form that cannot be propagated, is <code class="language-plaintext highlighter-rouge">None</code>: unknown rather than zero. <code class="language-plaintext highlighter-rouge">source_note</code>
+says which applies. <code class="language-plaintext highlighter-rouge">warnings</code> repeats the applicability and kind warnings of <code class="language-plaintext highlighter-rouge">evaluate_boundary</code>, and flags a
+margin whose linearity check fails. <code class="language-plaintext highlighter-rouge">boundary.uncertainty</code> is passed
+through unchanged, and nothing returns a permitted/forbidden verdict. A margin within its spread is an
+assessment for the caller or <code class="language-plaintext highlighter-rouge">vaft.validation</code>, and crossing a soft boundary is not a prediction of failure.</p>
+
 <p><strong>Distinctions kept apart:</strong></p>
 <ul>
   <li><strong>Provenance:</strong> <code class="language-plaintext highlighter-rouge">native</code>, <code class="language-plaintext highlighter-rouge">finite_difference</code>, <code class="language-plaintext highlighter-rouge">autodiff</code> or <code class="language-plaintext highlighter-rouge">analytic</code>. Comparing a Jacobian
@@ -1097,7 +1122,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 16:47:34 +0000"
+        "time": "2026-10-11 17:28:10 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -25,11 +25,11 @@
 
 
 
-            <link rel="prev" href="/vaft/develop/reference/research-domains/" />
+            <link rel="prev" href="/vaft/develop/reference/process/coil_operating_space/" />
         
 
         
-            <link rel="next" href="/vaft/develop/reference/vest-diagnostics/" />
+            <link rel="next" href="/vaft/develop/reference/characteristic-scales/" />
         
     </head>
     <body>
@@ -247,6 +247,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
                     
                         <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
@@ -378,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4cf7def</code>. What is described
+  <code>803c3d0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -409,7 +415,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.ntv_coil_response</code>:
-<strong>10</strong> public functions. Each entry is what
+<strong>11</strong> public functions. Each entry is what
 <code>vaft.process.describe("ntv_coil_response.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -468,7 +474,7 @@ at zero.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 10 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 11 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="budgeted_torque_extrema"><td><a href="#budgeted_torque_extrema"><code>budgeted_torque_extrema</code></a></td><td>Largest and smallest signed torque over free complex excitations with <code class="language-plaintext highlighter-rouge">c^H D c = budget</code>.
@@ -480,6 +486,8 @@ at zero.</p>
   <tr data-ref-row="fixed_amplitude_phase_extrema"><td><a href="#fixed_amplitude_phase_extrema"><code>fixed_amplitude_phase_extrema</code></a></td><td>Phases of the largest and smallest signed torque with every group amplitude fixed.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="hermitian_torque_matrix"><td><a href="#hermitian_torque_matrix"><code>hermitian_torque_matrix</code></a></td><td>The Hermitian <code class="language-plaintext highlighter-rouge">Q</code> of <code class="language-plaintext highlighter-rouge">T = c^H Q c</code> from the probe torques.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="ntv_operating_space"><td><a href="#ntv_operating_space"><code>ntv_operating_space</code></a></td><td>Direct NTV torques (and a qualified model) as a #1178 coil operating-space result.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="quadratic_invariance_checks"><td><a href="#quadratic_invariance_checks"><code>quadratic_invariance_checks</code></a></td><td>Tests of a pure quadratic response that need no <code class="language-plaintext highlighter-rouge">Q</code>: scaling, sign, common phase.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
@@ -502,11 +510,11 @@ at zero.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#budgeted_torque_extrema"><code>budgeted_torque_extrema</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="budgeted_torque_extrema" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L646-L715" title="vaft/process/ntv_coil_response.py, lines 646–715 at 4cf7def">source</a>
+<a class="ref-source" data-source="budgeted_torque_extrema" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L647-L716" title="vaft/process/ntv_coil_response.py, lines 647–716 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>budgeted_torque_extrema(Q, D, budget)</code></pre>
 
-    <details class="ref-code" data-source-code="budgeted_torque_extrema"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 646–715</span></summary>
+    <details class="ref-code" data-source-code="budgeted_torque_extrema"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 647–716</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">budgeted_torque_extrema</span><span class="p">(</span><span class="n">Q</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">D</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">budget</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">Largest and smallest signed torque over free complex excitations with ``c^H D c = budget``.
@@ -651,11 +659,11 @@ and must be checked separately.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#coil_phasors"><code>coil_phasors</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="coil_phasors" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L115-L155" title="vaft/process/ntv_coil_response.py, lines 115–155 at 4cf7def">source</a>
+<a class="ref-source" data-source="coil_phasors" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L116-L156" title="vaft/process/ntv_coil_response.py, lines 116–156 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>coil_phasors(amplitudes, phases)</code></pre>
 
-    <details class="ref-code" data-source-code="coil_phasors"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 115–155</span></summary>
+    <details class="ref-code" data-source-code="coil_phasors"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 116–156</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">coil_phasors</span><span class="p">(</span><span class="n">amplitudes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span> <span class="n">phases</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Complex excitation phasors ``A_k exp(+i phi_k)`` of the coil groups.
@@ -756,7 +764,7 @@ and must be checked separately.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fit_inhomogeneous_torque"><code>fit_inhomogeneous_torque</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="fit_inhomogeneous_torque" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L487-L576" title="vaft/process/ntv_coil_response.py, lines 487–576 at 4cf7def">source</a>
+<a class="ref-source" data-source="fit_inhomogeneous_torque" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L488-L577" title="vaft/process/ntv_coil_response.py, lines 488–577 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>fit_inhomogeneous_torque(phasors, torques)</code></pre>
 
@@ -829,7 +837,7 @@ coil) is present; the pure form <code class="language-plaintext highlighter-roug
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fixed_amplitude_phase_extrema"><code>fixed_amplitude_phase_extrema</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="fixed_amplitude_phase_extrema" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L718-L816" title="vaft/process/ntv_coil_response.py, lines 718–816 at 4cf7def">source</a>
+<a class="ref-source" data-source="fixed_amplitude_phase_extrema" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L719-L817" title="vaft/process/ntv_coil_response.py, lines 719–817 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>fixed_amplitude_phase_extrema(Q, amplitudes, *, grid_points, refine)</code></pre>
 
@@ -906,11 +914,11 @@ grows as <code class="language-plaintext highlighter-rouge">grid_points^(K-1)</c
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#hermitian_torque_matrix"><code>hermitian_torque_matrix</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="hermitian_torque_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L206-L269" title="vaft/process/ntv_coil_response.py, lines 206–269 at 4cf7def">source</a>
+<a class="ref-source" data-source="hermitian_torque_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L207-L270" title="vaft/process/ntv_coil_response.py, lines 207–270 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>hermitian_torque_matrix(torques, groups)</code></pre>
 
-    <details class="ref-code" data-source-code="hermitian_torque_matrix"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 206–269</span></summary>
+    <details class="ref-code" data-source-code="hermitian_torque_matrix"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 207–270</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">hermitian_torque_matrix</span><span class="p">(</span><span class="n">torques</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">The Hermitian ``Q`` of ``T = c^H Q c`` from the probe torques.
@@ -1047,15 +1055,111 @@ evaluations can qualify it.</p>
 
   </section>
 
+  <section class="ref-entry" id="ntv_operating_space" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#ntv_operating_space"><code>ntv_operating_space</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="ntv_operating_space" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L820-L946" title="vaft/process/ntv_coil_response.py, lines 820–946 at 803c3d0">source</a>
+</header>
+    <pre class="ref-signature"><code>ntv_operating_space(groups, n, phasors, torques, *, sample_ids, roles, amplitude_unit, frame, provenance, qualification=None)</code></pre>
+
+    <p>Direct NTV torques (and a qualified model) as a #1178 coil operating-space result.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>groups</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Coil-group names in phasor order.</p>
+</td></tr>
+  <tr><td><code>n</code></td><td class="ref-type">int</td><td class="ref-unit">-</td><td><p>Toroidal mode number.</p>
+</td></tr>
+  <tr><td><code>phasors</code></td><td class="ref-type">numpy.ndarray</td><td class="ref-unit">phasor</td><td><p><code class="language-plaintext highlighter-rouge">(N, K)</code> excitations in phasor units.</p>
+</td></tr>
+  <tr><td><code>torques</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">N m</td><td><p>Direct signed torque per sample; NaN for a failed evaluation.</p>
+</td></tr>
+  <tr><td><code>sample_ids</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Stable id per sample.</p>
+</td></tr>
+  <tr><td><code>roles</code></td><td class="ref-type">sequence of str</td><td class="ref-unit">-</td><td><p>Role per sample, from <code class="language-plaintext highlighter-rouge">vaft.process.coil_operating_space.OPERATING_SPACE_ROLES</code>.</p>
+</td></tr>
+  <tr><td><code>amplitude_unit</code></td><td class="ref-type">float</td><td class="ref-unit">A per turn</td><td><p>Cosine amplitude of one phasor unit.</p>
+</td></tr>
+  <tr><td><code>frame</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>The toroidal frame the sector angles were taken in.</p>
+</td></tr>
+  <tr><td><code>provenance</code></td><td class="ref-type">mapping</td><td class="ref-unit">-</td><td><p>What produced the direct torques: method, scalar radius, kinetic identity, solver tolerances.</p>
+</td></tr>
+  <tr><td><code>qualification</code></td><td class="ref-type">TorqueMatrixQualification, optional</td><td class="ref-unit">-</td><td><p>A <code class="language-plaintext highlighter-rouge">qualified</code> result of <code class="language-plaintext highlighter-rouge">qualify_torque_matrix</code>; its <code class="language-plaintext highlighter-rouge">Q</code> adds <code class="language-plaintext highlighter-rouge">ntv_torque_model</code> rows for every sample.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td><code>result</code></td><td class="ref-type">vaft.process.coil_operating_space.CoilOperatingSpace</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">ntv_torque</code> rows (<code class="language-plaintext highlighter-rouge">valid</code> or <code class="language-plaintext highlighter-rouge">failed</code>) and, with a qualified model, <code class="language-plaintext highlighter-rouge">ntv_torque_model</code> rows.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The excitation convention is
+<code class="language-plaintext highlighter-rouge">vaft.process.coil_operating_space.COIL_EXCITATION_CONVENTION</code>
+(<code class="language-plaintext highlighter-rouge">c = A exp(+i delta)</code>); measured and modelled torques never share a
+metric.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> Lengths disagree, <code class="language-plaintext highlighter-rouge">amplitude_unit</code> is not positive, the qualification given is not <code class="language-plaintext highlighter-rouge">qualified</code>, or its <code class="language-plaintext highlighter-rouge">Q</code> is for another number of groups.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Amplitudes <code class="language-plaintext highlighter-rouge">|c| * amplitude_unit</code> and phases <code class="language-plaintext highlighter-rouge">arg c mod 2 pi</code>.</li>
+        <li>One <code class="language-plaintext highlighter-rouge">ntv_torque</code> row per sample: <code class="language-plaintext highlighter-rouge">valid</code> with its value, or
+<code class="language-plaintext highlighter-rouge">failed</code> with NaN.</li>
+        <li>With a qualified model, one <code class="language-plaintext highlighter-rouge">ntv_torque_model</code> row per sample,
+<code class="language-plaintext highlighter-rouge">c^H Q c</code>; its provenance records the qualification.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>A model row is a prediction valid only within the qualified domain the
+qualification’s provenance describes.  Nothing checks that <code class="language-plaintext highlighter-rouge">Q</code> was built
+from the same PENTRC method and tolerances as <code class="language-plaintext highlighter-rouge">torques</code>; the caller’s
+<code class="language-plaintext highlighter-rouge">provenance</code> is recorded as that claim.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>Issue #1887, NTV torque on the #1178 operating space.
+</li>
+  <li>Issue #1886, the result schema.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="quadratic_invariance_checks" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#quadratic_invariance_checks"><code>quadratic_invariance_checks</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="quadratic_invariance_checks" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L308-L387" title="vaft/process/ntv_coil_response.py, lines 308–387 at 4cf7def">source</a>
+<a class="ref-source" data-source="quadratic_invariance_checks" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L309-L388" title="vaft/process/ntv_coil_response.py, lines 309–388 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>quadratic_invariance_checks(base_torque, *, scaled=(), reversed_torque=None, rotated=(), atol, rtol)</code></pre>
 
-    <details class="ref-code" data-source-code="quadratic_invariance_checks"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 308–387</span></summary>
+    <details class="ref-code" data-source-code="quadratic_invariance_checks"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 309–388</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">quadratic_invariance_checks</span><span class="p">(</span>
     <span class="n">base_torque</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -1217,11 +1321,11 @@ The tolerances are the caller’s: no universal NTV tolerance exists.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#quadratic_probe_design"><code>quadratic_probe_design</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="quadratic_probe_design" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L158-L203" title="vaft/process/ntv_coil_response.py, lines 158–203 at 4cf7def">source</a>
+<a class="ref-source" data-source="quadratic_probe_design" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L159-L204" title="vaft/process/ntv_coil_response.py, lines 159–204 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>quadratic_probe_design(groups)</code></pre>
 
-    <details class="ref-code" data-source-code="quadratic_probe_design"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 158–203</span></summary>
+    <details class="ref-code" data-source-code="quadratic_probe_design"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 159–204</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">quadratic_probe_design</span><span class="p">(</span><span class="n">groups</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="p">...]:</span>
     <span class="sh">"""</span><span class="s">The ``K^2`` unit excitations that determine a Hermitian ``Q``.
@@ -1330,11 +1434,11 @@ held-out evaluations (<code class="language-plaintext highlighter-rouge">qualify
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#quadratic_torque"><code>quadratic_torque</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="quadratic_torque" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L272-L305" title="vaft/process/ntv_coil_response.py, lines 272–305 at 4cf7def">source</a>
+<a class="ref-source" data-source="quadratic_torque" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L273-L306" title="vaft/process/ntv_coil_response.py, lines 273–306 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>quadratic_torque(Q, phasors)</code></pre>
 
-    <details class="ref-code" data-source-code="quadratic_torque"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 272–305</span></summary>
+    <details class="ref-code" data-source-code="quadratic_torque"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 273–306</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">quadratic_torque</span><span class="p">(</span><span class="n">Q</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">phasors</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Signed torque ``c^H Q c`` of one excitation or a stack of them.
@@ -1421,7 +1525,7 @@ zero for a Hermitian <code class="language-plaintext highlighter-rouge">Q</code>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#qualify_torque_matrix"><code>qualify_torque_matrix</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="qualify_torque_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L390-L484" title="vaft/process/ntv_coil_response.py, lines 390–484 at 4cf7def">source</a>
+<a class="ref-source" data-source="qualify_torque_matrix" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L391-L485" title="vaft/process/ntv_coil_response.py, lines 391–485 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>qualify_torque_matrix(Q, held_out_phasors, held_out_torques, *, atol, rtol, invariance_checks=())</code></pre>
 
@@ -1502,11 +1606,11 @@ amplitude range the evaluations covered, and nowhere else.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#two_group_phase_extrema"><code>two_group_phase_extrema</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="two_group_phase_extrema" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/ntv_coil_response.py#L579-L643" title="vaft/process/ntv_coil_response.py, lines 579–643 at 4cf7def">source</a>
+<a class="ref-source" data-source="two_group_phase_extrema" href="https://github.com/VEST-Tokamak/vaft/blob/803c3d04f2171c467fc471d9bfb9ea211e49ef14/vaft/process/ntv_coil_response.py#L580-L644" title="vaft/process/ntv_coil_response.py, lines 580–644 at 803c3d0">source</a>
 </header>
     <pre class="ref-signature"><code>two_group_phase_extrema(Q, amplitudes)</code></pre>
 
-    <details class="ref-code" data-source-code="two_group_phase_extrema"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 579–643</span></summary>
+    <details class="ref-code" data-source-code="two_group_phase_extrema"><summary>Show source <span class="ref-note">vaft/process/ntv_coil_response.py, lines 580–644</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">two_group_phase_extrema</span><span class="p">(</span><span class="n">Q</span><span class="p">:</span> <span class="n">np</span><span class="p">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">amplitudes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">object</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">Relative phases of the largest and smallest signed torque of two groups.
@@ -1719,13 +1823,13 @@ window.MathJax = {
 </script>
 
 
-                        <a href="/vaft/develop/reference/research-domains/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Research domains">
+                        <a href="/vaft/develop/reference/process/coil_operating_space/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: coil_operating_space">
                             <i class="fa fa-angle-left"></i>
                         </a>
                     
 
                     
-                        <a href="/vaft/develop/reference/vest-diagnostics/" class="navigation navigation-next navigation-unique" aria-label="Next page: VEST diagnostics and data availability">
+                        <a href="/vaft/develop/reference/characteristic-scales/" class="navigation navigation-next navigation-unique" aria-label="Next page: Characteristic scales and orderings">
                             <i class="fa fa-angle-right"></i>
                         </a>
                     
@@ -1757,11 +1861,11 @@ window.MathJax = {
         "depth": 1,
         
         "next": {
-            "title": "VEST diagnostics and data availability",
+            "title": "Characteristic scales and orderings",
             "level": "1.2",
             "depth": 1,
-            "path": "_guide/VEST_diagnostics.md",
-            "ref": "_guide/VEST_diagnostics.md",
+            "path": "_guide/Characteristic_scales_and_orderings.md",
+            "ref": "_guide/Characteristic_scales_and_orderings.md",
             "articles": []
         },
         
@@ -1859,7 +1963,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 16:47:34 +0000"
+        "time": "2026-10-11 17:28:10 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

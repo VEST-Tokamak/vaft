@@ -247,6 +247,12 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
                     
                         <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
@@ -378,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4cf7def</code>. What is described
+  <code>803c3d0</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -558,7 +564,7 @@ in the same way:</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.gui</span> <span class="kn">import</span> <span class="n">register_workspace</span>
 
-<span class="k">class</span> <span class="nc">EquilibriumWorkspace</span><span class="p">:</span>
+<span class="k">class</span> <span class="nc">MyWorkspace</span><span class="p">:</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="n">self</span><span class="p">,</span> <span class="n">shell</span><span class="p">):</span>           <span class="c1"># shell.selection, shell.report, shell.show
 </span>        <span class="n">self</span><span class="p">.</span><span class="n">shell</span> <span class="o">=</span> <span class="n">shell</span>
     <span class="k">def</span> <span class="nf">sidebar</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="k">return</span> <span class="p">[...]</span>      <span class="c1"># Panel objects
@@ -566,7 +572,7 @@ in the same way:</p>
     <span class="k">def</span> <span class="nf">activate</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="p">...</span>              <span class="c1"># optional: called each time it is shown
 </span>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="n">self</span><span class="p">):</span> <span class="p">...</span>                 <span class="c1"># optional: called when the browser session ends
 </span>
-<span class="nf">register_workspace</span><span class="p">(</span><span class="sh">"</span><span class="s">equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">Equilibrium</span><span class="sh">"</span><span class="p">,</span> <span class="n">EquilibriumWorkspace</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
+<span class="nf">register_workspace</span><span class="p">(</span><span class="sh">"</span><span class="s">my_workspace</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">My workspace</span><span class="sh">"</span><span class="p">,</span> <span class="n">MyWorkspace</span><span class="p">,</span> <span class="n">order</span><span class="o">=</span><span class="mi">90</span><span class="p">)</span>
 </code></pre></div></div>
 
 <p>A workspace is built the first time it is shown. It reads and changes the shared selection
@@ -596,6 +602,30 @@ of widening the page.</li>
 <p>Every control is reachable at every width; nothing is hidden on small screens. The rules live
 in <code class="language-plaintext highlighter-rouge">vaft.gui.layout</code>, and a new workspace gets them by using <code class="language-plaintext highlighter-rouge">vaft.gui.layout.page</code>, as the
 shell does.</p>
+
+<h3 id="touch">Touch</h3>
+
+<p>On a phone or tablet the page renders at the device’s own width (it declares a <code class="language-plaintext highlighter-rouge">viewport</code>), and
+interactive plots start in a touch-friendly mode:</p>
+
+<ul>
+  <li><strong>Drag on the plot</strong> (under the renderer choice, for a single plot) decides what a one-finger drag over an
+interactive plot does: <em>Zoom box</em>, <em>Pan</em> or <em>Scroll the page</em>. Phones and tablets start on
+<em>Scroll the page</em>, so a plot as wide as the screen never traps the reader; desktops start on
+<em>Zoom box</em>. The choice is recognised from the browser’s User-Agent and only sets the default.
+Switching keeps the current zoom. A composition uses the default; use its mode bar to zoom or
+pan.
+An iPad that asks for desktop sites starts on <em>Zoom box</em>; change it in the list.</li>
+  <li>To zoom in on a touch screen, choose <em>Zoom box</em> and drag over the region you want, or use the
+zoom buttons in the plot’s mode bar, which stays shown on a touch screen. To zoom back out, use the mode bar’s <em>Autoscale</em> or
+<em>Reset axes</em>. A double tap does not reset the zoom, and Plotly has no two-finger pinch zoom on
+its 2-D plots.</li>
+  <li>Legends move underneath the plot on a touch screen, so they do not take the plot’s width.
+<em>Figure options</em> can still hide the legend.</li>
+  <li>A static (Matplotlib) image is scaled to the screen width, so its text gets small on a phone.
+Pinch-zoom the page or turn the phone sideways, or switch to the interactive renderer when
+the plot has one.</li>
+</ul>
 
 <h2 id="run-on-a-remote-host-over-ssh">Run on a remote host over SSH</h2>
 
@@ -863,7 +893,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#adding-a-workspace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Adding a workspace</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#phones-and-tablets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Phones and tablets</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#host-it-for-a-team" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Host it for a team</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#sessions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sessions</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#adding-a-workspace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Adding a workspace</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#phones-and-tablets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Phones and tablets</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#touch" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Touch</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#host-it-for-a-team" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Host it for a team</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#sessions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sessions</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
     </nav>
 </aside>
 
@@ -981,7 +1011,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 16:47:34 +0000"
+        "time": "2026-10-11 17:28:10 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
