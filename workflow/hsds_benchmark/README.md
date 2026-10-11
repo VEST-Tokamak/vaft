@@ -117,3 +117,28 @@ running, so it shows the instrumentation working, not a baseline:
 | eager_canonical, warm | 4.4 s | 25 | 0.38 MB | 0 s | 143/143 agree |
 | lazy_scalar | 2.2 s | 148 | 0.41 MB | -- | agree |
 | prefetch | 4.1 s | 213 | 29.4 MB | -- | agree |
+
+## Baseline (2026-10-11 19:58–20:09 KST, vestserver, production HSDS 0.9.0.alpha0, 4 nodes)
+
+No production writer was running. Shots 39915 and 41524, 1/2/4 clients, 3 repeats, 378 client runs,
+runner at 565b4b4a9. Wall-time p50 in seconds for shot 39915 (41524 is within about 20 %):
+
+| scenario | 1 client | 2 clients | 4 clients | requests | observed MB | peak RSS MB |
+|---|---|---|---|---|---|---|
+| lazy_scalar | 0.77 | 0.93 | 1.17 (p95 2.96) | 148 | 0.41 | 169 |
+| lazy_large | 1.17 | 1.39 | 2.49 | 309 | 3.9 | 175 |
+| prefetch | 1.30 | 1.67 | 2.62 | 213 | 29.4 | 212 |
+| eager_canonical, cold | 8.33 (hsget 3.8) | 9.87 | 13.80 (hsget 7.5) | 25 + hsget | 0.38 | 342 |
+| eager_canonical, warm | 2.97 | 3.39 | 3.81 | 25 | 0.38 | 341 |
+| eager_full, cold | 7.26 | 7.91 | 10.15 | 79 | 10.5 | 347 |
+| eager_full, warm | 3.24 | 3.68 | 5.56 | 50 | 0.76 | 346 |
+| eager_h5image | -- | -- | -- | -- | -- | -- |
+
+* Correctness: every value agrees with eager canonical (0 mismatched, 0 missing). The canonical
+  repeats agree with each other.
+* `eager_h5image` failed in every run: `H5ImageUnavailableError` (the derived image is missing or
+  stale on production for these shots). It cannot be measured until the images exist.
+* A warm eager load still makes 25 (canonical) or 50 (full) requests and takes about 3 s, which is
+  roughly 4x a lazy scalar read.
+* The smoke run during a production backfill took 16.7 s for eager canonical cold, twice the 8.3 s
+  here. Contention matters more than client count up to 4.

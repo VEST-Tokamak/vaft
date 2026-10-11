@@ -71,6 +71,12 @@ def _try(ods: Any, path: str, errors: list[str]) -> Any:
         return ods[path]
     except LookupError:  # absent from this shot: part of the data, not a failure
         return None
+    except ValueError as exc:
+        # OMAS's own word for an empty leaf ("`path` has no data"): absent too.
+        if str(exc).endswith("has no data"):
+            return None
+        errors.append(f"{path}: ValueError: {exc}"[:200])
+        return None
     except Exception as exc:  # a read that failed must not pass as "absent"
         errors.append(f"{path}: {type(exc).__name__}: {exc}"[:200])
         return None

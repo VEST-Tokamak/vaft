@@ -142,6 +142,8 @@ def test_a_failed_read_is_recorded_while_an_absent_path_is_not():
         def __getitem__(self, path):
             if path == "magnetics.ip.0.data":
                 raise OSError("HSDS 503")
+            if path.endswith("magnetic_axis.r"):  # OMAS's empty leaf: absent, not a failure
+                raise ValueError(f"`{path}` has no data")
             return super().__getitem__(path)
 
     ods = _ods()
