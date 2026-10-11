@@ -49,7 +49,7 @@ def main(argument_file):
     out = {"status": "error", "capability": "portals_tglf_closed_loop", "model": "tglf_neo"}
     try:
         import numpy as np
-        from scipy.interpolate import PchipInterpolator
+        from _manufacture import manufacture_converged, manufacture_error, manufactured_source
         from mitim_modules.portals import PORTALSmain
         from mitim_tools.gacode_tools import PROFILEStools
         from mitim_tools.opt_tools import STRATEGYtools
@@ -107,17 +107,15 @@ def main(argument_file):
         rho = np.asarray(state.profiles["rho(-)"], dtype=float)
         r = np.asarray(state.derived["r"], dtype=float)
         volp = np.asarray(state.derived["volp_geo"], dtype=float)
-        drho_dr = np.gradient(rho, r)
-        inside = volp > 0
         key = _key(state.profiles, "qohme") or "qohme(MW/m^3)"
         volp_k = ps.plasma["volp"][0, 1:].detach().numpy()
         nodes = q_true * volp_k
         history = []
         for index in range(int(args.get("manufacture_iterations", 4))):
-            power = PchipInterpolator(np.concatenate(([0.0], rho_k)), np.concatenate(([0.0], nodes)),
-                                      extrapolate=True)
-            q = np.zeros_like(r)
-            q[inside] = power.derivative()(rho[inside]) * drho_dr[inside] / volp[inside]
+            q = manufactured_source(rho, r, volp, rho_k, nodes)
+            if not np.all(np.isfinite(q)):
+                history.append(float("inf"))
+                break
             state.profiles[key] = q
             state.derive_quantities()
             probe = setup(work / f"manufacture_{index}", 1, 0)
@@ -125,14 +123,15 @@ def main(argument_file):
             probe.powerstate.calculateProfileFunctions()
             probe.powerstate.calculateTargets()
             got = probe.powerstate.plasma["QeMWm2"][0, 1:].detach().numpy()
-            history.append(float(np.max(np.abs(got - q_true) / np.maximum(np.abs(q_true), 1e-30))))
+            history.append(manufacture_error(got, q_true))
             nodes = nodes + (q_true - got) * volp_k
 
         # A manufactured source that does not reproduce the truth's flux is not a
         # closed-loop problem: optimising against it is an hour of meaningless
-        # evaluations. (A single predicted radius diverged here: 14.8 -> 4.7e4.)
+        # evaluations (before the s = rho^2 construction a single radius diverged,
+        # 14.8 -> 4.7e4, and was optimised against regardless).
         tolerance = float(args.get("manufacture_tolerance", 1e-4))
-        if not history or not history[-1] <= tolerance:
+        if not manufacture_converged(history, tolerance):
             raise RuntimeError(
                 f"manufactured source did not converge: relative flux error history {history} "
                 f"(tolerance {tolerance:g}); the closed loop was not run")

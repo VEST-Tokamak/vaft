@@ -43,7 +43,7 @@ def main(argument_file):
     try:
         import numpy as np
         import torch
-        from scipy.interpolate import PchipInterpolator
+        from _manufacture import manufacture_converged, manufacture_error, manufactured_source
         from mitim_tools.gacode_tools import PROFILEStools
         from mitim_modules.powertorch import STATEtools
         from mitim_modules.powertorch.physics_models import targets_analytic, transport_analytic
@@ -84,14 +84,12 @@ def main(argument_file):
         volp_k = truth.plasma["volp"][0, 1:].detach().numpy()
         roa_k = truth.plasma["roa"][0, 1:].detach().numpy()
 
-        # Manufactured cumulative power through (0, 0) and (rho_k, Q_k V'_k), built in
-        # rho because that is the coordinate the fixed targets are interpolated in; the
-        # source is q = (dP/drho)(drho/dr) / V'.
+        # Manufactured cumulative power through (0, 0) and (rho_k, Q_k V'_k), interpolated
+        # in rho^2 so the source stays finite on the axis (_manufacture.manufactured_source);
+        # the source is q = (dP/drho)(drho/dr) / V'.
         rho = np.asarray(state.profiles["rho(-)"], dtype=float)
         r = np.asarray(state.derived["r"], dtype=float)
         volp = np.asarray(state.derived["volp_geo"], dtype=float)
-        drho_dr = np.gradient(rho, r)
-        inside = volp > 0
         key = _key(state.profiles, "qohme") or "qohme(MW/m^3)"
         nodes = q_tr * volp_k
         history = []
@@ -99,17 +97,22 @@ def main(argument_file):
         # interpolation to rho_k) misses the nodes by a few percent; a few fixed-point
         # corrections of the nodes remove that, and the remaining error is reported.
         for _ in range(int(args.get("manufacture_iterations", 4))):
-            power = PchipInterpolator(np.concatenate(([0.0], rho_k.numpy())),
-                                      np.concatenate(([0.0], nodes)), extrapolate=True)
-            q = np.zeros_like(r)
-            q[inside] = power.derivative()(rho[inside]) * drho_dr[inside] / volp[inside]
+            q = manufactured_source(rho, r, volp, rho_k.numpy(), nodes)
+            if not np.all(np.isfinite(q)):
+                history.append(float("inf"))
+                break
             state.profiles[key] = q
             state.derive_quantities()
             matched = build(state)
             matched.calculate()
             got = matched.plasma["QeMWm2"][0, 1:].detach().numpy()
-            history.append(float(np.max(np.abs(got - q_tr) / np.maximum(np.abs(q_tr), 1e-30))))
+            history.append(manufacture_error(got, q_tr))
             nodes = nodes + (q_tr - got) * volp_k
+        tolerance = float(args.get("manufacture_tolerance", 1e-4))
+        if not manufacture_converged(history, tolerance):
+            raise RuntimeError(
+                f"manufactured source did not converge: relative flux error history {history} "
+                f"(tolerance {tolerance:g}); the closed loop was not run")
         target_k = matched.plasma["QeMWm2"][0, 1:].detach().numpy()
         transport_k = matched.plasma["QeMWm2_tr"][0, 1:].detach().numpy()
         x_true = matched.plasma["aLte"][:, 1:].clone()
