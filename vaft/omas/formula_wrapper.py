@@ -606,7 +606,7 @@ def compute_tau_E_exp(ods, time_slice: int, Z_eff: float = 2.0) -> float:
     Definition (legacy, #1905)
     --------------------------
     This is the *modelled* power budget: heating is the Spitzer
-    $\int \eta J^2 dV$ of the core profiles (Z_eff = 2, ln Lambda = 17, #1188),
+    $\\int \\eta J^2 dV$ of the core profiles (Z_eff = 2, ln Lambda = 17, #1188),
     the radiation is modelled (line + bremsstrahlung + synchrotron) and always
     subtracted, and W = (3/2) <p> V with p = 2 n_e T_e (T_i = T_e). The
     experimental Ohmic confinement time of VAFT -- P_OH = I_p V_res from the
