@@ -239,6 +239,7 @@ def mercier_ggj_profile(
     profiles = [np.asarray(v, dtype=float) for v in (f, pressure, q)]
     if any(v.shape != x.shape for v in profiles) or np.any(np.diff(x) <= 0):
         raise ValueError("f, pressure and q must lie on the increasing profile_psi_n grid")
+    # anti-alias: profiles splined over normalized flux, not time -- no sample rate to reduce
     f_spline = CubicSpline(x, np.abs(profiles[0]))
     p_spline = CubicSpline(x, MU0 * profiles[1])
     q_spline = CubicSpline(x, np.abs(profiles[2]))
@@ -519,6 +520,7 @@ class _OrientedField:
         self.sign = float(np.sign(psi_boundary - psi_axis))
         self.axis, self.span = psi_axis, psi_boundary - psi_axis
         self.flux = RectBivariateSpline(r_axis, z_axis, self.sign * np.asarray(psi, dtype=float), kx=5, ky=5)
+        # anti-alias: profiles splined over normalized flux, not time -- no sample rate to reduce
         self.f = CubicSpline(profile_psi_n, np.abs(np.asarray(f, dtype=float)))
         self.p = CubicSpline(profile_psi_n, MU0 * np.asarray(pressure, dtype=float))
         self.h = 1e-6 * max(float(np.ptp(r_axis)), float(np.ptp(z_axis)))
@@ -981,6 +983,7 @@ def s_alpha_profile(
 
     x = np.asarray(profile_psi_n, dtype=float)
     span = abs(psi_boundary - psi_axis)
+    # anti-alias: profiles splined over normalized flux, not time -- no sample rate to reduce
     dp_dpsi = CubicSpline(x, np.asarray(pressure, dtype=float))(levels, 1) / span  # per radian, outward
     dV_dpsi = 2.0 * np.pi * profile.dV_dchi  # chi = 2 pi psi
     dq_dpsi = 2.0 * np.pi * profile.dq_dchi
