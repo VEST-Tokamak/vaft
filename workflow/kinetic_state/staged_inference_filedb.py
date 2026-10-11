@@ -14,10 +14,15 @@ CES and ``core_profiles`` products from a FileDB and, slice by slice,
 It writes a JSON record, a CSV with one row per slice and a figure.  Nothing is
 written to the FileDB: intermediate products go under ``--work``.
 
+``--tier-a`` names the confinement Tier A table (``vaft/data/confinement/vest_tier_a_confinement.csv``)
+and annotates each slice with its row, when it has one: the EFIT quality, whether the
+EFIT pressure agrees with Thomson (``thomson_consistent``) and whether Lane D accepted it.
+
 Usage::
 
     python3 staged_inference_filedb.py --filedb ~/runs/campaign/filedb \\
-        --shots 39915 39916 40326 --out ~/work/kp-1842-out --work ~/work/kp-1842-out/tmp
+        --shots 39915 39916 40326 --out ~/work/kp-1842-out --work ~/work/kp-1842-out/tmp \\
+        --tier-a vaft/data/confinement/vest_tier_a_confinement.csv
 """
 
 from __future__ import annotations
@@ -40,11 +45,28 @@ def _product(filedb: Path, stage: str, shot: int, name: str | None = None) -> Pa
     raise FileNotFoundError(f"{stage} product of shot {shot}: {directory}/{stem}.json[.gz]")
 
 
+def load_tier_a(path: Path | None) -> dict[int, list[dict]]:
+    if path is None:
+        return {}
+    by_shot: dict[int, list[dict]] = {}
+    with open(path, newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            by_shot.setdefault(int(row["shot"]), []).append(row)
+    return by_shot
+
+
+def tier_a_row(tier_a: dict[int, list[dict]], shot: int, time_s: float, tolerance: float = 5e-4) -> dict | None:
+    rows = tier_a.get(shot, [])
+    near = [r for r in rows if abs(float(r["time_efit_s"]) - time_s) <= tolerance]
+    return min(near, key=lambda r: abs(float(r["time_efit_s"]) - time_s)) if near else None
+
+
 def _finite(value):
     return None if value is None or not np.isfinite(value) else float(value)
 
 
-def evaluate_shot(filedb: Path, shot: int, work: Path, *, max_slices: int | None) -> dict:
+def evaluate_shot(filedb: Path, shot: int, work: Path, *, max_slices: int | None,
+                  tier_a: dict[int, list[dict]] | None = None) -> dict:
     from omas import ODS
 
     from vaft.database._local import load_ods
@@ -105,6 +127,9 @@ def evaluate_shot(filedb: Path, shot: int, work: Path, *, max_slices: int | None
         age = None if onset is None else t - onset
         b = kinetic_state_stages(ods, time=t, ionization="transient", plasma_age_s=age if age and age > 0 else None)
         row = {"time_s": t, "plasma_age_s": age, "stages": [s.record() | {"fields": None} for s in b.stages]}
+        tier = tier_a_row(tier_a or {}, shot, t)
+        row["tier_a"] = None if tier is None else {
+            k: tier[k] for k in ("efit_quality", "ts_status", "thomson_consistent", "accepted", "tau_e_th_s", "ip_efit_A")}
         row["chain_B"] = {
             "complete": b.complete,
             "stage_status": {s.name: (s.status if s.ok else f"unavailable: {s.reason[:140]}") for s in b.stages},
@@ -156,19 +181,32 @@ def evaluate_shot(filedb: Path, shot: int, work: Path, *, max_slices: int | None
     return record
 
 
-def _figure(records: list[dict], path: Path) -> None:
+def _figure(records: list[dict], path: Path, selected: list[tuple[int, float]] | None = None) -> None:
+    """One column per shot (its middle slice with chain B), or per ``selected`` (shot, time)."""
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, axes = plt.subplots(4, len(records), figsize=(6.2 * len(records), 11.5), sharex="col", squeeze=False)
-    for col, record in enumerate(records):
-        rows = [r for r in record["slices"] if "_arrays_B" in r] or record["slices"]
-        row = rows[len(rows) // 2]
-        title = f"{record['shot']} @ {row['time_s'] * 1e3:.0f} ms"
+    columns: list[tuple[dict, dict]] = []
+    if selected:
+        for shot, time_s in selected:
+            record = next((r for r in records if r["shot"] == shot), None)
+            row = None if record is None else min(record["slices"], key=lambda r: abs(r["time_s"] - time_s), default=None)
+            if row is not None and abs(row["time_s"] - time_s) < 5e-4:
+                columns.append((record, row))
+    else:
+        for record in records:
+            rows = [r for r in record["slices"] if "_arrays_B" in r] or record["slices"]
+            if rows:
+                columns.append((record, rows[len(rows) // 2]))
+    fig, axes = plt.subplots(4, max(len(columns), 1), figsize=(6.2 * max(len(columns), 1), 11.5), sharex="col", squeeze=False)
+    for col, (record, row) in enumerate(columns):
+        tier = row.get("tier_a") or {}
+        flags = f"  [Tier A: {tier.get('efit_quality')}, Thomson-consistent={tier.get('thomson_consistent')}]" if tier else ""
+        title = f"{record['shot']} @ {row['time_s'] * 1e3:.0f} ms{flags}"
         a, b = row.get("_arrays_A"), row.get("_arrays_B")
-        axes[0, col].set_title(title + ("" if b else "  (chain B unavailable)"))
+        axes[0, col].set_title(title + ("" if b else "  (chain B unavailable)"), fontsize=9)
         if a:
             axes[0, col].plot(a["rho"], a["T_e"], label="T_e (Thomson fit)")
             axes[0, col].plot(a["rho"], a["T_i"], "--", label="T_i  chain A (inferred)")
@@ -194,6 +232,50 @@ def _figure(records: list[dict], path: Path) -> None:
     fig.savefig(path, dpi=130)
 
 
+def summarise(records: list[dict]) -> dict:
+    """Availability of chain B and what each chain gives, over all slices and over Tier A's Thomson-consistent ones."""
+    def stats(rows: list[tuple[dict, dict]]) -> dict:
+        complete = [(r, row) for r, row in rows if row["chain_B"]["complete"]]
+        ti = [row["chain_A"]["Ti_over_Te_median_rho_le_0p8"] for _, row in rows
+              if row.get("chain_A", {}).get("Ti_over_Te_median_rho_le_0p8") is not None]
+        volume = [row["chain_B"]["pressure"]["volume_ratio"] for _, row in complete
+                  if row["chain_B"].get("pressure", {}).get("volume_ratio") is not None]
+        residual = [row["chain_B"]["median_abs_relative_residual_rho_le_0p8"] for _, row in complete
+                    if row["chain_B"].get("median_abs_relative_residual_rho_le_0p8") is not None]
+        first = {}
+        for _, row in rows:
+            if not row["chain_B"]["complete"]:
+                reason = next((v for v in row["chain_B"]["stage_status"].values() if v.startswith("unavailable")), "")
+                key = ("bound_hit" if "bound_hit" in reason else "Grad-Shafranov current check" if "Grad-Shafranov" in reason
+                       else "filtered state" if "filtered out" in reason else reason[:70])
+                first[key] = first.get(key, 0) + 1
+        q = lambda v, p: float(np.percentile(v, p)) if v else None  # noqa: E731
+        return {
+            "slices": len(rows), "chain_B_complete": len(complete),
+            "chain_B_unavailable_because": first,
+            "A_Ti_over_Te_median_of_medians": q(ti, 50), "A_Ti_over_Te_quartiles": [q(ti, 25), q(ti, 75)],
+            "B_volume_ratio_median": q(volume, 50), "B_volume_ratio_quartiles": [q(volume, 25), q(volume, 75)],
+            "B_median_abs_residual_median": q(residual, 50), "B_median_abs_residual_quartiles": [q(residual, 25), q(residual, 75)],
+            "B_within_10pct_volume": int(sum(abs(v - 1.0) <= 0.10 for v in volume)),
+        }
+
+    everything = [(r, row) for r in records for row in r["slices"]]
+    consistent = [(r, row) for r, row in everything if (row.get("tier_a") or {}).get("thomson_consistent") == "True"]
+    accepted = [(r, row) for r, row in consistent if row["tier_a"]["accepted"] == "True"]
+    per_shot = {}
+    for r in records:
+        rz = (r.get("chain_A") or {}).get("resistive_zeff") or {}
+        inf = rz.get("inference") or {}
+        per_shot[str(r["shot"])] = {
+            "romero_status": inf.get("status"), "romero_zeff": inf.get("zeff"), "romero_sigma": inf.get("uncertainty"),
+            "states": (rz.get("states") or {}).get("usable"), "window": rz.get("window"),
+            "composition_equiv": (rz.get("crosscheck") or {}).get("zeff_equivalent"),
+            "slices": len(r["slices"]), "B_complete": sum(row["chain_B"]["complete"] for row in r["slices"]),
+        }
+    return {"all_slices": stats(everything), "tier_a_thomson_consistent": stats(consistent),
+            "tier_a_thomson_consistent_and_accepted": stats(accepted), "per_shot": per_shot}
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--filedb", type=Path, required=True)
@@ -201,12 +283,17 @@ def main(argv=None) -> int:
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--work", type=Path, required=True)
     parser.add_argument("--max-slices", type=int, default=None, help="evaluate at most this many core_profiles slices per shot")
+    parser.add_argument("--tier-a", type=Path, default=None, help="the confinement Tier A table, to annotate slices with")
+    parser.add_argument("--figure-slices", nargs="*", default=None, metavar="SHOT:TIME",
+                        help="draw these slices (e.g. 39916:0.322) instead of each shot's middle one")
     args = parser.parse_args(argv)
+    tier_a = load_tier_a(args.tier_a)
     args.out.mkdir(parents=True, exist_ok=True)
     records = []
     for shot in args.shots:
         try:
-            records.append(evaluate_shot(args.filedb.expanduser(), shot, args.work.expanduser(), max_slices=args.max_slices))
+            records.append(evaluate_shot(args.filedb.expanduser(), shot, args.work.expanduser(),
+                                         max_slices=args.max_slices, tier_a=tier_a))
         except Exception as error:  # noqa: BLE001 - one shot's absence must not hide the others
             import traceback
 
@@ -217,20 +304,25 @@ def main(argv=None) -> int:
     (args.out / "staged_inference_filedb.json").write_text(json.dumps(plain, indent=1, default=str) + "\n")
     with open(args.out / "staged_inference_filedb.csv", "w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["shot", "time_s", "A_Ti_over_Te_median", "A_valid_points", "A_zeff_axis", "romero_status", "romero_zeff",
+        writer.writerow(["shot", "time_s", "tier_a_efit_quality", "tier_a_thomson_consistent", "tier_a_accepted",
+                         "A_Ti_over_Te_median", "A_valid_points", "A_zeff_axis", "romero_status", "romero_zeff",
                          "B_complete", "B_first_unavailable", "B_zeff_axis", "B_ni_over_ne_axis", "B_volume_ratio",
                          "B_median_abs_rel_residual"])
         for record in records:
             for row in record["slices"]:
                 b, a = row.get("chain_B", {}), row.get("chain_A", {})
                 first = next((f"{n}: {s}" for n, s in b.get("stage_status", {}).items() if s != "ok"), "")
-                writer.writerow([record["shot"], row["time_s"], a.get("Ti_over_Te_median_rho_le_0p8"), a.get("valid_points"),
+                tier = row.get("tier_a") or {}
+                writer.writerow([record["shot"], row["time_s"], tier.get("efit_quality"), tier.get("thomson_consistent"),
+                                 tier.get("accepted"), a.get("Ti_over_Te_median_rho_le_0p8"), a.get("valid_points"),
                                  a.get("z_eff_axis"), b.get("romero", {}).get("estimate_status"), b.get("romero", {}).get("z_eff_resistive"),
                                  b.get("complete"), first[:120], b.get("z_eff_axis"), b.get("n_i_over_n_e_axis"),
                                  (b.get("pressure") or {}).get("volume_ratio"), b.get("median_abs_relative_residual_rho_le_0p8")])
+    (args.out / "summary.json").write_text(json.dumps(summarise(plain), indent=1, default=str) + "\n")
     ok = [r for r in records if r["slices"]]
     if ok:
-        _figure(records, args.out / "staged_inference_filedb.png")
+        selected = [(int(a), float(b)) for a, b in (item.split(":") for item in args.figure_slices)] if args.figure_slices else None
+        _figure(records, args.out / "staged_inference_filedb.png", selected)
     print(json.dumps([{k: r.get(k) for k in ("shot", "error", "plasma_onset_s", "onset_source")} for r in plain], indent=1))
     return 0
 
