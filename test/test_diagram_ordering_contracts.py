@@ -34,3 +34,22 @@ def test_rows_are_grouped_by_scale_and_empty_cells_are_unordered():
     # slow evolution belongs to the equilibrium sequence, not to MHD
     assert not d.scene.role("cell:ideal_single_fluid_mhd:tau_evolution_over_tau_alfven")
     assert d.scene.role("cell:quasi_static_equilibrium:tau_evolution_over_tau_alfven")
+
+
+def test_the_adapter_map_is_the_model_contracts_registry():
+    from vaft.validation.model_contracts import ADAPTER_MODES
+
+    d = vaft.diagram.adapter_contract_map()
+    expected = {(m.key, u.contract): u.role for m in ADAPTER_MODES for u in m.contracts()[0]}
+    assert d.model["uses"] == expected
+    # only the consumed contracts are columns, and every unclassified mode is named in the note
+    assert set(d.model["columns"]) == {c for (_, c) in expected}
+    assert set(d.model["uncovered"]) == {m.key for m in ADAPTER_MODES if not m.contracts()[0]}
+    assert d.scene.role("use:gpec:rdcon_rmatch:resistive_mhd")[-1].text == "layer solution"
+    # inherited is drawn apart from governing, and the note says an empty cell is not independence
+    assert d.scene.role("use:gacode:tglf:gyrokinetic_delta_f")[0].style != d.scene.role(
+        "use:gacode:cgyro_linear:gyrokinetic_delta_f")[0].style
+    assert "not physical independence" in d.scene.role("note")[0].text
+    assert "adapter_contract_map" in vaft.diagram.__all__
+    assert d.tikz == vaft.diagram.adapter_contract_map().tikz
+    assert d.scene.role("note") and not vaft.diagram.adapter_contract_map(labels=False).scene.role("note")

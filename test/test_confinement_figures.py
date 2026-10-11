@@ -199,12 +199,31 @@ def test_every_scaling_is_tagged_and_the_vest_h_figure_draws():
     # Colour = fit database, hatch = regime, each with a legend of what is drawn.
     boxes = [p for p in ax.patches if p.get_hatch() is not None]
     assert {b.get_hatch() for b in boxes} == {"//", "--"}
-    texts = [[t.get_text() for t in leg.get_texts()] for leg in ax.findobj(matplotlib.legend.Legend)]
+    texts = [[t.get_text() for t in leg.get_texts()] for leg in fig.findobj(matplotlib.legend.Legend)]
     assert ["multi"] in texts and ["L-mode", "H-mode"] in texts
     assert figures.mode_hatch("ohmic") == "" and figures.mode_hatch("ohmic+L") not in ("", "//", "--")
     assert figures.mode_hatch("I-mode") in figures.SPARE_HATCHES
     matplotlib.pyplot.close(fig)
 
+
+
+def test_itpa20_sits_in_the_h_mode_block_and_draws_in_the_vest_h_figure():
+    figures = _figures()
+    order = list(figures.ALL_SCALINGS)
+    assert order.index("H98y2") + 1 == order.index("ITPA20")
+    # ITPA20-IL stays in vaft.formula but is out of the VEST presentation (epsilon < 0.5 fit domain).
+    assert "ITPA20_IL" not in order
+    assert figures.SCALING_TAGS["ITPA20"] == ("multi", "H")
+    vest = pd.DataFrame([{**ROW.iloc[0].to_dict(), "delta": 0.3, "machine": "VEST", "tau_e_th_s": 1.5e-3 * k}
+                         for k in (1.0, 1.2, 0.8)])
+    h = figures.h_factor_of(vest, "ITPA20")
+    assert h.notna().all() and h.attrs["approximation"] is None
+    fig, ax = figures.vest_h_factor_figure(vest, ("H98y2", "ITPA20"))
+    by_position = {tick: label.get_text() for tick, label in zip(ax.get_yticks(), ax.get_yticklabels())}
+    assert [by_position[p] for p in sorted(by_position, reverse=True)] == ["IPB98(y,2)", "ITPA20"]
+    matplotlib.pyplot.close(fig)
+    # Without a triangularity the ITPA20 rows are empty, not evaluated at a default.
+    assert figures.h_factor_of(vest.drop(columns="delta").assign(delta=np.nan), "ITPA20").isna().all()
 
 
 def test_observed_tau_uses_the_scaling_basis_and_approximates_only_for_ohmic_machines():
@@ -352,4 +371,43 @@ def test_fit_titles_and_footnote_keeps_titles_inside_their_axes():
     for ax in axes:
         assert ax.title.get_window_extent(renderer).width <= ax.get_window_extent(renderer).width + 1
     assert fig._supxlabel.get_window_extent(renderer).x1 <= fig.bbox.width + 1
+    matplotlib.pyplot.close(fig)
+
+
+# --- VEST H figure: default rows and median labels ---------------------------
+
+
+def _vest_rows():
+    return _tau_table().loc[lambda t: t["machine"] == "VEST"].reset_index(drop=True)
+
+
+def _row_labels(ax):
+    return [label.get_text() for label in ax.get_yticklabels()]
+
+
+def test_vest_h_factor_figure_leaves_out_the_goldston_1984_fits_by_default():
+    figures = _figures()
+    fig, ax = figures.vest_h_factor_figure(_vest_rows())
+    shown = _row_labels(ax)
+    for name in figures.H_FIGURE_EXCLUDE:
+        assert not any(label.startswith(figures.LABELS[name]) for label in shown)
+    assert len(shown) == len(figures.ALL_SCALINGS) - len(figures.H_FIGURE_EXCLUDE)
+    matplotlib.pyplot.close(fig)
+    fig, ax = figures.vest_h_factor_figure(_vest_rows(), exclude=())
+    assert len(_row_labels(ax)) == len(figures.ALL_SCALINGS)
+    matplotlib.pyplot.close(fig)
+
+
+def test_vest_h_factor_figure_writes_each_box_median_inside_the_axes():
+    figures = _figures()
+    table = _vest_rows()
+    fig, ax = figures.vest_h_factor_figure(table, ("ITER97L", "H98y2"))
+    labels = {t.get_gid()[len(figures.H_MEDIAN_GID):]: t for t in ax.texts
+              if str(t.get_gid() or "").startswith(figures.H_MEDIAN_GID)}
+    assert set(labels) == {"ITER97L", "H98y2"}
+    renderer = fig.canvas.get_renderer()
+    for name, text in labels.items():
+        h = figures.h_factor_of(table, name).replace([np.inf, -np.inf], np.nan).dropna()
+        assert text.get_text() == f"H~{h.median():.3g}"
+        assert text.get_window_extent(renderer).x1 <= ax.get_window_extent(renderer).x1
     matplotlib.pyplot.close(fig)

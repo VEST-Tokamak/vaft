@@ -162,40 +162,6 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
 # which model assumes which ordering
 # ---------------------------------------------------------------------------
 
-#: row symbols for the ordering quantities of vaft.validation.orderings
-_SYMBOLS = {
-    "debye_length_over_L": "$\\lambda_D/L$",
-    "omega_over_ion_gyrofrequency": "$\\omega/\\Omega_{ci}$",
-    "lundquist_number": "$S$",
-    "ion_skin_depth_over_a": "$d_i/a$",
-    "inverse_aspect_ratio": "$\\epsilon = a/R_0$",
-    "beta": "$\\beta$",
-    "beta_over_inverse_aspect_ratio": "$\\beta/\\epsilon$",
-    "rho_i_over_LTi": "$\\rho_i/L_{T_i}$",
-    "rho_s_over_LTe": "$\\rho_s/L_{T_e}$",
-    "electron_parallel_knudsen_number": "$\\lambda_e/qR$",
-    "ion_parallel_knudsen_number": "$\\lambda_i/qR$",
-    "electron_magnetization": "$\\Omega_{ce}\\tau_e$",
-    "ion_magnetization": "$\\Omega_{ci}\\tau_i$",
-    "electron_collisionality": "$\\nu_{*e}$",
-    "ion_collisionality": "$\\nu_{*i}$",
-    "ion_orbit_width_over_L": "$\\Delta_{b,i}/L_p$",
-    "sonic_mach_number": "$M = U/v_{ti}$",
-    "alfven_mach_number": "$M_A = U/v_A$",
-    "pressure_anisotropy": "$|p_\\perp - p_\\parallel|/p$",
-    "k_perp_rho_i": "$k_\\perp\\rho_i$",
-    "k_ion_skin_depth": "$k\\,d_i$",
-    "k_electron_skin_depth": "$k\\,d_e$",
-    "omega_tau_i": "$\\omega\\tau_i$",
-    "k_par_over_k_perp": "$k_\\parallel/k_\\perp$",
-    "fluctuation_amplitude": "$\\delta n/n$",
-    "ion_skin_depth_over_layer": "$d_i/\\delta$",
-    "electron_skin_depth_over_layer": "$d_e/\\delta$",
-    "rho_s_over_layer": "$\\rho_s/\\delta$",
-    "tau_evolution_over_tau_alfven": "$\\tau_{evol}/\\tau_A$",
-    "tau_age_over_tau_resistive": "$\\tau_{age}/\\tau_R$",
-    "tau_transport_over_tau_turbulence": "$\\tau_{transp}/\\tau_{turb}$",
-}
 
 _GROUP_TITLES = {
     "foundational": "foundational",
@@ -249,7 +215,7 @@ def ordering_contract_map(*, labels: bool = True) -> Diagram:
     MHD. Every threshold is order unity, and evaluating a state gives a
     continuous margin per cell ($\mp\log_{10}x$), not one valid/invalid flag.
     """
-    from vaft.validation.orderings import CONTRACTS, GROUPS, ORDERING_QUANTITIES
+    from vaft.validation.orderings import CONTRACTS, GROUPS, ORDERING_QUANTITIES, SYMBOLS as _SYMBOLS
 
     labels = _check_labels(labels)
     columns = [name for _, names in _FAMILIES for name in names]
@@ -304,3 +270,111 @@ def ordering_contract_map(*, labels: bool = True) -> Diagram:
     model = {"rows": tuple(rows), "columns": tuple(columns),
              "cells": {(n, a.quantity): a.ordering for n in columns for a in CONTRACTS[n].assumptions}}
     return Diagram("ordering_contract_map", Scene(tuple(items)), model=model)
+
+
+# ---------------------------------------------------------------------------
+# which code adapter consumes which contract (#1823)
+# ---------------------------------------------------------------------------
+
+#: display names of the adapter modes of vaft.validation.model_contracts.ADAPTER_MODES
+_MODE_NAMES = {
+    "efit:reconstruction": "EFIT", "chease:fixed_boundary": "CHEASE", "tokamaker:free_boundary": "TokaMaker",
+    "tes:free_boundary": "TES", "nice:reconstruction": "NICE",
+    "gpec:dcon_ideal": "DCON ideal", "gpec:dcon_kinetic": "DCON kinetic", "gpec:gpec_ideal": "GPEC ideal",
+    "gpec:gpec_kinetic": "GPEC kinetic", "gpec:rdcon_rmatch": "RDCON + RMATCH",
+    "gpec:stride": "STRIDE", "gpec:thresholds": "GPEC thresholds", "pentrc:ntv_closure": "PENTRC (NTV)",
+    "gacode:neo": "NEO", "gacode:neo_analytic": "NEO analytic", "gacode:cgyro_linear": "CGYRO linear",
+    "gacode:cgyro_nonlinear": "CGYRO nonlinear", "gacode:tglf_linear": "TGLF linear", "gacode:tglf": "TGLF",
+    "gacode:tglf_nn": "TGLF-NN", "nubeam:fast_ions": "NUBEAM", "genray:ray_tracing": "GENRAY",
+    "transp:integrated": "TRANSP",
+}
+_MODE_FAMILIES = {"equilibrium": "equilibrium", "mhd_stability": "MHD stability (GPEC suite)",
+                  "neoclassical": "neoclassical", "gyrokinetic": "gyrokinetic"}
+#: why a mode consumes no ordering contract, in the note
+_UNCOVERED = {"nubeam:fast_ions": "test particles", "genray:ray_tracing": "ray tracing",
+              "transp:integrated": "integrated", "gpec:thresholds": "unresolved layer models"}
+#: the words written in a cell for each role of vaft.validation.model_contracts.ROLES
+_ROLE_WORDS = {"governing": "governing", "outer_solution": "outer solution", "layer_solution": "layer solution",
+               "fluid_part": "fluid part", "kinetic_response": "kinetic part", "closure": "closure",
+               "inherited": "inherited", "transport_coupling": "coupling"}
+#: cell style per role: a governing assumption is filled, an inherited one dashed
+_ROLE_STYLES = {"governing": "concept source", "inherited": "concept group"}
+
+_ACOL, _AROW, _ALEFT = 2.6, 0.62, 3.9
+
+
+def adapter_contract_map(*, labels: bool = True) -> Diagram:
+    r"""Which VAFT code adapter consumes which ordering contract, and in what role.
+
+    Rows are the modes of ``vaft.validation.model_contracts.ADAPTER_MODES``,
+    grouped by family (equilibrium, MHD stability, neoclassical,
+    gyrokinetic); columns are the contracts any of them consumes, in the
+    model-family order of :func:`ordering_contract_map`. A cell names how the
+    assumption enters the calculation -- not how much of the plasma it covers:
+    it *governs* the model solved; it holds for RDCON's ideal *outer solution*
+    or its resistive *layer solution*; it underlies DCON-kinetic's *fluid part* or
+    drift-kinetic *kinetic part*, or PENTRC's *closure*; or a reduced model
+    (TGLF) has *inherited* it from a theory it does not solve. An empty cell
+    means no registered contract, not that the calculation is independent of
+    that physics. Modes no contract covers are named in the note; the
+    validity conditions themselves are documented in the guide, not drawn.
+    """
+    from vaft.validation.model_contracts import ADAPTER_MODES, ROLES
+
+    labels = _check_labels(labels)
+    covered = [m for m in ADAPTER_MODES if m.contracts()[0]]
+    uncovered = [m for m in ADAPTER_MODES if not m.contracts()[0]]
+    if (set(_ROLE_WORDS) != set(ROLES) or {m.key for m in ADAPTER_MODES} != set(_MODE_NAMES)
+            or any(m.family not in _MODE_FAMILIES for m in covered) or {m.key for m in uncovered} != set(_UNCOVERED)):
+        raise RuntimeError("adapter_contract_map is out of step with vaft.validation.model_contracts")
+    consumed = {u.contract for m in covered for u in m.contracts()[0]}
+    columns = [name for _, names in _FAMILIES for name in names if name in consumed]
+    right = _ALEFT + len(columns) * _ACOL
+    items: List = []
+
+    def cx(name):
+        return _ALEFT + (columns.index(name) + 0.5) * _ACOL
+
+    for name in columns:
+        items.append(Label((cx(name) - 0.15, 0.15), _MODELS[name], "small label,rotate=55", anchor="west",
+                           role=f"column:{name}"))
+    y = 0.0
+    used = {}
+    for family, title in _MODE_FAMILIES.items():
+        members = [m for m in covered if m.family == family]
+        if not members:
+            continue
+        y -= _AROW
+        items.append(Polyline.of([(0.0, y - 0.5 * _AROW), (right, y - 0.5 * _AROW), (right, y + 0.5 * _AROW),
+                                  (0.0, y + 0.5 * _AROW)], "concept band", role=f"family:{family}", closed=True))
+        items.append(Label((0.1, y), title, "concept band label", anchor="west", role=f"family:{family}"))
+        for mode in members:
+            y -= _AROW
+            items.append(Label((0.25, y), _MODE_NAMES[mode.key], "small label", anchor="west", role=f"mode:{mode.key}"))
+            for use in mode.contracts()[0]:
+                x = cx(use.contract)
+                used[(mode.key, use.contract)] = use.role
+                style = _ROLE_STYLES.get(use.role, "concept leaf")
+                items.append(Polyline.of([(x - 1.22, y - 0.24), (x + 1.22, y - 0.24), (x + 1.22, y + 0.24),
+                                          (x - 1.22, y + 0.24)], style, role=f"use:{mode.key}:{use.contract}",
+                                         closed=True))
+                items.append(Label((x, y), _ROLE_WORDS[use.role], "small label",
+                                   role=f"use:{mode.key}:{use.contract}"))
+    bottom = y - 0.5 * _AROW
+    for i in range(1, len(columns)):
+        x = _ALEFT + i * _ACOL
+        items.append(Polyline.of([(x, 0.0), (x, bottom)], "im grid", role="columns"))
+    if labels:
+        names = [f"{_MODE_NAMES[m.key]} ({_UNCOVERED[m.key]})" for m in uncovered]
+        half = (len(names) + 1) // 2
+        none = ", ".join(names[:half]) + ",\\\\ " + ", ".join(names[half:])
+        items.append(Label((0.5 * right, bottom - 0.2),
+                           "A cell says how the assumption enters the calculation, not how much of the plasma "
+                           "it covers.\\\\ Filled: governing. Dashed: inherited by a reduced model that does "
+                           "not solve its parent theory.\\\\ An empty cell means no registered contract, "
+                           "not physical independence.\\\\ "
+                           f"No ordering contract yet: {none}",
+                           "note", anchor="north", role="note"))
+    model = {"rows": tuple(m.key for m in covered), "columns": tuple(columns), "uses": used,
+             "uncovered": tuple(m.key for m in uncovered)}
+    return Diagram("adapter_contract_map", Scene(tuple(items)), model=model)

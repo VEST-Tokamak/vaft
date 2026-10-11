@@ -437,6 +437,8 @@ def predator_prey_cycle_metrics(time, turbulence, zonal, *, transport=None, min_
 
     dt = float(np.median(np.diff(t)))
     grid = np.arange(t[0], t[-1] + 0.5 * dt, dt)
+    # anti-alias: not a downsample -- the series is put on a uniform grid at its own
+    # median spacing so the lagged products line up; the sample rate is unchanged.
     nu = np.interp(grid, t, n)
     eu = np.interp(grid, t, e)
     nu = (nu - nu.mean()) / (nu.std() or 1.0)
