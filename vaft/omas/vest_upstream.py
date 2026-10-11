@@ -2245,6 +2245,60 @@ def _plasma_onset(diagnostics_product: str | Path | None) -> tuple[float | None,
 
 COMPOSITION_IONIZATIONS = ("transient", "coronal")
 
+#: Recorded beside the main-ion density so a reader can tell a pressure that
+#: counts the diluted ions from the legacy ``e n_e (T_e + T_i)`` (n_i = n_e).
+PRESSURE_CLOSURE_RECORD = {"pressure_closure": "infer_kinetic_closure", "dilution": "species"}
+
+
+def _write_closure_pressures(ods: ODS, index: int, time_s: float) -> str:
+    """Rewrite one slice's pressures from its (now diluted) composition; say what was done.
+
+    The measured product stored ``pressure_thermal = e n_e (T_e + T_i)``, which
+    counts one ion per electron.  Once the main ion is diluted that value is no
+    longer the pressure of the ions the slice carries, so it is recomputed with
+    :func:`vaft.process.kinetic_closure.infer_kinetic_closure` (``species``):
+
+    * a **measured** ion temperature gives ``electrons.pressure``,
+      ``electrons.pressure_thermal``, ``pressure_ion_total`` and
+      ``pressure_thermal = p_e + p_i``;
+    * **no** ion temperature gives the electron pressure only -- the slice stays
+      free of any assumed-``T_i`` total, as it was;
+    * an ion temperature the product itself assumed or inferred is not a
+      measurement, so its own pressure is left as it was written.
+
+    Returns ``"ion"``, ``"electron_only"`` or ``"unchanged"``.
+    """
+    from vaft.formula.equilibrium import electron_pressure
+    from vaft.ods_access import path_value
+    from vaft.process.kinetic_closure import infer_kinetic_closure
+
+    base = f"core_profiles.profiles_1d.{index}"
+    try:
+        closure = infer_kinetic_closure(ods, time=float(time_s), dilution="species")
+    except ValueError as error:
+        if "stores no ion temperature" not in str(error):
+            raise
+        closure = None
+    if closure is None:
+        ne = path_value(ods, f"{base}.electrons.density_thermal", None)
+        ne = np.asarray(ods[f"{base}.electrons.density"] if ne is None else ne, dtype=float)
+        te = np.asarray(ods[f"{base}.electrons.temperature"], dtype=float)
+        p_e = np.where(np.isfinite(ne) & np.isfinite(te),
+                       np.asarray(electron_pressure(np.nan_to_num(ne), np.nan_to_num(te)), dtype=float),
+                       np.nan)
+        ods[f"{base}.electrons.pressure"] = p_e
+        ods[f"{base}.electrons.pressure_thermal"] = p_e
+        return "electron_only"
+    if closure.provenance["ti"]["status"] != "measured":
+        return "unchanged"
+    pressure = closure.pressure
+    ods[f"{base}.electrons.pressure"] = pressure.p_e
+    ods[f"{base}.electrons.pressure_thermal"] = pressure.p_e
+    ods[f"{base}.pressure_ion_total"] = pressure.p_i_thermal
+    ods[f"{base}.pressure_thermal"] = pressure.p_thermal
+    _append_record_fields(ods, f"{base}.ion.0.density_fit.parameters", PRESSURE_CLOSURE_RECORD)
+    return "ion"
+
 
 def build_composition_ods(
     *,
@@ -2273,6 +2327,11 @@ def build_composition_ods(
     from ``plasma_timing`` on the diagnostics product.  A slice with no positive
     age is skipped and named in the manifest -- it is never silently computed as
     coronal, which overstates the charge on VEST's tens-of-ms discharges.
+
+    The slice's pressures are recomputed from the diluted ions with the
+    ``species`` kinetic closure, so ``pressure_thermal`` no longer counts one
+    ion per electron; the closure is named in ``ion.0.density_fit.parameters``
+    (``pressure_closure=infer_kinetic_closure``).
 
     Each composed slice also records which equilibrium it was matched to
     (``equilibrium_lineage``, ``equilibrium_occurrence``, ``equilibrium_time_s``),
@@ -2335,6 +2394,7 @@ def build_composition_ods(
     manifest["composition"].update(onset_s=onset, onset_source=onset_source)
 
     composed, skipped = 0, []
+    pressures = {"ion": 0, "electron_only": 0, "unchanged": 0}
     for index, time_s in enumerate(times):
         base = f"core_profiles.profiles_1d.{index}"
         rho = path_value(ods, f"{base}.grid.rho_tor_norm", None)
@@ -2373,6 +2433,7 @@ def build_composition_ods(
             skipped.append({"time_s": float(time_s), "reason": f"{type(error).__name__}: {error}"[:200]})
             continue
         composed += 1
+        pressures[_write_closure_pressures(ods, index, float(time_s))] += 1
 
         _append_record_fields(ods, f"{base}.zeff_fit.parameters", {"target_zeff": target_zeff})
         if equilibrium_index is not None:
@@ -2392,6 +2453,7 @@ def build_composition_ods(
     manifest["slices"] = {
         "composed": composed, "skipped": len(skipped), "total": int(times.size),
     }
+    manifest["pressure"] = {"closure": "infer_kinetic_closure", "dilution": "species", **pressures}
     manifest["skipped_slices"] = skipped[:20]
     if composed:
         manifest["status"] = "success"

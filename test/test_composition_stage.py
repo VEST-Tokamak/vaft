@@ -20,6 +20,7 @@ LOG_TE = (0.0, 1.0, 2.0, 3.0)
 RHO = np.linspace(0.0, 1.0, 11)
 TE = 300.0 * (1.0 - 0.95 * RHO**2)
 NE = 1.5e19 * (1.0 - 0.7 * RHO**2)
+E = 1.602176634e-19
 
 
 def _table(path, blocks):
@@ -66,10 +67,14 @@ def _core_profiles(tmp_path, *, kinetic=(0,), times=(0.300, 0.301), zeff_record=
             ods[f"{base}.ion.0.element.0.z_n"] = 1.0
             ods[f"{base}.ion.0.element.0.a"] = 1.0
             ods[f"{base}.ion.0.temperature"] = 0.8 * TE
-            if ti_record:
+            # what the measured stage stores: one ion per electron
+            ods[f"{base}.pressure_thermal"] = E * NE * (TE + 0.8 * TE)
+            if ti_record is True:
                 ods[f"{base}.ion.0.temperature_fit.parameters"] = (
                     "coordinate=rho_tor_norm; method=polynomial; order=2"
                 )
+            elif ti_record:
+                ods[f"{base}.ion.0.temperature_fit.parameters"] = ti_record
         if zeff_record is not None and index == 1:
             ods[f"{base}.zeff"] = np.full(RHO.size, 1.5)
             ods[f"{base}.zeff_fit.parameters"] = zeff_record
@@ -211,3 +216,51 @@ def test_an_electron_only_slice_still_carries_the_lineage_on_its_electron_record
     ods, _ = _build(tmp_path, tables, core_profiles_product=product)
     record = ods["core_profiles.profiles_1d.1.electrons.temperature_fit.parameters"]
     assert ti_record_fields(record)["equilibrium_lineage"] == "magnetics"
+
+
+def _charged_ion_density(ods, base):
+    """n_main plus every charged state: what carries the ion pressure."""
+    total = np.asarray(ods[f"{base}.ion.0.density"], dtype=float).copy()
+    for k in range(1, len(ods[f"{base}.ion"])):
+        for q in range(len(ods[f"{base}.ion.{k}.state"])):
+            total += np.asarray(ods[f"{base}.ion.{k}.state.{q}.density"], dtype=float)
+    return total
+
+
+def test_a_measured_slice_gets_the_diluted_ion_pressure_not_one_ion_per_electron(tmp_path, tables):
+    ods, manifest = _build(tmp_path, tables)
+    base = "core_profiles.profiles_1d.0"
+    ti = 0.8 * TE
+    n_ion = _charged_ion_density(ods, base)
+    assert np.allclose(np.asarray(ods[f"{base}.pressure_ion_total"], dtype=float),
+                       E * n_ion * ti, rtol=1e-3, equal_nan=True)
+    assert np.allclose(np.asarray(ods[f"{base}.electrons.pressure"], dtype=float), E * NE * TE, rtol=1e-6)
+    total = np.asarray(ods[f"{base}.pressure_thermal"], dtype=float)
+    legacy = E * NE * (TE + ti)
+    assert np.all(total[:-1] < legacy[:-1]), "diluted ions carry less pressure than n_i = n_e"
+    assert np.allclose(total, np.asarray(ods[f"{base}.electrons.pressure"], dtype=float)
+                       + np.asarray(ods[f"{base}.pressure_ion_total"], dtype=float), rtol=1e-9)
+    fields = ti_record_fields(ods[f"{base}.ion.0.density_fit.parameters"])
+    assert fields["pressure_closure"] == "infer_kinetic_closure" and fields["dilution"] == "species"
+    assert manifest["pressure"] == {
+        "closure": "infer_kinetic_closure", "dilution": "species",
+        "ion": 1, "electron_only": 1, "unchanged": 0,
+    }
+
+
+def test_an_electron_only_slice_gets_the_electron_pressure_and_no_assumed_total(tmp_path, tables):
+    ods, _ = _build(tmp_path, tables)
+    base = "core_profiles.profiles_1d.1"
+    assert np.allclose(np.asarray(ods[f"{base}.electrons.pressure"], dtype=float), E * NE * TE, rtol=1e-6)
+    assert path_value(ods, f"{base}.pressure_thermal", None) is None
+    assert path_value(ods, f"{base}.pressure_ion_total", None) is None
+
+
+def test_an_ion_temperature_the_product_assumed_keeps_the_pressure_it_was_written_with(tmp_path, tables):
+    """Only a measurement is turned into an ion pressure here; an assumed Ti = Te is not."""
+    product = _core_profiles(tmp_path, ti_record="ti_te_ratio=0.8; status=assumed; sigma=0.5")
+    ods, manifest = _build(tmp_path, tables, core_profiles_product=product)
+    base = "core_profiles.profiles_1d.0"
+    assert np.allclose(np.asarray(ods[f"{base}.pressure_thermal"], dtype=float), E * NE * (TE + 0.8 * TE))
+    assert path_value(ods, f"{base}.pressure_ion_total", None) is None
+    assert manifest["pressure"]["unchanged"] == 1
