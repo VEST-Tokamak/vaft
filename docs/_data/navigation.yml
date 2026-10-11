@@ -41,6 +41,9 @@ sections:
       - id: scientific-architecture
         title: Scientific architecture
         url: /reference/scientific-architecture/
+      - id: research-domains
+        title: Research domains
+        url: /reference/research-domains/
       - id: api
         title: VAFT API
         url: /reference/api/

@@ -80,6 +80,8 @@ from typing import Any, Mapping, Sequence
 
 import numpy as np
 
+from vaft.code.efit.slice_name import whole_millisecond_tstep
+
 SCHEMA = 1
 REPOSITORY = Path(__file__).resolve().parents[2]
 CONSTRAINT_STUDY = (
@@ -192,18 +194,16 @@ def _stored_measurement(
     for index, time_s in enumerate(shot_times):
         path = f"equilibrium.time_slice.{index}.constraints.diamagnetic_flux"
         record: dict[str, float] = {}
-        try:
-            sigma = abs(float(constraints[f"{path}.measured_error_upper"]))
-            if math.isfinite(sigma) and sigma > 0.0:
-                record["sigma_wb"] = sigma
-        except Exception:
-            pass
-        try:
-            measured = float(constraints[f"{path}.measured"])
-            if math.isfinite(measured):
+        # Membership first: reading a missing leaf of an ODS materialises an
+        # empty node, which every rung would then inherit (cold review F13).
+        if f"{path}.measured_error_upper" in constraints:
+            sigma = _finite(constraints[f"{path}.measured_error_upper"])
+            if sigma is not None and abs(sigma) > 0.0:
+                record["sigma_wb"] = abs(sigma)
+        if f"{path}.measured" in constraints:
+            measured = _finite(constraints[f"{path}.measured"])
+            if measured is not None:
                 record["measured_wb"] = measured
-        except Exception:
-            pass
         if record:
             stored[int(round(float(time_s) * 1000.0))] = record
     return stored
@@ -644,7 +644,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--tables", default=None)
     parser.add_argument("--efit-home", default=None)
-    parser.add_argument("--tstep", type=float, default=0.001)
+    parser.add_argument("--tstep", type=whole_millisecond_tstep, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     parser.add_argument(
         "--workers",
@@ -785,7 +785,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "end": float(window.end),
                 "requested": int(times.size),
             },
-            "phase_dcurrent_dt_threshold": threshold,
+            # `_phase_map`'s second value is the flat-current floor in
+            # amperes (peak * flat_fraction), under the key the profile and
+            # constraint-information studies use for it (cold review F10).
+            "phase_flat_current_threshold": threshold,
             "rungs": {},
         }
         runs: dict[str, dict[str, Any]] = {}
@@ -839,10 +842,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"  {shot}: {block['classification']['verdict']}", flush=True)
 
         if shot == KINETIC_SHOT:
+            # The runs know which g-files chkerr flagged; the directory does
+            # not, so the verdicts travel with the paths (cold review F3).
             block["kinetic_cross_check"] = thomson.compare_ladder(
                 {rung.name: workdir for rung, _, workdir, _ in results},
                 shot=shot,
                 output=output / f"shot_{shot}",
+                outcomes={
+                    rung.name: {
+                        int(round(float(item["time_ms"]))): item.get("outcome")
+                        for item in run["slices"]
+                    }
+                    for rung, run, _, _ in results
+                },
+                headline=BASELINE,
             )
 
         payload["shots"][str(shot)] = block

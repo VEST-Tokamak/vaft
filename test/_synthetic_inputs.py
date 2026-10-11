@@ -403,6 +403,13 @@ def make_kinetic_48224(_sample: ODS) -> ODS:
     )
 
 
+def make_kinetic_state(_sample: ODS) -> ODS:
+    """The 40326/322 ms archive case as a stored kinetic state (issue #1837)."""
+    from _kinetic_state_fixture import kinetic_state_ods
+
+    return kinetic_state_ods(40326, "magnetics")
+
+
 def make_unified_diagnostics(_sample: ODS) -> ODS:
     from vaft.data import unified_diagnostics_fixture
 
@@ -412,6 +419,7 @@ def make_unified_diagnostics(_sample: ODS) -> ODS:
 # ---------------------------------------------------------------------------
 SYNTHETIC: dict[str, Callable[[ODS], ODS]] = {
     "kinetic_overview_profiles": make_unified_diagnostics,
+    "kinetic_overview_state": make_kinetic_state,
     "thomson_scattering_profile_fit": make_kinetic_48224,
     "charge_exchange_profile_fit": make_kinetic_48224,
     "nbi_profile_electron_heating": make_nbi,

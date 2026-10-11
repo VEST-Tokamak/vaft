@@ -337,7 +337,9 @@ CORE_MODULES: tuple[str, ...] = (
     # import checks that keep both off the default processing path. Under 10 s.
     "test_validation_credibility.py",
     # Sensitivity contract (lane AP, #1642): finite differences against the
-    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map. ~2 s.
+    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map; per-formula
+    # propagation and analytic Jacobians of the pilot formulas (#1874). ~3 s.
+    "test_formula_uncertainty.py",
     "test_sensitivity_contract.py",
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.

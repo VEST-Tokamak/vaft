@@ -4,9 +4,9 @@ The FAST visible-light camera's raw output is a per-shot sequence of
 ``{shot}_{frame:08d}.bmp`` grayscale frames plus a sidecar ``{shot}_bmp.txt``
 header (see the VEST_Fast Camera_Diagnostics repository's ``bmp_arranger.py``).
 This module reuses that donor tool's header-parsing convention and frame-to-time
-formula, but replaces its Ip/H-alpha SQL-based valid-interval gate with a purely
-image-content-based one (near-black frame rejection against each shot's own
-dark level, see :func:`select_valid_frames`), and writes only raw,
+formula, but replaces its Ip/H-alpha SQL-based valid-interval gate with an
+image-content-based one (each frame against the shot's own pre-plasma frames,
+see :func:`select_valid_frames`; I_p only trims the afterglow), and writes only raw,
 uncalibrated frames into ``camera_visible`` -- no radiometric calibration or
 geometry is available, so ``frame[:].radiance`` and calibration/geometry nodes
 are never populated.
@@ -51,9 +51,34 @@ DARK_LEVEL_FRAME_QUANTILE = 0.25
 #: throughout (diffuse light, saturation) would otherwise estimate its "dark"
 #: level at the lit level and reject every frame; the cap keeps such frames.
 DARK_LEVEL_CEILING = 60.0
+#: The default rule compares every frame with the shot's own pre-plasma view
+#: instead of with a dark level. The camera is triggered before breakdown, so
+#: the first frames show the vessel as it looks without plasma: room light,
+#: sensor floor and all. A dark-level rule cannot tell a lit-but-empty vessel
+#: from plasma light (48914's ~58 DN floor kept all 101 frames under v2), nor
+#: a frozen, saturated recording from a bright one (48913).
+#:
+#: The reference is the per-pixel median of the first ``REFERENCE_FRAMES``
+#: frames. A frame carries plasma light when either its mean rises above the
+#: reference by more than ``max(MEAN_MARGIN, MEAN_SIGMA * sigma_ref)`` DN
+#: (diffuse light), or its ``PEAK_PERCENTILE`` pixel difference exceeds
+#: ``PEAK_MARGIN`` DN (a small bright region). ``sigma_ref`` is the spread of
+#: the reference frames' own mean differences, so a flickering view needs a
+#: larger rise.
+REFERENCE_FRAMES = 10
+MEAN_MARGIN = 3.0
+MEAN_SIGMA = 6.0
+PEAK_PERCENTILE = 99.0
+PEAK_MARGIN = 15.0
+#: The reference stands for "no plasma" only when it is quiet and no later
+#: frame is clearly darker than it. Otherwise (the camera started during the
+#: plasma, or the reference flickers) the selection falls back to the
+#: dark-level rule.
+REFERENCE_MAX_SIGMA = 2.0
 #: Names the selection rule in the IDS comment and the stage manifest, so a
 #: product can be audited for which rule it was built with.
-FRAME_SELECTION_RULE = "relative-dark-v2"
+FRAME_SELECTION_RULE = "background-relative-v3"
+DARK_FRAME_SELECTION_RULE = "relative-dark-v2"
 FIXED_FRAME_SELECTION_RULE = "fixed-v1"
 
 # Fixed 0-based line indices in `{shot}_bmp.txt`, verified stable across all
@@ -353,6 +378,54 @@ def _parse_bmp_header(path: str | Path) -> CameraHeaderInfo:
     )
 
 
+def plasma_end_frame_index(
+    plasma_end_s: float | None, total_frames: int, start_time_ms: float, end_time_ms: float
+) -> int | None:
+    """The first frame at or after ``plasma_end_s``, or ``None``.
+
+    ``None`` when no end is known or the plasma outlasts the recording, in
+    which case nothing is clipped.
+    """
+    if plasma_end_s is None or total_frames <= 1 or end_time_ms == start_time_ms:
+        return None
+    position = (plasma_end_s * 1000.0 - start_time_ms) / (end_time_ms - start_time_ms) * (total_frames - 1)
+    index = int(np.ceil(position - 1e-9))
+    if index >= total_frames - 1:
+        return None
+    return max(index, 0)
+
+
+def plasma_current_window(
+    diagnostics_product: str | Path, threshold_a: float = 5e3
+) -> tuple[float | None, float | None, float | None]:
+    """``(t_on, t_off, max|I_p|)`` in s and A from a diagnostics stage product.
+
+    Reads ``magnetics.ip`` from the FileDB ``diagnostics.json.gz`` product;
+    the window is where ``|I_p| > threshold_a``. Every element is ``None``
+    when the product or the channel is absent, and the times are ``None``
+    when the current never crosses the threshold.
+    """
+    import gzip
+    import json
+
+    path = Path(diagnostics_product)
+    if not path.exists():
+        return None, None, None
+    with gzip.open(path, "rt", encoding="utf-8") as handle:
+        channels = (json.load(handle).get("magnetics") or {}).get("ip") or []
+    if not channels:
+        return None, None, None
+    time = np.asarray(channels[0]["time"], dtype=float)
+    current = np.abs(np.asarray(channels[0]["data"], dtype=float))
+    if current.size == 0:
+        return None, None, None
+    peak = float(np.nanmax(current))
+    above = time[current > threshold_a]
+    if above.size == 0:
+        return None, None, peak
+    return float(above[0]), float(above[-1]), peak
+
+
 def frame_time_ms(frame_index: int, total_frames: int, start_time_ms: float, end_time_ms: float) -> float:
     """Linear-interpolate a frame's time, reusing the donor `bmp_arranger.py` formula.
 
@@ -393,12 +466,16 @@ def estimate_dark_level(
 
 @dataclass(frozen=True)
 class FrameSelection:
-    """The outcome of dark-frame rejection on one shot's frame sequence."""
+    """The outcome of frame selection on one shot's frame sequence."""
 
     onset: int
     end: int
     total_frames: int
+    #: The near-black level (``fixed-v1``, ``relative-dark-v2``) or the mean
+    #: rise over the reference (``background-relative-v3``), in DN.
     threshold: float
+    #: The near-black pixel fraction (v1/v2) or the quantile of the per-pixel
+    #: rise compared with ``peak_threshold`` (v3).
     percentage: float
     buffer_frames: int
     rule: str
@@ -407,8 +484,16 @@ class FrameSelection:
     #: ``onset``/``end`` only when padding lands on missing frames.
     first_retained: int
     last_retained: int
-    #: ``None`` when the caller fixed ``threshold`` (rule ``fixed-v1``).
+    #: ``None`` unless the rule is ``relative-dark-v2``.
     dark_level: float | None = None
+    #: v3 only: the per-pixel rise that marks a small bright region (DN), the
+    #: number of reference frames, and the spread of their mean rise.
+    peak_threshold: float | None = None
+    reference_frames: int | None = None
+    reference_sigma: float | None = None
+    #: The plasma's last frame the interval was clipped to, before padding;
+    #: ``None`` when no clip was applied.
+    plasma_end_frame: int | None = None
 
     def as_record(self) -> dict[str, Any]:
         """JSON-ready form, as stored in the stage manifest."""
@@ -421,7 +506,40 @@ class FrameSelection:
             "percentage": self.percentage,
             "buffer_frames": self.buffer_frames,
             "dark_level": self.dark_level,
+            "peak_threshold": self.peak_threshold,
+            "reference_frames": self.reference_frames,
+            "reference_sigma": self.reference_sigma,
+            "plasma_end_frame": self.plasma_end_frame,
         }
+
+
+def _reference_rise(
+    frames: Sequence[np.ndarray | None],
+    reference_frames: int,
+) -> tuple[np.ndarray, np.ndarray, float] | None:
+    """Each frame's mean and peak rise over the pre-plasma reference.
+
+    Returns ``(mean_rise, peak_rise, sigma)`` with NaN for missing frames, or
+    ``None`` when there is no complete reference to compare against.
+    """
+    if reference_frames < 2 or len(frames) <= reference_frames:
+        return None
+    head = frames[:reference_frames]
+    if any(frame is None for frame in head):
+        return None
+    shape = np.shape(head[0])
+    if any(np.shape(frame) != shape for frame in frames if frame is not None):
+        return None
+    reference = np.median(np.stack([np.asarray(frame, dtype=np.float32) for frame in head]), axis=0)
+    mean_rise = np.full(len(frames), np.nan)
+    peak_rise = np.full(len(frames), np.nan)
+    for index, frame in enumerate(frames):
+        if frame is None:
+            continue
+        rise = np.asarray(frame, dtype=np.float32) - reference
+        mean_rise[index] = float(rise.mean())
+        peak_rise[index] = float(np.percentile(rise, PEAK_PERCENTILE))
+    return mean_rise, peak_rise, float(np.std(mean_rise[:reference_frames]))
 
 
 def select_valid_frames(
@@ -431,45 +549,85 @@ def select_valid_frames(
     threshold: float | None = None,
     percentage: float = DEFAULT_NEAR_BLACK_PERCENTAGE,
     dark_margin: float = DEFAULT_DARK_MARGIN,
+    rule: str = FRAME_SELECTION_RULE,
+    plasma_end_frame: int | None = None,
 ) -> FrameSelection:
-    """Find the ``[onset, end]`` interval of non-dark frames, with padding.
+    """Find the ``[onset, end]`` interval of plasma-lit frames, with padding.
 
     Mirrors the donor `find_valid_frame_range`: scans for the first/last
-    non-dark, non-missing frame, then pads by ``buffer_frames`` on each side,
-    clamped to the available index range. Dark frames *inside* the interval
+    valid, non-missing frame, then pads by ``buffer_frames`` on each side,
+    clamped to the available index range. Unlit frames *inside* the interval
     are kept.
 
-    With ``threshold=None`` (the default) the near-black level is
-    ``estimate_dark_level(frames) + dark_margin``, so the rule holds across
-    exports whose dark floor differs. Passing a number restores the donor's
-    fixed level (``DEFAULT_NEAR_BLACK_THRESHOLD`` reproduces it).
+    Which frames count as valid depends on the rule:
+
+    ``background-relative-v3`` (default)
+        Lit compared with the shot's own pre-plasma reference (see
+        ``REFERENCE_FRAMES``). A frozen recording and an empty but lit vessel
+        select nothing. When the reference is unusable (too few frames, a
+        flickering reference, or later frames darker than it) the selection
+        falls back to ``relative-dark-v2`` and says so in ``rule``.
+    ``relative-dark-v2``
+        Not near-black against ``estimate_dark_level(frames) + dark_margin``.
+
+    Passing ``threshold`` restores the donor's fixed near-black level
+    (``fixed-v1``; ``DEFAULT_NEAR_BLACK_THRESHOLD`` reproduces it).
+
+    ``plasma_end_frame`` -- the frame where the plasma current ends -- caps the
+    last valid frame before padding, so the slowly fading afterglow of a lit
+    vessel is not kept. It is ignored when it falls before the first valid
+    frame. The start is never clipped: the breakdown flash precedes I_p.
     """
-    if threshold is None:
-        dark_level: float | None = min(estimate_dark_level(frames), DARK_LEVEL_CEILING)
-        resolved = dark_level + float(dark_margin)
-        rule = FRAME_SELECTION_RULE
-    else:
-        dark_level = None
-        resolved = float(threshold)
-        rule = FIXED_FRAME_SELECTION_RULE
-
+    if rule not in (FRAME_SELECTION_RULE, DARK_FRAME_SELECTION_RULE):
+        raise ValueError(f"unknown frame selection rule {rule!r}")
     total_frames = len(frames)
-    first_valid: int | None = None
-    last_valid: int | None = None
+    dark_level: float | None = None
+    peak_threshold: float | None = None
+    reference_count: int | None = None
+    reference_sigma: float | None = None
+    valid: list[bool] | None = None
 
-    for index, frame in enumerate(frames):
-        if frame is None:
-            continue
-        if not is_near_black(frame, threshold=resolved, percentage=percentage):
-            if first_valid is None:
-                first_valid = index
-            last_valid = index
+    if threshold is not None:
+        resolved = float(threshold)
+        resolved_rule = FIXED_FRAME_SELECTION_RULE
+    else:
+        if rule == FRAME_SELECTION_RULE:
+            rise = _reference_rise(frames, REFERENCE_FRAMES)
+            if rise is not None:
+                mean_rise, peak_rise, sigma = rise
+                mean_threshold = max(MEAN_MARGIN, MEAN_SIGMA * sigma)
+                if sigma <= REFERENCE_MAX_SIGMA and np.nanmin(mean_rise) >= -mean_threshold:
+                    with np.errstate(invalid="ignore"):
+                        lit = (mean_rise > mean_threshold) | (peak_rise > PEAK_MARGIN)
+                    valid = [bool(flag) for flag in lit]
+                    resolved = mean_threshold
+                    resolved_rule = FRAME_SELECTION_RULE
+                    percentage = PEAK_PERCENTILE / 100.0
+                    peak_threshold = PEAK_MARGIN
+                    reference_count = REFERENCE_FRAMES
+                    reference_sigma = sigma
+        if valid is None:
+            dark_level = min(estimate_dark_level(frames), DARK_LEVEL_CEILING)
+            resolved = dark_level + float(dark_margin)
+            resolved_rule = DARK_FRAME_SELECTION_RULE
 
-    if first_valid is None or last_valid is None:
+    if valid is None:
+        valid = [
+            frame is not None and not is_near_black(frame, threshold=resolved, percentage=percentage)
+            for frame in frames
+        ]
+    lit_indices = [index for index, flag in enumerate(valid) if flag and frames[index] is not None]
+    if not lit_indices:
         raise CameraFrameSelectionError(
-            "No valid (non-dark) frames found; every available frame is near-black "
-            "or missing."
+            "No valid frames found; every available frame is unlit or missing "
+            f"(rule {resolved_rule})."
         )
+    first_valid, last_valid = lit_indices[0], lit_indices[-1]
+
+    applied_end: int | None = None
+    if plasma_end_frame is not None and plasma_end_frame >= first_valid:
+        applied_end = int(plasma_end_frame)
+        last_valid = min(last_valid, applied_end)
 
     onset = max(0, first_valid - buffer_frames)
     end = min(total_frames - 1, last_valid + buffer_frames)
@@ -483,8 +641,12 @@ def select_valid_frames(
         threshold=resolved,
         percentage=float(percentage),
         buffer_frames=int(buffer_frames),
-        rule=rule,
+        rule=resolved_rule,
         dark_level=dark_level,
+        peak_threshold=peak_threshold,
+        reference_frames=reference_count,
+        reference_sigma=reference_sigma,
+        plasma_end_frame=applied_end,
     )
 
 
@@ -510,7 +672,10 @@ def find_valid_frame_interval(
 _SELECTION_RANGE_PATTERN = re.compile(
     r"retained original frame indices \[(\d+), (\d+)\] out of (\d+)"
 )
-_SELECTION_PARAMETER_PATTERN = re.compile(r"\b(rule|threshold|percentage|buffer_frames|dark_level)=([^,;)\s]+)")
+_SELECTION_PARAMETER_PATTERN = re.compile(
+    r"\b(rule|threshold|percentage|buffer_frames|dark_level|peak_threshold|reference_frames"
+    r"|reference_sigma|plasma_end_frame)=([^,;)\s]+)"
+)
 
 
 def parse_frame_selection(comment: str) -> dict[str, Any] | None:
@@ -529,9 +694,12 @@ def parse_frame_selection(comment: str) -> dict[str, Any] | None:
 
     def number(key: str) -> float | None:
         value = parameters.get(key)
-        return None if value is None else float(value)
+        return None if value is None or value == "none" else float(value)
 
-    buffer_frames = number("buffer_frames")
+    def integer(key: str) -> int | None:
+        value = number(key)
+        return None if value is None else int(value)
+
     return {
         "rule": rule,
         "first_retained": int(match.group(1)),
@@ -539,8 +707,12 @@ def parse_frame_selection(comment: str) -> dict[str, Any] | None:
         "total_frames": int(match.group(3)),
         "threshold": number("threshold"),
         "percentage": number("percentage"),
-        "buffer_frames": None if buffer_frames is None else int(buffer_frames),
+        "buffer_frames": integer("buffer_frames"),
         "dark_level": number("dark_level"),
+        "peak_threshold": number("peak_threshold"),
+        "reference_frames": integer("reference_frames"),
+        "reference_sigma": number("reference_sigma"),
+        "plasma_end_frame": integer("plasma_end_frame"),
     }
 
 
@@ -749,20 +921,23 @@ def camera_visible(
     near_black_percentage: float = DEFAULT_NEAR_BLACK_PERCENTAGE,
     buffer_frames: int = DEFAULT_BUFFER_FRAMES,
     dark_margin: float = DEFAULT_DARK_MARGIN,
+    plasma_end_s: float | None = None,
     channel_name: str = "Fast Camera",
 ) -> None:
     """Populate ``ods`` with VEST FAST-camera raw frames for ``shot``.
 
     Valid frames are selected from image content: frames outside the
-    near-black-rejection interval (padded by ``buffer_frames`` on each side)
-    are discarded, and the retained frames are reindexed from 0. The
-    near-black level is the shot's own dark level plus ``dark_margin`` unless
-    ``near_black_threshold`` fixes it (:func:`select_valid_frames`); the
-    outcome is written into ``ids_properties.comment`` in the form
-    :func:`parse_frame_selection` reads back. This is the
-    same reindex-from-zero, image-content-based selection as the donor
+    plasma-lit interval (padded by ``buffer_frames`` on each side) are
+    discarded, and the retained frames are reindexed from 0. The rule
+    (:func:`select_valid_frames`) compares each frame with the shot's own
+    pre-plasma frames, falling back to the shot's dark level plus
+    ``dark_margin``; ``near_black_threshold`` fixes the donor's level instead.
+    ``plasma_end_s`` (the end of the I_p window, when known) caps the
+    interval's end so the afterglow is not kept. The outcome is written into
+    ``ids_properties.comment`` in the form :func:`parse_frame_selection`
+    reads back. This is the same reindex-from-zero selection as the donor
     ``bmp_arranger.py`` tool, not the Ip/H-alpha SQL-based gate used by its
-    ``bmp_arranger_batch.py`` variant.
+    ``bmp_arranger_batch.py`` variant: I_p only trims the end.
     """
     shot_dir, resolved_header = _resolve_shot_paths(
         shot, data_root=data_root, frame_dir=frame_dir, header_path=header_path
@@ -779,6 +954,9 @@ def camera_visible(
         threshold=near_black_threshold,
         percentage=near_black_percentage,
         dark_margin=dark_margin,
+        plasma_end_frame=plasma_end_frame_index(
+            plasma_end_s, header.total_frames, header.start_time_ms, header.end_time_ms
+        ),
     )
     onset, end = selection.onset, selection.end
 
@@ -803,13 +981,23 @@ def camera_visible(
         if header.exposure_time_s is not None
         else "exposure_time unavailable: no ShutterSpeed line found in header."
     )
-    dark_level_note = (
-        f", dark_level={selection.dark_level:g}" if selection.dark_level is not None else ""
+    rule_notes = ""
+    if selection.dark_level is not None:
+        rule_notes += f", dark_level={selection.dark_level:g}"
+    if selection.reference_frames is not None:
+        rule_notes += (
+            f", peak_threshold={selection.peak_threshold:g}"
+            f", reference_frames={selection.reference_frames}"
+            f", reference_sigma={selection.reference_sigma:.3g}"
+        )
+    plasma_end_note = (
+        "none" if selection.plasma_end_frame is None else str(selection.plasma_end_frame)
     )
     selection_note = (
-        f"Frames selected by image-content dark-frame rejection "
-        f"(rule={selection.rule}, threshold={selection.threshold:g}{dark_level_note}, "
-        f"percentage={selection.percentage:g}, buffer_frames={selection.buffer_frames}); "
+        f"Frames selected by image content "
+        f"(rule={selection.rule}, threshold={selection.threshold:g}{rule_notes}, "
+        f"percentage={selection.percentage:g}, buffer_frames={selection.buffer_frames}, "
+        f"plasma_end_frame={plasma_end_note}); "
         f"retained original frame indices "
         f"[{retained_indices[0]}, {retained_indices[-1]}] out of {header.total_frames}, "
         f"reindexed from 0. {exposure_note}"

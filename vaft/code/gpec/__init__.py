@@ -71,6 +71,18 @@ from ._gpec_output import (
     read_gpec_netcdf,
 )
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
+from ._pentrc_output import (
+    PROFILE_VARIABLES,
+    TORQUE_GRIDS,
+    TORQUE_LONG_NAME,
+    TORQUE_METHODS,
+    TORQUE_QUANTITIES,
+    PentrcFormatError,
+    PentrcOutput,
+    energy_profile,
+    read_pentrc_output,
+    torque_profile,
+)
 from ._pentrc import (
     PENTRC_MODULE,
     JACOBIAN_NAMES,
@@ -906,6 +918,17 @@ __all__ = [
     "run_pentrc",
     "validate_pentrc_inputs",
     "write_threshold_pentrc_input",
+    # The native PENTRC reader, owned here since #1883 (vaft.code.pentrc re-exports it).
+    "PentrcFormatError",
+    "PentrcOutput",
+    "read_pentrc_output",
+    "torque_profile",
+    "energy_profile",
+    "TORQUE_METHODS",
+    "TORQUE_GRIDS",
+    "TORQUE_QUANTITIES",
+    "TORQUE_LONG_NAME",
+    "PROFILE_VARIABLES",
     "validate_threshold_inputs",
     "GPEC_HOME_ENV",
     "GPECCaseInputs",

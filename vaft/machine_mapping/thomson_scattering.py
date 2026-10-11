@@ -487,7 +487,19 @@ def _recover_simple_time(
     if "time" in mat_data:
         return _as_real_array(mat_data["time"])
 
-    samples = _as_real_array(mat_data["Te"]).shape[0]
+    # The simple schema has been written both (time, channel) and
+    # (channel, time); which axis is time is decided by the sibling's sample
+    # count matching it, not by assuming the first axis (cold review 0.7.0
+    # machine-mapping F3, #1888). A square block cannot be decided this way.
+    te = _as_real_array(mat_data["Te"])
+    if te.ndim == 2 and te.shape[0] == te.shape[1]:
+        raise KeyError(
+            f"{source_file.name} has no 'time' field and its Te block is square "
+            f"({te.shape[0]}x{te.shape[1]}), so a sibling's time axis cannot say "
+            "which axis is time. Refusing to guess an orientation."
+        )
+    lengths = {int(n) for n in te.shape} if te.ndim == 2 else {int(te.reshape(-1).size)}
+    samples = " or ".join(str(n) for n in sorted(lengths))
     matches: list[tuple[Path, np.ndarray]] = []
     for sibling in _discover_thomson_sources(shotnumber, source_file.parent):
         if sibling == source_file:
@@ -506,7 +518,7 @@ def _recover_simple_time(
             if key not in other:
                 continue
             candidate = _as_real_array(other[key]).reshape(-1)
-            if candidate.size == samples:
+            if candidate.size in lengths:
                 matches.append((sibling, candidate))
                 break
 

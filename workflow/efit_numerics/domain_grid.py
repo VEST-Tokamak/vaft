@@ -54,6 +54,8 @@ from typing import Any, Sequence
 
 import numpy as np
 
+from vaft.code.efit.slice_name import whole_millisecond_tstep
+
 SCHEMA = 1
 REPOSITORY = Path(__file__).resolve().parents[2]
 BASELINE = REPOSITORY / "workflow" / "efit_numerics" / "baseline_termination.py"
@@ -519,7 +521,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--shots", default=None, help="comma-separated; default: the reference set's magnetics shots")
     parser.add_argument("--efit-home", default=None)
-    parser.add_argument("--tstep", type=float, default=0.001)
+    parser.add_argument("--tstep", type=whole_millisecond_tstep, default=0.001)
     parser.add_argument("--average-window", type=float, default=0.0005)
     args = parser.parse_args(argv)
 
