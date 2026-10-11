@@ -14,10 +14,10 @@ KOREAN = ROOT / "README.ko.md"
 NOTICES = ROOT / "THIRD_PARTY_NOTICES.md"
 NOTICES_KO = ROOT / "THIRD_PARTY_NOTICES.ko.md"
 
-#: The approved #1763 brand message leads both language versions.
+#: The approved brand message (#1763, "domains" wording approved in #1872) leads both language versions.
 CORE_MESSAGES = {
-    ENGLISH: "Connecting nuclear fusion knowledge across disciplines for integrated tokamak research",
-    KOREAN: "여러 분야의 핵융합 지식을 연결해 통합적인 토카막 연구를 돕습니다",
+    ENGLISH: "Connecting Nuclear Fusion Knowledge Across Domains for Integrated Tokamak Research",
+    KOREAN: "여러 연구 영역의 핵융합 지식을 연결해 통합적인 토카막 연구를 돕습니다",
 }
 
 #: Capabilities that must not be described as current functionality (#330 §4).
