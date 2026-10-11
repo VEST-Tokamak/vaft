@@ -2388,7 +2388,7 @@ diagnostic_registry:
     ids: dataset_description
     ids_path: dataset_description
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:dataset_description_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2402,7 +2402,7 @@ diagnostic_registry:
     ids: pf_active
     ids_path: pf_active
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:pf_active_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2430,7 +2430,7 @@ diagnostic_registry:
     ids: tf
     ids_path: tf
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:tf_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2484,7 +2484,7 @@ diagnostic_registry:
     ids: ec_launchers
     ids_path: ec_launchers
     responsible: [{name: 변준혁}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:ech_raw_fields"}
     availability: If-requested
     lifecycle: in_maintenance
     # 6 kW 2.45 GHz line only (fields 27/28, issue #165). Launching position
@@ -2526,7 +2526,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.ip
     responsible: [{name: Joint}]
-    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
+    source: {type: derived, derived_from: [magnetics.rogowski_coil], raw_fields: "vaft.machine_mapping.raw_daq_sources:ip_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2542,7 +2542,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.flux_loop
     responsible: [{name: 남건우}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:flux_loop_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2561,7 +2561,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.b_field_pol_probe
     responsible: [{name: 남건우}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:b_field_pol_probe_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2575,7 +2575,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.diamagnetic_flux
     responsible: [{name: 김태경}]
-    source: {type: derived, derived_from: [magnetics.rogowski_coil]}
+    source: {type: derived, derived_from: [magnetics.rogowski_coil], raw_fields: "vaft.machine_mapping.raw_daq_sources:diamagnetic_flux_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2591,7 +2591,7 @@ diagnostic_registry:
     ids: magnetics
     ids_path: magnetics.rogowski_coil
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:rogowski_coil_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2613,7 +2613,7 @@ diagnostic_registry:
     ids_path: magnetics.b_field_tor_probe
     publication: {stage: impa, source: impa}
     responsible: [{name: 남건우}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:internal_probe_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2661,7 +2661,7 @@ diagnostic_registry:
     ids: spectrometer_uv
     ids_path: spectrometer_uv
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:spectrometer_uv_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
@@ -2674,7 +2674,7 @@ diagnostic_registry:
     ids: langmuir_probes
     ids_path: langmuir_probes.embedded
     responsible: [{name: 변준혁}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:langmuir_probes_raw_fields"}
     availability: If-requested
     lifecycle: in_maintenance
     mapping_status: implemented
@@ -2704,7 +2704,7 @@ diagnostic_registry:
     ids: disruption
     ids_path: disruption.halo_currents
     responsible: [{name: Joint}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:halo_currents_raw_fields"}
     availability: If-requested
     lifecycle: in_maintenance
     mapping_status: not_implemented
@@ -2729,7 +2729,7 @@ diagnostic_registry:
     ids: barometry
     ids_path: barometry.gauge
     responsible: [{name: 정원익}, {name: 전찬휘}]
-    source: {type: raw_daq, backends: [mysql, archived_raw_dump]}
+    source: {type: raw_daq, backends: [mysql, archived_raw_dump], raw_fields: "vaft.machine_mapping.raw_daq_sources:barometry_raw_fields"}
     availability: If-requested
     lifecycle: available
     mapping_status: implemented
