@@ -1047,7 +1047,9 @@ def kinetic_overview_state(
     construction and is no agreement test.  A stored impurity pressure is
     drawn as the part of p_i it is (p_i is the total over every ion), never
     added to the sum again.  What the records say was assumed -- T_i = T_e,
-    n_C = n_O -- is listed under the title.
+    n_C = n_O, a preset Z_eff target -- is listed under the title, and the
+    resistive (Romero) Z_eff a composition was closed on, with its sigma, on
+    an "Inferred" line below it.
 
     The figure can also be read as the inference chain that built the state:
     Thomson and equilibrium data (1), the n_e and T_e fits (2), T_i (3), the
@@ -1111,8 +1113,8 @@ def kinetic_overview_state(
         # No format: a canvas as wide as its columns, not the 6.5-inch screen
         # format a 2 x 2 grid is drawn on (format="slide" for a slide).
         style["figsize"] = (_KINETIC_STAGE_COLUMN_IN * model.ncols + 1.0, 7.5)
-    # Shown once the stage layout below is done.
-    deferred = stages
+    # Shown once the layout below is done.
+    deferred = ax is None
     figure, axes = render_panels(model, ax=ax, show=show and not deferred, **style)
     grid = np.asarray(axes, dtype=object)
     if stages and grid.ndim == 2:
@@ -1157,6 +1159,17 @@ def kinetic_overview_state(
             # three ticks across the normalized radius keep their labels apart.
             for axis in grid.ravel():
                 axis.locator_params(axis="x", nbins=3)
+        if ax is None:
+            # A legend hung beside its axes moves with it, so one layout pass
+            # leaves it where the axes were: laid out again until it settles,
+            # the column gap then holds the legend and the next y label.
+            from ..style import finalize
+
+            for _ in range(5):
+                before = np.array([a.get_position().bounds for a in grid.ravel()])
+                finalize(figure, grid, show=False, tight_layout=True, pad=_kinetic_pad(style, ax))
+                if np.allclose(before, [a.get_position().bounds for a in grid.ravel()], atol=1e-4):
+                    break
         if show and deferred:
             plt.show()
     return figure, axes

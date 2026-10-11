@@ -44,8 +44,13 @@ Evidence (the contract as amended by Lane KP on #1837)
   ``assumption=...`` field of any record the plot reads, else a record whose
   ``origin=`` or ``status=`` is ``assumed`` (named by its quantity and
   ``method=``, or ``T_i = r T_e`` for a ratio record), are listed in one
-  figure note, ``Assumed: T_i = T_e; n_C = n_O``.  Nothing is listed when no
-  record states an assumption.
+  figure note, ``Assumed: T_i = T_e; n_C = n_O``, with a composition's preset
+  ``target_zeff`` (``<Z_eff> = 2.00 (target)``).  A composition closed on a
+  resistive (Romero) value states it on a line of its own, ``Inferred:
+  <Z_eff> = 1.74 ± 0.21 (Romero)``, from ``normalization=resistive_closure``,
+  ``resistive_target=`` or the stored ``z_eff_resistive``, ``resistive_sigma=``
+  and ``resistive_method=``.  Numbers have two decimals.  Nothing is listed
+  when no record states either.
 
 Inference stages (#1957)
 ------------------------
@@ -776,7 +781,8 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
                             linestyle="--"),
             "Z_eff_reference", path, role, "none")
 
-    assumptions = _assumptions(records, None if reference is None or reference[3] != "stored" else reference[0])
+    assumptions, inferences = _assumptions(
+        records, None if reference is None or reference[3] != "stored" else reference[0])
     selection = {
         "time": t_core, "core_profiles_slice": j, "equilibrium_time": t_eq, "equilibrium_slice": i,
         "equilibrium_lineage": lineage, "equilibrium_occurrence": occurrence,
@@ -788,6 +794,7 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         "thomson_note": ts_note,
         "t_i_finite_range": valid_range, "coordinate": coordinate,
         "assumptions": [{"quantity": q, "record": path, "statement": text} for q, path, text in assumptions],
+        "inferences": [{"quantity": q, "record": path, "statement": text} for q, path, text in inferences],
     }
     label = COORDINATE_LABELS[coordinate]
     panels = (
@@ -849,7 +856,8 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         # Rows are the four quantities, columns the cumulative figure at each
         # stage; the rightmost column's legend speaks for its row.
         shown = max(columns)
-        caption = _caption(None, [a for a in assumptions if QUANTITY_STAGES[a[0]] <= shown], ())
+        caption = _caption(None, [a for a in assumptions if QUANTITY_STAGES[a[0]] <= shown], (),
+                           [a for a in inferences if QUANTITY_STAGES[a[0]] <= shown])
         models, styles = [], []
         for row, (name, series, y_label, unit, display_spec) in enumerate(panels):
             for col, at in enumerate(columns):
@@ -868,6 +876,7 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
     caption = _caption(
         stage, [a for a in assumptions if stage is None or QUANTITY_STAGES[a[0]] <= stage],
         [t for t in traces if stage is not None and t["stage"] == stage],
+        [a for a in inferences if stage is None or QUANTITY_STAGES[a[0]] <= stage],
     )
     models = tuple(panel(name, series, y_label, unit, display_spec, stage)
                    for name, series, y_label, unit, display_spec in panels)
@@ -924,15 +933,25 @@ def _statement(quantity: str, fields: Mapping[str, str]) -> str | None:
     return f"{quantity} ({method})" if method else quantity
 
 
-def _zeff_constraint(records: list, resistive: float | None) -> tuple[str, str, str] | None:
-    """The total ``Z_eff`` a composition was partitioned to, as the records state it, or ``None``.
+def _two(value: Any) -> str:
+    """A stated number with exactly two decimals; text that is not one, as it is."""
+    try:
+        return f"{float(value):.2f}"
+    except (TypeError, ValueError):
+        return str(value)
 
-    ``normalization=resistive_closure`` names a resistive value: the record's
+
+def _zeff_constraint(records: list, resistive: float | None) -> tuple[str, tuple[str, str, str]] | None:
+    """``(kind, (quantity, record path, statement))``: the total ``Z_eff`` a composition was partitioned to.
+
+    ``normalization=resistive_closure`` names a resistive value -- the record's
     ``resistive_target=``, else the stored ``z_eff_resistive`` of the slice,
-    named by ``resistive_method=`` (``<Z_eff> = 2 (Romero)``).  Any other
-    normalization with a ``target_zeff=`` on a record names that target
-    (``<Z_eff> = 2 (target)``).  Attributed to the composition record that
-    states the normalization.
+    with ``resistive_sigma=`` when a record states one, named by
+    ``resistive_method=`` -- which is *inferred*, not assumed
+    (``<Z_eff> = 1.74 ± 0.21 (Romero)``), attributed to the Z_eff reference
+    (stage 4).  Any other normalization with a ``target_zeff=`` on a record
+    names that target, an *assumption* (``<Z_eff> = 2.00 (target)``),
+    attributed to the composition record.  Numbers have two decimals.
     """
     fields = [(quantity, path, _fields(path, text)) for quantity, path, text in records if text is not None]
     normalized = [(q, path, f) for q, path, f in fields if "normalization" in f]
@@ -943,24 +962,28 @@ def _zeff_constraint(records: list, resistive: float | None) -> tuple[str, str, 
     if first["normalization"] == "resistive_closure":
         value = pooled.get("resistive_target")
         if value is None and resistive is not None:
-            value = f"{resistive:g}"
+            value = resistive
         if value is None:
             return None
+        sigma = pooled.get("resistive_sigma")
+        spread = f" ± {_two(sigma)}" if sigma is not None else ""
         method = pooled.get("resistive_method", "resistive")
-        return quantity, path, f"<Z_eff> = {value} ({method[:1].upper() + method[1:]})"
+        return "inferred", ("Z_eff_reference", path,
+                            f"<Z_eff> = {_two(value)}{spread} ({method[:1].upper() + method[1:]})")
     if "target_zeff" in pooled:
-        return quantity, path, f"<Z_eff> = {pooled['target_zeff']} (target)"
+        return "assumed", (quantity, path, f"<Z_eff> = {_two(pooled['target_zeff'])} (target)")
     return None
 
 
-def _assumptions(records: list[tuple[str, str, str | None]], resistive: float | None = None
-                 ) -> list[tuple[str, str, str]]:
-    """``(quantity, record path, statement)`` for every record stating an assumption, once per statement.
+def _assumptions(records: list[tuple[str, str, str | None]], resistive: float | None = None):
+    """``(assumed, inferred)``: ``(quantity, record path, statement)`` lists the records state.
 
-    A statement several records make is kept with the earliest stage's
-    quantity, so a stage cut names it from the stage that first relies on it.
-    The total ``Z_eff`` the composition was partitioned to
-    (:func:`_zeff_constraint`) is listed with them.
+    Every record stating an assumption is listed once per statement, kept
+    with the earliest stage's quantity, so a stage cut names it from the stage
+    that first relies on it.  The total ``Z_eff`` the composition was
+    partitioned to (:func:`_zeff_constraint`) joins the assumptions when it is
+    a preset target, and is the one inferred statement when it is a resistive
+    (Romero) value.
     """
     out, seen = [], set()
     for quantity, path, text in sorted(records, key=lambda item: QUANTITY_STAGES[item[0]]):
@@ -970,10 +993,11 @@ def _assumptions(records: list[tuple[str, str, str | None]], resistive: float | 
         if statement is not None and statement not in seen:
             seen.add(statement)
             out.append((quantity, path, statement))
+    inferred = []
     constraint = _zeff_constraint(records, resistive)
     if constraint is not None:
-        out.append(constraint)
-    return out
+        (out if constraint[0] == "assumed" else inferred).append(constraint[1])
+    return out, inferred
 
 
 #: A relation of symbols such as ``T_i = T_e`` or ``T_i = 0.5 T_e``, which the
@@ -981,19 +1005,20 @@ def _assumptions(records: list[tuple[str, str, str | None]], resistive: float | 
 _RELATION = re.compile(r"[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)?(\s*[=<>]\s*([0-9.]+\s*)?[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)?)+")
 
 
-_ZEFF_CONSTRAINT = re.compile(r"<Z_eff> = ([^ ]+)( \(.*\))?")
+_ZEFF_CONSTRAINT = re.compile(r"<Z_eff> = ([^ ]+)(?: ± ([^ ]+))?( \(.*\))?")
 
 
 def _math(statement: str) -> str:
     """``T_i = T_e`` -> ``$T_i = T_e$``; a statement in no such form is left as it is."""
     total = _ZEFF_CONSTRAINT.fullmatch(statement.strip())
     if total:
-        method = f" {_plain(total.group(2))}" if total.group(2) else ""
-        return rf"$\langle Z_{{\mathrm{{eff}}}}\rangle = {total.group(1)}$" + method
+        spread = rf" \pm {total.group(2)}" if total.group(2) else ""
+        method = f" {_plain(total.group(3))}" if total.group(3) else ""
+        return rf"$\langle Z_{{\mathrm{{eff}}}}\rangle = {total.group(1)}{spread}$" + method
     return f"${statement}$" if _RELATION.fullmatch(statement.strip()) else _plain(statement)
 
 
-def _caption(stage: int | None, assumptions: list, newest: list) -> str:
+def _caption(stage: int | None, assumptions: list, newest: list, inferences: list = ()) -> str:
     """The figure note under the title: the stage shown and what the records assumed."""
     parts = []
     if stage is not None:
@@ -1003,6 +1028,9 @@ def _caption(stage: int | None, assumptions: list, newest: list) -> str:
         parts.append(text)
     if assumptions:
         parts.append("Assumed: " + "; ".join(_math(statement) for _, _, statement in assumptions))
+    if inferences:
+        # A line of its own: a slide is too narrow for both on one.
+        parts.append("Inferred: " + "; ".join(_math(statement) for _, _, statement in inferences))
     return "".join("\n" + part for part in parts)
 
 
@@ -1115,10 +1143,12 @@ def _zeff_reference(ods: Any, t_core: float, record_path: str, record_text: str 
             fields = _fields(record_path, record_text) if record_text is not None else {}
             method = _plain(fields.get("resistive_method", ""))
             how = f"stored, {method}" if method else "stored"
-            return (value, rf"$Z_{{\mathrm{{eff}}}}^{{\mathrm{{res}}}} = {value:.3g}$ ({how})",
+            sigma = fields.get("resistive_sigma")
+            spread = rf" \pm {_two(sigma)}" if sigma is not None else ""
+            return (value, rf"$Z_{{\mathrm{{eff}}}}^{{\mathrm{{res}}}} = {value:.2f}{spread}$ ({how})",
                     "core_profiles.global_quantities.z_eff_resistive", "stored")
     target = _target_zeff(record_path, record_text)
     if target is None:
         return None
-    return (target, rf"target $\langle Z_{{\mathrm{{eff}}}}\rangle = {target:g}$ ({zeff_role})",
+    return (target, rf"target $\langle Z_{{\mathrm{{eff}}}}\rangle = {target:.2f}$ ({zeff_role})",
             f"{record_path} target_zeff", zeff_role)

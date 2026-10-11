@@ -190,21 +190,27 @@ def test_an_invalid_stage_is_refused(romero, value):
 def test_assumptions_are_read_from_the_records(romero):
     model = _extract(romero.ods)
     assert model.suptitle.endswith(
-        r"Assumed: $T_i = T_e$; $n_C = n_O$; $\langle Z_{\mathrm{eff}}\rangle = 2$ (Romero)")
+        "\nAssumed: $T_i = T_e$; $n_C = n_O$"
+        "\nInferred: $\\langle Z_{\\mathrm{eff}}\\rangle = 2.00$ (Romero)")
     stated = model.models[0].metadata["assumptions"]
-    assert [a["statement"] for a in stated] == ["T_i = T_e", "n_C = n_O", "<Z_eff> = 2 (Romero)"]
-    assert stated[2]["record"].endswith("ion.1.density_fit.parameters")  # normalization=resistive_closure
+    assert [a["statement"] for a in stated] == ["T_i = T_e", "n_C = n_O"]
     assert stated[1]["record"].endswith("ion.1.density_fit.parameters")  # the stage that first relies on it
-    # A cut names only what its stages assumed.
+    (inferred,) = model.models[0].metadata["inferences"]
+    assert (inferred["quantity"], inferred["statement"]) == ("Z_eff_reference", "<Z_eff> = 2.00 (Romero)")
+    # A cut names only what its stages assumed or inferred.
     assert "n_C" not in _extract(romero.ods, stage=4).suptitle
+    assert "Inferred" in _extract(romero.ods, stage=4).suptitle
+    assert "Inferred" not in _extract(romero.ods, stage=3).suptitle
     assert "n_C = n_O" in _extract(romero.ods, stage=5).suptitle
     assert "Assumed" not in _extract(romero.ods, stage=2).suptitle
 
 
-def test_a_preset_composition_lists_its_target_and_nothing_else(archive):
+def test_a_preset_composition_lists_its_target_as_assumed(archive):
     model = _extract(archive.ods)
-    assert model.suptitle.endswith(r"Assumed: $\langle Z_{\mathrm{eff}}\rangle = 2$ (target)")
-    assert [a["statement"] for a in model.models[0].metadata["assumptions"]] == ["<Z_eff> = 2 (target)"]
+    assert model.suptitle.endswith(r"Assumed: $\langle Z_{\mathrm{eff}}\rangle = 2.00$ (target)")
+    assert [a["statement"] for a in model.models[0].metadata["assumptions"]] == ["<Z_eff> = 2.00 (target)"]
+    assert model.models[0].metadata["inferences"] == [] and "Inferred" not in model.suptitle
+    assert _traces(model)["Z_eff_reference"][0].label == r"target $\langle Z_{\mathrm{eff}}\rangle = 2.00$ (assumed)"
 
 
 def test_nothing_is_listed_without_an_assumed_record():
@@ -212,16 +218,36 @@ def test_nothing_is_listed_without_an_assumed_record():
     assert "Assumed" not in model.suptitle and model.models[0].metadata["assumptions"] == []
 
 
+def _inferred(ods):
+    return [a["statement"] for a in _extract(ods).models[0].metadata["inferences"]]
+
+
 def test_the_romero_constraint_is_read_from_the_records(romero):
     ods = copy.deepcopy(romero.ods)
-    ods["core_profiles.global_quantities.z_eff_resistive"] = [1.7]
+    ods["core_profiles.global_quantities.z_eff_resistive"] = [1.7403228517823983]
     ods[f"{CP}.zeff_fit.parameters"] = ods[f"{CP}.zeff_fit.parameters"].replace("romero", "spitzer")
-    assert "<Z_eff> = 1.7 (Spitzer)" in [a["statement"] for a in
-                                         _extract(ods).models[0].metadata["assumptions"]]
+    assert _inferred(ods) == ["<Z_eff> = 1.74 (Spitzer)"]  # two decimals, never the raw float
     for k in (1, 2):
         ods[f"{CP}.ion.{k}.density_fit.parameters"] += "; resistive_target=1.9"
-    assert "<Z_eff> = 1.9 (Spitzer)" in [a["statement"] for a in
-                                         _extract(ods).models[0].metadata["assumptions"]]
+    assert _inferred(ods) == ["<Z_eff> = 1.90 (Spitzer)"]
+
+
+@pytest.mark.parametrize("sigma, statement, legend", [
+    (None, "<Z_eff> = 1.74 (Romero)", r"$Z_{\mathrm{eff}}^{\mathrm{res}} = 1.74$ (stored, romero)"),
+    ("0.2148", "<Z_eff> = 1.74 ± 0.21 (Romero)",
+     r"$Z_{\mathrm{eff}}^{\mathrm{res}} = 1.74 \pm 0.21$ (stored, romero)"),
+])
+def test_the_romero_value_has_two_decimals_and_its_sigma(romero, sigma, statement, legend):
+    ods = copy.deepcopy(romero.ods)
+    ods["core_profiles.global_quantities.z_eff_resistive"] = [1.7403228517823983]
+    if sigma is not None:
+        ods[f"{CP}.zeff_fit.parameters"] += f"; resistive_sigma={sigma}"
+    model = _extract(ods)
+    assert _inferred(ods) == [statement]
+    caption = model.suptitle.splitlines()[-1]
+    assert caption == "Inferred: $\\langle Z_{\\mathrm{eff}}\\rangle = 1.74" + (
+        " \\pm 0.21" if sigma else "") + "$ (Romero)"
+    assert _traces(model)["Z_eff_reference"][0].label == legend
 
 
 def test_an_assumption_is_never_hard_coded(romero):
@@ -231,6 +257,7 @@ def test_an_assumption_is_never_hard_coded(romero):
     ods[f"{CP}.zeff_fit.parameters"] = "origin=inferred; method=romero_partition"
     assert "Assumed: $T_i = T_e$; $n_C = 2n_O$" in _extract(ods).suptitle
     assert "(Resistive)" in _extract(ods).suptitle  # resistive_closure stated, its method no longer
+    assert "Inferred" in _extract(ods).suptitle and "Resistive" not in _extract(ods).suptitle.split("Inferred")[0]
 
 
 def test_a_ratio_prior_is_listed_as_assumed():
@@ -355,3 +382,35 @@ def test_the_thomson_pressure_is_e_n_t_at_every_stage(romero):
     series, _ = _traces(_extract(romero.ods, stage=1))["p_e_thomson"]
     order = np.argsort(romero.ts_rho)
     np.testing.assert_allclose(series.y, (E * romero.ts_n_e * romero.ts_t_e)[order], rtol=1e-12)
+
+
+def _legend_overlaps(figure, axes):
+    """``(legend panel, other panel, artist)`` where a legend box meets another panel or its y labels."""
+    figure.canvas.draw()
+    renderer = figure.canvas.get_renderer()
+    panels = list(np.asarray(axes).ravel())
+    found = []
+    for i, axis in enumerate(panels):
+        legend = axis.get_legend()
+        if legend is None:
+            continue
+        box = legend.get_window_extent(renderer)
+        for j, other in enumerate(panels):
+            if other is axis:
+                continue
+            for artist in (other, other.yaxis.label, *other.get_yticklabels()):
+                extent = artist.get_window_extent(renderer)
+                if extent.width and box.overlaps(extent):
+                    found.append((i, j, type(artist).__name__))
+    return found
+
+
+@pytest.mark.parametrize("options", [{"stage": 1}, {"stage": 5}, {"stage": 8}, {}, {"layout": "stack"}])
+def test_no_legend_overlaps_a_neighbouring_panel_on_a_slide(romero, archive, options):
+    """Long role labels with a four-line caption (the 39916 chain-B render) once ran into the density label."""
+    ods = copy.deepcopy(romero.ods)
+    ods[f"{CP}.zeff_fit.parameters"] += "; resistive_sigma=0.21"  # the longest caption the chain writes
+    for case in (ods, archive.ods):
+        figure, axes = _quiet(vaft.omas.plot_kinetic_overview_state, case, format="slide", **options)
+        assert _legend_overlaps(figure, axes) == [], options
+        plt.close(figure)

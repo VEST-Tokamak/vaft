@@ -794,9 +794,9 @@
     },
     "kinetic_overview_state": {
       "call": "vaft.omas.plot_kinetic_overview_state(vaft.omas.load(vaft.data.sample(48224)))",
-      "model_sha256": "927549d9759faa69c143bafad58b413259c346a6292ae0eb9cca20eae0050220",
-      "png_sha256": "0f765215149826e034c6ca285115b829283d1eaaee6c7be62dc18ccbfe14dcb1",
-      "renderer_sha256": "6b5e0070c182a171524b916c276c217178f83eb1a32b96647d2b7c7ce9b3ef02",
+      "model_sha256": "51aed92088b24755e4cbd657b165603a193a85c4fe9dbc118fb144d65276e59a",
+      "png_sha256": "df77362e7352ae96e579c4c49fd94bc08d248053a695eb37ef41696af38d1802",
+      "renderer_sha256": "867cb48b8128a8cad1bf85194ba93a18452dfd2f082fcc80e64f38edeb8cffe9",
       "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
       "shot": 48224,
       "status": "rendered"
