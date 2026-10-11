@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4af6ece</code>. What is described
+  <code>989b983</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -737,6 +737,74 @@ sources. Use <code class="language-plaintext highlighter-rouge">vaft.database.co
 <code class="language-plaintext highlighter-rouge">main</code> and <code class="language-plaintext highlighter-rouge">impa</code> together while retaining each channel’s origin.
 <code class="language-plaintext highlighter-rouge">python -m vaft.cli summary sources</code> lists the catalog; custom namespaces must
 be declared in <code class="language-plaintext highlighter-rouge">VAFT_HSDS_EXTRA_SOURCES</code>.</p>
+
+<h3 id="transitional-tglf-configuration-sources">Transitional TGLF configuration sources</h3>
+
+<p>TGLF results depend on the saturation rule (SAT0–SAT3) and the field model
+(<code class="language-plaintext highlighter-rouge">es</code>, <code class="language-plaintext highlighter-rouge">em-bper</code>, <code class="language-plaintext highlighter-rouge">em-bper-bpar</code>), and no configuration is the default
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/1482">#1482</a>). Each
+configuration is therefore stored as its own sparse source beneath the
+reconstruction its state was mapped on, so alternative configurations of one
+state coexist instead of overwriting one another
+(<a href="https://github.com/VEST-Tokamak/vaft/issues/1900">#1900</a>). The
+<code class="language-plaintext highlighter-rouge">turbulent_transport</code> stage owns <code class="language-plaintext highlighter-rouge">core_transport</code> only. Its FileDB product is
+<code class="language-plaintext highlighter-rouge">omas/turbulent_transport/{family}/tglf-sat&lt;n&gt;-&lt;field&gt;/{shot}/</code>, and
+<code class="language-plaintext highlighter-rouge">replication_for_stage("turbulent_transport", family=..., product="tglf-sat3-em-bper")</code>
+names its destination. There is no default configuration: a call without
+<code class="language-plaintext highlighter-rouge">product</code> is refused.</p>
+
+<p>These sources are <strong>transitional</strong>. In the self-describing occurrence model of
+<a href="https://github.com/VEST-Tokamak/vaft/issues/1128">#1128</a> and
+<a href="https://github.com/VEST-Tokamak/vaft/issues/1129">#1129</a>, each one becomes a
+named <code class="language-plaintext highlighter-rouge">core_transport</code> occurrence. The builder already writes the future name
+into <code class="language-plaintext highlighter-rouge">ids_properties.name</code>, so migration renames nothing:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Transitional source</th>
+      <th>IDS</th>
+      <th>Future <code class="language-plaintext highlighter-rouge">ids_properties.name</code></th>
+      <th>Occurrence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">main/tglf-sat&lt;n&gt;-&lt;field&gt;</code></td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tglf-sat&lt;n&gt;-&lt;field&gt;-from-magnetic-efit</code></td>
+      <td>allocated by the #1129 VEST catalog (not assigned yet)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">electron-efit/tglf-sat&lt;n&gt;-&lt;field&gt;</code></td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tglf-sat&lt;n&gt;-&lt;field&gt;-from-electron-efit</code></td>
+      <td>allocated by the #1129 VEST catalog (not assigned yet)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kinetic-efit/tglf-sat&lt;n&gt;-&lt;field&gt;</code></td>
+      <td><code class="language-plaintext highlighter-rouge">core_transport</code></td>
+      <td><code class="language-plaintext highlighter-rouge">tglf-sat&lt;n&gt;-&lt;field&gt;-from-kinetic-efit</code></td>
+      <td>allocated by the #1129 VEST catalog (not assigned yet)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>For example, SAT3 with <code class="language-plaintext highlighter-rouge">em-bper</code> on a magnetic-EFIT state is stored in
+<code class="language-plaintext highlighter-rouge">main/tglf-sat3-em-bper</code> and named <code class="language-plaintext highlighter-rouge">tglf-sat3-em-bper-from-magnetic-efit</code>.
+The routine driver’s lineage <code class="language-plaintext highlighter-rouge">magnetics</code> maps to the magnetic family and
+<code class="language-plaintext highlighter-rouge">electron_kinetic</code> to the electron family. The kinetic family has no TGLF
+states yet, but its sources are catalogued. The full list of 36 rows is
+<code class="language-plaintext highlighter-rouge">vaft.database.sources.turbulent_transport_migration()</code>. The upstream state’s
+identity (state identity, run identities, TGLF parameters, GACODE revision)
+travels in <code class="language-plaintext highlighter-rouge">core_transport.model[:].code.parameters</code> and in the stage manifest.</p>
+
+<p>Coexistence holds across configurations and lineages. Alternative Ti
+assumptions of one state (a different <code class="language-plaintext highlighter-rouge">--ti-te-ratio</code>, <code class="language-plaintext highlighter-rouge">--use-inferred-ti</code> or
+<code class="language-plaintext highlighter-rouge">--rho-max</code> gives a different state identity on the same path) are refused, not
+stored side by side, until #1128/#1129: writing a product whose state
+identities differ from the stored one raises, and rewriting the same states is
+allowed.</p>
 
 <p>Eager <code class="language-plaintext highlighter-rouge">load()</code> stages a complete shot when <code class="language-plaintext highlighter-rouge">paths</code> is absent. With
 <code class="language-plaintext highlighter-rouge">paths=["equilibrium"]</code>, it stages only that IDS and <code class="language-plaintext highlighter-rouge">dataset_description</code>,
@@ -1423,7 +1491,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#cross-shot-parameter-history" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cross-shot parameter history</a></li><li class="page-toc-item page-toc-level-2"><a href="#transport-summary-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transport summary hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-flat-namespace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The flat namespace</a></li><li class="page-toc-item page-toc-level-2"><a href="#connecting-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Connecting to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#listing-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Listing shots</a></li><li class="page-toc-item page-toc-level-2"><a href="#eager-and-lazy-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Eager and lazy HSDS access</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#source-namespaces-and-data-products" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Source namespaces and data products</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#local-omas-imas-and-filedb-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local OMAS, IMAS, and FileDB paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting-a-shot-as-local-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting a shot as local files</a></li><li class="page-toc-item page-toc-level-2"><a href="#saving-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Saving to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#native-imas-ids-objects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Native IMAS IDS objects</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#which-load-is-which" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which load is which</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-signals-mysql" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ signals (MySQL)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#finding-field-codes-and-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Finding field codes and shots</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-range-and-timing-rules" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot-range and timing rules</a></li><li class="page-toc-item page-toc-level-3"><a href="#processing-new-shots-automatically" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Processing new shots automatically</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#working-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Working offline</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-to-go-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where to go next</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#cross-shot-parameter-history" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Cross-shot parameter history</a></li><li class="page-toc-item page-toc-level-2"><a href="#transport-summary-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transport summary hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-flat-namespace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The flat namespace</a></li><li class="page-toc-item page-toc-level-2"><a href="#connecting-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Connecting to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#listing-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Listing shots</a></li><li class="page-toc-item page-toc-level-2"><a href="#eager-and-lazy-hsds-access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Eager and lazy HSDS access</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#source-namespaces-and-data-products" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Source namespaces and data products</a></li><li class="page-toc-item page-toc-level-3"><a href="#transitional-tglf-configuration-sources" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Transitional TGLF configuration sources</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#local-omas-imas-and-filedb-paths" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local OMAS, IMAS, and FileDB paths</a></li><li class="page-toc-item page-toc-level-2"><a href="#exporting-a-shot-as-local-files" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Exporting a shot as local files</a></li><li class="page-toc-item page-toc-level-2"><a href="#saving-to-hsds" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Saving to HSDS</a></li><li class="page-toc-item page-toc-level-2"><a href="#native-imas-ids-objects" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Native IMAS IDS objects</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#which-load-is-which" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which load is which</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#raw-daq-signals-mysql" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Raw DAQ signals (MySQL)</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#finding-field-codes-and-shots" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Finding field codes and shots</a></li><li class="page-toc-item page-toc-level-3"><a href="#shot-range-and-timing-rules" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Shot-range and timing rules</a></li><li class="page-toc-item page-toc-level-3"><a href="#processing-new-shots-automatically" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Processing new shots automatically</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#working-offline" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Working offline</a></li><li class="page-toc-item page-toc-level-2"><a href="#where-to-go-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Where to go next</a></li></ul>
     </nav>
 </aside>
 
@@ -1541,7 +1609,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 06:46:02 +0000"
+        "time": "2026-10-11 07:22:13 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
