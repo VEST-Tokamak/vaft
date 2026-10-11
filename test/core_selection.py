@@ -123,6 +123,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Quadratic coil-response algebra of a signed NTV torque (#1887): synthetic
     # Hermitian matrices, no solver, about a second.
     "test_ntv_coil_response.py",
+    # The #1887 direct GPEC -> PENTRC reference replayed without a solver: the
+    # committed 18 + 4 run table qualifies Q at converged tolerances only.
+    "test_ntv_coil_reference_1887.py",
     # The #1178 coil operating-space result schema (#1886 contract): synthetic
     # fixtures only, under a second.
     "test_coil_operating_space.py",

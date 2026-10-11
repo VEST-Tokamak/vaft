@@ -26,6 +26,9 @@ the inertial length calls the plasma frequency. The
 characteristic length, the resistivity and the collision time are always explicit arguments, so a global
 scale cannot be silently swapped for a layer scale.
 
+How a characteristic scale becomes an ordering, why the comparison length must be named, and how orderings
+differ from similarity coordinates and from resolution is [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}).
+
 ## The parameters and what they test
 
 | Quantity | Kernel | Tests | Must name |

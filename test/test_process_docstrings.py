@@ -141,6 +141,7 @@ PIPELINE = frozenset({
     "mode_frequency_tracks",
     # ntv_coil_response (#1887): probes -> Q; expected -> tolerance -> per-kind check;
     # drop failed -> compare -> status; generalized eigen -> scale; grid -> polish
+    "ntv_operating_space",
     "hermitian_torque_matrix",
     "quadratic_invariance_checks",
     "qualify_torque_matrix",
@@ -400,6 +401,7 @@ CONVENTION_SENSITIVE = frozenset({
     # torques stay signed
     "coil_phasors",
     "quadratic_probe_design",
+    "ntv_operating_space",
     "hermitian_torque_matrix",
     "quadratic_torque",
     "quadratic_invariance_checks",
