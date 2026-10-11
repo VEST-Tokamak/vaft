@@ -43,10 +43,15 @@ pytestmark = [
 ]
 
 
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE, DEFAULT_STAGES  # noqa: E402
+
+
 def _dry_run(
     tmp_path: Path, shot: int = 48226, extra: list[str] | None = None,
     *, base_dir: str | None = None, env: dict | None = None,
+    stages: list[str] | None = None,
 ):
+    """``stages`` defaults to the whole lineage so the opt-in stages are exercised too."""
     config = tmp_path / "config.yaml"
     config.write_text(
         json.dumps(
@@ -57,6 +62,7 @@ def _dry_run(
                 "external": {"data_root": str(tmp_path / "incoming"), "ces_options": "ids"},
                 "kinetic": {"encoding": "raw6", "executable": ""},
                 "hsds": {"replicate": False},
+                "stages": stages if stages is not None else list(CORRECTIVE_LINEAGE),
                 "conda": None,
             }
         ),
@@ -75,6 +81,15 @@ def _dry_run(
         text=True,
         env=env,
     )
+
+
+def test_the_default_scope_leaves_the_opt_in_stages_out(tmp_path):
+    """<Z_eff> = 2 and T_i = T_e reach main by default; the inferred T_i and the resistive Z_eff do not (#1842)."""
+    result = _dry_run(tmp_path, stages=list(DEFAULT_STAGES))
+    assert result.returncode == 0, result.stderr
+    assert "generate_composition_ods" in result.stdout
+    assert "generate_ti_inferred_ods" not in result.stdout
+    assert "generate_resistive_zeff_ods" not in result.stdout
 
 
 def test_the_snakefile_parses_and_builds_every_stage(tmp_path):

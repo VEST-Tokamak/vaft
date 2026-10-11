@@ -55,9 +55,12 @@ env:
   # $EFIT or $EFITHOME must name the EFIT install the kinetic lineages use.
   # EFIT: ${HOME}/git/efit/vaft-install/bin/efitd129d
 
-# Which stages to build and judge. Omitted: the whole lineage
-#   thomson, ces, core_profiles, composition, ti_inferred, resistive_zeff,
-#   electron_efit, kinetic_efit
+# Which stages to build and judge. Omitted: the default scope
+#   thomson, ces, core_profiles, composition, electron_efit, kinetic_efit
+# (<Z_eff> = 2 and T_i = T_e, both stated as assumptions, reach main). The opt-in
+# stages ti_inferred and resistive_zeff are built only when named here: the
+# pressure partition gives T_i/T_e ~ 2 and the resistive Z_eff is identifiable on
+# few shots (#1842 Tier A evaluation).
 # A list narrows rule all, the replication rules and the worker's verdict to those
 # stages; a stage needs its upstream (core_profiles needs thomson and ces,
 # composition needs core_profiles, ti_inferred needs composition, resistive_zeff

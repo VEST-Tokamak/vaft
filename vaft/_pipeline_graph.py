@@ -96,6 +96,8 @@ class DocumentationPipeline:
     branches: tuple[str, ...] = ()
 
 
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE  # noqa: E402
+
 PIPELINES = (
     DocumentationPipeline(
         id="routine",
@@ -121,7 +123,10 @@ PIPELINES = (
         directory="automatic_pipeline_2_corrective_data_update",
         target="all",
         shot=48226,
-        config={"layout": "filedb", "hsds": {"replicate": True}, "conda": None},
+        # stages: every stage, so the opt-in ones are drawn although a run builds
+        # only the default scope.
+        config={"layout": "filedb", "hsds": {"replicate": True}, "conda": None,
+                "stages": list(CORRECTIVE_LINEAGE)},
         branches=("HSDS replication", "kinetic profiles"),
     ),
 )

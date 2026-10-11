@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE, DEFAULT_STAGES
 from vaft.database.worker import corrective as cw
 from vaft.database.worker.config import WorkerConfigError
 from vaft.database.worker.runner import RunPlan, RunResult
@@ -231,7 +231,7 @@ def test_a_killed_worker_leaves_its_shots_pending_and_forced(config):
 
 def test_every_stage_of_the_lineage_has_a_manifest_path_in_the_routine_paths(harvester):
     stages = [t.stage for t in harvester.targets(48226)]
-    assert tuple(stages) == CORRECTIVE_LINEAGE
+    assert tuple(stages) == tuple(s for s in CORRECTIVE_LINEAGE if s in DEFAULT_STAGES)
     assert all("/omas/" in t.path and t.path.endswith("manifest.json") for t in harvester.targets(48226))
 
 
@@ -295,7 +295,7 @@ def test_a_quiet_new_upload_is_run_harvested_and_completed(config, harvester, pi
     assert runner.plans[0].force is False
     row = worker.state.shot(48226)
     assert row["state"] == cw.COMPLETED and row["attempts"] == 0 and row["force"] == 0
-    assert {s["stage"] for s in worker.state.stage_status(48226)} == set(CORRECTIVE_LINEAGE)
+    assert {s["stage"] for s in worker.state.stage_status(48226)} == set(DEFAULT_STAGES)
 
 
 def test_an_upload_that_is_still_arriving_waits(config, harvester, pipeline_config):

@@ -32,6 +32,8 @@ def main() -> int:
     parser.add_argument("--diagnostics-product", default="", help="Diagnostics product: plasma onset.")
     parser.add_argument("--ionization", default="transient", choices=("transient", "coronal"))
     parser.add_argument("--normalization", default="ne_weighted_mean")
+    parser.add_argument("--assume-ti-eq-te", action=argparse.BooleanOptionalAction, default=True,
+                        help="Give slices with no measured T_i an assumed T_i = T_e.")
     parser.add_argument("--adf11-cache-dir", default="", help="OPEN-ADAS ADF11 cache; empty uses the user cache.")
     parser.add_argument("--output", required=True, type=Path, help="Output composed core_profiles ODS JSON.")
     parser.add_argument("--metadata", required=True, type=Path, help="Output stage manifest JSON.")
@@ -50,6 +52,7 @@ def main() -> int:
             ionization=args.ionization,
             normalization=args.normalization,
             cache_dir=args.adf11_cache_dir or None,
+            assume_ti_eq_te=args.assume_ti_eq_te,
             run=args.run,
         )
     except Exception as error:  # noqa: BLE001 - the containment is the point

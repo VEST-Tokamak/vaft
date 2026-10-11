@@ -50,7 +50,7 @@ Every stage always writes a product and a manifest and exits 0. **Read the
 manifest `status`**: `success`; `unavailable` or `no_output` (the normal answer for
 most shots, never retried); `failed` (retried). Under `hsds.replicate` the
 `core_profiles` IDS reaches `main` through four stages that replace one another in
-a fixed order (`core_profiles`, `composition`, `ti_inferred`, `resistive_zeff`), so
+a fixed order (`core_profiles`, `composition`, then `ti_inferred`, `resistive_zeff` when opted in), so
 `main` always holds the last one that succeeded.
 
 ## The worker
@@ -63,3 +63,12 @@ from [`corrective.example.yaml`](corrective.example.yaml).
 
 `legacy/` holds the pre-Snakemake polling scripts. They are not part of the
 supported pipeline; see its README.
+
+
+## Default scope
+
+Without a `stages` key a run builds `thomson`, `ces`, `core_profiles`, `composition`,
+`electron_efit` and `kinetic_efit`. `composition` writes the stated assumptions to `main`:
+`<Z_eff> = 2` with the C/O composition, and `T_i = T_e` on slices with no measured `T_i`
+(`ti_te_ratio=1; status=assumed`; `composition.assume_ti_eq_te: false` turns the latter off).
+`ti_inferred` and `resistive_zeff` are opt-in: name them in `stages`.

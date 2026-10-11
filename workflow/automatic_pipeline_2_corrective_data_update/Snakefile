@@ -111,6 +111,9 @@ def _flag(value, default):
     return bool(value)
 
 
+COMPOSITION_ASSUME_TI = _flag(COMPOSITION_CONFIG.get("assume_ti_eq_te"), True)
+
+
 PLOTS_ENABLED = _flag((config.get("plots") or {}).get("enabled"), True)
 
 HSDS_CONFIG = config.get("hsds", {}) or {}
@@ -282,7 +285,8 @@ rule generate_composition_ods:
         diagnostics=scientific_reference(PATHS, "generate_composition_ods", "diagnostics"),
         ionization=COMPOSITION_IONIZATION,
         normalization=COMPOSITION_NORMALIZATION,
-        adf11_cache=COMPOSITION_ADF11_CACHE
+        adf11_cache=COMPOSITION_ADF11_CACHE,
+        assume_ti="--assume-ti-eq-te" if COMPOSITION_ASSUME_TI else "--no-assume-ti-eq-te"
     conda:
         CONDA if CONDA else None
     shell:
@@ -295,6 +299,7 @@ rule generate_composition_ods:
             --diagnostics-product {params.diagnostics} \
             --ionization {params.ionization} \
             --normalization {params.normalization} \
+            {params.assume_ti} \
             --adf11-cache-dir "{params.adf11_cache}" \
             --output {output.ods} \
             --metadata {output.manifest} \

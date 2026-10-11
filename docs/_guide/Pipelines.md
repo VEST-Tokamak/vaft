@@ -307,8 +307,8 @@ executable and the named EFIT preset used for the base magnetic k-file.
 | `ces` | `build_ces_ods` | an uploaded CES file | `charge_exchange` → `main` |
 | `core_profiles` | `build_core_profiles_ods` | `thomson` (+ `ces`), pipeline 1's EFIT | `core_profiles` → `main` |
 | `composition` | `build_composition_ods` | `core_profiles`, pipeline 1's EFIT and diagnostics | `core_profiles` → `main`, after the stage above |
-| `ti_inferred` | `build_ti_inferred_ods` | `composition`, pipeline 1's magnetic EFIT | `core_profiles` → `main`, after `composition` |
-| `resistive_zeff` | `build_resistive_zeff_ods` | `ti_inferred`, pipeline 1's magnetic EFIT | `core_profiles` → `main`, after `ti_inferred` |
+| `ti_inferred` (opt-in) | `build_ti_inferred_ods` | `composition`, pipeline 1's magnetic EFIT | `core_profiles` → `main`, after `composition` |
+| `resistive_zeff` (opt-in) | `build_resistive_zeff_ods` | `ti_inferred`, pipeline 1's magnetic EFIT | `core_profiles` → `main`, after `ti_inferred` |
 | `electron_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) without ion data | `equilibrium` → `electron-efit` |
 | `kinetic_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) with ion data | `equilibrium` → `kinetic-efit` |
 
@@ -344,6 +344,8 @@ fit record and, when it has an ion temperature, in that record.
   holds the composed product when the stage succeeded and the measured one when it was skipped.
 
 ### The inferred ion temperature
+
+The default scope does not build `ti_inferred` or `resistive_zeff`: `main` gets `⟨Z_eff⟩ = 2` and, on slices with no measured `T_i`, the stated assumption `T_i = T_e` from `composition` (#1842; on the Tier A shots the pressure partition returned `T_i/T_e` ≈ 2 and the resistive `Z_eff` was identifiable on few shots). Name the stages in `stages` to build them; `ti_inferred` replaces an assumed `T_i`, never a measured one.
 
 `ti_inferred` gives the slices that have **no measured `T_i`** an ion temperature from the pressure partition of
 pipeline 1's magnetic EFIT: `T_i = p_eq / (e f n_e) - T_e / f`, with `p_eq` sampled on the slice's own flux surfaces

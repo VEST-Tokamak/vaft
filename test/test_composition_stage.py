@@ -111,6 +111,7 @@ def _efit(tmp_path, times=(0.300, 0.301)):
 
 def _build(tmp_path, tables, **kwargs):
     kwargs.setdefault("ionization", "coronal")
+    kwargs.setdefault("assume_ti_eq_te", False)  # the electron-only baseline the T_i stage builds on
     # Built only when absent: an eager setdefault would rewrite a product the
     # caller already wrote to the same path.
     if "core_profiles_product" not in kwargs:
@@ -118,6 +119,20 @@ def _build(tmp_path, tables, **kwargs):
     if "efit_product" not in kwargs:
         kwargs["efit_product"] = _efit(tmp_path)
     return vu.build_composition_ods(shot=SHOT, tables=tables, **kwargs)
+
+
+def test_an_electron_only_slice_is_given_an_assumed_ti_equal_to_te_and_a_measured_one_is_kept(tmp_path, tables):
+    ods, manifest = _build(tmp_path, tables, assume_ti_eq_te=True)
+    assert manifest["ion_temperature"] == {"assumed_ti_eq_te": 1}
+    base = "core_profiles.profiles_1d.0"
+    assert np.asarray(ods[f"{base}.ion.0.temperature"], dtype=float) == pytest.approx(0.8 * TE), "measured kept"
+    base = "core_profiles.profiles_1d.1"
+    te = np.asarray(ods[f"{base}.electrons.temperature"], dtype=float)
+    for k in range(3):
+        assert np.asarray(ods[f"{base}.ion.{k}.temperature"], dtype=float) == pytest.approx(te)
+    record = ti_record_fields(ods[f"{base}.ion.0.temperature_fit.parameters"])
+    assert record["status"] == "assumed" and float(record["ti_te_ratio"]) == 1.0
+    assert np.all(np.asarray(ods[f"{base}.pressure_ion_total"], dtype=float) > 0)
 
 
 def test_every_slice_gets_the_diluted_main_ion_the_impurities_and_a_target_zeff(tmp_path, tables):
@@ -419,7 +434,8 @@ def _composed_electron_only(tmp_path, tables, *, thomson=True):
     product = _core_profiles(tmp_path, kinetic=(), rho_pol=np.sqrt(PSI_N), thomson=thomson)
     efit = _efit(tmp_path)
     composed, _ = vu.build_composition_ods(
-        shot=SHOT, core_profiles_product=product, efit_product=efit, ionization="coronal", tables=tables)
+        shot=SHOT, core_profiles_product=product, efit_product=efit, ionization="coronal", tables=tables,
+        assume_ti_eq_te=False)
     out = tmp_path / "composition.json"
     composed.save(str(out))
     closure = infer_kinetic_closure(composed, time=0.300, dilution="species", ti_te_ratio=1.0)
@@ -484,7 +500,7 @@ def test_a_slice_with_a_measured_ion_temperature_is_left_alone(tmp_path, tables)
     product = _core_profiles(tmp_path, kinetic=(0,), rho_pol=np.sqrt(PSI_N), thomson=True)
     composed, _ = vu.build_composition_ods(
         shot=SHOT, core_profiles_product=product, efit_product=_efit(tmp_path),
-        ionization="coronal", tables=tables)
+        ionization="coronal", tables=tables, assume_ti_eq_te=False)
     path = tmp_path / "composition.json"
     composed.save(str(path))
     efit = _magnetic_efit(tmp_path, E * NE * TE * 2.0)
@@ -541,3 +557,18 @@ def test_without_thomson_errors_the_inference_runs_and_the_missing_sigma_is_coun
 def test_a_missing_composed_product_is_a_caller_error(tmp_path):
     with pytest.raises(FileNotFoundError):
         vu.build_ti_inferred_ods(shot=SHOT, core_profiles_product=tmp_path / "no.json", efit_product=tmp_path / "e.json")
+
+
+def test_the_inferred_ti_replaces_the_one_the_composition_assumed(tmp_path, tables):
+    product = _core_profiles(tmp_path, kinetic=(0,), rho_pol=np.sqrt(PSI_N), thomson=True)
+    composed, _ = vu.build_composition_ods(
+        shot=SHOT, core_profiles_product=product, efit_product=_efit(tmp_path),
+        ionization="coronal", tables=tables)
+    path = tmp_path / "composition.json"
+    composed.save(str(path))
+    assert ti_record_fields(composed["core_profiles.profiles_1d.1.ion.0.temperature_fit.parameters"])["status"] == "assumed"
+    efit = _magnetic_efit(tmp_path, E * NE * TE * 2.0)
+    ods, manifest = vu.build_ti_inferred_ods(shot=SHOT, core_profiles_product=path, efit_product=efit)
+    record = ti_record_fields(ods["core_profiles.profiles_1d.1.ion.0.temperature_fit.parameters"])
+    assert record["origin"] == "inferred"
+    assert manifest["slices"]["measured"] == 1

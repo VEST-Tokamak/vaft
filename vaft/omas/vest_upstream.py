@@ -2312,6 +2312,7 @@ def build_composition_ods(
     equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
     cache_dir: str | None = None,
     tables: Mapping[str, Any] | None = None,
+    assume_ti_eq_te: bool = True,
     run: int = 1,
 ) -> tuple[ODS, dict[str, Any]]:
     """Add the VEST impurity composition, ``n_i`` and plasma ``Z_eff(rho)`` to measured core profiles.
@@ -2343,6 +2344,11 @@ def build_composition_ods(
     The product is the measured one plus these additions; the replicated IDS is
     ``core_profiles``, which this product replaces in ``main`` only when it exists.
 
+    A slice with **no measured** ion temperature is given ``T_i = T_e`` when
+    ``assume_ti_eq_te`` (the default): written as an *assumption* in the ratio
+    grammar (``ti_te_ratio=1; status=assumed``), with ``t_i_average`` and the
+    total pressure following from it.  A measured ``T_i`` is never replaced.
+
     ``cache_dir`` is where the OPEN-ADAS ADF11 files are kept (they are fetched on
     first use, so a server without network needs the cache warmed); ``tables``
     overrides them with ``{element: (acd, scd)}`` paths and exists for tests.
@@ -2350,6 +2356,7 @@ def build_composition_ods(
     from vaft.machine_mapping.core_profiles import vest_impurity_model
     from vaft.ods_access import path_value
     from vaft.process.impurity import populate_radial_impurity_profiles, resolve_radial_composition
+    from vaft.process.kinetic_closure import infer_kinetic_closure
 
     if ionization not in COMPOSITION_IONIZATIONS:
         raise ValueError(f"ionization must be one of {COMPOSITION_IONIZATIONS}, got {ionization!r}")
@@ -2364,6 +2371,7 @@ def build_composition_ods(
     manifest["configuration"].update(
         ionization=ionization, normalization=normalization,
         equilibrium_tolerance_ms=float(equilibrium_tolerance_ms),
+        assume_ti_eq_te=bool(assume_ti_eq_te),
     )
 
     if not Path(core_profiles_product).exists():
@@ -2394,7 +2402,7 @@ def build_composition_ods(
     onset, onset_source = _plasma_onset(diagnostics_product)
     manifest["composition"].update(onset_s=onset, onset_source=onset_source)
 
-    composed, skipped = 0, []
+    composed, assumed_ti, skipped = 0, 0, []
     pressures = {"ion": 0, "electron_only": 0, "unchanged": 0}
     for index, time_s in enumerate(times):
         base = f"core_profiles.profiles_1d.{index}"
@@ -2434,7 +2442,23 @@ def build_composition_ods(
             skipped.append({"time_s": float(time_s), "reason": f"{type(error).__name__}: {error}"[:200]})
             continue
         composed += 1
-        pressures[_write_closure_pressures(ods, index, float(time_s))] += 1
+        if assume_ti_eq_te and path_value(ods, f"{base}.ion.0.temperature", None) is None:
+            for k in range(len(ods[f"{base}.ion"])):
+                ods[f"{base}.ion.{k}.temperature"] = te.copy()
+                ods[f"{base}.ion.{k}.temperature_fit.parameters"] = (
+                    "ti_te_ratio=1; status=assumed; source=assumption; assume_ti_eq_te=1"
+                )
+            ods[f"{base}.t_i_average"] = te.copy()
+            assumed_ti += 1
+            closure = infer_kinetic_closure(ods, time=float(time_s), dilution="species", ti_te_ratio=1.0)
+            pressure = closure.pressure
+            ods[f"{base}.electrons.pressure"] = pressure.p_e
+            ods[f"{base}.electrons.pressure_thermal"] = pressure.p_e
+            ods[f"{base}.pressure_ion_total"] = pressure.p_i_thermal
+            ods[f"{base}.pressure_thermal"] = pressure.p_thermal
+            pressures["ion"] += 1
+        else:
+            pressures[_write_closure_pressures(ods, index, float(time_s))] += 1
 
         _append_record_fields(ods, f"{base}.zeff_fit.parameters", {"target_zeff": target_zeff})
         if equilibrium_index is not None:
@@ -2454,6 +2478,7 @@ def build_composition_ods(
     manifest["slices"] = {
         "composed": composed, "skipped": len(skipped), "total": int(times.size),
     }
+    manifest["ion_temperature"] = {"assumed_ti_eq_te": assumed_ti}
     manifest["pressure"] = {"closure": "infer_kinetic_closure", "dilution": "species", **pressures}
     manifest["skipped_slices"] = skipped[:20]
     if composed:
@@ -2566,7 +2591,7 @@ def build_ti_inferred_ods(
     with ``n_i = n_e``: the ion density is half of the formula.  The stage reads
     the *composed* product and must never be read by the kinetic EFIT stages.
     """
-    from vaft.machine_mapping.core_profiles import inferred_ti_text, ti_record_fields
+    from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text, ti_record_fields
     from vaft.ods_access import path_value
     from vaft.process.kinetic_closure import (
         TI_FLAGS,
@@ -2702,7 +2727,11 @@ def build_ti_inferred_ods(
         ratios.extend(float(x) for x in result["ti_te"][valid])
 
     for index, time_s in enumerate(times):
-        if path_value(ods, f"core_profiles.profiles_1d.{index}.ion.0.temperature", None) is not None:
+        base_i = f"core_profiles.profiles_1d.{index}.ion.0"
+        has_ti = path_value(ods, f"{base_i}.temperature", None) is not None
+        # A T_i the composition stage *assumed* (T_i = T_e) is not a measurement: it is
+        # the electron-only state this stage exists to improve on.
+        if has_ti and classify_ti_record(path_value(ods, f"{base_i}.temperature_fit.parameters", None)) != "assumed":
             counts["measured"] += 1
             continue
         try:

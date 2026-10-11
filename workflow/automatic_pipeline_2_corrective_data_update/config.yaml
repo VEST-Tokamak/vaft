@@ -39,10 +39,17 @@ composition:
   # skipped and named in the manifest. coronal overstates VEST's charge states.
   ionization: transient
   normalization: ne_weighted_mean
+  # A slice with no measured T_i gets T_i = T_e, stated as an assumption
+  # (ti_te_ratio=1; status=assumed). false leaves such slices electron-only.
+  assume_ti_eq_te: true
   # OPEN-ADAS ADF11 files are fetched on first use; point this at a warmed cache
   # on a server without network. Empty uses the user cache.
   adf11_cache_dir: ""
 
+# Opt-in stages: add "ti_inferred" and "resistive_zeff" to `stages` (worker config
+# or --config) to build them. By default only the stated assumptions reach `main`
+# (<Z_eff> = 2 and T_i = T_e): the pressure partition's T_i/T_e is ~2 and the
+# resistive Z_eff is identifiable on few shots (#1842 Tier A evaluation).
 ti_inference:
   # Relative one-sigma model-form uncertainty of the magnetic EFIT pressure
   # (#874), and the window [s] of neighbouring slices whose spread can exceed it.

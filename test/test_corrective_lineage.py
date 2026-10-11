@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE, UPSTREAM, scoped, stage_scope
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE, DEFAULT_STAGES, UPSTREAM, scoped, stage_scope
 from vaft.database.sources import STAGE_REPLICATION, replicable_stages
 
 
@@ -31,7 +31,7 @@ def test_the_kinetic_lineages_never_read_the_inferred_temperature():
 
 
 def test_no_scope_is_the_whole_lineage():
-    assert stage_scope(None) is None
+    assert stage_scope(None) == frozenset(DEFAULT_STAGES)
     assert scoped(None) == CORRECTIVE_LINEAGE
 
 

@@ -29,6 +29,15 @@ CORRECTIVE_LINEAGE = (
     "kinetic_efit",
 )
 
+#: What a run builds when ``stages`` is not given: the measured profiles with the
+#: stated assumptions (``<Z_eff> = 2`` composition, ``T_i = T_e``) and the kinetic
+#: EFITs.  ``ti_inferred`` and ``resistive_zeff`` are opt-in: the pressure
+#: partition returns a ``T_i/T_e`` near 2 on VEST, and the resistive ``Z_eff`` is
+#: identifiable on few shots (#1842), so neither is written to ``main`` unasked.
+DEFAULT_STAGES = (
+    "thomson", "ces", "core_profiles", "composition", "electron_efit", "kinetic_efit",
+)
+
 #: The stages whose product each stage reads.  The kinetic lineages read
 #: ``composition`` and never ``ti_inferred`` (their pressure would then be
 #: partitioned back into the temperature it was built from); ``resistive_zeff``
@@ -48,7 +57,8 @@ UPSTREAM: Mapping[str, tuple[str, ...]] = {
 def stage_scope(value: Iterable[str] | str | None) -> frozenset[str] | None:
     """The stages a run builds and judges, from the configuration's ``stages`` key.
 
-    ``None`` (the key absent) is the whole lineage.  A list narrows it: a stage
+    ``None`` (the key absent) is :data:`DEFAULT_STAGES`; a list names the scope
+    exactly, so ``ti_inferred`` and ``resistive_zeff`` are requested by name.  A list narrows it: a stage
     outside the scope is never scheduled and never judged, so a worker told to
     build ``[thomson, ces]`` does not fail at a profile stage it was never asked
     for.  This is scope, decided before a run -- a stage that runs and finds its
@@ -63,7 +73,7 @@ def stage_scope(value: Iterable[str] | str | None) -> frozenset[str] | None:
         ValueError: An unknown stage, an empty list, or a stage without its upstream.
     """
     if value is None:
-        return None
+        return frozenset(DEFAULT_STAGES)
     names = [value] if isinstance(value, str) else [str(name) for name in value]
     if not names:
         raise ValueError("stages is empty; omit it to build the whole lineage")
@@ -86,4 +96,4 @@ def scoped(scope: frozenset[str] | None) -> tuple[str, ...]:
     return tuple(stage for stage in CORRECTIVE_LINEAGE if scope is None or stage in scope)
 
 
-__all__ = ["CORRECTIVE_LINEAGE", "UPSTREAM", "scoped", "stage_scope"]
+__all__ = ["CORRECTIVE_LINEAGE", "DEFAULT_STAGES", "UPSTREAM", "scoped", "stage_scope"]
