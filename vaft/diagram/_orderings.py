@@ -294,13 +294,13 @@ _MODE_FAMILIES = {"equilibrium": "equilibrium", "mhd_stability": "MHD stability 
 _UNCOVERED = {"nubeam:fast_ions": "test particles", "genray:ray_tracing": "ray tracing",
               "transp:integrated": "integrated", "gpec:thresholds": "unresolved layer models"}
 #: the words written in a cell for each role of vaft.validation.model_contracts.ROLES
-_ROLE_WORDS = {"governing": "governing", "outer_region": "outer region", "inner_layer": "inner layer",
+_ROLE_WORDS = {"governing": "governing", "outer_solution": "outer solution", "layer_solution": "layer solution",
                "fluid_part": "fluid part", "kinetic_response": "kinetic part", "closure": "closure",
                "inherited": "inherited", "transport_coupling": "coupling"}
 #: cell style per role: a governing assumption is filled, an inherited one dashed
 _ROLE_STYLES = {"governing": "concept source", "inherited": "concept group"}
 
-_ACOL, _AROW, _ALEFT = 2.2, 0.62, 3.9
+_ACOL, _AROW, _ALEFT = 2.45, 0.62, 3.9
 
 
 def adapter_contract_map(*, labels: bool = True) -> Diagram:
@@ -311,8 +311,8 @@ def adapter_contract_map(*, labels: bool = True) -> Diagram:
     gyrokinetic); columns are the contracts any of them consumes, in the
     model-family order of :func:`ordering_contract_map`. A cell names how the
     assumption enters the calculation -- not how much of the plasma it covers:
-    it *governs* the model solved; it holds in RDCON's ideal *outer region* or
-    resistive *inner layer*; it underlies DCON-kinetic's *fluid part* or
+    it *governs* the model solved; it holds for RDCON's ideal *outer solution*
+    or its resistive *layer solution*; it underlies DCON-kinetic's *fluid part* or
     drift-kinetic *kinetic part*, or PENTRC's *closure*; or a reduced model
     (TGLF) has *inherited* it from a theory it does not solve. An empty cell
     means no registered contract, not that the calculation is independent of
@@ -355,8 +355,8 @@ def adapter_contract_map(*, labels: bool = True) -> Diagram:
                 x = cx(use.contract)
                 used[(mode.key, use.contract)] = use.role
                 style = _ROLE_STYLES.get(use.role, "concept leaf")
-                items.append(Polyline.of([(x - 0.98, y - 0.24), (x + 0.98, y - 0.24), (x + 0.98, y + 0.24),
-                                          (x - 0.98, y + 0.24)], style, role=f"use:{mode.key}:{use.contract}",
+                items.append(Polyline.of([(x - 1.12, y - 0.24), (x + 1.12, y - 0.24), (x + 1.12, y + 0.24),
+                                          (x - 1.12, y + 0.24)], style, role=f"use:{mode.key}:{use.contract}",
                                          closed=True))
                 items.append(Label((x, y), _ROLE_WORDS[use.role], "small label",
                                    role=f"use:{mode.key}:{use.contract}"))

@@ -637,12 +637,12 @@ complete, recorded in those runs' extensions. No named kinetic limit (Kruskal-Ob
 
 Added with #1823, so that every adapter whose results feed the ordering contracts has a classified mode.
 
-| mode | operation | bulk | fluid model | regime | ordering contract | confidence |
-| --- | --- | --- | --- | --- | --- | --- |
-| EFIT reconstruction (magnetic, kinetic) | Grad–Shafranov fit to measurements | fluid | ideal MHD (static force balance) | static | equilibrium sequence | verified (equation class) |
-| CHEASE fixed boundary | Grad–Shafranov solve for given $p'$, $FF'$ or $j$ | fluid | ideal MHD (static force balance) | static | equilibrium sequence | verified (equation class) |
-| TokaMaker, TES free boundary | Grad–Shafranov with coils and conductors | fluid | ideal MHD (static force balance) | static | equilibrium sequence | verified (equation class) |
-| NICE reconstruction | Grad–Shafranov fit to measurements | fluid | ideal MHD (static force balance) | static | equilibrium sequence | provisional (experimental adapter) |
+| mode | operation | bulk | fluid model | topology | regime | ordering contract | confidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| EFIT reconstruction (magnetic, kinetic) | Grad–Shafranov fit to measurements | fluid | ideal MHD (static force balance) | across the separatrix | static | equilibrium sequence | verified (equation class) |
+| CHEASE fixed boundary | Grad–Shafranov solve for given $p'$, $FF'$ or $j$ | fluid | ideal MHD (static force balance) | closed flux surfaces | static | equilibrium sequence | verified (equation class) |
+| TokaMaker, TES free boundary | Grad–Shafranov with coils and conductors | fluid | ideal MHD (static force balance) | across the separatrix | static | equilibrium sequence | verified (equation class) |
+| NICE reconstruction | Grad–Shafranov fit to measurements | fluid | ideal MHD (static force balance) | across the separatrix | static | equilibrium sequence | provisional (experimental adapter) |
 
 **Notes:**
 - An equilibrium solves $\mathbf j\times\mathbf B = \nabla p$ with a scalar pressure and no flow. Its ordering is

@@ -179,33 +179,67 @@ is the result, and `margin_label` only names its band.
 A contract says what a model assumes. A run's `vaft.code.formalism.PlasmaFormalism` record (#1727) says which
 model the run used. `vaft.validation.model_contracts` joins the two (#1823).
 
-`contracts_for(formalism)` maps a record to the contracts it consumes, as `(contract, region)` pairs. It reads
-the record's fields as they are. A matched or hybrid calculation consumes different contracts in different
-regions:
+`contracts_for(formalism)` maps a record to the contracts it consumes, as `(contract, role)` pairs. It reads
+the record's fields as they are. The **role** says how the assumption enters the calculation. It is not a
+statement about how much of the plasma the assumption covers:
 
-| Region | Meaning | Example |
+| Role | How the assumption enters | Example |
 | --- | --- | --- |
-| `whole` | the model governs the whole calculation | DCON ideal, CGYRO, NEO |
-| `outer`, `layer` | the ideal outer region and the resistive layer of a matched calculation | RDCON + RMATCH; STRIDE is `outer` only |
-| `fluid_part`, `kinetic_response` | a fluid energy principle and the kinetic term added to it | DCON kinetic, GPEC kinetic |
-| `closure` | a kinetic quantity on a given fluid displacement, not fed back | PENTRC |
-| `parent_theory` | the theory a reduced model is derived from | TGLF (gyrokinetics) |
-| `transport_use` | local turbulent fluxes used for transport | CGYRO nonlinear, TGLF |
-
-An equilibrium (EFIT, CHEASE, TokaMaker, TES, NICE) consumes the equilibrium-sequence contract: static force
-balance, re-established faster than the state moves. A part of a formalism that no contract covers is returned
-as a reason, never as a guessed contract:
-- test-particle orbit orderings (NUBEAM);
-- full-$f$ gyrokinetics;
-- a reduced model's own closure.
-
-`ADAPTER_MODES` lists the modes of VAFT's adapters with their formalisms, from the audit in
-[Plasma models](Plasma_models.md). CGYRO's two modes are the records its own `plasma_formalism` builds. A test
-checks the GPEC-suite modes field by field against the records `vaft.code.gpec` resolves from the packaged
-namelists. The modes the audit leaves unresolved are listed with no record, together with the reason. Today
-these are the GPEC threshold layer models.
+| `governing` | the model the calculation solves rests on it | DCON ideal, CGYRO, NEO, EFIT |
+| `outer_solution`, `layer_solution` | it holds for the ideal outer solution, or for the resistive inner-layer solution, of a matched calculation | RDCON + RMATCH; STRIDE is `outer_solution` only |
+| `fluid_part`, `kinetic_response` | it underlies a fluid energy principle, or the kinetic term added to it | DCON kinetic, GPEC kinetic |
+| `closure` | it underlies a kinetic quantity evaluated on a given fluid displacement, not fed back | PENTRC |
+| `inherited` | a reduced model is derived from a theory that rests on it, but does not solve that theory | TGLF, TGLF-NN (gyrokinetics); NEO's analytic values |
+| `transport_coupling` | local turbulent fluxes drive a transport solver | none yet (opt-in, see below) |
 
 ![adapter contracts]({{ '/assets/diagrams/adapter_contract_map.svg' | relative_url }})
+
+**How to read the figure:**
+- The figure is deliberately simple. The validity conditions behind each cell are listed below, not drawn.
+- **An empty cell means no registered contract.** It does not mean the calculation is independent of that
+  physics. A part of a formalism that no contract covers is returned as a reason, never as a guessed contract:
+  - test-particle orbit orderings (NUBEAM);
+  - full-$f$ gyrokinetics;
+  - a reduced model's own closure or fit.
+- **Governing vs inherited.** CGYRO solves gyrokinetics, so the gyrokinetic contract governs it. TGLF and
+  TGLF-NN only inherit it. Their gyro-Landau-fluid closure, saturation rule and, for TGLF-NN, the training
+  domain add assumptions that no ordering contract states. A gyrokinetic ordering that holds is therefore
+  necessary for TGLF, not sufficient.
+
+**Validity conditions by mode.** All modes are checked against the adapter code.
+
+| Mode | Contracts and the conditions behind them |
+| --- | --- |
+| EFIT, CHEASE, TokaMaker, TES, NICE | equilibrium sequence: $\tau_{evol}/\tau_A \gg 1$, $M \ll 1$, $M_A \ll 1$. These are static force balance with scalar pressure, and make no claim about $S$, $k\,d_i$ or $k_\perp\rho_i$. |
+| DCON ideal, GPEC ideal | ideal MHD governs: $S \gg 1$, $d_i/a$, $k\,d_i$, $k_\perp\rho_i$, $\rho_i/L_{T_i} \ll 1$, quasineutral, low frequency, scalar pressure |
+| RDCON + RMATCH | ideal MHD for the outer solution; single-fluid resistive MHD (GGJ) for the inner layer, with $d_i/\delta \ll 1$ and $\rho_s/\delta \ll 1$. **A large $S$ does not establish single-fluid validity in the layer.** The layer width falls as a power of $S$: $\delta/a \propto S^{-2/5}$ for a $\Delta'$-driven tearing layer, and $S^{-1/3}$ for a resistive kink. So a larger $S$ makes the layer thinner and pushes $d_i/\delta$ and $\rho_s/\delta$ up. Two-fluid (drift-tearing) physics then enters even though the global ordering $S \gg 1$ holds better. The layer orderings are evaluated on $\delta$, never inferred from $S$. |
+| STRIDE | the ideal outer solution and its $\Delta'$ only; no resistivity is solved. Its empty resistive-MHD cell is not independence from layer physics: reading $\Delta'>0$ as tearing-unstable passes through an inner-layer model STRIDE does not solve (constant-$\psi$, single-fluid), so the layer orderings of the RDCON row apply to that interpretation. |
+| DCON kinetic, GPEC kinetic | ideal MHD for the fluid part; drift kinetics for the $\delta W_k$ term ($\omega/\Omega_{ci}$, $\rho_i/L$, $k_\perp\rho_i \ll 1$) |
+| PENTRC | drift kinetics as a closure on a given ideal or kinetic GPEC displacement; the displacement's own contract is the fluid part |
+| NEO | drift kinetics and local neoclassical transport govern: $\rho_i/L$, $\Delta_b/L_p$, $M \ll 1$. All collisionality regimes are solved, so neither the banana nor the Pfirsch–Schlüter contract applies. |
+| NEO analytic | the analytic, fitted and moment-method theory values a NEO run writes out (Hinton–Hazeltine, Chang–Hinton, Sauter, Redl, Hinton–Rosenbluth, NCLASS). They inherit the same contracts, plus each model's own assumptions. |
+| CGYRO linear, nonlinear | δf gyrokinetics governs: $\rho_i/L_{T_i}$, $k_\parallel/k_\perp$, $\omega/\Omega_{ci}$, $\delta n/n$, $M \ll 1$. $k_\perp\rho_i$ is not ordered. $M \ll 1$ is VAFT's choice: its input writer sets `MACH=0`, while CGYRO itself supports sonic rotation. |
+| TGLF linear, TGLF, TGLF-NN | gyrokinetics inherited: necessary, not sufficient (see above) |
+
+**Gyrokinetic–transport separation is opt-in.** A standalone flux-tube run, linear or nonlinear, imposes a
+fixed background. Comparing its fluxes with experiment still assumes $\tau_{transp}/\tau_{turb} \gg 1$. The δf
+ordering makes turbulence-driven profile evolution $\rho_*^{-2}$ slower than the turbulence. It says nothing
+about evolution driven by the current ramp or actuators, which dominates VEST's ~10 ms discharges. The registry
+books the separate contract only when the run's fluxes drive a transport solver, as in a PORTALS-type
+flux-matching loop (#1588, not yet in VAFT). This is a bookkeeping choice. The record has no
+field that says so. A workflow therefore passes `contracts_for(..., transport_coupled=True)`, or sets
+`AdapterMode.transport_coupled`. No VAFT mode sets it today, so the figure has no coupling column.
+
+**Sources and checks:**
+- `ADAPTER_MODES` lists the modes of VAFT's adapters with their formalisms, from the audit in
+  [Plasma models](Plasma_models.md).
+- CGYRO's two modes are the records its own `plasma_formalism` builds.
+- A test checks the GPEC-suite modes field by field against the records `vaft.code.gpec` resolves from the
+  packaged namelists.
+- Modes VAFT does not run are not listed. RDCON's RPEC path is one: `rdcon.in` sets `coil%rpec_flag=f`, even
+  though the resolver can classify it.
+- The modes the audit leaves unresolved, today the GPEC threshold layer models, are listed with no record and
+  a reason.
 
 `advisory_ordering_check(formalism, state, points)` evaluates those contracts on a run's input:
 - `state` is the global and time-history quantities of `vaft.process.ordering_state`;

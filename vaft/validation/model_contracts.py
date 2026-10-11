@@ -5,11 +5,15 @@ model assumes; the :class:`vaft.code.formalism.PlasmaFormalism` record of a run
 (#1727) says which model the run used. This module joins the two:
 
 * :func:`contracts_for` maps a formalism to the contracts it consumes, as
-  ``(contract, region)`` pairs. A hybrid or matched calculation consumes
-  different contracts in different regions -- RDCON's ideal outer region and
-  resistive layer, DCON's fluid energy principle and its drift-kinetic response
-  -- and the region says where each applies. Nothing is added to the formalism
-  record: the mapping reads its fields as they are.
+  ``(contract, role)`` pairs. The role says *how the assumption enters the
+  calculation*, not how much of the plasma it covers: it ``governs`` the
+  calculation; it holds in the ideal ``outer_solution`` or the resistive
+  ``layer_solution`` of a matched calculation (RDCON); it underlies the
+  ``fluid_part`` or the ``kinetic_response`` of a hybrid one (DCON kinetic) or
+  a kinetic ``closure`` on a given displacement (PENTRC); a reduced model has
+  ``inherited`` it from its parent theory without solving that theory (TGLF);
+  or local fluxes drive a transport solver (``transport_coupling``). Nothing is
+  added to the formalism record: the mapping reads its fields as they are.
 * :data:`ADAPTER_MODES` lists the scientifically distinct modes of VAFT's code
   adapters with their formalism, following the audit of
   ``docs/_guide/Plasma_models.md`` (#1725). A mode whose backend builds its own
@@ -45,84 +49,94 @@ __all__ = [
     "AdapterMode",
     "AdvisoryResult",
     "ContractUse",
-    "REGIONS",
+    "ROLES",
     "advisory_ordering_check",
     "adapter_mode",
     "contracts_for",
 ]
 
-#: Where in a calculation a contract applies.
-REGIONS = (
-    "whole",             # the model governs the whole calculation
-    "outer",             # the ideal region of a matched (outer/inner) calculation
-    "layer",             # the inner resistive layer of a matched calculation
-    "fluid_part",        # the fluid energy principle of a hybrid calculation
-    "kinetic_response",  # the kinetic term a hybrid calculation adds to the fluid model
-    "closure",           # a kinetic quantity evaluated on a given fluid displacement, not fed back
-    "parent_theory",     # a reduced model inherits the orderings of the theory it is derived from
-    "transport_use",     # using local turbulent fluxes in a transport calculation
+#: How an ordering contract enters a calculation. A role describes the model's
+#: structure, not the spatial extent of the plasma it is applied to.
+ROLES = (
+    "governing",           # the model the calculation solves rests on this contract
+    "outer_solution",        # the ideal outer solution of a matched (outer/inner) calculation
+    "layer_solution",         # the resistive inner-layer solution of a matched calculation
+    "fluid_part",          # the fluid energy principle of a hybrid calculation
+    "kinetic_response",    # the kinetic term a hybrid calculation adds to its fluid model
+    "closure",             # a kinetic quantity evaluated on a given fluid displacement, not fed back
+    "inherited",           # a reduced model derived from this theory, which it does not solve
+    "transport_coupling",  # local turbulent fluxes drive a transport solver
 )
 
 
 @dataclass(frozen=True)
 class ContractUse:
-    """One contract a calculation consumes, and the region it applies to."""
+    """One contract a calculation consumes, and the role it plays there (:data:`ROLES`)."""
 
     contract: str
-    region: str
+    role: str
 
     def __post_init__(self) -> None:
         if self.contract not in CONTRACTS:
             raise KeyError(f"no ordering contract {self.contract!r}")
-        if self.region not in REGIONS:
-            raise ValueError(f"region must be one of {REGIONS}, got {self.region!r}")
+        if self.role not in ROLES:
+            raise ValueError(f"role must be one of {ROLES}, got {self.role!r}")
 
 
-def _fluid(model: Optional[str], operation: str, region: str) -> Tuple[List[ContractUse], List[str]]:
+def _fluid(model: Optional[str], operation: str, role: str) -> Tuple[List[ContractUse], List[str]]:
     if model == "ideal_mhd":
-        # an ideal-MHD Delta-prime calculation (STRIDE, RDCON without a solved layer) is the outer region only
-        where = "outer" if (operation == "resistive_stability" and region == "whole") else region
+        # an ideal-MHD Delta-prime calculation (STRIDE, RDCON without a solved layer) is the outer solution only
+        where = "outer_solution" if (operation == "resistive_stability" and role == "governing") else role
         return [ContractUse("ideal_single_fluid_mhd", where)], []
     if model == "resistive_mhd":
-        # matched asymptotics: ideal outside the layer, resistive inside it
-        return [ContractUse("ideal_single_fluid_mhd", "outer"), ContractUse("resistive_mhd", "layer")], []
+        # matched asymptotics: ideal outer solution, single-fluid resistive inner layer (GGJ)
+        return [ContractUse("ideal_single_fluid_mhd", "outer_solution"), ContractUse("resistive_mhd", "layer_solution")], []
     if model == "extended_mhd":
-        return [ContractUse("hall_mhd", region)], []
+        return [ContractUse("hall_mhd", role)], []
     return [], [f"fluid_model={model!r} has no ordering contract"]
 
 
-def _kinetic(formalism, region: str) -> Tuple[List[ContractUse], List[str]]:
+def _kinetic(formalism, role: str, transport_coupled: bool = False) -> Tuple[List[ContractUse], List[str]]:
     equation = formalism.kinetic_equation
     operation = formalism.scientific_operation
     if equation == "drift_kinetic":
-        uses = [ContractUse("drift_kinetic", region)]
+        uses = [ContractUse("drift_kinetic", role)]
         if operation == "neoclassical_transport" and formalism.spatial_domain == "local":
-            uses.append(ContractUse("local_neoclassical", region))
+            uses.append(ContractUse("local_neoclassical", role))
         return uses, []
     if equation == "gyrokinetic":
         if formalism.distribution_formulation != "delta_f":
             return [], [f"gyrokinetics with distribution_formulation={formalism.distribution_formulation!r} "
                         "has no registered contract (only delta-f)"]
-        uses = [ContractUse("gyrokinetic_delta_f", region)]
-        if operation == "turbulent_transport":
-            uses.append(ContractUse("gyrokinetic_transport_separation", "transport_use"))
+        uses = [ContractUse("gyrokinetic_delta_f", role)]
+        # A standalone flux-tube run imposes a fixed background; comparing its fluxes with experiment still
+        # assumes tau_transp/tau_turb >> 1, but the registry books that contract only when the fluxes drive a
+        # transport solver -- a bookkeeping choice, since nothing in the record says how the fluxes are used.
+        if transport_coupled and operation == "turbulent_transport":
+            uses.append(ContractUse("gyrokinetic_transport_separation", "transport_coupling"))
         return uses, []
     return [], [f"kinetic_equation={equation!r} has no ordering contract"]
 
 
-def contracts_for(formalism) -> Tuple[Tuple[ContractUse, ...], Tuple[str, ...]]:
+def contracts_for(formalism, *, transport_coupled: bool = False
+                  ) -> Tuple[Tuple[ContractUse, ...], Tuple[str, ...]]:
     """The contracts a formalism consumes, and why any part of it maps to none.
 
     Parameters
     ----------
     formalism : vaft.code.formalism.PlasmaFormalism
         The run's record, read as it is.
+    transport_coupled : bool
+        The run's turbulent fluxes drive a transport solver (a PORTALS-type
+        flux-matching loop). Only then is the gyrokinetic-transport
+        scale-separation contract consumed. The record carries no such field,
+        so the workflow says so.
 
     Returns
     -------
     (uses, unmapped)
         ``uses`` is a tuple of :class:`ContractUse` in a fixed order, each
-        contract and region once; ``unmapped`` names, in words, any part of the
+        contract and role once; ``unmapped`` names, in words, any part of the
         formalism no registered contract covers (an empty tuple when none). A
         formalism with nothing mapped returns no uses and its reasons -- never a
         guessed contract.
@@ -133,11 +147,11 @@ def contracts_for(formalism) -> Tuple[Tuple[ContractUse, ...], Tuple[str, ...]]:
     unmapped: List[str] = []
     if operation == "equilibrium":
         # static force balance j x B = grad p, re-established faster than the state moves
-        uses.append(ContractUse("quasi_static_equilibrium", "whole"))
+        uses.append(ContractUse("quasi_static_equilibrium", "governing"))
         if bulk != "fluid":
             unmapped.append(f"an equilibrium with bulk_description={bulk!r} is not classified")
     elif bulk == "fluid":
-        u, r = _fluid(formalism.fluid_model, operation, "whole")
+        u, r = _fluid(formalism.fluid_model, operation, "governing")
         uses += u
         unmapped += r
     elif bulk == "hybrid":
@@ -145,20 +159,20 @@ def contracts_for(formalism) -> Tuple[Tuple[ContractUse, ...], Tuple[str, ...]]:
         u, r = _fluid(formalism.fluid_model, operation, "fluid_part")
         uses += u
         unmapped += r
-        u, r = _kinetic(formalism, "closure" if coupling == "closure" else "kinetic_response")
+        u, r = _kinetic(formalism, "closure" if coupling == "closure" else "kinetic_response", transport_coupled)
         uses += u
         unmapped += r
     elif bulk == "kinetic":
-        u, r = _kinetic(formalism, "whole")
+        u, r = _kinetic(formalism, "governing", transport_coupled)
         uses += u
         unmapped += r
     elif bulk == "reduced":
         parent = formalism.derived_from
         if parent in ("drift_kinetic", "gyrokinetic"):
             proxy = _Parent(parent, operation, formalism.spatial_domain, "delta_f")
-            u, r = _kinetic(proxy, "parent_theory")
+            u, r = _kinetic(proxy, "inherited", transport_coupled)
         elif parent in ("ideal_mhd", "resistive_mhd", "extended_mhd"):
-            u, r = _fluid(parent, operation, "parent_theory")
+            u, r = _fluid(parent, operation, "inherited")
         else:
             u, r = [], [f"derived_from={parent!r} names no parent theory with an ordering contract"]
         uses += u
@@ -204,6 +218,8 @@ class AdapterMode:
     formalism: Any
     audit: str
     note: str = ""
+    #: the mode's fluxes drive a transport solver (see :func:`contracts_for`); no VAFT mode does yet
+    transport_coupled: bool = False
 
     @property
     def key(self) -> str:
@@ -212,7 +228,7 @@ class AdapterMode:
     def contracts(self) -> Tuple[Tuple[ContractUse, ...], Tuple[str, ...]]:
         if self.formalism is None:
             return (), (self.note,)
-        return contracts_for(self.formalism)
+        return contracts_for(self.formalism, transport_coupled=self.transport_coupled)
 
 
 def _record(**fields):
@@ -221,10 +237,11 @@ def _record(**fields):
     return PlasmaFormalism(**fields)
 
 
-def _equilibrium(solver: str):
+def _equilibrium(solver: str, topology: str):
+    # a fixed-boundary solve (CHEASE) stays inside the last closed surface; a free-boundary solve or a
+    # reconstruction solves Grad-Shafranov across plasma, vacuum and coils
     return _record(scientific_operation="equilibrium", bulk_description="fluid", fluid_model="ideal_mhd",
-                   spatial_domain="whole_volume", topology_domain="closed_flux_surface", regime="static",
-                   solver=solver)
+                   spatial_domain="whole_volume", topology_domain=topology, regime="static", solver=solver)
 
 
 _GPEC_COMMON = dict(field_model="mhd_displacement", spatial_domain="whole_volume",
@@ -247,11 +264,11 @@ def _cgyro(nonlinear: bool):
 def _build_modes() -> Tuple[AdapterMode, ...]:
     pm = "Plasma_models.md"
     return (
-        AdapterMode("efit", "reconstruction", "equilibrium", _equilibrium("efit"), f"{pm} §12"),
-        AdapterMode("chease", "fixed_boundary", "equilibrium", _equilibrium("chease"), f"{pm} §12"),
-        AdapterMode("tokamaker", "free_boundary", "equilibrium", _equilibrium("tokamaker"), f"{pm} §12"),
-        AdapterMode("tes", "free_boundary", "equilibrium", _equilibrium("tes"), f"{pm} §12"),
-        AdapterMode("nice", "reconstruction", "equilibrium", _equilibrium("nice"), f"{pm} §12"),
+        AdapterMode("efit", "reconstruction", "equilibrium", _equilibrium("efit", "across_separatrix"), f"{pm} §12"),
+        AdapterMode("chease", "fixed_boundary", "equilibrium", _equilibrium("chease", "closed_flux_surface"), f"{pm} §12"),
+        AdapterMode("tokamaker", "free_boundary", "equilibrium", _equilibrium("tokamaker", "across_separatrix"), f"{pm} §12"),
+        AdapterMode("tes", "free_boundary", "equilibrium", _equilibrium("tes", "across_separatrix"), f"{pm} §12"),
+        AdapterMode("nice", "reconstruction", "equilibrium", _equilibrium("nice", "across_separatrix"), f"{pm} §12"),
         AdapterMode("gpec", "dcon_ideal", "mhd_stability",
                     _record(scientific_operation="ideal_stability", bulk_description="fluid", fluid_model="ideal_mhd",
                             regime="static", solver="dcon", **_GPEC_COMMON), f"{pm} §3.1"),
@@ -265,10 +282,6 @@ def _build_modes() -> Tuple[AdapterMode, ...]:
                     _record(scientific_operation="resistive_stability", bulk_description="fluid",
                             fluid_model="resistive_mhd", regime="linear", solver="rdcon", **_GPEC_COMMON),
                     f"{pm} §3.4"),
-        AdapterMode("gpec", "rpec", "mhd_stability",
-                    _record(scientific_operation="perturbed_equilibrium", bulk_description="fluid",
-                            fluid_model="resistive_mhd", regime="static", solver="rdcon", **_GPEC_COMMON),
-                    f"{pm} §3.4 (RDCON RPEC path)"),
         AdapterMode("gpec", "stride", "mhd_stability",
                     _record(scientific_operation="resistive_stability", bulk_description="fluid",
                             fluid_model="ideal_mhd", regime="linear", solver="stride", **_GPEC_COMMON), f"{pm} §3.4"),
@@ -290,9 +303,10 @@ def _build_modes() -> Tuple[AdapterMode, ...]:
                     _record(scientific_operation="neoclassical_transport", bulk_description="reduced",
                             kinetic_population=("all",), spatial_domain="local", topology_domain="closed_flux_surface",
                             regime="steady_state", derived_from="drift_kinetic", solver="neo"),
-                    f"{pm} §4 (HS, NCLASS, Sauter companions)"),
+                    f"{pm} §4 (Hinton-Hazeltine, Sauter values in a NEO run's theory output)"),
         AdapterMode("gacode", "cgyro_linear", "gyrokinetic", _cgyro(False), f"{pm} §4 (cgyro.plasma_formalism)"),
         AdapterMode("gacode", "cgyro_nonlinear", "gyrokinetic", _cgyro(True), f"{pm} §4 (cgyro.plasma_formalism)"),
+        # tglf_linear / tglf: TGLFConfig.use_transport_model False (one mode) / True (quasilinear fluxes)
         AdapterMode("gacode", "tglf_linear", "gyrokinetic",
                     _record(scientific_operation="microstability", bulk_description="reduced",
                             kinetic_population=("all",), spatial_domain="local", topology_domain="closed_flux_surface",
@@ -381,7 +395,7 @@ class AdvisoryResult:
     evidence: Any
 
     def as_dict(self) -> Dict[str, Any]:
-        return {"contract": self.use.contract, "region": self.use.region, "status": self.evaluation.status,
+        return {"contract": self.use.contract, "role": self.use.role, "status": self.evaluation.status,
                 "limiting": self.evaluation.limiting, "point": self.point, "counts": dict(self.counts),
                 "margins": {a.quantity: a.margin for a in self.evaluation.assumptions}}
 
@@ -403,7 +417,8 @@ def _rows(points) -> Tuple[List[Dict[str, Any]], List[Any]]:
     lengths = {len(v) for v in columns.values() if isinstance(v, list)}
     if len(lengths) > 1:
         raise ValueError(f"profile columns differ in length: {sorted(lengths)}")
-    n = lengths.pop() if lengths else 0
+    # only scalars: one point, never silently none
+    n = lengths.pop() if lengths else (1 if columns else 0)
     rows = [{k: (v[i] if isinstance(v, list) else v) for k, v in columns.items()} for i in range(n)]
     return rows, list(range(n))
 
@@ -438,7 +453,8 @@ def _representative(results: List[ContractEvaluation]) -> Tuple[int, ContractEva
 
 
 def advisory_ordering_check(formalism, state: Mapping[str, Any], points: Any = None, *,
-                            key: Optional[str] = None) -> Tuple[Tuple[AdvisoryResult, ...], Tuple[str, ...]]:
+                            key: Optional[str] = None, transport_coupled: bool = False
+                            ) -> Tuple[Tuple[AdvisoryResult, ...], Tuple[str, ...]]:
     """Evaluate the contracts a run's formalism consumes on that run's input.
 
     Parameters
@@ -459,6 +475,8 @@ def advisory_ordering_check(formalism, state: Mapping[str, Any], points: Any = N
         point, with the state's quantities attached.
     key : str, optional
         Prefix of each evidence key; default ``"applicability.<solver>"``.
+    transport_coupled : bool
+        Passed to :func:`contracts_for`: the run's fluxes drive a transport solver.
 
     Returns
     -------
@@ -468,7 +486,7 @@ def advisory_ordering_check(formalism, state: Mapping[str, Any], points: Any = N
         never raises on an ordering that fails; a quantity the input does not
         carry leaves its contract ``UNASSESSED``.
     """
-    uses, unmapped = contracts_for(formalism)
+    uses, unmapped = contracts_for(formalism, transport_coupled=transport_coupled)
     prefix = key or f"applicability.{formalism.solver or 'run'}"
     rows, labels = _rows(points)
     results = []
@@ -485,6 +503,6 @@ def advisory_ordering_check(formalism, state: Mapping[str, Any], points: Any = N
         counts: Dict[str, int] = {}
         for item in evaluations:
             counts[item.status] = counts.get(item.status, 0) + 1
-        evidence = as_evidence(evaluation, key=f"{prefix}.{use.contract}.{use.region}")
+        evidence = as_evidence(evaluation, key=f"{prefix}.{use.contract}.{use.role}")
         results.append(AdvisoryResult(use, evaluation, counts, point, evidence))
     return tuple(results), unmapped

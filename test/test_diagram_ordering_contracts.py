@@ -45,7 +45,7 @@ def test_the_adapter_map_is_the_model_contracts_registry():
     # only the consumed contracts are columns, and every unclassified mode is named in the note
     assert set(d.model["columns"]) == {c for (_, c) in expected}
     assert set(d.model["uncovered"]) == {m.key for m in ADAPTER_MODES if not m.contracts()[0]}
-    assert d.scene.role("use:gpec:rdcon_rmatch:resistive_mhd")[-1].text == "inner layer"
+    assert d.scene.role("use:gpec:rdcon_rmatch:resistive_mhd")[-1].text == "layer solution"
     # inherited is drawn apart from governing, and the note says an empty cell is not independence
     assert d.scene.role("use:gacode:tglf:gyrokinetic_delta_f")[0].style != d.scene.role(
         "use:gacode:cgyro_linear:gyrokinetic_delta_f")[0].style
