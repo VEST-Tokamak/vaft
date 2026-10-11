@@ -53,6 +53,8 @@ __all__ = [
     "advisory_ordering_check",
     "adapter_mode",
     "contracts_for",
+    "ordering_provenance",
+    "safe_ordering_provenance",
 ]
 
 #: How an ordering contract enters a calculation. A role describes the model's
@@ -506,3 +508,66 @@ def advisory_ordering_check(formalism, state: Mapping[str, Any], points: Any = N
         evidence = as_evidence(evaluation, key=f"{prefix}.{use.contract}.{use.role}")
         results.append(AdvisoryResult(use, evaluation, counts, point, evidence))
     return tuple(results), unmapped
+
+
+def _json_number(value: Any) -> Any:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _json_label(label: Any) -> Any:
+    if label is None or isinstance(label, (str, bool)):
+        return label
+    if isinstance(label, (int, np.integer)):
+        return int(label)
+    number = _json_number(label)
+    return number if number is not None and not isinstance(label, tuple) else str(label)
+
+
+def ordering_provenance(formalism, state: Optional[Mapping[str, Any]] = None, points: Any = None, *,
+                        transport_coupled: bool = False,
+                        notes: Sequence[str] = ()) -> Optional[Dict[str, Any]]:
+    """The advisory ordering check of one run, as a JSON-ready provenance record (#1823).
+
+    :func:`advisory_ordering_check` on ``state`` and ``points``, reduced to
+    plain values an adapter can store in its run provenance: the contracts the
+    formalism consumes with their roles, each one's status, limiting ordering,
+    per-point status counts and per-ordering margins in decades, and the parts
+    of the formalism no contract covers. A margin that has no value (an input
+    the run does not carry) is ``None``, never NaN, so the record survives a
+    strict JSON writer. State keys that are not ordering quantities are listed
+    under ``ignored`` rather than dropped silently, and ``notes`` (an adapter's
+    caveats) are carried as given. ``None`` for ``formalism`` gives ``None``:
+    no record, no guess.
+    """
+    if formalism is None:
+        return None
+    results, unmapped = advisory_ordering_check(formalism, dict(state or {}), points,
+                                                transport_coupled=transport_coupled)
+    contracts = []
+    for result in results:
+        record = result.as_dict()
+        record["margins"] = {name: _json_number(margin) for name, margin in record["margins"].items()}
+        record["point"] = _json_label(record["point"])
+        record["values"] = {a.quantity: _json_number(a.value) for a in result.evaluation.assumptions}
+        contracts.append(record)
+    ignored = sorted(str(k) for k in dict(state or {}) if k not in ORDERING_QUANTITIES)
+    return {"schema_version": 1, "advisory": True, "solver": formalism.solver,
+            "transport_coupled": bool(transport_coupled), "contracts": contracts, "unmapped": list(unmapped),
+            "ignored": ignored, "notes": [str(n) for n in notes]}
+
+
+def safe_ordering_provenance(formalism, state: Optional[Mapping[str, Any]] = None, points: Any = None,
+                             **kwargs) -> Optional[Dict[str, Any]]:
+    """:func:`ordering_provenance` that never raises: an advisory record must not cost a run its result.
+
+    An exception is recorded as ``{"advisory": True, "error": ...}`` in place of
+    the check.
+    """
+    try:
+        return ordering_provenance(formalism, state, points, **kwargs)
+    except Exception as error:  # noqa: BLE001 - provenance is advisory, the run's result is not
+        return {"schema_version": 1, "advisory": True, "error": f"{type(error).__name__}: {error}"}

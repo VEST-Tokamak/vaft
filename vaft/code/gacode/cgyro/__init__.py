@@ -67,6 +67,7 @@ from .runner import (
     read_cgyro_case,
     run_cgyro,
     run_cgyro_case,
+    local_ordering_state,
 )
 
 __all__ = [
@@ -103,6 +104,7 @@ __all__ = [
     "read_cgyro_case",
     "run_cgyro",
     "run_cgyro_case",
+    "local_ordering_state",
     "stage_cgyro_case",
     "write_input_cgyro",
 ]
