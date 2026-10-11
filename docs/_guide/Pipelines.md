@@ -363,7 +363,7 @@ python gen_volume_averaged_parameter_sheet.py --max-shots 50 --directory public
 | `gen_efit_history.py` | `efit_history.xlsx` | Same columns from EFIT g-files (key column is `shot_number`, not `shot`) |
 | `gen_omas_history.py` | `omas_history_new.xlsx` | One row per shot: onset, pulse duration, peak $I_p$, $B_t$, file-existence flags |
 | `gen_stability_history.py` | `stability_history.xlsx` | Ideal/resistive/ballooning classification per (shot, time) |
-| `gen_core_profiles_history.py` | `core_profiles_history.xlsx` | $\tau_E$ and confinement scalings per time slice |
+| `gen_core_profiles_history.py` | `core_profiles_history.xlsx` | $\tau_E$ and confinement scalings per time slice: the legacy modelled `p_loss_MW`/`tau_e_s` and the measured-loop Ohmic `v_res_V`, `p_ohm_MW`, `p_net_MW`, `w_mhd_kJ`, `tau_e_net_s` side by side (`CORE_PROFILES_DEFINITIONS`, #1905) |
 | `gen_equilibrium_global_history.py` | `equilibrium_global_history.xlsx` | 50+ columns: globals, geometry, diamagnetic flux, virial/Shafranov block |
 | `gen_volume_averaged_parameter_sheet.py` | `volume_averaged_parameters.xlsx` | $\langle n_e \rangle$, $\langle T_e \rangle$, $\langle P_e \rangle$ vs. $\langle P_{eq} \rangle$ |
 | `join_chease_stability_history.py` | `chease_stability_history.xlsx` | Inner-join of the CHEASE and stability sheets on `['shot', 'time [ms]']` |

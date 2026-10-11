@@ -27,7 +27,7 @@ from typing import Any
 
 from ._require import require_panel
 
-__all__ = ["PHONE_MAX_WIDTH", "PHONE_QUERY", "PHONE_START_JS", "RESPONSIVE_CSS", "SIDEBAR_WIDTH", "TABLET_MAX_WIDTH", "page", "scrolling_markdown"]
+__all__ = ["PHONE_MAX_WIDTH", "PHONE_QUERY", "PHONE_START_JS", "RESPONSIVE_CSS", "SIDEBAR_WIDTH", "TABLET_MAX_WIDTH", "VIEWPORT", "is_touch_request", "page", "scrolling_markdown"]
 
 #: Sidebar width on a desktop, in pixels.
 SIDEBAR_WIDTH = 360
@@ -65,6 +65,28 @@ def scrolling_markdown(text: str = "", **options: Any) -> Any:
     stylesheets = list(options.pop("stylesheets", [])) + [_SCROLLING_TABLE]
     return pn.pane.Markdown(text, stylesheets=stylesheets, **options)
 
+
+#: User-Agent fragments of phones and tablets (touch-first browsers).
+_TOUCH_AGENTS = ("Mobi", "Android", "iPhone", "iPad", "iPod")
+
+
+def is_touch_request(headers: Any) -> bool:
+    """Whether the page's request came from a phone or tablet browser.
+
+    Read from the session's ``User-Agent`` (``pn.state.headers``); used only
+    to choose touch-friendly *defaults* the reader can change, never to
+    hide anything.  ``False`` when there is no request (a test, a saved page).
+    """
+    try:
+        items = dict(headers or {}).items()
+    except (TypeError, ValueError):
+        return False
+    agent = " ".join(str(value) for key, value in items if str(key).lower() == "user-agent")
+    return any(fragment in agent for fragment in _TOUCH_AGENTS)
+
+
+#: The viewport a phone must be told, or it renders the page at desktop width.
+VIEWPORT = "width=device-width, initial-scale=1"
 
 #: The media query that makes a screen a phone (same as in :data:`RESPONSIVE_CSS`).
 PHONE_QUERY = f"(max-width: {PHONE_MAX_WIDTH}px), (max-height: 500px) and (max-width: 950px)"
@@ -109,6 +131,9 @@ def page(sidebar: list[Any], main: list[Any], *, title: str = "VAFT", **template
     """
     pn = require_panel()
     raw_css = [RESPONSIVE_CSS, *template.pop("raw_css", [])]
+    # Without it a phone lays the page out ~980 px wide and scales it down, so
+    # none of the phone rules would ever match on a real device (#1866).
+    template.setdefault("meta_viewport", VIEWPORT)
     built = pn.template.FastListTemplate(
         title=title, sidebar=sidebar, main=main, sidebar_width=SIDEBAR_WIDTH, raw_css=raw_css, **template,
     )

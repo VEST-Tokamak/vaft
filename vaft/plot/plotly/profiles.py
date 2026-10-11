@@ -66,6 +66,8 @@ def add_profile_1d(
     yaxis: dict[str, Any] = {"title_text": plain_axis_label(model.y_label, model.y_unit)}
     if model.display is not None and model.display.notation == "scientific":
         yaxis["exponentformat"] = "e"
+    if model.y_limits is not None:
+        yaxis["range"] = list(model.y_limits)
     figure.update_yaxes(**yaxis, **cell)
 
 

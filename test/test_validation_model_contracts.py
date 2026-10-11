@@ -254,3 +254,24 @@ def test_tglf_modes_follow_the_adapters_transport_switch():
     assert TGLFConfig().use_transport_model is True            # quasilinear fluxes by default: the tglf mode
     assert adapter_mode("gacode:tglf").formalism.regime == "quasilinear"
     assert adapter_mode("gacode:tglf_linear").formalism.regime == "linear"   # use_transport_model=False
+
+
+def test_every_physics_adapter_in_vaft_code_has_a_mode():
+    """#1823 acceptance: every adapter is in the registry, classified or explicitly not."""
+    from pathlib import Path
+
+    import vaft.code as code
+
+    root = Path(code.__file__).parent
+    adapters = {p.stem for p in root.glob("*.py")} | {p.name for p in root.iterdir() if (p / "__init__.py").exists()}
+    infrastructure = {"__init__", "_executables", "_launch", "_memory_gate", "_process_tree", "base", "execution",
+                      "formalism", "remote", "resources", "slurm", "snakemake"}
+    # adapters folded into another registry adapter: CHEASE helpers into chease, PENTRC's package into pentrc
+    folded = {"chease_kinetic_iteration": "chease", "chease_scan": "chease", "chease_synthesis": "chease",
+              "chease_synthesis_targets": "chease"}
+    registered = {m.adapter for m in ADAPTER_MODES}
+    for name in sorted(adapters - infrastructure):
+        assert folded.get(name, name) in registered, name
+    for key in ("flare:field_lines", "mitim:drivers"):
+        mode = adapter_mode(key)
+        assert mode.formalism is None and mode.contracts() == ((), (mode.note,))

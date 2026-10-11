@@ -15,7 +15,7 @@ from typing import Any, Optional
 from .._runtime import gacode_platform, require_gacode_executable
 from .._runtime import run_gacode, stopped_reason
 from .._profiles import GACODEProfile
-from ._types import NEOConfig, NEOResult
+from ._types import NEOConfig, NEOResult, plasma_formalism
 from .inputs import NEOInputs, prepare_neo_case, prepare_neo_conductivity_case
 from .outputs import NeoOutputs, collect_neo_outputs
 
@@ -104,6 +104,7 @@ def run_neo(
             "platform": platform,
             "parameters": dict(inputs.parameters),
             "inputs": dict(inputs.provenance),
+            "plasma_formalism": plasma_formalism(configuration, parameters=inputs.parameters).as_dict(),
             "version": None if native is None else native.version,
             **({} if unreadable is None else {"output_error": unreadable}),
         },

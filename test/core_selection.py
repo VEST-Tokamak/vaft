@@ -373,6 +373,9 @@ CORE_MODULES: tuple[str, ...] = (
     # records, the generic impossibilities, serialization and CGYRO's derived
     # #1353 record. Pure Python, ~3 s.
     "test_plasma_formalism.py",
+    # GACODE-suite formalism (#1735): NEO/TGLF/TGLF-NN/CGYRO records derived from the
+    # written input, and the distinctions that must not collapse. Pure Python, <1 s.
+    "test_gacode_plasma_formalism.py",
     # Ordering contracts (#1627 phase C): the registry against applicability's rules,
     # the cited kernels against the catalog, and evaluation on synthetic states.
     "test_validation_orderings.py",

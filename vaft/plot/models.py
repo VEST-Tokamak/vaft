@@ -312,16 +312,19 @@ class Profile1D(ViewModel):
     #: :func:`vaft.process.profile_gradients.profile_gradient` here (issue
     #: #551).  ``to_xarray`` writes it to the ``metadata`` attribute.
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    #: Fixed y range in display units; ``None`` autoscales.  A sequence of
+    #: cuts of one figure keeps the full figure's range (issue #1957).
+    y_limits: tuple[float, float] | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
             self, "series", _as_series_tuple(self.series, where="Profile1D.series")
         )
         object.__setattr__(self, "metadata", dict(self.metadata or {}))
-        if self.x_limits is not None:
-            object.__setattr__(
-                self, "x_limits", (float(self.x_limits[0]), float(self.x_limits[1]))
-            )
+        for name in ("x_limits", "y_limits"):
+            limits = getattr(self, name)
+            if limits is not None:
+                object.__setattr__(self, name, (float(limits[0]), float(limits[1])))
         lines = tuple(self.reference_lines)
         for line in lines:
             if not isinstance(line, ReferenceLine):

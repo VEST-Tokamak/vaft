@@ -138,6 +138,11 @@ CORE_PROFILES_COLUMNS = (
     "tau_e_nstx_s",
     "tau_e_nstx2006l_s",
     "tau_e_kurskiev2022_s",
+    "v_res_V",
+    "p_ohm_MW",
+    "p_net_MW",
+    "w_mhd_kJ",
+    "tau_e_net_s",
     "ne_line_1e19_m3",
     "ne_volume_1e19_m3",
     "te_mean_eV",
@@ -1276,8 +1281,52 @@ def _bootstrap_current_kA(ods, cp_index: int, current, rho, solved) -> float:
     )
 
 
+#: What the confinement columns of the ``core_profiles`` preset mean (#1905).
+#: Two definitions live side by side and are never merged: the legacy modelled
+#: budget keeps ``p_loss_MW`` / ``tau_e_s`` as they always were, and the
+#: experimental Ohmic chain of :func:`vaft.omas.confinement.ohmic_confinement_ods`
+#: fills the five columns after them.
+CORE_PROFILES_DEFINITIONS = {
+    "p_loss_MW": ("legacy modelled loss power: Spitzer int eta J^2 dV (Z_eff = 2, ln Lambda = 17) - dW/dt - "
+                  "modelled P_rad (line + bremsstrahlung + synchrotron), W = (3/2) <p> V with p = 2 n_e T_e"),
+    "tau_e_s": "legacy W_th / p_loss on that modelled budget (compute_tau_E_exp)",
+    "v_res_V": ("inferred resistive loop voltage: measured inboard-midplane flux-loop voltage minus the "
+                "internal-inductive voltage (Romero 2010 eq. 24); a loop off the LCFS keeps the external flux"),
+    "p_ohm_MW": "P_OH = measured I_p * V_res",
+    "p_net_MW": "P_net = P_OH - dW_MHD/dt; radiation not subtracted (unmeasured), as DB5 PLTH",
+    "w_mhd_kJ": "W_MHD = (3/2) int p_EFIT dV of the matched equilibrium slice (reconstruction-derived)",
+    "tau_e_net_s": ("W_MHD / P_net; rates over every equilibrium slice with finite positive W_MHD (3 ms "
+                    "local linear fit), validated or not: the summary knows no study labels, so an "
+                    "unreconstructed slice with positive W can bias its neighbours' rate (the Tier A table "
+                    "of workflow/confinement_scaling uses labelled slices only); NaN with no rate, never "
+                    "dW/dt = 0"),
+}
+
+
+def _ohmic_columns(ods, shot: int) -> dict:
+    """``eq_index -> {v_res_V, p_ohm_MW, p_net_MW, w_mhd_kJ, tau_e_net_s}`` from the shared chain; {} if it cannot run."""
+    try:
+        from vaft.omas.confinement import ohmic_confinement_ods
+
+        result = ohmic_confinement_ods(ods, w_source="efit_pressure", require_positive_energy=True)
+    except Exception as exc:  # noqa: BLE001 - the columns stay NaN; the legacy ones are unaffected
+        logger.info("Shot %s: experimental Ohmic chain unavailable (%s)", shot, exc)
+        return {}
+    chain = result.chain
+    return {
+        int(k): {"v_res_V": float(chain.v_res[j]), "p_ohm_MW": float(chain.p_ohmic[j]) / 1e6,
+                 "p_net_MW": float(chain.p_net[j]) / 1e6, "w_mhd_kJ": float(chain.w[j]) / 1e3,
+                 "tau_e_net_s": float(chain.tau_e_net[j])}
+        for j, k in enumerate(result.eq_index)
+    }
+
+
 def extract_core_profiles(ods, shot: int) -> list[dict]:
-    """Extract confinement and engineering parameters on core-profile slices."""
+    """Extract confinement and engineering parameters on core-profile slices.
+
+    The confinement columns carry two definitions side by side, see
+    :data:`CORE_PROFILES_DEFINITIONS`.
+    """
     from vaft.omas import formula_wrapper
     from vaft.omas.general import find_matching_time_indices
 
@@ -1292,6 +1341,8 @@ def extract_core_profiles(ods, shot: int) -> list[dict]:
     except Exception as exc:
         logger.debug("Shot %s: boundary update failed: %s", shot, exc)
 
+    ohmic = _ohmic_columns(ods, shot)
+    nan_ohmic = dict.fromkeys(("v_res_V", "p_ohm_MW", "p_net_MW", "w_mhd_kJ", "tau_e_net_s"), float("nan"))
     rows: list[dict] = []
     for cp_index in range(len(ods["core_profiles.profiles_1d"])):
         try:
@@ -1340,6 +1391,7 @@ def extract_core_profiles(ods, shot: int) -> list[dict]:
                     "tau_e_nstx_s": float(tau_nstx),
                     "tau_e_nstx2006l_s": float(tau_nstx2006l),
                     "tau_e_kurskiev2022_s": float(tau_kurskiev2022),
+                    **ohmic.get(int(eq_index), nan_ohmic),
                     "ne_line_1e19_m3": ne_line / 1e19,
                     "ne_volume_1e19_m3": ne_volume / 1e19,
                     "te_mean_eV": temperature,
@@ -2257,6 +2309,7 @@ def export_summary(
 
 __all__ = [
     "CORE_PROFILES_COLUMNS",
+    "CORE_PROFILES_DEFINITIONS",
     "EFIT_RELIABILITY_COLUMNS",
     "EQUILIBRIUM_GLOBAL_COLUMNS",
     "SummaryPreset",
