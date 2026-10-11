@@ -37,7 +37,7 @@ from vaft.process.equilibrium import (
 
 HERE = Path(__file__).resolve().parent
 WORDMARK_FONT = HERE / "fonts" / "IBMPlexSansCondensed-SemiBold.ttf"
-TAGLINE = "Connecting nuclear fusion knowledge across disciplines for integrated tokamak research"
+TAGLINE = "Connecting Nuclear Fusion Knowledge Across Domains for Integrated Tokamak Research"
 
 R0, A_MINOR, KAPPA, DELTA = 1.0, 0.55, 1.75, 0.45
 BRANCH_LENGTH = 0.13 * 1.5        # natural local branch x lengthening factor [R0]

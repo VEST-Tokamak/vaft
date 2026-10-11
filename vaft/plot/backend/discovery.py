@@ -986,13 +986,21 @@ def _times_block(entries: Sequence[tuple[str, Any]], recipe: Any) -> dict[str, A
 
 
 def _camera_frame_stamps(ods: Any, channel: int = 0, detector: int = 0) -> list[float] | None:
-    """Each stored frame's own ``time``, or ``None`` when any frame lacks one."""
+    """Each stored frame's own ``time``, or ``None`` when any frame lacks one.
+
+    Read through the access layer, which only asks: indexing an OMAS ``ODS``
+    with a path it lacks materialises an empty node, so a frame that had no
+    ``time`` would carry a phantom one after discovery had looked.
+    """
     base = f"camera_visible.channel.{channel}.detector.{detector}.frame"
     stamps = []
     for index in range(_count(ods, base)):
+        raw = _get(ods, f"{base}.{index}.time")
+        if raw is None:
+            return None
         try:
-            stamps.append(float(ods[f"{base}.{index}.time"]))
-        except (KeyError, TypeError, ValueError):
+            stamps.append(float(raw))
+        except (TypeError, ValueError):
             return None
     return stamps
 

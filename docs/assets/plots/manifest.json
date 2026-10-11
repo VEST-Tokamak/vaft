@@ -792,6 +792,15 @@
       "reason": "cross-shot repository fixture is intentionally not assigned a packaged sample shot",
       "status": "no_sample"
     },
+    "kinetic_overview_state": {
+      "call": "vaft.omas.plot_kinetic_overview_state(vaft.omas.load(vaft.data.sample(48224)))",
+      "model_sha256": "8d4f124ebb3acad08709ae0be5d48fa24e68fc46d60ae645a2887c2780c15c37",
+      "png_sha256": "f7778e59a9dbc43dccd0cefbb80ddf0f2f2aa68da2c3bf954b83971b58671ed5",
+      "renderer_sha256": "556b3539a76be88b71b093525a401b4dc00fbe39c78072f9fd439a1c31aa58b6",
+      "sample_sha256": "2fa450061498cc6b40db3d648b5bc3bc829b39ef87bd717a2710d5237b1b75b7",
+      "shot": 48224,
+      "status": "rendered"
+    },
     "limiter_current_time": {
       "call": "vaft.omas.plot_limiter_current_time(vaft.omas.load(vaft.data.sample(39915)))",
       "model_sha256": "ef5c3f28af4415495df4f424124e67d5687127e88528564688c72fb88f242acc",
@@ -803,7 +812,7 @@
     },
     "machine_geometry3d": {
       "call": "vaft.omas.plot_machine_geometry3d(vaft.omas.load(vaft.data.sample(39915)))",
-      "model_sha256": "58003df7bcb713abf944c4dd9cdfec17a19f57e61e681ae174441aa0cbb8e50c",
+      "model_sha256": "a153e38c6d80046eaf2ae3c63e86fbfb1758570c6f0213c815b0c1e74c2da95b",
       "png_sha256": "cf4e82356541916006379d18774e6d3f47466b4fe6606282e306a25ca360969f",
       "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
       "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",
@@ -821,7 +830,7 @@
     },
     "machine_geometry_topview": {
       "call": "vaft.omas.plot_machine_geometry_topview(vaft.omas.load(vaft.data.sample(39915)))",
-      "model_sha256": "d52ccf804b3b79a1932a7103d3951b16f08c182c3229401509e5160088754be5",
+      "model_sha256": "61db269c1d5943ef3391f759531e1f10813ce5f52758d3c119bd9a6b2c0ecd50",
       "png_sha256": "52a2828d2d1f7c1488f5dce3f440a2b8370250149d641f461ab39c7230b03744",
       "renderer_sha256": "d2b476cf08a0bf3dd8956d6fa3c1e0c20f6809cecf51d6e3a1ea03024c592f40",
       "sample_sha256": "70920441fd942ef10df841a06c392e7a2f016702f01af41ad4ad0d3362c9f5cb",

@@ -413,7 +413,7 @@ class PENTRCOptions:
     PENTRC turns a perturbed field and a kinetic profile into the neoclassical
     toroidal viscous torque.  Which *calculation* it uses is not a detail: its
     eighteen methods are different physics models of the same quantity and
-    disagree by design (see :data:`vaft.code.pentrc.TORQUE_METHODS`), so
+    disagree by design (see :data:`vaft.code.gpec.TORQUE_METHODS`), so
     ``methods``, ``main_ion``, ``impurity`` and ``collision_operator`` are all
     required.  Nothing here has a physics default, and the packaged
     ``pentrc.in`` ships every method flag off so that a namelist this writes
@@ -424,7 +424,7 @@ class PENTRCOptions:
     Attributes
     ----------
     methods : sequence of str
-        Keys of :data:`vaft.code.pentrc.TORQUE_METHODS`; each becomes
+        Keys of :data:`vaft.code.gpec.TORQUE_METHODS`; each becomes
         ``<method>_flag=t`` [-].
     main_ion : str
         A key of :data:`PENTRC_ION_SPECIES` [-].
@@ -441,7 +441,7 @@ class PENTRCOptions:
         ``"pressure"`` for torque and particle transport, ``"heat"`` for heat
         transport.  Both write the same variable names and units and differ only
         in ``long_name``, which is what
-        :data:`vaft.code.pentrc.TORQUE_LONG_NAME` exists to check [-].
+        :data:`vaft.code.gpec.TORQUE_LONG_NAME` exists to check [-].
     electron : bool
         Run for electrons instead of ions.  PENTRC does one species per run [-].
     psi_limits : tuple of float, optional
@@ -449,7 +449,7 @@ class PENTRCOptions:
     grids : sequence of str
         Which radial grids each method is written on: ``"dynamic"`` (the
         solver's own adaptive steps, read back as
-        :data:`vaft.code.pentrc.TORQUE_GRIDS`' ``lsode``), ``"equil"``,
+        :data:`vaft.code.gpec.TORQUE_GRIDS`' ``lsode``), ``"equil"``,
         ``"input"`` [-].
     artificial_factors : Mapping, optional
         ``wefac``/``wdfac``/``wpfac``/``nufac``/``divxfac``, PENTRC's scans of a
@@ -466,7 +466,7 @@ class PENTRCOptions:
         ``pentrc_threads``; ``0`` defers to ``$OMP_NUM_THREADS`` [-].
     output_ascii, output_netcdf : bool
         Which of the two output forms PENTRC writes.
-        :func:`vaft.code.pentrc.read_pentrc_output` reads the netCDF one [-].
+        :func:`vaft.code.gpec.read_pentrc_output` reads the netCDF one [-].
     """
 
     methods: Sequence[str]
@@ -507,7 +507,7 @@ class PENTRCOptions:
     ARTIFICIAL_FACTORS = ("wefac", "wdfac", "wpfac", "nufac", "divxfac")
 
     def __post_init__(self) -> None:
-        from ..pentrc import TORQUE_METHODS
+        from ._pentrc_output import TORQUE_METHODS
 
         if not self.methods:
             raise ValueError(
@@ -518,7 +518,7 @@ class PENTRCOptions:
         if unknown:
             raise ValueError(
                 f"unknown PENTRC method(s) {unknown}; the calculations are "
-                f"{sorted(TORQUE_METHODS)} (vaft.code.pentrc.TORQUE_METHODS)"
+                f"{sorted(TORQUE_METHODS)} (vaft.code.gpec.TORQUE_METHODS)"
             )
         if self.main_ion not in PENTRC_ION_SPECIES:
             raise ValueError(
@@ -620,6 +620,11 @@ class GPECSuiteConfig:
     verify_outputs: bool = False
     timeout: Optional[float] = 1200.0
     env: Mapping[str, str] = field(default_factory=dict)
+    #: Ordering quantities of the equilibrium being analysed, by
+    #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name (#1823), e.g. from
+    #: ``vaft.process.ordering_state``; mode and layer quantities when the caller
+    #: has them. Advisory only: recorded per run as ``ordering_check``.
+    ordering_state: Mapping[str, Any] = field(default_factory=dict)
     dcon: DCONOptions = field(default_factory=DCONOptions)
     rdcon: RDCONOptions = field(default_factory=RDCONOptions)
     stride: STRIDEOptions = field(default_factory=STRIDEOptions)
@@ -671,6 +676,11 @@ class GPECModuleRun:
     #: manifest built with ``dataclasses.asdict`` carries it unchanged; ``None``
     #: when the cell was never prepared.  :attr:`formalism` rebuilds the record.
     plasma_formalism: Optional[Mapping[str, Any]] = None
+    #: The advisory ordering check of that formalism on
+    #: :attr:`GPECSuiteConfig.ordering_state` (#1823): the contracts the run
+    #: consumes, in what role, with each status and margin.  JSON-ready, so the
+    #: ``dataclasses.asdict`` run manifest carries it; ``None`` with no formalism.
+    ordering_check: Optional[Mapping[str, Any]] = None
 
     @property
     def formalism(self):

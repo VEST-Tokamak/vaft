@@ -25,8 +25,10 @@ of the island: ``rational_surface``, ``delta_prime`` and
 the classification ``collision_processes``; geometric approximations:
 ``geometry_ordering_map``, ``field_line_geometry``, ``mode_number_mapping`` and
 ``mhd_mode_geometry_map`` (#1574);
-reduced representations (#1626): ``reduced_representation_hierarchy`` and ``reduction_graph``;
-asymptotic orderings (#1627): ``timescale_hierarchy`` and ``ordering_contract_map``;
+reduced representations (#1626): ``reduced_representation_hierarchy``,
+``reduced_representation_hierarchy_compact`` and ``reduction_graph``;
+asymptotic orderings (#1627): ``timescale_hierarchy``, ``ordering_contract_map`` and
+``adapter_contract_map`` (#1823);
 tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
 ``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
@@ -103,10 +105,12 @@ __all__ = [
     "field_line_geometry",
     "mode_number_mapping",
     "reduced_representation_hierarchy",
+    "reduced_representation_hierarchy_compact",
     "reduction_graph",
     "mhd_mode_geometry_map",
     "timescale_hierarchy",
     "ordering_contract_map",
+    "adapter_contract_map",
     "tokamak_torus",
     "flux_surfaces",
     "shaping_family",
@@ -305,9 +309,11 @@ _LOCATIONS = {
     "field_line_geometry": "._geometry",
     "mode_number_mapping": "._geometry",
     "reduced_representation_hierarchy": "._reduced_representations",
+    "reduced_representation_hierarchy_compact": "._reduced_representations",
     "reduction_graph": "._reduced_representations",
     "timescale_hierarchy": "._orderings",
     "ordering_contract_map": "._orderings",
+    "adapter_contract_map": "._orderings",
     "mhd_mode_geometry_map": "._mode_geometry",
     "tokamak_torus": "._tokamak_geometry",
     "flux_surfaces": "._tokamak_geometry",

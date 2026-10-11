@@ -70,6 +70,19 @@ __all__ = [
     "STAGE_SOURCE",
     "replication_for_stage",
     "replicable_stages",
+    "TRANSITIONAL_UNTIL",
+    "TGLF_SAT_RULES",
+    "TGLF_FIELD_MODELS",
+    "ATLAS_LINEAGE_FAMILIES",
+    "FAMILY_LINEAGE_NAMES",
+    "OccurrenceMigration",
+    "tglf_configuration",
+    "tglf_configurations",
+    "parse_tglf_configuration",
+    "family_for_atlas_lineage",
+    "turbulent_transport_source",
+    "turbulent_transport_occurrence_name",
+    "turbulent_transport_migration",
 ]
 
 
@@ -175,6 +188,15 @@ class HSDSSource:
     #: whole point, since two writable names for one dataset is the collision
     #: the source model exists to prevent.
     projects_to: str | None = None
+    #: The issue whose resolution retires this source, for a source that is a
+    #: stop-gap rather than part of the lasting layout.
+    #:
+    #: The per-configuration TGLF sources are the case: alternative TGLF
+    #: configurations of one state are, in the target model of #1128/#1129, IMAS
+    #: occurrences of one ``core_transport`` named by ``ids_properties.name``,
+    #: not sources. Stated on the entry so that the CLI, the docs and a reviewer
+    #: see it without reading the purpose text closely.
+    transitional_until: str | None = None
 
     def __post_init__(self) -> None:
         if self.projects_to is not None and self.writable:
@@ -217,6 +239,196 @@ FAMILY_SOURCES: Mapping[str, str] = {
     "electron": "electron-efit",
     "kinetic": "kinetic-efit",
 }
+
+
+#: The issues whose occurrence model retires the transitional sources below.
+TRANSITIONAL_UNTIL = "#1128/#1129"
+
+#: TGLF's saturation rules and field models: the #1482 sensitivity space.
+#:
+#: ``em-bper-bpar`` is its own field model and is never grouped under "EM"
+#: (``workflow/transport_atlas/run_tglf.py:FIELD_MODELS``).
+TGLF_SAT_RULES: tuple[int, ...] = (0, 1, 2, 3)
+TGLF_FIELD_MODELS: tuple[str, ...] = ("es", "em-bper", "em-bper-bpar")
+
+_TGLF_CONFIGURATION = re.compile(
+    r"^tglf-sat(?P<sat>[0-3])-(?P<field>es|em-bper|em-bper-bpar)$"
+)
+
+#: The routine TGLF driver's EFIT lineage names, and the equilibrium family each
+#: one is filed under. The driver names the magnetic reconstruction the
+#: profiles were mapped on (``magnetics``) or the electron-only kinetic fit
+#: (``electron_kinetic``). The fully kinetic family has no TGLF states yet, so
+#: it has no atlas spelling, although its sources are catalogued.
+ATLAS_LINEAGE_FAMILIES: Mapping[str, str] = {
+    "magnetics": "magnetic",
+    "electron_kinetic": "electron",
+}
+
+#: The semantic name each equilibrium family's reconstruction carries in the
+#: #1128 occurrence model (``equilibrium / ids_properties.name``).
+FAMILY_LINEAGE_NAMES: Mapping[str, str] = {
+    "magnetic": "magnetic-efit",
+    "electron": "electron-efit",
+    "kinetic": "kinetic-efit",
+}
+
+#: The IDS the ``turbulent_transport`` stage owns. ``gyrokinetics_local`` is not
+#: among them: that IDS describes one flux surface, and a state is run on
+#: several, so it would need one occurrence per surface -- an allocation that
+#: belongs to #1128/#1129, not to this transitional layout.
+_TURBULENT_TRANSPORT_IDS: tuple[str, ...] = ("core_transport",)
+
+
+def tglf_configuration(sat_rule: int, field_model: str) -> str:
+    """``tglf-sat<n>-<field>``: the name of one TGLF configuration (#1482).
+
+    The spelling the routine driver gives its output tree, so a tree, its
+    source and its future occurrence name all carry the same string.
+    """
+    if isinstance(sat_rule, bool) or sat_rule not in TGLF_SAT_RULES:
+        raise HSDSSourceError(
+            f"TGLF SAT_RULE must be one of {TGLF_SAT_RULES}; got {sat_rule!r}"
+        )
+    if field_model not in TGLF_FIELD_MODELS:
+        raise HSDSSourceError(
+            f"TGLF field model must be one of {TGLF_FIELD_MODELS}; got {field_model!r}"
+        )
+    return f"tglf-sat{int(sat_rule)}-{field_model}"
+
+
+def tglf_configurations() -> tuple[str, ...]:
+    """Every TGLF configuration name, ordered by SAT rule then field model."""
+    return tuple(
+        tglf_configuration(sat, field)
+        for sat in TGLF_SAT_RULES
+        for field in TGLF_FIELD_MODELS
+    )
+
+
+def parse_tglf_configuration(name: Any) -> tuple[int, str]:
+    """Return ``(sat_rule, field_model)`` for a configuration name, or raise."""
+    match = _TGLF_CONFIGURATION.fullmatch(name) if isinstance(name, str) else None
+    if match is None:
+        raise HSDSSourceError(
+            f"{name!r} is not a TGLF configuration; expected "
+            "'tglf-sat<0-3>-<es|em-bper|em-bper-bpar>', for example "
+            "'tglf-sat3-em-bper'."
+        )
+    return int(match["sat"]), match["field"]
+
+
+def family_for_atlas_lineage(lineage: str) -> str:
+    """The equilibrium family one routine-TGLF lineage name is filed under."""
+    try:
+        return ATLAS_LINEAGE_FAMILIES[lineage]
+    except (KeyError, TypeError):
+        raise HSDSSourceError(
+            f"TGLF atlas lineage {lineage!r} has no equilibrium family; expected "
+            "one of: " + ", ".join(sorted(ATLAS_LINEAGE_FAMILIES))
+        ) from None
+
+
+def _family_root(family: str) -> str:
+    root = FAMILY_SOURCES.get(family)
+    if root is None:
+        raise HSDSSourceError(
+            f"Unknown equilibrium family {family!r}; expected one of: "
+            + ", ".join(sorted(FAMILY_SOURCES))
+        )
+    return root
+
+
+def turbulent_transport_source(family: str, configuration: str) -> str:
+    """The transitional HSDS source of one TGLF configuration on one family.
+
+    ``{family root}/{configuration}``, e.g. ``main/tglf-sat3-em-bper`` or
+    ``electron-efit/tglf-sat2-es``. The family root keeps the upstream lineage
+    readable from the path; the configuration segment keeps two configurations
+    of one state from overwriting each other.
+    """
+    parse_tglf_configuration(configuration)
+    return f"{_family_root(family)}/{configuration}"
+
+
+def turbulent_transport_occurrence_name(family: str, configuration: str) -> str:
+    """The future ``ids_properties.name`` of one TGLF configuration's IDS.
+
+    This is the migration mapping of #1900: the name the ``core_transport``
+    occurrence carries once #1128/#1129 replace the transitional source with an
+    occurrence. It follows #1128's own example (``dcon-kink-from-kinetic-efit``):
+    ``{configuration}-from-{lineage}``, where ``lineage`` is the semantic name
+    of the reconstruction the state was mapped on.
+
+    =====================================  ==============  =========================================
+    transitional source                    IDS             future ``ids_properties.name``
+    =====================================  ==============  =========================================
+    ``main/tglf-sat<n>-<field>``           core_transport  ``tglf-sat<n>-<field>-from-magnetic-efit``
+    ``electron-efit/tglf-sat<n>-<field>``  core_transport  ``tglf-sat<n>-<field>-from-electron-efit``
+    ``kinetic-efit/tglf-sat<n>-<field>``   core_transport  ``tglf-sat<n>-<field>-from-kinetic-efit``
+    =====================================  ==============  =========================================
+
+    The occurrence *integer* is not part of the mapping. It is allocated by the
+    #1129 VEST deployment catalog, which has not assigned one, and choosing it
+    here would pre-empt that allocation.
+    """
+    parse_tglf_configuration(configuration)
+    _family_root(family)
+    return f"{configuration}-from-{FAMILY_LINEAGE_NAMES[family]}"
+
+
+@dataclass(frozen=True)
+class OccurrenceMigration:
+    """Where one transitional source's IDS goes in the #1128/#1129 model.
+
+    ``occurrence`` stays ``None`` until the #1129 VEST deployment catalog
+    allocates one; ``allocated_by`` says who will.
+    """
+
+    source: str
+    ids: str
+    name: str
+    occurrence: int | None = None
+    allocated_by: str = "the #1129 VEST deployment catalog (not assigned yet)"
+
+
+def turbulent_transport_migration() -> tuple[OccurrenceMigration, ...]:
+    """Every transitional TGLF source with the occurrence name it migrates to."""
+    return tuple(
+        OccurrenceMigration(
+            source=turbulent_transport_source(family, configuration),
+            ids=ids,
+            name=turbulent_transport_occurrence_name(family, configuration),
+        )
+        for family in FAMILY_SOURCES
+        for configuration in tglf_configurations()
+        for ids in _TURBULENT_TRANSPORT_IDS
+    )
+
+
+def _turbulent_transport_sources() -> tuple["HSDSSource", ...]:
+    """One sparse, transitional source per family and TGLF configuration."""
+    built: list[HSDSSource] = []
+    for family, root in FAMILY_SOURCES.items():
+        for configuration in tglf_configurations():
+            sat, field = parse_tglf_configuration(configuration)
+            built.append(
+                HSDSSource(
+                    f"{root}/{configuration}",
+                    f"TRANSITIONAL until the {TRANSITIONAL_UNTIL} occurrence "
+                    f"model: TGLF turbulent transport with SAT_RULE={sat} and "
+                    f"the {field} field model, on states mapped on the {family} "
+                    "reconstruction. Holds core_transport plus the identity of "
+                    "the state it was computed from, not a copy of its profiles. "
+                    "Migrates to the core_transport occurrence named "
+                    f"{turbulent_transport_occurrence_name(family, configuration)!r}. "
+                    "Sparse: only states TGLF was run on in this configuration.",
+                    parent=root,
+                    sparse=True,
+                    transitional_until=TRANSITIONAL_UNTIL,
+                )
+            )
+    return tuple(built)
 
 
 def _lineage_sources() -> tuple["HSDSSource", ...]:
@@ -312,6 +524,10 @@ _CATALOG: dict[str, HSDSSource] = {
             parent="kinetic-efit",
             sparse=True,
         ),
+        # One source per TGLF configuration and family, so alternative
+        # configurations of one state coexist (#1900). Transitional: #1128/#1129
+        # turn each into a named core_transport occurrence.
+        *_turbulent_transport_sources(),
         HSDSSource(
             "impa",
             "Insertable magnetic probe array. Sparse: only shots whose IMPA "
@@ -711,6 +927,24 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
             "vaft.validation.neoclassical.input_readiness"
         ),
     ),
+    # One TGLF configuration's result on one equilibrium family (#1900). Its
+    # destination is a function of the configuration, as `mhd_linear`'s is of
+    # the stability product: alternative configurations of one state are
+    # separate sources, so none overwrites another. The source named here is
+    # only the root the per-configuration sources hang beneath, and
+    # :data:`STAGE_SOURCE` leaves it out. Opt-in and corrective for the same
+    # reason as `neoclassical`: no routine rule runs TGLF on every shot.
+    "turbulent_transport": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=_TURBULENT_TRANSPORT_IDS,
+        optional=True,
+        produced_by="corrective",
+        note=(
+            "opt-in TGLF product, one transitional source per configuration "
+            f"(product='tglf-sat<n>-<field>') until the {TRANSITIONAL_UNTIL} "
+            "occurrence model; never owns core_profiles or equilibrium"
+        ),
+    ),
     "soft_x_rays": StageReplication(
         source=DEFAULT_SOURCE,
         ids=("soft_x_rays",),
@@ -754,7 +988,9 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
 
 #: Stages whose destination is a function of the stability product, so that no
 #: single source can be named for them. Use :func:`source_for_stage`.
-_PER_PRODUCT_DESTINATION = frozenset({"mhd_linear", "gpec_ideal"})
+_PER_PRODUCT_DESTINATION = frozenset(
+    {"mhd_linear", "gpec_ideal", "turbulent_transport"}
+)
 
 #: Destination-only view of :data:`STAGE_REPLICATION`, for callers that only
 #: need to know where a stage goes. A stage that goes somewhere different per
@@ -788,6 +1024,16 @@ _LINEAGE_DESTINATIONS = {
     "chease": "{refinement}",
     "mhd_linear": "{refinement}/{product}",
     "gpec_ideal": "{refinement}/{product}",
+    # No refinement: TGLF runs on the state the reconstruction was mapped on,
+    # not on a CHEASE refinement of it, so `refinement` is not part of the path.
+    "turbulent_transport": "{product}",
+}
+
+#: An example `product` for each per-product stage, for the refusal message.
+_PRODUCT_EXAMPLES = {
+    "mhd_linear": "dcon-peeling",
+    "gpec_ideal": "ideal-gpec",
+    "turbulent_transport": "tglf-sat3-em-bper",
 }
 
 
@@ -810,6 +1056,10 @@ def replication_for_stage(
     so existing callers keep working. `product` does not: there are five of them
     and guessing would send one solver's result to another's source, which is
     the collision the per-product sources exist to prevent.
+
+    For `turbulent_transport` the product is a TGLF configuration
+    (``tglf-sat<n>-<field>``) and `refinement` does not apply: the destination
+    is the transitional source ``{family root}/{configuration}`` (#1900).
     """
     key = _stage_key(stage)
     try:
@@ -828,18 +1078,19 @@ def replication_for_stage(
         # under a complaint about a missing argument.
         return entry
 
-    root = FAMILY_SOURCES.get(family)
-    if root is None:
-        raise HSDSSourceError(
-            f"Unknown equilibrium family {family!r}; expected one of: "
-            + ", ".join(sorted(FAMILY_SOURCES))
-        )
+    root = _family_root(family)
     if "{product}" in template and product is None:
         raise HSDSSourceError(
             f"The {key!r} stage is one solve's result, so replicating it needs "
-            "product= (for example 'dcon-peeling'); a combined destination is "
-            "what the per-product sources replaced."
+            f"product= (for example {_PRODUCT_EXAMPLES[key]!r}); a combined "
+            "destination is what the per-product sources replaced."
         )
+    if key == "turbulent_transport":
+        # Checked here rather than left to a later catalog lookup, so the error
+        # says what a configuration is instead of listing every source. There
+        # is no default configuration, for the reason #1482 removed the
+        # driver's: which SAT rule suits VEST is an open validation question.
+        parse_tglf_configuration(product)
     suffix = template.format(refinement=refinement, product=product)
     return replace(entry, source=f"{root}/{suffix}")
 

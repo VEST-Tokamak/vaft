@@ -71,11 +71,12 @@ def write_run(
     b_gs2: float = 0.8,
     flux: bool = False,
     hiprec: int = 0,
+    length: float = 12.5,
 ) -> Path:
     """Write the files a CGYRO run leaves, in CGYRO's layouts."""
     directory.mkdir(parents=True, exist_ok=True)
     m_box = 1
-    sizes = [n_n, n_species, n_field, n_radial, n_theta, 8, 16, m_box, 12.5, 4, 1]
+    sizes = [n_n, n_species, n_field, n_radial, n_theta, 8, 16, m_box, length, 4, 1]
     p = np.arange(n_radial) - n_radial // 2
     theta = np.linspace(-np.pi, np.pi, n_theta, endpoint=False)
     thetab = np.concatenate([theta + 2 * np.pi * k for k in p])

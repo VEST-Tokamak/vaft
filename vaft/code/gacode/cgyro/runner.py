@@ -16,6 +16,8 @@ from pathlib import Path
 import subprocess
 from typing import Any, Mapping, Optional
 
+import numpy as np
+
 from .._profiles import GACODEProfile
 from .._runtime import (
     gacode_home,
@@ -34,6 +36,7 @@ __all__ = [
     "read_cgyro_case",
     "run_cgyro",
     "run_cgyro_case",
+    "local_ordering_state",
 ]
 
 
@@ -83,6 +86,7 @@ def run_cgyro(
     *,
     check: bool = True,
     state_key: Optional[Mapping[str, Any]] = None,
+    ordering_state: Optional[Mapping[str, Any]] = None,
 ) -> CGYROResult:
     """Run CGYRO on an already-staged case and parse everything it wrote.
 
@@ -98,6 +102,14 @@ def run_cgyro(
         Raise :class:`CGYROExecutionError` unless :attr:`CGYROResult.ok`.
     state_key
         Recorded in the provenance; overrides the key given at staging time.
+    ordering_state
+        Further ordering quantities of this surface (#1823), by
+        ``vaft.validation.orderings.ORDERING_QUANTITIES`` name -- a mode's
+        ``omega_over_ion_gyrofrequency`` or ``k_par_over_k_perp``, a measured
+        ``sonic_mach_number``. A finite caller value takes precedence over what
+        the staged local input gives (:func:`local_ordering_state`); a NaN does
+        not hide a derived value. The advisory check of the gyrokinetic contract
+        is recorded as ``provenance["ordering_check"]``; it never raises.
     """
     configuration = config or CGYROConfig()
     executable = require_gacode_executable(configuration, "cgyro")
@@ -152,6 +164,7 @@ def run_cgyro(
                 solver_version=revision or (None if version is None else version.get("commit")),
             ),
             "plasma_formalism": plasma_formalism(configuration).as_dict(),
+            "ordering_check": _ordering_check(inputs, configuration, ordering_state),
             "parameters": dict(inputs.parameters),
             "inputs": staged,
         },
@@ -194,10 +207,69 @@ def run_cgyro_case(
     *,
     check: bool = True,
     state_key: Optional[Mapping[str, Any]] = None,
+    ordering_state: Optional[Mapping[str, Any]] = None,
 ) -> CGYROResult:
     """Stage and run one CGYRO case at one flux surface: the one-call path."""
     staged = prepare_cgyro_case(profile, r_over_a, workdir, config, state_key=state_key)
-    return run_cgyro(staged, config, check=check)
+    return run_cgyro(staged, config, check=check, ordering_state=ordering_state)
+
+
+def local_ordering_state(local) -> dict[str, float]:
+    r"""The ordering quantities a CGYRO local input fixes by itself (#1823).
+
+    $$\frac{\rho_i}{L_{T_i}} = \frac{\rho_s}{a}\,\frac{\sqrt{\tau_i\,\mu_i}}{Z_i}\,\frac{a}{L_{T_i}},
+      \qquad \frac{\lambda_D}{L_{T_e}} = \frac{\lambda_{De}}{\rho_s}\,\frac{\rho_s}{a}\,\frac{a}{L_{T_e}}$$
+
+    In GACODE's own units: ``rho_s`` is deuterium-normalised in the effective
+    field ``B_unit``, ``mu_i`` is the main ion's mass over ``m_D``,
+    ``tau_i = T_i/T_e``, and TGLF's ``DEBYE`` is ``lambda_De/rho_s``. The main ion
+    is the ion species with the largest density fraction. Using ``B_unit`` rather than the local field is an
+    order-one difference, inside the order-unity thresholds. Nothing else is
+    inferred: the frequency, ``k_par/k_perp``, the amplitude and the flow are a
+    run's outputs or the caller's, and stay ``UNASSESSED`` without them.
+    """
+    tglf = getattr(local, "tglf", None)
+    norm = getattr(tglf, "normalisation", None)
+    if tglf is None or norm is None or not norm.minor_radius:
+        return {}
+    rho_star = abs(float(norm.gyroradius)) / float(norm.minor_radius)
+    zs, mass = np.asarray(tglf.zs, dtype=float), np.asarray(tglf.mass, dtype=float)
+    taus, rlts = np.asarray(tglf.taus, dtype=float), np.asarray(tglf.rlts, dtype=float)
+    state = {"debye_length_over_L": float(tglf.debye) * rho_star * abs(float(rlts[0]))}
+    if zs.size > 1:
+        density = np.asarray(tglf.as_, dtype=float)
+        main = 1 + int(np.argmax(density[1:]))
+        state["rho_i_over_LTi"] = (rho_star * float(np.sqrt(taus[main] * mass[main])) / abs(float(zs[main]))
+                                   * abs(float(rlts[main])))
+    return state
+
+
+def _ordering_check(inputs, configuration: CGYROConfig, extra: Optional[Mapping[str, Any]]):
+    """The advisory record: local quantities, then the caller's finite values on top. Never raises."""
+    from vaft.validation.model_contracts import safe_ordering_provenance
+
+    notes = []
+    species_keys = ("Z_", "MASS_", "DENS_", "TEMP_", "DLNNDR_", "DLNTDR_")
+    overridden = sorted(str(k).upper() for k in configuration.extra_parameters
+                        if str(k).upper().startswith(species_keys))
+    try:
+        local = {} if overridden else local_ordering_state(getattr(inputs, "local", None))
+    except Exception as error:  # noqa: BLE001 - advisory
+        local = {}
+        notes.append(f"local ordering quantities not derived: {type(error).__name__}: {error}")
+    if overridden:
+        notes.append("extra_parameters override species keys "
+                     f"({', '.join(overridden)}): the staged local input is not what ran, so no local "
+                     "ordering quantity is derived from it")
+    state = dict(local)
+    for name, value in dict(extra or {}).items():
+        try:
+            finite = np.isfinite(float(value))
+        except (TypeError, ValueError):
+            finite = False
+        if finite or name not in state:
+            state[name] = value              # a caller's NaN never hides a derived finite value
+    return safe_ordering_provenance(plasma_formalism(configuration), state, notes=notes)
 
 
 def read_cgyro_case(workdir: str | Path) -> Optional[CgyroOutputs]:
