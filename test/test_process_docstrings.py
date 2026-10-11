@@ -139,6 +139,8 @@ PIPELINE = frozenset({
     "interchange_comparison",
     "flux_surface_curvature",
     "curvature_map",
+    "s_alpha_profile",
+    "s_alpha_from_ods",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -303,6 +305,7 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    "s_alpha_from_ods",
     # local_mhd_criteria (#1902): ODS equilibrium in, raw indices out (no QA cut)
     "mercier_ggj_from_ods",
     # soft_x_rays (#886): prescribed island -> synthetic chord signal
@@ -391,6 +394,8 @@ CONVENTION_SENSITIVE = frozenset({
     "interchange_comparison",
     "flux_surface_curvature",
     "curvature_map",
+    "s_alpha_profile",
+    "s_alpha_from_ods",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

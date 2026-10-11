@@ -200,12 +200,81 @@ def test_curvature_and_shear_do_not_depend_on_cocos_signs(vest, vest_curvature):
     for a, b in zip(flipped.surfaces, vest_curvature.surfaces):
         for name in ("kappa_n", "kappa_g", "local_shear"):
             np.testing.assert_allclose(a[name], b[name], rtol=1e-6, atol=1e-9 * np.max(np.abs(b[name])))
+    # The checks must hold in the flipped orientation too (cold review: a doubled
+    # orientation sign broke the kappa_n force balance only when psi falls outward).
+    for name, value in flipped.checks.items():
+        np.testing.assert_allclose(value, vest_curvature.checks[name], rtol=1e-6, atol=1e-12)
 
 
 def test_the_map_masks_outside_the_requested_band(vest):
     grid, profiles, _ = vest
     maps = curvature_map(**grid, profile_psi_n=profiles["profile_psi_n"], f=profiles["f"], pressure=profiles["pressure"],
-                         psi_n_min=0.1, psi_n_max=0.9)
+                         axis_rz=profiles["axis_rz"], psi_n_min=0.1, psi_n_max=0.9)
+    kept = np.isfinite(maps["kappa_n"])
     band = (maps["psi_n"] >= 0.1) & (maps["psi_n"] <= 0.9)
-    assert np.isfinite(maps["kappa_n"][band]).all() and np.isnan(maps["kappa_n"][~band]).all()
+    assert kept.any() and band[kept].all()
+    # Vacuum nodes whose flux falls in the band (cold review: about half of them on this
+    # limited map) are not kept: every kept node is near the axis's side of the edge.
+    assert band.sum() > kept.sum()
+    r_kept = maps["R"][kept]
+    assert r_kept.min() > 0.1  # nothing from the centre-stack column at R = 0.05 m
     assert maps["kappa_n"].shape == grid["psi_grid"].shape
+
+
+# ---------------------------------------------------------------- s-alpha (part 3)
+
+from vaft.process.local_mhd_criteria import s_alpha_from_ods, s_alpha_profile  # noqa: E402
+
+S_ALPHA_LEVELS = np.round(np.arange(0.10, 0.951, 0.05), 2)
+
+
+@pytest.fixture(scope="module")
+def vest_s_alpha(vest):
+    grid, profiles, _ = vest
+    return s_alpha_profile(**grid, levels_norm=S_ALPHA_LEVELS, **profiles)
+
+
+def test_shear_is_dlnq_dln_volume_radius(vest_s_alpha):
+    """An independent check: finite differences of the map's q against r_V = sqrt(V/2 pi^2 R0)."""
+    from vaft.process.local_mhd_criteria import mercier_ggj_profile
+
+    profile = vest_s_alpha
+    r_v = np.sqrt(profile.volume / (2 * np.pi**2 * profile.provenance["R0"]))
+    grid, profiles = _gfile(VEST)
+    q = mercier_ggj_profile(**grid, levels_norm=S_ALPHA_LEVELS, **profiles).q
+    s_fd = np.gradient(np.log(q), np.log(r_v))
+    inner = slice(2, -2)  # one-sided differences at the ends
+    np.testing.assert_allclose(profile.s[inner], s_fd[inner], rtol=0.05)
+
+
+def test_alpha_is_positive_for_a_falling_pressure_and_zero_without_a_gradient(vest, vest_s_alpha):
+    assert (vest_s_alpha.alpha > 0).all()
+    grid, profiles, _ = vest
+    flat = s_alpha_profile(**grid, levels_norm=S_ALPHA_LEVELS,
+                           **{**profiles, "pressure": np.full_like(profiles["pressure"], 1e3)})
+    np.testing.assert_allclose(flat.alpha, 0.0, atol=1e-12)
+    assert not flat.s_alpha_unstable.any()
+
+
+def test_the_volume_is_the_integral_of_v_prime(vest, vest_s_alpha):
+    from scipy.integrate import trapezoid
+
+    from vaft.process.local_mhd_criteria import mercier_ggj_profile
+
+    grid, profiles, _ = vest
+    fine = np.round(np.arange(0.10, 0.951, 0.01), 2)
+    dV = mercier_ggj_profile(**grid, levels_norm=fine, **profiles).dV_dchi
+    chi_span = 2 * np.pi * abs(grid["psi_boundary"] - grid["psi_axis"])
+    integral = trapezoid(dV, fine) * chi_span
+    volume = vest_s_alpha.volume
+    assert integral == pytest.approx(volume[-1] - volume[0], rel=2e-3)
+
+
+def test_s_alpha_from_ods_is_the_array_path(vest_s_alpha):
+    from vaft.data.eqdsk import read_geqdsk
+
+    ods = read_geqdsk(VEST).to_omas()
+    from_ods = s_alpha_from_ods(ods, 0, levels_norm=S_ALPHA_LEVELS)
+    np.testing.assert_allclose(from_ods.alpha, vest_s_alpha.alpha, rtol=1e-6)
+    np.testing.assert_allclose(from_ods.s, vest_s_alpha.s, rtol=1e-6)
+    assert from_ods.provenance["R0_source"] == "magnetic axis"

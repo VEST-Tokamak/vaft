@@ -62,6 +62,9 @@ import numpy as np
 
 __all__ = [
     "InterchangeProfile",
+    "SAlphaProfile",
+    "s_alpha_from_ods",
+    "s_alpha_profile",
     "SurfaceCurvature",
     "curvature_map",
     "flux_surface_curvature",
@@ -316,6 +319,38 @@ def mercier_ggj_profile(
     )
 
 
+def _ods_slice_inputs(ods: Any, time_slice: int) -> dict[str, Any]:
+    """The flux map, profiles and axis of one ODS slice, flux per radian."""
+    from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+    from vaft.machine_mapping.utils import path_exists
+
+    base = f"equilibrium.time_slice.{int(time_slice)}"
+    required = ("profiles_2d.0.psi", "profiles_2d.0.grid.dim1", "profiles_2d.0.grid.dim2", "profiles_1d.psi",
+                "profiles_1d.f", "profiles_1d.pressure", "profiles_1d.q", "global_quantities.psi_axis",
+                "global_quantities.psi_boundary", "global_quantities.magnetic_axis.r",
+                "global_quantities.magnetic_axis.z")
+    for leaf in required:
+        if not path_exists(ods, f"{base}.{leaf}"):
+            raise KeyError(f"{base}.{leaf} is missing")
+    factor = float(ods_psi_to_wb_per_radian_factor(ods, int(time_slice)))
+    axis = float(ods[f"{base}.global_quantities.psi_axis"]) * factor
+    boundary = float(ods[f"{base}.global_quantities.psi_boundary"]) * factor
+    psi_1d = np.asarray(ods[f"{base}.profiles_1d.psi"], dtype=float) * factor
+    psi_n = (psi_1d - axis) / (boundary - axis)
+    order = np.argsort(psi_n)
+    return {
+        "psi_grid": np.asarray(ods[f"{base}.profiles_2d.0.psi"], dtype=float) * factor,
+        "R": np.asarray(ods[f"{base}.profiles_2d.0.grid.dim1"], dtype=float),
+        "Z": np.asarray(ods[f"{base}.profiles_2d.0.grid.dim2"], dtype=float),
+        "psi_axis": axis, "psi_boundary": boundary, "profile_psi_n": psi_n[order],
+        "f": np.asarray(ods[f"{base}.profiles_1d.f"], dtype=float)[order],
+        "pressure": np.asarray(ods[f"{base}.profiles_1d.pressure"], dtype=float)[order],
+        "q": np.asarray(ods[f"{base}.profiles_1d.q"], dtype=float)[order],
+        "axis_rz": (float(ods[f"{base}.global_quantities.magnetic_axis.r"]),
+                    float(ods[f"{base}.global_quantities.magnetic_axis.z"])),
+    }
+
+
 def mercier_ggj_from_ods(ods: Any, time_slice: int = 0, *, levels_norm: Sequence[float] | None = None,
                          min_points: int = 40, oversample: int = 2) -> InterchangeProfile:
     """Mercier / GGJ indices of one ODS equilibrium slice.
@@ -376,43 +411,18 @@ def mercier_ggj_from_ods(ods: Any, time_slice: int = 0, *, levels_norm: Sequence
     ----------
     .. [1902] Issue #1902, evaluation from one reconstructed equilibrium ODS.
     """
-    from vaft.data.eqdsk import ods_psi_to_wb_per_radian_factor
+    inputs = _ods_slice_inputs(ods, time_slice)
+    levels = np.arange(0.05, 0.985, 0.01) if levels_norm is None else np.asarray(levels_norm, dtype=float)
+    profile = mercier_ggj_profile(levels_norm=levels, min_points=min_points, oversample=oversample, **inputs)
+    return InterchangeProfile(**{**profile.__dict__, "provenance": {**profile.provenance, "time_slice": int(time_slice),
+                                                                     "time": _slice_time(ods, time_slice)}})
+
+
+def _slice_time(ods: Any, time_slice: int):
     from vaft.machine_mapping.utils import path_exists
 
-    base = f"equilibrium.time_slice.{int(time_slice)}"
-    required = ("profiles_2d.0.psi", "profiles_2d.0.grid.dim1", "profiles_2d.0.grid.dim2", "profiles_1d.psi",
-                "profiles_1d.f", "profiles_1d.pressure", "profiles_1d.q", "global_quantities.psi_axis",
-                "global_quantities.psi_boundary", "global_quantities.magnetic_axis.r",
-                "global_quantities.magnetic_axis.z")
-    for leaf in required:
-        if not path_exists(ods, f"{base}.{leaf}"):
-            raise KeyError(f"{base}.{leaf} is missing")
-    factor = float(ods_psi_to_wb_per_radian_factor(ods, int(time_slice)))
-    axis = float(ods[f"{base}.global_quantities.psi_axis"]) * factor
-    boundary = float(ods[f"{base}.global_quantities.psi_boundary"]) * factor
-    psi_1d = np.asarray(ods[f"{base}.profiles_1d.psi"], dtype=float) * factor
-    psi_n = (psi_1d - axis) / (boundary - axis)
-    order = np.argsort(psi_n)
-    levels = np.arange(0.05, 0.985, 0.01) if levels_norm is None else np.asarray(levels_norm, dtype=float)
-    profile = mercier_ggj_profile(
-        np.asarray(ods[f"{base}.profiles_2d.0.psi"], dtype=float) * factor,
-        np.asarray(ods[f"{base}.profiles_2d.0.grid.dim1"], dtype=float),
-        np.asarray(ods[f"{base}.profiles_2d.0.grid.dim2"], dtype=float),
-        axis, boundary, levels,
-        profile_psi_n=psi_n[order],
-        f=np.asarray(ods[f"{base}.profiles_1d.f"], dtype=float)[order],
-        pressure=np.asarray(ods[f"{base}.profiles_1d.pressure"], dtype=float)[order],
-        q=np.asarray(ods[f"{base}.profiles_1d.q"], dtype=float)[order],
-        axis_rz=(float(ods[f"{base}.global_quantities.magnetic_axis.r"]),
-                 float(ods[f"{base}.global_quantities.magnetic_axis.z"])),
-        min_points=min_points,
-        oversample=oversample,
-    )
-    time = None
-    if path_exists(ods, f"{base}.time"):
-        time = float(ods[f"{base}.time"])
-    return InterchangeProfile(**{**profile.__dict__, "provenance": {**profile.provenance, "time_slice": int(time_slice),
-                                                                     "time": time}})
+    path = f"equilibrium.time_slice.{int(time_slice)}.time"
+    return float(ods[path]) if path_exists(ods, path) else None
 
 
 def interchange_comparison(profile: InterchangeProfile, psi_n: Sequence[float], di: Sequence[float],
@@ -550,7 +560,8 @@ class _OrientedField:
             "B": B, "grad_psi": g, "kappa_n": np.sum(kappa * n, axis=0), "kappa_g": np.sum(kappa * binormal, axis=0),
             "local_shear": shear,
             "kappa_dot_b": np.sum(kappa * b, axis=0),
-            "kappa_n_force_balance": (np.sum(grad_b2 * n, axis=0) + dp_dpsi * self.sign * g) / B**2,
+            # dp_dpsi is already against the oriented psi; |grad psi| = g.
+            "kappa_n_force_balance": (np.sum(grad_b2 * n, axis=0) + dp_dpsi * g) / B**2,
             "kappa_g_force_balance": np.sum(grad_b2 * binormal, axis=0) / B**2,
         }
 
@@ -586,7 +597,8 @@ def flux_surface_curvature(
     psi_boundary : float
         Flux on the boundary [Wb/rad].
     levels_norm : sequence of float
-        Normalized flux of the surfaces to trace, inside ``(0, 1)`` [-].
+        Normalized flux of the surfaces to trace, inside ``(0, 1)``; sorted
+        and de-duplicated here [-].
     profile_psi_n : sequence of float
         Normalized flux grid of ``f``, ``pressure`` and ``q``, increasing [-].
     f : sequence of float
@@ -646,7 +658,9 @@ def flux_surface_curvature(
 
     Limitations
     -----------
-    Ideal static equilibrium (the force-balance checks assume it).  Near the
+    Only the ``kappa_n`` check tests the equilibrium (it assumes ideal static
+    force balance); ``kappa . b``, the ``kappa_g`` check and the shear identity
+    hold for any flux map with ``F = F(psi)`` and test the numerics.  Near the
     axis the flux gradient vanishes and ``n`` is ill-defined; trace from
     psi_N of about 0.05 on a VEST-sized map.
 
@@ -662,7 +676,7 @@ def flux_surface_curvature(
     r_axis, z_axis = np.asarray(R, dtype=float), np.asarray(Z, dtype=float)
     if psi.shape != (r_axis.size, z_axis.size):
         raise ValueError(f"psi_grid {psi.shape} is not indexed (R, Z) = ({r_axis.size}, {z_axis.size})")
-    levels = np.asarray(levels_norm, dtype=float)
+    levels = np.unique(np.asarray(levels_norm, dtype=float))  # sorted, duplicates dropped
     if np.any(levels <= 0) or np.any(levels >= 1):
         raise ValueError("levels_norm must lie inside (0, 1)")
     x = np.asarray(profile_psi_n, dtype=float)
@@ -714,6 +728,7 @@ def curvature_map(
     profile_psi_n: Sequence[float],
     f: Sequence[float],
     pressure: Sequence[float],
+    axis_rz: tuple[float, float],
     psi_n_max: float = 0.98,
     psi_n_min: float = 0.02,
 ) -> dict[str, np.ndarray]:
@@ -737,6 +752,8 @@ def curvature_map(
         ``F = R B_phi``, either sign [T m].
     pressure : sequence of float
         Plasma pressure [Pa].
+    axis_rz : tuple of float
+        Magnetic-axis position; selects the confined region [m].
     psi_n_max : float, optional
         Outermost normalized flux kept; a display choice, short of the
         boundary where ``psi_n`` stops labelling closed surfaces [-].
@@ -749,24 +766,25 @@ def curvature_map(
     maps : dict
         ``R``, ``Z`` (2-D, indexed ``(R, Z)``) [m], ``psi_n`` [-],
         ``kappa_n``, ``kappa_g`` [1/m], ``local_shear`` [1/m^3] and ``B`` [T]; NaN
-        outside ``[psi_n_min, psi_n_max]`` [-].
+        outside the confined band ``[psi_n_min, psi_n_max]`` [-].
 
     Raises
     ------
     ValueError
-        ``psi_grid`` is not indexed ``(R, Z)``.
+        ``psi_grid`` is not indexed ``(R, Z)``, or no closed ``psi_n_max``
+        contour encloses the axis.
 
     Processing steps
     ----------------
     1. Orient and spline as :func:`flux_surface_curvature`.
     2. Evaluate the same pointwise quantities at every grid node.
-    3. Mask nodes outside the requested normalized-flux band.
+    3. Keep nodes in the normalized-flux band **and** inside the closed
+       ``psi_n_max`` contour that encloses the axis, so vacuum or private-flux
+       regions whose flux happens to fall in the band are excluded.
 
     Convention
     ----------
-    As :func:`flux_surface_curvature`.  The mask is by normalized flux only:
-    a private-flux region with psi_n in the band outside the separatrix is
-    not removed.
+    As :func:`flux_surface_curvature`.
 
     Applicability
     -------------
@@ -782,9 +800,20 @@ def curvature_map(
         raise ValueError(f"psi_grid {psi.shape} is not indexed (R, Z) = ({r_axis.size}, {z_axis.size})")
     field_ = _OrientedField(psi, r_axis, z_axis, psi_axis, psi_boundary, np.asarray(profile_psi_n, dtype=float),
                             f, pressure)
+    from matplotlib.path import Path as _MplPath
+
+    from .equilibrium import _closed_contour, _enclosing_segment, extract_flux_surface_contours
+
     rr, zz = np.meshgrid(r_axis, z_axis, indexing="ij")
     psi_n = field_.psi_n(rr.ravel(), zz.ravel()).reshape(rr.shape)
-    inside = (psi_n >= psi_n_min) & (psi_n <= psi_n_max)
+    edge = _enclosing_segment(
+        extract_flux_surface_contours(psi, r_axis, z_axis, psi_axis, psi_boundary, [psi_n_max]).get(float(psi_n_max), []),
+        axis_rz, 4)
+    if edge is None:
+        raise ValueError(f"no closed psi_n = {psi_n_max:g} contour encloses the axis")
+    confined = _MplPath(np.column_stack(_closed_contour(*edge))).contains_points(
+        np.column_stack([rr.ravel(), zz.ravel()])).reshape(rr.shape)
+    inside = (psi_n >= psi_n_min) & (psi_n <= psi_n_max) & confined
     out = {"R": rr, "Z": zz, "psi_n": psi_n}
     names = ("kappa_n", "kappa_g", "local_shear", "B")
     for name in names:
@@ -794,4 +823,222 @@ def curvature_map(
         for name in names:
             out[name][inside] = values[name]
     return out
+
+
+@dataclass(frozen=True)
+class SAlphaProfile:
+    """Per-surface s-alpha ballooning coordinates and the model's first-stability boundary (#1902)."""
+
+    psi_n: np.ndarray
+    #: Volume-radius shear, ``d ln q / d ln r_V`` [-].
+    s: np.ndarray
+    #: Normalised pressure gradient with the volume radius [-].
+    alpha: np.ndarray
+    #: First and second stability boundaries of the circular s-alpha model at each ``s`` [-].
+    alpha_first: np.ndarray
+    alpha_second: np.ndarray
+    #: Volume enclosed by each surface [m^3].
+    volume: np.ndarray
+    provenance: Mapping[str, Any] = field(default_factory=dict)
+
+    @property
+    def s_alpha_unstable(self) -> np.ndarray:
+        """``alpha`` inside the model's unstable band -- an indicator for a shaped plasma, not a verdict [-]."""
+        upper = np.where(np.isnan(self.alpha_second), np.inf, self.alpha_second)
+        return np.isfinite(self.alpha_first) & (self.alpha >= self.alpha_first) & (self.alpha <= upper)
+
+
+def s_alpha_profile(
+    psi_grid,
+    R,
+    Z,
+    psi_axis: float,
+    psi_boundary: float,
+    levels_norm: Sequence[float],
+    *,
+    profile_psi_n: Sequence[float],
+    f: Sequence[float],
+    pressure: Sequence[float],
+    q: Sequence[float],
+    axis_rz: tuple[float, float],
+    R0: float | None = None,
+    min_points: int = 40,
+    oversample: int = 2,
+) -> SAlphaProfile:
+    """Per-surface ``s`` and ``alpha`` of local ballooning theory and the s-alpha first-stability boundary.
+
+    Parameters
+    ----------
+    psi_grid : array_like
+        Poloidal flux, indexed ``(R, Z)``, per radian [Wb/rad].
+    R : array_like
+        Major-radius grid axis [m].
+    Z : array_like
+        Height grid axis [m].
+    psi_axis : float
+        Flux on the axis [Wb/rad].
+    psi_boundary : float
+        Flux on the boundary [Wb/rad].
+    levels_norm : sequence of float
+        Surfaces, at least five, increasing inside ``(0, 1)`` [-].
+    profile_psi_n : sequence of float
+        Normalized flux grid of the profiles [-].
+    f : sequence of float
+        ``F = R B_phi``, either sign [T m].
+    pressure : sequence of float
+        Plasma pressure [Pa].
+    q : sequence of float
+        Safety factor, either sign; compared with the map's [-].
+    axis_rz : tuple of float
+        Magnetic-axis position [m].
+    R0 : float, optional
+        Reference major radius naming the volume radius; by default the
+        magnetic axis, as GPEC.jl's local ballooning uses (a convention) [m].
+    min_points : int, optional
+        Contour resolution control, as :func:`mercier_ggj_profile` [-].
+    oversample : int, optional
+        Flux-map refinement for tracing, as :func:`mercier_ggj_profile` [-].
+
+    Returns
+    -------
+    profile : SAlphaProfile
+        ``s``, ``alpha``, the model's ``alpha_first``/``alpha_second`` and the
+        enclosed volume per surface [-].
+
+    Raises
+    ------
+    ValueError
+        As :func:`mercier_ggj_profile`, or ``R0`` is not positive.
+
+    Processing steps
+    ----------------
+    1. ``V'``, ``|q|`` and ``d|q|/dchi`` on each surface from the map
+       (:func:`mercier_ggj_profile`); the enclosed volume from the traced
+       contour by Pappus' theorem.
+    2. ``s = shear_from_volume`` and ``alpha = ballooning_alpha_from_volume``
+       (#1720 normalisation) with per-radian flux oriented outward.
+    3. The first and second stability boundaries at each ``s`` from
+       :func:`vaft.formula.stability.s_alpha_marginal_alpha`.
+
+    Convention
+    ----------
+    ``alpha > 0`` where the pressure falls outward.  ``s_alpha_unstable``
+    applies only the circular s-alpha model's criterion: for a shaped,
+    low-aspect-ratio plasma it is an indicator of proximity to the ballooning
+    boundary, not a stability verdict (a ballooning code is that).
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The s-alpha model is circular and large-aspect-ratio; on VEST's aspect
+    ratio ``alpha_first`` can be off by a large factor from the true
+    boundary.  Inherits the near-axis accuracy of :func:`mercier_ggj_profile`.
+
+    Provenance
+    ----------
+    .. [CHT78] J. W. Connor, R. J. Hastie and J. B. Taylor, Phys. Rev. Lett. 40, 396 (1978).
+    .. [1720] Issue #1720, the volume-radius normalisation of s and alpha.
+    .. [1902] Issue #1902, per-surface s-alpha from one equilibrium.
+    """
+    from vaft.formula.equilibrium import ballooning_alpha_from_volume, shear_from_volume
+    from vaft.formula.stability import s_alpha_marginal_alpha
+
+    from .equilibrium import _closed_contour, _enclosing_segment, extract_flux_surface_contours
+
+    r0 = float(axis_rz[0] if R0 is None else R0)
+    if not r0 > 0:
+        raise ValueError("R0 must be positive")
+    profile = mercier_ggj_profile(psi_grid, R, Z, psi_axis, psi_boundary, levels_norm, profile_psi_n=profile_psi_n,
+                                  f=f, pressure=pressure, q=q, axis_rz=axis_rz, min_points=min_points,
+                                  oversample=oversample)
+    levels = profile.psi_n
+    contours = extract_flux_surface_contours(np.asarray(psi_grid, dtype=float), np.asarray(R, dtype=float),
+                                             np.asarray(Z, dtype=float), psi_axis, psi_boundary, levels)
+    volume = np.full(levels.size, np.nan)
+    for i, level in enumerate(levels):
+        segment = _enclosing_segment(contours.get(float(level), []), axis_rz, min_points)
+        if segment is not None:
+            rc, zc = _closed_contour(*segment)
+            volume[i] = abs(np.pi * float(np.sum(0.5 * (rc[1:] ** 2 + rc[:-1] ** 2) * np.diff(zc))))
+    from scipy.interpolate import CubicSpline
+
+    x = np.asarray(profile_psi_n, dtype=float)
+    span = abs(psi_boundary - psi_axis)
+    dp_dpsi = CubicSpline(x, np.asarray(pressure, dtype=float))(levels, 1) / span  # per radian, outward
+    dV_dpsi = 2.0 * np.pi * profile.dV_dchi  # chi = 2 pi psi
+    dq_dpsi = 2.0 * np.pi * profile.dq_dchi
+    ok = np.isfinite(volume) & np.isfinite(dV_dpsi) & np.isfinite(dq_dpsi) & (volume > 0)
+    s_hat = np.full(levels.size, np.nan)
+    alpha = np.full(levels.size, np.nan)
+    first = np.full(levels.size, np.nan)
+    second = np.full(levels.size, np.nan)
+    if ok.any():
+        s_hat[ok] = shear_from_volume(volume[ok], dV_dpsi[ok], profile.q[ok], dq_dpsi[ok])
+        alpha[ok] = ballooning_alpha_from_volume(volume[ok], dV_dpsi[ok], dp_dpsi[ok], r0)
+        a1, a2 = s_alpha_marginal_alpha(s_hat[ok])
+        first[ok], second[ok] = a1, a2
+    return SAlphaProfile(psi_n=levels, s=s_hat, alpha=alpha, alpha_first=first, alpha_second=second, volume=volume,
+                         provenance={"R0": r0, "R0_source": "magnetic axis" if R0 is None else "given",
+                                     "normalisation": "#1720 volume radius", "model": "circular s-alpha (CHT 1978)"})
+
+
+def s_alpha_from_ods(ods: Any, time_slice: int = 0, *, levels_norm: Sequence[float] | None = None,
+                     R0: float | None = None) -> SAlphaProfile:
+    """Per-surface s-alpha coordinates of one ODS equilibrium slice.
+
+    Parameters
+    ----------
+    ods : ODS
+        As :func:`mercier_ggj_from_ods` [-].
+    time_slice : int, optional
+        The slice to read [-].
+    levels_norm : sequence of float, optional
+        Surfaces; by default 0.05 to 0.98 in steps of 0.01 [-].
+    R0 : float, optional
+        Reference major radius; the magnetic axis by default (a convention) [m].
+
+    Returns
+    -------
+    profile : SAlphaProfile
+        As :func:`s_alpha_profile`, with the slice and time in provenance [-].
+
+    Raises
+    ------
+    KeyError
+        A required path is missing.
+
+    Processing steps
+    ----------------
+    1. Read the slice (per-radian flux) as :func:`mercier_ggj_from_ods`.
+    2. Evaluate with :func:`s_alpha_profile` and record the slice and time.
+
+    Input semantics
+    ---------------
+    One reconstructed equilibrium slice; nothing else of the ODS is read.
+
+    Output semantics
+    ----------------
+    Raw ``s``, ``alpha`` and the model's boundaries; no verdict beyond the
+    model's own criterion.
+
+    Convention
+    ----------
+    As :func:`s_alpha_profile`.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1902] Issue #1902, ODS-facing per-surface s-alpha evaluation.
+    """
+    inputs = _ods_slice_inputs(ods, time_slice)
+    levels = np.arange(0.05, 0.985, 0.01) if levels_norm is None else np.asarray(levels_norm, dtype=float)
+    profile = s_alpha_profile(levels_norm=levels, R0=R0, **inputs)
+    return SAlphaProfile(**{**profile.__dict__, "provenance": {**profile.provenance, "time_slice": int(time_slice),
+                                                               "time": _slice_time(ods, time_slice)}})
 
