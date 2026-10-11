@@ -438,3 +438,74 @@ def test_constraints_without_a_tf_waveform_refuse_by_name(full_constraints_input
     assert type(error.value).__name__ == "MissingConstraintInputError"
     assert list(error.value.missing) == ["tf.b_field_tor_vacuum_r.data"]
     assert "tf" not in ods  # the refusal read nothing, so it created nothing
+
+
+def test_diamagnetic_baseline_window_reads_back_what_the_mapping_writes():
+    from vaft.machine_mapping.magnetics import (
+        PlasmaWindowChoice,
+        _diamagnetic_method_name,
+        diamagnetic_baseline_window,
+    )
+
+    report = {"field": 33, "n_saturated": 0}
+    window = PlasmaWindowChoice(start=0.3175, end=0.3345, source="h_alpha_raw", flags=("ip_before_halpha",))
+    assert diamagnetic_baseline_window(_diamagnetic_method_name(report, window)) == (0.3175, 0.3345)
+    assert diamagnetic_baseline_window(_diamagnetic_method_name(report)) is None  # no window recorded
+    assert diamagnetic_baseline_window(None) is None
+
+
+def test_slices_whose_box_reaches_a_diamagnetic_anchor_are_the_anchored_ones():
+    """42914 (#1799): window 0.3175-0.3345 s, slices 0.319..0.335 at 1 ms with a
+    0.5 ms half-width box. 0.335 averages the zeroed tail only; 0.334's box ends
+    on the anchor sample. Neither is a measurement."""
+    from vaft.code.efit.kfile import diamagnetic_anchored_slices
+
+    method = "Rogowski ...; plasma window 0.3175-0.3345 s from h_alpha_raw"
+    times = np.round(np.arange(0.319, 0.3355, 0.001), 6)
+    anchored = diamagnetic_anchored_slices(times, method, average_window=0.0005)
+    assert [round(float(times[i]), 3) for i in anchored] == [0.334, 0.335]
+    # 45663: the first slice's box reaches the start anchor as well.
+    early = diamagnetic_anchored_slices(
+        np.round(np.arange(0.295, 0.3035, 0.001), 6),
+        "x; plasma window 0.2948-0.3024 s from h_alpha_raw (ip_before_halpha)",
+        average_window=0.0005,
+    )
+    assert early == [0, 7, 8]
+    assert diamagnetic_anchored_slices(times, "no window here", average_window=0.0005) == []
+
+
+def test_a_slice_past_the_diamagnetic_anchor_is_fitted_without_the_row(full_constraints_input_ods, tmp_path):
+    """42914/45663 (#1799): a slice past the baseline window's end measured a
+    diamagnetic flux of 0 by construction, so its relative sigma was 0 and the
+    k-file writer refused the shot under standard_deviation. The row is now
+    left out on that slice and kept on the others."""
+    ods = copy.deepcopy(full_constraints_input_ods)
+    method = ods["magnetics.diamagnetic_flux.0.method_name"]
+    before = method.split("; plasma window")[0]
+    ods["magnetics.diamagnetic_flux.0.method_name"] = f"{before}; plasma window 0.2800-0.3015 s from h_alpha_raw"
+    # The mapping zeroes the stored flux from the window end onwards.
+    flux_time = np.asarray(ods["magnetics.diamagnetic_flux.0.time"], dtype=float)
+    flux = np.array(ods["magnetics.diamagnetic_flux.0.data"], dtype=float)
+    flux[flux_time >= 0.3015] = 0.0
+    ods["magnetics.diamagnetic_flux.0.data"] = flux
+    times = np.array([0.30, 0.302])
+    ods["equilibrium.time"] = times
+
+    with pytest.warns(RuntimeWarning, match=r"left out at 0\.3020 s"):
+        generate_constraints_ods(
+            ods, SHOT, str(tmp_path), "", times,
+            DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
+            broken=[], fit=0, FFCUR=2, PPCUR=2,
+        )
+    EQ = ods["equilibrium"]
+    assert EQ["time_slice.0.constraints.diamagnetic_flux.weight"] > 0.0
+    assert EQ["time_slice.1.constraints.diamagnetic_flux.weight"] == 0.0
+
+    # A weight-0 row is switched off in the k-file and is not asked for a sigma
+    # (the standard_deviation check covers enabled rows only).
+    config = _build_kfile_config(nbcoil=len(EQ["time_slice.0.constraints.pf_current"]))
+    kfile_dir = tmp_path / "kfile"
+    generate_kfile(ods, SHOT, save_dir=str(kfile_dir), config=config)
+    first, second = sorted((kfile_dir / "kfile").glob("*"))
+    assert "FWTDLC= 0\n" not in first.read_text(encoding="utf-8")
+    assert "FWTDLC= 0" in second.read_text(encoding="utf-8")

@@ -363,6 +363,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Ordering spaces and margins (#1627 §3): the space registry, the margin bands and both plots
     # on a synthetic population. Under 5 s.
     "test_plot_ordering_space.py",
+    # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
+    # and the advisory check. Under 5 s.
+    "test_validation_model_contracts.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
     "test_q_profile_context.py",

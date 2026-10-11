@@ -2423,6 +2423,29 @@ def _diamagnetic_method_name(
     return text
 
 
+_BASELINE_WINDOW = re.compile(r"; plasma window (\d+(?:\.\d+)?)-(\d+(?:\.\d+)?) s from ")
+
+
+def diamagnetic_baseline_window(method_name: str | None) -> tuple[float, float] | None:
+    """The plasma window a stored diamagnetic flux was baselined over, read back from its ``method_name``.
+
+    :func:`vest_diamagnetic_flux_detailed` subtracts the straight line through
+    the flux at the window's two ends and sets everything from the end onwards
+    to zero, so the stored flux is zero *by construction* at both anchors and
+    after the end: those samples carry no measurement. The IMAS DD has no
+    validity under ``magnetics.diamagnetic_flux``; :func:`_diamagnetic_method_name`
+    writes the window into the one string field it offers, and this reads it
+    back. ``None`` for a product without it (written before the window was
+    recorded, or without a detected window).
+    """
+    if not method_name:
+        return None
+    match = _BASELINE_WINDOW.search(str(method_name))
+    if match is None:
+        return None
+    return float(match.group(1)), float(match.group(2))
+
+
 def _map_diamagnetic_flux(
     ods: object,
     shot: int,
@@ -2677,6 +2700,7 @@ __all__ = [
     "diamagnetic_saturation_report",
     "vest_diamagnetic_flux",
     "vest_diamagnetic_flux_detailed",
+    "diamagnetic_baseline_window",
     "vest_equilibrium_magnetics_channel_definitions",
     "diamagnetic_field_for_shot",
     "fluctuation_mirnov_channel_definitions",
