@@ -138,7 +138,20 @@ reaches one. They are not empirical stability or operating boundaries. The space
 | `equilibrium_relaxation` | $\tau_{age}/\tau_R$ | $\tau_{evol}/\tau_A$ | resistive current relaxation against quasi-static equilibrium |
 
 ```python
+import pandas as pd
+from vaft.process.ordering_state import ordering_table
 from vaft.plot.ordering_space import ordering_space, ordering_margins_plot
+
+# One row per state (illustrative VEST-like inputs); ordering_table adds the ordering columns.
+inputs = pd.DataFrame({
+    "a_m": [0.25, 0.25, 0.25], "r_geo_m": [0.45, 0.45, 0.45], "b_t_T": [0.15, 0.2, 0.25],
+    "n_e_m3": [5e18, 1e19, 2e19], "t_e_eV": [20.0, 50.0, 100.0], "z_eff": [2.0, 2.0, 2.0],
+    "ln_lambda": [12.0, 12.0, 12.0], "beta_t": [0.01, 0.02, 0.03],
+    "efit_quality": ["good", "good", "poor"],
+})
+states = ordering_table(inputs).join(inputs[["efit_quality"]])
+# One row per flux-surface point, with the profile orderings.
+points = pd.DataFrame({"rho_i_over_LTi": [0.02, 0.05, 0.2, 0.8]})
 
 fig, ax = ordering_space(states, "resistive_two_fluid", group="efit_quality")
 fig, ax = ordering_margins_plot(states, points)   # global orderings per state, profile ones per point
