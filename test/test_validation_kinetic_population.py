@@ -169,7 +169,8 @@ def test_manifest_counts_contract_version_and_schema_units_are_checked():
     pop = kp.assemble_kinetic_population(
         state, profiles, virial, manifest={"contract_version": "2", "rows": {"state": 4, "profiles": 4}},
         schemas={"state": schema})
-    found = pop.issues.loc[pop.issues.shot.isna()]
+    found = pop.issues.loc[pop.issues.scope == "population"]
+    assert found.shot.isna().all()
     assert set(found.check) == {"manifest_rows", "contract_version", "schema_declares_column", "unit"}
     assert "[ms]" in found.loc[found.check == "unit", "detail"].iloc[0]
 
@@ -192,3 +193,53 @@ def test_tier_a_snapshot_assembles_cleanly_and_reproduces_the_notebook_counts():
         assert r_sum.loc[lineage, "available"] == group.r_sum.notna().sum()
         assert r_sum.loc[lineage, "median"] == pytest.approx(group.r_sum.median())
     assert (summary.states == summary.available + summary.unavailable + summary.failed).all()
+
+
+def test_absent_hashes_on_both_sides_are_not_an_identity():
+    state, profiles, virial = _tables()
+    state["efit_product_sha256"] = np.nan
+    virial["efit_product_sha256"] = np.nan
+    pop = kp.assemble_kinetic_population(state, profiles, virial)
+    assert set(pop.population.virial_join) == {"product_mismatch"} and pop.failed
+
+
+def test_a_matched_state_without_channels_is_not_available_pressure_evidence():
+    state, profiles, virial = _tables()
+    profiles = profiles.loc[profiles.shot == 40000]  # the kinetic state keeps its ratios but loses its channels
+    pressure = kp.pressure_evidence(kp.assemble_kinetic_population(state, profiles, virial))
+    kinetic = pressure.loc[pressure.efit_lineage == "electron_kinetic"]
+    assert set(kinetic.status) == {"failed"} and kinetic.value.isna().all()
+    assert "without profile channels" in kinetic.reason.iloc[0]
+
+
+def test_a_ratio_on_an_unmatched_state_is_flagged_and_never_reported():
+    state, profiles, virial = _tables()
+    state.loc[1, "r_sum"] = 7.0
+    state.loc[1, "ts_reason"] = np.nan  # an empty CSV cell: the reason falls back to the status, never "nan"
+    pop = kp.assemble_kinetic_population(state, profiles, virial)
+    assert pop.issues.loc[pop.issues.check == "ratio_without_match", "status"].tolist() == ["fail"]
+    unmatched = kp.pressure_evidence(pop).query("time_efit_s == 0.3221")
+    assert unmatched.value.isna().all() and set(unmatched.reason) == {"ts_status unmatched"}
+
+
+def test_population_level_issues_survive_a_scope_split_and_the_strict_message_names_keys():
+    state, profiles, virial = _tables()
+    virial.loc[0, "efit_product_sha256"] = "cc"
+    pop = kp.assemble_kinetic_population(state, profiles, virial, manifest={"rows": {"state": 9}})
+    assert set(pop.issues.scope) == {"state", "population"}
+    with pytest.raises(kp.PopulationContractError, match=r"\(40000, 0.3201, 'magnetics'\)"):
+        kp.assemble_kinetic_population(state, profiles, virial, strict=True)
+
+
+def test_bad_key_values_and_non_numeric_virial_cells_are_contract_findings_not_crashes():
+    state, profiles, virial = _tables()
+    broken = state.copy()
+    broken.loc[0, "shot"] = np.nan
+    with pytest.raises(kp.PopulationContractError, match="shot"):
+        kp.assemble_kinetic_population(broken, profiles, virial)
+    virial["identities_available"] = virial["identities_available"].astype(object)
+    virial.loc[0, "identities_available"] = "three"
+    virial["rms"] = virial["rms"].astype(object)
+    virial.loc[0, "rms"] = "n/a"
+    pop = kp.assemble_kinetic_population(state, profiles, virial)
+    assert "rms" in pop.issues.loc[pop.issues.check == "virial_values", "detail"].iloc[0]

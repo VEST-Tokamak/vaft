@@ -103,7 +103,9 @@ VIRIAL_QUANTITIES: Mapping[str, str] = {
 }
 
 EVIDENCE_STATUSES = ("available", "unavailable", "failed")
-ISSUE_COLUMNS = (*STATE_KEY, "check", "status", "detail")
+#: ``scope`` is ``state`` (keyed) or ``population`` (empty key: a manifest, schema
+#: or table-level finding), so a key-wise groupby cannot silently drop the latter.
+ISSUE_COLUMNS = ("scope", *STATE_KEY, "check", "status", "detail")
 
 #: Required columns and the unit each carries (``""`` text, ``"-"`` dimensionless).
 STATE_COLUMNS: Mapping[str, str] = {
@@ -179,7 +181,19 @@ def _require(frame, columns: Mapping[str, str], name: str) -> None:
         raise PopulationContractError(f"{name} table lacks required column(s): {', '.join(missing)}")
 
 
-def _normalise_key(frame) -> None:
+def _normalise_key(frame, name: str) -> None:
+    """Integer shot, time rounded to the atlas key (``kinetic_state.state_time``: 1e-4 s), text lineage.
+
+    Producers write rounded times; a time that was not rounded and sits on a
+    rounding boundary would land on a neighbouring key and be reported missing.
+    """
+    import pandas as pd
+
+    for column in ("shot", "time_efit_s"):
+        values = pd.to_numeric(frame[column], errors="coerce")
+        if values.isna().any():
+            raise PopulationContractError(f"{name} table has a missing or non-numeric {column} in the state key")
+        frame[column] = values
     frame["shot"] = frame["shot"].astype(int)
     frame["time_efit_s"] = frame["time_efit_s"].astype(float).round(_TIME_DIGITS)
     frame["efit_lineage"] = frame["efit_lineage"].astype(str)
@@ -194,6 +208,13 @@ def _reject_duplicates(frame, name: str) -> None:
 
 def _key(row) -> tuple:
     return (int(row["shot"]), float(row["time_efit_s"]), str(row["efit_lineage"]))
+
+
+def _text(value: Any) -> str:
+    """A table cell as text, ``""`` for an empty cell (NaN or None after a CSV read)."""
+    if value is None or (isinstance(value, float) and math.isnan(value)):
+        return ""
+    return str(value).strip()
 
 
 def _finite(value: Any) -> bool:
@@ -219,8 +240,8 @@ def _schema_issues(schema: Mapping[str, Any], columns: Mapping[str, str], table:
 
 def _issue(key: Optional[tuple], check: str, status: str, detail: str) -> dict:
     shot, time_s, lineage = key if key is not None else (None, None, None)
-    return {"shot": shot, "time_efit_s": time_s, "efit_lineage": lineage, "check": check, "status": status,
-            "detail": detail}
+    return {"scope": "state" if key is not None else "population", "shot": shot, "time_efit_s": time_s,
+            "efit_lineage": lineage, "check": check, "status": status, "detail": detail}
 
 
 def assemble_kinetic_population(
@@ -266,8 +287,8 @@ def assemble_kinetic_population(
     state_df, profile_df, virial_df = _frame(state, "state"), _frame(profiles, "profiles"), _frame(virial, "virial")
     _require(state_df, STATE_COLUMNS, "state")
     _require(profile_df, PROFILE_COLUMNS, "profiles")
-    for frame in (state_df, profile_df):
-        _normalise_key(frame)
+    _normalise_key(state_df, "state")
+    _normalise_key(profile_df, "profiles")
     _reject_duplicates(state_df, "state")
     unknown = sorted(set(state_df["efit_lineage"]) - set(LINEAGES))
     if unknown:
@@ -320,7 +341,10 @@ def assemble_kinetic_population(
         issues.append(_issue(None, "virial_join", "not_available", "no virial table supplied"))
     else:
         _require(virial_df, VIRIAL_COLUMNS, "virial")
-        _normalise_key(virial_df)
+        _normalise_key(virial_df, "virial")
+        virial_df["identities_available"] = pd.to_numeric(virial_df["identities_available"], errors="coerce")
+        for column in VIRIAL_QUANTITIES:
+            virial_df[column] = pd.to_numeric(virial_df[column], errors="coerce")
         _reject_duplicates(virial_df, "virial")
         by_key = {_key(row): row for _, row in virial_df.iterrows()}
         for key in sorted(set(by_key) - state_keys):
@@ -334,8 +358,9 @@ def assemble_kinetic_population(
                 continue
             joined.at[i, "efit_product_virial"] = other["efit_product"]
             joined.at[i, "efit_product_sha256_virial"] = other["efit_product_sha256"]
-            if str(other["efit_product"]) != str(row["efit_product"]) or \
-                    str(other["efit_product_sha256"]) != str(row["efit_product_sha256"]):
+            identity = [_text(other["efit_product"]), _text(other["efit_product_sha256"]),
+                        _text(row["efit_product"]), _text(row["efit_product_sha256"])]
+            if not all(identity) or identity[:2] != identity[2:]:  # an absent hash proves nothing
                 joined.at[i, "virial_join"] = "product_mismatch"
                 issues.append(_issue(key, "efit_product_identity", "fail",
                                      f"virial from {other['efit_product']} ({str(other['efit_product_sha256'])[:12]}), "
@@ -351,6 +376,13 @@ def assemble_kinetic_population(
     joined["ts_time_within_tolerance"] = [
         (None if _key(row) not in matched else _key(row) not in tol_fail) for _, row in joined.iterrows()
     ]
+    channels = profile_df.groupby(list(STATE_KEY)).size().to_dict()
+    joined["ts_channels"] = [int(channels.get(_key(row), 0)) for _, row in joined.iterrows()]
+    for _, row in joined.loc[joined["ts_status"] != "matched"].iterrows():
+        stray = [ratio for ratio in PRESSURE_RATIOS if _finite(row[ratio])]
+        if stray:
+            issues.append(_issue(_key(row), "ratio_without_match", "fail",
+                                 f"{', '.join(stray)} finite on a state with ts_status {row['ts_status']}"))
 
     # Manifest and schemas.
     provenance: dict[str, Any] = {"rows": {"state": int(len(state_df)), "profiles_matched": int(len(profile_df)),
@@ -379,7 +411,9 @@ def assemble_kinetic_population(
     if strict and result.failed:
         failed = issue_df.loc[issue_df["status"] == "fail"]
         raise PopulationContractError(
-            f"{len(failed)} contract failure(s): " + "; ".join(f"{r.check}: {r.detail}" for r in failed.head(5).itertuples())
+            f"{len(failed)} contract failure(s): " + "; ".join(
+                f"{r.check} {'' if r.scope == 'population' else (r.shot, r.time_efit_s, r.efit_lineage)}: {r.detail}"
+                for r in failed.head(5).itertuples())
         )
     return result
 
@@ -417,8 +451,9 @@ def pressure_evidence(population: KineticPopulation):
 
     Status ``unavailable`` where the state has no Thomson match (``reason``
     is the atlas ``ts_reason`` when present), ``failed`` where it was matched
-    outside the tolerance or the ratio is not a finite positive number, else
-    ``available``. ``r_sum``, ``r_w`` and ``r_w_full`` stay separate rows.
+    outside the tolerance, has no profile channels, or the ratio is not a
+    finite positive number, else ``available``. ``value`` is NaN unless
+    available. ``r_sum``, ``r_w`` and ``r_w_full`` stay separate rows.
     """
     import pandas as pd
 
@@ -429,18 +464,19 @@ def pressure_evidence(population: KineticPopulation):
         for ratio, support in PRESSURE_RATIOS.items():
             value = row[ratio]
             if not matched:
-                status, reason = "unavailable", str(row.get("ts_reason", "") or f"ts_status {row['ts_status']}")
+                status, reason = "unavailable", _text(row.get("ts_reason")) or f"ts_status {row['ts_status']}"
             elif _outside_tolerance(row["ts_time_within_tolerance"]):
                 status, reason = "failed", "Thomson time outside the matching tolerance"
+            elif int(row["ts_channels"]) == 0:
+                status, reason = "failed", "Thomson-matched state without profile channels"
             elif not (_finite(value) and float(value) > 0):
                 status = "failed"
-                reason = str(row.get("r_w_reason", "") or "") if ratio != "r_sum" else ""
-                reason = reason if reason and reason != "nan" else "not a finite positive ratio"
+                reason = (_text(row.get("r_w_reason")) if ratio != "r_sum" else "") or "not a finite positive ratio"
             else:
                 status, reason = "available", ""
             rows.append({**{k: row[k] for k in STATE_KEY}, "efit_quality": row["efit_quality"],
                          "validation_role": row["validation_role"], "family": "pressure", "quantity": ratio,
-                         "support": support, "value": float(value) if _finite(value) else np.nan,
+                         "support": support, "value": float(value) if status == "available" else np.nan,
                          "status": status, "reason": reason})
     return pd.DataFrame(rows)
 
