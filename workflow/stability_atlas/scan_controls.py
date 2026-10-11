@@ -27,6 +27,7 @@ import os
 import shutil
 import tempfile
 import time
+from functools import lru_cache
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -198,8 +199,7 @@ def run_job(
         if cached["status"] != "failed":
             return cached
     jobdir.mkdir(parents=True, exist_ok=True)
-    # Advisory ordering state of the equilibrium (#1987); never raises.
-    ordering_state, ordering = ordering_state_for_case(eq.gfile)
+    ordering_state, ordering = _ordering_state(eq.gfile)  # cached: copied before use below
     config = GPECSuiteConfig(
         modules=(variant.module,),
         modes=(mode,),
@@ -210,7 +210,7 @@ def run_job(
         timeout=timeout,
         dcon=variant.dcon,
         backend=backend,
-        ordering_state=ordering_state,
+        ordering_state=dict(ordering_state),
     )
     start = time.monotonic()
     result = run_gpec_suite_case(
@@ -243,6 +243,12 @@ def run_job(
             (Path(record.workdir) / name).unlink(missing_ok=True)
     _write_atomic(done, json.dumps(row, indent=1, default=str))
     return row
+
+
+@lru_cache(maxsize=None)
+def _ordering_state(gfile: Path) -> tuple[dict, dict]:
+    """Advisory ordering state of an equilibrium (#1987), once per g-file per worker; never raises."""
+    return ordering_state_for_case(gfile)
 
 
 def _write_atomic(path: Path, text: str) -> None:
