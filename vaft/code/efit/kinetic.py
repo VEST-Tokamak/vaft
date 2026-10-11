@@ -234,6 +234,12 @@ class KineticEFITConfig:
     # kfile when it is built from the ODS; None is the default configuration
     # (statistical_891 since 2026-10-01).
     efit_preset: Optional[str] = None
+    #: Ordering quantities of the state being reconstructed (#1823), by
+    #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name, e.g.
+    #: ``vaft.process.ordering_state.ordering_inputs_from_ods(ods, t).state``.
+    #: Advisory only: passed to every PLASMA-scale run's ``EFITConfig`` and
+    #: recorded there as ``ordering_check``; never part of the k-file.
+    ordering_state: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -1076,6 +1082,7 @@ def run_kinetic_efit(
             args=(str(int(config.grid_size)),),  # EFIT needs the grid size: `efit <n>`
             env=config.env,
             timeout=config.timeout,
+            ordering_state=config.ordering_state,
         )
         efit_inputs = EFITInputs(
             workdir=scale_dir, kfiles=(kpath,), files=(kpath,)
