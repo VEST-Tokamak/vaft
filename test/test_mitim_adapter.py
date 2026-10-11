@@ -583,3 +583,18 @@ def test_stopping_overrides_are_refused_for_the_analytic_model(ready, profile, t
     with pytest.raises(ValueError, match="tglf_neo"):
         mitim.run_portals_closed_loop(profile, [0.55], tmp_path / "run", ready,
                                       stopping_criteria_parameters=NO_EARLY_STOP)
+
+
+def test_rows_mitim_did_not_evaluate_are_skipped():
+    """The standalone r/a 0.55 run crashed on MITIM's empty duplicate rows (#1588 C1)."""
+    import importlib.util
+
+    path = Path(mitim.__file__).parent / "drivers" / "portals_tglf_closed_loop.py"
+    spec = importlib.util.spec_from_file_location("portals_tglf_closed_loop_rows", path)
+    driver = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(driver)
+    full = {"Iteration": "0.0", "aLte_1": "-0.093", "Qe_tr_turb_1": "0.0111", "Qe_tr_neoc_1": "4.7e-05",
+            "Qe_tar_1": "0.0112"}
+    empty = {**full, "Iteration": "2.0", "Qe_tr_turb_1": "", "Qe_tr_neoc_1": "", "Qe_tar_1": ""}
+    assert driver.evaluated_rows([full, empty, {**full, "Iteration": "5.0"}], 1) == [full, {**full, "Iteration": "5.0"}]
+    assert driver.evaluated_rows([empty], 1) == []

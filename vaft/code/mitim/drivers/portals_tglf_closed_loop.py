@@ -39,6 +39,25 @@ def _key(profiles, name):
     return None
 
 
+def evaluated_rows(rows, n):
+    """The rows of ``optimization_data.csv`` that hold an evaluation.
+
+    MITIM writes a row for every proposed point but leaves the flux columns empty
+    when it did not evaluate it (a duplicate of an earlier point: the initial
+    training repeats the start, and near-converged acquisitions can coincide), and
+    its Iteration numbers then skip. Those rows carry no result and are left out.
+    """
+    needed = [f"{name}_{i + 1}" for i in range(n) for name in ("Qe_tr_turb", "Qe_tr_neoc", "Qe_tar", "aLte")]
+    kept = []
+    for entry in rows:
+        try:
+            [float(entry[key]) for key in needed]
+        except (KeyError, TypeError, ValueError):
+            continue
+        kept.append(entry)
+    return kept
+
+
 def _rows(folder):
     with open(Path(folder) / "Outputs" / "optimization_data.csv", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
@@ -143,7 +162,10 @@ def main(argument_file):
                        stopping=args.get("stopping_criteria_parameters"))
         run_pf.prep(copy.deepcopy(state))
         STRATEGYtools.MITIM_BO(run_pf, cold_start=True, askQuestions=False).run()
-        rows = _rows(work / "run")
+        written = _rows(work / "run")
+        rows = evaluated_rows(written, n)
+        if not rows:
+            raise RuntimeError("PORTALS wrote no evaluated row")
 
         def residual(entry):
             return [float(entry[f"Qe_tr_turb_{i + 1}"]) + float(entry[f"Qe_tr_neoc_{i + 1}"])
@@ -163,7 +185,9 @@ def main(argument_file):
             final_model_MWm2=[float(best[f"Qe_tr_turb_{i + 1}"]) + float(best[f"Qe_tr_neoc_{i + 1}"])
                               for i in range(n)],
             final_required_MWm2=[float(best[f"Qe_tar_{i + 1}"]) for i in range(n)],
-            evaluations=len(rows), best_iteration=int(float(best["Iteration"])),
+            evaluations=len(rows), rows_without_evaluation=len(written) - len(rows),
+            iterations=[int(float(entry["Iteration"])) for entry in rows],
+            best_iteration=int(float(best["Iteration"])),
             residual_history=[float(np.linalg.norm(residual(entry))) for entry in rows],
             # Per-evaluation diagnostics, so convergence is judged radius by radius.
             aLte_history=[[float(entry[f"aLte_{i + 1}"]) for i in range(n)] for entry in rows],
@@ -172,7 +196,10 @@ def main(argument_file):
                 key: value for key, value in run_pf.optimization_options["convergence_options"][
                     "stopping_criteria_parameters"].items() if isinstance(value, (int, float, str, list, type(None)))},
             evaluation_cap=int(args.get("initial_training", 5)) + int(args.get("maximum_iterations", 10)),
-            stopped_before_cap=len(rows) < int(args.get("initial_training", 5)) + int(args.get("maximum_iterations", 10)),
+            # By the last Iteration number, not the row count: unevaluated proposals
+            # are skipped rows, not an early stop.
+            stopped_before_cap=(max(int(float(entry["Iteration"])) for entry in written) + 1
+                                < int(args.get("initial_training", 5)) + int(args.get("maximum_iterations", 10))),
         )
     except Exception as error:  # reported, not raised: the caller reads result.json
         out["error"] = f"{type(error).__name__}: {error}"
