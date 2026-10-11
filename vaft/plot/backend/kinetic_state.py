@@ -55,7 +55,8 @@ and ``Z_eff(rho)`` -- fixes the stage of every trace by its *quantity* alone
 (:data:`QUANTITY_STAGES`); the data never does.  ``stage=k`` cuts the figure
 at stage ``k``: only quantities of stage ``<= k`` are drawn, every one as in
 the full figure (no stage is faded), every panel on the limits of the full
-figure so a sequence of stages does not jump; the newest stage's traces are
+figure so the data scale does not jump, each legend naming only what the
+stage draws (the layout may shift between stages); the newest stage's traces are
 marked ``emphasis="newest"`` in the trace records.  ``stage=None`` (the
 default) is the full figure.  ``layout="stages"`` puts the cumulative figure
 at several stages side by side, one column per stage.  A procedure is shown as
@@ -81,7 +82,7 @@ from vaft.plot.backend.access import array, count, get
 from vaft.plot.backend.kinetic_overview import _closest, _core_coordinate, _equilibrium_time_axis
 from vaft.plot.display import COORDINATE_LABELS, resolve_display
 from vaft.plot.intent import palette
-from vaft.plot.models import Panels, Profile1D, ReferenceLine, Series, TextPanel
+from vaft.plot.models import Panels, Profile1D, Series, TextPanel
 
 __all__ = []  # The registered plot is public; the extraction is not.
 
@@ -155,8 +156,8 @@ SINGLE_SLICE_TOLERANCE = 5e-4
 #: global quantity at that index to belong to it [s].
 GLOBAL_TIME_TOLERANCE = 1e-6
 
-#: Legend type as a fraction of the format's base size (Matplotlib's "x-small").
-LEGEND_FONTSIZE_SCALE = 0.7
+#: Legend type as a fraction of the format's base size.
+LEGEND_FONTSIZE_SCALE = 0.58
 
 
 #: Elementary charge [C].
@@ -775,19 +776,6 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
                             linestyle="--"),
             "Z_eff_reference", path, role, "none")
 
-    # --- the measured span (valid channels only), shaded -----------------------------
-    span_line = None
-    if ts_x is not None:
-        measured = np.isfinite(ts_x) & ((np.isfinite(ts["n_e"]) & ts["valid_n_e"])
-                                        | (np.isfinite(ts["t_e"]) & ts["valid_t_e"]))
-        if measured.sum() >= 2:
-            span_line = (float(np.min(ts_x[measured])), float(np.max(ts_x[measured])))
-
-    def spans(first: bool) -> tuple[ReferenceLine, ...]:
-        if span_line is None:
-            return ()
-        return (ReferenceLine(x=span_line[0], x_end=span_line[1], label="TS span" if first else ""),)
-
     assumptions = _assumptions(records, None if reference is None or reference[3] != "stored" else reference[0])
     selection = {
         "time": t_core, "core_profiles_slice": j, "equilibrium_time": t_eq, "equilibrium_slice": i,
@@ -798,7 +786,6 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         "thomson_channels": [] if ts is None or not len(ts["rows"]) else [int(c) for c in ts["channel"]],
         "thomson_skipped": [] if ts is None else [list(item) for item in ts["skipped"]],
         "thomson_note": ts_note,
-        "thomson_span": None if span_line is None else list(span_line),
         "t_i_finite_range": valid_range, "coordinate": coordinate,
         "assumptions": [{"quantity": q, "record": path, "statement": text} for q, path, text in assumptions],
     }
@@ -809,12 +796,11 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         ("temperature", temperature, "$T$", "eV", None),
         ("zeff", charge, r"$Z_{\mathrm{eff}}$", "", None),
     )
-    all_series = {name: list(series) for name, series, *_ in panels}
     cut = stage is not None or columns is not None
     # The full figure's limits, kept by every cut of it so stages do not jump.
     limits = {name: _y_limits(series) for name, series, *_ in panels} if cut else {}
 
-    def panel(name, series, y_label, unit, display_spec, at, *, first=False, title="", extra=None, compact=False):
+    def panel(name, series, y_label, unit, display_spec, at, *, title="", extra=None, compact=False):
         records_ = [t for t in traces if t["panel"] == name]
         if at is not None:
             kept = [(s, dict(t)) for s, t in zip(series, records_) if t["stage"] <= at]
@@ -830,18 +816,10 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
             records_ = [t for _, t in kept]
             for s, t in zip(series, records_):
                 t["label"] = s.label
-        if at is not None and not compact:
-            # The full figure's legend, in the order Matplotlib lists it (lines,
-            # then the span, then markers): the renderer reserves its room in
-            # every cut, so a sequence of stages keeps one layout.
-            full = [(s, t) for s, t in zip(all_series[name], [t for t in traces if t["panel"] == name])]
-            lines = [s.label for s, _ in full if "marker" not in s.style]
-            marks = [s.label for s, _ in full if "marker" in s.style]
-            extra = {**(extra or {}), "legend_labels": lines + (["TS span"] if first and span_line else []) + marks}
         return Profile1D(
             series=tuple(series), coordinate_label=_symbol(label) if compact else label, y_label=y_label,
             y_unit=unit, title=title,
-            x_limits=(0.0, 1.0), y_limits=limits.get(name), display=display_spec, reference_lines=spans(first),
+            x_limits=(0.0, 1.0), y_limits=limits.get(name), display=display_spec,
             metadata={"panel": name, "traces": records_, **selection, "stage": at,
                       "stage_name": STAGE_NAMES.get(at) if at is not None else None, **(extra or {})},
         )
@@ -864,7 +842,8 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
     # Beside the panels, a stack's in two columns; the renderer moves them
     # inside for a format too narrow for that.
     beside = {"loc": "upper left", "bbox_to_anchor": (1.02, 1.0), "borderaxespad": 0.0,
-              "fontsize_scale": LEGEND_FONTSIZE_SCALE}
+              "fontsize_scale": LEGEND_FONTSIZE_SCALE, "labelspacing": 0.3, "handlelength": 1.5,
+              "handletextpad": 0.5, "borderpad": 0.3}
 
     if columns is not None:
         # Rows are the four quantities, columns the cumulative figure at each
@@ -875,10 +854,8 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         for row, (name, series, y_label, unit, display_spec) in enumerate(panels):
             for col, at in enumerate(columns):
                 title = f"{at}: {_STAGE_TITLES[at]}" if row == 0 else ""
-                last = col == len(columns) - 1
-                # The span is named once, in the legend of the first row.
-                models.append(panel(name, series, y_label, unit, display_spec, at, first=row == 0 and last,
-                                    title=title, extra={"layout": "stages", "column": col}, compact=True))
+                models.append(panel(name, series, y_label, unit, display_spec, at, title=title,
+                                    extra={"layout": "stages", "column": col}, compact=True))
                 styles.append({"legend": False})
             # A cell of its own for the row's legend, which the renderer fills
             # from the row's last column: inside an axes, the layout makes room
@@ -892,8 +869,8 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         stage, [a for a in assumptions if stage is None or QUANTITY_STAGES[a[0]] <= stage],
         [t for t in traces if stage is not None and t["stage"] == stage],
     )
-    models = tuple(panel(name, series, y_label, unit, display_spec, stage, first=index == 0)
-                   for index, (name, series, y_label, unit, display_spec) in enumerate(panels))
+    models = tuple(panel(name, series, y_label, unit, display_spec, stage)
+                   for name, series, y_label, unit, display_spec in panels)
     grid = layout == "grid"
     legends = tuple(_legend_style(model, beside if grid else {**beside, "ncol": 2}) for model in models)
     return Panels(models=models, nrows=2 if grid else 4, ncols=2 if grid else 1, share_x=True,
@@ -1026,9 +1003,6 @@ def _caption(stage: int | None, assumptions: list, newest: list) -> str:
         parts.append(text)
     if assumptions:
         parts.append("Assumed: " + "; ".join(_math(statement) for _, _, statement in assumptions))
-    elif stage is not None:
-        # One line count for every stage, so a sequence of stages keeps one layout.
-        parts.append("Assumed: none")
     return "".join("\n" + part for part in parts)
 
 

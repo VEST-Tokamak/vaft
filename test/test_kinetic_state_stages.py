@@ -121,8 +121,6 @@ def test_stage_one_is_the_data_and_stage_four_adds_the_reference(romero):
     assert set(_quantities(_extract(romero.ods, stage=1))) == {"p_eq", "p_e_thomson", "n_e_thomson", "T_e_thomson"}
     added = set(_quantities(_extract(romero.ods, stage=4))) - set(_quantities(_extract(romero.ods, stage=3)))
     assert added == {"Z_eff_reference"}
-    # The span is stage-1 data: it is there from the first stage.
-    assert _extract(romero.ods, stage=1).models[0].reference_lines
 
 
 def test_every_stage_draws_its_traces_as_the_full_figure_does(romero):
@@ -160,14 +158,18 @@ def test_every_stage_keeps_the_full_figures_limits(romero):
             assert not finite.size or (low <= finite.min() and finite.max() <= high)
 
 
-def test_a_sequence_of_stages_keeps_one_layout(romero):
-    positions = []
+def test_each_stage_legend_names_only_what_the_stage_draws(romero):
+    """No room is reserved for traces not drawn yet (user decision on #1957); the canvas stays the slide's."""
     for stage in (1, 4, 8):
         figure, axes = _quiet(vaft.omas.plot_kinetic_overview_state, romero.ods, stage=stage, format="slide")
-        positions.append(np.array([a.get_position().bounds for a in np.asarray(axes).ravel()]))
         assert figure.get_size_inches().tolist() == pytest.approx([11.0, 5.5], abs=0.6)
-    for other in positions[1:]:
-        np.testing.assert_allclose(other, positions[0], atol=3e-3)
+        model = _extract(romero.ods, stage=stage)
+        for axis, panel in zip(np.asarray(axes).ravel(), model.models):
+            legend = axis.get_legend()
+            texts = [t.get_text() for t in legend.get_texts()] if legend else []
+            assert texts == [s.label for s in panel.series if s.label] or sorted(texts) == sorted(
+                s.label for s in panel.series), (stage, texts)
+            assert all(t.get_alpha() in (None, 1.0) for t in (legend.get_texts() if legend else ()))
 
 
 def test_a_stage_with_nothing_stored_says_so(archive):
@@ -196,7 +198,7 @@ def test_assumptions_are_read_from_the_records(romero):
     # A cut names only what its stages assumed.
     assert "n_C" not in _extract(romero.ods, stage=4).suptitle
     assert "n_C = n_O" in _extract(romero.ods, stage=5).suptitle
-    assert _extract(romero.ods, stage=2).suptitle.endswith("Assumed: none")  # one line count per stage
+    assert "Assumed" not in _extract(romero.ods, stage=2).suptitle
 
 
 def test_a_preset_composition_lists_its_target_and_nothing_else(archive):
@@ -285,7 +287,7 @@ def test_the_stages_layout_renders_one_legend_per_row_on_a_slide(romero):
     assert all(axis.get_legend() is None for axis in grid[:, :-1].ravel())
     assert [axis.get_title() for axis in grid[0, :-1]] == ["1: data", r"4: $Z_{\mathrm{eff}}$ ref.", "8: closure"]
     labels = [t.get_text() for t in grid[0, -1].get_legend().get_texts()]
-    assert r"$p_{\mathrm{eq}}$" in labels and "TS span" in labels
+    assert r"$p_{\mathrm{eq}}$" in labels and "TS span" not in labels
     figure.canvas.draw()
     assert grid[0, 0].get_window_extent().height > 0.12 * figure.bbox.height  # rows are not squeezed
 

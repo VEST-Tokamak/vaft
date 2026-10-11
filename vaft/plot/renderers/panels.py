@@ -984,11 +984,8 @@ _KINETIC_STATE_OUTSIDE_LEGEND_MIN_WIDTH_IN = 6.0
 _KINETIC_STAGE_COLUMN_IN = 1.9
 #: Its column titles (the stage names) against the format's title size.
 _KINETIC_STAGE_TITLE_SCALE = 0.8
-#: A caption line at least as tall as any a stage cut writes, laid out in
-#: its place so every stage of a sequence gets one layout.
-_KINETIC_CAPTION_STRUT = r"Stage $p_{\mathrm{eq}}^{\mathrm{TS}}$ $Z_{\mathrm{eff}}(\rho)$ [$n_{\mathrm{imp}}^{+}$]"
 #: Its row legends against the format's base type size.
-_KINETIC_STAGE_LEGEND_SCALE = 0.6
+_KINETIC_STAGE_LEGEND_SCALE = 0.55
 
 
 def _kinetic_stage_legend_pt(axis: Any) -> float:
@@ -1039,9 +1036,8 @@ def kinetic_overview_state(
     electron and ion temperatures; the last panel the effective charge with
     its stored resistive value or the recorded composition target as a
     reference.  Thomson channels are mapped from their own (R, Z) through the
-    selected equilibrium and drawn with their 1 sigma errors; the radial span
-    their valid channels cover is shaded, and outside it every profile is
-    extrapolated.  Each legend entry names the role its quantity's provenance
+    selected equilibrium and drawn with their 1 sigma errors; where no
+    channel lies, every profile is extrapolated.  Each legend entry names the role its quantity's provenance
     record states -- measurement, fit, assumed, inferred -- and the plot
     derives two more from the records: Thomson points are the fit input of
     fitted profiles, and the Thomson pressure is independent validation of a
@@ -1074,9 +1070,10 @@ def kinetic_overview_state(
     the normalized poloidal flux.  ``layout=`` arranges the same four panels
     as a 2 x 2 grid or a 4 x 1 stack; ``format=`` and ``theme=`` size and
     style the figure.  ``stage=`` (1-8) draws the chain up to that stage,
-    every trace as in the full figure, every axis on the full figure's limits
-    and every legend keeping the full figure's room, so the images of a
-    procedure -- one per stage, from a loop over ``stage=k`` -- line up.
+    every trace as in the full figure and every axis on the full figure's
+    limits, so the data scale does not jump between the images of a
+    procedure -- one per stage, from a loop over ``stage=k``; each legend
+    names only what its stage draws, so the layout may shift.
     ``animation=True`` walks the eight stages (``stage=[...]`` picks some) at
     the selected ``time=`` as one movie.  ``layout="stages"`` draws the four
     quantities as rows and one column per stage of ``stages=`` (default 1,
@@ -1114,9 +1111,8 @@ def kinetic_overview_state(
         # No format: a canvas as wide as its columns, not the 6.5-inch screen
         # format a 2 x 2 grid is drawn on (format="slide" for a slide).
         style["figsize"] = (_KINETIC_STAGE_COLUMN_IN * model.ncols + 1.0, 7.5)
-    reserved = [getattr(m, "metadata", {}).get("legend_labels") for m in model.models]
-    # Shown once the stage layout or the reserved legends below are done.
-    deferred = stages or (ax is None and any(reserved))
+    # Shown once the stage layout below is done.
+    deferred = stages
     figure, axes = render_panels(model, ax=ax, show=show and not deferred, **style)
     grid = np.asarray(axes, dtype=object)
     if stages and grid.ndim == 2:
@@ -1161,36 +1157,6 @@ def kinetic_overview_state(
             # three ticks across the normalized radius keep their labels apart.
             for axis in grid.ravel():
                 axis.locator_params(axis="x", nbins=3)
-        if ax is None and any(reserved):
-            # A stage cut (#1957): each legend keeps the room of the full
-            # figure's -- the entries not drawn yet are there, invisible -- so
-            # every stage of a sequence has the same panels in the same place.
-            sizes = [t.get_fontsize() for a in grid.ravel() if a.get_legend() for t in a.get_legend().get_texts()]
-            for index, (axis, labels) in enumerate(zip(grid.ravel(), reserved)):
-                if labels:
-                    placement = dict((model.member_styles or ({},) * len(reserved))[index].get("legend_placement")
-                                     or {})
-                    placement.pop("fontsize_scale", None)
-                    _reserve_legend(axis, labels, placement, sizes[0] if sizes else None)
-            from ..style import finalize
-
-            # Until it settles: a legend hung beside its axes moves with it, so
-            # one pass from the first layout is not where the full figure's
-            # settles, and every stage must land on the same layout.
-            # The caption line's height varies with its symbols; the layout is
-            # made for a strut line as tall as any, then the caption put back.
-            title = figure._suptitle
-            caption = title.get_text() if title is not None else ""
-            if "\n" in caption:
-                lines = caption.split("\n")
-                title.set_text("\n".join([lines[0]] + [_KINETIC_CAPTION_STRUT] * (len(lines) - 1)))
-            for _ in range(6):
-                before = [tuple(a.get_position().bounds) for a in grid.ravel()]
-                finalize(figure, grid, show=False, tight_layout=True, pad=_kinetic_pad(style, ax))
-                if np.allclose(before, [tuple(a.get_position().bounds) for a in grid.ravel()], atol=1e-4):
-                    break
-            if title is not None:
-                title.set_text(caption)
         if show and deferred:
             plt.show()
     return figure, axes
@@ -1205,32 +1171,6 @@ def _kinetic_pad(style: Mapping[str, Any], ax: Any) -> float | None:
         name = DEFAULT_FORMAT
     fmt = FORMATS.get(name) if isinstance(name, str) else None
     return None if fmt is None else fmt.outer_pad_pt / fmt.base_font_pt
-
-
-def _reserve_legend(axis: Any, labels: Sequence[str], placement: Mapping[str, Any], fontsize: Any) -> None:
-    """Redraw ``axis``'s legend with every label in ``labels``; those not drawn are invisible.
-
-    A panel with nothing drawn yet gets the legend it will have, invisible,
-    placed as ``placement`` says.
-    """
-    from matplotlib.lines import Line2D
-
-    drawn = {label: handle for handle, label in zip(*axis.get_legend_handles_labels())}
-    handles = [drawn.get(label) or Line2D([], [], alpha=0.0) for label in labels]
-    legend = axis.get_legend()
-    gid = None
-    if legend is not None:
-        gid = legend.get_gid()
-        fontsize = legend.get_texts()[0].get_fontsize() if legend.get_texts() else fontsize
-    options = {"fontsize": fontsize, **{("ncols" if k == "ncol" else k): v for k, v in placement.items()}}
-    rebuilt = axis.legend(handles, list(labels), **{k: v for k, v in options.items() if v is not None})
-    if gid is not None:
-        rebuilt.set_gid(gid)
-    for text, label in zip(rebuilt.get_texts(), labels):
-        if label not in drawn:
-            text.set_alpha(0.0)
-    if not drawn:
-        rebuilt.get_frame().set_alpha(0.0)
 
 
 @_panel_renderer(
