@@ -471,6 +471,9 @@ CORE_MODULES: tuple[str, ...] = (
     # GACODE-suite formalism: NEO/TGLF/TGLF-NN/CGYRO records derived from the
     # written input, and the distinctions that must not collapse. Pure Python, <1 s.
     "test_gacode_plasma_formalism.py",
+    # Cross-backend formalism consistency: schema/semantic/backend layers,
+    # reference and future fixtures, pairwise non-conflation, queries, grouping keys. Under 10 s.
+    "test_formalism_consistency.py",
     # Ordering contracts: the registry against applicability's rules,
     # the cited kernels against the catalog, and evaluation on synthetic states.
     "test_validation_orderings.py",

@@ -32,6 +32,7 @@ Layout::
     orderings.py      the ordering contracts of the reduced models and their quantities
     sensitivity.py    Jacobian provenance, derivative and linear-vs-sampled UQ comparisons
     pipeline_comparison.py  archived legacy vs current pipeline: time pairing and paired statistics
+    formalism_consistency.py  plasma-formalism records across backends: schema/semantic/backend, keys, queries
 
 The dependency direction runs one way: :mod:`vaft.database.production_qa`
 consumes ``stage_evidence`` to decide which figures a stage owes and how to
