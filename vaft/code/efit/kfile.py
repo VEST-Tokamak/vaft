@@ -200,7 +200,11 @@ def diamagnetic_anchored_slices(times, method_name, *, average_window: float) ->
     measurement -- and with a relative error model its sigma goes to zero
     with it (42914, 45663, #1799). Those slices are fitted without the row.
 
-    Returns ``[]`` when the product does not record its window.
+    Returns ``[]`` when the product does not record its window. A window
+    that ran past the Rogowski record ("window clipped to the Rogowski
+    record") is anchored at the record's edge, which the product does not
+    record; a slice beyond that edge is not caught here and the k-file
+    writer still refuses its zero sigma -- loudly, not silently.
     """
     from vaft.machine_mapping.magnetics import diamagnetic_baseline_window
 
