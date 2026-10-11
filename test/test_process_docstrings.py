@@ -81,6 +81,9 @@ DEFINITIONAL = frozenset({
     "assess_neo_readiness",
     "run_identity",
     "physics_parameters",
+    # transport_state (#1567 Phase C): the resolved profile's species list read as a
+    # canonical state -- a representation change, no physics of its own.
+    "transport_species_state",
     # Signed sums and magnitude shares of fluxes the models already computed.
     "transport_partition",
     # A comparison of two solver inputs, no physics of its own.
@@ -142,6 +145,8 @@ PIPELINE = frozenset({
     "resistive_zeff_sensitivity",
     # transport_state (#1428): times -> Ti hierarchy -> geometry -> composition/convert
     "resolve_transport_state",
+    # transport_state (#1567 Phase C): canonical species -> projection -> projected profile
+    "project_transport_state",
     # impurity (#1565): match time -> choose by precedence -> close at Z_eff -> reduce
     "resolve_impurity_composition",
     # impurity (#1565 Sec. 8): ADF11 states -> moments -> S1/S2 -> one scale -> check
@@ -688,6 +693,8 @@ CONVENTION_SENSITIVE = frozenset({
     "species_state_from_composition",
     "composition_moments",
     "project_species_state",
+    # transport_state (#1567 Phase C): bundled lumps and the closure's density origin
+    "transport_species_state",
     # mhd_stability (#940): DCON's signs (D_I, D_R > 0 and C_A, dW < 0 unstable)
     # and its edge-scan peak search.
     "dcon_local_stability",
