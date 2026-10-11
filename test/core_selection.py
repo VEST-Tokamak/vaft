@@ -170,6 +170,9 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_dependency_policy_matrix.py",
     "test_data_resources.py",
     "test_docstring_engine.py",
+    # The plasma-model guide's generated tables and glossary against the
+    # formalism record (#1739): file read plus two registry imports.
+    "test_docs_plasma_model_guide.py",
     "test_formula_docstrings.py",
     "test_notebook_outputs.py",
     "test_packaging_issue45.py",

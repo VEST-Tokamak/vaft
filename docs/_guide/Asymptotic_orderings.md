@@ -178,6 +178,7 @@ is the result, and `margin_label` only names its band.
 
 A contract says what a model assumes. A run's `vaft.code.formalism.PlasmaFormalism` record (#1727) says which
 model the run used. `vaft.validation.model_contracts` joins the two (#1823).
+Every mode with its record and its contracts is tabulated, generated from the registry, in [Plasma models: a guide]({{ '/reference/plasma-model-guide/' | relative_url }}), §9.
 
 `contracts_for(formalism)` maps a record to the contracts it consumes, as `(contract, role)` pairs. It reads
 the record's fields as they are. The **role** says how the assumption enters the calculation. It is not a

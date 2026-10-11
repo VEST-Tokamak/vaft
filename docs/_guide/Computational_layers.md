@@ -21,6 +21,10 @@ vocabulary (issue #1078, under the umbrella #1077) so that contributors put new 
 place. How these layers fit with data, validation, orchestration and the other architecture views is
 mapped on [Scientific architecture]({{ '/reference/scientific-architecture/' | relative_url }}).
 
+**Independent of the physics.** These layers say *where* a computation lives. *What physical model* it
+represents (MHD, drift kinetic, gyrokinetic, hybrid, orbit) is a separate classification, in [Plasma models: a guide]({{ '/reference/plasma-model-guide/' | relative_url }}). A Code-layer
+adapter can run several models, and one model can appear in several layers.
+
 ## Terminology
 
 | Term | Meaning |

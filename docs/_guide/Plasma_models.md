@@ -14,6 +14,9 @@ guide:
 Two pages answer different questions. [Computational layers]({{ '/reference/computational-layers/' | relative_url }}) says
 *where* a computation belongs in VAFT (Formula, Process, Code). This page says *what physical model* the computation represents.
 
+**New here?** Start with [Plasma models: a guide]({{ '/reference/plasma-model-guide/' | relative_url }}) (#1739). It explains the model families and places every VAFT mode, with
+generated tables; this page holds the evidence behind each classification.
+
 **What this page is.** It is the Phase A audit of #1723, under issue #1725: a reviewed scientific classification.
 
 **What it is not.** It is not an API: no enum and no model class is introduced here. Phase B (#1727) will encode only the
