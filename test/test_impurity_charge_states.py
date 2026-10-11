@@ -172,6 +172,36 @@ def test_bundled_ions_carry_charge_profiles_and_states(tables):
     np.testing.assert_allclose(charge, NE, rtol=1e-9)              # quasi-neutral incl. charge states
 
 
+def test_the_record_states_what_the_amplitude_was_closed_on(tables):
+    from vaft.machine_mapping.core_profiles import ti_record_fields
+
+    ods = ODS()
+    ods["core_profiles.time"] = np.array([0.3])
+    ods["core_profiles.profiles_1d.0.time"] = 0.3
+    ods["core_profiles.profiles_1d.0.grid.rho_tor_norm"] = RHO
+    ods["core_profiles.profiles_1d.0.electrons.density_thermal"] = NE
+    base = "core_profiles.profiles_1d.0"
+    preset = resolve_radial_composition(TE, NE, RHO, {"C": 1, "O": 1}, tables=tables, time=0.3)
+    fields = ti_record_fields(populate_radial_impurity_profiles(ods, preset)[f"{base}.zeff_fit.parameters"])
+    assert fields["normalization"] == "ne_weighted_mean" and float(fields["target_zeff"]) == 2.0
+    assert float(fields["scale"]) == pytest.approx(preset.scale, rel=1e-5)
+    closed = resolve_radial_composition(TE, NE, RHO, {"C": 1, "O": 1}, normalization="resistive_closure",
+                                        resistive_target=1.7, projection=lambda z: float(np.nanmean(z)),
+                                        tables=tables, time=0.3)
+    out = populate_radial_impurity_profiles(
+        ods, closed, record_fields={"resistive_method": "romero", "resistive_sigma": 0.21})
+    for path in (f"{base}.zeff_fit.parameters", f"{base}.ion.1.density_fit.parameters"):
+        fields = ti_record_fields(out[path])
+        assert fields["origin"] == "inferred" and fields["normalization"] == "resistive_closure"
+        assert float(fields["resistive_target"]) == 1.7 and fields["resistive_method"] == "romero"
+        assert float(fields["resistive_sigma"]) == 0.21 and "target_zeff" not in fields
+    for clash in ({"resistive_target": 1.6}, {"normalization": "axis"}, {"origin": "measured"}):
+        with pytest.raises(ValueError, match="may not restate"):
+            populate_radial_impurity_profiles(ods, closed, record_fields=clash)
+    with pytest.raises(ValueError, match="separator"):
+        populate_radial_impurity_profiles(ods, closed, record_fields={"assumption": "n_C=n_O"})
+
+
 def test_the_resistive_closure_projection_must_ignore_undefined_points(tables):
     te = TE.copy()
     te[-1] = np.nan
