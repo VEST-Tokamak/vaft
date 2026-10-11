@@ -183,7 +183,7 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
                            f"$a = {s['a']:g}$ m, $R_0 = {s['R0']:g}$ m, $q = {s['q']:g}$, "
                            f"$I_p = 100$ kA ramped at $20$ MA/s ($\\tau_{{evol}} = I_p/\\dot I_p$).\\\\ "
                            "The order is evaluated for one illustrative state; it depends on species, machine, "
-                           "radius, $T$, $B$, collisionality and mode frequency. Transit and bounce are inverse "
+                           "radius, $T$, $B$, collisionality and mode frequency.\\\\ Transit and bounce are inverse "
                            "frequencies at $v_{ti} = \\sqrt{T_i/m_i}$; $c_s = \\sqrt{(T_e + T_i)/m_i}$. Drift "
                            "precession (no kernel) and $\\tau_E$ (no energy inventory) are left out.",
                            "note,align=center", anchor="north", role="note"))
