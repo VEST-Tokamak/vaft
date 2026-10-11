@@ -389,6 +389,6 @@ def test_vest_h_factor_figure_writes_each_box_median_inside_the_axes():
     renderer = fig.canvas.get_renderer()
     for name, text in labels.items():
         h = figures.h_factor_of(table, name).replace([np.inf, -np.inf], np.nan).dropna()
-        assert text.get_text() == f"{h.median():.3g}"
+        assert text.get_text() == f"H~{h.median():.3g}"
         assert text.get_window_extent(renderer).x1 <= ax.get_window_extent(renderer).x1
     matplotlib.pyplot.close(fig)

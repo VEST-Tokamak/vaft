@@ -493,7 +493,7 @@ def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, exclude=
             continue
         median = float(np.median(line.get_xdata()))
         right = float(np.nanmax(data))
-        medians.append(ax.text(right * 1.08, y, f"{median:.3g}", ha="left", va="center",
+        medians.append(ax.text(right * 1.08, y, f"H~{median:.3g}", ha="left", va="center",
                                fontsize=_font("ytick.labelsize", TICK_LABEL_SCALE), color="k",
                                path_effects=halo, gid=f"{H_MEDIAN_GID}{name}", zorder=6))
     if any(basis_marker(name) for name in scalings):
