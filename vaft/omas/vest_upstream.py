@@ -2789,6 +2789,79 @@ def _composition_equivalent_scalar(
             "status": str(projection.convergence["status"]), "states": len(used), "skipped": skipped}
 
 
+def _romero_window(
+    work: ODS,
+    *,
+    model: str,
+    ln_lambda: Any,
+    bounds: tuple[float, float],
+    i_ni_a: float,
+    smoothing: Any,
+    time_range: tuple[float, float] | None,
+    max_excluded_current: float,
+    inductive_max: float,
+    time_tolerance_s: float,
+) -> dict[str, Any]:
+    """Lane Z's Romero window estimate on an ODS with an equilibrium and ``core_profiles`` slices.
+
+    The orchestration the resistive stage and the staged kinetic-state inference
+    share: Romero's boundary-flux balance and the flux-surface states from
+    :func:`vaft.omas.resistive_zeff.compute_resistive_zeff_ods`, the two state
+    filters of Lane Z's atlas, then the window estimate and the per-slice
+    diagnostic.  Nothing is stored and nothing is judged: the result carries
+    ``error`` (a message) when no estimate could be made, and ``inference`` is
+    ``None`` then.
+
+    Keys: ``result`` (Lane Z's dict), ``window``, ``observed``, ``states``,
+    ``skipped``, ``usable``, ``inference``, ``diagnostic``, ``error``.
+    """
+    from vaft.omas.resistive_zeff import compute_resistive_zeff_ods
+    from vaft.process.resistive_zeff import infer_resistive_zeff, per_slice_resistive_zeff
+
+    out: dict[str, Any] = {
+        "result": None, "window": None, "observed": None, "states": [], "skipped": [], "usable": [],
+        "inference": None, "diagnostic": None, "error": None,
+    }
+    try:
+        result = compute_resistive_zeff_ods(
+            work, time_range=time_range, model=model, ln_lambda=ln_lambda, bounds=bounds,
+            I_ni=float(i_ni_a), smoothing=smoothing, time_tolerance_s=time_tolerance_s,
+        )
+    except (ValueError, KeyError, IndexError) as error:
+        # Lane Z refuses on purpose (an undetected flux unit, no current window, ...):
+        # that is an absence for this shot, with the reason, not a failed stage.
+        out["error"] = f"{type(error).__name__}: {error}"[:300]
+        return out
+    observed, states = result["observed"], result["states"]
+    out.update(result=result, window=result["window"], observed=observed, states=states,
+               skipped=result["skipped"])
+
+    # The model leaves out the surfaces beyond the profiles' support -- the cold, most
+    # resistive edge -- while the observed R_p includes them, so a state missing much of
+    # the current would bias Z_eff high; and where V_I dwarfs V_B, V_R is a small
+    # difference of large numbers. Lane Z's atlas applies the same two filters.
+    def inductive_at(state):
+        return float(observed.inductive_fraction[int(np.argmin(np.abs(observed.time - state.time)))])
+
+    usable = [
+        s for s in states
+        if (s.source.get("excluded_current_fraction") or 0.0) <= max_excluded_current
+        and inductive_at(s) < inductive_max
+    ]
+    out["usable"] = usable
+    if not usable:
+        out["error"] = (
+            f"no kinetic state is usable: {len(states)} built, each either beyond "
+            f"{max_excluded_current:g} of j_tor outside the profiles or with |V_I|/|V_B| >= {inductive_max:g}"
+            if states else "no core_profiles slice in the window has electron profiles at an equilibrium time"
+        )
+        return out
+    kwargs = dict(model=model, ln_lambda=ln_lambda, bounds=bounds, time_tolerance_s=time_tolerance_s)
+    out["inference"] = infer_resistive_zeff(observed, usable, weights="uniform", **kwargs)
+    out["diagnostic"] = per_slice_resistive_zeff(observed, usable, **kwargs)
+    return out
+
+
 def build_resistive_zeff_ods(
     *,
     shot: int,
@@ -2895,46 +2968,25 @@ def build_resistive_zeff_ods(
     work = ODS(consistency_check=False)
     work["core_profiles"] = copy.deepcopy(ods["core_profiles"])
     work["equilibrium"] = solution["equilibrium"]
-    try:
-        result = compute_resistive_zeff_ods(
-            work, time_range=time_range, model=model, ln_lambda=ln_lambda, bounds=bounds,
-            I_ni=float(i_ni_a), smoothing=smoothing, time_tolerance_s=time_tolerance_s,
-        )
-    except (ValueError, KeyError, IndexError) as error:
-        # Lane Z refuses on purpose (an undetected flux unit, no current window, ...):
-        # that is an absence for this shot, with the reason, not a failed stage.
-        manifest["error"] = f"{type(error).__name__}: {error}"[:300]
+    window = _romero_window(
+        work, model=model, ln_lambda=ln_lambda, bounds=bounds, i_ni_a=i_ni_a, smoothing=smoothing,
+        time_range=time_range, max_excluded_current=max_excluded_current,
+        inductive_max=inductive_max, time_tolerance_s=time_tolerance_s,
+    )
+    if window["result"] is None:
+        manifest["error"] = window["error"]
         return ods, manifest
-    observed, states = result["observed"], result["states"]
-    manifest["window"] = {"t_start_s": float(result["window"][0]), "t_end_s": float(result["window"][1])}
+    observed, states, usable = window["observed"], window["states"], window["usable"]
+    manifest["window"] = {"t_start_s": float(window["window"][0]), "t_end_s": float(window["window"][1])}
     manifest["states"] = {
-        "built": len(states), "skipped": [{"time_s": t, "reason": r[:200]} for t, r in result["skipped"][:20]],
+        "built": len(states), "skipped": [{"time_s": t, "reason": r[:200]} for t, r in window["skipped"][:20]],
+        "usable": len(usable),
     }
-
-    # The model leaves out the surfaces beyond the profiles' support -- the cold, most
-    # resistive edge -- while the observed R_p includes them, so a state missing much of
-    # the current would bias Z_eff high; and where V_I dwarfs V_B, V_R is a small
-    # difference of large numbers. Lane Z's atlas applies the same two filters.
-    def inductive_at(state):
-        return float(observed.inductive_fraction[int(np.argmin(np.abs(observed.time - state.time)))])
-
-    usable = [
-        s for s in states
-        if (s.source.get("excluded_current_fraction") or 0.0) <= max_excluded_current
-        and inductive_at(s) < inductive_max
-    ]
-    manifest["states"]["usable"] = len(usable)
-    if not usable:
-        manifest["error"] = (
-            f"no kinetic state is usable: {len(states)} built, each either beyond "
-            f"{max_excluded_current:g} of j_tor outside the profiles or with |V_I|/|V_B| >= {inductive_max:g}"
-            if states else "no core_profiles slice in the window has electron profiles at an equilibrium time"
-        )
+    if window["inference"] is None:
+        manifest["error"] = window["error"]
         return ods, manifest
-
-    kwargs = dict(model=model, ln_lambda=ln_lambda, bounds=bounds, time_tolerance_s=time_tolerance_s)
-    inference = infer_resistive_zeff(observed, usable, weights="uniform", **kwargs)
-    diagnostic = per_slice_resistive_zeff(observed, usable, **kwargs)
+    inference, diagnostic = window["inference"], window["diagnostic"]
+    result = {"window": window["window"]}
     estimate = inference.estimate
     manifest["inference"] = {
         "status": inference.status, "zeff": inference.zeff, "uncertainty": estimate.get("uncertainty"),
