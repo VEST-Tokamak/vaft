@@ -8,6 +8,10 @@ __all__ = ["__version__"]
 # patch notes
 # ────────────────────────────────────────────────────────
 # unreleased
+# - GPEC-suite drivers pass the advisory ordering state: pipeline 1's
+#   run_gpec_suite (optional --z-eff, per-case provenance under "ordering"
+#   in the run manifest) and the stability-atlas run_job, through the new
+#   vaft.code.gpec.ordering_state_for_case, which never raises (#1987)
 # - vaft.process.core_q_context binds the documented function: the
 #   submodule is renamed q_profile_context so its key no longer shadows the
 #   function it exports (BREAKING for `import vaft.process.core_q_context`;
