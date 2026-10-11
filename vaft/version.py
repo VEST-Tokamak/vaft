@@ -33,6 +33,11 @@ __all__ = ["__version__"]
 #   held-out qualification (qualified/rejected/insufficient), an
 #   inhomogeneous fit, two-group analytic, budgeted and fixed-amplitude
 #   extrema (#1887)
+# - #1887 direct GPEC -> PENTRC reference (upstream DIII-D-like example, n=1,
+#   three coil groups): T = c^H Q c qualifies at converged PENTRC tolerances
+#   (held-out <= 0.03 %), not at the example's defaults; ntv_operating_space
+#   writes direct and qualified-model torques into the #1178 result; driver
+#   workflow/gpec_ntv_coil_scan
 # - vaft.process.coil_operating_space.CoilOperatingSpace: the common result
 #   of a coil amplitude/phase operating-space study -- samples, per-(sample,
 #   metric) values with a status, the excitation convention
