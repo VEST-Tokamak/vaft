@@ -17,7 +17,7 @@ but different question from a drift-kinetic solve, and hiding both behind one
 
 from __future__ import annotations
 
-from ._types import NEO_DEFAULTS, NEOConfig, NEOResult
+from ._types import NEO_DEFAULTS, NEOConfig, NEOResult, plasma_formalism
 from .inputs import (
     NEOInputs,
     conductivity_parameters,
@@ -54,6 +54,7 @@ __all__ = [
     "NEOInputs",
     "NEOResult",
     "NEO_DEFAULTS",
+    "plasma_formalism",
     "NeoGrid",
     "NeoNormalisation",
     "NeoOutputs",

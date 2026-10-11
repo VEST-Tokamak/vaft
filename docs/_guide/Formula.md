@@ -411,10 +411,25 @@ tau_exp = vaft.omas.compute_tau_E_exp(ods, 0)
 `compute_tau_E_scaling` picks the line- or volume-averaged density out of `eng` to match whatever the
 requested scaling declares, so you never pass `input_density_definition` at the ODS level.
 
-> **Pass `scaling=` explicitly.** The default value of that argument in `compute_tau_E_scaling` is the
-> misspelled `"IBP98y2"`, which is not a key of the coefficient table. The wrappers are skip-tolerant:
-> instead of raising, they log a warning and return `NaN` for that time slice — a silent column of NaNs
-> is the symptom.
+`scaling=` is required. The wrappers are skip-tolerant: an unknown key or a missing input logs a warning
+and returns `NaN` for that time slice instead of raising.
+
+> **Two experimental confinement times, kept apart (#1905).** `compute_tau_E_exp` and the `P_loss` above
+> are the *legacy modelled budget*: Spitzer $\int\eta J^2 dV$ heating ($Z_\mathrm{eff}=2$,
+> $\ln\Lambda=17$), modelled radiation (line + bremsstrahlung + synchrotron) always subtracted, and
+> $W = \tfrac32\langle p\rangle V$ with $p = 2n_eT_e$. They keep that definition, and calling
+> `compute_tau_E_exp` says so with a `FutureWarning`. The experimental Ohmic chain is
+> `vaft.omas.confinement.ohmic_confinement_ods`:
+>
+> - $P_\mathrm{OH} = I_p V_\mathrm{res}$, from the measured inboard-midplane loop voltage with the
+>   internal-inductive voltage removed (Romero 2010 eq. 24). Both terms, $L_i\dot I_p$ and
+>   $\tfrac14\mu_0R_0I_p\dot l_{i3}$, are kept.
+> - $P_\mathrm{net} = P_\mathrm{OH} - dW/dt$, with unmeasured radiation **not** subtracted.
+> - An explicit stored-energy source (`w_source`) and recorded windows.
+> - A `NaN` with a reason where a rate is missing, never $dW/dt = 0$.
+>
+> $V_\mathrm{res}$ is inferred, not measured, and exact only at the plasma boundary. The `core_profiles`
+> summary sheet carries both definitions in separate columns (`CORE_PROFILES_DEFINITIONS`).
 
 ---
 
@@ -435,6 +450,7 @@ Everything on this page that will silently give you a wrong number if you feed i
 | `c_s_from_Te_Ti_mi` | Temperatures in **keV**. |
 | `v_alfven_from_B_n_mi` vs `collisionality_from_n_T_B_R` | $n$ in $\mathrm{m^{-3}}$ for the Alfvén speed, but $n_e$ in $10^{19}\ \mathrm{m^{-3}}$ for $\nu_*$. |
 | `confinement_time_from_engineering_parameters` | Strict **SI in** (A, W, m⁻³); the conversion to MA/MW/$10^{19}$ m⁻³ happens inside. Pre-scaled inputs are wrong by many orders of magnitude. |
-| `vaft.omas.compute_tau_E_scaling` | Default `scaling="IBP98y2"` is not a valid key → warning + `NaN`. |
+| `vaft.omas.compute_tau_E_scaling` | `scaling=` is required; an unknown key or a missing input → warning + `NaN`. |
+| `vaft.omas.compute_tau_E_exp` | The legacy modelled budget (Spitzer heating, modelled radiation), not the measured-loop Ohmic $\tau_E$ of `vaft.omas.confinement.ohmic_confinement_ods` (#1905). |
 
 ---

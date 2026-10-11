@@ -1,0 +1,588 @@
+{
+ "schema": "vaft.ntv_coil_scan/1",
+ "issue": 1887,
+ "case": {
+  "description": "upstream GPEC docs/examples/DIIID_ideal_example: an artificial TokaMaker DIII-D-like H-mode, NOT DIII-D #147131",
+  "gpec_commit": "e68d7ac2",
+  "equilibrium": {
+   "file": "TkMkr_D3Dlike_Hmode.geqdsk",
+   "sha256_16": "9449e54b84880c52"
+  },
+  "kinetic_file": {
+   "file": "TkMkr_D3Dlike_Hmode.gpeckf",
+   "sha256_16": "8122fbe66c930fde",
+   "columns": "psi_n n_i n_e T_i T_e omega_E (omega_E, not omega_tor)"
+  },
+  "n": 1,
+  "groups": [
+   "c",
+   "il",
+   "iu"
+  ],
+  "coil_geometry_sha256_16": {
+   "c": "f5cdfa26fda73847",
+   "il": "dbe5f15a0ac51b95",
+   "iu": "e7a5cae75aac1d01"
+  },
+  "sector_angles": "geometric toroidal centroid of each coil in d3d_<group>.dat (machine frame of the .dat files)",
+  "excitation": "I_k = A cos(n phi_k + delta) [A per turn], c = A exp(+i delta); phasor unit = 1000 A per turn",
+  "phasor_unit_a_per_turn": 1000.0
+ },
+ "pentrc": {
+  "options": {
+   "methods": [
+    "fgar",
+    "tgar",
+    "pgar"
+   ],
+   "main_ion": "deuterium",
+   "impurity": "carbon",
+   "collision_operator": "harmonic",
+   "bounce_harmonics": 4,
+   "moment": "pressure",
+   "electron": false
+  },
+  "template": "vaft/data/gpec/pentrc.in",
+  "scalar": "enclosed torque at the last dynamic-grid point (psi_N = 0.995), signed, real(sum_ell T)",
+  "tolerances": {
+   "converged": {
+    "atol_xlmda": 1e-09,
+    "rtol_xlmda": 1e-07,
+    "atol_psi": 1e-06,
+    "rtol_psi": 1e-06
+   },
+   "default": {
+    "atol_xlmda": 1e-09,
+    "rtol_xlmda": 1e-06,
+    "atol_psi": 0.0001,
+    "rtol_psi": 0.0001
+   },
+   "tight_check": {
+    "atol_xlmda": 1e-11,
+    "rtol_xlmda": 1e-08,
+    "atol_psi": 1e-06,
+    "rtol_psi": 1e-06,
+    "agreement": "<= 0.024 % with converged where both finished; 5 of 18 stalled (energy LSODE)"
+   }
+  }
+ },
+ "samples": [
+  {
+   "sample_id": "e0",
+   "role": "probe",
+   "c_re": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "c_im": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "torque_n_m": {
+    "fgar": 0.5381099219134905,
+    "tgar": 0.4183058238820762,
+    "pgar": 0.12291568975551653
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.5435138705884973,
+    "tgar": 0.4184758308730772,
+    "pgar": 0.11940416641613803
+   }
+  },
+  {
+   "sample_id": "e1",
+   "role": "probe",
+   "c_re": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "c_im": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "torque_n_m": {
+    "fgar": 0.25119855588635115,
+    "tgar": 0.1956024642071991,
+    "pgar": 0.05772348779029065
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.2451383778965485,
+    "tgar": 0.19867932783194386,
+    "pgar": 0.05642297701358478
+   }
+  },
+  {
+   "sample_id": "e2",
+   "role": "probe",
+   "c_re": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "c_im": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "torque_n_m": {
+    "fgar": 0.3632530776875465,
+    "tgar": 0.2831113422405724,
+    "pgar": 0.08303791502771163
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.3440735034787792,
+    "tgar": 0.26482499937876636,
+    "pgar": 0.08280900704872558
+   }
+  },
+  {
+   "sample_id": "e0+e1",
+   "role": "probe",
+   "c_re": [
+    1.0,
+    1.0,
+    0.0
+   ],
+   "c_im": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "torque_n_m": {
+    "fgar": 1.3477685474852137,
+    "tgar": 1.0418231888232738,
+    "pgar": 0.3147495089565353
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 1.3514248254804864,
+    "tgar": 1.0396736670818678,
+    "pgar": 0.31635126654904455
+   }
+  },
+  {
+   "sample_id": "e0+ie1",
+   "role": "probe",
+   "c_re": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "c_im": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "torque_n_m": {
+    "fgar": 0.3430529514889323,
+    "tgar": 0.26194954004269805,
+    "pgar": 0.08332601717411744
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.3427755910011977,
+    "tgar": 0.2607224735382471,
+    "pgar": 0.08061246175416903
+   }
+  },
+  {
+   "sample_id": "e0+e2",
+   "role": "probe",
+   "c_re": [
+    1.0,
+    0.0,
+    1.0
+   ],
+   "c_im": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "torque_n_m": {
+    "fgar": 1.484042354122065,
+    "tgar": 1.1468259800864808,
+    "pgar": 0.34712150236969846
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 1.491768188230284,
+    "tgar": 1.1479331771708814,
+    "pgar": 0.3368839475528536
+   }
+  },
+  {
+   "sample_id": "e0+ie2",
+   "role": "probe",
+   "c_re": [
+    1.0,
+    0.0,
+    0.0
+   ],
+   "c_im": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "torque_n_m": {
+    "fgar": 1.5324935492433107,
+    "tgar": 1.1963522142327154,
+    "pgar": 0.3457969477525338
+   },
+   "note": "the 'converged' run of this probe stalled in PENTRC's energy LSODE; torque_n_m holds the 'tight_check' run (atol_xlmda 1e-11, rtol_xlmda 1e-8), which agrees with converged runs to <= 0.024 %",
+   "torque_n_m_default_tolerance": {
+    "fgar": 1.5361203362786213,
+    "tgar": 1.1948021519541783,
+    "pgar": 0.3456263257270726
+   }
+  },
+  {
+   "sample_id": "e1+e2",
+   "role": "probe",
+   "c_re": [
+    0.0,
+    1.0,
+    1.0
+   ],
+   "c_im": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "torque_n_m": {
+    "fgar": 0.6632608398779208,
+    "tgar": 0.5059211515698759,
+    "pgar": 0.16297948276281382
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.668490619754396,
+    "tgar": 0.5057576731477512,
+    "pgar": 0.1616908225138421
+   }
+  },
+  {
+   "sample_id": "e1+ie2",
+   "role": "probe",
+   "c_re": [
+    0.0,
+    1.0,
+    0.0
+   ],
+   "c_im": [
+    0.0,
+    0.0,
+    1.0
+   ],
+   "torque_n_m": {
+    "fgar": 1.211464591721011,
+    "tgar": 0.9461771816680848,
+    "pgar": 0.2745658386667541
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 1.2167043008516698,
+    "tgar": 0.9508435948410336,
+    "pgar": 0.27047961751529787
+   }
+  },
+  {
+   "sample_id": "ref",
+   "role": "reference",
+   "c_re": [
+    1.0,
+    0.540302305868,
+    0.696706709347
+   ],
+   "c_im": [
+    0.0,
+    0.841470984808,
+    -0.7173560909
+   ],
+   "torque_n_m": {
+    "fgar": 0.43962465850368215,
+    "tgar": 0.32585070886144807,
+    "pgar": 0.11667767014670212
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.44156748036138416,
+    "tgar": 0.32680104451472736,
+    "pgar": 0.11437279453182603
+   }
+  },
+  {
+   "sample_id": "ref_x0.5",
+   "role": "invariance",
+   "c_re": [
+    0.5,
+    0.270151152934,
+    0.348353354674
+   ],
+   "c_im": [
+    0.0,
+    0.420735492404,
+    -0.35867804545
+   ],
+   "torque_n_m": {
+    "fgar": 0.10990187223892295,
+    "tgar": 0.08144493460794067,
+    "pgar": 0.029248809010305014
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.10308187287733456,
+    "tgar": 0.0769563835381376,
+    "pgar": 0.02607100428400971
+   }
+  },
+  {
+   "sample_id": "ref_x2",
+   "role": "invariance",
+   "c_re": [
+    2.0,
+    1.080604611736,
+    1.393413418694
+   ],
+   "c_im": [
+    0.0,
+    1.682941969616,
+    -1.434712181799
+   ],
+   "torque_n_m": {
+    "fgar": 1.7585976700311576,
+    "tgar": 1.3034247999087474,
+    "pgar": 0.4669020693894584
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 1.7643768141315055,
+    "tgar": 1.3100998260557286,
+    "pgar": 0.4606307325413508
+   }
+  },
+  {
+   "sample_id": "ref_neg",
+   "role": "invariance",
+   "c_re": [
+    -1.0,
+    -0.540302305868,
+    -0.696706709347
+   ],
+   "c_im": [
+    -0.0,
+    -0.841470984808,
+    0.7173560909
+   ],
+   "torque_n_m": {
+    "fgar": 0.43962465850368215,
+    "tgar": 0.32585070886144807,
+    "pgar": 0.11667767014670212
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.44156748036138416,
+    "tgar": 0.32680104451472736,
+    "pgar": 0.11437279453182603
+   }
+  },
+  {
+   "sample_id": "ref_rot1.2",
+   "role": "invariance",
+   "c_re": [
+    0.362357754477,
+    -0.588501117255,
+    0.921060994003
+   ],
+   "c_im": [
+    0.932039085967,
+    0.80849640382,
+    0.389418342309
+   ],
+   "torque_n_m": {
+    "fgar": 0.4396611104474397,
+    "tgar": 0.3258442135160213,
+    "pgar": 0.11669582457740896
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.44283064878697864,
+    "tgar": 0.3259685486888901,
+    "pgar": 0.11389705344464503
+   }
+  },
+  {
+   "sample_id": "held0",
+   "role": "held_out",
+   "c_re": [
+    0.51241730792,
+    -0.559947937484,
+    -0.43877375738
+   ],
+   "c_im": [
+    0.672190887568,
+    0.927089522186,
+    -0.329416599955
+   ],
+   "torque_n_m": {
+    "fgar": 0.7659226375520813,
+    "tgar": 0.5961054962252231,
+    "pgar": 0.1751622456206146
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 0.770996722543501,
+    "tgar": 0.6030817473392285,
+    "pgar": 0.172695480691176
+   }
+  },
+  {
+   "sample_id": "held1",
+   "role": "held_out",
+   "c_re": [
+    -0.975590142197,
+    0.125435454113,
+    -0.658903894055
+   ],
+   "c_im": [
+    -0.25562679599,
+    0.506103117618,
+    0.754135560423
+   ],
+   "torque_n_m": {
+    "fgar": 1.0070907528717503,
+    "tgar": 0.7785567206573235,
+    "pgar": 0.2361337286689696
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 1.0127326076496301,
+    "tgar": 0.7841006410172714,
+    "pgar": 0.2301649135269328
+   }
+  },
+  {
+   "sample_id": "held2",
+   "role": "held_out",
+   "c_re": [
+    -0.212991238743,
+    0.33144560519,
+    0.318820180696
+   ],
+   "c_im": [
+    1.304285974448,
+    0.029418685982,
+    1.137627787999
+   ],
+   "torque_n_m": {
+    "fgar": 2.2883954691961734,
+    "tgar": 1.7686160596316558,
+    "pgar": 0.5354529723715935
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 2.2901122440826343,
+    "tgar": 1.7733573248545251,
+    "pgar": 0.5231108220672218
+   }
+  },
+  {
+   "sample_id": "held3",
+   "role": "held_out",
+   "c_re": [
+    -1.243556266914,
+    0.562349074732,
+    0.497229184342
+   ],
+   "c_im": [
+    -0.136382957839,
+    0.833120350193,
+    -1.061635146556
+   ],
+   "torque_n_m": {
+    "fgar": 1.5365119058798231,
+    "tgar": 1.21799280430141,
+    "pgar": 0.32716000650772503
+   },
+   "torque_n_m_default_tolerance": {
+    "fgar": 1.5435904004763166,
+    "tgar": 1.2263913290255652,
+    "pgar": 0.32327206132276826
+   }
+  }
+ ],
+ "confirmations": [
+  {
+   "sample_id": "opt3_max",
+   "role": "gpec_confirmation",
+   "c_re": [
+    1.0,
+    0.7833293059484786,
+    0.6804104205362302
+   ],
+   "c_im": [
+    0.0,
+    -0.6216069485151167,
+    0.7328312627240395
+   ],
+   "torque_n_m": {
+    "fgar": 3.3255071453590825,
+    "tgar": 2.5848495746354034,
+    "pgar": 0.7629125819284638
+   },
+   "predicted_fgar_n_m": 3.325388484416293
+  },
+  {
+   "sample_id": "opt3_min",
+   "role": "gpec_confirmation",
+   "c_re": [
+    1.0,
+    0.07522266973959157,
+    0.012377188617253737
+   ],
+   "c_im": [
+    0.0,
+    0.997166761358023,
+    -0.9999233996671609
+   ],
+   "torque_n_m": {
+    "fgar": 0.024960379762249546,
+    "tgar": 0.02063341419916686,
+    "pgar": 0.004451028187673769
+   },
+   "predicted_fgar_n_m": 0.02481334125016732
+  },
+  {
+   "sample_id": "opt2_max",
+   "role": "gpec_confirmation",
+   "c_re": [
+    1.0,
+    0.7812184270653459,
+    0.0
+   ],
+   "c_im": [
+    0.0,
+    -0.6242577746520637,
+    0.0
+   ],
+   "torque_n_m": {
+    "fgar": 1.5041160902035315,
+    "tgar": 1.1678262371175725,
+    "pgar": 0.34607309279559784
+   },
+   "predicted_fgar_n_m": 1.504166256799285
+  },
+  {
+   "sample_id": "opt2_min",
+   "role": "gpec_confirmation",
+   "c_re": [
+    1.0,
+    -0.781218427065346,
+    0.0
+   ],
+   "c_im": [
+    0.0,
+    0.6242577746520636,
+    0.0
+   ],
+   "torque_n_m": {
+    "fgar": 0.07464681286015784,
+    "tgar": 0.05995895766409451,
+    "pgar": 0.015019511217224462
+   },
+   "predicted_fgar_n_m": 0.07445069880039801
+  }
+ ],
+ "confirmations_tolerance": "converged",
+ "confirmations_note": "opt3_* fix all three amplitudes at 1 phasor unit; opt2_* drive c and il at 1 unit, iu off"
+}

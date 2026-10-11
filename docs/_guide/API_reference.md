@@ -266,8 +266,8 @@ vaft.omas.compute_ohmic_heating_power_from_core_profiles(
 <!-- docs-snippet: skip fragment (placeholder name time_slice is never defined on the page) -->
 ```python
 vaft.omas.compute_tau_E_exp(ods, time_slice, Z_eff=2.0)
-vaft.omas.compute_tau_E_scaling(ods, time_slice, scaling="IBP98y2", Z_eff=2.0, M=1.0,
-                                eng_params=None)
+vaft.omas.compute_tau_E_scaling(ods, time_slice, scaling, Z_eff=2.0, M=1.0,
+                                eng_params=None)  # scaling is required
 vaft.omas.compute_tau_E_engineering_parameters(ods, time_slice, Z_eff=2.0, M=1.0)
 vaft.omas.compute_confiment_time_paramters(ods, time_slice, Z_eff=2.0, M=1.0)
 vaft.omas.compute_power_balance(ods, include_line_radiation=True, line_radiation_species=None,
@@ -275,6 +275,19 @@ vaft.omas.compute_power_balance(ods, include_line_radiation=True, line_radiation
 vaft.omas.compute_bremsstrahlung_power(ods, time_slice=None, Z_eff=2.0)
 vaft.omas.compute_voltage_consumption(ods, time_slice=None)
 vaft.omas.compute_magnetic_shear(ods, time_slice)
+```
+
+`compute_tau_E_exp` and `compute_power_balance` are the legacy *modelled* budget (Spitzer heating,
+modelled radiation). The experimental Ohmic chain is a submodule of its own (#1905):
+
+<!-- docs-snippet: skip fragment (needs an ODS with equilibrium and measured magnetics) -->
+```python
+from vaft.omas.confinement import ohmic_confinement_ods
+
+result = ohmic_confinement_ods(ods, diagnostics=None, time_slices=None, w_source="efit_pressure",
+                               require_positive_energy=False, rate_window_s=3e-3)
+result.chain.tau_e_net, result.chain.p_net, result.chain.v_ind_current, result.chain.v_ind_profile
+result.chain.assumptions, result.chain.settings, result.voltage_source, result.loop_name
 ```
 
 ## In-place enrichment — `update`

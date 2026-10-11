@@ -9,7 +9,8 @@ from .update import *
 from .sample import *
 from .startup_summary import NULL_FIELD_THRESHOLD_T, startup_summary
 from .edge_q import EdgeQEstimate, edge_q_estimate
-from .equilibrium_state import EQUILIBRIUM_STATE_UNITS, equilibrium_state_rows, equilibrium_state_table
+from .equilibrium_state import (ATLAS_EXTRA_UNITS, EQUILIBRIUM_STATE_UNITS, atlas_state_table, equilibrium_state_rows,
+                                equilibrium_state_table)
 from .fluctuation import (
     DiagnosticSelection,
     SelectedDiagnostics,
@@ -359,6 +360,8 @@ __all__ = [
     "EQUILIBRIUM_STATE_UNITS",
     "equilibrium_state_rows",
     "equilibrium_state_table",
+    "atlas_state_table",
+    "ATLAS_EXTRA_UNITS",
     "VerticalPositionHistory",
     "fluctuation_bandwidths",
     "DiagnosticSelection",

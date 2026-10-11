@@ -65,6 +65,7 @@ _SUBMODULES = {
     "impurity": ".impurity",
     "species": ".species",
     "kinetic_closure": ".kinetic_closure",
+    "gyrokinetics": ".gyrokinetics",
     "zeff_projection": ".zeff_projection",
     "mode_frequency": ".mode_frequency",
     "mhd_stability": ".mhd_stability",
@@ -72,7 +73,7 @@ _SUBMODULES = {
     "ordering_state": ".ordering_state",
     "ntv_coil_response": ".ntv_coil_response",
     "coil_operating_space": ".coil_operating_space",
-    "gyrokinetics": ".gyrokinetics",
+    "resonant_coil_response": ".resonant_coil_response",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -136,6 +137,9 @@ _IMPORT_ORDER = (
     # Dilution-aware pressure and the classical fast-ion baseline (#1606); nothing
     # it exports collides.
     "kinetic_closure",
+    # Turbulence-zonal-flow intensities, cycle metrics and the predator-prey fit
+    # (#1820); nothing it exports collides.
+    "gyrokinetics",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
     # Predicted mode-frequency tracks from rotation at q = m/n (#460); nothing
@@ -158,9 +162,9 @@ _IMPORT_ORDER = (
     # The common coil operating-space result of #1178 (schema settled on
     # #1886); nothing it exports collides.
     "coil_operating_space",
-    # Turbulence-zonal-flow intensities, cycle metrics and the predator-prey fit
-    # (#1820); nothing it exports collides.
-    "gyrokinetics",
+    # Verified linear resonant-field operator Phi = H conj(c) and its optima
+    # (#1884); nothing it exports collides.
+    "resonant_coil_response",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
