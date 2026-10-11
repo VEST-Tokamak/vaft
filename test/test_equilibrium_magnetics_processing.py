@@ -25,6 +25,9 @@ from vaft.process.magnetics import (
     DegenerateBaselineWindowError,
     UnsupportedMagneticsDaqModeError,
     VestMagneticsProcessingConfig,
+    b_field_pol_probe_field,
+    flux_loop_flux,
+    rogowski_coil_ip,
     vest_b_field_pol_probe_legacy,
     vest_equilibrium_magnetics_detailed,
     vest_equilibrium_magnetics_signals,
@@ -642,3 +645,60 @@ def test_47946_flux_loops_reproduce_the_era_values_with_the_legacy_block():
     np.testing.assert_allclose(era[:2], [-77.2, -117.2], atol=0.5)
     replaced = loops_at(VestMagneticsProcessingConfig(**LEGACY_ROUTINE_BLOCK))
     assert np.max(np.abs(replaced - era)) > 50.0  # the defect this guards against
+
+
+# ---------------------------------------------------------------------------
+# The two-sided baseline is taken around the discharge, not at the record's end
+# (cold review 0.7.0 process F5, #1888)
+# ---------------------------------------------------------------------------
+
+_F5_TIME = np.arange(0.0, 1.0, 4e-5)
+# A drift that is not linear, so a line fitted through the wrong stretch of
+# the record does not happen to describe the right one.
+_F5_DRIFT = 5.0 + 3.0 * _F5_TIME + 20.0 * _F5_TIME**2
+_F5_PULSE = 1e3 * np.exp(-((_F5_TIME - 0.31) / 0.01) ** 2)
+# The windows define_baseline selects for onset 0.27 s / offset 0.35 s with
+# the default 500 / 100 samples: quiet on both sides of the pulse.
+_F5_QUIET = ((_F5_TIME >= 0.25) & (_F5_TIME < 0.27)) | ((_F5_TIME >= 0.35) & (_F5_TIME < 0.354))
+
+
+def test_rogowski_baseline_straddles_the_discharge():
+    """The kernels handed `define_baseline` sample *indices* for its time
+    arguments, so it searched the time axis for t = 6750 s and fitted the last
+    500 samples of the record instead of the window around the discharge."""
+    _, ip = rogowski_coil_ip(
+        _F5_TIME, _F5_PULSE + _F5_DRIFT, np.zeros_like(_F5_TIME),
+        baseline_onset=0.27, baseline_offset=0.35,
+    )
+    assert np.max(np.abs(ip[_F5_QUIET])) < 1.0
+    assert ip[np.argmin(np.abs(_F5_TIME - 0.31))] == pytest.approx(1e3, rel=1e-2)
+
+
+def _f5_reference(integrated):
+    """What the kernels must produce: the fit through the intended windows."""
+    from vaft.process.signal_processing import define_baseline, subtract_baseline
+
+    indices = define_baseline(_F5_TIME, 0.27, 500, 0.35, 100)
+    assert _F5_QUIET[indices].all() and np.count_nonzero(_F5_QUIET) == indices.size
+    corrected, _ = subtract_baseline(_F5_TIME, integrated, indices, fitting_opt="linear")
+    return corrected
+
+
+def test_flux_loop_baseline_straddles_the_discharge():
+    from vaft.compat import cumtrapz_compat
+
+    _, flux, _ = flux_loop_flux(
+        _F5_TIME, _F5_DRIFT[:, None], np.array([1.0]), baseline_onset=0.27, baseline_offset=0.35
+    )
+    integrated = -cumtrapz_compat(_F5_DRIFT, x=_F5_TIME, initial=0) / (2 * np.pi)
+    np.testing.assert_allclose(flux[:, 0], _f5_reference(integrated), atol=1e-12)
+
+
+def test_probe_field_baseline_straddles_the_discharge():
+    from vaft.compat import cumtrapz_compat
+
+    *_, field, _ = b_field_pol_probe_field(
+        _F5_TIME, _F5_DRIFT[:, None], np.array([1.0]), [1.0], baseline_onset=0.27, baseline_offset=0.35
+    )
+    integrated = -cumtrapz_compat(_F5_DRIFT, x=_F5_TIME, initial=0)
+    np.testing.assert_allclose(field[:, 0], _f5_reference(integrated), atol=1e-12)

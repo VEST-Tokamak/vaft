@@ -18,6 +18,15 @@ __all__ = ["__version__"]
 #   after it from shear, q_min, low-shear regions and q95; the context
 #   records the slice time; one interior maximum is single_maximum, not
 #   multi_extremum (#1838)
+# - vaft.process.magnetics rogowski_coil_ip / flux_loop_flux /
+#   b_field_pol_probe_field fit their two-sided baseline at the
+#   baseline_onset/offset seconds given, not the record's last 500 samples;
+#   routine VEST products use the era-table chain and are unaffected (#1888)
+# - the PENTRC native output reader (PentrcOutput, read_pentrc_output,
+#   torque_profile, energy_profile and the method/grid registries) is owned
+#   by vaft.code.gpec beside run_pentrc; vaft.code.pentrc and
+#   vaft.code.pentrc.outputs re-export the same objects, and the external-code
+#   registry lists PENTRC as run through vaft.code.gpec (#1883)
 # - vaft.process.coil_operating_space.CoilOperatingSpace: the common result
 #   of a coil amplitude/phase operating-space study -- samples, per-(sample,
 #   metric) values with a status, the excitation convention

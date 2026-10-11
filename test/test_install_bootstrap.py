@@ -2104,14 +2104,20 @@ def test_default_prefix_answers_on_posix_too(monkeypatch):
     The POSIX installers put the prefix inside the source tree, which is
     unguessable without --source and derivable with it.
 
-    `default_prefix` chooses by whether `LOCALAPPDATA` is set, not by the
-    operating system, so this controls that variable rather than asking which
-    platform it runs on. Both branches are then checked on every runner. It
-    used to read the real environment, which on Windows took the per-user
-    branch and failed every assertion written for the other one.
+    `default_prefix` chooses the layout by platform (cold review install F26:
+    it used to choose by whether `LOCALAPPDATA` was set, so a POSIX shell that
+    exported it was answered with a Windows per-user path). This test sets
+    the module's WINDOWS_LAYOUT seam as well as the variable, so both branches
+    are checked on every runner, and the variable alone is shown not to switch
+    the layout.
     """
     module = _load_external_checker("_external_code_common.py")
 
+    monkeypatch.setattr(module, "WINDOWS_LAYOUT", False)
+    monkeypatch.setenv("LOCALAPPDATA", str(Path("/per-user")))
+    assert module.default_prefix("chease", "/tmp/chease").as_posix().endswith(
+        "/chease/vaft-install"
+    ), "LOCALAPPDATA in a POSIX environment must not select the Windows layout"
     monkeypatch.delenv("LOCALAPPDATA", raising=False)
     assert module.default_prefix("chease", "/tmp/chease").as_posix().endswith(
         "/chease/vaft-install"
@@ -2123,6 +2129,7 @@ def test_default_prefix_answers_on_posix_too(monkeypatch):
     assert module.default_prefix("chease") is None
 
     # And the per-user branch answers from the code name alone, source or not.
+    monkeypatch.setattr(module, "WINDOWS_LAYOUT", True)
     monkeypatch.setenv("LOCALAPPDATA", str(Path("/per-user")))
     expected = (Path("/per-user") / "vaft" / "external" / "chease").as_posix()
     assert module.default_prefix("chease").as_posix() == expected
@@ -3092,3 +3099,537 @@ def test_efit_installer_takes_the_hard_stack_limit_when_the_ask_exceeds_it():
     # Already enough: nothing to do, nothing said.
     completed = _raise_stack_limit(soft=32768, hard=49152, want=16384)
     assert "limit=32768 status=0" in completed.stdout and "==>" not in completed.stdout
+
+
+# ---------------------------------------------------------------------------
+# Cold review 0.7.0 install residue (issue #1888)
+# ---------------------------------------------------------------------------
+
+
+def _brace_block(text: str, start: int) -> str:
+    """The `{ ... }` block whose opening brace is the first one at or after `start`."""
+    opening = text.index("{", start)
+    depth = 0
+    for index in range(opening, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                return text[opening:index + 1]
+    raise AssertionError("unbalanced braces")
+
+
+def test_gpec_windows_clears_stale_executables_on_every_build():
+    """Cold review install F11: `bin\\<name>.exe` was removed only under -Clean.
+
+    Upstream's rules judge themselves by a `cp`, so a failed link leaves the
+    previous .exe behind; the acceptance asks only "exists and non-empty", and
+    a binary from the previous revision was then installed and recorded under
+    the new one. install_gpec.sh removes the targets unconditionally.
+    """
+    text = (INSTALL / "install_gpec_windows.ps1").read_text(encoding="utf-8")
+    removal = 'Join-Path $source "bin\\$name.exe"'
+    assert removal in text
+    for gate in re.finditer(r"if \(\$Clean\)", text):
+        assert removal not in _brace_block(text, gate.end()), (
+            "the stale-executable removal must not be gated on -Clean"
+        )
+
+
+def test_nubeam_windows_wrapper_verifies_what_the_checker_verifies():
+    """Cold review install F12: the load probe's verdict was discarded.
+
+    nubeam\\windows.ps1 called `Test-ExecutableLoads` bare, probed one of the
+    three executables check_nubeam.py requires, and ended without an exit code
+    for a FAIL row or the checker run every other wrapper finishes with -- so
+    an unloadable build still wired NUBEAMHOME and exited 0.
+    """
+    checker = _load_external_checker("check_nubeam.py")
+    text = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    declared = re.search(r"(?m)^\$Executables = @\((.*)\)$", text)
+    assert declared, "the wrapper declares the executables it verifies"
+    assert set(re.findall(r"'([^']+)'", declared.group(1))) == set(checker.EXECUTABLES)
+
+    for path in _ALL_POWERSHELL:
+        wrapper = path.read_text(encoding="utf-8")
+        for call in re.finditer(r"(?m)^(.*)Test-ExecutableLoads -Executables", wrapper):
+            assert call.group(1).startswith("if (-not ("), (
+                f"{path.name}: Test-ExecutableLoads must stop the install when it fails"
+            )
+
+    tail = text[text.index("Write-ExternalSummary"):]
+    assert "if ($script:Failed) { exit 1 }" in tail
+    assert "check_nubeam.py" in tail and tail.rstrip().endswith("exit $LASTEXITCODE")
+
+
+def test_nubeam_uninstall_usage_matches_what_the_posix_recipes_record():
+    """Cold review install F16: the usage text promised more than the manifest holds.
+
+    uninstall.sh said it removes "the downloaded NTCC sources"; neither POSIX
+    recipe records vendor/ntcc, so they stayed. macos.sh also wrote no `root`
+    line (linux.sh does), leaving the remover to guess the root of a relocated
+    tree, and its header still said there was no Linux recipe.
+    """
+    usage = (NUBEAM_DIR / "uninstall.sh").read_text(encoding="utf-8")
+    usage = usage[usage.index("usage() {"): usage.index("\nEOF\n", usage.index("usage() {"))]
+    assert "downloaded NTCC sources" not in usage
+    assert "vendor/ntcc" in usage and "left in place" in usage
+
+    for name in ("linux.sh", "macos.sh"):
+        recipe = (NUBEAM_DIR / name).read_text(encoding="utf-8")
+        manifest = recipe[recipe.index("write_manifest() {"): recipe.index("\n}\n", recipe.index("write_manifest() {"))]
+        assert "printf 'root\\t%s\\n' \"$ROOT_DIR\"" in manifest, f"{name} must record the root"
+        kinds = set(re.findall(r"printf '(\w+)\\t", manifest))
+        assert kinds == {"root", "managed_dir", "generated_config"}, (
+            f"{name} records {sorted(kinds)}; the usage text describes exactly these"
+        )
+
+    header = (NUBEAM_DIR / "macos.sh").read_text(encoding="utf-8").split("set -euo pipefail")[0]
+    assert "no Linux recipe" not in header
+    assert "linux.sh" in header
+
+
+@posix_only
+def test_load_probe_runs_on_posix_and_reads_the_loader(tmp_path, monkeypatch):
+    """Cold review install F17: off Windows the load probe returned SKIP.
+
+    NUBEAM's three executables (and GPEC's rdcon/stride/match/rmatch) are not
+    started by any later layer, so on Linux and macOS a build whose libraries
+    resolve only from the shell it was built in reported every layer green.
+    The probe now starts each program with a bare PATH and no
+    LD_LIBRARY_PATH/DYLD_LIBRARY_PATH and reads what the loader prints.
+    """
+    common = _load_external_checker("_external_code_common.py")
+    bin_directory = tmp_path / "prefix" / "bin"
+    bin_directory.mkdir(parents=True)
+
+    def program(name: str, body: str) -> None:
+        path = bin_directory / name
+        path.write_text(f"#!/bin/sh\n{body}\n", encoding="utf-8")
+        path.chmod(0o755)
+
+    # Starts, finds no input, exits for its own reasons: loaded.
+    program("fine", 'echo "no input file" >&2; exit 2')
+    # Only loads if the caller's library path leaks through.
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/leaked")
+    monkeypatch.setenv("DYLD_LIBRARY_PATH", "/leaked")
+    program("leaky", '[ -z "${LD_LIBRARY_PATH:-}${DYLD_LIBRARY_PATH:-}" ] || exit 0; '
+            'echo "dyld[4242]: Library not loaded: @rpath/libgfortran.5.dylib" >&2; kill -ABRT $$')
+    program("unlinked", 'echo "./unlinked: error while loading shared libraries: libnetcdff.so.7: '
+            'cannot open shared object file: No such file or directory" >&2; exit 127')
+
+    result = common.check_executables_load(tmp_path / "prefix", ["fine"], project="NUBEAM")
+    assert result.status == common.PASS, result
+
+    result = common.check_executables_load(
+        tmp_path / "prefix", ["fine", "leaky", "unlinked", "absent"], project="NUBEAM"
+    )
+    assert result.status == common.FAIL, result
+    assert "leaky" in result.detail and "unlinked" in result.detail
+    assert "fine" not in result.detail
+    assert "libgfortran" in result.detail and "libnetcdff" in result.detail
+
+
+def test_gacode_platform_check_requires_both_halves_of_the_tag(tmp_path, monkeypatch):
+    """Cold review install F18: the checker guarded the neighbour of what it named.
+
+    `known` was built from platform/build/make.inc.* while the remediation
+    named platform/exec/exec.$GACODE_PLATFORM, the file the launcher execs; and
+    with no platform/build at all, every tag passed because `known` was empty.
+    """
+    checker = _load_external_checker("check_gacode.py")
+    root = tmp_path / "gacode"
+    (root / "platform" / "build").mkdir(parents=True)
+    (root / "platform" / "exec").mkdir()
+    (root / "platform" / "build" / "make.inc.FULL").write_text("", encoding="utf-8")
+    (root / "platform" / "exec" / "exec.FULL").write_text("", encoding="utf-8")
+    (root / "platform" / "build" / "make.inc.HALF").write_text("", encoding="utf-8")
+
+    monkeypatch.setenv("GACODE_PLATFORM", "FULL")
+    assert checker.check_platform(str(root)).status == checker.PASS
+
+    monkeypatch.setenv("GACODE_PLATFORM", "HALF")
+    result = checker.check_platform(str(root))
+    assert result.status == checker.FAIL, result
+    assert "exec.HALF" in result.detail and "FULL" in result.remediation
+
+    monkeypatch.setenv("GACODE_PLATFORM", "BOGUS")
+    assert checker.check_platform(str(root)).status == checker.FAIL
+    bare = tmp_path / "not-a-tree"
+    bare.mkdir()
+    assert checker.check_platform(str(bare)).status == checker.FAIL
+
+
+def test_gpec_run_with_no_output_is_a_failure_not_a_pass(tmp_path, monkeypatch):
+    """Cold review install F19: exit 0 with zero gpec_*.nc was PASS.
+
+    GPEC exits 0 when it finds nothing to do, so a run that produced no file
+    reported "produced 0 output file(s)" in green; the netCDF layer then
+    globbed *.nc in the same directory, which DCON's own output satisfies.
+    """
+    checker = _load_external_checker("check_gpec.py")
+    workdir = tmp_path / "run"
+    workdir.mkdir()
+    prefix = tmp_path / "prefix"
+    (prefix / "bin").mkdir(parents=True)
+    monkeypatch.setattr(checker, "_run_solver", lambda *args: (0, workdir / "gpec.log"))
+
+    result = checker.check_gpec_run(str(prefix), workdir, timeout=5)
+    assert result.status == checker.FAIL, result
+    assert "gpec_*.nc" in result.detail
+
+    (workdir / "dcon_control.nc").write_bytes(b"")
+    assert checker.check_netcdf_outputs(workdir).status == checker.FAIL
+
+    (workdir / "gpec_control_n1.nc").write_bytes(b"")
+    assert checker.check_gpec_run(str(prefix), workdir, timeout=5).status == checker.PASS
+    # The netCDF layer now sees GPEC's file (an empty stub, so it cannot open
+    # it) rather than reporting that nothing was produced.
+    opened = checker.check_netcdf_outputs(workdir)
+    assert "gpec_control_n1.nc" in opened.detail and "no gpec_*.nc" not in opened.detail, opened
+
+
+def test_chease_installer_header_agrees_with_the_recorded_macos_verification():
+    """Cold review install F21: the header called the macOS arm untested.
+
+    install/README.md records a manual macOS verification with the `darwin`
+    machine reproducing the Linux comparison numbers; the script header
+    contradicted it and claimed the linux_nohdf5 branch was the only correct one.
+    """
+    text = (INSTALL / "install_chease.sh").read_text(encoding="utf-8")
+    header = text[: text.index("set -euo pipefail")]
+    assert "untested" not in header
+    assert "README" in header and "darwin" in header
+    readme = (INSTALL / "README.md").read_text(encoding="utf-8")
+    macos_row = next(line for line in readme.splitlines() if line.startswith("| CHEASE, macOS"))
+    assert "Verified" in macos_row and "q_rms_rel=0.0144" in macos_row
+
+
+def test_efit_windows_records_the_netcdf_it_got_not_the_netcdf_it_asked_for():
+    """Cold review install F24: `enabled = [bool] $netcdfUnix` was the request.
+
+    install_efit.sh resets a build tree whose config.h disagrees with the
+    NetCDF being asked for (CMake does not track config.h as a dependency, so
+    write_m.F90.o stays compiled against the old setting) and judges the
+    outcome by config.h and by the binary. The .ps1 had neither, and recorded
+    netcdf.enabled from the request.
+    """
+    text = (INSTALL / "install_efit_windows.ps1").read_text(encoding="utf-8")
+    configure = text.index('cmake "$src" "${args[@]}"')
+    before, after = text[:configure], text[configure:]
+    assert "HAVE_NETCDF" in before and "config.h" in before, "stale-object reset before configure"
+    assert "Remove-Item -LiteralPath $buildDirectory" in before[before.index("HAVE_NETCDF"):]
+    assert "netcdf needs to be linked to write m-files" in after, "the binary is the witness"
+    assert re.search(r"enabled\s+=\s+\$netcdfAchieved", after)
+    assert not re.search(r"enabled\s+=\s+\[bool\] \$netcdfUnix", text)
+    # And the remedy the message names is a switch the script declares.
+    assert "-WithoutNetcdf" in after and "[switch] $WithoutNetcdf" in text
+
+
+def _gpec_dependency_fetch_function() -> str:
+    """The bash `fetch` the GPEC Windows installer runs inside MSYS2, as text."""
+    text = (INSTALL / "install_gpec_windows.ps1").read_text(encoding="utf-8")
+    lines = re.findall(r"(?m)^        '([^']*)',?$", text)
+    start = lines.index("fetch() {")
+    return "\n".join(lines[start: lines.index("}", start) + 1]) + "\n"
+
+
+@requires_bash
+def test_gpec_windows_never_reuses_a_partial_download(tmp_path):
+    """Cold review install F25: `[ -f x.tar.gz ] || curl -o x.tar.gz` kept any bytes.
+
+    A download cut short left a truncated archive that the next run accepted
+    as complete, failing in `tar` with no hint of why. Downloads now land in a
+    .part, are checked to be a whole gzip stream, and are only then renamed.
+    """
+    import gzip
+
+    text = (INSTALL / "install_gpec_windows.ps1").read_text(encoding="utf-8")
+    assert "] || curl" not in text
+    assert len(re.findall(r"(?m)^        'fetch \S+\.tar\.gz https://", text)) == 3
+
+    whole = gzip.compress(b"a whole archive " * 64)
+    truncated = whole[: len(whole) // 2]
+    served = tmp_path / "served.bin"
+    bin_directory = tmp_path / "bin"
+    bin_directory.mkdir()
+    fake_curl = bin_directory / "curl"
+    # `curl -fsSL -o OUT URL`: deliver whatever is staged at served.bin.
+    fake_curl.write_text(f'#!/bin/sh\ncp "{served}" "$3"\n', encoding="utf-8")
+    fake_curl.chmod(0o755)
+    work = tmp_path / "work"
+    work.mkdir()
+    script = "set -euo pipefail\n" + _gpec_dependency_fetch_function() + 'fetch "$1" "$2"\n'
+
+    def fetch():
+        return subprocess.run(
+            [BASH, "-c", script, "x", "x.tar.gz", "https://example.invalid/x.tar.gz"],
+            capture_output=True, text=True, timeout=60, cwd=work,
+            env={**os.environ, "PATH": f"{bin_directory}{os.pathsep}{os.environ['PATH']}"},
+        )
+
+    # A truncated archive left by an earlier run is replaced, not reused.
+    (work / "x.tar.gz").write_bytes(truncated)
+    served.write_bytes(whole)
+    assert fetch().returncode == 0
+    assert (work / "x.tar.gz").read_bytes() == whole
+    # A download that arrives truncated is refused and leaves nothing behind.
+    (work / "x.tar.gz").unlink()
+    served.write_bytes(truncated)
+    refused = fetch()
+    assert refused.returncode == 4 and "did not download whole" in refused.stderr
+    assert not (work / "x.tar.gz").exists() and not (work / "x.tar.gz.part").exists()
+    # A whole archive already present is kept without a download.
+    (work / "x.tar.gz").write_bytes(whole)
+    fake_curl.write_text("#!/bin/sh\nexit 99\n", encoding="utf-8")
+    assert fetch().returncode == 0
+
+
+def test_gpec_posix_build_failures_name_the_serial_retry():
+    """Cold review install F27: the default is `-j <cores>`; a failure said nothing.
+
+    The parallel default is kept -- the marker check refuses trees without
+    upstream's ordered install/TARGETS.inc, and the recorded verifications were
+    made with it -- but a build or link that fails anyway now tells the
+    operator the one thing worth trying before reading the log: --jobs 1.
+    """
+    text = (INSTALL / "install_gpec.sh").read_text(encoding="utf-8")
+    assert "install/TARGETS.inc" in text, "the marker that makes the parallel default safe"
+    for failure in ("build failed", "was not produced"):
+        line = next(line for line in text.splitlines() if failure in line and "die" in line)
+        assert "--jobs 1" in line, f"the '{failure}' message must name --jobs 1"
+
+
+def _load_plasma_state_comparator() -> ModuleType:
+    path = NUBEAM_DIR / "compare-plasma-state.py"
+    spec = importlib.util.spec_from_file_location("compare_plasma_state", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_plasma_state_comparison_excludes_fill_values():
+    """Cold review install F28: `np.asarray` dropped the mask and summed the fill.
+
+    netCDF hands back masked arrays; the 9.97e36 fill then dominated both sums
+    and a 3x disagreement read as 0.00%.
+    """
+    numpy = pytest.importorskip("numpy")
+    comparator = _load_plasma_state_comparator()
+    fill = 9.9692099683868690e36
+    reference = numpy.ma.masked_values([1.0, 2.0, fill], fill)
+    candidate = numpy.ma.masked_values([3.0, 6.0, fill], fill)
+    rel_integral, rel_l2, note = comparator.metrics(reference, candidate)
+    assert rel_integral == pytest.approx(2.0) and rel_l2 == pytest.approx(2.0) and note == ""
+    # The same values with the mask already lost are still not summed.
+    rel_integral, _, _ = comparator.metrics(numpy.array([1.0, 2.0, fill]), numpy.array([3.0, 6.0, fill]))
+    assert rel_integral == pytest.approx(2.0)
+    assert comparator.metrics(numpy.ma.masked_all(3), numpy.ma.masked_all(3))[2] == "no finite values"
+
+
+def test_plasma_state_comparison_has_a_verdict(tmp_path):
+    """Cold review install F28: the comparator printed and exited 0 whatever it saw.
+
+    run-local-validation.sh piped it through tee and never looked at a status,
+    so the step the harness exists for could not fail. The comparator now
+    exits 1 when the headline median exceeds --tolerance, and the harness
+    turns that into a die.
+    """
+    netCDF4 = pytest.importorskip("netCDF4")
+    comparator = _load_plasma_state_comparator()
+
+    def state(path: Path, scale: float) -> None:
+        with netCDF4.Dataset(str(path), "w") as dataset:
+            dataset.createDimension("rho", 4)
+            for name, _ in comparator.HEADLINE:
+                variable = dataset.createVariable(name, "f8", ("rho",))
+                variable[:] = scale * numpy_arange
+    numpy_arange = pytest.importorskip("numpy").arange(1.0, 5.0)
+    state(tmp_path / "reference.cdf", 1.0)
+    state(tmp_path / "candidate.cdf", 3.0)
+    state(tmp_path / "close.cdf", 1.05)
+
+    def run(candidate: str, *extra: str) -> int:
+        argv = [sys.argv[0], str(tmp_path / "reference.cdf"), str(tmp_path / candidate), *extra]
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(sys, "argv", argv)
+            return comparator.main()
+
+    assert run("candidate.cdf") == 1
+    assert run("close.cdf") == 0
+    assert run("close.cdf", "--tolerance", "0.01") == 1
+
+    harness = _executable_source(NUBEAM_DIR / "run-local-validation.sh")
+    assert re.search(r'tee "\$WORK_DIR/comparison.txt" \|\|\s*die', harness), (
+        "the harness must turn the comparator's exit status into a failure"
+    )
+
+
+@requires_bash
+@pytest.mark.parametrize("name", ("macos.sh", "linux.sh", "windows.sh"))
+def test_nubeam_recipes_refuse_a_tree_path_with_whitespace(name, tmp_path):
+    """Cold review install F29: Make.local carries PREFIX unquoted.
+
+    None of the recipes checked the root for whitespace before generating
+    Make.local, so a tree under "First Last" failed deep inside an NTCC
+    submodule. Each now refuses up front, before anything is written.
+    """
+    tree = tmp_path / "with space"
+    (tree / "nubeam_comp_exec").mkdir(parents=True)
+    (tree / "Makefile").write_text("", encoding="utf-8")
+    completed = subprocess.run(
+        [BASH, str(NUBEAM_DIR / name), "--nubeam-root", str(tree)],
+        capture_output=True, text=True, timeout=60,
+    )
+    assert completed.returncode == 1, completed.stderr
+    assert "whitespace" in completed.stderr and "Make.local" in completed.stderr
+    assert not (tree / "local").exists() and not (tree / "build").exists()
+    assert not (tree / ".nubeam-install-manifest").exists()
+
+    wrapper = (NUBEAM_DIR / "windows.ps1").read_text(encoding="utf-8")
+    assert re.search(r"\$source -match '\\s'", wrapper), "windows.ps1 refuses whitespace too"
+
+
+def _nubeam_uninstall(root: Path, *entries: tuple[str, str]):
+    (root / ".nubeam-install-manifest").write_text(
+        "".join(f"{kind}\t{path}\n" for kind, path in entries), encoding="utf-8"
+    )
+    return subprocess.run(
+        [BASH, str(NUBEAM_DIR / "uninstall.sh"), "--nubeam-root", str(root), "--dry-run"],
+        capture_output=True, text=True, timeout=60,
+    )
+
+
+@requires_bash
+def test_nubeam_uninstall_refuses_entries_that_only_look_inside_the_tree(tmp_path):
+    """Cold review install F30: `"$ROOT_DIR"/*` accepted `<root>/../x` and `<root>/`.
+
+    Both passed the inside-the-tree guard and reached rm -rf. Only a damaged
+    manifest gets there, which is exactly the input the guard exists for.
+    """
+    root = tmp_path / "nubeam"
+    (root / "local").mkdir(parents=True)
+    (root / "build" / "linux-x86_64").mkdir(parents=True)
+    (root / "share").mkdir()
+    (root / "share" / "Make.local").write_text("# Generated by VAFT install/nubeam/linux.sh\n", encoding="utf-8")
+    victim = tmp_path / "victim"
+    victim.mkdir()
+
+    # The manifest the installers actually write is accepted as before.
+    accepted = _nubeam_uninstall(
+        root,
+        ("root", str(root)),
+        ("managed_dir", str(root / "local")),
+        ("managed_dir", str(root / "build" / "linux-x86_64")),
+        ("generated_config", str(root / "share" / "Make.local")),
+    )
+    assert accepted.returncode == 0, accepted.stderr
+    assert accepted.stdout.count("would remove") == 4
+
+    for entry in (
+        f"{root}/../victim", f"{root}/", f"{root}/local/../../victim", f"{root}//local",
+        f"{root}/local/..", f"{root}/./local", f"{root}/elsewhere",
+    ):
+        refused = _nubeam_uninstall(root, ("root", str(root)), ("managed_dir", entry))
+        assert refused.returncode == 1, f"{entry}: {refused.stdout}{refused.stderr}"
+        assert "refusing" in refused.stderr, entry
+        assert "would remove" not in refused.stdout, entry
+    assert victim.is_dir()
+
+
+def test_plasma_state_verdict_cannot_be_carried_by_a_good_median_alone():
+    """Review of PR #1921, F1: the median passed with half the headline 100% wrong.
+
+    A candidate writing zeros for six headline profiles and matching the other
+    seven at 3% had a 3% median and exited 0; one judged on the single headline
+    variable it carried passed on that one; a reference of zero against a
+    garbage candidate became NaN and was dropped. The verdict now needs at
+    least --min-profiles comparable rows, fails any row that could not be
+    compared, and holds the profiles VALIDATION.md found resolved above the
+    noise to --ceiling individually.
+    """
+    numpy = pytest.importorskip("numpy")
+    comparator = _load_plasma_state_comparator()
+    names = [name for name, _ in comparator.HEADLINE]
+
+    def rows(disagreement: dict[str, float], present=names):
+        return [(name, disagreement.get(name, 0.03), 0.0, "") for name in present]
+
+    ok, reason = comparator.verdict(rows({}), 0.25, 0.5, 10)
+    assert ok, reason
+    # Six of thirteen 100% wrong behind a 3% median: the ceiling catches the
+    # resolved ones among them.
+    wrong = {name: 1.0 for name in ("pfuse", "pfusi", "curbeam", "tqbe", "tqbi", "tqbjxb")}
+    ok, reason = comparator.verdict(rows(wrong), 0.25, 0.5, 10)
+    assert not ok and "curbeam" in reason and "ceiling" in reason
+    # A noise-dominated profile alone may still be large.
+    ok, _ = comparator.verdict(rows({"tqbjxb": 0.84}), 0.25, 0.5, 10)
+    assert ok
+    # Judged on one present profile: refused for want of evidence.
+    ok, reason = comparator.verdict(rows({}, present=["pbe"]), 0.25, 0.5, 10)
+    assert not ok and "1 of 13" in reason
+    # A row that could not be compared is a failure, not a dropped NaN.
+    inf = float("inf")
+    for broken in (inf, float("nan"), None):
+        damaged = rows({})
+        damaged[1] = ("pbi", broken, broken, "" if broken is not None else "shape (4,) vs (5,)")
+        ok, reason = comparator.verdict(damaged, 0.25, 0.5, 10)
+        assert not ok and "pbi could not be compared" in reason, reason
+    # And metrics() now reports a zero reference against a non-zero candidate
+    # as infinite rather than NaN.
+    assert comparator.metrics(numpy.zeros(4), numpy.full(4, 1e5))[0] == inf
+    # Identically-zero pairs (pfuse/pfusi without DT) carry nothing: excluded.
+    zeroed = rows({})
+    zeroed[8] = ("pfuse", 0.0, 0.0, "both identically zero")
+    zeroed[9] = ("pfusi", 0.0, 0.0, "both identically zero")
+    ok, reason = comparator.verdict(zeroed, 0.25, 0.5, 11)
+    assert ok, reason
+    ok, reason = comparator.verdict(zeroed, 0.25, 0.5, 12)
+    assert not ok and "11 of 13" in reason
+
+
+@posix_only
+@requires_bash
+def test_nubeam_uninstall_does_not_follow_a_symlinked_component(tmp_path):
+    """Review of PR #1921, F2: `rm -rf <root>/build/sym/sub` followed the link.
+
+    A planted `build/sym -> /elsewhere` plus a manifest entry under it passed
+    both lexical guards; rm -rf then removed /elsewhere/sub. When the
+    directory exists its real location is now compared with the tree's.
+    """
+    root = tmp_path / "nubeam"
+    (root / "build" / "linux-x86_64").mkdir(parents=True)
+    elsewhere = tmp_path / "elsewhere"
+    (elsewhere / "sub").mkdir(parents=True)
+    (root / "build" / "sym").symlink_to(elsewhere)
+
+    refused = _nubeam_uninstall(root, ("root", str(root)), ("managed_dir", f"{root}/build/sym/sub"))
+    assert refused.returncode == 1 and "outside the source tree" in refused.stderr, refused.stderr
+    assert "would remove" not in refused.stdout
+    assert (elsewhere / "sub").is_dir()
+    # A real directory inside the tree is still removed.
+    accepted = _nubeam_uninstall(root, ("root", str(root)), ("managed_dir", f"{root}/build/linux-x86_64"))
+    assert accepted.returncode == 0 and "would remove directory" in accepted.stdout
+
+
+@posix_only
+def test_load_probe_reads_only_what_the_loader_prints(tmp_path):
+    """Review of PR #1921, F3: a benign stdout line matched a loader needle.
+
+    The needles were scanned over stdout as well, so a program greeting the
+    console with "input symbol not found in namelist, using default" failed
+    the load layer. Loaders complain on stderr; stdout is the program's own.
+    """
+    common = _load_external_checker("_external_code_common.py")
+    bin_directory = tmp_path / "prefix" / "bin"
+    bin_directory.mkdir(parents=True)
+    chatty = bin_directory / "chatty"
+    chatty.write_text(
+        '#!/bin/sh\necho "WARNING: input symbol not found in namelist, using default"; exit 0\n',
+        encoding="utf-8",
+    )
+    chatty.chmod(0o755)
+    result = common.check_executables_load(tmp_path / "prefix", ["chatty"], project="NUBEAM")
+    assert result.status == common.PASS, result

@@ -21,16 +21,21 @@
 # the source revision (and, if you insisted on building a dirty tree, the diff
 # digest), the make command, the compiler and the executable's checksum.
 #
-# Linux (system gfortran) is the verified platform; the macOS arm uses upstream's
-# `darwin` machine and is untested. Nothing is installed system-wide.
+# Both arms are verified manually, Linux with the system gfortran and the
+# linux_nohdf5 machine, macOS (Apple Silicon, Homebrew gfortran) with upstream's
+# `darwin` machine: each refines the packaged g039915.00319 to the same
+# comparison numbers, recorded in install/README.md under "Verification
+# status". Nothing is installed system-wide.
 #
 # Three things about the build, each of which fails quietly if you get it wrong:
 #
 #   * CHEASE_MACHINE is not cosmetic. `Makefile.define_FLAGS` matches
-#     linux_nohdf5 in exactly one branch, and that branch is the only one that
-#     sets -fdefault-real-8 -fdefault-double-8. Upstream's default machine
+#     linux_nohdf5 in exactly one branch, and that branch is where the Linux
+#     build gets -fdefault-real-8 -fdefault-double-8. Upstream's default machine
 #     (`none`, from Makefile.define_MACHINE) compiles cleanly in single
-#     precision and produces a numerically different code.
+#     precision and produces a numerically different code. The `darwin` machine
+#     reproduces the Linux reference numbers (see the README row), which is why
+#     the macOS arm needs no flags of its own.
 #   * CHEASE_F90 and CHEASE_MACHINE are both exported so the makefile's host
 #     detection never runs. Left to itself it shells out to `dnsdomainname` and
 #     picks a branch from the hostname, which makes the build machine-dependent.
