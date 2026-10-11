@@ -119,3 +119,5 @@ vaft.omas.plot_turbulent_transport_overview({f"TGLF SAT{n}": ct for n, ct in sat
 ## What stays outside plotting
 
 Descriptors such as $\gamma_{max}$, the $k_y$ of the flux peak, $f_e$ and $f_{EM}$ are computed in the analysis layer (`workflow/transport_atlas`, `vaft.process`) and only drawn here. The plot layer infers no turbulence-mode labels (ITG, TEM, ETG, KBM, MTM).
+
+Which orderings a gyrokinetic run assumes ($\rho_s/L_T$, $k_\perp\rho_i$, $\omega/\Omega_i$), and why drift kinetics is not a lower-fidelity gyrokinetic model, is [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}).
