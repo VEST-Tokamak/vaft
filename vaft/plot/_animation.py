@@ -213,7 +213,9 @@ def render_animation(
         plot=spec.name, label=str(entries[0][0]), driver=driver, selection=selection,
         fps=float(fps), timing=timing, dpi=int(dpi), image=image,
         vmin=presentation.get("vmin"), vmax=presentation.get("vmax"),
-        frame_label=bool(presentation.get("frame_label", True)), options=fixed, style=style, build=build, draw=draw,
+        # A categorical driver's frames name their state in the plot's own
+        # caption (the kinetic state's "Stage k/8"): no stamp over it (#1957).
+        frame_label=bool(presentation.get("frame_label", not driver.labels)), options=fixed, style=style, build=build, draw=draw,
         scientific_context=scientific_context,
     )
     if show:
@@ -340,6 +342,12 @@ def _select_categorical(control: Any, declared: Any, axis: np.ndarray, options: 
     The states are not times: ``time_range=`` cannot select among them and is
     refused, while ``time=`` stays a fixed option every frame is drawn at.
     """
+    for option, values in declared.refused_with.items():
+        if options.get(option) in values:
+            raise ValueError(
+                f"{option}={options[option]!r} cannot be animated over {control.name}: it already draws "
+                f"several {control.name}s in one figure; drop animation=True or choose another {option}"
+            )
     offered = tuple(declared.states)
     value_of = dict(zip(offered, (float(v) for v in axis)))
     label_of = dict(zip(offered, declared.labels))

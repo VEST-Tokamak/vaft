@@ -111,6 +111,10 @@ class ControlSpec:
         if self.kind == "toggle":
             return bool(value)
         if self.kind == "choice":
+            if value is None and self.default is None:
+                # A choice whose default leaves the option out can return to it
+                # (#1957: the full figure after a stage was picked).
+                return None
             if value not in self.options:
                 raise ValueError(f"{self.name} must be one of {', '.join(map(str, self.options))}; got {value!r}")
             return value

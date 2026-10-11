@@ -521,6 +521,11 @@ def _scatter_like(series: Any, options: dict) -> bool:
     return bool(marker) and linestyle in ("none", "None", "")
 
 
+#: :meth:`Axes.errorbar` keywords a series style may carry, passed only when
+#: error bars are drawn (``Line2D`` refuses them).
+_ERRORBAR_ONLY = ("elinewidth", "capsize", "capthick", "ecolor", "errorevery", "barsabove")
+
+
 def draw_series(
     axes: Any,
     series: Any,
@@ -608,8 +613,10 @@ def draw_series(
     if yerr is not None and uncertainty == "none":
         yerr = None
 
+    # Error-bar keywords a recipe sets for when bars are drawn; ``plot`` takes none.
+    bar_options = {key: options.pop(key) for key in _ERRORBAR_ONLY if key in options}
     if draw_errorbars:
-        container = axes.errorbar(x, y, yerr=yerr, **options)
+        container = axes.errorbar(x, y, yerr=yerr, **options, **bar_options)
         if series.role:
             for artist in container.get_children():
                 artist.set_gid(_ROLE_GID)

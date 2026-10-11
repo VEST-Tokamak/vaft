@@ -982,6 +982,8 @@ def kinetic_overview_profiles(
 _KINETIC_STATE_OUTSIDE_LEGEND_MIN_WIDTH_IN = 6.0
 #: ``layout="stages"`` without a format: inches per stage column (#1957).
 _KINETIC_STAGE_COLUMN_IN = 1.9
+#: The narrowest canvas ``layout="stages"`` is drawn on [in]; a narrower one is refused.
+_KINETIC_STAGES_MIN_WIDTH_IN = 8.0
 #: Its column titles (the stage names) against the format's title size.
 _KINETIC_STAGE_TITLE_SCALE = 0.8
 #: Its row legends against the format's base type size.
@@ -1080,7 +1082,9 @@ def kinetic_overview_state(
     the selected ``time=`` as one movie.  ``layout="stages"`` draws the four
     quantities as rows and one column per stage of ``stages=`` (default 1,
     2, 4, 5, 7, 8), each the cumulative figure at that stage, with one
-    legend of symbols per row; it is sized for ``format="slide"``.
+    legend of symbols per row; it is sized for ``format="slide"``, refused
+    on a canvas narrower than 8 inches and with ``backend="plotly"`` (its row
+    legends live in cells of their own), and cannot be animated.
 
     Limitations
     -----------
@@ -1109,6 +1113,14 @@ def kinetic_overview_state(
         model = replace(model, member_styles=tuple(
             {**dict(m), **inside} if dict(m).get("legend", True) is not False else dict(m)
             for m in model.member_styles), suptitle=model.suptitle.replace(" (", "\n(", 1))
+    if stages and ax is None:
+        width = fmt.width_in if fmt is not None else (style["figsize"][0] if style.get("figsize") else None)
+        if width is not None and width < _KINETIC_STAGES_MIN_WIDTH_IN:
+            raise ValueError(
+                f"layout='stages' needs a canvas at least {_KINETIC_STAGES_MIN_WIDTH_IN:g} in wide for "
+                f"{model.ncols - 1} stage columns and their legends; this one is {width:g} in -- use "
+                "format='slide' (or 'poster'), or fewer stages=, or layout='grid' with stage="
+            )
     if stages and fmt is None and ax is None and style.get("figsize") is None:
         # No format: a canvas as wide as its columns, not the 6.5-inch screen
         # format a 2 x 2 grid is drawn on (format="slide" for a slide).

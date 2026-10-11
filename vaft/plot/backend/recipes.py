@@ -1010,8 +1010,12 @@ class SequenceDeclaration:
     label: str = ""
     default: int | None = None
     coordinate: str = "stage"
+    #: Option values the sequence cannot be walked with, as ``{option:
+    #: values}``: ``animation=True`` refuses them up front.
+    refused_with: Mapping[str, tuple[Any, ...]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "refused_with", {k: tuple(v) for k, v in self.refused_with.items()})
         object.__setattr__(self, "states", tuple(int(v) for v in self.states))
         object.__setattr__(self, "labels", tuple(str(v) for v in self.labels))
         if len(self.states) < 2 or len(set(self.states)) != len(self.states):
@@ -16557,6 +16561,8 @@ RECIPES["kinetic_overview_state"] = CallableRecipe(
         "stage", tuple(number for number, _ in KINETIC_STATE_STAGES),
         tuple(f"Stage {number}/{len(KINETIC_STATE_STAGES)}: {name}" for number, name in KINETIC_STATE_STAGES),
         label="Inference stage",
+        # The small multiples already show every stage at once.
+        refused_with={"layout": ("stages",)},
     ),
 )
 

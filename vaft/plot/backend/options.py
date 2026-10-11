@@ -265,8 +265,8 @@ def _specs() -> tuple[OptionSpec, ...]:
         # of its chain (and is what animation=True walks); stages= names the
         # columns of its layout="stages" small multiples.
         OptionSpec("stage", "int",
-                   description="kinetic state: draw the inference chain up to this stage (1-8), the newest "
-                               "stage emphasised; default the full figure"),
+                   description="kinetic state: draw the inference chain up to this stage (1-8) on the full "
+                               "figure's axis limits; default the full figure"),
         OptionSpec("stages", "any",
                    description="kinetic state: the stages layout='stages' draws as columns, increasing"),
         # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that

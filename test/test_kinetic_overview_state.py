@@ -196,7 +196,7 @@ def test_the_roles_are_the_records_the_writers_wrote(case_40326):
     traces = _traces(model)
     expected = {
         "n_e": "fit", "T_e": "fit",                     # coordinate=...; method=external
-        "n_main_ion": "assumed", "n_impurity_ion": "assumed", "Z_eff": "assumed",   # origin=derived
+        "n_main_ion": "derived", "n_impurity_ion": "derived", "Z_eff": "derived",   # origin=derived
         "T_i": "inferred", "p_i": "inferred",           # origin=inferred (inferred_ti_text)
         "p_kin": "closure identity",                    # method=equilibrium_pressure_partition
         "n_e_thomson": "fit input", "T_e_thomson": "fit input",

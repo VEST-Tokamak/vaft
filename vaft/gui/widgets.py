@@ -16,9 +16,9 @@ from typing import Any, Callable
 from ._require import require_panel
 
 #: What a ``choice`` whose default is ``None`` shows: ``None`` means "leave
-#: the option out", which none of the choices says.  Once another choice is
-#: picked the state cannot hold ``None`` again (ControlSpec.validate), so
-#: picking "(default)" afterwards is ignored and the widget moves back.
+#: the option out", which none of the choices says.  Picking it again after
+#: another choice leaves the option out again (ControlSpec.validate accepts
+#: ``None`` for such a choice): the kinetic state's full figure after a stage.
 UNSET_LABEL = "(default)"
 #: What the channel preset shows while individual channels replace it.
 INDIVIDUAL_LABEL = "(individual channels)"
@@ -129,6 +129,10 @@ def panel_controls(
     def setter(name: str) -> Callable[[Any], None]:
         def apply(event: Any) -> None:
             if busy["on"]:
+                return
+            spec = state.spec(name)
+            if event.new is None and spec.kind == "choice" and spec.default is None:
+                apply_value(name, None)  # "(default)": leave the option out again
                 return
             if event.new is None or event.new is INDIVIDUAL:
                 # A placeholder, not a value: show the state's value again.

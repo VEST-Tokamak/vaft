@@ -42,15 +42,18 @@ Evidence (the contract as amended by Lane KP on #1837)
   a stored impurity pressure it is omitted and the legend says so.
 * **Assumptions** are read from the records, never hard-coded: an
   ``assumption=...`` field of any record the plot reads, else a record whose
-  ``origin=`` or ``status=`` is ``assumed`` (named by its quantity and
-  ``method=``, or ``T_i = r T_e`` for a ratio record), are listed in one
-  figure note, ``Assumed: T_i = T_e; n_C = n_O``, with a composition's preset
-  ``target_zeff`` (``<Z_eff> = 2.00 (target)``).  A composition closed on a
-  resistive (Romero) value states it on a line of its own, ``Inferred:
-  <Z_eff> = 1.74 ± 0.21 (Romero)``, from ``normalization=resistive_closure``,
-  ``resistive_target=`` or the stored ``z_eff_resistive``, ``resistive_sigma=``
-  and ``resistive_method=``.  Numbers have two decimals.  Nothing is listed
-  when no record states either.
+  legend role is ``assumed`` (``T_i = T_e`` or ``T_i = r T_e`` for a ratio
+  record, else the quantity with its ``method=``), are listed in one figure
+  note, ``Assumed: T_i = T_e; n_C = n_O``.  ``origin=derived`` is drawn
+  ``(derived)``, not assumed, so the note lists exactly the legend's
+  ``(assumed)`` entries.  The Z_eff a composition was closed on is read only
+  from the records that state its ``normalization=``: a preset target joins
+  the assumptions, named by what it fixes (``<Z_eff>_ne`` for
+  ``ne_weighted_mean``, ``Z_eff(0)`` for ``axis``, ``Z_eff^stripped`` for
+  ``fixed``); a ``resistive_closure`` is a line of its own, ``Inferred:
+  Z_eff^res = 1.74 ± 0.21 (Romero)``, from ``resistive_target=``,
+  ``resistive_sigma=`` and ``resistive_method=``, or names the closure and
+  says its value is not recorded.  Numbers have two decimals.
 
 Inference stages (#1957)
 ------------------------
@@ -149,6 +152,9 @@ _SYMBOLS = {
 #: six columns, what an 11-inch slide holds legibly.  ``stages=range(1, 9)``
 #: draws all eight.
 DEFAULT_STAGE_COLUMNS = (1, 2, 4, 5, 7, 8)
+#: Why ``layout="stages"`` is Matplotlib-only: its row legends live in cells of their own.
+_STAGES_PLOTLY = ("layout='stages' puts one legend per row in a cell of its own, which the Plotly "
+                  "renderer does not draw; use backend='matplotlib' or layout='grid'")
 #: Thomson points: marker size as a fraction of the format's, so the error
 #: bars stand out of the markers; bars in the points' colour, capped.
 THOMSON_POINT_STYLE = {"markersize_scale": 0.4, "elinewidth": 1.3, "capsize": 2.5, "capthick": 1.3,
@@ -169,7 +175,10 @@ LEGEND_FONTSIZE_SCALE = 0.58
 _E = 1.602176634e-19
 
 #: Recorded ``origin=`` -> role.
-_ORIGIN_ROLES = {"measured": "measurement", "assumed": "assumed", "derived": "assumed", "inferred": "inferred"}
+#: ``derived`` stays derived: a value computed from others (a composition
+#: preset's dilution) is not an assumption, and the note lists only what the
+#: legend calls assumed (#1957 cold review).
+_ORIGIN_ROLES = {"measured": "measurement", "assumed": "assumed", "derived": "derived", "inferred": "inferred"}
 #: :func:`classify_ti_record` kind -> role (a fit record is told apart below).
 _TI_ROLES = {"assumed": "assumed", "inferred": "inferred"}
 #: Recorded equilibrium lineage -> the role of Thomson in its pressure.
@@ -255,11 +264,6 @@ def _ti_role(path: str, text: str | None) -> str:
     if text is None:
         return "stored"
     fields = _fields(path, text)
-    origin = fields.get("origin", "").lower()
-    if origin in ("assumed", "derived"):
-        # ``origin=assumed; method=ti_equals_te`` (#1957): an assumption by the
-        # composition grammar, which classify_ti_record does not read.
-        return "assumed"
     kind = classify_ti_record(text)
     if kind == "measured":
         return "measurement" if "origin" in fields else "fit"
@@ -628,11 +632,12 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
     p_imp, p_imp_paths, p_imp_reason = _impurity_pressure(ods, base, size)
     # Every record the plot reads, by the quantity it belongs to: the
     # assumptions note lists what they state (#1957).
-    records = [("n_e", ne_record, ne_text), ("T_e", te_record, te_text), ("T_i", ti_path, ti_text),
-               ("Z_eff", zeff_record, zeff_text)]
+    # Each with the role its legend entry states, so the note and the legend agree.
+    records = [("n_e", ne_record, ne_text, ne_role), ("T_e", te_record, te_text, te_role),
+               ("T_i", ti_path, ti_text, ti_role), ("Z_eff", zeff_record, zeff_text, zeff_role)]
     for quantity, group in (("n_main_ion", main), ("n_impurity_ion", impurity)):
         if group is not None:
-            records.extend((quantity, path, text) for path, text in group[4])
+            records.extend((quantity, path, text, _origin_role(path, text)) for path, text in group[4])
 
     # --- Thomson, mapped through the selected equilibrium -------------------------
     ts = _thomson(ods, t_core)
@@ -711,7 +716,8 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
     if p_imp is not None:
         # A part of pressure_ion_total (the DD's sum over every ion species),
         # drawn as such and never added to p_e + p_i a second time.
-        add(pressure, _series(x, _finite(p_imp), r"$p_{\mathrm{imp}}$ (stored, part of $p_i$)", _COLOURS["impurity"],
+        part = ", part of $p_i$" if pi is not None else ""
+        add(pressure, _series(x, _finite(p_imp), rf"$p_{{\mathrm{{imp}}}}$ (stored{part})", _COLOURS["impurity"],
                               linestyle="-."),
             "p_imp", " + ".join(p_imp_paths), "stored", "none")
     elif p_imp_reason is not None:
@@ -781,8 +787,7 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
                             linestyle="--"),
             "Z_eff_reference", path, role, "none")
 
-    assumptions, inferences = _assumptions(
-        records, None if reference is None or reference[3] != "stored" else reference[0])
+    assumptions, inferences = _assumptions(records)
     selection = {
         "time": t_core, "core_profiles_slice": j, "equilibrium_time": t_eq, "equilibrium_slice": i,
         "equilibrium_lineage": lineage, "equilibrium_occurrence": occurrence,
@@ -863,7 +868,8 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
             for col, at in enumerate(columns):
                 title = f"{at}: {_STAGE_TITLES[at]}" if row == 0 else ""
                 models.append(panel(name, series, y_label, unit, display_spec, at, title=title,
-                                    extra={"layout": "stages", "column": col}, compact=True))
+                                    extra={"layout": "stages", "column": col, "matplotlib_only": _STAGES_PLOTLY},
+                                    compact=True))
                 styles.append({"legend": False})
             # A cell of its own for the row's legend, which the renderer fills
             # from the row's last column: inside an axes, the layout makes room
@@ -920,17 +926,26 @@ def _y_limits(series: list[Series]) -> tuple[float, float] | None:
     return (low - margin, high + margin)
 
 
-def _statement(quantity: str, fields: Mapping[str, str]) -> str | None:
-    """What one record says was assumed, from its own fields; ``None`` when nothing."""
+def _statement(quantity: str, fields: Mapping[str, str], role: str) -> str | None:
+    """What one record says was assumed, from its own fields; ``None`` when nothing.
+
+    An ``assumption=`` field is quoted; otherwise a record whose legend role is
+    ``assumed`` is named -- ``T_i = T_e`` (or ``T_i = r T_e``) for a ratio
+    record, ``<quantity> (<method>)``, or ``<quantity> (assumed)``.
+    """
     if "assumption" in fields:
         return re.sub(r"\s*=\s*", " = ", fields["assumption"])
-    origin, status = fields.get("origin", "").lower(), fields.get("status", "").lower()
-    if origin != "assumed" and status != "assumed":
+    if role != "assumed":
         return None
     if "ti_te_ratio" in fields:
-        return f"T_i = {fields['ti_te_ratio']} T_e"
+        ratio = fields["ti_te_ratio"]
+        try:
+            unit = float(ratio) == 1.0
+        except ValueError:
+            unit = False
+        return "T_i = T_e" if unit else f"T_i = {ratio} T_e"
     method = fields.get("method")
-    return f"{quantity} ({method})" if method else quantity
+    return f"{quantity} ({method})" if method else f"{quantity} (assumed)"
 
 
 def _two(value: Any) -> str:
@@ -941,60 +956,77 @@ def _two(value: Any) -> str:
         return str(value)
 
 
-def _zeff_constraint(records: list, resistive: float | None) -> tuple[str, tuple[str, str, str]] | None:
-    """``(kind, (quantity, record path, statement))``: the total ``Z_eff`` a composition was partitioned to.
+def _method_name(method: str) -> str:
+    """A resistive method as the figure names it: ``romero`` -> ``Romero``."""
+    method = _plain(method)
+    return method[:1].upper() + method[1:]
 
-    ``normalization=resistive_closure`` names a resistive value -- the record's
-    ``resistive_target=``, else the stored ``z_eff_resistive`` of the slice,
-    with ``resistive_sigma=`` when a record states one, named by
-    ``resistive_method=`` -- which is *inferred*, not assumed
-    (``<Z_eff> = 1.74 ± 0.21 (Romero)``), attributed to the Z_eff reference
-    (stage 4).  Any other normalization with a ``target_zeff=`` on a record
-    names that target, an *assumption* (``<Z_eff> = 2.00 (target)``),
-    attributed to the composition record.  Numbers have two decimals.
+
+#: How each composition normalization (:data:`vaft.process.impurity.NORMALIZATIONS`)
+#: names the Z_eff it closes on, plain and as mathtext.
+_NORMALIZED_ZEFF = {
+    "ne_weighted_mean": ("<Z_eff>_ne", r"\langle Z_{\mathrm{eff}}\rangle_{n_e}"),
+    "axis": ("Z_eff(0)", r"Z_{\mathrm{eff}}(0)"),
+    "fixed": ("Z_eff^stripped", r"Z_{\mathrm{eff}}^{\mathrm{stripped}}"),
+    "resistive_closure": ("Z_eff^res", r"Z_{\mathrm{eff}}^{\mathrm{res}}"),
+}
+
+
+def _zeff_constraint(records: list) -> tuple[str, tuple[str, str, str]] | None:
+    """``(kind, (quantity, record path, statement))``: the Z_eff a composition was closed on, or ``None``.
+
+    Read only from the records that state the ``normalization=`` -- the
+    composition and ``zeff`` records the writer stores -- never paired with a
+    value no such record names.  ``resistive_closure`` closes on a resistive
+    value: ``resistive_target=`` with ``resistive_sigma=``, named by
+    ``resistive_method=``, is *inferred* (``Z_eff^res = 1.74 ± 0.21
+    (Romero)``), attributed to the Z_eff reference (stage 4); without a
+    target the closure is named and its value said to be unrecorded.  Any
+    other normalization with ``target_zeff=`` is an *assumption*, named by
+    what it fixes: ``<Z_eff>_ne`` (n_e-weighted mean), ``Z_eff(0)`` (axis),
+    ``Z_eff^stripped`` (fully stripped).  Numbers have two decimals.
     """
-    fields = [(quantity, path, _fields(path, text)) for quantity, path, text in records if text is not None]
-    normalized = [(q, path, f) for q, path, f in fields if "normalization" in f]
-    if not normalized:
+    stating = [(quantity, path, _fields(path, text)) for quantity, path, text, _ in records
+               if text is not None and "normalization" in _fields(path, text)]
+    if not stating:
         return None
-    quantity, path, first = min(normalized, key=lambda item: QUANTITY_STAGES[item[0]])
-    pooled = {key: value for _, _, f in fields for key, value in f.items()}
-    if first["normalization"] == "resistive_closure":
+    quantity, path, first = min(stating, key=lambda item: QUANTITY_STAGES[item[0]])
+    normalization = first["normalization"]
+    pooled = {key: value for _, _, f in stating for key, value in f.items()}
+    symbol = _NORMALIZED_ZEFF.get(normalization, (f"Z_eff [{normalization}]", None))[0]
+    if normalization == "resistive_closure":
+        method = _method_name(pooled.get("resistive_method", "resistive"))
         value = pooled.get("resistive_target")
-        if value is None and resistive is not None:
-            value = resistive
         if value is None:
-            return None
+            return "inferred", ("Z_eff_reference", path, f"{symbol} closure ({method}; value not recorded)")
         sigma = pooled.get("resistive_sigma")
         spread = f" ± {_two(sigma)}" if sigma is not None else ""
-        method = pooled.get("resistive_method", "resistive")
-        return "inferred", ("Z_eff_reference", path,
-                            f"<Z_eff> = {_two(value)}{spread} ({method[:1].upper() + method[1:]})")
+        return "inferred", ("Z_eff_reference", path, f"{symbol} = {_two(value)}{spread} ({method})")
     if "target_zeff" in pooled:
-        return "assumed", (quantity, path, f"<Z_eff> = {_two(pooled['target_zeff'])} (target)")
+        return "assumed", (quantity, path, f"{symbol} = {_two(pooled['target_zeff'])} (target)")
     return None
 
 
-def _assumptions(records: list[tuple[str, str, str | None]], resistive: float | None = None):
+def _assumptions(records: list):
     """``(assumed, inferred)``: ``(quantity, record path, statement)`` lists the records state.
 
-    Every record stating an assumption is listed once per statement, kept
-    with the earliest stage's quantity, so a stage cut names it from the stage
-    that first relies on it.  The total ``Z_eff`` the composition was
-    partitioned to (:func:`_zeff_constraint`) joins the assumptions when it is
-    a preset target, and is the one inferred statement when it is a resistive
-    (Romero) value.
+    ``records`` are ``(quantity, path, text, legend role)``.  Every record
+    stating an assumption is listed once per statement, kept with the earliest
+    stage's quantity, so a stage cut names it from the stage that first relies
+    on it.  The Z_eff the composition was closed on (:func:`_zeff_constraint`)
+    joins the assumptions when it is a preset target, and is the one inferred
+    statement when it is a resistive (Romero) value.
     """
     out, seen = [], set()
-    for quantity, path, text in sorted(records, key=lambda item: QUANTITY_STAGES[item[0]]):
+    for quantity, path, text, role in sorted(records, key=lambda item: QUANTITY_STAGES[item[0]]):
         if text is None:
             continue
-        statement = _statement(quantity, _fields(path, text))
+        statement = _statement(quantity, _fields(path, text), role)
         if statement is not None and statement not in seen:
             seen.add(statement)
             out.append((quantity, path, statement))
     inferred = []
-    constraint = _zeff_constraint(records, resistive)
+    constraint = _zeff_constraint(records)
     if constraint is not None:
         (out if constraint[0] == "assumed" else inferred).append(constraint[1])
     return out, inferred
@@ -1004,18 +1036,21 @@ def _assumptions(records: list[tuple[str, str, str | None]], resistive: float | 
 #: caption may set in mathtext; anything else stays plain text.
 _RELATION = re.compile(r"[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)?(\s*[=<>]\s*([0-9.]+\s*)?[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)?)+")
 
-
-_ZEFF_CONSTRAINT = re.compile(r"<Z_eff> = ([^ ]+)(?: ± ([^ ]+))?( \(.*\))?")
+#: ``<symbol> = value [± sigma] (...)`` or ``<symbol> closure (...)``.
+_ZEFF_STATEMENT = re.compile(r"(?P<symbol>\S+)(?: = (?P<value>[^ ]+)(?: ± (?P<sigma>[^ ]+))?)?(?P<rest>.*)")
 
 
 def _math(statement: str) -> str:
     """``T_i = T_e`` -> ``$T_i = T_e$``; a statement in no such form is left as it is."""
-    total = _ZEFF_CONSTRAINT.fullmatch(statement.strip())
-    if total:
-        spread = rf" \pm {total.group(2)}" if total.group(2) else ""
-        method = f" {_plain(total.group(3))}" if total.group(3) else ""
-        return rf"$\langle Z_{{\mathrm{{eff}}}}\rangle = {total.group(1)}{spread}$" + method
-    return f"${statement}$" if _RELATION.fullmatch(statement.strip()) else _plain(statement)
+    text = statement.strip()
+    zeff = _ZEFF_STATEMENT.fullmatch(text)
+    mathtext = {plain: math for plain, math in _NORMALIZED_ZEFF.values()}
+    if zeff and zeff["symbol"] in mathtext:
+        value = f" = {zeff['value']}" if zeff["value"] else ""
+        spread = rf" \pm {zeff['sigma']}" if zeff["sigma"] else ""
+        rest = f" {_plain(zeff['rest'])}" if zeff["rest"].strip() else ""
+        return f"${mathtext[zeff['symbol']]}{value}{spread}$" + rest
+    return f"${text}$" if _RELATION.fullmatch(text) else _plain(text)
 
 
 def _caption(stage: int | None, assumptions: list, newest: list, inferences: list = ()) -> str:
@@ -1132,7 +1167,7 @@ def _zeff_reference(ods: Any, t_core: float, record_path: str, record_text: str 
     The stored resistive ``Z_eff`` at the slice's own entry of
     ``core_profiles.time`` -- only when that array is as long as the time base
     and the entry is the slice's time -- else the ``target_zeff=`` field of the
-    ``zeff`` record, whose role is the record's.
+    ``zeff`` record, an assumption (role ``assumed``, as the note lists it).
     """
     stored = array(ods, "core_profiles.global_quantities.z_eff_resistive")
     times = array(ods, "core_profiles.time")
@@ -1141,8 +1176,8 @@ def _zeff_reference(ods: Any, t_core: float, record_path: str, record_text: str 
         value = float(stored.reshape(-1)[k])
         if abs(float(times[k]) - t_core) <= GLOBAL_TIME_TOLERANCE and np.isfinite(value):
             fields = _fields(record_path, record_text) if record_text is not None else {}
-            method = _plain(fields.get("resistive_method", ""))
-            how = f"stored, {method}" if method else "stored"
+            method = fields.get("resistive_method")
+            how = f"stored, {_method_name(method)}" if method else "stored"
             sigma = fields.get("resistive_sigma")
             spread = rf" \pm {_two(sigma)}" if sigma is not None else ""
             return (value, rf"$Z_{{\mathrm{{eff}}}}^{{\mathrm{{res}}}} = {value:.2f}{spread}$ ({how})",
@@ -1150,5 +1185,6 @@ def _zeff_reference(ods: Any, t_core: float, record_path: str, record_text: str 
     target = _target_zeff(record_path, record_text)
     if target is None:
         return None
-    return (target, rf"target $\langle Z_{{\mathrm{{eff}}}}\rangle = {target:.2f}$ ({zeff_role})",
-            f"{record_path} target_zeff", zeff_role)
+    # A composition target is what the note lists as assumed; the legend agrees.
+    return (target, rf"target $\langle Z_{{\mathrm{{eff}}}}\rangle = {target:.2f}$ (assumed)",
+            f"{record_path} target_zeff", "assumed")

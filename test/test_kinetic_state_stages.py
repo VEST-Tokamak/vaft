@@ -191,12 +191,13 @@ def test_assumptions_are_read_from_the_records(romero):
     model = _extract(romero.ods)
     assert model.suptitle.endswith(
         "\nAssumed: $T_i = T_e$; $n_C = n_O$"
-        "\nInferred: $\\langle Z_{\\mathrm{eff}}\\rangle = 2.00$ (Romero)")
+        "\nInferred: $Z_{\\mathrm{eff}}^{\\mathrm{res}} = 2.00 \\pm 0.20$ (Romero)")
     stated = model.models[0].metadata["assumptions"]
     assert [a["statement"] for a in stated] == ["T_i = T_e", "n_C = n_O"]
     assert stated[1]["record"].endswith("ion.1.density_fit.parameters")  # the stage that first relies on it
     (inferred,) = model.models[0].metadata["inferences"]
-    assert (inferred["quantity"], inferred["statement"]) == ("Z_eff_reference", "<Z_eff> = 2.00 (Romero)")
+    assert (inferred["quantity"], inferred["statement"]) == ("Z_eff_reference", "Z_eff^res = 2.00 ± 0.20 (Romero)")
+    assert inferred["record"].endswith("ion.1.density_fit.parameters")  # a record stating the normalization
     # A cut names only what its stages assumed or inferred.
     assert "n_C" not in _extract(romero.ods, stage=4).suptitle
     assert "Inferred" in _extract(romero.ods, stage=4).suptitle
@@ -207,47 +208,69 @@ def test_assumptions_are_read_from_the_records(romero):
 
 def test_a_preset_composition_lists_its_target_as_assumed(archive):
     model = _extract(archive.ods)
-    assert model.suptitle.endswith(r"Assumed: $\langle Z_{\mathrm{eff}}\rangle = 2.00$ (target)")
-    assert [a["statement"] for a in model.models[0].metadata["assumptions"]] == ["<Z_eff> = 2.00 (target)"]
+    assert model.suptitle.endswith(r"Assumed: $\langle Z_{\mathrm{eff}}\rangle_{n_e} = 2.00$ (target)")
+    assert [a["statement"] for a in model.models[0].metadata["assumptions"]] == ["<Z_eff>_ne = 2.00 (target)"]
     assert model.models[0].metadata["inferences"] == [] and "Inferred" not in model.suptitle
-    assert _traces(model)["Z_eff_reference"][0].label == r"target $\langle Z_{\mathrm{eff}}\rangle = 2.00$ (assumed)"
+    reference, record = _traces(model)["Z_eff_reference"]
+    assert reference.label == r"target $\langle Z_{\mathrm{eff}}\rangle = 2.00$ (assumed)"
+    assert record["role"] == "assumed"
 
 
-def test_nothing_is_listed_without_an_assumed_record():
-    model = _extract(_quiet(kinetic_state_case, 40326, "magnetics", records=False).ods)
-    assert "Assumed" not in model.suptitle and model.models[0].metadata["assumptions"] == []
+def _with_normalization(ods, text):
+    """``ods`` whose composition and zeff records state ``text`` as their normalization fields."""
+    ods = copy.deepcopy(ods)
+    for path in (f"{CP}.ion.0.density_fit.parameters", f"{CP}.ion.1.density_fit.parameters",
+                 f"{CP}.ion.2.density_fit.parameters", f"{CP}.zeff_fit.parameters"):
+        ods[path] = f"origin=derived; method=openadas_transient; {text}"
+    return ods
 
 
-def _inferred(ods):
-    return [a["statement"] for a in _extract(ods).models[0].metadata["inferences"]]
-
-
-def test_the_romero_constraint_is_read_from_the_records(romero):
-    ods = copy.deepcopy(romero.ods)
-    ods["core_profiles.global_quantities.z_eff_resistive"] = [1.7403228517823983]
-    ods[f"{CP}.zeff_fit.parameters"] = ods[f"{CP}.zeff_fit.parameters"].replace("romero", "spitzer")
-    assert _inferred(ods) == ["<Z_eff> = 1.74 (Spitzer)"]  # two decimals, never the raw float
-    for k in (1, 2):
-        ods[f"{CP}.ion.{k}.density_fit.parameters"] += "; resistive_target=1.9"
-    assert _inferred(ods) == ["<Z_eff> = 1.90 (Spitzer)"]
-
-
-@pytest.mark.parametrize("sigma, statement, legend", [
-    (None, "<Z_eff> = 1.74 (Romero)", r"$Z_{\mathrm{eff}}^{\mathrm{res}} = 1.74$ (stored, romero)"),
-    ("0.2148", "<Z_eff> = 1.74 ± 0.21 (Romero)",
-     r"$Z_{\mathrm{eff}}^{\mathrm{res}} = 1.74 \pm 0.21$ (stored, romero)"),
+@pytest.mark.parametrize("fields, kind, statement, caption", [
+    ("normalization=ne_weighted_mean; target_zeff=2", "assumptions", "<Z_eff>_ne = 2.00 (target)",
+     r"$\langle Z_{\mathrm{eff}}\rangle_{n_e} = 2.00$ (target)"),
+    ("normalization=axis; target_zeff=1.5", "assumptions", "Z_eff(0) = 1.50 (target)",
+     r"$Z_{\mathrm{eff}}(0) = 1.50$ (target)"),
+    ("normalization=fixed; target_zeff=2", "assumptions", "Z_eff^stripped = 2.00 (target)",
+     r"$Z_{\mathrm{eff}}^{\mathrm{stripped}} = 2.00$ (target)"),
+    ("normalization=resistive_closure; resistive_target=1.7403228517823983; resistive_method=romero",
+     "inferences", "Z_eff^res = 1.74 (Romero)", r"$Z_{\mathrm{eff}}^{\mathrm{res}} = 1.74$ (Romero)"),
+    ("normalization=resistive_closure; resistive_target=1.74; resistive_sigma=0.2148; resistive_method=romero",
+     "inferences", "Z_eff^res = 1.74 ± 0.21 (Romero)",
+     r"$Z_{\mathrm{eff}}^{\mathrm{res}} = 1.74 \pm 0.21$ (Romero)"),
+    ("normalization=resistive_closure; resistive_method=romero", "inferences",
+     "Z_eff^res closure (Romero; value not recorded)",
+     r"$Z_{\mathrm{eff}}^{\mathrm{res}}$ closure (Romero; value not recorded)"),
 ])
-def test_the_romero_value_has_two_decimals_and_its_sigma(romero, sigma, statement, legend):
+def test_each_normalization_names_the_zeff_it_closes_on(romero, fields, kind, statement, caption):
+    model = _extract(_with_normalization(romero.ods, fields))
+    meta = model.models[0].metadata
+    assert statement in [a["statement"] for a in meta[kind]]
+    other = "inferences" if kind == "assumptions" else "assumptions"
+    assert not any("Z_eff" in a["statement"] for a in meta[other])
+    assert caption in model.suptitle
+
+
+def test_the_constraint_is_never_paired_with_a_value_no_record_states(romero):
+    """The stored z_eff_resistive is the reference line, not the closure's value (cold review #1963)."""
+    ods = _with_normalization(romero.ods, "normalization=resistive_closure; resistive_method=romero")
+    ods["core_profiles.global_quantities.z_eff_resistive"] = [1.7403228517823983]
+    assert [a["statement"] for a in _extract(ods).models[0].metadata["inferences"]] == [
+        "Z_eff^res closure (Romero; value not recorded)"]
+    ods = _with_normalization(romero.ods, "normalization=ne_weighted_mean")  # no target recorded
+    meta = _extract(ods).models[0].metadata
+    assert not any("Z_eff" in a["statement"] for a in meta["assumptions"] + meta["inferences"])
+
+
+@pytest.mark.parametrize("sigma, legend", [
+    (None, r"$Z_{\mathrm{eff}}^{\mathrm{res}} = 1.74$ (stored, Romero)"),
+    ("0.2148", r"$Z_{\mathrm{eff}}^{\mathrm{res}} = 1.74 \pm 0.21$ (stored, Romero)"),
+])
+def test_the_reference_label_has_two_decimals_and_its_sigma(romero, sigma, legend):
     ods = copy.deepcopy(romero.ods)
     ods["core_profiles.global_quantities.z_eff_resistive"] = [1.7403228517823983]
-    if sigma is not None:
-        ods[f"{CP}.zeff_fit.parameters"] += f"; resistive_sigma={sigma}"
-    model = _extract(ods)
-    assert _inferred(ods) == [statement]
-    caption = model.suptitle.splitlines()[-1]
-    assert caption == "Inferred: $\\langle Z_{\\mathrm{eff}}\\rangle = 1.74" + (
-        " \\pm 0.21" if sigma else "") + "$ (Romero)"
-    assert _traces(model)["Z_eff_reference"][0].label == legend
+    ods[f"{CP}.zeff_fit.parameters"] = "origin=inferred; method=romero_partition; resistive_method=romero" + (
+        f"; resistive_sigma={sigma}" if sigma else "")
+    assert _traces(_extract(ods))["Z_eff_reference"][0].label == legend
 
 
 def test_an_assumption_is_never_hard_coded(romero):
@@ -256,8 +279,32 @@ def test_an_assumption_is_never_hard_coded(romero):
         ods[f"{CP}.ion.{k}.density_fit.parameters"] = "origin=inferred; method=romero_partition; assumption=n_C=2n_O"
     ods[f"{CP}.zeff_fit.parameters"] = "origin=inferred; method=romero_partition"
     assert "Assumed: $T_i = T_e$; $n_C = 2n_O$" in _extract(ods).suptitle
-    assert "(Resistive)" in _extract(ods).suptitle  # resistive_closure stated, its method no longer
-    assert "Inferred" in _extract(ods).suptitle and "Resistive" not in _extract(ods).suptitle.split("Inferred")[0]
+
+
+@pytest.mark.parametrize("record, role, statement", [
+    ("ti_te_ratio=1; status=assumed", "assumed", "T_i = T_e"),
+    ("ti_te_ratio=0.5; status=assumed", "assumed", "T_i = 0.5 T_e"),
+    ("origin=assumed", "assumed", "T_i (assumed)"),
+    ("origin=assumed; method=ti_equals_te", "assumed", "T_i (ti_equals_te)"),
+    ("origin=inferred; method=equilibrium_pressure_partition", "inferred", None),
+])
+def test_the_note_lists_exactly_the_legends_assumed_entries(romero, record, role, statement):
+    ods = copy.deepcopy(romero.ods)
+    for path in (f"{CP}.t_i_average_fit.parameters", f"{CP}.ion.0.temperature_fit.parameters"):
+        ods[path] = record
+    model = _extract(ods)
+    assert _traces(model)["T_i"][1]["role"] == role
+    stated = [a["statement"] for a in model.models[0].metadata["assumptions"] if a["quantity"] == "T_i"]
+    assert stated == ([] if statement is None else [statement])
+
+
+def test_a_derived_record_is_drawn_derived_and_not_listed(archive):
+    model = _extract(archive.ods)
+    traces = _traces(model)
+    assert {q: traces[q][1]["role"] for q in ("n_main_ion", "n_impurity_ion", "Z_eff")} == dict.fromkeys(
+        ("n_main_ion", "n_impurity_ion", "Z_eff"), "derived")
+    assert all("(derived)" in traces[q][0].label for q in ("n_main_ion", "n_impurity_ion", "Z_eff"))
+    assert [a["statement"] for a in model.models[0].metadata["assumptions"]] == ["<Z_eff>_ne = 2.00 (target)"]
 
 
 def test_a_ratio_prior_is_listed_as_assumed():
@@ -414,3 +461,76 @@ def test_no_legend_overlaps_a_neighbouring_panel_on_a_slide(romero, archive, opt
         figure, axes = _quiet(vaft.omas.plot_kinetic_overview_state, case, format="slide", **options)
         assert _legend_overlaps(figure, axes) == [], options
         plt.close(figure)
+
+
+def test_nothing_is_listed_without_an_assumed_record():
+    model = _extract(_quiet(kinetic_state_case, 40326, "magnetics", records=False).ods)
+    meta = model.models[0].metadata
+    assert "Assumed" not in model.suptitle and meta["assumptions"] == [] and meta["inferences"] == []
+
+
+# --- cold review #1963 ------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("uncertainty", ["none", "band", "auto", "errorbar"])
+def test_thomson_bar_styles_never_reach_a_plain_line(romero, uncertainty):
+    """elinewidth/capsize belong to errorbar(): plot() refuses them (cold review blocker)."""
+    figure, _ = _quiet(vaft.omas.plot_kinetic_overview_state, romero.ods, format="slide", uncertainty=uncertainty)
+    plt.close(figure)
+
+
+def test_thomson_without_stored_sigma_draws(romero):
+    ods = copy.deepcopy(romero.ods)
+    for c in range(len(ods["thomson_scattering.channel"])):
+        for signal in ("n_e", "t_e"):
+            del ods[f"thomson_scattering.channel.{c}.{signal}.data_error_upper"]
+    assert _traces(_extract(ods))["n_e_thomson"][0].yerr is None
+    for options in ({}, {"stage": 1}, {"layout": "stages", "format": "slide"}):
+        figure, _ = _quiet(vaft.omas.plot_kinetic_overview_state, ods, **options)
+        plt.close(figure)
+
+
+def test_the_stages_layout_refuses_plotly(romero):
+    pytest.importorskip("plotly")
+    with pytest.raises(NotImplementedError, match="Matplotlib only: layout='stages'"):
+        _quiet(vaft.omas.plot_kinetic_overview_state, romero.ods, layout="stages", backend="plotly")
+
+
+def test_the_stages_layout_cannot_be_animated(romero):
+    with pytest.raises(ValueError, match="layout='stages' cannot be animated over stage"):
+        _quiet(vaft.omas.plot_kinetic_overview_state, romero.ods, layout="stages", animation=True)
+
+
+@pytest.mark.parametrize("fmt", ["single_column", "double_column", "screen"])
+def test_the_stages_layout_refuses_a_narrow_canvas(romero, fmt):
+    with pytest.raises(ValueError, match="at least 8 in wide"):
+        _quiet(vaft.omas.plot_kinetic_overview_state, romero.ods, layout="stages", format=fmt)
+    with pytest.raises(ValueError, match="at least 8 in wide"):
+        _quiet(vaft.omas.plot_kinetic_overview_state, romero.ods, layout="stages", figsize=(6, 5))
+
+
+def test_the_full_figure_can_be_chosen_again_after_a_stage(romero):
+    from vaft.plot.navigation import ControlState
+
+    record = describe_one(NAME, normalize_entries(romero.ods))
+    state = ControlState([c for c in controls_for(record) if c.group == "slice"])
+    state.set("stage", 4)
+    assert state.as_options() == {"stage": 4}
+    state.set("stage", None)
+    assert state.as_options() == {}
+
+
+def test_stage_frames_carry_no_stamp_over_the_caption(romero):
+    animation = _quiet(vaft.omas.plot_kinetic_overview_state, romero.ods, stage=[1, 8], animation=True, dpi=DPI)
+    assert animation.frame_label is False and animation.metadata["presentation"]["frame_label"] is False
+    figure = _quiet(animation._figure, 0)
+    assert not [t for t in figure.texts if t is not figure._suptitle]  # the caption alone names the stage
+    plt.close(figure)
+
+
+def test_the_impurity_pressure_is_part_of_p_i_only_when_p_i_is_drawn(romero):
+    assert "part of" in _traces(_extract(romero.ods))["p_imp"][0].label
+    ods = copy.deepcopy(romero.ods)
+    del ods[f"{CP}.pressure_ion_total"]
+    traces = _traces(_extract(ods))
+    assert "p_i" not in traces and traces["p_imp"][0].label == r"$p_{\mathrm{imp}}$ (stored)"

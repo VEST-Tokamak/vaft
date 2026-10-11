@@ -456,12 +456,15 @@ def kinetic_state_ods(shot: int = 40326, lineage: str = "magnetics", **options: 
 #: The scalar Romero Z_eff the synthetic chain is given.  **Synthetic**: no
 #: Romero balance (#781) was run for it; it stands in for the stage-4 product.
 SYNTHETIC_ZEFF_ROMERO = 2.0
+#: Its 1 sigma, as synthetic as the value.
+SYNTHETIC_ZEFF_ROMERO_SIGMA = 0.2
 
 #: The T_i record of the chain's assumption, in the composition grammar.
 TI_EQUALS_TE_RECORD = "origin=assumed; method=ti_equals_te; assumption=T_i=T_e"
 
 
-def romero_first_case(shot: int = 40326, *, zeff_romero: float = SYNTHETIC_ZEFF_ROMERO) -> KineticStateCase:
+def romero_first_case(shot: int = 40326, *, zeff_romero: float = SYNTHETIC_ZEFF_ROMERO,
+                      zeff_romero_sigma: float = SYNTHETIC_ZEFF_ROMERO_SIGMA) -> KineticStateCase:
     """The maintainer's Romero-first chain (#1957) on one archived case, as a plot-ready ODS.
 
     Inputs are the archive's **magnetic equilibrium and Thomson** only, with
@@ -472,8 +475,10 @@ def romero_first_case(shot: int = 40326, *, zeff_romero: float = SYNTHETIC_ZEFF_
     3. ``T_i = T_e`` -- ``t_i_average`` and ``ion[0].temperature`` equal to
        ``T_e``, record :data:`TI_EQUALS_TE_RECORD` (``origin=assumed``);
     4. Romero ``Z_eff`` -- ``zeff_romero`` in
-       ``global_quantities.z_eff_resistive``, with ``resistive_method=romero;
-       resistive_source=synthetic`` on the ``zeff`` record.  **Synthetic**;
+       ``global_quantities.z_eff_resistive``, and ``resistive_target=``,
+       ``resistive_sigma=`` (``zeff_romero_sigma``), ``resistive_method=romero;
+       resistive_source=synthetic`` on every record stating the
+       ``normalization=`` (main ion, C, O, ``zeff``).  **Synthetic**;
     5. ``n_I,eff`` -- C and O with ``n_C = n_O``, the amplitude closing the
        ``n_e``-weighted volume mean of ``Z_eff(rho)`` at ``zeff_romero`` (the
        archive's own normalization, with the Romero value as its target), through
@@ -549,11 +554,14 @@ def romero_first_case(shot: int = 40326, *, zeff_romero: float = SYNTHETIC_ZEFF_
                       for q in range(len(ods[f"{cpb}.ion.{k}.state"]))) for k in (1, 2)}
     _check("charged impurity density", charged[1] + charged[2], comp["nimp"], defined)
     _check("Z_eff", ods[f"{cpb}.zeff"], comp["zeff"], defined)
-    for k in (1, 2):
-        path = f"{cpb}.ion.{k}.density_fit.parameters"
-        ods[path] = f"{ods[path]}; assumption=n_C=n_O"
-    ods[f"{cpb}.zeff_fit.parameters"] = (f"{ods[f'{cpb}.zeff_fit.parameters']}; assumption=n_C=n_O; "
-                                         "resistive_method=romero; resistive_source=synthetic")
+    # The closure's own value on every record that states the normalization
+    # (the writer emits only normalization=resistive_closure yet).
+    closure = (f"; resistive_target={zeff_romero:g}; resistive_sigma={zeff_romero_sigma:g}; "
+               "resistive_method=romero; resistive_source=synthetic")
+    for path in (f"{cpb}.ion.0.density_fit.parameters", f"{cpb}.ion.1.density_fit.parameters",
+                 f"{cpb}.ion.2.density_fit.parameters", f"{cpb}.zeff_fit.parameters"):
+        assumption = "" if path.endswith("ion.0.density_fit.parameters") else "; assumption=n_C=n_O"
+        ods[path] = f"{ods[path]}{assumption}{closure}"
 
     # --- 4: the Romero scalar (SYNTHETIC) ----------------------------------------
     ods["core_profiles.global_quantities.z_eff_resistive"] = np.array([zeff_romero])
