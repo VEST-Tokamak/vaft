@@ -232,7 +232,7 @@ field that says so. A workflow therefore passes `contracts_for(..., transport_co
 
 **Sources and checks:**
 - `ADAPTER_MODES` lists the modes of VAFT's adapters with their formalisms, from the audit in
-  [Plasma models](Plasma_models.md).
+  [Plasma models]({{ '/reference/plasma-models/' | relative_url }}).
 - CGYRO's two modes are the records its own `plasma_formalism` builds.
 - A test checks the GPEC-suite modes field by field against the records `vaft.code.gpec` resolves from the
   packaged namelists.

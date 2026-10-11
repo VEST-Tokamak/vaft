@@ -395,7 +395,7 @@ profiles.
 **Purpose of this section.** It is a compact map from scales to the classifications above. The full reference for
 characteristic scales and orderings is #1724. The ordering parameters themselves are #1627. The ordering contracts
 each mode of §3–§5 and §12 consumes are `vaft.validation.model_contracts.ADAPTER_MODES` (#1823), drawn under the
-contract map in [Asymptotic orderings](Asymptotic_orderings.md).
+contract map in [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}).
 
 **Frequencies.** For thermal **ions** they are typically ordered as
 
