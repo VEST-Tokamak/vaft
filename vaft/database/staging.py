@@ -9,12 +9,12 @@ not mutable IMAS/OMAS Python objects.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 import hashlib
 import json
 import os
 from pathlib import Path
 import shutil
-import threading
 import time
 from typing import Any, Iterable, Literal
 
@@ -159,9 +159,6 @@ class HSDSDomainCache:
         self.enabled = cache != "off"
         self.root: Path | None = None
         self._manifest: dict[str, Any] = {"schema_version": 1, "domains": {}}
-        # Domains are materialized concurrently (stage_imas_shot); the manifest
-        # is the one thing they share.
-        self._manifest_lock = threading.Lock()
         if self.enabled:
             self.root = self._cache_root(cache)
             self.root.mkdir(parents=True, exist_ok=True)
@@ -249,8 +246,15 @@ class HSDSDomainCache:
         target_dir: Path,
         *,
         transport: Literal["auto", "canonical", "h5image"] = "auto",
-    ) -> tuple[Path, bool, str, dict[str, Any]]:
-        """Put one domain file in ``target_dir`` and report its transport."""
+        defer_download: bool = False,
+    ) -> "tuple[Path, bool, str, dict[str, Any]] | PendingDownload":
+        """Put one domain file in ``target_dir`` and report its transport.
+
+        With ``defer_download`` a domain that needs an hsget is not fetched
+        here: a :class:`PendingDownload` is returned instead, whose
+        ``download()`` may run on a worker thread (it is a subprocess and local
+        file work, no h5pyd) and whose ``finish()`` completes the cache record.
+        """
         if not filename.endswith(".h5") or Path(filename).name != filename:
             raise ValueError(f"Expected a simple HDF5 filename, got {filename!r}")
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -267,8 +271,7 @@ class HSDSDomainCache:
         if self.enabled and remote is not None:
             assert self.root is not None
             cached = self.root / filename
-            with self._manifest_lock:
-                record = dict(self._manifest["domains"].get(filename, {}))
+            record = self._manifest["domains"].get(filename, {})
             if self._valid_local(cached, record, remote):
                 shutil.copy2(cached, target)
                 return (
@@ -300,13 +303,23 @@ class HSDSDomainCache:
                     if transport == "h5image":
                         raise
         if used_transport == "canonical":
-            run_hsget(remote_uri, target)
-            ensure_imas_hdf5_userblock(target, target_dir)
-            transfer = {
-                "transport": "canonical",
-                "remote_uri": remote_uri,
-                "logical_bytes": target.stat().st_size,
-            }
+            pending = PendingDownload(self, filename, target, target_dir, remote_uri, remote)
+            if defer_download:
+                return pending
+            pending.download()
+            return pending.finish()
+        return self._record(filename, target, remote, remote_uri, used_transport, transfer)
+
+    def _record(
+        self,
+        filename: str,
+        target: Path,
+        remote: dict[str, str | None] | None,
+        remote_uri: str,
+        used_transport: str,
+        transfer: dict[str, Any],
+    ) -> tuple[Path, bool, str, dict[str, Any]]:
+        """Copy a fetched domain into the cache and record its revision."""
         if self.enabled:
             assert self.root is not None
             cached = self.root / filename
@@ -320,23 +333,50 @@ class HSDSDomainCache:
                         "last_modified": None,
                         "backend_version": None,
                     }
-            with self._manifest_lock:
-                self._manifest["domains"][filename] = {
-                    **remote,
-                    "local_size": cached.stat().st_size,
-                    "transport": used_transport,
-                }
-                self._write_manifest()
+            self._manifest["domains"][filename] = {
+                **remote,
+                "local_size": cached.stat().st_size,
+                "transport": used_transport,
+            }
+            self._write_manifest()
         return target, False, used_transport, transfer
 
 
-#: Concurrent IDS-domain fetches per eager load; ``VAFT_HSDS_DOMAIN_WORKERS``
+@dataclass
+class PendingDownload:
+    """A canonical domain whose hsget has not run yet (see ``materialize``)."""
+
+    cache: "HSDSDomainCache"
+    filename: str
+    target: Path
+    target_dir: Path
+    remote_uri: str
+    remote: dict[str, str | None] | None
+    seconds: float = 0.0
+
+    def download(self) -> None:
+        """The hsget and the userblock fix-up: a subprocess and local I/O only."""
+        started = time.perf_counter()
+        run_hsget(self.remote_uri, self.target)
+        ensure_imas_hdf5_userblock(self.target, self.target_dir)
+        self.seconds = time.perf_counter() - started
+
+    def finish(self) -> tuple[Path, bool, str, dict[str, Any]]:
+        transfer = {
+            "transport": "canonical",
+            "remote_uri": self.remote_uri,
+            "logical_bytes": self.target.stat().st_size,
+        }
+        return self.cache._record(self.filename, self.target, self.remote, self.remote_uri, "canonical", transfer)
+
+
+#: Concurrent hsget downloads per eager load; ``VAFT_HSDS_DOMAIN_WORKERS``
 #: overrides it (``1`` restores the sequential behaviour).
 DEFAULT_DOMAIN_WORKERS = 4
 
 
 def domain_workers() -> int:
-    """How many IDS domains one eager load fetches at once."""
+    """How many IDS domains one eager load downloads at once."""
     try:
         return max(1, int(os.environ.get("VAFT_HSDS_DOMAIN_WORKERS", DEFAULT_DOMAIN_WORKERS)))
     except ValueError:
@@ -398,21 +438,32 @@ def stage_imas_shot(
     transports = {"master.h5": master_transport}
     transfers = {"master.h5": master_transfer}
     domain_fetch_seconds: dict[str, float] = {}
-
-    def fetch(filename: str) -> tuple[str, float, tuple[Path, bool, str, dict[str, Any]]]:
+    # Revision probes, cache hits and derived images stay on this thread:
+    # h5pyd 0.24 stalls when several threads open domains at once (2 s per
+    # collision, measured on production for #1870, while the server answers
+    # the same concurrent GETs in milliseconds). Only the hsget downloads --
+    # separate processes -- overlap, which is where a cold load spends its time.
+    pending: list[PendingDownload] = []
+    for filename in selected:
         started = time.perf_counter()
-        result = cache_store.materialize(filename, staging_dir, transport=transport)
-        return filename, time.perf_counter() - started, result
-
-    # One IDS domain per file, independent of each other once the master is
-    # known: their revision probes (a warm cache) and downloads (a cold one)
-    # overlap instead of queueing (#1870). Bounded, so a few clients do not
-    # multiply into a request storm on the server.
-    workers = min(domain_workers(), max(len(selected), 1))
-    with ThreadPoolExecutor(max_workers=workers) as executor:
-        for filename, seconds, (_, hit, used, transfer) in executor.map(fetch, selected):
-            hits[filename], transports[filename], transfers[filename] = hit, used, transfer
-            domain_fetch_seconds[filename] = seconds
+        result = cache_store.materialize(
+            filename, staging_dir, transport=transport, defer_download=True
+        )
+        domain_fetch_seconds[filename] = time.perf_counter() - started
+        if isinstance(result, PendingDownload):
+            pending.append(result)
+        else:
+            _, hits[filename], transports[filename], transfers[filename] = result
+    if pending:
+        workers = min(domain_workers(), len(pending))
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            for future in [executor.submit(item.download) for item in pending]:
+                future.result()
+        for item in pending:
+            _, hits[item.filename], transports[item.filename], transfers[item.filename] = item.finish()
+            domain_fetch_seconds[item.filename] += item.seconds
+        order = ["master.h5", *selected]
+        hits, transports, transfers = ({name: table[name] for name in order} for table in (hits, transports, transfers))
     return {
         "files": ["master.h5", *selected],
         "cache_hits": hits,

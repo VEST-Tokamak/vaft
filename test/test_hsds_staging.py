@@ -231,10 +231,9 @@ def test_strict_h5image_transport_does_not_fallback(fake_hsds, tmp_path):
 
 
 def test_domains_are_fetched_concurrently_and_all_reach_the_cache_manifest(fake_hsds, monkeypatch, tmp_path):
-    """#1870: the IDS domains were fetched one after another -- on a warm cache
-    eleven revision probes in a row, on a cold one every hsget in turn. They now
-    overlap; the shared manifest still records every domain, so the next load is
-    all cache hits."""
+    """#1870: a cold load ran every hsget in turn. The downloads now overlap
+    (the revision probes stay sequential: h5pyd stalls on concurrent opens);
+    every domain still reaches the cache manifest, so the next load is all hits."""
     import threading
     import time
 
@@ -258,7 +257,7 @@ def test_domains_are_fetched_concurrently_and_all_reach_the_cache_manifest(fake_
     cache = tmp_path / "cache"
     first = staging.stage_imas_shot("public", 123, tmp_path / "a", requested_ids=None, cache=cache)
     assert state["peak"] > 1
-    assert sorted(first["cache_hits"]) == sorted(["master.h5", "equilibrium.h5", "magnetics.h5", "dataset_description.h5"])
+    assert list(first["cache_hits"]) == first["files"]  # reported in the plan's order
 
     calls.clear()
     second = staging.stage_imas_shot("public", 123, tmp_path / "b", requested_ids=None, cache=cache)
@@ -272,3 +271,23 @@ def test_one_domain_worker_restores_the_sequential_fetch(fake_hsds, monkeypatch,
     assert calls[0] == "master.h5" and sorted(calls[1:]) == ["dataset_description.h5", "equilibrium.h5", "magnetics.h5"]
     assert plan["files"][0] == "master.h5"
     assert staging.domain_workers() == 1
+
+
+def test_revision_probes_stay_on_the_calling_thread(fake_hsds, monkeypatch, tmp_path):
+    """h5pyd 0.24 stalls ~2 s per collision when threads open domains at once
+    (measured on production, #1870); only hsget subprocesses may overlap."""
+    import threading
+
+    main = threading.get_ident()
+    seen = []
+    original = staging.HSDSDomainCache._remote_info
+
+    def probe(self, uri):
+        seen.append(threading.get_ident())
+        return original(self, uri)
+
+    monkeypatch.setattr(staging.HSDSDomainCache, "_remote_info", probe)
+    cache = tmp_path / "cache"
+    staging.stage_imas_shot("public", 123, tmp_path / "cold", requested_ids=None, cache=cache)
+    staging.stage_imas_shot("public", 123, tmp_path / "warm", requested_ids=None, cache=cache)
+    assert seen and set(seen) == {main}
