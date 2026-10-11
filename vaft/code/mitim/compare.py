@@ -81,22 +81,20 @@ def effective_tglf_controls(parameters: Mapping[str, Any]) -> dict[str, Any]:
         except (TypeError, ValueError):
             raise ValueError(f"{key} must be an integer, got {parameters.get(key)!r}") from None
 
+    from ..gacode._formalism import tglf_effective_controls
+
     out = {key: value for key, value in parameters.items()
            if not (_SALPHA.match(key) and integer("GEOMETRY_FLAG", 1) != 0)}
     sat = integer("SAT_RULE", 0)
-    out["WDIA_TRAPPED"] = 0.0
-    if sat in (2, 3):
-        out["XNU_MODEL"] = 3
-        out["WDIA_TRAPPED"] = 1.0
-        if str(out.get("UNITS", "GYRO")).upper() == "GYRO":
-            out["UNITS"] = "CGYRO"
-    elif sat == 1:
-        out["XNU_MODEL"] = 2
-    elif sat == 0:
-        out["UNITS"] = "GYRO"
-        out["XNU_MODEL"] = 2
-        if integer("NMODES", 2) > 2:
-            out["NMODES"] = 4
+    # One implementation of TGLF's start-up presets, shared with the run provenance (#1735).
+    effective = tglf_effective_controls({key: value for key, value in parameters.items()
+                                         if key in ("SAT_RULE", "UNITS", "NMODES")})
+    out["WDIA_TRAPPED"] = effective["wdia_trapped"]
+    out["XNU_MODEL"] = effective["xnu_model"]
+    if sat != 1 or "UNITS" in out:
+        out["UNITS"] = effective["units"]
+    if sat == 0 and integer("NMODES", 2) > 2:
+        out["NMODES"] = effective["nmodes"]
     if bool(out.get("USE_BPER", False)):
         out["ALPHA_MACH"] = 0.0
     return out

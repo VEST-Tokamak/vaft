@@ -530,10 +530,11 @@ whose physics is not documented.
 **Backend gaps this audit found, for Phase C:**
 - **GPEC (#1734), resolved.** Every GPEC-suite run now records its formalism from the prepared `dcon.in` /
   `pentrc.in` / `gpec.in` (see "GPEC suite" in §11), so a kinetic run is distinguishable from an ideal one.
-- **GACODE (#1735):**
-  - `cgyro.formalism()` hard-codes values that `extra_parameters` can contradict (`AE_FLAG`, `EQUILIBRIUM_MODEL`,
-    `GLOBAL_FLAG`), and it omits the collision model and the zeroed rotation;
-  - NEO's `equilibrium_model=0` silently means s-α if `profile_model=1` is ever used.
+- **GACODE (#1735), resolved.**
+  - CGYRO reads `AE_FLAG`, `EQUILIBRIUM_MODEL`, `GLOBAL_FLAG`, the collision model and the rotation inputs from the
+    written input.
+  - NEO records its geometry the way NEO reads it, so `equilibrium_model=0` with `profile_model=1` is recorded as
+    s-α (see "GACODE suite" in §11).
 
 ## 11. The implemented record (#1727)
 
@@ -599,11 +600,48 @@ the #1353 `provenance["formalism"]` that the `gyrokinetics_local` mapping alread
 
 **Deferred to Phase C.**
 - **GPEC suite (#1734):** done -- see below.
-- **GACODE (#1735):**
-  - derive NEO and TGLF records;
-  - read `AE_FLAG`, `EQUILIBRIUM_MODEL`, `GLOBAL_FLAG` and the collision model back from `input.cgyro.gen`, instead
-    of trusting the configuration object.
+- **GACODE (#1735):** done -- see below.
 - **NUBEAM and ASCOT5:** no Phase C issue yet.
+
+**GACODE suite (#1735).** Every NEO, TGLF and CGYRO run, and every TGLF-NN prediction, stores its record as
+`provenance["plasma_formalism"]`. The record is derived from the `KEY=VALUE` input the run was written with
+(`vaft.code.gacode._formalism`), with upstream defaults for absent keys. A shared input format does not imply shared
+governing physics:
+
+~~~text
+GACODE suite
+|
++-- NEO      kinetic / drift_kinetic, neoclassical_transport, steady_state
+|            (SIM_MODEL 0/3/5 analytic theory, 4 neural network: reduced, derived_from drift_kinetic)
++-- TGLF     reduced, derived_from gyrokinetic: gyro-Landau-fluid quasilinear transport
+|            (microstability / linear with USE_TRANSPORT_MODEL=F)
++-- TGLF-NN  the TGLF variant it was trained on, realized as a learned surrogate (extensions.realization)
++-- CGYRO    kinetic / gyrokinetic, local delta-f continuum (microstability or turbulent_transport)
+~~~
+
+- **NEO.**
+  - `AE_FLAG=1` removes the electrons from the kinetic population.
+  - `EQUILIBRIUM_MODEL` (s-α / large aspect ratio / Miller) applies only with `PROFILE_MODEL=1`. With
+    `PROFILE_MODEL=2`, VAFT's default, the shape is `input_gacode_shape`.
+  - The collision, rotation, Spitzer and 3-D switches stay in `extensions`.
+- **TGLF.**
+  - The saturation rule is recorded with the linear controls TGLF's start-up presets impose with it (`XNU_MODEL`,
+    `WDIA_TRAPPED`, `UNITS`, `NMODES`), as the *effective* values, together with the field switches, the geometry
+    and the electron model.
+  - `vaft.code.mitim.compare.effective_tglf_controls` uses the same preset implementation.
+- **TGLF-NN.**
+  - The physical fields are those of the TGLF variant, read from the model identity (SAT rule, field model), never
+    from the request; `unknown` where the model does not say.
+  - The realization is `extensions.realization="learned_surrogate"`, `surrogate_of="tglf"`. No kinetic equation is
+    "neural network".
+- **CGYRO.**
+  - `plasma_formalism(config, parameters=...)` reads the electron model, the geometry (`EQUILIBRIUM_MODEL` 1 s-α,
+    2 MXH, recorded as VAFT's historical `miller`), `GLOBAL_FLAG` (1 gives `spatial_domain="unknown"`, never a
+    bare global), the collision model and the rotation (`"none"` when `GAMMA_E`, `GAMMA_P` and `MACH` are all zero).
+  - The #1353 `formalism()` is still derived from this record.
+- **Not covered.** The classical (Braginskii) result in `vaft.process.transport_state` has no record yet: the
+  vocabulary has no operation for classical collisional transport, and adding one is a `SCHEMA_VERSION` change for
+  #1727, not part of this phase.
 
 **GPEC suite (#1734).** `vaft.code.gpec` resolves a record for every DCON, RDCON, STRIDE, ideal-GPEC and PENTRC run
 from the namelists the cell was prepared with (upstream defaults where a key is absent), stores it on
