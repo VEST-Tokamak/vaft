@@ -54,8 +54,9 @@ The models it does run come from **different reductions**, not from one chain:
    +-------------------+-----------------+--------------------+----------------------+
    |                   |                 |                    |                      |
  velocity moments   gyro-phase average  gyro-phase average   single-particle      fluid bulk  +
- + closure          rho/L << 1,         omega/Omega ~ rho*,   trajectories         kinetic population
-   |                omega/Omega << 1    k_perp rho ~ 1        (no f evolved)       (coupling)
+ + closure          rho/L << 1,         omega/Omega ~ rho*,   orbits; f sampled    kinetic population
+   |                omega/Omega << 1    k_perp rho ~ 1        by markers, not      (coupling)
+   |                   |                 |                    gridded                |
    v                   v                 v                    v                      v
  FLUID              DRIFT KINETIC       GYROKINETIC          ORBIT FOLLOWING       HYBRID KINETIC-MHD
  ideal / resistive  f(R, E, mu, t)      h(R, E, mu, t)       full orbit /          MHD + delta W_k,
@@ -262,14 +263,15 @@ realized by a *computational surrogate*. These are three separate facts:
 | --- | --- | --- | --- |
 | gyrokinetics | linear eigenmodes of a gyro-Landau-fluid moment system [8] + saturation rule (SAT0–3) → quasilinear fluxes | TGLF | `gacode:tglf_linear`, `gacode:tglf` |
 | gyrokinetics (through TGLF) | as TGLF, for the SAT variant it was trained on | neural-network surrogate, valid only in its training domain | `gacode:tglf_nn` |
-| drift kinetics | analytic neoclassical models reported in a NEO run's theory output: Hinton–Hazeltine asymptotic theory, Sauter fits to drift-kinetic solutions, NCLASS moment solutions | closed-form or moment formulas | `gacode:neo_analytic` |
+| drift kinetics | asymptotic reductions of drift-kinetic neoclassical theory reported in a NEO run's theory output: Hinton–Hazeltine asymptotics, Sauter fits to drift-kinetic solutions, NCLASS moment solutions | closed-form or moment formulas (an asymptotic reduction, not a surrogate) | `gacode:neo_analytic` |
 
 The record writes this as `bulk_description="reduced"` with `derived_from` set to the parent kinetic equation. A
 reduced model **inherits** the orderings of its parent (role `inherited` in the contract map) and adds a closure
 or a fit that no ordering contract covers; the advisory check reports that as unmapped, never as a pass.
 
 *Figure pending (#1739 §19): `vaft.diagram.reduced_model_ancestry`, built from the diagram contract posted on #1739.* In short: parent theory → model reduction → computational realization in three columns,
-with "surrogate ancestry" arrows only between the last two.
+with "surrogate ancestry" arrows only where a model is trained on another (TGLF → TGLF-NN); analytic neoclassical
+theory is an asymptotic reduction of drift kinetics, not a surrogate of it.
 
 ## 7. What each family is for
 
