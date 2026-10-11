@@ -286,13 +286,14 @@ _MODE_NAMES = {
     "gacode:neo": "NEO", "gacode:neo_analytic": "NEO analytic", "gacode:cgyro_linear": "CGYRO linear",
     "gacode:cgyro_nonlinear": "CGYRO nonlinear", "gacode:tglf_linear": "TGLF linear", "gacode:tglf": "TGLF",
     "gacode:tglf_nn": "TGLF-NN", "nubeam:fast_ions": "NUBEAM", "genray:ray_tracing": "GENRAY",
-    "transp:integrated": "TRANSP",
+    "transp:integrated": "TRANSP", "flare:field_lines": "FLARE", "mitim:drivers": "MITIM",
 }
 _MODE_FAMILIES = {"equilibrium": "equilibrium", "mhd_stability": "MHD stability (GPEC suite)",
                   "neoclassical": "neoclassical", "gyrokinetic": "gyrokinetic"}
 #: why a mode consumes no ordering contract, in the note
 _UNCOVERED = {"nubeam:fast_ions": "test particles", "genray:ray_tracing": "ray tracing",
-              "transp:integrated": "integrated", "gpec:thresholds": "unresolved layer models"}
+              "transp:integrated": "integrated", "gpec:thresholds": "unresolved layer models",
+              "flare:field_lines": "field lines only", "mitim:drivers": "driver of NEO/TGLF"}
 #: the words written in a cell for each role of vaft.validation.model_contracts.ROLES
 _ROLE_WORDS = {"governing": "governing", "outer_solution": "outer solution", "layer_solution": "layer solution",
                "fluid_part": "fluid part", "kinetic_response": "kinetic part", "closure": "closure",

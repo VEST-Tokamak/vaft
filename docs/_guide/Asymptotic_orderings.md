@@ -253,6 +253,10 @@ field that says so. A workflow therefore passes `contracts_for(..., transport_co
   though the resolver can classify it.
 - The modes the audit leaves unresolved, today the GPEC threshold layer models, are listed with no record and
   a reason.
+- **Every physics adapter in `vaft/code` has a mode.** A test enforces this. FLARE traces field lines through a
+  given equilibrium and perturbation, and solves no plasma model. MITIM is a driver: the NEO and TGLF runs it
+  launches are those modes, and its PORTALS loop (#1588) will be the first `transport_coupled` workflow. Both
+  are listed with a reason and no record.
 
 `advisory_ordering_check(formalism, state, points)` evaluates those contracts on a run's input:
 - `state` is the global and time-history quantities of `vaft.process.ordering_state`;
