@@ -16,7 +16,7 @@ related:
 {%- comment -%}Source links are pinned to the commit the catalog was generated from, never to a branch (#1069).{%- endcomment -%}{%- assign source_ref = catalog.provenance.commit | default: "" -%}
 
 <p class="ref-intro">Generated from <code>vaft.diagram.build.CANONICAL</code> and
-<code>docs/assets/diagrams/manifest.json</code> by <code>python -m vaft.diagram.docs_catalog</code>:
+the build record in each committed SVG by <code>python -m vaft.diagram.docs_catalog</code>:
 <strong>{{ catalog.builders.size }}</strong> builders, <strong>{{ catalog.assets.size }}</strong> committed SVGs.
 Nothing on this page is written by hand.</p>
 

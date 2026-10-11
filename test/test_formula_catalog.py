@@ -76,7 +76,7 @@ def test_the_catalog_counts_the_known_public_surface():
         # #670 moved neo-Alcator, Goldston L-mode and their quadrature in: 101 + 3 = 104.
         # #1713 added confinement_scaling_basis, the energy/power basis of each scaling: 104 + 1 = 105.
         # #1691 added the volume beta and its normalized form: 105 + 2 = 107.
-        "equilibrium": 110,  # +volume-radius shear and Miller alpha (#1637), +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
+        "equilibrium": 111,  # +li_1_from_Bp2_volume_integral, Strait's l_i(1) (#1691), +volume-radius shear and Miller alpha (#1637), +thermal_energy_from_p_V (W_th = 3/2 int p dV), +volume beta and its normalized form (#1691), +estimated_q95, q_star_cylindrical, q_star_kink (#1583), +SFL toroidal shift nu (#1074 part 2), +miller_surface, vacuum_toroidal_field (#1145), +shafranov_shift (#1073), +generalized SFL angle (#1074), +GS source and J_phi(p', FF') (#1052), +flux freezing (#1209)
         "virial": 33,
         "stability": 45,  # +ggj_resistive_interchange_index_from_ideal (#939), +Suydam, circular Mercier, GGJ D_I/D_R, magnetic well, Bussac beta_p1/delta W (#1635), +s-alpha ballooning eigenmode and k_x(theta) (#1075 part 2), +shear Alfven frequency, magnetosonic speeds (#1063), +kadomtsev_mixing_radius (#1209)
         "green": 16,
@@ -112,10 +112,14 @@ def test_the_catalog_counts_the_known_public_surface():
         "boundaries": 14,  # operational-boundary data model: value, margin, window, curve, registry (#1067), +Hugill coordinates (#1068), +threshold line and quantity identity (#1425), +Freidberg kink coordinates (#1456), +Menard q*, ITER and START q95 estimates (#1580), +spherical-tokamak Hugill coordinates (#1602)
         "impurity": 9,  # mixture moments, target-Z_eff solver, reduce/expand pseudo-impurity, dilution (#1565)
         "dimensional": 7,  # dimension matrix, exact null space, Pi groups, basis change, similarity constraints (#1621)
-        "sensitivity": 5,  # finite-difference Jacobian, J Sigma J^T, Monte Carlo, SVD spectrum, linearity ratio (#1642)
+        "sensitivity": 6,  # FD Jacobian, J Sigma J^T, Monte Carlo, SVD, linearity (#1642), per-formula propagation (#1874)
         "ordering": 16,  # asymptotic ordering parameters (#1627), +Debye length, Mach number, pressure anisotropy (#1627 phase C)
         "fast_ion": 8,  # critical speed/energy, slowing-down times, distribution, density/energy/pressure (#1606)
-        "kinetic": 2,  # electron collision time and electron-ion energy exchange, multi-species (#1606)
+        # electron collision time and electron-ion energy exchange, multi-species (#1606);
+        # +5 for the classical baseline moved out of the process layer (#1899): the ion
+        # collision time, ion-ion lnLambda, gamma_1'(Z), chi_perp,e and chi_perp,i.
+        "kinetic": 7,
+        "turbulence": 5,  # turbulence-zonal-flow predator-prey rhs, fixed point, invariant, period, lag (#1820)
     }
     assert len(catalog.list_formulas()) == sum(counts.values())
 
@@ -313,7 +317,7 @@ _ROW_KEYS = {
     "id", "name", "category", "module", "signature", "summary", "description",
     "parameters", "returns", "sections", "references", "empirical",
     "convention_sensitive", "deprecated", "aliases", "shadowed_by", "raises", "source",
-    "definitions", "reduction",
+    "definitions", "reduction", "semantics", "uncertainty_propagation", "analytic_jacobian",
 }
 
 

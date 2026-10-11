@@ -111,7 +111,6 @@ def _validation(study, reference, **updates):
         "residual_relative_error": 1e-12,
         "singular_value_relative_error": 1e-12,
         "condition_number_relative_error": 1e-8,
-        "curvature_sum_relative_error": 1e-12,
         "mode_share_sum_error": 1e-12,
         "ip_vcurrt_relative_error": 1e-10,
         "mfile_family_chi2_max_relative_error": 1e-10,
@@ -214,7 +213,6 @@ def test_native_problem_validation_reproduces_the_solve_and_parameter_roles():
     assert validation.residual_relative_error == 0.0
     assert validation.singular_value_relative_error == 0.0
     assert validation.condition_number_relative_error == 0.0
-    assert validation.curvature_sum_relative_error == 0.0
     assert validation.mode_share_sum_error == 0.0
     assert validation.executable_sha256_matches
     mismatch = study.validate_native_problem(
@@ -230,6 +228,57 @@ def test_native_problem_validation_reproduces_the_solve_and_parameter_roles():
     gate = study.stage1_gate(validations)
     assert not gate.passed
     assert any("executable SHA-256" in reason for reason in gate.reasons)
+
+
+def test_the_stage1_gate_has_no_curvature_sum_identity():
+    """Cold review 0.7.0 efit-workflows F14 (#1888).
+
+    The curvature-sum "check" compared sum_f A_f^T A_f over a partition of
+    the rows with A^T A of the same matrix: an identity that holds at
+    machine epsilon for random matrices and random family labels, so it
+    could never fail on data. A gate that cannot fail is not a gate; what
+    it was meant to protect (the family labels matching the rows) raises on
+    a length mismatch instead.
+    """
+    from dataclasses import fields
+
+    study = _study()
+    assert "curvature_sum_relative_error" not in {f.name for f in fields(study.Stage1Validation)}
+    assert "curvature_sum_relative_error" not in {f.name for f in fields(study.GateThresholds)}
+    rng = np.random.default_rng(0)
+    matrix = rng.normal(size=(12, 4))
+    block = SimpleNamespace(
+        solver_a=matrix, solver_rhs=np.zeros(12), solver_solution=np.zeros(4),
+        row_solver_weighted_residual=np.zeros(12),
+        singular_values=np.linalg.svd(matrix, compute_uv=False),
+        retained_mask=np.ones(4, dtype=bool), condno=None,
+        solver_exact_c=np.empty((0, 4)), solver_exact_d=np.empty(0),
+        exact_c=np.empty((0, 4)), exact_d=np.empty(0), weighted_a=matrix,
+        row_family=("probe",) * 11, parameter_role=("pf_current",) * 4, ncol=4, nexact=0,
+    )
+    problem = SimpleNamespace(main=block, external_current=None, schema_version=1)
+    with pytest.raises(ValueError, match="row_family"):
+        study.validate_native_problem(
+            problem, SimpleNamespace(modes=()), reference=study.REFERENCE_SLICES[0], outcome="accepted"
+        )
+
+
+def test_a_stage1_manifest_written_with_the_retired_curvature_field_still_loads():
+    """PR #1920 review F2: Stage-1 outputs predate the F14 deletion.
+
+    Resume (`_stage1_case_result`) and the Stage-2 gate rebuild
+    `Stage1Validation` from the stored manifest, which carries the retired
+    `curvature_sum_relative_error`; hours of EFIT must not become unloadable.
+    """
+    from dataclasses import asdict
+
+    study = _study()
+    stored = asdict(_validation(study, study.REFERENCE_SLICES[0]))
+    stored["curvature_sum_relative_error"] = 1.0e-16
+    loaded = study._validation_from_dict(stored)
+    assert loaded.reference == study.REFERENCE_SLICES[0]
+    assert not hasattr(loaded, "curvature_sum_relative_error")
+    assert study.stage1_gate([loaded, *[_validation(study, item) for item in study.REFERENCE_SLICES[1:]]]).passed
 
 
 def test_native_row_audit_keeps_measurements_weights_and_soft_relations():
@@ -263,6 +312,28 @@ def test_native_row_audit_keeps_measurements_weights_and_soft_relations():
     assert flux["residual_rms"] == pytest.approx(np.sqrt(2.5))
     assert flux["uncertainty"] == {"min": 1.0, "median": 1.5, "max": 2.0}
     assert flux["submitted_fwt"] == {"min": 1.0, "median": 1.0, "max": 1.0}
+
+
+def test_zero_weight_rows_do_not_enter_the_family_residual_statistics():
+    """Cold review 0.7.0 efit-workflows F16 (#1888).
+
+    ``active`` counted the channels and the residual statistics ignored it,
+    so one zero-weight row with a residual of 100 set the family's rms and
+    maximum although it never entered the fit.
+    """
+    study = _study()
+    rows = [
+        {"reference": "r", "block": "b", "family": "probe",
+         "physical_residual": 0.01, "processed_weight": 1.0},
+        {"reference": "r", "block": "b", "family": "probe",
+         "physical_residual": 100.0, "processed_weight": 0.0},
+    ]
+    summary = study.summarize_native_rows(rows)[0]
+    assert summary["row_count"] == 2
+    assert summary["active_channel_count"] == 1
+    assert summary["inactive_row_count"] == 1
+    assert summary["residual_rms"] == pytest.approx(0.01)
+    assert summary["maximum_absolute_residual"] == pytest.approx(0.01)
 
 
 def test_mfile_family_chi2_gate_uses_a_relative_or_absolute_floor_and_excludes_ip():
@@ -890,6 +961,36 @@ def test_direction_linearity_compares_adjacent_not_baseline_secants():
     assert not result["positive"]["passed"]
     assert result["positive"]["derivative_relative_difference"] == pytest.approx(0.08)
     assert not result["passed"]
+
+
+def test_direction_linearity_does_not_pass_on_a_constraint_that_never_acted():
+    """Cold review 0.7.0 efit-workflows F15 (#1888).
+
+    Four converged points whose parameter state equals the baseline give
+    zero derivatives on every segment. A zero-by-zero cosine used to read
+    as 1.0 and the gate passed an inert constraint as perfectly linear.
+    """
+    study = _study()
+    base = [1.0, 2.0, 3.0]
+    records = [
+        {"alpha": alpha, "status": "succeeded", "parameter_state": base}
+        for alpha in (-0.25, -0.125, 0.125, 0.25)
+    ]
+    result = study._direction_linearity(records, base, [1.0] * 3, np.eye(3))
+    assert result["passed"] is False
+    assert "inert" in result["reason"]
+    assert all(item["derivative_cosine"] is None for item in result["adjacent_comparisons"])
+    assert all(item["derivative_norms"] == [0.0, 0.0] for item in result["adjacent_comparisons"])
+
+
+def test_the_achieved_direction_coordinate_is_recorded_beside_the_request():
+    study = _study()
+    out = study.achieved_direction_value([1.0, 2.5], [1.0, 2.0], [1.0, 0.5], [0.0, 1.0], 1.0)
+    assert out["achieved_value"] == pytest.approx(1.0)
+    assert out["target_residual"] == pytest.approx(0.0)
+    inert = study.achieved_direction_value([1.0, 2.0], [1.0, 2.0], [1.0, 0.5], [0.0, 1.0], 1.0)
+    assert inert["target_residual"] == pytest.approx(-1.0)
+    assert study.achieved_direction_value(None, [1.0], [1.0], [1.0], 1.0)["achieved_value"] is None
 
 
 def test_native_restart_stdout_audit_is_machine_readable():

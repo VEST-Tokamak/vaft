@@ -364,3 +364,17 @@ def test_no_removal_promise_has_reached_the_current_version():
     overdue = {where: release for where, release in promises.items()
                if _release_tuple(release) <= current}
     assert not overdue, f"removal promised for a release already reached ({vaft.__version__}): {overdue}"
+
+
+@pytest.mark.parametrize("vocabulary", ["fast", "slow"])
+def test_the_fast_slow_indices_vocabulary_warns_that_it_selects_nothing(vocabulary):
+    """``indices='fast'|'slow'`` silently meant every line (cold review 0.7.0 plot F7)."""
+    from vaft.plot.time import _legacy_emission_terms
+
+    with pytest.warns(DeprecationWarning, match="emission="):
+        terms = _legacy_emission_terms({}, vocabulary)
+    assert terms == []
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert _legacy_emission_terms({}, "all") == []
+        assert _legacy_emission_terms({}, "CIII") == ["CIII"]

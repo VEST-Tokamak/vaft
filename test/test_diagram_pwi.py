@@ -72,7 +72,12 @@ def test_no_coefficient_is_drawn():
 
 @pytest.mark.parametrize("name", ["plasma_wall_interaction_processes", "plasma_wall_interaction_reflection",
                                   "plasma_wall_interaction_sputtering", "plasma_wall_interaction_recycling",
-                                  "plasma_wall_interaction_energy_partition"])
+                                  "plasma_wall_interaction_energy_partition",
+                                  "plasma_wall_interaction_reflection_energy",
+                                  "plasma_wall_interaction_angle_dependence",
+                                  "plasma_wall_interaction_sputtering_threshold",
+                                  "plasma_wall_interaction_particle_balance",
+                                  "plasma_wall_interaction_surface_response"])
 def test_every_pwi_diagram_is_deterministic_and_exported(name):
     fn = getattr(vaft.diagram, name)
     assert fn().tikz == fn().tikz
@@ -125,3 +130,46 @@ def test_the_quantities_name_their_imas_paths():
     for path in m["imas"].values():
         node = path.replace("[:]", ".:")
         assert omas_info_node(node).get("documentation"), path
+
+
+def test_the_new_views_draw_no_coefficient_and_leave_enrichment_slots_empty():
+    """Diagrams 3, 4, 8 and 10 of #1047 stay at level 0: named quantities, no values."""
+    for name in ("plasma_wall_interaction_reflection_energy", "plasma_wall_interaction_angle_dependence",
+                 "plasma_wall_interaction_particle_balance", "plasma_wall_interaction_surface_response"):
+        d = getattr(vaft.diagram, name)()
+        text = " ".join(i.text for i in d.scene.items
+                        if isinstance(i, Label) and i.role not in ("equations", "kinematics"))
+        assert not re.search(r"\d\.\d|\d\s*\\?%", text), name
+        assert all(value is None for value in d.model.get("enrichment", {}).values()), name
+    assert vaft.diagram.plasma_wall_interaction_surface_response().model["backend"] is None
+
+
+def test_the_reflected_energy_view_states_only_the_binary_collision_limit():
+    d = vaft.diagram.plasma_wall_interaction_reflection_energy("D", "W")
+    assert d.model["gamma"] == pytest.approx(binary_collision_energy_transfer_factor(2.014, 183.84))
+    assert [i.text for i in d.scene.role("kinematics") if isinstance(i, Label)][0].count("0.043") == 1
+
+
+def test_the_threshold_view_is_schematic_and_prints_e_th_only_for_a_supplied_binding_energy():
+    plain = vaft.diagram.plasma_wall_interaction_sputtering_threshold("D", "W")
+    assert plain.model["schematic"] and plain.model["threshold_eV"] is None
+    threshold_text = " ".join(i.text for i in plain.scene.role("threshold") if isinstance(i, Label))
+    assert "threshold region" in threshold_text and "E_\\mathrm{th} =" not in threshold_text
+    given = vaft.diagram.plasma_wall_interaction_sputtering_threshold("D", "W", surface_binding_energy=8.68)
+    assert given.model["threshold_eV"] == pytest.approx(sputtering_threshold_bohdansky(8.68, 2.014, 183.84))
+    # the curve is zero up to the threshold region and never decreases: a shape, not data
+    (curve,) = given.scene.role("schematic_yield")
+    ys = [y for _, y in curve.points]
+    assert ys[0] == 0.0 and all(b >= a - 1e-12 for a, b in zip(ys, ys[1:]))
+
+
+def test_the_sputtered_target_atoms_are_outside_the_projectile_balance():
+    d = vaft.diagram.plasma_wall_interaction_particle_balance("D", "W")
+    assert d.model["projectile_balance"] == ("reflected", "re-emitted", "retained")
+    assert d.model["target_source"] == ("sputtered",)
+    (boundary,) = d.scene.role("species_boundary")
+    x_line = boundary.points[0][0]
+    box_x = {role: min(p[0] for p in item.points) for item in d.scene.items
+             for role in [getattr(item, "role", "")] if role.startswith("flux:") and hasattr(item, "points")}
+    assert box_x["flux:sputtered"] > x_line
+    assert all(box_x[r] < x_line for r in ("flux:incident", "flux:reflected", "flux:reemitted", "flux:retained"))

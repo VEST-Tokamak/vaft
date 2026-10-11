@@ -177,7 +177,20 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("log_y", "bool"), OptionSpec("marker_frequencies"), OptionSpec("max_frequency", "float"),
         OptionSpec("max_harmonics", "int"), OptionSpec("max_length_m", "float"), OptionSpec("n_tor", "int"),
         OptionSpec("ncols", "int"), OptionSpec("noverlap", "int"), OptionSpec("nperseg", "int"),
-        OptionSpec("per_family", "bool"),
+        # A channel count per family: the #139 vacuum figures read it as
+        # int(per_family) (default 2), the vacuum benchmark views as a positive
+        # count or None for every usable channel.
+        OptionSpec("per_family", "int",
+                   description="magnetic channels kept per family (vacuum views and benchmark)"),
+        # The plasma-free vacuum benchmark (#190, roadmap #1242 C3): the one
+        # global wall-resistance factor its resistance study varies, and the
+        # wall time constants of solver history the validation window waits for.
+        # Only recipes.VACUUM_BENCHMARK_PLOTS take them (DECLARED_ONLY_OPTIONS).
+        OptionSpec("resistance_scale", "float",
+                   description="vacuum benchmark: global scale factor on every passive-loop resistance"),
+        OptionSpec("n_tau", "float",
+                   description="vacuum benchmark: slowest wall time constants of solver history "
+                               "before the validation window opens"),
         # wall eigenmode views (vaft #473)
         OptionSpec("basis"), OptionSpec("segment"), OptionSpec("mode"), OptionSpec("max_modes", "int"),
         OptionSpec("whole_wall", "bool"), OptionSpec("remap_em_coupling", "bool"), OptionSpec("rows"),
@@ -241,6 +254,13 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
         OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
                    "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
+        # One matched kinetic state (#1837): the equilibrium occurrence the
+        # caller says the input's equilibrium is, refused when it contradicts
+        # the occurrence the kinetic state was built on.  Only
+        # kinetic_overview_state takes it (DECLARED_ONLY_OPTIONS).
+        OptionSpec("equilibrium_occurrence", "int",
+                   description="kinetic state: the equilibrium occurrence the Thomson channels are mapped "
+                               "through; must match the one the state records"),
         # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that
         # reached no growth-rate tolerance is left out unless asked for.  Only
         # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
@@ -266,6 +286,10 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "mode_overlay",
     # issue #1591: the linear gyrokinetic spectra's unconverged-mode switch.
     "include_unconverged",
+    # roadmap #1242 C3: the vacuum benchmark's knobs.
+    "resistance_scale", "n_tau",
+    # issue #1837: the kinetic state's equilibrium occurrence.
+    "equilibrium_occurrence",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);

@@ -61,6 +61,16 @@ from ._taxonomy import (
     Reduction,
     parse_reduction,
 )
+from .._semantics import Semantics, parse_semantics
+
+#: Where :func:`vaft.formula._propagation.jacobian` records an analytic Jacobian.  Read by
+#: name so describing a formula never imports the propagation layer (#1874).
+_JACOBIAN_ATTRIBUTE = "__vaft_jacobian__"
+
+
+def _analytic_jacobian(fn):
+    """The ``(derivative, wrt)`` a formula carries, or ``None``."""
+    return getattr(fn, _JACOBIAN_ATTRIBUTE, None)
 
 __all__ = [
     "CATEGORIES",
@@ -79,7 +89,7 @@ __all__ = [
 #: ``constants`` defines no functions and appears only through :func:`categories`.
 CATEGORIES: tuple[str, ...] = tuple(key for key in _IMPORT_ORDER if key != "constants")
 
-SCHEMA_VERSION = 4  # +reduction (#1626)
+SCHEMA_VERSION = 6  # +reduction (#1626), +semantics (#1702), +uncertainty propagation (#1874)
 _GENERATOR = "python -m vaft.formula.catalog --output docs/_data/formula_catalog.yml"
 
 #: A displayed equation of the description, ``$$...$$``, possibly over several lines.
@@ -126,6 +136,9 @@ class FormulaSpec:
     source_code: str = ""
     definitions: tuple[str, ...] = ()
     reduction: Reduction | None = None
+    semantics: Semantics | None = None
+    uncertainty_propagation: bool = False
+    analytic_jacobian: bool = False
 
     @property
     def qualname(self) -> str:
@@ -155,6 +168,8 @@ class FormulaSpec:
             flags.append("empirical fit")
         if self.convention_sensitive:
             flags.append("convention-sensitive")
+        if self.uncertainty_propagation:
+            flags.append("uncertainty propagation")
         if self.deprecated:
             flags.append("deprecated")
         lines = [f"{self.qualname}{self.signature}"]
@@ -261,6 +276,7 @@ class FormulaSpec:
                 for label, on in (
                     ("empirical fit", self.empirical),
                     ("convention-sensitive", self.convention_sensitive),
+                    ("uncertainty propagation", self.uncertainty_propagation),
                     ("deprecated", self.deprecated),
                 )
                 if on
@@ -297,6 +313,10 @@ class FormulaSpec:
             r = self.reduction
             return "\n".join(["**Reduction**", "", f"- mapping: {r.mapping}", f"- kind: {r.kind}",
                               f"- locality: {r.locality}", f"- role: {r.role}"])
+        if part == "semantics" and self.semantics is not None:
+            s = self.semantics
+            return "\n".join(["**Semantics**", ""] + [f"- {key}: {', '.join(terms)}" for key, terms in
+                                                       (("consumes", s.consumes), ("produces", s.produces)) if terms])
         if part == "references":
             lines = ["**References**", ""]
             lines += [f"- [{ref.label}] {_one_line(ref.text)}" for ref in self.references]
@@ -350,13 +370,15 @@ class FormulaSpec:
             "sections": [
                 {"title": title, "text": strip_roles(text)}
                 for title, text in self.sections
-                if title not in ("Parameters", "Returns", "Yields", "Raises", "References", "Reduction")
+                if title not in ("Parameters", "Returns", "Yields", "Raises", "References", "Reduction", "Semantics")
             ],
             "references": [
                 {"label": ref.label, "text": strip_roles(ref.text)} for ref in self.references
             ],
             "empirical": self.empirical,
             "convention_sensitive": self.convention_sensitive,
+            "uncertainty_propagation": self.uncertainty_propagation,
+            "analytic_jacobian": self.analytic_jacobian,
             "deprecated": self.deprecated,
             "raises": [
                 {"type": item.type, "description": strip_roles(item.description)}
@@ -372,6 +394,7 @@ class FormulaSpec:
             "aliases": list(self.aliases),
             "shadowed_by": self.shadowed_by,
             "reduction": self.reduction.as_dict() if self.reduction is not None else None,
+            "semantics": self.semantics.as_dict() if self.semantics is not None else None,
         }
 
 
@@ -485,9 +508,18 @@ def _reduction(parsed: ParsedDocstring) -> tuple[Reduction | None, tuple[str, ..
     return reduction, errors
 
 
+def _propagation(fn, parsed: ParsedDocstring) -> tuple[str, ...]:
+    """An analytic Jacobian is a contract only when the docstring states it (#1874)."""
+    if _analytic_jacobian(fn) is not None and not parsed.flags.get("uncertainty_propagation", False):
+        return ("an analytic Jacobian is attached but there is no Uncertainty propagation section",)
+    return ()
+
+
 def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ...]) -> FormulaSpec:
     parsed: ParsedDocstring = parse_docstring(fn.__doc__)
     reduction, reduction_errors = _reduction(parsed)
+    semantics, semantics_errors = parse_semantics(parsed.section("Semantics"))
+    propagation_errors = _propagation(fn, parsed)
     span = source_span(fn, Path(__file__).resolve().parents[2])
     return FormulaSpec(
         name=name,
@@ -505,7 +537,7 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         deprecated=parsed.deprecated,
         aliases=aliases,
         shadowed_by=_shadowing_category(category, name),
-        errors=parsed.errors + reduction_errors,
+        errors=parsed.errors + reduction_errors + semantics_errors + propagation_errors,
         raises=parsed.raises,
         source_path=span["path"],
         source_line=span["line"],
@@ -513,6 +545,9 @@ def _spec(fn, name: str, category: str, module_name: str, aliases: tuple[str, ..
         source_code=span["code"],
         definitions=tuple(equation.strip() for equation in _DISPLAY_MATH.findall(parsed.description)),
         reduction=reduction,
+        semantics=semantics,
+        uncertainty_propagation=parsed.flags.get("uncertainty_propagation", False),
+        analytic_jacobian=_analytic_jacobian(fn) is not None,
     )
 
 

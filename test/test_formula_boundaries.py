@@ -701,3 +701,79 @@ def test_takizuka_gamma_is_an_explicit_keyword_spanning_the_published_range():
     for outside in (-0.1, 1.1):
         with pytest.raises(ValueError, match="gamma"):
             B._takizuka_2004_threshold(**kw, gamma=outside)
+
+
+# Experimental beta references on the Troyon plane (#1691): references, not limits
+BETA_REFERENCES = {"strait_1988_diiid_beta_n_envelope": ("experimental_envelope", 3.5),
+                   "taylor_1995_diiid_beta_n_record": ("experimental_achievement", 4.3),
+                   "garstka_2002_st_beta_n_reference": ("experimental_envelope", 6.0),
+                   "sabbagh_2006_nstx_beta_n_record": ("experimental_achievement", 7.2)}
+
+
+@pytest.mark.parametrize("key", sorted(BETA_REFERENCES))
+def test_the_experimental_beta_references_are_registered_as_references(key):
+    entry = B.get_boundary(key)
+    kind, value = BETA_REFERENCES[key]
+    assert entry.kind == kind and entry.coefficient == pytest.approx(value)
+    assert entry.target.name == "normalized_beta" and entry.form == "threshold"
+    assert entry.applicability.machine_class and entry.sources and "Verification level" in entry.notes
+
+
+def test_troyon_is_a_stability_reference_and_limits_stay_limits():
+    assert B.get_boundary("troyon").kind == "stability_reference"
+    assert B.get_boundary("greenwald").kind == "limit"
+
+
+def test_an_unknown_kind_is_refused():
+    with pytest.raises(ValueError, match="kind"):
+        dataclasses.replace(B.get_boundary("troyon"), kind="universal_limit")
+
+
+def test_the_diiid_record_carries_its_discharge_as_a_single_evidence_point():
+    evidence = B.get_boundary("taylor_1995_diiid_beta_n_record").applicability.evidence_ranges
+    low, high = evidence["normalized_current"]
+    assert low == high == pytest.approx(12.6 / 4.3)   # discharge 80108: beta_T 12.6 % at beta_N 4.3
+
+
+def test_evaluating_a_reference_says_it_is_not_a_limit():
+    reference = B.evaluate_boundary(B.get_boundary("troyon"), 3.0)
+    assert any("not a limit" in w for w in reference.warnings)
+    limit = B.evaluate_boundary(B.get_boundary("greenwald"), 0.5, plasma_current=0.1, minor_radius=0.3)
+    assert not any("not a limit" in w for w in limit.warnings)
+
+
+# --- beta_N = 4 l_i(1) (Strait 1994; #1691, #1700) ------------------------------------
+
+
+def test_li1_is_the_circumference_normalized_internal_inductance():
+    from vaft.formula.constants import MU0
+    from vaft.formula.equilibrium import li_1_from_Bp2_volume_integral, li_3_from_Bp2_volume_integral
+
+    # large-aspect-ratio circle with a flat current: <B_p^2> = B_pa^2 / 2, so l_i(1) = l_i(3) = 1/2
+    R, a, I = 10.0, 0.5, 1.0e6
+    b_pa = MU0 * I / (2 * np.pi * a)
+    volume = 2 * np.pi * R * np.pi * a**2
+    bp2 = 0.5 * b_pa**2 * volume
+    assert li_1_from_Bp2_volume_integral(bp2, volume, I, 2 * np.pi * a) == pytest.approx(0.5)
+    assert li_3_from_Bp2_volume_integral(bp2, I, R) == pytest.approx(0.5)
+    # an elongated section of the same energy: l_i(1) = l_i(3) R Gamma^2 / (2V), larger than l_i(3)
+    gamma, v_ell = 2 * np.pi * a * 1.6, volume * 1.8
+    li1 = li_1_from_Bp2_volume_integral(bp2, v_ell, -I, gamma)   # the sign of the current does not enter
+    assert li1 == pytest.approx(li_3_from_Bp2_volume_integral(bp2, I, R) * R * gamma**2 / (2 * v_ell))
+    for bad in ((0.0, 1.0), (1.0, 0.0)):
+        with pytest.raises(ValueError):
+            li_1_from_Bp2_volume_integral(bp2, bad[0], I, bad[1])
+
+
+def test_the_4_li_reference_is_on_li1_only():
+    from vaft.diagram import _op_space as ops
+
+    entry = B.get_boundary("strait_1994_beta_n_li")
+    assert entry.kind == "experimental_envelope" and entry.target.name == "normalized_beta"
+    assert [q.name for q in entry.inputs] == ["internal_inductance_li1"]
+    assert B.boundary_value(entry, internal_inductance_li1=np.array([1.0, 2.0])) == pytest.approx([4.0, 8.0])
+    assert entry.applicability.evidence_ranges["internal_inductance_li1"] == (1.0, 2.0)
+    assert ops.overlay_plan("beta_n_li1", "default", x_range=(0.3, 2.5), y_range=(0, 9)).keys == (
+        "troyon", "strait_1994_beta_n_li")
+    refused = ops.overlay_plan("beta_n_li", ["strait_1994_beta_n_li"], x_range=(0.3, 2.5), y_range=(0, 9))
+    assert refused.curves == () and "internal_inductance_li3" in refused.omitted[0][1]

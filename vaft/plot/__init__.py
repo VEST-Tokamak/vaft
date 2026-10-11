@@ -237,7 +237,7 @@ from .renderers.spectra import render_power_spectrum
 from .renderers.spectrograms import render_spectrogram
 from .renderers.tables import RenderedTable, RenderedTextSummary, render_table, render_text_summary
 from .presentation import DEFAULT_FORMAT, FORMATS, THEMES, resolve_presentation
-from .style import save_figure
+from .style import save_figure, save_rendered
 
 # Canonical renderers are re-exported explicitly rather than bound in a loop, so
 # documentation tools, IDEs and type checkers see every ``vaft.plot.<name>``.
@@ -353,8 +353,10 @@ from .renderers.panels import (
     chease_overview_refinement_summary,
     core_profiles_time_volume_averaged,
     current_overview,
+    current_overview_reconstruction,
     diagnostics_overview,
     kinetic_overview_profiles,
+    kinetic_overview_state,
     equilibrium_overview,
     equilibrium_overview_constraint_coverage,
     equilibrium_overview_constraints,
@@ -375,6 +377,7 @@ from .renderers.panels import (
     magnetics_overview_plasma_residual,
     startup_proxies_time,
     magnetics_overview_vacuum,
+    magnetics_overview_vacuum_benchmark,
     mhd_linear_overview_eigenfunction,
     limiter_current_time,
     soft_x_rays_overview,
@@ -444,6 +447,8 @@ from .renderers.tables import (
     equilibrium_table_summary,
     equilibrium_table_validation,
     equilibrium_text_summary,
+    magnetics_table_vacuum_benchmark,
+    magnetics_table_vacuum_benchmark_aggregate,
 )
 from .parameter_history import plot_parameter_history
 from .analytic import (
@@ -526,6 +531,7 @@ _SUPPORT_EXPORTS = (
     "render_table",
     "render_text_summary",
     "save_figure",
+    "save_rendered",
     "plot_parameter_history",
     "miller_surfaces_model",
     "plasma_state_projection_model",

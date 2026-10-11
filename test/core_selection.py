@@ -265,11 +265,13 @@ CORE_MODULES: tuple[str, ...] = (
     # read back through the readers, the edge classifier and the ntms mapping,
     # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
+    "test_gpec_plasma_formalism.py",
     "test_gpec_rdcon_criteria.py",
     "test_mhd_linear_dcon_payload.py",
     "test_rdcon_ods_closure.py",
     "test_stability_atlas_build.py",
     "test_stability_atlas_controls.py",
+    "test_stability_atlas_population.py",
     "test_stability_rdcon_stride_benchmark.py",
     "test_stability_validation.py",
     # GPEC adapter records (#1460): how a solver stop is worded and recorded --
@@ -298,13 +300,15 @@ CORE_MODULES: tuple[str, ...] = (
     # not-applicable verdict for sub-CUTIP class shots (#1731), whose last test
     # runs the k-file/EFIT/EFIT-ODS scripts as subprocesses (~10 s), and the
     # explicit-drive magnetic decomposition (#1795) on the packaged 39915
-    # product (two eddy solves per case, ~20 s).
+    # product (two eddy solves per case, ~20 s), and magnetics in the shared
+    # machine-geometry registry plus the flux-loop top view (#1829).
     "test_barometry_gauge_eras.py",
     "test_class_shot_checklist.py",
     "test_diagnostic_faults.py",
     "test_efit_not_applicable.py",
     "test_flux_loop_known_faults.py",
     "test_magnetic_decomposition.py",
+    "test_magnetics_geometry_registry.py",
     "test_plasma_current_quality.py",
     "test_shot_class_pickup.py",
     "test_tf_excursion_repair.py",
@@ -322,6 +326,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
+    # Turbulence-zonal-flow predator-prey reduced model (#1820): analytic kernels
+    # checked against a numerical orbit. Pure NumPy, under 5 s.
+    "test_formula_turbulence.py",
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
@@ -330,7 +337,9 @@ CORE_MODULES: tuple[str, ...] = (
     # import checks that keep both off the default processing path. Under 10 s.
     "test_validation_credibility.py",
     # Sensitivity contract (lane AP, #1642): finite differences against the
-    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map. ~2 s.
+    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map; per-formula
+    # propagation and analytic Jacobians of the pilot formulas (#1874). ~3 s.
+    "test_formula_uncertainty.py",
     "test_sensitivity_contract.py",
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
@@ -353,7 +362,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_validation_orderings.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
-    "test_core_q_context.py",
+    "test_q_profile_context.py",
+    # Ordering summary layer (lane AP, #1627 §2 / #1629): each builder against
+    # its textbook definition; missing inputs stay NaN. Pure NumPy, ~3 s.
+    "test_ordering_state.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

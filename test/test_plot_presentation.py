@@ -573,3 +573,20 @@ def test_show_happens_after_the_theme_and_the_layout_are_applied(monkeypatch):
     seen.clear()
     vaft.omas.plot_plasma_current_time(ods, theme="minimal", show=False)
     assert not seen
+
+
+def test_grid_figsize_keeps_the_format_width_and_ceiling():
+    from vaft.plot.presentation import FORMATS, Presentation, resolve_presentation
+
+    screen = resolve_presentation("screen", None)
+    # One width whatever the column count; rows add height.
+    assert screen.grid_figsize(1, 3)[0] == screen.grid_figsize(2, 1)[0] == FORMATS["screen"].width_in
+    assert screen.grid_figsize(2, 1, aspect=0.4)[1] == 2 * screen.grid_figsize(1, 1, aspect=0.4)[1]
+    # A wide row never collapses below a labelled axes at the format's type ...
+    slide = resolve_presentation("slide", None)
+    assert slide.grid_figsize(1, 6, aspect=0.1)[1] > screen.grid_figsize(1, 6, aspect=0.1)[1] > 0.9
+    # ... and a tall grid stops at the ceiling.
+    assert slide.grid_figsize(5, 1, aspect=1.0)[1] == FORMATS["slide"].max_height_in
+    # No format: the caller's fallback, so ``legacy`` keeps a script's old canvas.
+    assert Presentation(None, None).grid_figsize(2, 2, fallback=(11.0, 8.0)) == (11.0, 8.0)
+    assert resolve_presentation("legacy", None) is None

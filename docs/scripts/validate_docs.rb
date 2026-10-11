@@ -583,6 +583,9 @@ if diagram_snapshot
   end
 end
 
+#: Pages a hub page links to rather than the sidebar (test_docs_content.py).
+HUB_CHILD_PREFIXES = ["/reference/api/", "/reference/formula/", "/reference/process/"].freeze
+
 migrations = data("page_migrations.yml")
 legacy_urls = migrations.map { |item| item.fetch("legacy_url") }
 errors << "duplicate legacy URL in page_migrations.yml" unless legacy_urls.uniq.length == legacy_urls.length
@@ -599,7 +602,9 @@ errors << "unaccounted legacy redirect pages: #{unaccounted.to_a.sort.join(', ')
 migrations.each do |migration|
   legacy = migration.fetch("legacy_url")
   target = migration.fetch("canonical_url")
-  errors << "redirect target is not canonical: #{legacy} -> #{target}" unless canonical_urls.include?(target)
+  # A renamed per-module reference page (#1838) is a hub child: canonical when built.
+  hub_child = HUB_CHILD_PREFIXES.any? { |prefix| target.start_with?(prefix) } && output_path(target)
+  errors << "redirect target is not canonical: #{legacy} -> #{target}" unless canonical_urls.include?(target) || hub_child
   built = output_path(legacy)
   if built.nil?
     errors << "legacy URL is not built: #{legacy}"

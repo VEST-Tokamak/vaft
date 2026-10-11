@@ -50,8 +50,20 @@ def _finite(rows, *names):
     return keep
 
 
-def plot_operating_space(rows, *, x=DEFAULT_X, y=DEFAULT_Y, colour="time_ms", output=None):
-    """Scatter ``y`` against ``x``, one point per DCON run, coloured by ``colour``."""
+def plot_operating_space(rows, *, x=DEFAULT_X, y=DEFAULT_Y, colour="time_ms", output=None, fmt="screen", theme=None):
+    """Scatter ``y`` against ``x``, one point per DCON run, coloured by ``colour``.
+
+    ``fmt``/``theme`` are :mod:`vaft.plot.presentation` names; ``fmt="legacy"``
+    keeps the 7 x 5.5 in canvas the plot had before the format existed.
+    """
+    from vaft.plot.presentation import Presentation, resolve_presentation
+
+    pres = resolve_presentation(fmt, theme) or Presentation(None, None)
+    with pres.context():
+        return _plot_operating_space(rows, x=x, y=y, colour=colour, output=output, pres=pres)
+
+
+def _plot_operating_space(rows, *, x, y, colour, output, pres):
     required = (x, y, "time_ms") if colour == "time_ms" else (x, y)
     usable = _finite(rows, *required)
     if not usable:
@@ -62,7 +74,7 @@ def plot_operating_space(rows, *, x=DEFAULT_X, y=DEFAULT_Y, colour="time_ms", ou
         named = ", ".join(repr(name) for name in required)
         raise SystemExit(f"no run in this scan carries finite values for all of: {named}")
 
-    figure, axes = plt.subplots(figsize=(7.0, 5.5))
+    figure, axes = plt.subplots(figsize=pres.grid_figsize(aspect=5.5 / 7.0, fallback=(7.0, 5.5)))
     x_values = np.array([float(row[x]) for row in usable])
     y_values = np.array([float(row[y]) for row in usable])
 
@@ -120,13 +132,16 @@ def main() -> int:
     parser.add_argument("--colour", default="time_ms", choices=("time_ms", "stability"),
                         help="Continuous time colouring, or the stability verdict.")
     parser.add_argument("--output", type=Path, default=Path("stability_operating_space.png"))
+    parser.add_argument("--format", default="screen", help="vaft.plot presentation format, or 'legacy'")
+    parser.add_argument("--theme", default=None, help="vaft.plot presentation theme")
     args = parser.parse_args()
 
     modes = tuple(int(item) for item in str(args.modes).split(",") if item.strip())
     rows = read_dcon_scan(args.workdir, modes=modes, shot=args.shot)
     if not rows:
         raise SystemExit(f"no DCON run found under {args.workdir}")
-    plot_operating_space(rows, x=args.x, y=args.y, colour=args.colour, output=args.output)
+    plot_operating_space(rows, x=args.x, y=args.y, colour=args.colour, output=args.output,
+                         fmt=args.format, theme=args.theme)
     return 0
 
 

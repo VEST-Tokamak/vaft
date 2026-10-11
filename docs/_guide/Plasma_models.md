@@ -526,8 +526,8 @@ the model, so it stays separate.
 whose physics is not documented.
 
 **Backend gaps this audit found, for Phase C:**
-- **GPEC (#1734).** VAFT exposes no DCON kinetic options. Its `mhd_linear` provenance does not record `kin_flag`,
-  `con_flag` or the `pentrc.in` settings, so a kinetic run would be indistinguishable from an ideal one.
+- **GPEC (#1734), resolved.** Every GPEC-suite run now records its formalism from the prepared `dcon.in` /
+  `pentrc.in` / `gpec.in` (see "GPEC suite" in §11), so a kinetic run is distinguishable from an ideal one.
 - **GACODE (#1735):**
   - `cgyro.formalism()` hard-codes values that `extra_parameters` can contradict (`AE_FLAG`, `EQUILIBRIUM_MODEL`,
     `GLOBAL_FLAG`), and it omits the collision model and the zeroed rotation;
@@ -596,12 +596,38 @@ the #1353 `provenance["formalism"]` that the `gyrokinetics_local` mapping alread
   Miller geometry and gyrokinetic electrons.
 
 **Deferred to Phase C.**
-- **GPEC suite (#1734):**
-  - derive the record from `dcon.in` `kin_flag` and the `pentrc.in` settings;
-  - write it into the `mhd_linear` provenance.
+- **GPEC suite (#1734):** done -- see below.
 - **GACODE (#1735):**
   - derive NEO and TGLF records;
   - read `AE_FLAG`, `EQUILIBRIUM_MODEL`, `GLOBAL_FLAG` and the collision model back from `input.cgyro.gen`, instead
     of trusting the configuration object.
 - **NUBEAM and ASCOT5:** no Phase C issue yet.
+
+**GPEC suite (#1734).** `vaft.code.gpec` resolves a record for every DCON, RDCON, STRIDE, ideal-GPEC and PENTRC run
+from the namelists the cell was prepared with (upstream defaults where a key is absent), stores it on
+`GPECModuleRun.plasma_formalism` (the versioned `as_dict()`, so run manifests carry it) and inside each `mhd_linear`
+fragment as `<plasma_formalism>`, read back by `extract_dcon_stability` / `extract_rdcon_stability`. The physics
+map -- a classification, not the software dependency graph:
+
+```text
+GPEC software suite
+|
++-- DCON      kin_flag=f  ideal_stability       fluid  / ideal_mhd                       static
+|             kin_flag=t  ideal_stability       hybrid / drift_kinetic, coupling energy, bounce_averaged, delta_f
+|                                               populations from ion_flag / electron_flag (never "all")
++-- RDCON                 resistive_stability   fluid  / resistive_mhd when RMATCH solved the inner layer
+|                                               (match_flag writes delta.out), else ideal_mhd (outer region);
+|                                               an RPEC run (globalsol.bin) is perturbed_equilibrium; Te/ne ->
+|                                               Spitzer eta stays an extension, never a kinetic equation
++-- STRIDE                resistive_stability   fluid  / ideal_mhd (outer-region Delta-prime, no eta)
++-- GPEC                  perturbed_equilibrium fluid or hybrid, inherited from the DCON run it reads
+|                                               (singthresh_* layer models stay auxiliary, in extensions)
+`-- PENTRC                toroidal_torque       hybrid / drift_kinetic, coupling closure on the GPEC xi,
+                                                one species per run; methods, nutype, f0type in extensions
+```
+
+A run whose governing namelist is absent, or whose physics flag cannot be read, gets **no** record rather than
+the upstream defaults. MATCH and RMATCH get no record of their own: they are numerical stages of the DCON and RDCON calculations they
+complete, recorded in those runs' extensions. No named kinetic limit (Kruskal-Oberman, ...) is recorded from
+`kin_flag` alone.
 

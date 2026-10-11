@@ -4,7 +4,7 @@
     the reference architecture: the VEST machine outside a server boundary
     holding experimental data processing (left), the per-shot database
     (centre), reconstruction and physics inference (above) and simulation
-    (right); access and analysis with VAFT below the server, and the
+    (right); access and analysis below the server, and the
     cross-platform, scalable execution strip under everything;
 ``vest_data_platform_overview``
     the compact companion for papers and slides: experiment, processing,
@@ -83,7 +83,7 @@ _DRUM_RIM = 0.55
 
 #: the companion figure's five stages
 OVERVIEW_STAGES: Tuple[str, ...] = ("Experiment", "Experimental Data Processing", "Database",
-                                    "Reconstruction & Simulation", "Access & Analysis with VAFT")
+                                    "Reconstruction & Simulation", "Access & Analysis")
 
 #: the VEST machine: a CAD render packaged under ``vaft/diagram/images``, and its pixel aspect (height / width)
 MACHINE_IMAGE = "vest_machine.jpg"
@@ -196,7 +196,7 @@ def vest_data_platform(*, labels: bool = True) -> Diagram:
     (``EXPERIMENTAL_PROCESSING``) on the left, fed by the VEST machine
     outside the server; reconstruction and physics inference above;
     simulation (``SIMULATION``: each entry a concept with its code or model
-    authors beneath) on the right; access and analysis with VAFT
+    authors beneath) on the right; access and analysis
     (``ACCESS``) below the server, and the cross-platform, scalable execution
     strip (``EXECUTION_*``) under everything. The database panel shows one
     shot's directory (``DATABASE_LAYOUT``: experimental, reconstructed state
@@ -251,7 +251,7 @@ def vest_data_platform(*, labels: bool = True) -> Diagram:
     # access, below the server and centred on the database
     ay = sy0 - 1.9
     acc_x0, acc_x1 = dbx - 9.6, dbx + 9.6
-    access_panel = _panel(acc_x0, acc_x1, ay - 1.75, ay + 1.15, "Access & Analysis with VAFT", "access", items)
+    access_panel = _panel(acc_x0, acc_x1, ay - 1.75, ay + 1.15, "Access & Analysis", "access", items)
     tw = (acc_x1 - acc_x0 - 0.6) / len(ACCESS) - 0.2
     access = []
     for i, name in enumerate(ACCESS):
@@ -308,7 +308,7 @@ def vest_data_platform_overview(*, labels: bool = True) -> Diagram:
 
     Experiment (the VEST machine) $\to$ experimental data processing $\to$
     the per-shot database $\leftrightarrow$ reconstruction and simulation
-    $\to$ access and analysis with VAFT. No file contents or sub-items: the
+    $\to$ access and analysis. No file contents or sub-items: the
     reference view is ``vest_data_platform``.
     """
     labels = _check_labels(labels)
@@ -321,7 +321,7 @@ def vest_data_platform_overview(*, labels: bool = True) -> Diagram:
     reco = _leaf(10.6, 3.0, 4.6, 1.2, _bold("Reconstruction & Physics Inference"), "stage:reconstruction",
                  latex=True, style="concept box")
     sim = _leaf(15.9, 0.0, 3.2, 1.3, _bold("Simulation"), "stage:simulation", latex=True, style="concept box")
-    acc = _leaf(10.6, -3.0, 4.6, 1.2, _bold("Access & Analysis with VAFT"), "stage:access", latex=True,
+    acc = _leaf(10.6, -3.0, 4.6, 1.2, _bold("Access & Analysis"), "stage:access", latex=True,
                 style="concept actor")
     for b in (proc, db, reco, sim, acc):
         items += list(b.items)

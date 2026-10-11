@@ -55,3 +55,6 @@
 - legacy_url: /reference/vest-systems/
   disposition: renamed
   canonical_url: /reference/vest-diagnostics/
+- legacy_url: /reference/process/core_q_context/
+  disposition: renamed
+  canonical_url: /reference/process/q_profile_context/

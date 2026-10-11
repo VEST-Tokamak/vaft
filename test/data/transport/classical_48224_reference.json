@@ -1,0 +1,113 @@
+{
+ "source": "classical_heat_fluxes on develop 6f5a45f26 (before #1899), packaged 48224 at 0.300 s, magnetics",
+ "records": [
+  {
+   "r_over_a": 0.3,
+   "electron_energy_flux_W_m2": -42.121775368392086,
+   "electron_particle_flux_m2_s": null,
+   "ion_energy_flux_W_m2": {
+    "z=1": 181.52658821990207
+   },
+   "ion_particle_flux_m2_s": {},
+   "chi_e_m2_s": 0.08017567127736573,
+   "chi_i_m2_s": 2.8633368031735884,
+   "tau_e_s": 1.1656388004445998e-06,
+   "tau_i_s": 3.9283116806234655e-06,
+   "coulomb_logarithm": 13.545249287553414,
+   "coulomb_logarithm_ion": 11.477000302282635,
+   "coulomb_log_valid": true,
+   "gamma1_perp": 4.0,
+   "b_tesla": 0.14330029901823457
+  },
+  {
+   "r_over_a": 0.4,
+   "electron_energy_flux_W_m2": -25.73548025632803,
+   "electron_particle_flux_m2_s": null,
+   "ion_energy_flux_W_m2": {
+    "z=1": 97.52766841648472
+   },
+   "ion_particle_flux_m2_s": {},
+   "chi_e_m2_s": 0.06492562860461841,
+   "chi_i_m2_s": 2.569119157396698,
+   "tau_e_s": 1.6077080978195225e-06,
+   "tau_i_s": 3.7829497184667625e-06,
+   "coulomb_logarithm": 13.742460176279348,
+   "coulomb_logarithm_ion": 11.347598782501269,
+   "coulomb_log_valid": true,
+   "gamma1_perp": 4.0,
+   "b_tesla": 0.1437517790354258
+  },
+  {
+   "r_over_a": 0.5,
+   "electron_energy_flux_W_m2": -7.5187371797200075,
+   "electron_particle_flux_m2_s": null,
+   "ion_energy_flux_W_m2": {
+    "z=1": 12.911252712399406
+   },
+   "ion_particle_flux_m2_s": {},
+   "chi_e_m2_s": 0.050190336206154366,
+   "chi_i_m2_s": 2.1118533528070853,
+   "tau_e_s": 2.2202184157963617e-06,
+   "tau_i_s": 4.22827213336803e-06,
+   "coulomb_logarithm": 13.929111856839615,
+   "coulomb_logarithm_ion": 11.346141448154828,
+   "coulomb_log_valid": true,
+   "gamma1_perp": 4.0,
+   "b_tesla": 0.14437538526042
+  },
+  {
+   "r_over_a": 0.6,
+   "electron_energy_flux_W_m2": 3.4285915528199182,
+   "electron_particle_flux_m2_s": null,
+   "ion_energy_flux_W_m2": {
+    "z=1": -17.5696096827817
+   },
+   "ion_particle_flux_m2_s": {},
+   "chi_e_m2_s": 0.03680800859787165,
+   "chi_i_m2_s": 1.5428406425549968,
+   "tau_e_s": 3.0099182233041097e-06,
+   "tau_i_s": 5.858656621955951e-06,
+   "coulomb_logarithm": 14.088374771251818,
+   "coulomb_logarithm_ion": 11.535232891949464,
+   "coulomb_log_valid": true,
+   "gamma1_perp": 4.0,
+   "b_tesla": 0.14520784958066493
+  },
+  {
+   "r_over_a": 0.7,
+   "electron_energy_flux_W_m2": 5.733642271449828,
+   "electron_particle_flux_m2_s": null,
+   "ion_energy_flux_W_m2": {
+    "z=1": -7.606967584109009
+   },
+   "ion_particle_flux_m2_s": {},
+   "chi_e_m2_s": 0.02518280997104071,
+   "chi_i_m2_s": 0.9911817683180952,
+   "tau_e_s": 3.958949332224693e-06,
+   "tau_i_s": 9.665022902512658e-06,
+   "coulomb_logarithm": 14.206950903168941,
+   "coulomb_logarithm_ion": 11.853912035459512,
+   "coulomb_log_valid": true,
+   "gamma1_perp": 4.0,
+   "b_tesla": 0.14629356582368955
+  },
+  {
+   "r_over_a": 0.8,
+   "electron_energy_flux_W_m2": 3.4106154157092,
+   "electron_particle_flux_m2_s": null,
+   "ion_energy_flux_W_m2": {
+    "z=1": 3.088853148578407
+   },
+   "ion_particle_flux_m2_s": {},
+   "chi_e_m2_s": 0.015549217974502134,
+   "chi_i_m2_s": 0.5550954234863265,
+   "tau_e_s": 4.98315009176635e-06,
+   "tau_i_s": 1.6991642270499284e-05,
+   "coulomb_logarithm": 14.26598101675264,
+   "coulomb_logarithm_ion": 12.15154926042888,
+   "coulomb_log_valid": true,
+   "gamma1_perp": 4.0,
+   "b_tesla": 0.14774376089292401
+  }
+ ]
+}

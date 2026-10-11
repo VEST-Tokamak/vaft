@@ -115,7 +115,7 @@ vaft.diagram.peeling_ballooning()
 vaft.diagram.s_alpha_ballooning(s_max=1.5, alpha_max=3.5)
 vaft.diagram.hugill(elongation=1.0)                       # no size parameter: R, a, B cancel
 vaft.diagram.hugill_st(elongation=1.8)                   # spherical-tokamak q_cyl (Sykes et al. 2000, MAST)
-vaft.diagram.troyon(aspect_ratio=3.0, elongation=1.7)      # registered Troyon limit, ~2.76
+vaft.diagram.troyon(aspect_ratio=3.0, elongation=1.7)      # Troyon stability reference ~2.76, experimental levels dashed
 vaft.diagram.li_qa(reference="wesson_1989")                # JET empirical l_i-q_psi space
 vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-stable l_i-q(a) domain
 ```
@@ -133,7 +133,7 @@ vaft.diagram.li_qa(reference="cheng_1987")                 # theoretical MHD-sta
 | Hugill | Where is the density limit? | $\bar n_e R/B_T$, $1/q_\mathrm{cyl}$ | The registered `greenwald_hugill` line (slope $\pi/50\kappa_a$ in $1/q_\mathrm{cyl}$ against $\bar n_e R/B_T$) and `murakami_hugill` ($\bar n_e R/B_T = 1$). The registered `low_q` is on the equilibrium $q_\psi$, not $q_\mathrm{cyl}$, so it is not drawn; `q_limit=` adds a dashed *reference* $q_\mathrm{cyl}$ line |
 | Hugill (ST) | Where is the density limit in a spherical tokamak? | $\bar n_e R/B_T$, $1/q^{ST}_\mathrm{cyl}$ with $q^{ST}_\mathrm{cyl} = 2.5a^2(1+\kappa^2)B_T/(RI_p)$ | `vaft.diagram.hugill_st(elongation=1.8)`: the Hugill limit as Sykes et al. (2000, MAST) define it (`sykes_2000_st_hugill`) and the Greenwald limit on these axes (`greenwald_hugill_st`, derived); Murakami dashed as a historical conventional-tokamak reference. Not substitutable with the conventional `hugill` axes (#1602) |
 | $l_i$–$q$ | Where do current-profile peaking and edge q allow stable operation? | Wesson: $q_\psi$, $l_i(3)$. Cheng: cylinder $q(a)$, $l_i$ | Two separate references, never mixed. Wesson 1989 Fig. 6: the JET *empirical* boundaries (kink and double tearing below, density-limit disruptions above), with the registered `low_q` closing $q_\psi = 2$. Cheng 1987 Fig. 4: the *theoretical* MHD-stable domain of a cylinder with $q(0) = 1.01$ (ideal kink below, resistive kinks above), plotted as $l_i$ rather than $l_i/2$ |
-| Troyon | How much pressure can the current hold? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` limit, $\beta_N \le 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
+| Troyon | How much pressure has the current held, against which references? | $I_p/(aB_T)$, $\beta_T$ | The registered `troyon` *stability reference*, $\beta_N = 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$, with the experimental $\beta_N$ levels of the `troyon` projection dashed (DIII-D envelope and record, ST reference, NSTX record; #1691). None is a limit, so no side is shaded or called stable. `beta_N_max=` draws a what-if value and the note says so; `q_limit=` adds a dashed reference $q_\mathrm{cyl}$ cutoff |
 
 These charts show the *boundaries* of an operating space. Each one reads its lines from
 `vaft.formula.boundaries` through a canonical projection (#1425), and a population of measured or
@@ -143,7 +143,9 @@ by quantity identity (`murakami_parameter`, `inverse_cylindrical_q`, `normalized
 units in `table.attrs["units"]`. A boundary is drawn only when both plotted columns are exactly the
 projection's quantities in its units: a `q95` column never carries a $q_\psi$ or $q_\mathrm{cyl}$
 boundary. Projections: `hugill`, `troyon`, `beta_n_li`, `q95_li`, `greenwald_fraction_power`,
-`li_qa_wesson`, `li_qa_cheng`. See
+`li_qa_wesson`, `li_qa_cheng`, `beta_n_li1` (Strait's $\beta_N = 4\,l_i(1)$ envelope), and the #1691 beta-normalisation views `volume_beta_in`,
+`beta_n_normalizations` (with a $y = x$ guide), `aspect_ratio_beta_n`, `aspect_ratio_volume_beta_n`;
+`list_projections()` gives the full set. See
 #944 and #636.
 
 ### Dimensionless similarity spaces
@@ -1092,6 +1094,11 @@ vaft.diagram.plasma_wall_interaction_reflection()
 vaft.diagram.plasma_wall_interaction_sputtering(surface_binding_energy=8.68)   # threshold only if E_s given
 vaft.diagram.plasma_wall_interaction_recycling()
 vaft.diagram.plasma_wall_interaction_energy_partition()
+vaft.diagram.plasma_wall_interaction_reflection_energy()
+vaft.diagram.plasma_wall_interaction_angle_dependence()
+vaft.diagram.plasma_wall_interaction_sputtering_threshold(surface_binding_energy=8.68)   # E_th only if E_s given
+vaft.diagram.plasma_wall_interaction_particle_balance()
+vaft.diagram.plasma_wall_interaction_surface_response()
 ```
 
 ![processes]({{ '/assets/diagrams/plasma_wall_interaction_processes.svg' | relative_url }})
@@ -1100,6 +1107,10 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 | --- | --- |
 | ![reflection]({{ '/assets/diagrams/plasma_wall_interaction_reflection.svg' | relative_url }}) | ![sputtering]({{ '/assets/diagrams/plasma_wall_interaction_sputtering.svg' | relative_url }}) |
 | ![recycling]({{ '/assets/diagrams/plasma_wall_interaction_recycling.svg' | relative_url }}) | ![energy]({{ '/assets/diagrams/plasma_wall_interaction_energy_partition.svg' | relative_url }}) |
+| ![reflected energy]({{ '/assets/diagrams/plasma_wall_interaction_reflection_energy.svg' | relative_url }}) | ![angle]({{ '/assets/diagrams/plasma_wall_interaction_angle_dependence.svg' | relative_url }}) |
+| ![threshold]({{ '/assets/diagrams/plasma_wall_interaction_sputtering_threshold.svg' | relative_url }}) | ![particle balance]({{ '/assets/diagrams/plasma_wall_interaction_particle_balance.svg' | relative_url }}) |
+
+![surface response]({{ '/assets/diagrams/plasma_wall_interaction_surface_response.svg' | relative_url }})
 
 | Diagram | Concept |
 | --- | --- |
@@ -1108,6 +1119,11 @@ vaft.diagram.plasma_wall_interaction_energy_partition()
 | `plasma_wall_interaction_sputtering` | A collision cascade ejects a target atom. One collision passes at most $\gamma E$ (D on W: $\gamma = 0.043$), hence the high threshold |
 | `plasma_wall_interaction_recycling` | Prompt reflection plus delayed re-emission make recycling; retention is the rest |
 | `plasma_wall_interaction_energy_partition` | Particle balance and energy balance side by side. They are not the same bookkeeping |
+| `plasma_wall_interaction_reflection_energy` | Incident $f_i(E_i)$ to reflected $f_r(E_r)$ through the surface. Only the binary-collision limit $(1-\gamma)E_i$ is stated; $R_N(E_i)$, $R_E(E_i)$, $\langle E_r\rangle(E_i)$ are empty enrichment slots |
+| `plasma_wall_interaction_angle_dependence` | Normal and grazing incidence, angles from the surface normal; $R_N$, $R_E$, $Y$ as functions of $(E_i, \theta_i)$ are named, not drawn |
+| `plasma_wall_interaction_sputtering_threshold` | A schematic $Y(E_i)$ with no scale: a threshold exists. $E_\mathrm{th}$ is printed only for a supplied $E_s$ (Bohdansky) |
+| `plasma_wall_interaction_particle_balance` | The projectile balance (reflected + re-emitted + retained) with the sputtered target atoms drawn apart, as another species' source |
+| `plasma_wall_interaction_surface_response` | Inputs, surface response ($R_N$, $R_E$, $Y_\mathrm{sput}$), outputs: the extension point for tabulated data or an external PWI code (levels 2–4) |
 
 ## Spectroscopy and ionization
 
@@ -1448,7 +1464,10 @@ vaft.diagram.machine_research_archive()
 ![Machine and research archive]({{ '/assets/diagrams/machine_research_archive.svg' | relative_url }})
 
 The interoperability figures read as one progression, from data interoperability through scientific
-integration to infrastructure and implementation:
+integration to infrastructure and implementation. The four nodes of the network and framework figures are
+research modes, not physics domains;
+[Research domains]({{ '/reference/research-domains/' | relative_url }}) sets out how the two classifications
+cross:
 
 1. pairwise interfaces, `experiment_modeling_theory_data_network("point_to_point")`;
 2. a shared scientific representation, `experiment_modeling_theory_data_network("common_model")`;
@@ -2145,10 +2164,12 @@ python -m vaft.diagram.build            # re-render diagrams whose TikZ source c
 python -m vaft.diagram.build --check    # verify the committed assets; needs no TeX
 ```
 
-`manifest.json`, stored next to the SVGs, records the SHA-256 of the generated TikZ document each SVG
-was rendered from, together with the SHA-256 of the SVG itself. `--check` rebuilds the TikZ in pure
-Python and fails in four cases: an asset is stale, an asset was edited by hand, an asset is
-missing, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
+Each SVG carries its own build record: one comment line after the XML declaration holding the call,
+the SHA-256 of the generated TikZ document it was rendered from, and the SHA-256 of the SVG without
+that line. Because the record lives in the diagram's own file, two pull requests that change different
+diagrams share no generated file and do not conflict (#1750). `--check` rebuilds the TikZ in pure
+Python and fails in five cases: an asset is stale, an asset was edited by hand, an asset is missing,
+an asset has no record, or an asset is orphaned. CI runs it on every pull request. Freshness is judged on the source
 and not on SVG bytes, because two `dvisvgm` releases write different but equally correct SVG for the
 same picture. Rendering needs `latex` and `dvisvgm`, which TeX Live and MacTeX provide. The generated
 `.tex`, PDF, PNG and LaTeX by-products are never committed.

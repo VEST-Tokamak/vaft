@@ -617,6 +617,10 @@ def sxr_electron_temperature(
     rather than removed, so a caller must honour them. Vacuum-reference correction
     is not applied here.
 
+    Semantics
+    ---------
+    produces: electron_temperature
+
     Provenance
     ----------
     .. [1] The validated VEST SXR viewer, whose conditioning settings, validity

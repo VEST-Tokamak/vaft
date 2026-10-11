@@ -422,7 +422,7 @@ def _write_eigenfunction(
     return {"radial_stride": stride, "radial_points": int(psi_n.size), "harmonics": int(m.size)}
 
 
-def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutput) -> None:
+def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutput, formalism_xml: str = "") -> None:
     claim_ids(ods, "mhd_linear", "GPEC-suite")
     # `position` is this mode's slot in the dense n_tor grid, not an append
     # cursor; `n_tor` is (re)written here so the entry is self-describing even
@@ -490,6 +490,7 @@ def _write_dcon_entry(ods: ODS, time_slice: int, position: int, result: DconOutp
         ' imas_documented_units="J" source_variable="W_t_eigenvalue"/>'
         f"{eigenfunction_xml}"
         f"{_dcon_native_xml(result)}"
+        f"{formalism_xml}"
         "</solver>"
     )
     _append_code_parameters(ods, "mhd_linear", fragment, code_name="DCON")
@@ -619,7 +620,10 @@ def extract_dcon_stability(ods: ODS) -> list[dict[str, Any]]:
       per-surface mask itself;
     * summaries: ``max_D_I`` / ``psi_n_at_max_D_I``, ``max_D_R`` /
       ``psi_n_at_max_D_R``, ``min_C_A`` / ``psi_n_at_min_C_A`` over evaluated
-      points only.
+      points only;
+    * ``plasma_formalism``: the run's #1734 record
+      (:meth:`vaft.code.formalism.PlasmaFormalism.as_dict`), ``None`` for a
+      fragment written before it.
 
     Values only, no verdicts: the sign of W_t, D_I > 0, D_R > 0 and C_A < 0 are
     the criteria a consumer applies. Every row has the same keys (None where
@@ -664,6 +668,7 @@ def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
         "n_tor": int(solver.get("n_tor")),
         "time_slice": int(solver.get("time_slice")),
         "position": int(solver.get("position")),
+        "plasma_formalism": _plasma_formalism_of(solver),
     }
     least = solver.find("least_stable")
     for name in ("W_t", "W_p", "W_v"):
@@ -725,7 +730,8 @@ def _parse_dcon_fragment(solver: Any) -> dict[str, Any]:
 
 
 def _write_resistive_entry(
-    ods: ODS, time_slice: int, position: int, result: Pest3MatchingOutput, diagonal: list[dict[str, Any]]
+    ods: ODS, time_slice: int, position: int, result: Pest3MatchingOutput, diagonal: list[dict[str, Any]],
+    formalism_xml: str = "",
 ) -> None:
     # `position` is this mode's slot in the dense n_tor grid, not an append
     # cursor; `n_tor` is (re)written here so the entry is self-describing even
@@ -742,6 +748,7 @@ def _write_resistive_entry(
         f"<mpert>{result.mpert}</mpert><mband>{result.mband}</mband>"
         f"<msing>{result.msing}</msing>"
         f"{_resistive_native_xml(result)}"
+        f"{formalism_xml}"
         "</solver>"
     )
     _append_code_parameters(ods, "mhd_linear", fragment, code_name="GPEC-suite")
@@ -834,6 +841,22 @@ def _resistive_native_xml(result: Pest3MatchingOutput) -> str:
     return "".join(parts)
 
 
+def _plasma_formalism_xml(module: str, source: str) -> str:
+    """``<plasma_formalism>`` holding the run's #1734 record as canonical JSON, or ``""``."""
+    from vaft.code.gpec._formalism import resolve_plasma_formalism
+
+    record = resolve_plasma_formalism(module, source)
+    return "" if record is None else f"<plasma_formalism>{escape(record.to_json())}</plasma_formalism>"
+
+
+def _plasma_formalism_of(solver: Any) -> Optional[dict[str, Any]]:
+    """The fragment's #1734 record as a dict, ``None`` for a fragment written before it."""
+    import json
+
+    text = solver.findtext("plasma_formalism")
+    return None if not text else json.loads(text)
+
+
 def extract_rdcon_stability(ods: ODS) -> list[dict[str, Any]]:
     """RDCON/STRIDE stability results from the ODS, one dict per (time slice, solver, n_tor).
 
@@ -847,6 +870,7 @@ def extract_rdcon_stability(ods: ODS) -> list[dict[str, Any]]:
     * ``psi_n``, ``q``, ``D_I``, ``D_R``, ``H``, ``C_A``: the solver's radial
       local-stability profiles (``H`` is RDCON-only; ``None`` where absent);
     * ``delta_prime_matrix``: the full complex ``(msing, msing)`` matrix;
+    * ``plasma_formalism``: the run's #1734 record, ``None`` for an older fragment;
     * ``surfaces``: one dict per rational surface, ``m``, ``psi_n``, ``q``,
       ``delta_prime`` (complex: the real part from ``ntms``, the imaginary part
       from the fragment), and ``di``/``dr``/``h``/``ca1`` at the surface.
@@ -916,6 +940,7 @@ def _parse_resistive_fragment(solver: Any) -> dict[str, Any]:
         "time_slice": int(solver.get("time_slice")),
         "position": int(solver.get("position")),
         "msing": None if msing_text is None else int(msing_text),
+        "plasma_formalism": _plasma_formalism_of(solver),
     }
     profiles = solver.find("local_profiles")
     row["psi_n"] = None if profiles is None else _numbers(profiles.get("psi_n"))
@@ -1018,10 +1043,14 @@ def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
         ensure_toroidal_mode_grid(ods, time_slice, grid)
 
     extras: dict[int, dict[str, Any]] = {}
+    # The run's physical formulation (#1734): derived from the namelists in the
+    # run directory, stored beside the native payload as the canonical JSON of
+    # vaft.code.formalism.PlasmaFormalism.
+    formalism_xml = _plasma_formalism_xml(module, source)
     for mode, result in parsed:
         position = grid.index(result.n_tor)
         if module == "dcon":
-            _write_dcon_entry(ods, time_slice, position, result)
+            _write_dcon_entry(ods, time_slice, position, result, formalism_xml)
             extras[result.n_tor] = {
                 "module": "dcon",
                 "variable": "W_t_eigenvalue",
@@ -1035,7 +1064,7 @@ def mhd_linear(ods: ODS, source: str, options: Optional[dict] = None) -> dict[in
             # Computed once and shared with the IDS writer: it is O(msing) work
             # per (time, mode) cell and both consumers want the same values.
             diagonal = result.delta_prime_diagonal()
-            _write_resistive_entry(ods, time_slice, position, result, diagonal)
+            _write_resistive_entry(ods, time_slice, position, result, diagonal, formalism_xml)
             extras[result.n_tor] = {
                 "module": module,
                 "variable": "Delta_prime",
