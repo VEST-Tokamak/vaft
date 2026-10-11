@@ -128,6 +128,15 @@ def main(argument_file):
             history.append(float(np.max(np.abs(got - q_true) / np.maximum(np.abs(q_true), 1e-30))))
             nodes = nodes + (q_true - got) * volp_k
 
+        # A manufactured source that does not reproduce the truth's flux is not a
+        # closed-loop problem: optimising against it is an hour of meaningless
+        # evaluations. (A single predicted radius diverged here: 14.8 -> 4.7e4.)
+        tolerance = float(args.get("manufacture_tolerance", 1e-4))
+        if not history or not history[-1] <= tolerance:
+            raise RuntimeError(
+                f"manufactured source did not converge: relative flux error history {history} "
+                f"(tolerance {tolerance:g}); the closed loop was not run")
+
         # 3. The same state; only the optimiser's starting gradients are perturbed.
         run_pf = setup(work / "run", int(args.get("initial_training", 5)),
                        int(args.get("maximum_iterations", 10)),
