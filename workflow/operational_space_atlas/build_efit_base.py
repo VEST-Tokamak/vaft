@@ -20,6 +20,11 @@ population renderer can check identity and unit:
     plasma_surface_area       LCFS surface area S (derive_global_descriptors), for L-H thresholds
     inverse_cylindrical_q     |I_p| R_geo / (5 a^2 kappa_a B_T(R_geo)), B_T(R_geo) = |b0| R_0 / R_geo,
                               R_0 = resolve_reference_major_radius (the r0 leaf can be corrupt, #325)
+    volume_beta               100 * 2 mu0 int p dV / int B^2 dV, B the total equilibrium field (#1691 stage 1),
+                              from the summary's own helper so the atlas and the summary share one definition, %
+    normalized_volume_beta    volume_beta a B_0 / |I_p| with the a and B_0 of normalized_current: Menard's <beta_N>
+                              form with B_0 at r0 (Menard et al. take B_T at the geometric centre)
+    aspect_ratio              R_geo / a (derive_global_descriptors)
 
 Before #1477 that routine returned li_3 up to 10x and beta_normal up to 4x on many
 Tier A slices (#1462: open grid-edge branches posed as flux surfaces). Every row is
@@ -75,6 +80,9 @@ UNITS = {
     "poloidal_beta": "-",
     "plasma_surface_area": "m^2",
     "inverse_cylindrical_q": "-",
+    "volume_beta": "%",
+    "normalized_volume_beta": "% m T/MA",
+    "aspect_ratio": "-",
     "plasma_current_ma": "MA",
     "minor_radius_m": "m",
     "major_radius_geo_m": "m",
@@ -160,6 +168,28 @@ def _routine_diagnostic(ods, k: int):
     return (float(li3) if li3 is not None else math.nan, float(bn) if bn is not None else math.nan, "wrote")
 
 
+def _volume_beta(ods, k: int, a: float, b0: float):
+    """(beta_B [-], <beta_N> [% m T/MA]) of slice k, on a copy; NaNs where the summary helper cannot form them.
+
+    The summary's own helper, imported rather than restated (#1691 forbids a second implementation of
+    beta_B). It needs ``profiles_1d.volume``, which an EFIT product does not store: the flux-surface
+    geometry is traced first, as the summary does, on a copy so the cached product the other columns read
+    is unchanged.
+    """
+    import copy
+
+    from vaft.database._summary import _beta_volume
+    from vaft.omas import update_equilibrium_profiles_1d_geometry
+
+    work = copy.deepcopy(ods)
+    try:
+        if f"equilibrium.time_slice.{k}.profiles_1d.volume" not in work:
+            update_equilibrium_profiles_1d_geometry(work, time_slice=k)
+    except Exception:  # noqa: BLE001 - no surfaces: the helper reports NaN for this slice
+        return math.nan, math.nan
+    return _beta_volume(work, k, work["equilibrium.time_slice"][k], a, b0)
+
+
 def _crosscheck(li3_routine, li3_grid, bn_routine, bn_desc, routine_status) -> str:
     """'agree' / 'disagree' within CROSSCHECK_RTOL, or 'unavailable' when either side is missing or zero."""
     pairs = [(li3_routine, li3_grid), (bn_routine, bn_desc)]
@@ -204,6 +234,7 @@ def _row(ods, t_s: float) -> dict:
     kappa_a = area / (math.pi * a * a)
     b_geo = b0 * r_ref / r_geo  # vacuum field at R_geo, from the field at the resolved reference radius
     bn_desc = pick("beta_n")
+    beta_b, beta_n_b = _volume_beta(ods, k, a, b0)
     crosscheck = _crosscheck(li3_routine, float(li3), bn_routine, bn_desc, routine_status)
     # primary: the DD routine (post-#1477); where it wrote nothing, the independent path stands in, and says so
     use_routine = np.isfinite(li3_routine) and np.isfinite(bn_routine)
@@ -229,6 +260,9 @@ def _row(ods, t_s: float) -> dict:
         "poloidal_beta": pick("beta_p_boundary_average"),
         "plasma_surface_area": pick("surface_area"),
         "inverse_cylindrical_q": ip_ma * r_geo / (5.0 * a * a * kappa_a * b_geo),
+        "volume_beta": 100.0 * beta_b,
+        "normalized_volume_beta": beta_n_b,
+        "aspect_ratio": r_geo / a,
         "plasma_current_ma": ip_ma,
         "minor_radius_m": a,
         "major_radius_geo_m": r_geo,
