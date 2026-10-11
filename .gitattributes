@@ -11,6 +11,10 @@ test/data/island_sxr/** text=auto eol=lf
 # Real GPEC namelists read back by the DCON reader: keep LF so Windows parses them alike.
 test/data/gpec/** text=auto eol=lf
 docs/assets/notebook-outputs/** text=auto eol=lf
+# This Atlas snapshot records source-file SHA-256 values, including CRLF CSVs.
+# Preserve the exact bytes on every platform and treat CRLF as a line ending.
+notebooks/data/verification_and_validation/** -text
+notebooks/data/verification_and_validation/v1/*.csv whitespace=cr-at-eol
 vaft/data/samples/** text=auto eol=lf
 # The EFIT table's text inputs are pinned by efund_table_manifest.json, and
 # mhdin.dat's hash is quoted in its #649 note; a CRLF checkout hashed to

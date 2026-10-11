@@ -126,6 +126,9 @@ CORE_MODULES: tuple[str, ...] = (
     # The #1887 direct GPEC -> PENTRC reference replayed without a solver: the
     # committed 18 + 4 run table qualifies Q at converged tolerances only.
     "test_ntv_coil_reference_1887.py",
+    # The verified resonant-field operator Phi = H conj(c) and stages A-D (#1884):
+    # synthetic operators plus the committed 19-run GPEC reference, no solver.
+    "test_resonant_coil_response.py",
     # The #1178 coil operating-space result schema (#1886 contract): synthetic
     # fixtures only, under a second.
     "test_coil_operating_space.py",
@@ -382,6 +385,8 @@ CORE_MODULES: tuple[str, ...] = (
     # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
     # and the advisory check. Under 5 s.
     "test_validation_model_contracts.py",
+    # Plasma-model guide figures (#1739 E2): nodes computed from ADAPTER_MODES and AXES. Under 5 s.
+    "test_diagram_plasma_models.py",
     # Advisory ordering checks in EFIT, GPEC-suite and CGYRO run provenance (#1823). Under 10 s.
     "test_adapter_ordering_provenance.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic

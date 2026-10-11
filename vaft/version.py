@@ -38,6 +38,12 @@ __all__ = ["__version__"]
 #   (held-out <= 0.03 %), not at the example's defaults; ntv_operating_space
 #   writes direct and qualified-model torques into the #1178 result; driver
 #   workflow/gpec_ntv_coil_scan
+# - vaft.process.resonant_coil_response: a verified linear resonant-field
+#   operator Phi = H conj(c) (GPEC's exp(-i n phi) coefficient of VAFT's
+#   c = A exp(+i delta)), pedestal-based core/edge window metrics, complex
+#   target matching with rank/SVD, a core-capped edge maximum, and a #1178
+#   builder; on the DIII-D-like example every predicted optimum is what GPEC
+#   returned (#1884)
 # - vaft.process.coil_operating_space.CoilOperatingSpace: the common result
 #   of a coil amplitude/phase operating-space study -- samples, per-(sample,
 #   metric) values with a status, the excitation convention

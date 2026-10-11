@@ -355,6 +355,30 @@ vaft.diagram.adapter_contract_map()
 | `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered. |
 | `adapter_contract_map` | Which ordering contracts each VAFT code-adapter mode consumes, and how each enters the calculation: governing (filled), RDCON's outer solution and layer solution, DCON-kinetic's fluid part and kinetic part, PENTRC's closure, inherited by a reduced model that does not solve its parent theory (dashed). An empty cell is no registered contract, not physical independence (`vaft.validation.model_contracts`, #1823) |
 
+## Plasma-model guide
+
+Figures for the plasma-model guide (#1739, page `/reference/plasma-model-guide/`). Every node is
+read from the formalism records: a node lists the `adapter:mode` ids of `vaft.validation.model_contracts.ADAPTER_MODES`
+whose record matches it, and codes not in VAFT (`vaft.diagram.EXTERNAL_CODES`) are hollow and labelled so. Four edge
+kinds are used: asymptotic reduction (solid), model coupling (double-headed), software dependency (dotted) and
+surrogate ancestry (dashed). No direction is a fidelity axis.
+
+```python
+vaft.diagram.plasma_model_reduction_map()
+vaft.diagram.formalism_axes_map()
+vaft.diagram.solver_placement_map()
+vaft.diagram.kinetic_mhd_coupling()
+vaft.diagram.reduced_model_ancestry()
+```
+
+| Diagram | Concept |
+| --- | --- |
+| `plasma_model_reduction_map` | One starting point (Vlasov / Fokker–Planck + Maxwell, no VAFT solver) and the reductions to the fluid, drift-kinetic, gyrokinetic, particle, hybrid, reduced and equilibrium descriptions, each edge labelled with its ordering, each node with its VAFT modes |
+| `formalism_axes_map` | The independent axes of `vaft.code.formalism.AXES`, one column each with an N/A cell, and three runs (CGYRO nonlinear, DCON kinetic, NUBEAM) drawn across them. The numerical representation is a separate box, not an axis |
+| `solver_placement_map` | Every adapter mode against bulk, model, spatial domain and regime, filled from its record, unclassified modes greyed; then the codes not in VAFT, hollow |
+| `kinetic_mhd_coupling` | Kinetic-MHD as a coupling loop between an ideal-MHD bulk and a drift-kinetic population: energy closes it (DCON, GPEC kinetic), closure is one-way (PENTRC), and RDCON's T_e, n_e input is a coefficient, not a coupling |
+| `reduced_model_ancestry` | Parent theory, model reduction and VAFT realization of every reduced mode; TGLF-NN descends from TGLF. Every row inherits its parent's contract and adds a closure no contract covers |
+
 ## Reduced representations
 
 How formulas compress plasma information, from fields to profiles to scalars and from dimensional to
