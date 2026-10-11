@@ -4,7 +4,7 @@ This directory holds the direct GPEC → PENTRC scan that tests whether the sign
 
 | script | issue | what it does |
 |---|---|---|
-| `scan_ntv_coil_torque.py` | #1887 | One cell per candidate: DCON, GPEC with that candidate's `coil.in`, then `vaft.code.gpec.run_pentrc` and the canonical reader. The design is the K² probes, a reference with 0.5×/2×/−1×/rotated copies, seeded held-out points, and optionally the model's optima (`--design confirm --from …`). Resumable; `euler.bin` is shared by hard link, GPEC's `*_fun_n*.out` field dumps are deleted, and a stalled PENTRC log is capped (#1929). Writes `scan_<tolerance>.json`. |
+| `scan_ntv_coil_torque.py` | #1887 | One cell per candidate: DCON, GPEC with that candidate's `coil.in`, then `vaft.code.gpec.run_pentrc` and the canonical reader. The design is the K² probes, a reference with 0.5×/2×/−1×/rotated copies, seeded held-out points, and optionally the model's optima (`--design confirm --from …`). Resumable; `euler.bin` is shared by hard link, GPEC's `*_fun_n*.out` field dumps are deleted, and a stalled PENTRC log is truncated after the run ends (it still grows until the timeout, #1929). A cell is reused only when it completed under the same case, coil frame, unit and tolerance; failed cells are rerun. Writes `scan_<tolerance>.json`; `--design confirm --from scan_<tolerance>.json` refuses a `Q` that does not qualify and writes `confirm_<tolerance>.json`. |
 
 Coil currents follow the #1178 convention: `I_k = A cos(n φ_k + δ)` with `c = A e^{+iδ}`. Here `φ_k` is each coil's toroidal centroid in its `.dat` file's frame, and one phasor unit is `--unit` A per turn.
 

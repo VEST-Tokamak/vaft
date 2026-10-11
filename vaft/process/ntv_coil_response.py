@@ -866,8 +866,9 @@ def ntv_operating_space(
     Raises
     ------
     ValueError
-        Lengths disagree, ``amplitude_unit`` is not positive, or the
-        qualification given is not ``qualified``.
+        Lengths disagree, ``amplitude_unit`` is not positive, the
+        qualification given is not ``qualified``, or its ``Q`` is for another
+        number of groups.
 
     Processing steps
     ----------------
@@ -891,7 +892,9 @@ def ntv_operating_space(
     Limitations
     -----------
     A model row is a prediction valid only within the qualified domain the
-    qualification's provenance describes.
+    qualification's provenance describes.  Nothing checks that ``Q`` was built
+    from the same PENTRC method and tolerances as ``torques``; the caller's
+    ``provenance`` is recorded as that claim.
 
     Provenance
     ----------
@@ -928,6 +931,9 @@ def ntv_operating_space(
             "eigenvalues": [float(e) for e in qualification.eigenvalues],
             **{key: value for key, value in qualification.provenance.items()},
             "phasor_unit_a_per_turn": float(amplitude_unit),
+            # The qualification cannot say which method or tolerance built Q; the
+            # caller's provenance for the direct torques is the claim it is the same.
+            "built_from": dict(provenance),
         }
     return CoilOperatingSpace(
         n=n,

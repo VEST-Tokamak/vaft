@@ -19,14 +19,21 @@ defaults (atol_psi = rtol_psi = 1e-4) small and cancelling torques are off by
 several percent and the quadratic model is wrongly rejected; ``--tolerance
 converged`` (1e-6, rtol_xlmda 1e-7) is what qualified it.  Do not lower
 ``atol_xlmda`` below ~1e-10: PENTRC derives its energy tolerance from it and
-the energy LSODE then stalls (#1929); the log is capped here for that reason.
+the energy LSODE then stalls (#1929).  The log is truncated once the run has
+ended; it still grows while the run stalls, up to the timeout.
 
 Usage (the upstream DIII-D-like example, ~3-5 min per candidate on a laptop)::
 
     python workflow/gpec_ntv_coil_scan/scan_ntv_coil_torque.py --out runs/ntv1887 \\
         --design probes reference held_out --tolerance converged
     python workflow/gpec_ntv_coil_scan/scan_ntv_coil_torque.py --out runs/ntv1887 \\
-        --design confirm --from runs/ntv1887/scan.json
+        --design confirm --from runs/ntv1887/scan_converged.json
+
+The first writes ``scan_<tolerance>.json``; ``confirm`` qualifies ``Q`` from it
+(held-out and invariance rows, ``--atol``/``--rtol``), refuses an unqualified
+one, and writes ``confirm_<tolerance>.json`` beside it.  A cell is reused only
+when it completed with the same case, coil frame, unit and tolerance; a failed
+cell is rerun.
 """
 
 from __future__ import annotations
@@ -47,7 +54,10 @@ from vaft.process.ntv_coil_response import (
     coil_phasors,
     fixed_amplitude_phase_extrema,
     hermitian_torque_matrix,
+    quadratic_invariance_checks,
     quadratic_probe_design,
+    quadratic_torque,
+    qualify_torque_matrix,
     two_group_phase_extrema,
 )
 
@@ -85,13 +95,23 @@ def write_coil_in(template: Path, out: Path, coil_dir: Path, currents: dict, gro
         k, j = int(match.group(1)), int(match.group(2))
         return f"coil_cur({k},{j})= {currents[names[k]][j - 1]:.6f}"
 
-    out.write_text(re.sub(r"coil_cur\((\d+),(\d+)\)\s*=\s*[-+0-9.eE]+", replace, text))
+    # One scalar assignment per coil; a range form (coil_cur(1,1:6)=...) or a
+    # spaced index is refused below rather than left at the template's currents.
+    number = r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eEdD][-+]?\d+)?"
+    text, count = re.subn(rf"coil_cur\((\d+),(\d+)\)\s*=\s*{number}", replace, text)
+    expected = sum(len(currents[g]) for g in groups)
+    if count != expected or re.search(r"coil_cur\([^)]*[:\s][^)]*\)", text):
+        raise ValueError(f"{template}: rewrote {count} coil_cur assignments, the coils need {expected} scalar ones")
+    out.write_text(text)
 
 
 def templates(root: Path, case: Path, tolerance: str) -> Path:
     """The case directory with VAFT's packaged pentrc.in (the adapter's keys) at the chosen tolerances."""
     target = root / f"templates_{tolerance}"
+    stamp = target / ".case"
     if target.is_dir():
+        if stamp.read_text() != str(case.resolve()):
+            raise ValueError(f"{target} was built from {stamp.read_text()}, not {case}; use another --out")
         return target
     shutil.copytree(case, target)
     text = (Path(gpec.__file__).resolve().parents[2] / "data" / "gpec" / "pentrc.in").read_text()
@@ -100,10 +120,30 @@ def templates(root: Path, case: Path, tolerance: str) -> Path:
         if count != 1:
             raise ValueError(f"packaged pentrc.in does not declare {key} once")
     (target / "pentrc.in").write_text(text)
+    stamp.write_text(str(case.resolve()))
     return target
 
 
-def candidates(design, groups, held_out: int, seed: int, previous: Path | None):
+def qualified_q(previous: Path, k: int, atol: float, rtol: float) -> np.ndarray:
+    """fgar ``Q`` from a scan's probes, refused unless its held-out and invariance rows qualify it."""
+    rows = {r["sample_id"]: r for r in json.loads(previous.read_text())["samples"] if "torque_n_m" in r}
+    torque = {s: r["torque_n_m"]["fgar"] for s, r in rows.items()}
+    q = hermitian_torque_matrix(torque, k)  # KeyError names a probe that did not complete
+    checks = ()
+    if {"ref", "ref_x0.5", "ref_x2", "ref_neg", "ref_rot1.2"} <= set(torque):
+        checks = quadratic_invariance_checks(
+            torque["ref"], scaled=[(0.5, torque["ref_x0.5"]), (2.0, torque["ref_x2"])],
+            reversed_torque=torque["ref_neg"], rotated=[(1.2, torque["ref_rot1.2"])], atol=atol, rtol=rtol)
+    validation = [s for s, r in rows.items() if r["role"] in ("held_out", "reference", "invariance")]
+    phasors = np.array([np.asarray(rows[s]["c_re"]) + 1j * np.asarray(rows[s]["c_im"]) for s in validation])
+    result = qualify_torque_matrix(q, phasors.reshape(-1, k), [torque[s] for s in validation], atol=atol, rtol=rtol,
+                                   invariance_checks=checks)
+    if result.status != "qualified":
+        raise SystemExit(f"Q from {previous} is {result.status}: {'; '.join(result.reasons)} -- no optimum to confirm")
+    return result.Q
+
+
+def candidates(design, groups, held_out: int, seed: int, previous: Path | None, atol=1e-3, rtol=0.02):
     k = len(groups)
     out = []
     if "probes" in design:
@@ -117,11 +157,10 @@ def candidates(design, groups, held_out: int, seed: int, previous: Path | None):
         out += [(f"held{i}", "held_out", coil_phasors(rng.uniform(0.3, 1.5, k), rng.uniform(0, 2 * np.pi, k)))
                 for i in range(held_out)]
     if "confirm" in design:
-        rows = {r["sample_id"]: r for r in json.loads(previous.read_text())["samples"]}
-        q = hermitian_torque_matrix({s: r["torque_n_m"]["fgar"] for s, r in rows.items()}, k)
+        q = qualified_q(previous, k, atol, rtol)
         three = fixed_amplitude_phase_extrema(q, np.ones(k), grid_points=72, refine=3)
-        out += [("opt_max", "gpec_confirmation", coil_phasors(np.ones(k), three["phases_max"])),
-                ("opt_min", "gpec_confirmation", coil_phasors(np.ones(k), three["phases_min"]))]
+        out += [("opt3_max", "gpec_confirmation", coil_phasors(np.ones(k), three["phases_max"])),
+                ("opt3_min", "gpec_confirmation", coil_phasors(np.ones(k), three["phases_min"]))]
         if k >= 2:
             two = two_group_phase_extrema(q[:2, :2], (1.0, 1.0))
             if not two["phase_independent"]:
@@ -136,8 +175,16 @@ def candidates(design, groups, held_out: int, seed: int, previous: Path | None):
 
 def run_cell(cell: Path, c, role, args, tpl: Path, angles, shared_euler: list) -> dict:
     done = cell / "result.json"
+    setting = {"case": str(Path(args.case).resolve()), "coil_dir": str(Path(args.coil_dir).resolve()),
+               "groups": list(args.groups), "n": args.n, "unit": args.unit, "tolerance": args.tolerance}
     if done.is_file():
-        return json.loads(done.read_text())
+        previous = json.loads(done.read_text())
+        if previous.get("setting") != setting or not np.allclose(
+                np.asarray(previous["c_re"]) + 1j * np.asarray(previous["c_im"]), c):
+            raise ValueError(f"{cell} holds a run with other settings; use another --out")
+        if "torque_n_m" in previous:
+            return previous
+        # a failed cell is rerun
     if cell.exists():
         shutil.rmtree(cell)
     cell.mkdir(parents=True)
@@ -149,7 +196,8 @@ def run_cell(cell: Path, c, role, args, tpl: Path, angles, shared_euler: list) -
     shutil.copy2(args.case / "pentrc.in", cell / "pentrc.in")
     currents = sector_currents(c, angles, args.groups, args.n, args.unit)
     write_coil_in(tpl / "coil.in", cell / "coil.in", args.coil_dir, currents, args.groups)
-    record = {"sample_id": cell.name, "role": role, "c_re": np.real(c).tolist(), "c_im": np.imag(c).tolist()}
+    record = {"sample_id": cell.name, "role": role, "c_re": np.real(c).tolist(), "c_im": np.imag(c).tolist(),
+              "setting": setting}
     for program in ("dcon", "gpec"):
         started = time.time()
         try:
@@ -163,11 +211,15 @@ def run_cell(cell: Path, c, role, args, tpl: Path, angles, shared_euler: list) -
         if not ok:
             break
         if program == "dcon":
+            euler = cell / "euler.bin"
+            if not euler.is_file():
+                record["dcon_ok"] = False
+                break
             if shared_euler:
-                (cell / "euler.bin").unlink()
-                os.link(shared_euler[0], cell / "euler.bin")
+                euler.unlink()
+                os.link(shared_euler[0], euler)
             else:
-                shared_euler.append(cell / "euler.bin")
+                shared_euler.append(euler)
     for dump in cell.glob("gpec_*_fun_n*.out"):  # field dumps PENTRC never reads, ~150 MB each
         dump.unlink()
     if record.get("gpec_ok"):
@@ -205,13 +257,16 @@ def main(argv=None):
     parser.add_argument("--from", dest="previous", type=Path)
     parser.add_argument("--tolerance", choices=sorted(TOLERANCES), default="converged")
     parser.add_argument("--timeout", type=float, default=900.0)
+    parser.add_argument("--atol", type=float, default=1e-3, help="N m, near-zero torque scale for qualification")
+    parser.add_argument("--rtol", type=float, default=0.02, help="relative tolerance for qualification")
     args = parser.parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
     tpl = templates(args.out, args.case, args.tolerance)
     angles = {g: sector_angles(args.coil_dir, args.machine, g) for g in args.groups}
     shared: list = []
     rows = []
-    for sample, role, c in candidates(args.design, args.groups, args.held_out, args.seed, args.previous):
+    for sample, role, c in candidates(args.design, args.groups, args.held_out, args.seed, args.previous,
+                                      args.atol, args.rtol):
         row = run_cell(args.out / args.tolerance / sample, c, role, args, tpl, angles, shared)
         rows.append(row)
         print(sample, role, row.get("pentrc_status", "gpec failed"), row.get("torque_n_m", {}).get("fgar"), flush=True)
@@ -222,7 +277,15 @@ def main(argv=None):
         "pentrc": {"tolerances": TOLERANCES[args.tolerance], "methods": list(METHODS)},
         "samples": rows,
     }
-    (args.out / f"scan_{args.tolerance}.json").write_text(json.dumps(summary, indent=1, default=str))
+    if args.design == ["confirm"]:
+        q = qualified_q(args.previous, len(args.groups), args.atol, args.rtol)
+        for row in rows:
+            c = np.asarray(row["c_re"]) + 1j * np.asarray(row["c_im"])
+            row["predicted_fgar_n_m"] = float(quadratic_torque(q, c))
+        name = f"confirm_{args.tolerance}.json"
+    else:
+        name = f"scan_{args.tolerance}.json"
+    (args.out / name).write_text(json.dumps(summary, indent=1, default=str))
 
 
 if __name__ == "__main__":

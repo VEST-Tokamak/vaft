@@ -75,9 +75,12 @@ def test_the_predicted_optima_are_what_gpec_pentrc_returned():
     for row in DATA["confirmations"]:
         direct = row["torque_n_m"]["fgar"]
         assert predicted[row["sample_id"]] == pytest.approx(row["predicted_fgar_n_m"], abs=1e-6)
-        assert float(quadratic_torque(q, _c(row))) == pytest.approx(direct, abs=ATOL, rel=1e-3)
-    # Relative phase alone moves the torque by two orders of magnitude at fixed currents.
-    assert three["T_max"] / three["T_min"] > 100
+        # The claim: Q at the confirmed phasor is what GPEC -> PENTRC returned (worst: opt3_min,
+        # 1.5e-4 N m on 0.025 N m).
+        assert float(quadratic_torque(q, _c(row))) == pytest.approx(direct, abs=3e-4, rel=1e-3)
+    # Relative phase alone moves the *direct* torque by two orders of magnitude at fixed currents.
+    direct = {row["sample_id"]: row["torque_n_m"]["fgar"] for row in DATA["confirmations"]}
+    assert direct["opt3_max"] / direct["opt3_min"] > 100
 
 
 def test_the_reference_lands_in_the_1178_operating_space_result():
@@ -110,3 +113,55 @@ def test_a_failed_direct_run_is_a_failed_row_not_a_zero():
     values = result.values.set_index("sample_id")
     assert values.loc["q", "status"] == "failed" and np.isnan(values.loc["q", "value"])
     assert result.samples.set_index("sample_id").loc["q", "phase_b"] == pytest.approx(np.pi / 2)
+
+
+def _driver():
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[1] / "workflow" / "gpec_ntv_coil_scan" / "scan_ntv_coil_torque.py"
+    spec = importlib.util.spec_from_file_location("scan_ntv_coil_torque", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_the_driver_confirms_only_a_qualified_q(tmp_path):
+    driver = _driver()
+    source = Path(__file__).parent / "data" / "gpec" / "ntv_diiid_like_1887" / "scan.json"
+    q = driver.qualified_q(source, 3, ATOL, RTOL)
+    np.testing.assert_allclose(q, _qualify("torque_n_m").Q)
+    stale = json.loads(source.read_text())
+    for row in stale["samples"]:
+        row["torque_n_m"] = row["torque_n_m_default_tolerance"]
+    (tmp_path / "default.json").write_text(json.dumps(stale))
+    with pytest.raises(SystemExit, match="rejected"):
+        driver.qualified_q(tmp_path / "default.json", 3, ATOL, RTOL)
+    names = [name for name, _, _ in driver.candidates(["confirm"], ["c", "il", "iu"], 0, 0, source)]
+    assert names == ["opt3_max", "opt3_min", "opt2_max", "opt2_min"]  # the table's own names
+
+
+def test_the_driver_rewrites_every_coil_current_or_refuses(tmp_path):
+    driver = _driver()
+    template = tmp_path / "coil.in"
+    lines = ['&COIL_CONTROL', '    data_dir="../coil"', '    coil_name(1)="a"', '    coil_name(2)="b"']
+    lines += [f"    coil_cur(1,{j})= 1.0D3" for j in (1, 2)] + [f"    coil_cur(2,{j})=-5e2 ! note" for j in (1, 2)]
+    template.write_text("\n".join(lines + ["/"]) + "\n")
+    currents = {"a": np.array([10.0, -20.0]), "b": np.array([3.5, 0.0])}
+    driver.write_coil_in(template, tmp_path / "out.in", tmp_path, currents, ("a", "b"))
+    text = (tmp_path / "out.in").read_text()
+    assert "coil_cur(1,1)= 10.000000\n" in text and "D3" not in text  # no Fortran exponent left behind
+    assert "coil_cur(2,2)= 0.000000 ! note" in text
+    template.write_text(template.read_text().replace("coil_cur(2,2)=", "coil_cur(2, 2)="))
+    with pytest.raises(ValueError, match="scalar"):
+        driver.write_coil_in(template, tmp_path / "out.in", tmp_path, currents, ("a", "b"))
+
+
+def test_driver_currents_are_coil_excitation_from_mode():
+    from vaft.machine_mapping.coils_non_axisymmetric_geometry import CoilExcitation
+
+    driver = _driver()
+    angles = {"a": np.radians([0.0, 60.0, 120.0, 180.0, 240.0, 300.0])}
+    currents = driver.sector_currents(np.array([1.3 * np.exp(0.4j)]), angles, ("a",), 1, 1000.0)
+    expected = CoilExcitation.from_mode("a", 1300.0, 1, np.degrees(0.4), np.degrees(angles["a"])).currents_a
+    np.testing.assert_allclose(currents["a"], expected)
+

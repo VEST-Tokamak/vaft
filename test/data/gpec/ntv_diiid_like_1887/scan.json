@@ -229,7 +229,7 @@
     "tgar": 1.1963522142327154,
     "pgar": 0.3457969477525338
    },
-   "note": "medium-tolerance run stalled (energy LSODE); value from the tight-tolerance run",
+   "note": "the 'converged' run of this probe stalled in PENTRC's energy LSODE; torque_n_m holds the 'tight_check' run (atol_xlmda 1e-11, rtol_xlmda 1e-8), which agrees with converged runs to <= 0.024 %",
    "torque_n_m_default_tolerance": {
     "fgar": 1.5361203362786213,
     "tgar": 1.1948021519541783,
@@ -582,5 +582,7 @@
    },
    "predicted_fgar_n_m": 0.07445069880039801
   }
- ]
+ ],
+ "confirmations_tolerance": "converged",
+ "confirmations_note": "opt3_* fix all three amplitudes at 1 phasor unit; opt2_* drive c and il at 1 unit, iu off"
 }
