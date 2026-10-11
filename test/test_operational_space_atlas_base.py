@@ -87,5 +87,11 @@ def test_li1_shares_the_li3_integral_and_differs_by_the_shape_factor(product):
     gamma = beb._boundary_perimeter(product, k)
     assert row["internal_inductance_li1"] == pytest.approx(
         row["li3_grid_integral"] * row["r_reference_m"] * gamma**2 / (2 * volume))
-    assert row["internal_inductance_li1"] > row["li3_grid_integral"]   # elongated: Gamma^2 > 4 pi A
-    assert beb.UNITS["internal_inductance_li1"] == "-"
+    assert (row["boundary_perimeter_m"], row["grid_volume_m3"]) == pytest.approx((gamma, volume))
+    # the factor splits into a shape part Gamma^2/(4 pi A) >= 1 (isoperimetric) and the radius part R_0/R_c of
+    # l_i(3)'s normalization, R_c = V/(2 pi A): neither alone fixes the sign of l_i(1) - l_i(3)
+    area = row["area_elongation"] * np.pi * row["minor_radius_m"] ** 2
+    shape, radius = gamma**2 / (4 * np.pi * area), row["r_reference_m"] * 2 * np.pi * area / volume
+    assert shape >= 1.0
+    assert row["internal_inductance_li1"] == pytest.approx(row["li3_grid_integral"] * shape * radius, rel=1e-9)
+    assert {"internal_inductance_li1", "boundary_perimeter_m", "grid_volume_m3"} <= set(beb.UNITS)

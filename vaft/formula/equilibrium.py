@@ -2249,8 +2249,10 @@ def li_1_from_Bp2_volume_integral(Bp2_dV: float,
     $B_{pa}$ is the poloidal field averaged along the boundary circumference $\Gamma$.
     This is the $\ell_i$ of the DIII-D beta-limit scaling $\beta_{max} = 4\,\ell_i\,I/aB$
     (Strait 1994), not the IMAS ``li_3`` of :func:`li_3_from_Bp2_volume_integral`.
-    The two differ by a shape factor, $l_{i1} = l_{i3}\,R_0 \Gamma^2 / (2V)$, which is
-    1 for a large-aspect-ratio circle and grows with elongation.
+    The two differ by $l_{i1} = l_{i3}\,R_0 \Gamma^2 / (2V)
+    = l_{i3}\,(R_0/R_c)\,\Gamma^2/(4\pi A)$, with $A$ the cross-section area and
+    $R_c = V/(2\pi A)$ its centroid radius: a shape part $\Gamma^2/(4\pi A) \ge 1$ (1 for a
+    circle) and a radius part $R_0/R_c$ from the radius $l_{i3}$ normalizes by.
 
     Parameters
     ----------

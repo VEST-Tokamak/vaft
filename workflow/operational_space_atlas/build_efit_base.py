@@ -22,6 +22,7 @@ population renderer can check identity and unit:
                               R_0 = resolve_reference_major_radius (the r0 leaf can be corrupt, #325)
     internal_inductance_li1   <B_p^2>/B_pa^2, B_pa = mu0 |I_p| / Gamma (Strait 1994's l_i), <B_p^2> on the same grid
                               cells as li3_grid_integral, Gamma the boundary outline's circumference
+    boundary_perimeter_m      Gamma [m]; grid_volume_m3 the volume of those grid cells [m^3]
     volume_beta               100 * 2 mu0 int p dV / int B^2 dV, B the total equilibrium field (#1691 stage 1),
                               from the summary's own helper so the atlas and the summary share one definition, %
     normalized_volume_beta    volume_beta a B_0 / |I_p| with the a and B_0 of normalized_current: Menard's <beta_N>
@@ -83,6 +84,8 @@ UNITS = {
     "plasma_surface_area": "m^2",
     "inverse_cylindrical_q": "-",
     "internal_inductance_li1": "-",
+    "boundary_perimeter_m": "m",
+    "grid_volume_m3": "m^3",
     "volume_beta": "%",
     "normalized_volume_beta": "% m T/MA",
     "aspect_ratio": "-",
@@ -131,14 +134,19 @@ def _bp2_volume_integral(ods, k: int) -> float:
     return _bp2_and_volume(ods, k)[0]
 
 
-def _boundary_perimeter(ods, k: int) -> float:
-    """Poloidal circumference Gamma [m] of slice k's boundary outline, closed on itself."""
+def _outline(ods, k: int) -> np.ndarray:
+    """Slice k's boundary outline as (N, 2) [m], non-finite points dropped: the one contour Gamma and V use."""
     ts = f"equilibrium.time_slice.{k}"
     r = np.asarray(ods[f"{ts}.boundary.outline.r"], dtype=float)
     z = np.asarray(ods[f"{ts}.boundary.outline.z"], dtype=float)
     ok = np.isfinite(r) & np.isfinite(z)
-    r, z = np.append(r[ok], r[ok][:1]), np.append(z[ok], z[ok][:1])
-    return float(np.sum(np.hypot(np.diff(r), np.diff(z))))
+    return np.c_[r[ok], z[ok]]
+
+
+def _boundary_perimeter(ods, k: int) -> float:
+    """Poloidal circumference Gamma [m] of slice k's boundary outline, closed on itself."""
+    closed = np.vstack([_outline(ods, k), _outline(ods, k)[:1]])
+    return float(np.sum(np.hypot(*np.diff(closed, axis=0).T)))
 
 
 def _bp2_and_volume(ods, k: int):
@@ -153,8 +161,7 @@ def _bp2_and_volume(ods, k: int):
     psi = np.asarray(ods[f"{grid}.psi"], dtype=float) * ods_psi_to_wb_per_radian_factor(ods)
     dpsi_dr, dpsi_dz = np.gradient(psi, r, z, edge_order=2)
     rr, zz = np.meshgrid(r, z, indexing="ij")
-    outline = np.c_[np.asarray(ods[f"{ts}.boundary.outline.r"]), np.asarray(ods[f"{ts}.boundary.outline.z"])]
-    inside = _Path(outline).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
+    inside = _Path(_outline(ods, k)).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
     # Per-cell widths: the DD allows a non-equispaced grid, and a stretched grid with
     # the first spacing applied everywhere gave a fraction of the integral.
     dv = 2.0 * np.pi * rr * np.gradient(r)[:, None] * np.gradient(z)[None, :]
@@ -229,7 +236,9 @@ def _row(ods, t_s: float) -> dict:
     d = derive_global_descriptors(as_equilibrium(ods, time_index=k)).values
     bp2, grid_volume = _bp2_and_volume(ods, k)
     r_ref = float(resolve_reference_major_radius(ods))
-    li3 = li_3_from_Bp2_volume_integral(bp2, abs(float(ods[f"equilibrium.time_slice.{k}.global_quantities.ip"])), r_ref)
+    ip_gq = abs(float(ods[f"equilibrium.time_slice.{k}.global_quantities.ip"]))
+    gamma = _boundary_perimeter(ods, k)
+    li3 = li_3_from_Bp2_volume_integral(bp2, ip_gq, r_ref)
     li3_routine, bn_routine, routine_status = _routine_diagnostic(ods, k)
     pick = lambda n: float(d[n].value) if n in d and d[n].available else math.nan
     ip_ma = abs(pick("ip")) * 1e-6
@@ -278,9 +287,11 @@ def _row(ods, t_s: float) -> dict:
         "poloidal_beta": pick("beta_p_boundary_average"),
         "plasma_surface_area": pick("surface_area"),
         "inverse_cylindrical_q": ip_ma * r_geo / (5.0 * a * a * kappa_a * b_geo),
-        # <B_p^2> over the same grid cells as the l_i(3) integral, so the two l_i differ only in normalization
-        "internal_inductance_li1": li_1_from_Bp2_volume_integral(bp2, grid_volume, ip_ma * 1e6,
-                                                                 _boundary_perimeter(ods, k)),
+        # the same B_p^2 integral, cells and current as li3_grid_integral: the two l_i differ only in normalization,
+        # l_i(1) = l_i(3) R_0 Gamma^2 / (2 V)
+        "internal_inductance_li1": li_1_from_Bp2_volume_integral(bp2, grid_volume, ip_gq, gamma),
+        "boundary_perimeter_m": gamma,
+        "grid_volume_m3": grid_volume,
         "volume_beta": 100.0 * beta_b,
         "normalized_volume_beta": beta_n_b,
         "aspect_ratio": r_geo / a,

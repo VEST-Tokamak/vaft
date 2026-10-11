@@ -1350,6 +1350,8 @@ _register(Boundary(
             "the stable range of l_i this scaling seems to provide a reasonable first-order representation'",
             "beta is 2 mu0 <p> / B^2 with B the toroidal field (Strait 1994, abstract and p. 1415)",
             "wall-stabilised DIII-D discharges exceed it at l_i < 1 (Strait et al. 1995, Fig. 2)",
+            "the PRL's l_i, which bounds the evidence range, is not defined there; it is taken to be Strait 1994's "
+            "l_i(1) (same first author, same DIII-D data and relation)",
         ),
         evidence_ranges={"internal_inductance_li1": (1.0, 2.0)},
     ),
@@ -1364,7 +1366,8 @@ _register(Boundary(
                        "discharges in DIII-D', Phys. Rev. Lett. 74 (1995) 2483",
                        equation="p. 2484: beta_N <= 4 l_i is 'a good representation of the beta limit for DIII-D "
                                 "discharges with 1 < l_i < 2'",
-                       note="read from the full text; the source of the evidence range 1 < l_i < 2"),
+                       note="read from the full text; the source of the evidence range 1 < l_i < 2. The PRL does "
+                            "not define l_i: read as Strait 1994's l_i(1)"),
     ),
     notes="Verification level: full text (both sources). An empirical envelope of conventional tokamaks, drawn "
           "without a forbidden side; beyond 1 < l_i < 2 the line is an extrapolated reference slope.",

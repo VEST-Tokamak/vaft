@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import subprocess
 import sys
 import warnings
@@ -1019,3 +1020,14 @@ def test_the_4_li_envelope_is_drawn_without_a_forbidden_side(style):
     hatched = [p for p in ax.patches + ax.collections if getattr(p, "get_hatch", lambda: None)()]
     fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
     assert not hatched and not fills   # a reference (Troyon) and an envelope: nothing is forbidden
+
+
+def test_a_linear_reference_is_labelled_from_the_registry(monkeypatch):
+    from vaft.plot import operational_space as m
+
+    entry = B.get_boundary("strait_1994_beta_n_li")
+    curve = ops.overlay_plan("beta_n_li1", ["strait_1994_beta_n_li"], x_range=(0.3, 2), y_range=(0, 9)).curves[0]
+    assert r"= 4\,l_{i}(1)$" in m._reference_label(curve, "", "internal_inductance_li1")
+    monkeypatch.setattr(B, "get_boundary", lambda key: dataclasses.replace(entry, coefficient=3.0))
+    monkeypatch.setattr(m._b, "get_boundary", B.get_boundary)
+    assert r"= 3\,l_{i}(1)$" in m._reference_label(curve, "", "internal_inductance_li1")
