@@ -43,6 +43,7 @@ require_run_config_keys(workflow)
 # reads its config (cold review 0.7.0 data F12, #1888).
 config.update(expand_config_environment(config))
 
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE, scoped, stage_scope
 from vaft.database.sources import replicable_stages
 
 PATHS = PipelinePaths.from_config(config)
@@ -117,10 +118,7 @@ workflow.global_resources.setdefault("hsds", REPLICATION_CONCURRENCY)
 # Named here rather than derived, because "which stages does this pipeline
 # build" is a real decision -- but checked against the registry, so a stage
 # renamed or retired there fails the run instead of silently dropping out of it.
-THOMSON_LINEAGE = (
-    "thomson", "ces", "core_profiles", "composition", "ti_inferred", "resistive_zeff",
-    "electron_efit", "kinetic_efit",
-)
+THOMSON_LINEAGE = CORRECTIVE_LINEAGE
 _CORRECTIVE = frozenset(replicable_stages(produced_by="corrective"))
 _UNREGISTERED = tuple(stage for stage in THOMSON_LINEAGE if stage not in _CORRECTIVE)
 if _UNREGISTERED:
@@ -132,7 +130,14 @@ if _UNREGISTERED:
         "stage renamed there must be renamed here too."
     )
 
-STAGES = THOMSON_LINEAGE
+# `stages` in the configuration narrows what `rule all` requests (and what the
+# corrective worker judges). Unset is the whole lineage. A stage outside the scope
+# is never scheduled; one whose upstream is left out is refused, not pulled in.
+try:
+    STAGE_SCOPE = stage_scope(config.get("stages"))
+except ValueError as error:
+    raise WorkflowError(str(error))
+STAGES = scoped(STAGE_SCOPE)
 REPLICATE_SCRIPT = PIPELINE1_DIR / "replicate_to_hsds.py"
 
 

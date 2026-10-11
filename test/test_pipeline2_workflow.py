@@ -298,3 +298,24 @@ def test_the_resistive_zeff_settings_are_configurable(tmp_path):
                  "--smoothing-window-s 0.002 --smoothing-order 3", "--max-excluded-current 0.1",
                  "--inductive-max 0.8"):
         assert flag in job, flag
+
+
+def test_the_stage_scope_narrows_rule_all_to_the_stages_asked_for(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p", "--config", 'stages=["thomson","ces"]'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "rule generate_thomson_ods" in result.stdout and "rule generate_ces_ods" in result.stdout
+    for later in ("generate_core_profiles_ods", "generate_composition_ods", "generate_kinetic_efit_ods"):
+        assert f"rule {later}" not in result.stdout, later
+
+
+def test_the_stage_scope_narrows_replication_too(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'stages=["thomson","ces"]', 'hsds={"replicate": true}'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert "replicate_thomson_to_hsds" in result.stdout and "replicate_ces_to_hsds" in result.stdout
+    assert "replicate_composition_to_hsds" not in result.stdout
+
+
+def test_a_scope_whose_upstream_is_missing_stops_the_run(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'stages=["composition"]'])
+    assert result.returncode != 0
+    assert "core_profiles" in (result.stdout + result.stderr)
