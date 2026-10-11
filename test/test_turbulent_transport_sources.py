@@ -42,7 +42,9 @@ def _parameters(configuration: str) -> dict:
 
 def _tree(root: Path, fixture: str, *, label: str | None = None, lineage: str = "magnetics",
           quality: str = "good", time_ms: int = 316, parameters: dict | None = None,
-          extra_unsolved: bool = False) -> Path:
+          extra_unsolved: bool = False, state_identity: str = "state-39915-316",
+          ti_lineage: str = "ti_eq_te_assumed", revision: str = "b493397",
+          projection_scale: float = 1.0, project_fluxes: bool = True) -> Path:
     """A routine-TGLF state tree built around a committed native TGLF run."""
     from vaft.code.gacode.tglf.runner import read_tglf_case
 
@@ -58,17 +60,23 @@ def _tree(root: Path, fixture: str, *, label: str | None = None, lineage: str = 
                            "normalisation": _NORMALISATION}}]
     if extra_unsolved:
         surfaces.append({"r_over_a": 0.5, "status": "failed", "runtime_status": "timeout"})
+    energy = projection_scale * np.asarray(native.gbflux["energy"]) * _Q_GB
+    particle = projection_scale * np.asarray(native.gbflux["particle"]) * _GAMMA_GB
+    row = {"r_over_a": 0.7, "rho_tor_norm": _RHO_TOR_NORM}
+    if project_fluxes:
+        row.update({
+            "electron_energy_flux_W_m2": float(energy[0]),
+            "electron_particle_flux_m2_s": float(particle[0]),
+            "ion_energy_flux_W_m2": {"H": float(energy[1]), "C": float(energy[2])},
+            "ion_particle_flux_m2_s": {"H": float(particle[1]), "C": float(particle[2])},
+        })
     state = {
         "shot": SHOT, "time_efit_s": time_ms / 1000.0, "efit_lineage": lineage,
-        "efit_quality": quality, "ti_lineage": "ti_eq_te_assumed",
-        "state_identity": "state-39915-316", "status": "partial" if extra_unsolved else "solved",
+        "efit_quality": quality, "ti_lineage": ti_lineage,
+        "state_identity": state_identity, "status": "partial" if extra_unsolved else "solved",
         "tglf_config": label, "tglf_parameters": parameters or _parameters(configuration),
-        "gacode_revision": "b493397", "surfaces": surfaces,
-        "core_transport": {"surfaces": [{
-            "r_over_a": 0.7, "rho_tor_norm": _RHO_TOR_NORM,
-            "electron_energy_flux_W_m2": float(native.gbflux["energy"][0]) * _Q_GB,
-            "electron_particle_flux_m2_s": float(native.gbflux["particle"][0]) * _GAMMA_GB,
-        }]},
+        "gacode_revision": revision, "surfaces": surfaces,
+        "core_transport": {"surfaces": [row]},
     }
     (state_dir / "state.json").write_text(json.dumps(state), encoding="utf-8")
     return state_dir
@@ -298,3 +306,75 @@ def test_states_that_do_not_qualify_are_refused(tmp_path):
                      parameters=_parameters("tglf-sat1-es")))
     with pytest.raises(sources.HSDSSourceError):
         _build(_tree(tmp_path / "k", "sat0-es", lineage="kinetic"))
+
+
+def _write(db: FileDB, state_dir: Path) -> Path:
+    from vaft.omas.vest_upstream import write_turbulent_transport_product
+
+    ods, manifest, native = _build(state_dir)
+    lineage = stage_lineage("turbulent_transport", family=manifest["family"],
+                            product=manifest["configuration"])
+    output = db.omas_product("turbulent_transport", shot=SHOT, **lineage)
+    write_turbulent_transport_product(
+        ods, manifest, native, output=output,
+        metadata=db.omas_manifest("turbulent_transport", shot=SHOT, **lineage))
+    return output
+
+
+def test_another_ti_assumption_of_one_state_is_refused_not_overwritten(tmp_path):
+    """The path names no Ti assumption, so a second state there would replace the
+    first. Until #1128/#1129 it is refused; rewriting the same state is allowed."""
+    db = FileDB(tmp_path / "filedb")
+    output = _write(db, _tree(tmp_path / "a", "sat0-es"))
+    stored = output.read_bytes()
+    assert _write(db, _tree(tmp_path / "b", "sat0-es")) == output   # same state: idempotent
+    other = _tree(tmp_path / "c", "sat0-es", state_identity="state-39915-316-inferred-ti",
+                  ti_lineage="inferred")
+    with pytest.raises(ValueError, match="already holds the states"):
+        _write(db, other)
+    assert output.read_bytes() == stored
+
+
+def test_a_multi_state_product_refuses_states_it_would_misdescribe(tmp_path):
+    from vaft.omas.vest_upstream import build_turbulent_transport_ods
+
+    early = _tree(tmp_path / "a", "sat0-es", time_ms=316)
+    variants = {
+        "ti_lineage": dict(ti_lineage="inferred"),
+        "gacode_revision": dict(revision="0000000"),
+        "tglf_parameters": dict(parameters={**_parameters("tglf-sat0-es"), "kygrid_model": 4}),
+    }
+    for key, change in variants.items():
+        late = _tree(tmp_path / key, "sat0-es", time_ms=330, **change)
+        with pytest.raises(ValueError, match=f"{key} .* differs"):
+            build_turbulent_transport_ods(state_directories=[early, late])
+
+
+def test_a_rebuild_that_disagrees_with_the_projection_or_checks_nothing_is_refused(tmp_path):
+    with pytest.raises(ValueError, match="beyond rtol"):
+        _build(_tree(tmp_path / "a", "sat0-es", projection_scale=1.01))
+    with pytest.raises(ValueError, match="no rebuilt flux could be compared"):
+        _build(_tree(tmp_path / "b", "sat0-es", project_fluxes=False))
+
+
+def test_pipeline_paths_resolve_a_turbulent_transport_replication_record(tmp_path):
+    import sys
+
+    workflow = (Path(__file__).parents[1] / "workflow"
+                / "automatic_pipeline_1_routine_data_processing")
+    if not workflow.exists():
+        pytest.skip("workflow scripts are not part of the distribution")
+    sys.path.insert(0, str(workflow))
+    try:
+        from paths import PipelinePaths
+    finally:
+        sys.path.remove(str(workflow))
+
+    paths = PipelinePaths(str(tmp_path), "filedb")
+    record = paths.replication_record(SHOT, "turbulent_transport", "tglf-sat3-em-bper")
+    assert Path(record).relative_to(tmp_path).as_posix() == (
+        "omas/turbulent_transport/magnetic/tglf-sat3-em-bper/39915/metadata/replication.json")
+    with pytest.raises(FileDBPathError, match="not a TGLF configuration"):
+        paths.replication_record(SHOT, "turbulent_transport", "rdcon")
+    with pytest.raises(FileDBPathError, match="TGLF configuration"):
+        paths.replication_record(SHOT, "turbulent_transport")

@@ -297,6 +297,13 @@ states yet, but its sources are catalogued. The full list of 36 rows is
 identity (state identity, run identities, TGLF parameters, GACODE revision)
 travels in `core_transport.model[:].code.parameters` and in the stage manifest.
 
+Coexistence holds across configurations and lineages. Alternative Ti
+assumptions of one state (a different `--ti-te-ratio`, `--use-inferred-ti` or
+`--rho-max` gives a different state identity on the same path) are refused, not
+stored side by side, until #1128/#1129: writing a product whose state
+identities differ from the stored one raises, and rewriting the same states is
+allowed.
+
 Eager `load()` stages a complete shot when `paths` is absent. With
 `paths=["equilibrium"]`, it stages only that IDS and `dataset_description`,
 normally using a validated local domain cache. Byte-exact per-IDS images avoid

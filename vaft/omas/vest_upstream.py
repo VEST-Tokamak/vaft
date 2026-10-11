@@ -2832,6 +2832,13 @@ class _AtlasSurface:
     normalisation: Any
 
     def missing(self) -> tuple[str, ...]:
+        # The mapper's momentum guard reads `vexb_shear` *and* `missing()`. An
+        # empty `missing()` is safe today only because the routine driver never
+        # gives TGLF a rotation: `vexb_shear` is always None in its state.json,
+        # so the value check alone refuses the toroidal stress. If the driver
+        # starts recording rotation, this must report the provenance the
+        # summary does not carry, or a momentum flux could be published from a
+        # rotation whose source nobody recorded.
         return ()
 
 
@@ -2988,27 +2995,51 @@ def _read_tglf_state(directory: Path) -> dict[str, Any]:
 def _check_against_projection(
     ods: ODS, base: str, surfaces: Sequence[Mapping[str, Any]], rtol: float, where: Path
 ) -> None:
-    """Refuse a rebuild that disagrees with the driver's own projection."""
-    checks = (
-        ("electrons.energy.flux", "electron_energy_flux_W_m2"),
-        ("electrons.particles.flux", "electron_particle_flux_m2_s"),
-    )
-    for leaf, column in checks:
+    """Refuse a rebuild that disagrees with the driver's own projection.
+
+    Electron and per-ion energy and particle fluxes are compared. A rebuild that
+    could be compared with nothing is refused too: a check that passes by
+    comparing no values is no evidence that the tree is consistent.
+    """
+
+    def stored(column: str, label: str | None = None) -> np.ndarray:
+        values = []
+        for item in surfaces:
+            value = item["projected"].get(column)
+            if label is not None:
+                value = value.get(label) if isinstance(value, Mapping) else None
+            values.append(np.nan if value is None else value)
+        return np.asarray(values, dtype=float)
+
+    checks = [
+        ("electrons.energy.flux", stored("electron_energy_flux_W_m2")),
+        ("electrons.particles.flux", stored("electron_particle_flux_m2_s")),
+    ]
+    index = 0
+    while f"{base}.ion.{index}.label" in ods:
+        label = str(ods[f"{base}.ion.{index}.label"])
+        checks.append((f"ion.{index}.energy.flux", stored("ion_energy_flux_W_m2", label)))
+        checks.append((f"ion.{index}.particles.flux", stored("ion_particle_flux_m2_s", label)))
+        index += 1
+
+    compared = 0
+    for leaf, expected in checks:
         if f"{base}.{leaf}" not in ods:
             continue
         rebuilt = np.asarray(ods[f"{base}.{leaf}"], dtype=float)
-        stored = np.asarray(
-            [np.nan if item["projected"].get(column) is None else item["projected"][column]
-             for item in surfaces],
-            dtype=float,
-        )
-        known = np.isfinite(stored)
-        if not np.allclose(rebuilt[known], stored[known], rtol=rtol, atol=0.0):
+        known = np.isfinite(expected)
+        compared += int(known.sum())
+        if not np.allclose(rebuilt[known], expected[known], rtol=rtol, atol=0.0):
             raise ValueError(
                 f"{where}: {leaf} rebuilt from the native outputs ({rebuilt.tolist()}) "
-                f"disagrees with the driver's projection ({stored.tolist()}) beyond "
+                f"disagrees with the driver's projection ({expected.tolist()}) beyond "
                 f"rtol={rtol}; the tree is not internally consistent."
             )
+    if compared == 0:
+        raise ValueError(
+            f"{where}: no rebuilt flux could be compared with the driver's projection, "
+            "so the rebuild is unverified and is not promoted."
+        )
 
 
 def build_turbulent_transport_ods(
@@ -3042,6 +3073,14 @@ def build_turbulent_transport_ods(
     TGLF parameters and the GACODE revision -- is recorded in
     ``core_transport.model[:].code.parameters`` (JSON) and in the manifest.
 
+    Several states in one product must also agree on ``ti_lineage``,
+    ``tglf_parameters`` and ``gacode_revision``, which the product states once.
+
+    Coexistence holds across configurations and lineages. Alternative Ti
+    assumptions of one state share the product's path and source, so they are
+    refused at write time (:func:`write_turbulent_transport_product`), not stored
+    side by side, until #1128/#1129.
+
     Returns ``(ods, manifest, native)``; ``native`` is TGLF's own per-surface
     result for :func:`write_turbulent_transport_product` to keep beside the
     product.
@@ -3069,6 +3108,18 @@ def build_turbulent_transport_ods(
                 f"{item['path']}: one product holds one shot, family and configuration; "
                 f"got {key} beside {(shot, first['family'], first['configuration'])}"
             )
+    # The top-level code.parameters and manifest describe every time at once, so
+    # the times must agree on everything stated there once: a Ti assumption, a
+    # TGLF setting or a GACODE revision that differed between times would be
+    # misdescribed for some of them.
+    for item in states[1:]:
+        for key in ("ti_lineage", "tglf_parameters", "gacode_revision"):
+            if item["state"].get(key) != first["state"].get(key):
+                raise ValueError(
+                    f"{item['path']}: {key} {item['state'].get(key)!r} differs from "
+                    f"{first['state'].get(key)!r} in {first['path']}; one product "
+                    "states it once for all its times, so they cannot share one."
+                )
     states.sort(key=lambda item: float(item["state"]["time_efit_s"]))
     times = [float(item["state"]["time_efit_s"]) for item in states]
     if len(set(times)) != len(times):
@@ -3209,6 +3260,35 @@ def build_turbulent_transport_ods(
     return ods, manifest, native
 
 
+def _state_identities(manifest: Mapping[str, Any]) -> dict[float, Any]:
+    return {
+        round(float(state["time_s"]), 9): state.get("state_identity")
+        for state in manifest.get("states") or []
+    }
+
+
+def _refuse_a_different_state(manifest: Mapping[str, Any], metadata: Path, output: Path) -> None:
+    """Raise when ``output`` already holds a product of other states."""
+    if not metadata.is_file():
+        if output.exists():
+            raise ValueError(
+                f"{output} exists without its manifest {metadata}; its states cannot "
+                "be compared with this one's, so it is not overwritten."
+            )
+        return
+    existing = json.loads(metadata.read_text(encoding="utf-8"))
+    before, after = _state_identities(existing), _state_identities(manifest)
+    if before != after:
+        raise ValueError(
+            f"{output} already holds the states {before}; this product's are {after}. "
+            "The path does not name the Ti assumption or the state identity, so "
+            "replacing it would silently drop the stored result. Alternative states "
+            "of one shot and configuration are refused, not stored side by side, "
+            "until the #1128/#1129 occurrence model; remove the old product "
+            "deliberately if it is superseded."
+        )
+
+
 def write_turbulent_transport_product(
     ods: ODS,
     manifest: Mapping[str, Any],
@@ -3224,8 +3304,17 @@ def write_turbulent_transport_product(
     and the native per-surface outputs -- spectra, saturation parameters -- sit
     beside it for the question the mapping did not anticipate.
 
+    The path ``{family}/{configuration}/{shot}`` -- and its transitional source --
+    does not name the Ti assumption or the rest of the state's identity. A
+    product already there whose states differ from this one's (by time and
+    ``state_identity``) is therefore refused rather than replaced: coexistence
+    holds across configurations and lineages, but alternative Ti assumptions of
+    one state are refused, not stored side by side, until the #1128/#1129
+    occurrence model can name them. Rewriting the same states is allowed.
+
     Returns the path the native result was written to.
     """
+    _refuse_a_different_state(manifest, Path(metadata), Path(output))
     write_stage_product(
         ods, dict(manifest), output=output, metadata=metadata, compression=compression
     )
