@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>865b003</code>. What is described
+  <code>4cf7def</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -409,7 +409,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.transport_state</code>:
-<strong>9</strong> public functions. Each entry is what
+<strong>11</strong> public functions. Each entry is what
 <code>vaft.process.describe("transport_state.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -429,6 +429,7 @@ resolved ones.</p>
 -&gt; ion temperature: measured -&gt; pressure-inferred (#1426) -&gt; policy      [ti]
 -&gt; composition closure via prepare_gacode_profile(impurity=, z_eff=)     [GACODEProfile]
 -&gt; ResolvedTransportState (profile + per-quantity provenance + identity)
+-&gt; canonical species state + physics projection (#1567)                  [optional]
 -&gt; solver readiness: assess_tglf_readiness / assess_neo_readiness
 </code></pre></div></div>
 
@@ -444,7 +445,7 @@ modified: the ion-temperature policy writes into a deep copy.</p>
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 9 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 11 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="assess_neo_readiness"><td><a href="#assess_neo_readiness"><code>assess_neo_readiness</code></a></td><td>Decide whether a resolved state can go to NEO.
@@ -457,6 +458,8 @@ modified: the ion-temperature policy writes into a deep copy.</p>
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   <tr data-ref-row="physics_parameters"><td><a href="#physics_parameters"><code>physics_parameters</code></a></td><td>The physics half of a GACODE config, with runtime-only fields dropped.
 </td></tr>
+  <tr data-ref-row="project_transport_state"><td><a href="#project_transport_state"><code>project_transport_state</code></a></td><td>One physics projection of a resolved state’s species, with the profile its solver reads.
+</td></tr>
   <tr data-ref-row="resolve_transport_state"><td><a href="#resolve_transport_state"><code>resolve_transport_state</code></a></td><td>Resolve one plasma state into a shared GACODE profile with per-quantity provenance.
 </td></tr>
   <tr data-ref-row="run_identity"><td><a href="#run_identity"><code>run_identity</code></a></td><td>Deterministic identity of one solver calculation on one resolved state.
@@ -465,6 +468,8 @@ modified: the ion-temperature policy writes into a deep copy.</p>
 </td></tr>
   <tr data-ref-row="transport_partition"><td><a href="#transport_partition"><code>transport_partition</code></a></td><td>Signed model fluxes and their magnitude partition at one surface of one state.
 </td></tr>
+  <tr data-ref-row="transport_species_state"><td><a href="#transport_species_state"><code>transport_species_state</code></a></td><td>The canonical species state of a resolved transport state: the species its solvers read.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
 <p class="ref-filter-empty" hidden="">No function matches.</p>
@@ -476,14 +481,15 @@ modified: the ion-temperature policy writes into a deep copy.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assess_neo_readiness"><code>assess_neo_readiness</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="assess_neo_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/transport_state.py#L1091-L1131" title="vaft/process/transport_state.py, lines 1091–1131 at 865b003">source</a>
+<a class="ref-source" data-source="assess_neo_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L1114-L1164" title="vaft/process/transport_state.py, lines 1114–1164 at 4cf7def">source</a>
 </header>
-    <pre class="ref-signature"><code>assess_neo_readiness(state, surfaces=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8))</code></pre>
+    <pre class="ref-signature"><code>assess_neo_readiness(state, surfaces=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8), *, projection=None)</code></pre>
 
-    <details class="ref-code" data-source-code="assess_neo_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1091–1131</span></summary>
+    <details class="ref-code" data-source-code="assess_neo_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1114–1164</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assess_neo_readiness</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
-                         <span class="n">surfaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_SURFACES</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReadinessReport</span><span class="p">:</span>
+                         <span class="n">surfaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_SURFACES</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
+                         <span class="n">projection</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="sh">"</span><span class="s">TransportProjection</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReadinessReport</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Decide whether a resolved state can go to NEO.
 
     Parameters
@@ -493,12 +499,20 @@ modified: the ion-temperature policy writes into a deep copy.</p>
     surfaces : sequence of float
         The r/a NEO will solve; with an inferred-Ti gap fill, at least one must have
         an input independent of the fill [-].
+    projection : TransportProjection, optional
+        A ``neoclassical`` projection of this state; NEO accepts only explicit
+        species, which is the state</span><span class="sh">'</span><span class="s">s own list [-].
 
     Returns
     -------
     ReadinessReport
         ``ready``/``conditional``/``insufficient``; NEO is a profile code, so no
         per-surface entries [-].
+
+    Raises
+    ------
+    ValueError
+        A projection of another state, for another physics, or a reduced one.
 
     Processing steps
     ----------------
@@ -513,6 +527,7 @@ modified: the ion-temperature policy writes into a deep copy.</p>
     </span><span class="sh">"""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">state</span><span class="p">.</span><span class="n">resolved</span><span class="p">:</span>
         <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span> <span class="n">reasons</span><span class="o">=</span><span class="n">state</span><span class="p">.</span><span class="n">reasons</span><span class="p">)</span>
+    <span class="n">state</span><span class="p">,</span> <span class="n">projected</span> <span class="o">=</span> <span class="nf">_projected_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">projection</span><span class="p">,</span> <span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">)</span>
     <span class="n">missing</span> <span class="o">=</span> <span class="nf">tuple</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">profile</span><span class="p">.</span><span class="nf">check_neo_requirements</span><span class="p">())</span>
     <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
         <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span>
@@ -520,7 +535,7 @@ modified: the ion-temperature policy writes into a deep copy.</p>
     <span class="k">if</span> <span class="n">state</span><span class="p">.</span><span class="n">fill_probe</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nf">any</span><span class="p">(</span>
             <span class="nf">inferred_ti_supported</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">solver</span><span class="o">=</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">surfaces</span><span class="p">):</span>
         <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span> <span class="n">reasons</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">no_surface_independent_of_ti_fill</span><span class="sh">"</span><span class="p">,))</span>
-    <span class="n">conditions</span> <span class="o">=</span> <span class="nf">_state_conditions</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+    <span class="n">conditions</span> <span class="o">=</span> <span class="nf">_state_conditions</span><span class="p">(</span><span class="n">state</span><span class="p">)</span> <span class="o">+</span> <span class="n">projected</span>
     <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">neo</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">conditional</span><span class="sh">"</span> <span class="k">if</span> <span class="n">conditions</span> <span class="k">else</span> <span class="sh">"</span><span class="s">ready</span><span class="sh">"</span><span class="p">,</span>
                            <span class="n">conditions</span><span class="o">=</span><span class="n">conditions</span><span class="p">)</span></code></pre></figure>
 
@@ -535,6 +550,8 @@ modified: the ion-temperature policy writes into a deep copy.</p>
 </td></tr>
   <tr><td><code>surfaces</code></td><td class="ref-type">sequence of float</td><td class="ref-unit">-</td><td><p>The r/a NEO will solve; with an inferred-Ti gap fill, at least one must have an input independent of the fill.</p>
 </td></tr>
+  <tr><td><code>projection</code></td><td class="ref-type">TransportProjection, optional</td><td class="ref-unit">-</td><td><p>A <code class="language-plaintext highlighter-rouge">neoclassical</code> projection of this state; NEO accepts only explicit species, which is the state’s own list.</p>
+</td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
@@ -542,6 +559,14 @@ modified: the ion-temperature policy writes into a deep copy.</p>
 </td></tr>
   </tbody>
 </table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A projection of another state, for another physics, or a reduced one.
+</li>
+</ul>
+</div>
 
     <details class="ref-more">
       <summary>Processing steps · Applicability</summary>
@@ -567,17 +592,18 @@ report nothing missing.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assess_tglf_readiness"><code>assess_tglf_readiness</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="assess_tglf_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/transport_state.py#L1023-L1088" title="vaft/process/transport_state.py, lines 1023–1088 at 865b003">source</a>
+<a class="ref-source" data-source="assess_tglf_readiness" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L1032-L1111" title="vaft/process/transport_state.py, lines 1032–1111 at 4cf7def">source</a>
 </header>
-    <pre class="ref-signature"><code>assess_tglf_readiness(state, surfaces=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8), *, config=None)</code></pre>
+    <pre class="ref-signature"><code>assess_tglf_readiness(state, surfaces=(0.3, 0.4, 0.5, 0.6, 0.7, 0.8), *, config=None, projection=None)</code></pre>
 
-    <details class="ref-code" data-source-code="assess_tglf_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1023–1088</span></summary>
+    <details class="ref-code" data-source-code="assess_tglf_readiness"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1032–1111</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assess_tglf_readiness</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
     <span class="n">surfaces</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_SURFACES</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">projection</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="sh">"</span><span class="s">TransportProjection</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ReadinessReport</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Decide whether a resolved state, and each requested surface, can go to TGLF.
 
@@ -589,6 +615,11 @@ report nothing missing.</li>
         Requested surfaces as r/a [-].
     config : TGLFConfig, optional
         Only ``n_species`` is consulted, through ``prepare_tglf_input`` [-].
+    projection : TransportProjection, optional
+        A ``turbulence`` projection of this state (:func:`project_transport_state`);
+        the surfaces are then built on its profile, and a reduced projection adds
+        ``species_projection_&lt;method&gt;`` to ``conditions``.  Default: the state</span><span class="sh">'</span><span class="s">s own
+        species list, unchanged [-].
 
     Returns
     -------
@@ -596,9 +627,16 @@ report nothing missing.</li>
         State verdict plus one :class:`SurfaceReadiness` per surface, each carrying
         the built ``TGLFInput`` when ready [-].
 
+    Raises
+    ------
+    ValueError
+        A projection of another state, for another physics, or by a method TGLF
+        does not accept.
+
     Processing steps
     ----------------
-    1. An unresolved state is ``insufficient`` and no surface is built.
+    1. An unresolved state is ``insufficient`` and no surface is built; a projection
+       is checked against the state and the solver.
     2. Each surface is projected with ``prepare_tglf_input``; its documented refusal
        becomes a reason code, then ``check_tglf_requirements`` and finite gradients
        are required.
@@ -610,6 +648,7 @@ report nothing missing.</li>
     </span><span class="sh">"""</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">state</span><span class="p">.</span><span class="n">resolved</span><span class="p">:</span>
         <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span> <span class="n">reasons</span><span class="o">=</span><span class="n">state</span><span class="p">.</span><span class="n">reasons</span><span class="p">)</span>
+    <span class="n">state</span><span class="p">,</span> <span class="n">projected</span> <span class="o">=</span> <span class="nf">_projected_state</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">projection</span><span class="p">,</span> <span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">)</span>
     <span class="kn">from</span> <span class="n">vaft.code.gacode.tglf.inputs</span> <span class="kn">import</span> <span class="n">LocalConversionError</span><span class="p">,</span> <span class="n">prepare_tglf_input</span>
 
     <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
@@ -632,7 +671,7 @@ report nothing missing.</li>
     <span class="k">if</span> <span class="ow">not</span> <span class="nf">any</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">ready</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">results</span><span class="p">):</span>
         <span class="k">return</span> <span class="nc">ReadinessReport</span><span class="p">(</span><span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">insufficient</span><span class="sh">"</span><span class="p">,</span> <span class="n">reasons</span><span class="o">=</span><span class="p">(</span><span class="sh">"</span><span class="s">no_ready_surface</span><span class="sh">"</span><span class="p">,),</span>
                                <span class="n">surfaces</span><span class="o">=</span><span class="nf">tuple</span><span class="p">(</span><span class="n">results</span><span class="p">))</span>
-    <span class="n">conditions</span> <span class="o">=</span> <span class="nf">_state_conditions</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+    <span class="n">conditions</span> <span class="o">=</span> <span class="nf">_state_conditions</span><span class="p">(</span><span class="n">state</span><span class="p">)</span> <span class="o">+</span> <span class="n">projected</span>
     <span class="k">if</span> <span class="nf">any</span><span class="p">(</span><span class="n">s</span><span class="p">.</span><span class="n">ready</span> <span class="ow">and</span> <span class="n">s</span><span class="p">.</span><span class="n">local_input</span><span class="p">.</span><span class="n">vexb_shear</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">results</span><span class="p">):</span>
         <span class="c1"># prepare_tglf_input does not derive ExB shear yet (#553), so TGLF runs with
 </span>        <span class="c1"># its own zero whatever rotation core_profiles carries.
@@ -653,6 +692,8 @@ report nothing missing.</li>
 </td></tr>
   <tr><td><code>config</code></td><td class="ref-type">TGLFConfig, optional</td><td class="ref-unit">-</td><td><p>Only <code class="language-plaintext highlighter-rouge">n_species</code> is consulted, through <code class="language-plaintext highlighter-rouge">prepare_tglf_input</code>.</p>
 </td></tr>
+  <tr><td><code>projection</code></td><td class="ref-type">TransportProjection, optional</td><td class="ref-unit">-</td><td><p>A <code class="language-plaintext highlighter-rouge">turbulence</code> projection of this state (<code class="language-plaintext highlighter-rouge">project_transport_state</code>); the surfaces are then built on its profile, and a reduced projection adds <code class="language-plaintext highlighter-rouge">species_projection_&lt;method&gt;</code> to <code class="language-plaintext highlighter-rouge">conditions</code>.  Default: the state’s own species list, unchanged.</p>
+</td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
@@ -661,13 +702,22 @@ report nothing missing.</li>
   </tbody>
 </table></div>
 
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A projection of another state, for another physics, or by a method TGLF does not accept.
+</li>
+</ul>
+</div>
+
     <details class="ref-more">
       <summary>Processing steps · Applicability</summary>
 
       <h4 class="ref-label no_toc">Processing steps</h4>
 
       <ol>
-        <li>An unresolved state is <code class="language-plaintext highlighter-rouge">insufficient</code> and no surface is built.</li>
+        <li>An unresolved state is <code class="language-plaintext highlighter-rouge">insufficient</code> and no surface is built; a projection
+is checked against the state and the solver.</li>
         <li>Each surface is projected with <code class="language-plaintext highlighter-rouge">prepare_tglf_input</code>; its documented refusal
 becomes a reason code, then <code class="language-plaintext highlighter-rouge">check_tglf_requirements</code> and finite gradients
 are required.</li>
@@ -686,7 +736,7 @@ are required.</li>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#classical_heat_fluxes"><code>classical_heat_fluxes</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="classical_heat_fluxes" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/transport_state.py#L1439-L1554" title="vaft/process/transport_state.py, lines 1439–1554 at 865b003">source</a>
+<a class="ref-source" data-source="classical_heat_fluxes" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L1787-L1902" title="vaft/process/transport_state.py, lines 1787–1902 at 4cf7def">source</a>
 </header>
     <pre class="ref-signature"><code>classical_heat_fluxes(local, b_tesla)</code></pre>
 
@@ -754,11 +804,11 @@ listed in #1453.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#inferred_ti_supported"><code>inferred_ti_supported</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="inferred_ti_supported" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/transport_state.py#L473-L530" title="vaft/process/transport_state.py, lines 473–530 at 865b003">source</a>
+<a class="ref-source" data-source="inferred_ti_supported" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L482-L539" title="vaft/process/transport_state.py, lines 482–539 at 4cf7def">source</a>
 </header>
     <pre class="ref-signature"><code>inferred_ti_supported(state, r_over_a, *, solver=&#39;tglf&#39;, local=None)</code></pre>
 
-    <details class="ref-code" data-source-code="inferred_ti_supported"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 473–530</span></summary>
+    <details class="ref-code" data-source-code="inferred_ti_supported"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 482–539</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">inferred_ti_supported</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="sh">"</span><span class="s">ResolvedTransportState</span><span class="sh">"</span><span class="p">,</span> <span class="n">r_over_a</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span>
                           <span class="n">solver</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="sh">"</span><span class="s">tglf</span><span class="sh">"</span><span class="p">,</span> <span class="n">local</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
@@ -870,11 +920,11 @@ input uses a not-a-knot spline; NEO (PROFILE_MODEL=2, <code class="language-plai
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#physics_parameters"><code>physics_parameters</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="physics_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/transport_state.py#L1179-L1211" title="vaft/process/transport_state.py, lines 1179–1211 at 865b003">source</a>
+<a class="ref-source" data-source="physics_parameters" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L1527-L1559" title="vaft/process/transport_state.py, lines 1527–1559 at 4cf7def">source</a>
 </header>
     <pre class="ref-signature"><code>physics_parameters(config, *, exclude=())</code></pre>
 
-    <details class="ref-code" data-source-code="physics_parameters"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1179–1211</span></summary>
+    <details class="ref-code" data-source-code="physics_parameters"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1527–1559</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">physics_parameters</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">exclude</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">())</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
     <span class="sh">"""</span><span class="s">The physics half of a GACODE config, with runtime-only fields dropped.
@@ -944,11 +994,155 @@ out of identity.</p>
 
   </section>
 
+  <section class="ref-entry" id="project_transport_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#project_transport_state"><code>project_transport_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
+<a class="ref-source" data-source="project_transport_state" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L1370-L1436" title="vaft/process/transport_state.py, lines 1370–1436 at 4cf7def">source</a>
+</header>
+    <pre class="ref-signature"><code>project_transport_state(state, target_physics, method=None)</code></pre>
+
+    <details class="ref-code" data-source-code="project_transport_state"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1370–1436</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">project_transport_state</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span> <span class="n">target_physics</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+                            <span class="n">method</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TransportProjection</span><span class="p">:</span>
+    <span class="sh">"""</span><span class="s">One physics projection of a resolved state</span><span class="sh">'</span><span class="s">s species, with the profile its solver reads.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        A resolved state [-].
+    target_physics : str
+        A target of :data:`vaft.process.species.PROJECTION_POLICY`, e.g.
+        ``</span><span class="sh">"</span><span class="s">turbulence</span><span class="sh">"</span><span class="s">`` (TGLF), ``</span><span class="sh">"</span><span class="s">neoclassical</span><span class="sh">"</span><span class="s">`` (NEO), ``</span><span class="sh">"</span><span class="s">resistive</span><span class="sh">"</span><span class="s">`` [-].
+    method : str, optional
+        A method the target allows (``</span><span class="sh">"</span><span class="s">explicit</span><span class="sh">"</span><span class="s">``, ``</span><span class="sh">"</span><span class="s">effective_impurity</span><span class="sh">"</span><span class="s">``, ...);
+        default the target</span><span class="sh">'</span><span class="s">s own [-].
+
+    Returns
+    -------
+    TransportProjection
+        The species contract, ``canonical_state_id`` (the state</span><span class="sh">'</span><span class="s">s identity) and
+        ``species_state_id``, and the projected profile for an ``explicit`` or
+        ``effective_impurity`` method (``None`` for ``moments_only``) [any].
+
+    Raises
+    ------
+    ValueError
+        An unresolved state; a target or method the species policy refuses (an
+        effective impurity for NEO); an effective impurity whose charge or mass
+        varies with radius, which one GACODE species cannot carry.
+
+    Processing steps
+    ----------------
+    1. :func:`transport_species_state` from the resolved profile.
+    2. :func:`vaft.process.species.project_species_state` on that state.
+    3. ``explicit``: the state</span><span class="sh">'</span><span class="s">s own profile, unchanged; ``effective_impurity``:
+       the profile with the thermal impurities replaced by one pseudo-ion
+       (charge, mass constant over the grid; temperature density-weighted);
+       the inferred-Ti probe, if any, gets the same replacement.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The effective impurity keeps the charge density and the Z^2 moment at every
+    point, not the impurity thermal pressure: its density
+    ``(sum n Z)^2 / sum n Z^2`` is below ``sum n``, so the impurity ``n T`` (and
+    a gyrokinetic ``p</span><span class="sh">'</span><span class="s">``) is slightly lower than the explicit species give;
+    ``ptot`` is left as the state carries it.
+
+    Provenance
+    ----------
+    .. [issue] #1567 Sec. 6-7 and Phase C; policy from #1709.
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.process.species</span> <span class="kn">import</span> <span class="n">project_species_state</span>
+
+    <span class="n">species_state</span> <span class="o">=</span> <span class="nf">transport_species_state</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+    <span class="n">projection</span> <span class="o">=</span> <span class="nf">project_species_state</span><span class="p">(</span><span class="n">species_state</span><span class="p">,</span> <span class="n">target_physics</span><span class="p">,</span> <span class="n">method</span><span class="p">)</span>
+    <span class="n">profile</span> <span class="o">=</span> <span class="n">probe</span> <span class="o">=</span> <span class="bp">None</span>
+    <span class="k">if</span> <span class="n">projection</span><span class="p">.</span><span class="n">method</span> <span class="o">==</span> <span class="sh">"</span><span class="s">explicit</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">profile</span><span class="p">,</span> <span class="n">probe</span> <span class="o">=</span> <span class="n">state</span><span class="p">.</span><span class="n">profile</span><span class="p">,</span> <span class="n">state</span><span class="p">.</span><span class="n">fill_probe</span>
+    <span class="k">elif</span> <span class="n">projection</span><span class="p">.</span><span class="n">method</span> <span class="o">==</span> <span class="sh">"</span><span class="s">effective_impurity</span><span class="sh">"</span><span class="p">:</span>
+        <span class="n">profile</span> <span class="o">=</span> <span class="nf">_species_profile</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">profile</span><span class="p">,</span> <span class="n">species_state</span><span class="p">,</span> <span class="n">projection</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">state</span><span class="p">.</span><span class="n">fill_probe</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">probe</span> <span class="o">=</span> <span class="nf">_species_profile</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">fill_probe</span><span class="p">,</span> <span class="n">species_state</span><span class="p">,</span> <span class="n">projection</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nc">TransportProjection</span><span class="p">(</span><span class="n">canonical_state_id</span><span class="o">=</span><span class="n">state</span><span class="p">.</span><span class="n">identity</span><span class="p">,</span> <span class="n">species_state_id</span><span class="o">=</span><span class="n">species_state</span><span class="p">.</span><span class="n">state_id</span><span class="p">,</span>
+                               <span class="n">projection</span><span class="o">=</span><span class="n">projection</span><span class="p">,</span> <span class="n">profile</span><span class="o">=</span><span class="n">profile</span><span class="p">,</span> <span class="n">fill_probe</span><span class="o">=</span><span class="n">probe</span><span class="p">)</span></code></pre></figure>
+
+</details>
+
+    <p>One physics projection of a resolved state’s species, with the profile its solver reads.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">ResolvedTransportState</td><td class="ref-unit">-</td><td><p>A resolved state.</p>
+</td></tr>
+  <tr><td><code>target_physics</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>A target of <code class="language-plaintext highlighter-rouge">vaft.process.species.PROJECTION_POLICY</code>, e.g. <code class="language-plaintext highlighter-rouge">"turbulence"</code> (TGLF), <code class="language-plaintext highlighter-rouge">"neoclassical"</code> (NEO), <code class="language-plaintext highlighter-rouge">"resistive"</code>.</p>
+</td></tr>
+  <tr><td><code>method</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>A method the target allows (<code class="language-plaintext highlighter-rouge">"explicit"</code>, <code class="language-plaintext highlighter-rouge">"effective_impurity"</code>, …); default the target’s own.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">TransportProjection</td><td class="ref-unit">any</td><td><p>The species contract, <code class="language-plaintext highlighter-rouge">canonical_state_id</code> (the state’s identity) and <code class="language-plaintext highlighter-rouge">species_state_id</code>, and the projected profile for an <code class="language-plaintext highlighter-rouge">explicit</code> or <code class="language-plaintext highlighter-rouge">effective_impurity</code> method (<code class="language-plaintext highlighter-rouge">None</code> for <code class="language-plaintext highlighter-rouge">moments_only</code>).</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An unresolved state; a target or method the species policy refuses (an effective impurity for NEO); an effective impurity whose charge or mass varies with radius, which one GACODE species cannot carry.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li><code class="language-plaintext highlighter-rouge">transport_species_state</code> from the resolved profile.</li>
+        <li><code class="language-plaintext highlighter-rouge">vaft.process.species.project_species_state</code> on that state.</li>
+        <li><code class="language-plaintext highlighter-rouge">explicit</code>: the state’s own profile, unchanged; <code class="language-plaintext highlighter-rouge">effective_impurity</code>:
+the profile with the thermal impurities replaced by one pseudo-ion
+(charge, mass constant over the grid; temperature density-weighted);
+the inferred-Ti probe, if any, gets the same replacement.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The effective impurity keeps the charge density and the Z^2 moment at every
+point, not the impurity thermal pressure: its density
+<code class="language-plaintext highlighter-rouge">(sum n Z)^2 / sum n Z^2</code> is below <code class="language-plaintext highlighter-rouge">sum n</code>, so the impurity <code class="language-plaintext highlighter-rouge">n T</code> (and
+a gyrokinetic <code class="language-plaintext highlighter-rouge">p'</code>) is slightly lower than the explicit species give;
+<code class="language-plaintext highlighter-rouge">ptot</code> is left as the state carries it.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1567 Sec. 6-7 and Phase C; policy from #1709.
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
   <section class="ref-entry" id="resolve_transport_state" data-catalog="process">
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#resolve_transport_state"><code>resolve_transport_state</code></a></h3>
 <span class="ref-flags"><span class="ref-flag ref-flag-vest">VEST-specific</span></span>
-<a class="ref-source" data-source="resolve_transport_state" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/transport_state.py#L563-L990" title="vaft/process/transport_state.py, lines 563–990 at 865b003">source</a>
+<a class="ref-source" data-source="resolve_transport_state" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L572-L999" title="vaft/process/transport_state.py, lines 572–999 at 4cf7def">source</a>
 </header>
     <pre class="ref-signature"><code>resolve_transport_state(ods, key, *, efit_quality, quality_source=&#39;criteria&#39;, tolerance=0.0005, ti_te_ratio=&#39;policy&#39;, ti_te_ratio_sigma=None, inferred_ti=None, use_stored_inferred_ti=False, z_eff=2.0, impurity=&#39;C&#39;, rho_max=0.95, inputs=None)</code></pre>
 
@@ -1046,11 +1240,11 @@ stage products are the data it was built against.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#run_identity"><code>run_identity</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="run_identity" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/transport_state.py#L1137-L1176" title="vaft/process/transport_state.py, lines 1137–1176 at 865b003">source</a>
+<a class="ref-source" data-source="run_identity" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L1467-L1524" title="vaft/process/transport_state.py, lines 1467–1524 at 4cf7def">source</a>
 </header>
-    <pre class="ref-signature"><code>run_identity(state, *, solver, parameters, surface=None, solver_revision=None)</code></pre>
+    <pre class="ref-signature"><code>run_identity(state, *, solver, parameters, surface=None, solver_revision=None, projection=None)</code></pre>
 
-    <details class="ref-code" data-source-code="run_identity"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1137–1176</span></summary>
+    <details class="ref-code" data-source-code="run_identity"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1467–1524</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">run_identity</span><span class="p">(</span>
     <span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">,</span>
@@ -1059,6 +1253,7 @@ stage products are the data it was built against.</p>
     <span class="n">parameters</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
     <span class="n">surface</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
     <span class="n">solver_revision</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
+    <span class="n">projection</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="sh">"</span><span class="s">TransportProjection</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="bp">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">Deterministic identity of one solver calculation on one resolved state.
 
@@ -1075,23 +1270,40 @@ stage products are the data it was built against.</p>
         r/a of a local calculation [-].
     solver_revision : str, optional
         The GACODE revision the run used or will use [-].
+    projection : TransportProjection, optional
+        The species projection the run used (#1567).  A reduced projection</span><span class="sh">'</span><span class="s">s
+        ``projection_id`` is folded in, so an effective-impurity run differs from
+        the explicit one; an explicit projection is the state</span><span class="sh">'</span><span class="s">s own species list
+        and gives the identity this function always gave [-].
 
     Returns
     -------
     str
         sha256 hex digest; equal inputs give equal identities, which is the cache key [-].
 
+    Raises
+    ------
+    ValueError
+        A projection of another state.
+
     Applicability
     -------------
     Machine-independent.
     </span><span class="sh">"""</span>
-    <span class="k">return</span> <span class="nf">_digest</span><span class="p">({</span>
+    <span class="n">payload</span> <span class="o">=</span> <span class="p">{</span>
         <span class="sh">"</span><span class="s">state</span><span class="sh">"</span><span class="p">:</span> <span class="n">state</span><span class="p">.</span><span class="n">identity</span><span class="p">,</span>
         <span class="sh">"</span><span class="s">solver</span><span class="sh">"</span><span class="p">:</span> <span class="n">solver</span><span class="p">,</span>
         <span class="sh">"</span><span class="s">parameters</span><span class="sh">"</span><span class="p">:</span> <span class="nf">dict</span><span class="p">(</span><span class="n">parameters</span><span class="p">),</span>
         <span class="sh">"</span><span class="s">surface</span><span class="sh">"</span><span class="p">:</span> <span class="bp">None</span> <span class="k">if</span> <span class="n">surface</span> <span class="ow">is</span> <span class="bp">None</span> <span class="k">else</span> <span class="nf">round</span><span class="p">(</span><span class="nf">float</span><span class="p">(</span><span class="n">surface</span><span class="p">),</span> <span class="mi">6</span><span class="p">),</span>
         <span class="sh">"</span><span class="s">solver_revision</span><span class="sh">"</span><span class="p">:</span> <span class="n">solver_revision</span><span class="p">,</span>
-    <span class="p">})</span></code></pre></figure>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="n">projection</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">projection</span><span class="p">.</span><span class="n">canonical_state_id</span> <span class="o">!=</span> <span class="n">state</span><span class="p">.</span><span class="n">identity</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">the projection was made from another transport state</span><span class="sh">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">projection</span><span class="p">.</span><span class="n">method</span> <span class="o">!=</span> <span class="sh">"</span><span class="s">explicit</span><span class="sh">"</span><span class="p">:</span>
+            <span class="c1"># an explicit projection is the state's own species list: same run, same key
+</span>            <span class="n">payload</span><span class="p">[</span><span class="sh">"</span><span class="s">species_projection</span><span class="sh">"</span><span class="p">]</span> <span class="o">=</span> <span class="n">projection</span><span class="p">.</span><span class="n">projection_id</span>
+    <span class="k">return</span> <span class="nf">_digest</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span></code></pre></figure>
 
 </details>
 
@@ -1110,6 +1322,8 @@ stage products are the data it was built against.</p>
 </td></tr>
   <tr><td><code>solver_revision</code></td><td class="ref-type">str, optional</td><td class="ref-unit">-</td><td><p>The GACODE revision the run used or will use.</p>
 </td></tr>
+  <tr><td><code>projection</code></td><td class="ref-type">TransportProjection, optional</td><td class="ref-unit">-</td><td><p>The species projection the run used (#1567).  A reduced projection’s <code class="language-plaintext highlighter-rouge">projection_id</code> is folded in, so an effective-impurity run differs from the explicit one; an explicit projection is the state’s own species list and gives the identity this function always gave.</p>
+</td></tr>
   </tbody>
   <tbody class="ref-returns">
   <tr class="ref-group"><th colspan="4">Returns</th></tr>
@@ -1117,6 +1331,14 @@ stage products are the data it was built against.</p>
 </td></tr>
   </tbody>
 </table></div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> A projection of another state.
+</li>
+</ul>
+</div>
 
     <details class="ref-more">
       <summary>Applicability</summary>
@@ -1133,11 +1355,11 @@ stage products are the data it was built against.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#surface_toroidal_field"><code>surface_toroidal_field</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="surface_toroidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/transport_state.py#L1408-L1436" title="vaft/process/transport_state.py, lines 1408–1436 at 865b003">source</a>
+<a class="ref-source" data-source="surface_toroidal_field" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L1756-L1784" title="vaft/process/transport_state.py, lines 1756–1784 at 4cf7def">source</a>
 </header>
     <pre class="ref-signature"><code>surface_toroidal_field(profile, local)</code></pre>
 
-    <details class="ref-code" data-source-code="surface_toroidal_field"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1408–1436</span></summary>
+    <details class="ref-code" data-source-code="surface_toroidal_field"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1756–1784</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">surface_toroidal_field</span><span class="p">(</span><span class="n">profile</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">local</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
     <span class="sh">"""</span><span class="s">The toroidal field at a surface</span><span class="sh">'</span><span class="s">s centre, ``|B_centr| R_centr / R``.
@@ -1213,11 +1435,11 @@ field a gyro-orbit sees, so the classical baseline does not use it.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#transport_partition"><code>transport_partition</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="transport_partition" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/transport_state.py#L1252-L1331" title="vaft/process/transport_state.py, lines 1252–1331 at 865b003">source</a>
+<a class="ref-source" data-source="transport_partition" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L1600-L1679" title="vaft/process/transport_state.py, lines 1600–1679 at 4cf7def">source</a>
 </header>
     <pre class="ref-signature"><code>transport_partition(neoclassical, turbulent, *, turbulent_charges=None, classical=None, rho_tolerance=0.001)</code></pre>
 
-    <details class="ref-code" data-source-code="transport_partition"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1252–1331</span></summary>
+    <details class="ref-code" data-source-code="transport_partition"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1600–1679</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">transport_partition</span><span class="p">(</span>
     <span class="n">neoclassical</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
@@ -1345,6 +1567,142 @@ field a gyro-orbit sees, so the classical baseline does not use it.</p>
       <h4 class="ref-label no_toc">Applicability</h4>
 
       <p>Machine-independent. Callers join only rows with one <code class="language-plaintext highlighter-rouge">state_identity</code>.</p>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="transport_species_state" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#transport_species_state"><code>transport_species_state</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="transport_species_state" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/transport_state.py#L1238-L1307" title="vaft/process/transport_state.py, lines 1238–1307 at 4cf7def">source</a>
+</header>
+    <pre class="ref-signature"><code>transport_species_state(state)</code></pre>
+
+    <details class="ref-code" data-source-code="transport_species_state"><summary>Show source <span class="ref-note">vaft/process/transport_state.py, lines 1238–1307</span></summary>
+
+<figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">transport_species_state</span><span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="n">ResolvedTransportState</span><span class="p">):</span>
+    <span class="sh">"""</span><span class="s">The canonical species state of a resolved transport state: the species its solvers read.
+
+    Parameters
+    ----------
+    state : ResolvedTransportState
+        A resolved state from :func:`resolve_transport_state` [-].
+
+    Returns
+    -------
+    vaft.process.species.CanonicalSpeciesState
+        One component per species of ``state.profile`` (element and mass, charge,
+        population from the GACODE type, density [m^-3] and temperature [eV] on the
+        profile</span><span class="sh">'</span><span class="s">s ``rho``), with ``n_e`` and the state time [any].
+
+    Raises
+    ------
+    ValueError
+        An unresolved state, a profile that is itself a projection, or a species
+        whose label and mass match no element.
+
+    Convention
+    ----------
+    A species the converter lumped from a bundled ion (``provenance[</span><span class="sh">"</span><span class="s">ni</span><span class="sh">"</span><span class="s">]
+    [</span><span class="sh">"</span><span class="s">bundled_ions</span><span class="sh">"</span><span class="s">]``) or with a non-integer charge is a bundled component.  The
+    element comes from the label only where its standard weight lies within 1 u
+    of the stored mass and its Z_n bounds the charge, else from the mass.  The
+    density origin is ``assumed`` for a policy composition closure and
+    ``unlabelled`` otherwise; the state</span><span class="sh">'</span><span class="s">s own record says which.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [issue] #1567 Phase C (transport-state integration).
+    </span><span class="sh">"""</span>
+    <span class="kn">from</span> <span class="n">vaft.process.species</span> <span class="kn">import</span> <span class="n">CanonicalSpeciesState</span><span class="p">,</span> <span class="n">SpeciesComponent</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">state</span><span class="p">.</span><span class="n">resolved</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="sh">"</span><span class="s">the transport state is not resolved (</span><span class="si">{</span><span class="sh">'</span><span class="s">, </span><span class="sh">'</span><span class="p">.</span><span class="nf">join</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">reasons</span><span class="p">)</span><span class="si">}</span><span class="s">)</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">profile</span> <span class="o">=</span> <span class="n">state</span><span class="p">.</span><span class="n">profile</span>
+    <span class="k">if</span> <span class="sh">"</span><span class="s">species_projection</span><span class="sh">"</span> <span class="ow">in</span> <span class="p">(</span><span class="nf">getattr</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="sh">"</span><span class="s">provenance</span><span class="sh">"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}):</span>
+        <span class="k">raise</span> <span class="nc">ValueError</span><span class="p">(</span><span class="sh">"</span><span class="s">this profile is already a species projection; take the canonical state </span><span class="sh">"</span>
+                         <span class="sh">"</span><span class="s">from the resolved state it was projected from</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">ni</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="n">ni</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="n">ti</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_2d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="n">ti</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="n">charges</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="n">z</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="n">masses</span> <span class="o">=</span> <span class="n">np</span><span class="p">.</span><span class="nf">atleast_1d</span><span class="p">(</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="n">mass</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">))</span>
+    <span class="n">names</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="n">name</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[</span><span class="sa">f</span><span class="sh">"</span><span class="s">ion</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="sh">"</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="n">charges</span><span class="p">.</span><span class="n">size</span><span class="p">)]</span>
+    <span class="n">kinds</span> <span class="o">=</span> <span class="nf">list</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="nb">type</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[</span><span class="sh">"</span><span class="s">[therm]</span><span class="sh">"</span><span class="p">]</span> <span class="o">*</span> <span class="n">charges</span><span class="p">.</span><span class="n">size</span>
+    <span class="n">record</span> <span class="o">=</span> <span class="nf">dict</span><span class="p">(</span><span class="nf">getattr</span><span class="p">(</span><span class="n">profile</span><span class="p">,</span> <span class="sh">"</span><span class="s">provenance</span><span class="sh">"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{}).</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">ni</span><span class="sh">"</span><span class="p">,</span> <span class="p">{})</span>
+    <span class="n">bundled</span> <span class="o">=</span> <span class="nf">set</span><span class="p">((</span><span class="n">record</span> <span class="ow">or</span> <span class="p">{}).</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">bundled_ions</span><span class="sh">"</span><span class="p">,</span> <span class="p">{})</span> <span class="ow">or</span> <span class="p">{})</span>
+    <span class="n">origin</span> <span class="o">=</span> <span class="sh">"</span><span class="s">assumed</span><span class="sh">"</span> <span class="k">if</span> <span class="n">state</span><span class="p">.</span><span class="n">composition</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="sh">"</span><span class="s">origin</span><span class="sh">"</span><span class="p">)</span> <span class="o">==</span> <span class="sh">"</span><span class="s">policy_assumption</span><span class="sh">"</span> <span class="k">else</span> <span class="sh">"</span><span class="s">unlabelled</span><span class="sh">"</span>
+    <span class="n">components</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nf">enumerate</span><span class="p">(</span><span class="n">names</span><span class="p">):</span>
+        <span class="n">charge</span> <span class="o">=</span> <span class="nf">float</span><span class="p">(</span><span class="n">charges</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
+        <span class="n">nuclide</span><span class="p">,</span> <span class="n">mass</span> <span class="o">=</span> <span class="nf">_profile_nuclide</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="n">charge</span><span class="p">,</span> <span class="nf">float</span><span class="p">(</span><span class="n">masses</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span>
+        <span class="n">is_bundled</span> <span class="o">=</span> <span class="n">label</span> <span class="ow">in</span> <span class="n">bundled</span> <span class="ow">or</span> <span class="nf">abs</span><span class="p">(</span><span class="n">charge</span> <span class="o">-</span> <span class="nf">round</span><span class="p">(</span><span class="n">charge</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mf">1e-9</span>
+        <span class="n">components</span><span class="p">.</span><span class="nf">append</span><span class="p">(</span><span class="nc">SpeciesComponent</span><span class="p">(</span>
+            <span class="n">nuclide</span><span class="p">,</span> <span class="n">charge</span><span class="p">,</span> <span class="n">_POPULATION_OF_TYPE</span><span class="p">.</span><span class="nf">get</span><span class="p">(</span><span class="nf">str</span><span class="p">(</span><span class="n">kinds</span><span class="p">[</span><span class="n">k</span><span class="p">]).</span><span class="nf">strip</span><span class="p">(),</span> <span class="sh">"</span><span class="s">other</span><span class="sh">"</span><span class="p">),</span>
+            <span class="n">ni</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">*</span> <span class="n">_DENSITY_SCALE</span><span class="p">,</span> <span class="n">mass</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="n">ti</span><span class="p">[</span><span class="nf">min</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">ti</span><span class="p">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)]</span> <span class="o">*</span> <span class="n">_TEMPERATURE_SCALE</span><span class="p">,</span>
+            <span class="n">bundled</span><span class="o">=</span><span class="n">is_bundled</span><span class="p">,</span> <span class="n">origin</span><span class="o">=</span><span class="n">origin</span><span class="p">,</span>
+            <span class="n">source</span><span class="o">=</span><span class="sa">f</span><span class="sh">"</span><span class="s">transport state </span><span class="si">{</span><span class="n">state</span><span class="p">.</span><span class="n">identity</span><span class="p">[</span><span class="si">:</span><span class="mi">12</span><span class="p">]</span><span class="si">}</span><span class="s">, GACODE species </span><span class="si">{</span><span class="n">label</span><span class="si">}</span><span class="sh">"</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nc">CanonicalSpeciesState</span><span class="p">(</span>
+        <span class="nf">tuple</span><span class="p">(</span><span class="n">components</span><span class="p">),</span> <span class="n">rho</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="n">rho</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+        <span class="n">n_e</span><span class="o">=</span><span class="n">np</span><span class="p">.</span><span class="nf">asarray</span><span class="p">(</span><span class="n">profile</span><span class="p">.</span><span class="n">ne</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">*</span> <span class="n">_DENSITY_SCALE</span><span class="p">,</span> <span class="n">time</span><span class="o">=</span><span class="nf">float</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">key</span><span class="p">.</span><span class="n">time_efit_s</span><span class="p">),</span>
+        <span class="n">provenance</span><span class="o">=</span><span class="p">{</span><span class="sh">"</span><span class="s">source</span><span class="sh">"</span><span class="p">:</span> <span class="sh">"</span><span class="s">resolved transport state profile</span><span class="sh">"</span><span class="p">,</span> <span class="sh">"</span><span class="s">state_identity</span><span class="sh">"</span><span class="p">:</span> <span class="n">state</span><span class="p">.</span><span class="n">identity</span><span class="p">,</span>
+                    <span class="sh">"</span><span class="s">composition</span><span class="sh">"</span><span class="p">:</span> <span class="nf">dict</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">composition</span><span class="p">)})</span></code></pre></figure>
+
+</details>
+
+    <p>The canonical species state of a resolved transport state: the species its solvers read.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>state</code></td><td class="ref-type">ResolvedTransportState</td><td class="ref-unit">-</td><td><p>A resolved state from <code class="language-plaintext highlighter-rouge">resolve_transport_state</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">vaft.process.species.CanonicalSpeciesState</td><td class="ref-unit">any</td><td><p>One component per species of <code class="language-plaintext highlighter-rouge">state.profile</code> (element and mass, charge, population from the GACODE type, density [m^-3] and temperature [eV] on the profile’s <code class="language-plaintext highlighter-rouge">rho</code>), with <code class="language-plaintext highlighter-rouge">n_e</code> and the state time.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>A species the converter lumped from a bundled ion (<code class="language-plaintext highlighter-rouge">provenance["ni"]
+["bundled_ions"]</code>) or with a non-integer charge is a bundled component.  The
+element comes from the label only where its standard weight lies within 1 u
+of the stored mass and its Z_n bounds the charge, else from the mass.  The
+density origin is <code class="language-plaintext highlighter-rouge">assumed</code> for a policy composition closure and
+<code class="language-plaintext highlighter-rouge">unlabelled</code> otherwise; the state’s own record says which.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>ValueError</code> An unresolved state, a profile that is itself a projection, or a species whose label and mass match no element.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Applicability · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1567 Phase C (transport-state integration).
+</li>
+</ol>
 
     </details>
 
@@ -1570,7 +1928,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 13:44:03 +0000"
+        "time": "2026-10-11 16:47:34 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

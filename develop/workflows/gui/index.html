@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>865b003</code>. What is described
+  <code>4cf7def</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -712,6 +712,33 @@ need internet access; the server does not.</p>
 <p>Hosted, one process holds every reader’s session, and each session keeps the IDS it has read in
 memory until its tab closes. <code class="language-plaintext highlighter-rouge">MemoryMax</code> in the unit bounds the whole service.</p>
 
+<h3 id="sessions">Sessions</h3>
+
+<p>Every browser tab is its own session on the server.</p>
+
+<ul>
+  <li><strong>Isolation.</strong> A session has its own shell, workspaces, loaded data, selection, time slice and
+uploads. What one reader opens or changes is never visible to another. Sessions share
+code, the list of workspaces and the server process’s settings. One known leak of the
+latter: the Database workspace’s <strong>Test connection</strong> changes the process-wide logging
+level.</li>
+  <li><strong>Clean-up.</strong> When a tab is closed, the server discards its session once Bokeh’s
+unused-session lifetime has passed: 15 s, checked every 17 s, so within about half a minute.
+Discarding a session closes its shell, which releases its figures, loaded data and uploaded
+files.</li>
+  <li><strong>Not limited yet.</strong>
+    <ul>
+      <li>A tab left open keeps its session, and its data, until it is closed.</li>
+      <li>There is no idle timeout, per-session memory cap or concurrency limit.</li>
+      <li>These limits will be set from measurements on the hosted test instance (#1862, #1863), not
+guessed in advance.</li>
+    </ul>
+  </li>
+  <li><strong>Shared data account.</strong> With <code class="language-plaintext highlighter-rouge">--auth hsds</code>, sign-in only decides who may open the page. Every
+session reads data with the service’s own HSDS credentials, so the GUI does not apply each
+user’s HSDS permissions.</li>
+</ul>
+
 <h2 id="what-comes-next">What comes next</h2>
 
 <p>The browser application is Track A of the GUI roadmap (#1359). A fuller plot explorer follows,
@@ -836,7 +863,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#adding-a-workspace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Adding a workspace</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#phones-and-tablets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Phones and tablets</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#host-it-for-a-team" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Host it for a team</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#install" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Install</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-locally" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run locally</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#adding-a-workspace" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Adding a workspace</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#phones-and-tablets" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Phones and tablets</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-remote-host-over-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a remote host over SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-in-vs-code-remote-ssh" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run in VS Code Remote-SSH</a></li><li class="page-toc-item page-toc-level-2"><a href="#run-on-a-cluster-node" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Run on a cluster node</a></li><li class="page-toc-item page-toc-level-2"><a href="#access" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Access</a></li><li class="page-toc-item page-toc-level-2"><a href="#host-it-for-a-team" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Host it for a team</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#sessions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Sessions</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#what-comes-next" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What comes next</a></li></ul>
     </nav>
 </aside>
 
@@ -954,7 +981,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 13:44:03 +0000"
+        "time": "2026-10-11 16:47:34 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

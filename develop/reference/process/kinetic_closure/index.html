@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>865b003</code>. What is described
+  <code>4cf7def</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -474,7 +474,7 @@ the fast-ion inputs are in <code class="language-plaintext highlighter-rouge">pr
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assemble_pressure"><code>assemble_pressure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="assemble_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/kinetic_closure.py#L121-L194" title="vaft/process/kinetic_closure.py, lines 121–194 at 865b003">source</a>
+<a class="ref-source" data-source="assemble_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/kinetic_closure.py#L121-L194" title="vaft/process/kinetic_closure.py, lines 121–194 at 4cf7def">source</a>
 </header>
     <pre class="ref-signature"><code>assemble_pressure(n_e, T_e, ion_densities, ion_temperatures, *, p_fast=None, provenance=None)</code></pre>
 
@@ -621,7 +621,7 @@ and <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fast_ion_slowing_down_estimate"><code>fast_ion_slowing_down_estimate</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="fast_ion_slowing_down_estimate" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/kinetic_closure.py#L197-L328" title="vaft/process/kinetic_closure.py, lines 197–328 at 865b003">source</a>
+<a class="ref-source" data-source="fast_ion_slowing_down_estimate" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/kinetic_closure.py#L197-L334" title="vaft/process/kinetic_closure.py, lines 197–334 at 4cf7def">source</a>
 </header>
     <pre class="ref-signature"><code>fast_ion_slowing_down_estimate(n_e, T_e, field_ions, source_rate, beam_energy_eV, *, A_b, Z_b=1.0, ln_Lambda=None, time=None, rho=None)</code></pre>
 
@@ -693,7 +693,13 @@ fitted profile) have no defined drag and are returned as NaN.</p>
 
       <p>A baseline, not NUBEAM: orbit losses, anisotropy and charge exchange –
 large in a small device like VEST – are absent, so it bounds the fast
-pressure from above where those losses matter.</p>
+pressure from above where those losses matter.  On the packaged VEST
+NUBEAM case (10 keV H, 200 kW), given NUBEAM’s own birth rate and
+plasma, it gives 1.32x NUBEAM’s fast-ion number and 1.26x its energy;
+NUBEAM loses 13 % of the deposited power to bad orbits and CX, and
+with that removed the totals agree to 10-15 % (1.14x, 1.10x).  Radial
+profiles differ more, most at the edge, where orbit losses concentrate
+(<code class="language-plaintext highlighter-rouge">test/test_kinetic_closure_nubeam.py</code>).</p>
 
       <h4 class="ref-label no_toc">Provenance</h4>
 
@@ -712,7 +718,7 @@ pressure from above where those losses matter.</p>
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#infer_kinetic_closure"><code>infer_kinetic_closure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="infer_kinetic_closure" href="https://github.com/VEST-Tokamak/vaft/blob/865b0032c6d25611e1340648841e2e5e3c68cf4f/vaft/process/kinetic_closure.py#L359-L571" title="vaft/process/kinetic_closure.py, lines 359–571 at 865b003">source</a>
+<a class="ref-source" data-source="infer_kinetic_closure" href="https://github.com/VEST-Tokamak/vaft/blob/4cf7defdd7f693e02ac9e6d7aa89288378746181/vaft/process/kinetic_closure.py#L365-L577" title="vaft/process/kinetic_closure.py, lines 365–577 at 4cf7def">source</a>
 </header>
     <pre class="ref-signature"><code>infer_kinetic_closure(ods, *, time=None, tolerance=0.0005, dilution=&#39;species&#39;, composition=None, machine_preset=None, shot=None, ti_te_ratio=None, ti_record=None, use_stored_inferred_ti=False, fast_ion=None)</code></pre>
 
@@ -1042,7 +1048,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 13:44:03 +0000"
+        "time": "2026-10-11 16:47:34 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
