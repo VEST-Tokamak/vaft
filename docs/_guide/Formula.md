@@ -361,6 +361,15 @@ elongation $\kappa_a = V/(2\pi R\,\pi a^2)$ and their power the thermal loss pow
 radiation not subtracted. The paper's ITER point (15 MA, 5.3 T, $10.3\times10^{19}$ m⁻³, 87 MW, 6.2 m,
 $\delta = 0.48$, $\kappa_a = 1.7$, $\epsilon = 0.32$, $M = 2.5$) gives 3.08 s (ITPA20) and 2.89 s (ITPA20-IL)
 with the printed coefficients, against the paper's 3.07 s and 2.90 s from the unrounded fits.
+ITPA20-IL was fitted on the paper's ITER-like subset (Sec. 2.1: eight conventional tokamaks, $q_{95} > 2.8$,
+$1.3 < \kappa < 2.2$, $\epsilon < 0.5$, $Z_{eff} < 5$), so it is an ITER extrapolation tool, not a fit for a
+spherical tokamak.
+
+On the ODS path, `vaft.omas.formula_wrapper.compute_tau_E_scaling` takes $\delta$ from
+`equilibrium.time_slice[i].boundary`: the mean of `triangularity_upper` and `triangularity_lower` when both
+exist, else `triangularity`. Without either, an ITPA20 scaling does not raise there: the slice gets `NaN` and a
+warning that names the missing triangularity, as the wrapper does for every input it cannot map. That wrapper
+passes `boundary.elongation` (b/a) as `kappa` for every scaling, not $\kappa_a$.
 
 The two NSTX entries omit `R`, `epsilon`, `kappa` and `Mi` on purpose: only the dependencies the paper
 publishes are implemented, and unspecified ones are not assumed. The signature is the same for every

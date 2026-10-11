@@ -186,7 +186,7 @@ def h_factor(
 
     Notes
     -----
-    A thermal scaling (IPB98(y,2), ITER97-L, NSTX 2006 H) is compared with
+    A thermal scaling (IPB98(y,2), ITPA20, ITPA20-IL, ITER97-L, NSTX 2006 H) is compared with
     ``tau_e_th_s``, a global one (ITER89-P, NSTX 2006 L) with
     ``tau_e_global_s`` (#1713): the basis comes from
     :func:`vaft.formula.equilibrium.confinement_scaling_basis` and the

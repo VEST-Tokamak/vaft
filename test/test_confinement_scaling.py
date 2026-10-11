@@ -333,8 +333,9 @@ class ITPA20ScalingTests(unittest.TestCase):
         # delta lowers tau, 1 + delta <= 0 is refused.
         self.assertAlmostEqual(self._tau("ITPA20", delta=0.0) / self._tau("ITPA20"), 1.48**-0.36, places=12)
         self.assertLess(self._tau("ITPA20_IL", delta=-0.3), self._tau("ITPA20_IL", delta=0.0))
-        with self.assertRaises(ValueError):
-            self._tau("ITPA20", delta=-1.0)
+        for bad in (-1.0, -1.5, float("nan")):
+            with self.assertRaisesRegex(ValueError, r"delta must satisfy 1 \+ delta > 0, got"):
+                self._tau("ITPA20", delta=bad)
 
     def test_a_triangularity_scaling_requires_delta_and_others_ignore_it(self):
         kw = {key: value for key, value in self.ITER.items() if key != "delta"}

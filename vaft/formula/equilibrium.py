@@ -5554,7 +5554,10 @@ def confinement_time_from_engineering_parameters(
                 f"Scaling '{scaling}' has a (1 + delta) triangularity term; pass delta "
                 "(average LCFS triangularity)."
             )
-        variable_values["one_plus_delta"] = 1.0 + np.asarray(delta, dtype=float)
+        delta_array = np.asarray(delta, dtype=float)
+        if np.any(~np.isfinite(delta_array)) or np.any(1.0 + delta_array <= 0.0):
+            raise ValueError(f"delta must satisfy 1 + delta > 0, got {delta!r}")
+        variable_values["one_plus_delta"] = 1.0 + delta_array
 
     result = C
     used_variables = []
@@ -5580,7 +5583,7 @@ def confinement_time_from_engineering_parameters(
                 f"Confinement time calculation resulted in complex number for scaling '{scaling}'. "
                 f"Used variables: {used_variables}. "
                 f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
-                f"epsilon={epsilon}, kappa={kappa}"
+                f"epsilon={epsilon}, kappa={kappa}, delta={delta}"
             )
         result = np.real(result_complex)
 
@@ -5590,7 +5593,7 @@ def confinement_time_from_engineering_parameters(
             f"Invalid confinement time result: {result}. "
             f"Used variables: {used_variables}. "
             f"Inputs: I_p={I_p}, B_t={B_t}, P_loss={P_loss}, n_e={n_e}, M={M}, R={R}, "
-            f"epsilon={epsilon}, kappa={kappa}, scaling={scaling}"
+            f"epsilon={epsilon}, kappa={kappa}, delta={delta}, scaling={scaling}"
         )
 
     return float(result)

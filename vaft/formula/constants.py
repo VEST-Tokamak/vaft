@@ -396,8 +396,10 @@ _SCALING_COEFS = {
             "0.15; eq. (5) of the paper prints 0.147 (table 10: 0.1473), which is used here."
         ),
         "scope_note": (
-            "The paper's recommended H-mode scaling and the basis of its H_20 factor; ITER-like subset only "
-            "(AUG, AUG-W, C-Mod, COMPASS-D, DIII-D, JET-C, JET-ILW, JFT-2M, JT-60U, PBX-M), no spherical tokamak."
+            "The paper's recommended H-mode scaling and the basis of its H_20 factor. Fitted on the ITER-like "
+            "subset of STD5 (Verdoolaege 2021 Sec. 2.1): eight devices (ASDEX Upgrade, Alcator C-Mod, COMPASS-D, "
+            "DIII-D, JET, JFT-2M, JT-60U, PBX-M; AUG and JET with both carbon and metal walls), no spherical "
+            "tokamak, and q95 > 2.8, 1.3 < kappa < 2.2 (kappa = b/a), epsilon < 0.5, Z_eff < 5."
         ),
     },
 }

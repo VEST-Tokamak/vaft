@@ -9,8 +9,9 @@ call them directly. They draw only from Lane D's files and Lane M's public data:
   ones. It reuses ``vaft.plot.population.confinement_population``.
 - ``predicted_vs_measured_figure`` and ``h_factor_figure``: tau_E against
   IPB98(y,2) and NSTX2006L by default, or any of ``ALL_SCALINGS``. That covers the
-  five of ``vaft.formula`` (via Lane M's ``predict_confinement_time``) and the
-  ohmic/L-mode ones of ``extra_scalings.py`` (neo-Alcator, Goldston 1984, ITER97-L).
+  ``_SCALING_COEFS`` power laws of ``vaft.formula`` (via Lane M's
+  ``predict_confinement_time``) except ITPA20-IL, and the ohmic/L-mode ones of
+  ``extra_scalings.py`` (neo-Alcator, Goldston 1984, ITER97-L).
   The plot functions are Lane M's.
 - Variants: by machine (the seven largest, the rest as "Other"), and every DB5 row
   instead of the standard set. VEST is ohmic L-mode, so its IPB98 H factor is a location, not a
@@ -52,7 +53,9 @@ LABELS.update(extra_scalings.LABELS)
 #: Every confinement scaling vaft.formula carries: the _SCALING_COEFS power laws plus
 #: the ohmic and L-mode ones extra_scalings.py maps onto table columns (#670);
 #: ohmic, then L-mode, then H-mode. ITPA20-IL (vaft.formula "ITPA20_IL") is left out:
-#: its ITER-like fit domain has epsilon < 0.5, and VEST sits at epsilon ~ 0.72.
+#: it was fitted on the ITER-like subset of Verdoolaege et al. 2021 (Sec. 2.1: eight
+#: conventional tokamaks, no ST, with epsilon < 0.5 among its constraints), and VEST
+#: is a spherical tokamak at epsilon ~ 0.72.
 ALL_SCALINGS = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L", "ITER89P", "ITER97L", "NSTX2006L",
                 "H98y2", "ITPA20", "NSTX2006H", "Kurskiev2022")
 
