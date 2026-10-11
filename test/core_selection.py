@@ -211,6 +211,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_ecosystem_catalog.py",
     "test_ontology_graph.py",
     "test_readme_consistency.py",
+    # Pipeline-3 summary sheets (#151, #1888): the checked-in xlsx carry every
+    # column of their summary preset, so a preset change regenerates its sheet
+    # in the same PR instead of failing the main gate weeks later (#1843,
+    # #1979). Reads three small workbooks; no database.
+    "test_pipeline3_summary_scripts.py",
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
