@@ -1106,6 +1106,11 @@ def kinetic_overview_state(
     """
     from ..presentation import FORMATS
 
+    if not isinstance(model, Panels):
+        raise TypeError(
+            f"expected a vaft.plot.models.Panels; got {type(model).__name__}. "
+            "Adapters such as vaft.omas.plot_* build the model from data objects."
+        )
     stages = getattr(model.models[0], "metadata", {}).get("layout") == "stages"
     fmt = FORMATS.get(style.get("format")) if isinstance(style.get("format"), str) else None
     if fmt is not None and fmt.width_in < _KINETIC_STATE_OUTSIDE_LEGEND_MIN_WIDTH_IN and model.member_styles:
