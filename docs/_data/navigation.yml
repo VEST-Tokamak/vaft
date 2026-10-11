@@ -86,6 +86,9 @@ sections:
       - id: geometric-approximations
         title: Geometric approximations
         url: /reference/geometric-approximations/
+      - id: characteristic-scales
+        title: Characteristic scales and orderings
+        url: /reference/characteristic-scales/
       - id: asymptotic-orderings
         title: Asymptotic orderings
         url: /reference/asymptotic-orderings/

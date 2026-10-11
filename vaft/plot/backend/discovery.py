@@ -307,6 +307,13 @@ def _declare(record: PlotCapability) -> PlotCapability:
             updates["coordinates"] = {
                 "default": coordinate_default_for(record.name), "options": options, "declared": options,
             }
+        if recipe.sequence is not None:
+            declared = recipe.sequence
+            updates["categorical"] = {
+                "option": declared.option, "states": declared.states, "labels": declared.labels,
+                "label": declared.label, "selected": declared.default,
+                "coordinate": declared.coordinate, "unit": None,
+            }
         if recipe.choices:
             updates["choices"] = {
                 option: {"default": choice.default, "options": tuple(choice.options),
@@ -1040,10 +1047,16 @@ def sequence_values(
     ``time_index`` along different time bases (issue #1380), and labelling
     one with the other's stamps is the index-for-time pairing VAFT keeps
     getting wrong.  A plot with a slice control and no entry here is refused
-    (``animation=True`` needs every frame's time; see #1050).
+    (``animation=True`` needs every frame's time; see #1050).  A categorical
+    sequence a recipe declares (:class:`~vaft.plot.backend.recipes.SequenceDeclaration`,
+    issue #1957) returns its own states as the values, with no unit.
     """
-    from .recipes import _array
+    from .recipes import _array, sequence_declaration_for
 
+    declared = sequence_declaration_for(name, option)
+    if declared is not None:
+        # Categorical states (#1957) are their own values: stage 4 is 4.
+        return declared.coordinate, None, np.asarray(declared.states, dtype=float)
     ods = entries[0][1]
     if option == "time_slice" and _takes_time_slice(name):
         from .recipes import slice_times

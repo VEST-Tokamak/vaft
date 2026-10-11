@@ -25,6 +25,7 @@ from ._types import (
     TGLF_DEFAULT_SPECIES,
     TGLFConfig,
     TGLFResult,
+    plasma_formalism,
 )
 from .inputs import (
     LocalConversionError,
@@ -64,6 +65,7 @@ def __dir__() -> list[str]:
 
 
 __all__ = [
+    "plasma_formalism",
     "GBFLUX_QUANTITIES",
     "LocalConversionError",
     "MAX_SPECIES",

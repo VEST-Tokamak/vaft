@@ -219,14 +219,24 @@ def _quantised_bytes(array) -> bytes:
     return f"<scale {scale:.{MODEL_HASH_DIGITS}g}>".encode() + values.tobytes()
 
 
+#: ``(model class, field)`` pairs added to a view model after its hashes were
+#: recorded: left out of ``model_sha256`` while they hold their dataclass
+#: default, so a new optional field does not make every thumbnail of that
+#: model stale.  A value other than the default is hashed as usual.
+HASH_NEUTRAL_FIELDS = frozenset({("Profile1D", "y_limits")})
+
+
 def _feed(value: Any, digest) -> None:
     import numpy as np
 
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         digest.update(f"<{type(value).__name__}>".encode())
         for field in dataclasses.fields(value):
+            current = getattr(value, field.name)
+            if (type(value).__name__, field.name) in HASH_NEUTRAL_FIELDS and current == field.default:
+                continue  # an optional field added later, at its default: the picture is unchanged
             digest.update(field.name.encode())
-            _feed(getattr(value, field.name), digest)
+            _feed(current, digest)
     elif isinstance(value, np.ndarray):
         digest.update(f"<array {value.dtype} {value.shape}>".encode())
         digest.update(_quantised_bytes(value))

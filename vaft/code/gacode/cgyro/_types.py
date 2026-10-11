@@ -145,53 +145,82 @@ class CGYROConfig(GACODEConfig):
         }
 
 
-def plasma_formalism(config: Optional[CGYROConfig] = None):
+def plasma_formalism(config: Optional[CGYROConfig] = None, *,
+                     parameters: Optional[Mapping[str, Any]] = None):
     """The solver-neutral #1727 record of a CGYRO run (:class:`vaft.code.formalism.PlasmaFormalism`).
 
     Local delta-f gyrokinetics on a closed flux surface, linear or nonlinear, with the
     field model coarsened to electrostatic / electromagnetic.  What is CGYRO's own --
-    the ``em-aperp`` / ``em-aperp-bpar`` split, the continuum representation, Miller
-    geometry, gyrokinetic electrons -- stays in ``extensions``, from which
-    :func:`formalism` rebuilds the #1353 record, so the two cannot disagree.
+    the ``em-aperp`` / ``em-aperp-bpar`` split, the continuum representation, the
+    geometry and electron models, the collision operator, the (zeroed) rotation --
+    stays in ``extensions``, from which :func:`formalism` rebuilds the #1353 record, so
+    the two cannot disagree.
+
+    ``parameters`` are the ``KEY=VALUE`` pairs the run was written with
+    (:func:`vaft.code.gacode.cgyro.inputs.cgyro_parameters`). ``AE_FLAG``,
+    ``EQUILIBRIUM_MODEL``, ``GLOBAL_FLAG``, the collision model and the rotation inputs
+    are read from them (#1735): an ``extra_parameters`` override that switches to
+    adiabatic electrons or s-alpha geometry changes the record instead of contradicting
+    it. Without ``parameters`` the keys the configuration itself writes are used.
     """
     from ...formalism import PlasmaFormalism
+    from .._formalism import cgyro_input_physics
 
     configuration = config or CGYROConfig()
+    if parameters is None:
+        # What cgyro_parameters writes for these keys from the configuration alone.
+        parameters = {"COLLISION_MODEL": int(configuration.collision_model),
+                      "N_FIELD": int(configuration.n_field),
+                      "NONLINEAR_FLAG": int(bool(configuration.nonlinear)),
+                      **{str(key).upper(): value for key, value in configuration.extra_parameters.items()}}
+    physics = cgyro_input_physics(parameters)
+    # The field model and the regime are what was written (N_FIELD, NONLINEAR_FLAG),
+    # so an extra_parameters override cannot leave the record describing another run.
+    field_model, nonlinear = physics["field_model"], physics["nonlinear"]
     return PlasmaFormalism(
-        scientific_operation="turbulent_transport" if configuration.nonlinear else "microstability",
+        scientific_operation="turbulent_transport" if nonlinear else "microstability",
         bulk_description="kinetic",
         kinetic_equation="gyrokinetic",
-        kinetic_population=("all",),
+        kinetic_population=physics["kinetic_population"],
         distribution_formulation="delta_f",
         orbit_representation="gyrocenter",
-        spatial_domain="local",
+        spatial_domain=physics["spatial_domain"],
         topology_domain="closed_flux_surface",
-        regime=configuration.regime,
-        field_model="electrostatic" if configuration.field_model == "es" else "electromagnetic",
+        regime="nonlinear" if nonlinear else "linear",
+        field_model=("electrostatic" if field_model == "es" else "unknown" if field_model == "unknown"
+                     else "electromagnetic"),
         solver="cgyro",
         extensions={
-            "field_model": configuration.field_model,
+            "field_model": field_model,
             "numerical_representation": "continuum",
-            "geometry_model": "miller",
-            "species_model": "kinetic_electrons",
+            "profile_model": physics["profile_model"],
+            "geometry_model": physics["geometry_model"],
+            "species_model": physics["species_model"],
+            "global_flag": physics["global_flag"],
+            "collision_model": physics["collision_model"],
+            "collision_model_name": physics["collision_model_name"],
+            "rotation_model": physics["rotation_model"],
+            "rotation": physics["rotation"],
         },
     )
 
 
 def formalism(
-    config: Optional[CGYROConfig] = None, *, solver_version: Optional[str] = None
+    config: Optional[CGYROConfig] = None, *, solver_version: Optional[str] = None,
+    parameters: Optional[Mapping[str, Any]] = None,
 ) -> dict[str, Any]:
     """The #1353 formalism record of a CGYRO run.
 
-    Fixed by the solver except for the field model and the regime. ``spatial_domain`` is
-    ``local`` -- never a bare ``global`` flag: CGYRO's global-spectral mode is a later,
-    separately named phase (#1354 non-goal) and is not equivalent to GENE-global or GTC.
+    Fixed by the solver except for the field model, the regime and what the written
+    input says about electrons, geometry and the radial domain. ``spatial_domain`` is
+    ``local`` -- never a bare ``global`` flag: CGYRO's global-spectral mode
+    (``GLOBAL_FLAG=1``) is recorded as unknown, not as GENE-global or GTC.
 
     Every value is read from :func:`plasma_formalism`, the solver-neutral record
-    (#1727), so the two records of one run cannot disagree; the keys and values are
-    unchanged from #1353.
+    (#1727), so the two records of one run cannot disagree; the keys are unchanged
+    from #1353.
     """
-    record = plasma_formalism(config)
+    record = plasma_formalism(config, parameters=parameters)
     extensions = record.extensions
     return {
         "distribution_formulation": record.distribution_formulation,

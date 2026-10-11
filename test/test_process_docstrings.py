@@ -141,6 +141,7 @@ PIPELINE = frozenset({
     "mode_frequency_tracks",
     # ntv_coil_response (#1887): probes -> Q; expected -> tolerance -> per-kind check;
     # drop failed -> compare -> status; generalized eigen -> scale; grid -> polish
+    "ntv_operating_space",
     "hermitian_torque_matrix",
     "quadratic_invariance_checks",
     "qualify_torque_matrix",
@@ -148,6 +149,8 @@ PIPELINE = frozenset({
     "two_group_phase_extrema",
     "budgeted_torque_extrema",
     "fixed_amplitude_phase_extrema",
+    # coil_operating_space (#1178): ratio against group 0 -> wrapped phase, NaN at A = 0
+    "relative_coil_coordinates",
     # local_mhd_criteria (#1902): trace -> averages -> derivatives -> indices;
     # read and convert the slice; interpolate -> differences -> implied H
     "mercier_ggj_profile",
@@ -410,6 +413,7 @@ CONVENTION_SENSITIVE = frozenset({
     # torques stay signed
     "coil_phasors",
     "quadratic_probe_design",
+    "ntv_operating_space",
     "hermitian_torque_matrix",
     "quadratic_torque",
     "quadratic_invariance_checks",
@@ -418,6 +422,8 @@ CONVENTION_SENSITIVE = frozenset({
     "two_group_phase_extrema",
     "budgeted_torque_extrema",
     "fixed_amplitude_phase_extrema",
+    # #1178: I_k = A cos(n phi_k + delta), relative phase of group g minus group 0
+    "relative_coil_coordinates",
     # #1902: DCON's sign (D_I < 0 stable), chi increasing outward, |F|, |q|
     "mercier_ggj_profile",
     "mercier_ggj_from_ods",

@@ -71,6 +71,7 @@ _SUBMODULES = {
     "q_profile_context": ".q_profile_context",
     "ordering_state": ".ordering_state",
     "ntv_coil_response": ".ntv_coil_response",
+    "coil_operating_space": ".coil_operating_space",
     "local_mhd_criteria": ".local_mhd_criteria",
 }
 
@@ -154,6 +155,9 @@ _IMPORT_ORDER = (
     # Quadratic coil-response model of a signed NTV torque and its
     # qualification (#1887); solver-free, nothing it exports collides.
     "ntv_coil_response",
+    # The common coil operating-space result of #1178 (schema settled on
+    # #1886); nothing it exports collides.
+    "coil_operating_space",
     # Equilibrium-native Mercier / GGJ interchange indices, DCON's formulas
     # (#1902); nothing it exports collides.
     "local_mhd_criteria",
