@@ -40,7 +40,6 @@ import argparse
 from collections import Counter
 from concurrent.futures import ProcessPoolExecutor
 import csv
-import gzip
 import json
 from pathlib import Path
 import sys
@@ -49,7 +48,8 @@ from typing import Any
 COLUMNS = (
     "shot", "header", "flags",
     "total_frames", "stored_rule", "stored_first", "stored_last", "stored_frames",
-    "expected_first", "expected_last", "expected_dark_level", "expected_threshold",
+    "expected_rule", "expected_first", "expected_last", "expected_dark_level", "expected_threshold",
+    "expected_reference_sigma", "expected_plasma_end_frame",
     "replication", "hsds",
     "camera_t0", "camera_t1", "kept_t0", "kept_t1",
     "ip_max_kA", "ip_t_on", "ip_t_off", "error",
@@ -58,23 +58,11 @@ COLUMNS = (
 
 def _ip_window(root: Path, shot: int, threshold: float) -> tuple[float | None, float | None, float | None]:
     """``(t_on, t_off, max|I_p|)`` from the diagnostics product, or Nones."""
-    import numpy as np
+    from vaft.machine_mapping.camera_visible import plasma_current_window
 
-    path = root / "omas" / "diagnostics" / str(shot) / "output" / "diagnostics.json.gz"
-    if not path.exists():
-        return None, None, None
-    with gzip.open(path, "rt", encoding="utf-8") as handle:
-        magnetics = json.load(handle).get("magnetics", {})
-    channels = magnetics.get("ip") or []
-    if not channels:
-        return None, None, None
-    time = np.asarray(channels[0]["time"], dtype=float)
-    current = np.abs(np.asarray(channels[0]["data"], dtype=float))
-    above = time[current > threshold]
-    peak = float(np.nanmax(current)) if current.size else None
-    if above.size == 0:
-        return None, None, peak
-    return float(above[0]), float(above[-1]), peak
+    return plasma_current_window(
+        root / "omas" / "diagnostics" / str(shot) / "output" / "diagnostics.json.gz", threshold
+    )
 
 
 def _stored(product: Path) -> tuple[dict[str, Any] | None, int | None]:
@@ -130,6 +118,7 @@ def audit_shot(root: Path, shot: int, ip_threshold: float, check_hsds: bool, rec
             _load_raw_frame,
             _parse_bmp_header,
             frame_time_ms,
+            plasma_end_frame_index,
             select_valid_frames,
         )
 
@@ -167,20 +156,34 @@ def audit_shot(root: Path, shot: int, ip_threshold: float, check_hsds: bool, rec
         else:
             flags.append("no_product")
 
+        t_on, t_off, peak = _ip_window(root, shot, ip_threshold)
+        row["ip_max_kA"] = None if peak is None else round(peak / 1e3, 2)
+        row["ip_t_on"] = None if t_on is None else round(t_on, 5)
+        row["ip_t_off"] = None if t_off is None else round(t_off, 5)
         kept = None
         if recompute:
             frames = [_load_raw_frame(shot_dir, shot, index) for index in range(total)]
             try:
-                selection = select_valid_frames(frames)
+                selection = select_valid_frames(
+                    frames,
+                    plasma_end_frame=plasma_end_frame_index(
+                        t_off, total, header.start_time_ms, header.end_time_ms
+                    ),
+                )
             except CameraFrameSelectionError:
                 flags.append("expected_all_dark")
             else:
                 # Compare stored frames with stored frames: the comment names
                 # the first/last frame present, not the padded interval.
                 kept = (selection.first_retained, selection.last_retained)
+                row["expected_rule"] = selection.rule
                 row["expected_first"], row["expected_last"] = kept
-                row["expected_dark_level"] = round(selection.dark_level, 1)
+                if selection.dark_level is not None:
+                    row["expected_dark_level"] = round(selection.dark_level, 1)
+                if selection.reference_sigma is not None:
+                    row["expected_reference_sigma"] = round(selection.reference_sigma, 3)
                 row["expected_threshold"] = round(selection.threshold, 1)
+                row["expected_plasma_end_frame"] = selection.plasma_end_frame
                 if stored is not None and (stored["first_retained"], stored["last_retained"]) != kept:
                     flags.append("nonconformant")
                 if not product.exists():
@@ -190,10 +193,6 @@ def audit_shot(root: Path, shot: int, ip_threshold: float, check_hsds: bool, rec
         if kept is not None:
             row["kept_t0"], row["kept_t1"] = round(at(kept[0]), 5), round(at(kept[1]), 5)
 
-        t_on, t_off, peak = _ip_window(root, shot, ip_threshold)
-        row["ip_max_kA"] = None if peak is None else round(peak / 1e3, 2)
-        row["ip_t_on"] = None if t_on is None else round(t_on, 5)
-        row["ip_t_off"] = None if t_off is None else round(t_off, 5)
         if peak is None:
             flags.append("no_ip")
         elif t_on is None:
@@ -202,7 +201,9 @@ def audit_shot(root: Path, shot: int, ip_threshold: float, check_hsds: bool, rec
         else:
             if t_off < row["camera_t0"] or t_on > row["camera_t1"]:
                 flags.append("camera_misses_ip_window")
-            elif kept is not None and (row["kept_t1"] < t_on or row["kept_t0"] > t_off):
+            elif kept is None:
+                flags.append("plasma_but_no_frames")
+            elif row["kept_t1"] < t_on or row["kept_t0"] > t_off:
                 flags.append("frames_miss_ip_window")
     except Exception as error:  # noqa: BLE001 - one bad shot must not stop the audit
         row["error"] = f"{type(error).__name__}: {error}"[:200]

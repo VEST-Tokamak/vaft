@@ -1178,12 +1178,29 @@ def _stored_line_labels(odc):
 
 
 def _legacy_emission_terms(odc, indices_param):
-    """Map the deprecated ``indices=`` vocabulary onto ``emission=`` terms."""
+    """Map the deprecated ``indices=`` vocabulary onto ``emission=`` terms.
+
+    ``'fast'`` and ``'slow'`` no longer select anything (see
+    ``_LEGACY_MAIN_LINES``); a caller still passing them is told so rather
+    than silently given every stored line.
+    """
     if isinstance(indices_param, (list, tuple)):
         return list(indices_param)
     if indices_param == "main":
         return list(_LEGACY_MAIN_LINES)
-    if indices_param in ("all", "fast", "slow"):
+    if indices_param in ("fast", "slow"):
+        import warnings
+
+        warnings.warn(
+            f"indices={indices_param!r} is deprecated and now means every stored line: "
+            "the fast/slow digitizer split is not recorded in processed_line.label; "
+            "select lines with emission= or selection= on "
+            "vaft.omas.plot_spectrometer_uv_time_intensity instead",
+            DeprecationWarning,
+            stacklevel=3,
+        )
+        return _stored_line_labels(odc)
+    if indices_param == "all":
         return _stored_line_labels(odc)
     return [indices_param]
 

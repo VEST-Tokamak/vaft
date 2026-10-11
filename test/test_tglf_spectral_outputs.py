@@ -105,7 +105,7 @@ def test_the_container_round_trips_and_older_payloads_still_read(sat2, tmp_path)
         old.pop(key)
     legacy = TglfOutputs.from_dict(old)
     assert legacy.field_spectrum is None and legacy.growth_rate is not None
-    assert SCHEMA_VERSION == 3
+    assert SCHEMA_VERSION == 4
 
 
 def test_a_file_that_does_not_match_its_writer_is_refused(tmp_path):

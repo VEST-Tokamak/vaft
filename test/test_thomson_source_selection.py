@@ -23,6 +23,7 @@ import pytest
 from scipy.io import loadmat, savemat
 
 from vaft.machine_mapping.thomson_scattering import (
+    _set_dynamic_from_simple,
     _recover_simple_time,
     _resolve_thomson_mat_file,
     thomson_scattering,
@@ -278,6 +279,42 @@ class TestTimeIsRecoveredOrRefused:
         mat_data = loadmat(str(timeless))
         recovered = _recover_simple_time(mat_data, 39915, timeless)
         np.testing.assert_allclose(recovered, np.linspace(300.0, 309.0, SAMPLES))
+
+    def test_a_channel_major_file_is_matched_on_its_time_axis(self, tmp_path: Path) -> None:
+        """`(channel, time)` is as real a layout as `(time, channel)`.
+
+        The recovery took `Te.shape[0]` as the sample count, so a channel-major
+        file was refused for "a time axis of 5 samples" that no sibling has
+        (cold review 0.7.0 machine-mapping F3, #1888).  The axis that matches
+        the sibling is the time axis, as `_extract_channel_series` then reads it.
+        """
+        from omas import ODS
+
+        timeless = tmp_path / "39915_NeTe.mat"
+        savemat(
+            str(timeless),
+            {
+                "Te": np.full((CHANNELS, SAMPLES), 10.0),
+                "Ne": np.full((CHANNELS, SAMPLES), 1e18),
+                "sigmaTe": np.full((CHANNELS, SAMPLES), 1.0),
+                "sigmaNe": np.full((CHANNELS, SAMPLES), 1e17),
+            },
+        )
+        _write_v9(tmp_path / "NeTe_Shot39915_v9_rev.mat", te=20.0, ne=2e18)
+        mat_data = loadmat(str(timeless))
+        recovered = _recover_simple_time(mat_data, 39915, timeless)
+        np.testing.assert_allclose(recovered, np.linspace(300.0, 309.0, SAMPLES))
+
+        ods = ODS(consistency_check=False)
+        _set_dynamic_from_simple(mat_data, ods, shotnumber=39915, source_file=timeless)
+        np.testing.assert_allclose(_channel_te(ods), np.full(SAMPLES, 10.0))
+
+    def test_a_square_block_cannot_say_which_axis_is_time(self, tmp_path: Path) -> None:
+        timeless = tmp_path / "39915_NeTe.mat"
+        savemat(str(timeless), {key: np.full((5, 5), 1.0) for key in ("Te", "Ne", "sigmaTe", "sigmaNe")})
+        savemat(str(tmp_path / "NeTe_Shot39915_v9.mat"), {"time_TS": np.linspace(300.0, 304.0, 5)})
+        with pytest.raises(KeyError, match="square"):
+            _recover_simple_time(loadmat(str(timeless)), 39915, timeless)
 
     def test_a_sibling_of_the_wrong_length_is_not_adopted(self, tmp_path: Path) -> None:
         """A timebase that cannot be matched sample-for-sample is not a match.

@@ -446,3 +446,21 @@ def test_a_shot_without_wall_draws_end_to_end_over_a_fake_hsds_store(monkeypatch
     assert {uri.rsplit("/", 1)[-1] for uri in module.opened} <= {"equilibrium.h5", "dataset_description.h5"}
     assert all(file.closed for uri, file in module.files.items() if uri in module.opened)
     assert model is not None
+
+
+def test_an_animation_is_built_from_an_eager_load_not_a_closed_lazy_store(sample_ods, tmp_path):
+    """``animation=True`` draws its frames at save time, after render() has closed its lazy store (review of #1924, R4)."""
+    store = Mock(wraps=sample_ods)  # the lazy store, closed by render() on the way out
+    store.close = Mock()
+    open_ods = Mock(return_value=store)
+    load_ods = Mock(return_value=sample_ods)
+    with patch.dict("sys.modules", {
+        "vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods", open_ods=open_ods, h5pyd=None),
+        "vaft.database.ods": _fake_module("vaft.database.ods", load_ods=load_ods),
+    }):
+        from vaft.database import plotting
+
+        movie = plotting.render("equilibrium_field_2d", 39915, animation=True, time_slice=[0, 4], dpi=40)
+        assert not open_ods.called and load_ods.called, "an animation must be built from an eager load"
+        written = movie.save(tmp_path / "m.gif")
+    assert written.exists() and written.stat().st_size > 0 and len(movie) == 2

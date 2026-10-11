@@ -287,6 +287,22 @@ def test_a_scipy_only_kernel_costs_nothing_heavier_than_scipy():
     assert heavy == set()
 
 
+def test_a_private_or_dunder_probe_imports_nothing():
+    """`hasattr(vaft.process, "__wrapped__")` is what inspect/pickle/doctest ask.
+
+    The package used to answer by importing every submodule and finding none
+    exporting it (cold review 0.7.0 process F6, #1888).
+    """
+    submodules, heavy = _import_in_subprocess(
+        "import vaft.process\n"
+        "assert not hasattr(vaft.process, '__wrapped__')\n"
+        "assert not hasattr(vaft.process, '_private_name')"
+    )
+
+    assert submodules == set()
+    assert heavy == set()
+
+
 @pytest.mark.parametrize(
     "submodule",
     ["camera_geometry", "cocos", "fluctuation", "impa", "langmuir",

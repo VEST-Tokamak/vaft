@@ -65,16 +65,29 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+#: Option keys the command sets itself, each with the flag that sets it.
+_RESERVED_OPTIONS = {
+    "name": "the positional plot name",
+    "shot": "--shot",
+    "source": "--source",
+    "lazy": "--no-lazy",
+    "show": "--out (its absence shows the figure)",
+}
+
+
 def _parse_option(text: str, parser: argparse.ArgumentParser) -> tuple[str, Any]:
     """``KEY=VALUE`` with a Python literal value where it parses, else a string."""
     key, separator, raw = text.partition("=")
     if not separator or not key.strip():
         parser.error(f"--option expects KEY=VALUE; got {text!r}")
+    key = key.strip()
+    if key in _RESERVED_OPTIONS:
+        parser.error(f"--option {key} is reserved; give it as {_RESERVED_OPTIONS[key]}")
     try:
         value = ast.literal_eval(raw)
     except (SyntaxError, ValueError):
         value = raw
-    return key.strip(), value
+    return key, value
 
 
 def _json_argument(text: str, flag: str, parser: argparse.ArgumentParser) -> Any:
@@ -134,7 +147,9 @@ def _write(result: Any, out: str, figure_options: Any = None) -> str:
     """Save what a request drew to ``out``: HTML for Plotly, the extension's format otherwise.
 
     A table or text view (issue #1180) is text: ``.txt``, ``.md`` or ``.html``
-    writes the matching export.
+    writes the matching export; anything else goes through
+    :func:`vaft.plot.save_rendered`, so an animation is written as a movie
+    and ``interactive=True`` is refused, exactly as on the ``--shot`` path.
     """
     from vaft.plot.renderers.tables import TextView
 
@@ -145,9 +160,10 @@ def _write(result: Any, out: str, figure_options: Any = None) -> str:
             raise ValueError(f"backend='plotly' writes HTML; give --out a .html path, not {out!r}")
         result.write_html(out, include_plotlyjs="cdn")
         return out
-    from vaft.plot import save_figure
+    from vaft.plot import save_rendered
 
-    return save_figure(result[0], out, figure_options=figure_options)
+    # A figure tuple, an Animation (saved by itself) or live controls (refused).
+    return save_rendered(result, out, figure_options=figure_options)
 
 
 def main(argv: Iterable[str] | None = None) -> int:
@@ -182,6 +198,8 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     from vaft.database import plotting
 
+    if args.list and args.shot and len(args.shot) > 1:
+        parser.error("--list describes one shot; give --shot once")
     if args.list:
         try:
             print(plotting.available_plots(shot, args.source, query=args.query, detail=args.detail))

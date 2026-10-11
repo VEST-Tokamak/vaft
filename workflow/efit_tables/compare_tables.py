@@ -138,10 +138,18 @@ def _pf_group_table(in3: f90nml.Namelist, nfsum: int) -> list[dict[str, Any]]:
 
 
 def _compare_pf_groups(ta, tb, nfsum_a: int, nfsum_b: int) -> dict[str, Any]:
+    """The PF groups of both tables, paired by group number only when the counts agree.
+
+    Group numbers are positions in ``fcid``: a table that inserts a group
+    shifts every later one, so pairing row by row would compare unrelated
+    coils and drop the surplus (cold review F17). With different ``nfsum`` both
+    group tables are reported and nothing is paired.
+    """
     rows_a = _pf_group_table(ta, nfsum_a)
     rows_b = _pf_group_table(tb, nfsum_b)
     paired = []
-    for row_a, row_b in zip(rows_a, rows_b):
+    comparable = nfsum_a == nfsum_b
+    for row_a, row_b in zip(rows_a, rows_b) if comparable else ():
         paired.append(
             {
                 "group": row_a["group"],
@@ -155,7 +163,13 @@ def _compare_pf_groups(ta, tb, nfsum_a: int, nfsum_b: int) -> dict[str, Any]:
                 "r_extent": [[row_a["r_min"], row_a["r_max"]], [row_b["r_min"], row_b["r_max"]]],
             }
         )
-    return {"nfsum": [nfsum_a, nfsum_b], "groups": paired, "total_turns": [sum(r["turns"] for r in rows_a), sum(r["turns"] for r in rows_b)]}
+    return {
+        "nfsum": [nfsum_a, nfsum_b],
+        "comparable": comparable,
+        "groups": paired,
+        "group_tables": [rows_a, rows_b],
+        "total_turns": [sum(r["turns"] for r in rows_a), sum(r["turns"] for r in rows_b)],
+    }
 
 
 def _table_records(directory: Path, name: str) -> list[np.ndarray] | None:
@@ -210,12 +224,17 @@ def compare(a_dir: Path, b_dir: Path, *, sample_columns: int = 64) -> dict[str, 
     report["tables"] = {}
     for suffix in suffixes:
         nsilop, magpri, nfsum, nvsum, nesum = (int(ma[k]) for k in ("nsilop", "magpri", "nfsum", "nvsum", "nesum"))
+        # The per-column view reshapes with these counts, so it is only
+        # offered when both tables share them (cold review F17).
+        same_counts = all(int(ma[k]) == int(mb[k]) for k in ("nsilop", "magpri", "nfsum", "nvsum", "nesum"))
         ec = _table_records(a_dir, f"ec{suffix}.ddd")
         nw = nh = None
         if ec:
             nw, nh = (int(v) for v in ec[0][:2])
         nwnh = (nw or 0) * (nh or 0)
-        block: dict[str, Any] = {"grid": [nw, nh]}
+        block: dict[str, Any] = {"grid": [nw, nh], "same_counts": same_counts}
+        if not same_counts:
+            nfsum = nsilop = magpri = nvsum = 0
         block["ep"] = compare_records(a_dir, b_dir, f"ep{suffix}.ddd", ["rsilpc", "rmp2pc"])
         block["ec"] = compare_records(
             a_dir, b_dir, f"ec{suffix}.ddd", ["mw_mh", "rgrid_zgrid", "gridfc", "gridpc"],
@@ -278,6 +297,17 @@ def markdown(report: dict[str, Any]) -> str:
     pf = report["mhdin"]["pf_groups"]
     lines.append(f"## PF groups (nfsum A {pf['nfsum'][0]}, B {pf['nfsum'][1]}; total turns A {pf['total_turns'][0]:.0f}, B {pf['total_turns'][1]:.0f})")
     lines.append("")
+    if not pf.get("comparable", True):
+        lines.append("")
+        lines.append("Group counts differ, so no group is paired with another: a group number is a position in `fcid`, not a coil identity.")
+        for label, rows in zip("AB", pf["group_tables"]):
+            lines.append("")
+            lines.append(f"| {label} group | elements | turns | centroid R [m] | centroid Z [m] | z extent |")
+            lines.append("| --- | --- | --- | --- | --- | --- |")
+            for row in rows:
+                lines.append(
+                    f"| {row['group']} | {row['elements']} | {row['turns']:.0f} | {row['r']:.4f} | {row['z']:.4f} | [{row['z_min']:.3f}, {row['z_max']:.3f}] |"
+                )
     lines.append("| group | elements A/B | turns A/B | Δturns | centroid shift [m] | z extent A | z extent B |")
     lines.append("| --- | --- | --- | --- | --- | --- | --- |")
     for row in pf["groups"]:
