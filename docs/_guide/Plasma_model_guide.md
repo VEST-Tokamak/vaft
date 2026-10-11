@@ -1,7 +1,7 @@
 ---
 title: "Plasma models: a guide"
 author: VEST team
-date: 2026-10-12 09:00
+date: 2026-10-11 09:00
 category: guide
 layout: post
 permalink: /reference/plasma-model-guide/
@@ -287,7 +287,7 @@ whether a model applies to a given state is an ordering question, answered per s
 | hybrid kinetic-MHD | macroscopic modes modified by a kinetic population | the fluid ordering for the bulk plus the kinetic ordering for the population | whatever the coupling leaves out (e.g. finite orbit width, which PENTRC appears not to keep: inferred, not stated in its source) |
 
 The scales these orderings compare, and why a model can hold on one scale and fail on another, are
-[Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}) (#1724).
+the *Characteristic scales and orderings* reference (#1724, PR #1985).
 
 **Time scales.** The families above separate along these time scales, written from fast to slow *as a class*:
 
