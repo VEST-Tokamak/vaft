@@ -132,6 +132,36 @@ def _stub_comment(path: Path) -> str | None:
     return "placeholder without comment"
 
 
+#: Mirrors vaft.database.filedb.OMAS_PRODUCT_SUFFIX(ES); restated because the
+#: scan half must not import VAFT.  A test pins the two together.
+PRODUCT_SUFFIX = ".json.gz"
+PRODUCT_SUFFIXES = {
+    "soft_x_rays": ".h5",
+    "camera_visible": ".h5",
+    "camera_visible_fluctuation": ".h5",
+}
+
+
+def _product_file(stage: str, outputs: list[Path], manifest: dict | None) -> Path:
+    """The file a stage product directory's reader would open.
+
+    Order: the name the stage manifest records; else the canonical
+    ``<stage><suffix>`` FileDB.omas_product resolves; else the newest file
+    named after the stage.  Never "the first file alphabetically": 1,640 of
+    2,850 production EFIT directories still hold a pre-10-02 ``efit.json``
+    beside the current ``efit.json.gz``.
+    """
+    by_name = {p.name: p for p in outputs}
+    recorded = (manifest or {}).get("output")
+    if isinstance(recorded, dict) and recorded.get("name") in by_name:
+        return by_name[recorded["name"]]
+    canonical = stage + PRODUCT_SUFFIXES.get(stage, PRODUCT_SUFFIX)
+    if canonical in by_name:
+        return by_name[canonical]
+    named = [p for p in outputs if p.name.split(".")[0] == stage] or outputs
+    return max(named, key=lambda p: p.stat().st_mtime)
+
+
 def _scan_product(root: Path, product_dir: Path) -> dict:
     rel = product_dir.relative_to(root).parts  # omas/<stage>/[lineage...]/<shot>
     record: dict = {
@@ -140,17 +170,19 @@ def _scan_product(root: Path, product_dir: Path) -> dict:
         "stage": rel[1],
         "lineage": list(rel[2:-1]),
     }
+    manifest = _read_json(product_dir / "metadata" / "manifest.json")
     outputs = sorted(p for p in (product_dir / "output").glob("*") if p.is_file())
     if outputs:
-        # The stage names its product (efit.json[.gz], soft_x_rays.h5); fall
-        # back to the first file only when no file carries the stage name.
-        named = [p for p in outputs if p.name.split(".")[0] == rel[1]]
-        out = (named or outputs)[0]
+        out = _product_file(rel[1], outputs, manifest)
         record["output"] = {"name": out.name, "size": out.stat().st_size, "mtime": _mtime(out)}
+        siblings = [p.name for p in outputs if p != out]
+        if siblings:
+            # Stale artifacts of an older writer (efit.json beside the
+            # current efit.json.gz): reported, never mistaken for the product.
+            record["output"]["stale_siblings"] = siblings
         stub = _stub_comment(out)
         if stub:
             record["output"]["stub"] = stub
-    manifest = _read_json(product_dir / "metadata" / "manifest.json")
     if manifest is not None:
         record["manifest"] = {
             key: manifest.get(key)

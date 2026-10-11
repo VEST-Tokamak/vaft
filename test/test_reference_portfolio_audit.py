@@ -166,3 +166,33 @@ def test_missing_commit_is_reported_as_a_provenance_gap(tmp_path):
         "available",
         "provenance gap: manifest records no VAFT commit",
     )
+
+
+def test_suffix_mirror_matches_filedb():
+    from vaft.database import filedb
+
+    assert AUDIT.PRODUCT_SUFFIX == filedb.OMAS_PRODUCT_SUFFIX
+    assert AUDIT.PRODUCT_SUFFIXES == filedb.OMAS_PRODUCT_SUFFIXES
+
+
+def test_canonical_product_wins_over_a_stale_sibling(tmp_path):
+    # Production EFIT directories hold a 09-02 efit.json beside the current
+    # efit.json.gz; the alphabetically first file is the stale one.
+    directory = _product(tmp_path, "efit", 1, 5_000, lineage=("magnetic",))
+    current = directory / "output" / "efit.json"
+    current.rename(directory / "output" / "efit.json.gz")
+    stale = directory / "output" / "efit.json"
+    stale.write_text("{}")
+    os.utime(stale, (1_000, 1_000))
+    (product,) = AUDIT.scan([str(tmp_path)], ["1"])["products"]
+    assert product["output"]["name"] == "efit.json.gz"
+    assert product["output"]["stale_siblings"] == ["efit.json"]
+
+
+def test_manifest_recorded_name_wins(tmp_path):
+    directory = _product(tmp_path, "thomson", 1, 1_000)
+    manifest = directory / "metadata" / "manifest.json"
+    manifest.write_text(json.dumps({"status": "success", "output": {"name": "thomson.json", "sha256": "x"}}))
+    (directory / "output" / "thomson.json.gz").write_text("{}")
+    (product,) = AUDIT.scan([str(tmp_path)], ["1"])["products"]
+    assert product["output"]["name"] == "thomson.json"

@@ -1,5 +1,5 @@
 {
- "scanned_at": "2026-10-06T07:34:55+00:00",
+ "scanned_at": "2026-10-11T13:29:10+00:00",
  "roots": [
   "/srv/vest.filedb",
   "/home/user1/runs/campaign/filedb"
@@ -368,8 +368,8 @@
    "lineage": [],
    "output": {
     "name": "diagnostics.json.gz",
-    "size": 45702742,
-    "mtime": "2026-09-18T12:38:30+00:00"
+    "size": 45589633,
+    "mtime": "2026-10-10T16:35:55+00:00"
    },
    "manifest": {
     "status": "success",
@@ -393,7 +393,7 @@
      "spectrometer_uv": "success",
      "tf": "success"
     },
-    "sha256": "6d1dbb04b338760bb7feeebb772b26a6c9764fdac965153506f2177442217fa3"
+    "sha256": "5747d287d3e1895b81e9824f5685c5e6cccb46aa6a91de25e2482099d436cac5"
    },
    "shot": 45531
   },
@@ -404,8 +404,8 @@
    "lineage": [],
    "output": {
     "name": "diagnostics.json.gz",
-    "size": 49026831,
-    "mtime": "2026-10-06T04:12:02+00:00"
+    "size": 49029010,
+    "mtime": "2026-10-07T03:32:04+00:00"
    },
    "manifest": {
     "status": "success",
@@ -429,7 +429,7 @@
      "spectrometer_uv": "success",
      "tf": "success"
     },
-    "sha256": "dfec77501a9b36e9fb7286112209e06fe473c4b400cd5385c0edb55a3fec1116"
+    "sha256": "0c7c622d627c4420406f28da8891956245f0b03ad19e1b0bd6a7245fe147e274"
    },
    "shot": 48224
   },
@@ -440,8 +440,8 @@
    "lineage": [],
    "output": {
     "name": "diagnostics.json.gz",
-    "size": 48978104,
-    "mtime": "2026-10-01T13:17:09+00:00"
+    "size": 48978246,
+    "mtime": "2026-10-07T03:32:20+00:00"
    },
    "manifest": {
     "status": "success",
@@ -465,7 +465,7 @@
      "spectrometer_uv": "success",
      "tf": "success"
     },
-    "sha256": "1c9efae5bd088dde2e39b078e46cfa5e54f5a5fd52e2348585315ea221bff27b"
+    "sha256": "36a7520ba2c464dce1980e4492008df190bc40233364abf46969747dd6cd476c"
    },
    "shot": 48226
   },
@@ -590,15 +590,15 @@
    "lineage": [],
    "output": {
     "name": "eddy.json.gz",
-    "size": 22709440,
-    "mtime": "2026-09-18T12:38:43+00:00"
+    "size": 22740016,
+    "mtime": "2026-10-10T17:46:36+00:00"
    },
    "manifest": {
     "status": "success",
     "machine_version": "vest-43017-45967-pf1906",
     "schema_version": 1,
     "stage": "eddy",
-    "sha256": "4a2ac934b712da813bb654d5f329eff9209eb8d3d7981b21bcd26c825fac2703"
+    "sha256": "9d4ee98a35bc92f878862330bab01c6d497285c4d49bf23e57b566e59cdd6446"
    },
    "shot": 45531
   },
@@ -610,7 +610,7 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22726356,
-    "mtime": "2026-10-06T04:12:11+00:00"
+    "mtime": "2026-10-07T04:53:31+00:00"
    },
    "manifest": {
     "status": "success",
@@ -628,15 +628,15 @@
    "lineage": [],
    "output": {
     "name": "eddy.json.gz",
-    "size": 22681448,
-    "mtime": "2026-10-01T13:17:20+00:00"
+    "size": 22709087,
+    "mtime": "2026-10-07T04:53:53+00:00"
    },
    "manifest": {
     "status": "success",
     "machine_version": "vest-45968-plus-pf2507",
     "schema_version": 1,
     "stage": "eddy",
-    "sha256": "abc034be1dba90e4926aee5c5055343ac3929fe54603a09c31392a810e574226"
+    "sha256": "2789bbc9626d2ec7faffbd33e6457e98f8d5d2f98406430476bbd5c03f33b304"
    },
    "shot": 48226
   },
@@ -648,9 +648,12 @@
     "magnetic"
    ],
    "output": {
-    "name": "efit.json",
-    "size": 3801988,
-    "mtime": "2026-09-02T13:54:43+00:00"
+    "name": "efit.json.gz",
+    "size": 2938924,
+    "mtime": "2026-10-07T00:16:30+00:00",
+    "stale_siblings": [
+     "efit.json"
+    ]
    },
    "manifest": {
     "status": "success",
@@ -668,9 +671,12 @@
     "magnetic"
    ],
    "output": {
-    "name": "efit.json",
-    "size": 3416356,
-    "mtime": "2026-09-03T14:39:35+00:00"
+    "name": "efit.json.gz",
+    "size": 2929857,
+    "mtime": "2026-10-02T12:25:34+00:00",
+    "stale_siblings": [
+     "efit.json"
+    ]
    },
    "manifest": {
     "status": "success",
@@ -688,9 +694,12 @@
     "magnetic"
    ],
    "output": {
-    "name": "efit.json",
-    "size": 1237776,
-    "mtime": "2026-09-03T12:19:18+00:00"
+    "name": "efit.json.gz",
+    "size": 1375921,
+    "mtime": "2026-10-07T00:35:25+00:00",
+    "stale_siblings": [
+     "efit.json"
+    ]
    },
    "manifest": {
     "status": "success",
@@ -708,9 +717,12 @@
     "magnetic"
    ],
    "output": {
-    "name": "efit.json",
-    "size": 2527789,
-    "mtime": "2026-09-03T11:57:42+00:00"
+    "name": "efit.json.gz",
+    "size": 1388781,
+    "mtime": "2026-10-07T00:16:26+00:00",
+    "stale_siblings": [
+     "efit.json"
+    ]
    },
    "manifest": {
     "status": "success",
@@ -728,9 +740,12 @@
     "magnetic"
    ],
    "output": {
-    "name": "efit.json",
-    "size": 8271641,
-    "mtime": "2026-09-03T11:31:50+00:00"
+    "name": "efit.json.gz",
+    "size": 4065064,
+    "mtime": "2026-10-03T03:58:32+00:00",
+    "stale_siblings": [
+     "efit.json"
+    ]
    },
    "manifest": {
     "status": "success",
@@ -748,9 +763,12 @@
     "magnetic"
    ],
    "output": {
-    "name": "efit.json",
-    "size": 1677525,
-    "mtime": "2026-09-03T11:02:18+00:00"
+    "name": "efit.json.gz",
+    "size": 1537902,
+    "mtime": "2026-10-03T04:17:46+00:00",
+    "stale_siblings": [
+     "efit.json"
+    ]
    },
    "manifest": {
     "status": "success",
@@ -759,6 +777,27 @@
     "stage": "efit"
    },
    "shot": 42962
+  },
+  {
+   "root": "/srv/vest.filedb",
+   "path": "omas/efit/magnetic/45531",
+   "stage": "efit",
+   "lineage": [
+    "magnetic"
+   ],
+   "output": {
+    "name": "efit.json.gz",
+    "size": 179,
+    "mtime": "2026-10-10T18:52:36+00:00",
+    "stub": "EFIT output unavailable: completed_no_gfiles: returncode=0; gfiles=0"
+   },
+   "manifest": {
+    "status": "no_output",
+    "machine_version": null,
+    "schema_version": 1,
+    "stage": "efit"
+   },
+   "shot": 45531
   },
   {
    "root": "/srv/vest.filedb",
