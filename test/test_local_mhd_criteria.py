@@ -278,3 +278,36 @@ def test_s_alpha_from_ods_is_the_array_path(vest_s_alpha):
     np.testing.assert_allclose(from_ods.alpha, vest_s_alpha.alpha, rtol=1e-6)
     np.testing.assert_allclose(from_ods.s, vest_s_alpha.s, rtol=1e-6)
     assert from_ods.provenance["R0_source"] == "magnetic axis"
+
+
+def test_s_and_alpha_reduce_to_connor_hastie_taylor_at_large_aspect_ratio():
+    """External truth for the per-radian normalisation: a circular R0 = 20 m torus, q = 1 + 2 r^2,
+    p = p0 (1 - r^2), where s = r q'/q and alpha = -2 mu0 R0 q^2 p'(r) / B0^2 exactly."""
+    mu0, r0, b0, q0, q2, p0 = 4e-7 * np.pi, 20.0, 1.0, 1.0, 2.0, 1e3
+
+    def psi_of_r(r):  # dpsi/dr = r B0 / q, per radian
+        return b0 * np.log(1 + q2 * r**2 / q0) / (2 * q2)
+
+    R = np.linspace(r0 - 1.3, r0 + 1.3, 201)
+    Z = np.linspace(-1.3, 1.3, 201)
+    rr, zz = np.meshgrid(R, Z, indexing="ij")
+    psi = psi_of_r(np.hypot(rr - r0, zz))
+    x = np.linspace(0.0, 1.0, 201)
+    r_x = np.sqrt(q0 * (np.exp(2 * q2 * x * psi_of_r(1.0) / b0) - 1) / q2)
+    levels = np.round(np.arange(0.1, 0.91, 0.05), 2)
+    profile = s_alpha_profile(psi, R, Z, 0.0, psi_of_r(1.0), levels, profile_psi_n=x, f=np.full_like(x, b0 * r0),
+                              pressure=p0 * (1 - r_x**2), q=q0 + q2 * r_x**2, axis_rz=(r0, 0.0), R0=r0)
+    r = np.sqrt(q0 * (np.exp(2 * q2 * levels * psi_of_r(1.0) / b0) - 1) / q2)
+    q = q0 + q2 * r**2
+    np.testing.assert_allclose(profile.s, 2 * q2 * r**2 / q, rtol=3e-3)  # reviewer measured <= 1.7e-3
+    np.testing.assert_allclose(profile.alpha, -2 * mu0 * r0 * q**2 * (-2 * p0 * r) / b0**2, rtol=2e-3)
+    np.testing.assert_allclose(profile.volume, 2 * np.pi**2 * r0 * r**2, rtol=2e-3)
+
+
+def test_the_map_refuses_a_band_or_axis_outside_the_plasma(vest):
+    grid, profiles, _ = vest
+    common = dict(profile_psi_n=profiles["profile_psi_n"], f=profiles["f"], pressure=profiles["pressure"])
+    with pytest.raises(ValueError, match="inside the confined plasma"):
+        curvature_map(**grid, **common, axis_rz=profiles["axis_rz"], psi_n_max=1.05)
+    with pytest.raises(ValueError, match="encloses the axis"):
+        curvature_map(**grid, **common, axis_rz=(5.0, 5.0))

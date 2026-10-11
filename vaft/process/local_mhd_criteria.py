@@ -771,8 +771,8 @@ def curvature_map(
     Raises
     ------
     ValueError
-        ``psi_grid`` is not indexed ``(R, Z)``, or no closed ``psi_n_max``
-        contour encloses the axis.
+        ``psi_grid`` is not indexed ``(R, Z)``, the band is not inside
+        ``(0, 1)``, or no closed ``psi_n_max`` contour encloses the axis.
 
     Processing steps
     ----------------
@@ -806,11 +806,17 @@ def curvature_map(
 
     rr, zz = np.meshgrid(r_axis, z_axis, indexing="ij")
     psi_n = field_.psi_n(rr.ravel(), zz.ravel()).reshape(rr.shape)
+    if not 0 < psi_n_min < psi_n_max < 1:
+        raise ValueError("need 0 < psi_n_min < psi_n_max < 1: the band must lie inside the confined plasma")
+    from .equilibrium import _is_closed_segment
+
     edge = _enclosing_segment(
         extract_flux_surface_contours(psi, r_axis, z_axis, psi_axis, psi_boundary, [psi_n_max]).get(float(psi_n_max), []),
         axis_rz, 4)
-    if edge is None:
-        raise ValueError(f"no closed psi_n = {psi_n_max:g} contour encloses the axis")
+    # _enclosing_segment falls back to an open or non-enclosing segment; refuse those here.
+    if (edge is None or not _is_closed_segment(*edge)
+            or not _MplPath(np.column_stack(_closed_contour(*edge))).contains_point(axis_rz)):
+        raise ValueError(f"no closed psi_n = {psi_n_max:g} contour encloses the axis at {axis_rz}")
     confined = _MplPath(np.column_stack(_closed_contour(*edge))).contains_points(
         np.column_stack([rr.ravel(), zz.ravel()])).reshape(rr.shape)
     inside = (psi_n >= psi_n_min) & (psi_n <= psi_n_max) & confined
@@ -954,9 +960,16 @@ def s_alpha_profile(
     profile = mercier_ggj_profile(psi_grid, R, Z, psi_axis, psi_boundary, levels_norm, profile_psi_n=profile_psi_n,
                                   f=f, pressure=pressure, q=q, axis_rz=axis_rz, min_points=min_points,
                                   oversample=oversample)
+    from scipy.interpolate import RectBivariateSpline
+
     levels = profile.psi_n
-    contours = extract_flux_surface_contours(np.asarray(psi_grid, dtype=float), np.asarray(R, dtype=float),
-                                             np.asarray(Z, dtype=float), psi_axis, psi_boundary, levels)
+    # The volume from contours on the same refined map V' and q' were traced on:
+    # chords on the coarse grid cut inside convex surfaces (-1.4 % at psi_N 0.05).
+    r_axis, z_axis = np.asarray(R, dtype=float), np.asarray(Z, dtype=float)
+    r_fine = np.linspace(r_axis[0], r_axis[-1], (r_axis.size - 1) * int(oversample) + 1)
+    z_fine = np.linspace(z_axis[0], z_axis[-1], (z_axis.size - 1) * int(oversample) + 1)
+    psi_fine = RectBivariateSpline(r_axis, z_axis, np.asarray(psi_grid, dtype=float), kx=5, ky=5)(r_fine, z_fine)
+    contours = extract_flux_surface_contours(psi_fine, r_fine, z_fine, psi_axis, psi_boundary, levels)
     volume = np.full(levels.size, np.nan)
     for i, level in enumerate(levels):
         segment = _enclosing_segment(contours.get(float(level), []), axis_rz, min_points)
@@ -982,6 +995,7 @@ def s_alpha_profile(
         first[ok], second[ok] = a1, a2
     return SAlphaProfile(psi_n=levels, s=s_hat, alpha=alpha, alpha_first=first, alpha_second=second, volume=volume,
                          provenance={"R0": r0, "R0_source": "magnetic axis" if R0 is None else "given",
+                                     "q_map_vs_given_max_relative": profile.provenance["q_map_vs_given_max_relative"],
                                      "normalisation": "#1720 volume radius", "model": "circular s-alpha (CHT 1978)"})
 
 
