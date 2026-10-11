@@ -163,34 +163,48 @@ def _basis_footnote(fig, scalings) -> None:
         fig.supxlabel(BASIS_FOOTNOTE, fontsize="x-small", x=0.01, ha="left")
 
 
-def _wrap_to_width(text, width_px: float, renderer) -> None:
+def _wrap_to_width(text, width_px: float, renderer) -> bool:
     """Break ``text`` at spaces so that no line is wider than ``width_px``; wording unchanged.
 
+    Each existing line is wrapped on its own, so a caller's line breaks are kept,
+    and text that already fits is left as it is (wrapping is idempotent).
     Mathtext (``$...$``) is left alone: a break inside it would not render.
-    Returns whether the text was wrapped.
+    Returns whether the text changed.
     """
     content = text.get_text()
     if not content or "$" in content or text.get_window_extent(renderer).width <= width_px:
         return False
-    lines, current = [], ""
-    for word in content.split():
-        trial = f"{current} {word}" if current else word
-        text.set_text(trial)
-        if current and text.get_window_extent(renderer).width > width_px:
-            lines.append(current)
-            current = word
-        else:
-            current = trial
-    lines.append(current)
-    text.set_text("\n".join(lines))
-    return True
+
+    def width(line: str) -> float:
+        text.set_text(line)
+        return text.get_window_extent(renderer).width
+
+    lines = []
+    for line in content.split("\n"):
+        if width(line) <= width_px:
+            lines.append(line)
+            continue
+        current = ""
+        for word in line.split(" "):
+            trial = f"{current} {word}" if current else word
+            if current and width(trial) > width_px:
+                lines.append(current)
+                current = word
+            else:
+                current = trial
+        lines.append(current)
+    wrapped = "\n".join(lines)
+    text.set_text(wrapped)
+    return wrapped != content
 
 
 def _fit_titles_and_footnote(fig, axes) -> None:
     """Wrap panel titles wider than their axes, and the footnote to the figure width (#1946).
 
-    Drawn once first so the measurement uses the laid-out axes (constrained
-    layout) and the active presentation format's type size.
+    Called once, when the figure is built: it draws once so the measurement uses
+    the laid-out axes (constrained layout) and the active presentation format's
+    type size.  The breaks are therefore those of the build size and format; a
+    figure later resized or saved under another format keeps them.
     """
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
@@ -339,26 +353,64 @@ def _grid(n: int, panel=(5.4, 5.0), figsize=None):
 
 
 def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L"), *, max_groups: int = 4,
-                                 figsize=None):
-    """Measured against scaling-predicted tau_E, one panel per scaling."""
+                                 figsize=None, label_counts: bool = False, mark_thomson: bool = False):
+    """Measured against scaling-predicted tau_E, one panel per scaling.
+
+    Presentation (#1946): groups are named on their clusters without row counts
+    (``label_counts=True`` adds them), panel titles name the scaling only, and
+    the VEST details -- its energy basis, the rows a density-dependent scaling
+    can use, and how many rows' EFIT pressure disagrees with Thomson -- go in
+    the figure note under the panels.  ``mark_thomson=True`` rings those VEST
+    points on the panels as well.
+    """
 
     from vaft.plot.population import confinement_predicted_vs_measured
 
     fig, axes = _grid(len(scalings), figsize=figsize)
+    coverage, drawn = {}, np.zeros(len(table), bool)
     for ax, scaling in zip(axes, scalings):
         predicted = predict_tau(table, scaling)
         # The measured axis is the observed tau_E with the scaling's energy basis (#1713).
         shown = table.assign(tau_e_th_s=observed_tau(table, scaling))
         confinement_predicted_vs_measured(shown, predicted, scaling_label=LABELS.get(scaling, scaling),
-                                          by="population", highlight=VEST_LABEL, max_groups=max_groups, ax=ax)
-        mark_thomson_inconsistent(ax, shown, predicted.to_numpy(float), "tau_e_th_s", legend_loc="upper left")
-        if basis_marker(scaling):
-            ax.set_ylabel(r"$\tau_{E,global}$ measured [s] (VEST: $\tau_{E,th}$)")
-        ax.set_title(f"{LABELS.get(scaling, scaling)}{basis_marker(scaling)}: "
-                     f"{_vest_coverage(table, predicted)}", fontsize="small")
-    _basis_footnote(fig, scalings)
+                                          by="population", highlight=VEST_LABEL, max_groups=max_groups,
+                                          label_counts=label_counts, ax=ax)
+        if mark_thomson:
+            mark_thomson_inconsistent(ax, shown, predicted.to_numpy(float), "tau_e_th_s", legend_loc="upper left")
+        ax.set_ylabel(r"$\tau_E$ measured [s]")
+        ax.set_title(f"{LABELS.get(scaling, scaling)}{basis_marker(scaling)}")
+        coverage.setdefault(_vest_rows(table, predicted), []).append(LABELS.get(scaling, scaling))
+        drawn |= (np.isfinite(predicted.to_numpy(float))
+                  & np.isfinite(pd.to_numeric(shown["tau_e_th_s"], errors="coerce").to_numpy(float)))
+    note = [BASIS_FOOTNOTE] if any(basis_marker(name) for name in scalings) else []
+    vest_note = _vest_note(table, coverage, drawn)
+    if vest_note:
+        note.append(vest_note)
+    if note:
+        fig.supxlabel("\n".join(note), fontsize="x-small", x=0.01, ha="left")
     _fit_titles_and_footnote(fig, axes)
     return fig, axes
+
+
+def _vest_rows(table, predicted) -> tuple[int, int]:
+    """(rows a scaling can predict, all rows) of VEST: a density term needs Thomson n_e."""
+    vest = (table["machine"] == "VEST").to_numpy()
+    return int(np.sum(vest & np.isfinite(predicted.to_numpy(float)))), int(vest.sum())
+
+
+def _vest_note(table, coverage: dict, drawn: np.ndarray) -> str:
+    """The figure note's VEST sentence: basis, rows per scaling, Thomson-inconsistent rows."""
+    if not (table["machine"] == "VEST").any():
+        return ""
+    parts = []
+    for (shown, total), names in coverage.items():
+        rows = f"{shown}/{total} rows" + (" with Thomson n_e" if shown < total else "")
+        parts.append(rows if len(coverage) == 1 else f"{rows} ({', '.join(names)})")
+    sentence = "VEST: tau_E,th; " + "; ".join(parts)
+    inconsistent = int(np.sum(thomson_inconsistent(table) & drawn))
+    if inconsistent:
+        sentence += f"; {inconsistent} rows have EFIT p outside [1, 2] p_e (#1521)"
+    return sentence + "."
 
 
 def _vest_coverage(table, predicted) -> str:
@@ -531,7 +583,8 @@ def slide_figures(table: pd.DataFrame, exponents: pd.DataFrame, *, theme: str = 
     Width and height ceiling, type size and line scale come from the format; the
     figures are drawn inside its rc context, so the relative font sizes of the
     functions above scale with it. VEST points whose EFIT pressure is outside
-    [1, 2] p_e of Thomson are ringed.
+    [1, 2] p_e of Thomson are ringed in the population figure; the
+    predicted-vs-measured figure counts them in its note instead.
     """
     from vaft.plot.presentation import resolve_presentation
 

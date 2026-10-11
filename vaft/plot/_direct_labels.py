@@ -21,7 +21,17 @@ Placement is greedy and deterministic, in the order the labels were added:
   curves resampled along their length, and any extra ``avoid`` curve), their
   distance from the anchor and the preferred side;
 * a label that ends up away from its anchor gets a thin leader line in its own
-  colour back to the anchor point it names.
+  colour back to the anchor point it names (owned and drawn by the label's
+  text, created only when needed, so ``ax.lines`` is never touched);
+* a label wider than the axes is set smaller, down to 0.6 of its size, and
+  ellipsized beyond that (the full text stays in ``text.full_text`` and the gid).
+
+Placement is cached per axes on (axes box, view limits, scales, dpi, label
+texts, sizes and visibility), so redrawing an unchanged figure reuses it.
+Obstacles are counted on a 2 px occupancy grid over the axes with a
+summed-area table, so scoring a candidate costs a few lookups whatever the row
+count, and memory is bounded by the axes' pixel area, not by the data.  A label the caller
+hides with ``set_visible(False)`` stays hidden and is not placed.
 
 Several calls on one axes share one placement, so a caller can add a label
 (e.g. an annotation ring) after a renderer has labelled its series, and both
@@ -34,6 +44,8 @@ from dataclasses import dataclass
 from typing import Any, Iterable, Sequence
 
 import numpy as np
+from matplotlib.artist import Artist
+from matplotlib.text import Text
 
 __all__ = ["DirectLabel", "add_direct_labels", "LABEL_GID", "LEADER_GID"]
 
@@ -52,6 +64,8 @@ _RADII = 9          # distance steps tried away from an anchor
 _SAMPLES = 24       # anchor sample points per label
 _ATTACHED_STEPS = 1  # within this many steps the label sits on its anchor, no leader
 _LEADER_CHECKS = 120  # displaced candidates whose leader is checked for crossings
+_MIN_SHRINK = 0.6      # a label is never set below this fraction of its size; it is ellipsized instead
+_ELLIPSIS = "\u2026"
 
 
 @dataclass(frozen=True)
@@ -116,12 +130,12 @@ def add_direct_labels(
     Returns
     -------
     list of matplotlib.text.Text
-        One text per label, ``gid`` ``"direct-label:<text>"``; positions are
-        final once the figure has been drawn.
+        One :class:`DirectLabelText` per label, ``gid`` ``"direct-label:<text>"``;
+        positions are final once the figure has been drawn, and ``.leader`` is
+        the leader line when one is drawn.
     """
     from matplotlib import patheffects
     from matplotlib.font_manager import FontProperties
-    from matplotlib.lines import Line2D
     import matplotlib
 
     if fontsize is None:
@@ -131,23 +145,64 @@ def add_direct_labels(
     for item in labels:
         spec = item if isinstance(item, DirectLabel) else DirectLabel(*item)
         x, y = np.asarray(spec.x, float).ravel(), np.asarray(spec.y, float).ravel()
-        text = ax.text(0.0, 0.0, spec.text, color=spec.color, fontsize=fontsize, ha="left", va="bottom",
-                       transform=ax.transAxes, zorder=7, clip_on=False, gid=f"{LABEL_GID}{spec.text}")
+        text = DirectLabelText(0.0, 0.0, spec.text, color=spec.color, fontsize=fontsize, ha="left",
+                               va="bottom", transform=ax.transAxes, zorder=7, clip_on=False,
+                               gid=f"{LABEL_GID}{spec.text}")
+        text.want_leader = bool(leader)
         text.set_in_layout(False)
         if halo:
             text.set_path_effects([patheffects.withStroke(linewidth=3.0, foreground="white", alpha=0.9)])
-        line = None
-        if leader:
-            line = Line2D([], [], color=spec.color, lw=0.9, transform=ax.transAxes, zorder=6.9,
-                          gid=f"{LEADER_GID}{spec.text}", visible=False, clip_on=False)
-            line.set_in_layout(False)
-            ax.add_line(line)
-        placer.entries.append(_Entry(spec.side, x, y, text, line, text.get_fontsize()))
+        ax._add_text(text)
+        placer.entries.append(_Entry(spec.side, x, y, text, text.get_fontsize()))
         texts.append(text)
     for xs, ys in avoid:
         placer.avoid.append((np.asarray(xs, float).ravel(), np.asarray(ys, float).ravel()))
+    placer.cache = None
     placer.stale = True
     return texts
+
+
+class DirectLabelText(Text):
+    """A direct label: a text that draws its own leader line, and that placement may suppress.
+
+    ``set_visible`` stays the caller's: placement hides a label it cannot place
+    (no anchor inside the view) through ``placement_hidden`` instead, so a label
+    the caller hid is never shown again by a redraw.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.full_text = self.get_text()
+        self.placement_hidden = False
+        self.want_leader = True
+        self.leader = None
+
+    def leader_to(self, xy_axes) -> None:
+        """Show the leader along ``xy_axes`` (2x2, axes fraction); ``None`` hides it."""
+        if xy_axes is None:
+            if self.leader is not None:
+                self.leader.set_visible(False)
+            return
+        if not self.want_leader:
+            return
+        if self.leader is None:
+            from matplotlib.lines import Line2D
+
+            self.leader = Line2D([], [], color=self.get_color(), lw=0.9, clip_on=False,
+                                 gid=f"{LEADER_GID}{self.full_text}")
+            self.leader.set_in_layout(False)
+            self.leader.set_figure(self.figure)
+            self.leader.axes = self.axes
+        self.leader.set_transform(self.get_transform())
+        self.leader.set_data(xy_axes[:, 0], xy_axes[:, 1])
+        self.leader.set_visible(True)
+
+    def draw(self, renderer):
+        if not self.get_visible() or self.placement_hidden:
+            return
+        if self.leader is not None and self.leader.get_visible():
+            self.leader.draw(renderer)
+        super().draw(renderer)
 
 
 @dataclass
@@ -156,51 +211,70 @@ class _Entry:
     x: np.ndarray
     y: np.ndarray
     text: Any
-    line: Any
     size: float
+
+
+class DirectLabelPlacer(Artist):
+    """Invisible artist drawn first in its axes: it positions the labels."""
+
+    def __init__(self):
+        super().__init__()
+        self.entries: list[_Entry] = []
+        self.avoid: list[tuple[np.ndarray, np.ndarray]] = []
+        self.cache = None
+        self.set_zorder(-1e9)
+        self.set_in_layout(False)
+
+    def draw(self, renderer):
+        if self.entries and self.axes is not None:
+            key = _cache_key(self.axes, self.entries, self.avoid)
+            if self.cache is not None and self.cache[0] == key:
+                _restore(self.entries, self.cache[1])
+            else:
+                _place(self.axes, self.entries, self.avoid, renderer)
+                self.cache = (key, _snapshot(self.entries))
+        self.stale = False
+
+    def get_window_extent(self, renderer=None):
+        from matplotlib.transforms import Bbox
+
+        return Bbox.null()
 
 
 def _placer(ax):
     for artist in ax.artists:
-        if isinstance(artist, _placer_class()):
+        if isinstance(artist, DirectLabelPlacer):
             return artist
-    placer = _placer_class()()
+    placer = DirectLabelPlacer()
     ax.add_artist(placer)
     return placer
 
 
-_PLACER = None
+def _cache_key(ax, entries, avoid):
+    return (tuple(np.round(ax.bbox.bounds, 3)), tuple(np.round(ax.viewLim.bounds, 12)),
+            ax.get_xscale(), ax.get_yscale(), ax.figure.dpi, len(avoid),
+            tuple((e.text.full_text, e.size, e.text.get_visible()) for e in entries))
 
 
-def _placer_class():
-    """The placement artist, defined lazily so importing this module needs no matplotlib."""
-    global _PLACER
-    if _PLACER is not None:
-        return _PLACER
-    from matplotlib.artist import Artist
+def _snapshot(entries):
+    out = []
+    for e in entries:
+        t = e.text
+        leader = None
+        if t.leader is not None and t.leader.get_visible():
+            leader = np.asarray(t.leader.get_xydata(), float).copy()
+        out.append((t.get_position(), t.get_fontsize(), t.get_text(), t.placement_hidden, leader))
+    return out
 
-    class DirectLabelPlacer(Artist):
-        """Invisible artist drawn first in its axes: it positions the labels."""
 
-        def __init__(self):
-            super().__init__()
-            self.entries: list[_Entry] = []
-            self.avoid: list[tuple[np.ndarray, np.ndarray]] = []
-            self.set_zorder(-1e9)
-            self.set_in_layout(False)
-
-        def draw(self, renderer):
-            if self.entries:
-                _place(self.axes, self.entries, self.avoid, renderer)
-            self.stale = False
-
-        def get_window_extent(self, renderer=None):
-            from matplotlib.transforms import Bbox
-
-            return Bbox.null()
-
-    _PLACER = DirectLabelPlacer
-    return _PLACER
+def _restore(entries, snapshot):
+    for e, (position, size, content, hidden, leader) in zip(entries, snapshot):
+        t = e.text
+        t.set_position(position)
+        t.set_fontsize(size)
+        t.set_text(content)
+        t.placement_hidden = hidden
+        t.leader_to(leader)
 
 
 # ---------------------------------------------------------------------------
@@ -244,18 +318,53 @@ def _overlaps(boxes, others, pad):
     return hit.any(axis=1)
 
 
-def _covered(boxes, points):
-    """Number of obstacle points inside each box."""
-    if not len(points):
-        return np.zeros(len(boxes))
-    counts = np.zeros(len(boxes))
-    chunk = max(1, 2_000_000 // max(len(points), 1))
-    px, py = points[:, 0], points[:, 1]
-    for i in range(0, len(boxes), chunk):
-        b = boxes[i:i + chunk]
-        counts[i:i + chunk] = ((px[None, :] >= b[:, None, 0]) & (px[None, :] <= b[:, None, 2])
-                               & (py[None, :] >= b[:, None, 1]) & (py[None, :] <= b[:, None, 3])).sum(axis=1)
-    return counts
+class _Occupancy:
+    """Obstacle weight on a pixel grid over the axes, with a summed-area table.
+
+    A box's covered weight is four lookups, a leader's crossing weight a walk
+    along its length, so scoring costs O(candidates) whatever the row count.
+    """
+
+    def __init__(self, points, weights, bbox, cell=2.0):
+        self.x0, self.y0, self.cell = bbox.x0, bbox.y0, cell
+        self.nx = max(1, int(np.ceil(bbox.width / cell)))
+        self.ny = max(1, int(np.ceil(bbox.height / cell)))
+        grid = np.zeros((self.ny, self.nx))
+        if len(points):
+            ix = np.clip(((points[:, 0] - self.x0) / cell).astype(int), 0, self.nx - 1)
+            iy = np.clip(((points[:, 1] - self.y0) / cell).astype(int), 0, self.ny - 1)
+            np.add.at(grid, (iy, ix), weights)
+        self.grid = grid
+        self.table = np.zeros((self.ny + 1, self.nx + 1))
+        self.table[1:, 1:] = grid.cumsum(axis=0).cumsum(axis=1)
+
+    def _index(self, value, origin, n):
+        return np.clip(np.floor((value - origin) / self.cell).astype(int), 0, n)
+
+    def boxes(self, boxes):
+        """Weight inside each (x0, y0, x1, y1) box."""
+        i0 = self._index(boxes[:, 0], self.x0, self.nx)
+        j0 = self._index(boxes[:, 1], self.y0, self.ny)
+        i1 = np.clip(np.ceil((boxes[:, 2] - self.x0) / self.cell).astype(int), i0, self.nx)
+        j1 = np.clip(np.ceil((boxes[:, 3] - self.y0) / self.cell).astype(int), j0, self.ny)
+        t = self.table
+        return t[j1, i1] - t[j0, i1] - t[j1, i0] + t[j0, i0]
+
+    def segments(self, starts, ends, skip):
+        """Weight of the cells each segment passes through, ignoring its first ``skip`` px."""
+        out = np.zeros(len(starts))
+        for k, (a, b) in enumerate(zip(starts, ends)):
+            length = float(np.hypot(*(b - a)))
+            if length <= skip:
+                continue
+            t = np.arange(skip, length, self.cell) / length
+            p = a + t[:, None] * (b - a)
+            ix = np.floor((p[:, 0] - self.x0) / self.cell).astype(int)
+            iy = np.floor((p[:, 1] - self.y0) / self.cell).astype(int)
+            ok = (ix >= 0) & (ix < self.nx) & (iy >= 0) & (iy < self.ny)
+            cells = np.unique(iy[ok] * self.nx + ix[ok])
+            out[k] = self.grid.ravel()[cells].sum()
+        return out
 
 
 def _samples(pts, n):
@@ -323,16 +432,40 @@ def _candidates(entry, pts, w, h, gap):
     return np.vstack(boxes), np.vstack(anchors), np.concatenate(penalty), np.concatenate(steps)
 
 
+def _fit_width(text, size, room, renderer):
+    """Set ``text`` to fit ``room`` px: shrink to at most ``_MIN_SHRINK``, then ellipsize."""
+    text.set_text(text.full_text)
+    text.set_fontsize(size)
+    extent = text.get_window_extent(renderer)
+    if room <= 0 or extent.width <= room:
+        return extent
+    text.set_fontsize(max(size * room / extent.width * 0.98, _MIN_SHRINK * size))
+    extent = text.get_window_extent(renderer)
+    content = text.full_text
+    while extent.width > room and len(content) > 1:
+        content = content[:-1]
+        text.set_text(content.rstrip() + _ELLIPSIS)
+        extent = text.get_window_extent(renderer)
+    return extent
+
+
 def _place(ax, entries, avoid, renderer):
     bbox = ax.bbox
+    live = [e for e in entries if e.text.get_visible()]
+    if bbox.width <= 0 or bbox.height <= 0:
+        # A collapsed axes has no room and no invertible transform: show nothing.
+        for e in live:
+            e.text.placement_hidden = True
+            e.text.leader_to(None)
+        return
     margin = 3.0
     frame = (bbox.x0 + margin, bbox.y0 + margin, bbox.x1 - margin, bbox.y1 - margin)
     to_axes = ax.transAxes.inverted()
 
-    entry_pts = [_display(ax, e.x, e.y) for e in entries]
+    entry_pts = [_display(ax, e.x, e.y) for e in live]
     step_px = 2.0
     obstacles = []
-    for e, pts in zip(entries, entry_pts):
+    for e, pts in zip(live, entry_pts):
         obstacles.append(_resample(pts, step_px) if e.side == "outside" else pts)
     for xs, ys in avoid:
         obstacles.append(_resample(_display(ax, xs, ys), step_px))
@@ -341,28 +474,22 @@ def _place(ax, entries, avoid, renderer):
         keep = ((points[:, 0] >= bbox.x0) & (points[:, 0] <= bbox.x1)
                 & (points[:, 1] >= bbox.y0) & (points[:, 1] <= bbox.y1))
         points = points[keep]
+    occupancy = _Occupancy(points, np.ones(len(points)), bbox)
 
     placed = []
-    for entry, pts in zip(entries, entry_pts):
+    for entry, pts in zip(live, entry_pts):
         text = entry.text
         text.set_position((0.0, 0.0))
-        text.set_fontsize(entry.size)
-        extent = text.get_window_extent(renderer)
-        room = frame[2] - frame[0]
-        if extent.width > room > 0:
-            # A label wider than the axes is set smaller rather than let out of them.
-            text.set_fontsize(entry.size * room / extent.width * 0.98)
-            extent = text.get_window_extent(renderer)
+        text.leader_to(None)
+        extent = _fit_width(text, entry.size, frame[2] - frame[0], renderer)
         w, h = extent.width, extent.height
         gap = 0.35 * h
-        if entry.line is not None:
-            entry.line.set_visible(False)
         inside = pts[(pts[:, 0] >= bbox.x0) & (pts[:, 0] <= bbox.x1)
                      & (pts[:, 1] >= bbox.y0) & (pts[:, 1] <= bbox.y1)] if len(pts) else pts
         if not len(inside):
-            text.set_visible(False)
+            text.placement_hidden = True
             continue
-        text.set_visible(True)
+        text.placement_hidden = False
         boxes, anchors, penalty, steps = _candidates(entry, inside, w, h, gap)
         ok = _inside(boxes, frame) & ~_overlaps(boxes, placed, 2.0)
         if not ok.any():
@@ -371,7 +498,7 @@ def _place(ax, entries, avoid, renderer):
             ok = ~_overlaps(boxes, placed, 2.0)
             if not ok.any():
                 ok = np.ones(len(boxes), bool)
-        hits = _covered(boxes, points)
+        hits = occupancy.boxes(boxes)
         score = 10.0 * (hits > 0) + 2.0 * np.log1p(hits) + 2.5 * steps + penalty
         score[~ok] = np.inf
         # A leader that cuts through other data is worse than a slightly farther label:
@@ -379,32 +506,17 @@ def _place(ax, entries, avoid, renderer):
         finite = np.flatnonzero(np.isfinite(score) & (steps >= _ATTACHED_STEPS))
         if len(finite) and len(points):
             top = finite[np.argsort(score[finite], kind="stable")[:_LEADER_CHECKS]]
-            crossed = _leader_crossings(anchors[top], boxes[top], points, gap)
+            near = np.clip(anchors[top], boxes[top][:, :2], boxes[top][:, 2:])
+            crossed = occupancy.segments(anchors[top], near, gap)
             score[top] += 4.0 * (crossed > 0) + 1.5 * np.log1p(crossed)
         best = int(np.argmin(score))  # argmin is first-minimum: deterministic
         box, anchor = boxes[best], anchors[best]
         placed.append(box)
         text.set_position(to_axes.transform((box[0], box[1])))
-        if entry.line is not None and steps[best] >= _ATTACHED_STEPS:
+        if steps[best] >= _ATTACHED_STEPS:
             near = np.clip(anchor, box[:2], box[2:])
             if np.hypot(*(near - anchor)) > gap * 1.5:
-                ends = to_axes.transform(np.vstack([anchor, near]))
-                entry.line.set_data(ends[:, 0], ends[:, 1])
-                entry.line.set_visible(True)
-
-
-def _leader_crossings(anchors, boxes, points, gap):
-    """Obstacle points within 2 px of each candidate's leader (anchor to box edge)."""
-    near = np.clip(anchors, boxes[:, :2], boxes[:, 2:])
-    seg = near - anchors
-    length2 = np.maximum((seg ** 2).sum(axis=1), 1e-9)
-    rel = points[None, :, :] - anchors[:, None, :]
-    t = np.clip((rel * seg[:, None, :]).sum(axis=2) / length2[:, None], 0.0, 1.0)
-    closest = anchors[:, None, :] + t[:, :, None] * seg[:, None, :]
-    distance = np.hypot(*(points[None, :, :] - closest).transpose(2, 0, 1))
-    from_anchor = np.hypot(*rel.transpose(2, 0, 1))
-    # Points at the anchor itself are the labelled data, not a crossing.
-    return ((distance < 2.0) & (from_anchor > gap)).sum(axis=1)
+                text.leader_to(to_axes.transform(np.vstack([anchor, near])))
 
 
 def _clamp(boxes, frame):

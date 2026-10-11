@@ -71,7 +71,12 @@ LABELS = {
 #: read when the figure is drawn into, inside the format's rc context.
 AXIS_LABEL_SCALE = 1.2
 TICK_LABEL_SCALE = 1.15
-ROW_LABEL_SCALE = 1.2
+#: The strips and the LCFS comparison are read across many narrow panels or
+#: small nested curves, so their text is larger still.
+STRIP_TEXT_SCALE = 1.5
+STRIP_TICK_SCALE = 1.35
+GEOMETRY_TEXT_SCALE = 1.45
+GEOMETRY_TICK_SCALE = 1.3
 LABEL_MODES = ("direct", "legend", "none")
 
 
@@ -83,14 +88,15 @@ def _font(key: str, scale: float) -> float:
     return scale * FontProperties(size=matplotlib.rcParams[key]).get_size_in_points()
 
 
-def _legible_axes(ax, *, x: bool = True, y: bool = True) -> None:
+def _legible_axes(ax, *, x: bool = True, y: bool = True, label_scale: float = AXIS_LABEL_SCALE,
+                  tick_scale: float = TICK_LABEL_SCALE) -> None:
     """Enlarge the axis labels and tick labels already set on ``ax``."""
     if x:
-        ax.xaxis.label.set_fontsize(_font("axes.labelsize", AXIS_LABEL_SCALE))
-        ax.tick_params(axis="x", which="both", labelsize=_font("xtick.labelsize", TICK_LABEL_SCALE))
+        ax.xaxis.label.set_fontsize(_font("axes.labelsize", label_scale))
+        ax.tick_params(axis="x", which="both", labelsize=_font("xtick.labelsize", tick_scale))
     if y:
-        ax.yaxis.label.set_fontsize(_font("axes.labelsize", AXIS_LABEL_SCALE))
-        ax.tick_params(axis="y", which="both", labelsize=_font("ytick.labelsize", TICK_LABEL_SCALE))
+        ax.yaxis.label.set_fontsize(_font("axes.labelsize", label_scale))
+        ax.tick_params(axis="y", which="both", labelsize=_font("ytick.labelsize", tick_scale))
 
 
 def _text_color(color):
@@ -176,11 +182,15 @@ def _finish(fig, show: bool):
         plt.show()
 
 
-def _draw_highlight(ax, x, y, label):
+def _named(name: str, count: int, label_counts: bool) -> str:
+    return f"{name} ({count})" if label_counts else name
+
+
+def _draw_highlight(ax, x, y, label, label_counts: bool = True):
     """Stars on top; returns ``(text, colour, x, y)`` for the group's name."""
     ok = np.isfinite(x) & np.isfinite(y)
     if ok.any():
-        text = f"{label} ({int(ok.sum())})"
+        text = _named(label, int(ok.sum()), label_counts)
         ax.scatter(x[ok], y[ok], s=140, marker="*", color=HIGHLIGHT_COLOR,
                    edgecolor="white", linewidth=1.0, zorder=5, label=text)
         return [(text, HIGHLIGHT_COLOR, x[ok], y[ok])]
@@ -197,6 +207,7 @@ def confinement_population(
     max_groups: int = 7,
     log: bool = True,
     labels: str = "direct",
+    label_counts: bool = True,
     ax=None,
     show: bool = False,
     figsize=(6.4, 5.0),
@@ -220,6 +231,9 @@ def confinement_population(
     labels : str, optional
         ``"direct"`` (default) names each group above its own cluster in its
         colour; ``"legend"`` draws a legend instead; ``"none"`` neither [str].
+    label_counts : bool, optional
+        Append each group's plotted row count, "JET (2235)", default ``True``
+        [bool].
     ax : matplotlib.axes.Axes or None, optional
         Target axes, default ``None`` creates a figure [Axes].
     show : bool, optional
@@ -238,13 +252,13 @@ def confinement_population(
     named = []
     for name, mask, color, marker in _groups(table, by, highlight, max_groups):
         ok = mask & np.isfinite(xs) & np.isfinite(ys)
-        text = f"{name} ({int(ok.sum())})"
+        text = _named(name, int(ok.sum()), label_counts)
         ax.scatter(xs[ok], ys[ok], s=10, color=color, marker=marker, alpha=0.55,
                    linewidth=0, label=text)
         named.append((text, color, xs[ok], ys[ok]))
     if highlight is not None:
         mask = (_group_labels(table, by) == highlight).to_numpy()
-        named += _draw_highlight(ax, xs[mask], ys[mask], highlight)
+        named += _draw_highlight(ax, xs[mask], ys[mask], highlight, label_counts)
     if log:
         ax.set_xscale("log")
         ax.set_yscale("log")
@@ -267,6 +281,7 @@ def confinement_predicted_vs_measured(
     max_groups: int = 7,
     band: float = 2.0,
     labels: str = "direct",
+    label_counts: bool = True,
     ax=None,
     show: bool = False,
     figsize=(5.6, 5.4),
@@ -289,6 +304,9 @@ def confinement_predicted_vs_measured(
     labels : str, optional
         Group names, as in :func:`confinement_population`; default
         ``"direct"`` [str].
+    label_counts : bool, optional
+        Row counts in the group names, as in :func:`confinement_population`;
+        default ``True`` [bool].
     ax, show, figsize : optional
         Renderer contract, as in :func:`confinement_population`.
 
@@ -304,13 +322,13 @@ def confinement_predicted_vs_measured(
     named = []
     for name, mask, color, marker in _groups(table, by, highlight, max_groups):
         ok = mask & np.isfinite(measured) & np.isfinite(pred)
-        text = f"{name} ({int(ok.sum())})"
+        text = _named(name, int(ok.sum()), label_counts)
         ax.scatter(pred[ok], measured[ok], s=10, color=color, marker=marker, alpha=0.55,
                    linewidth=0, label=text)
         named.append((text, color, pred[ok], measured[ok]))
     if highlight is not None:
         mask = (_group_labels(table, by) == highlight).to_numpy()
-        named += _draw_highlight(ax, pred[mask], measured[mask], highlight)
+        named += _draw_highlight(ax, pred[mask], measured[mask], highlight, label_counts)
     finite = np.concatenate([v[np.isfinite(v) & (v > 0)] for v in (measured, pred)])
     references = []
     if finite.size:
@@ -397,6 +415,7 @@ def confinement_coverage_strip(
     by: str = "machine",
     highlight: str | None = "VEST",
     max_groups: int = 7,
+    title: str | None = None,
     axes=None,
     show: bool = False,
     figsize=None,
@@ -415,6 +434,9 @@ def confinement_coverage_strip(
         Canonical columns, one panel each [str].
     by, highlight, max_groups : optional
         Grouping as in :func:`confinement_population`.
+    title : str or None, optional
+        Figure title, drawn at the strips' enlarged text size; default ``None``
+        draws none [str].
     axes : sequence of Axes or None, optional
         One axes per column, default ``None`` creates a figure [Axes].
     show : bool, optional
@@ -431,7 +453,7 @@ def confinement_coverage_strip(
     from matplotlib.ticker import LogLocator, MaxNLocator
 
     if axes is None:
-        fig, axes = plt.subplots(1, len(columns), figsize=figsize or (2.5 * len(columns), 5.0), sharey=True)
+        fig, axes = plt.subplots(1, len(columns), figsize=figsize or (3.0 * len(columns), 6.0), sharey=True)
     else:
         fig = np.ravel(axes)[0].figure
     axes = np.atleast_1d(axes)
@@ -455,14 +477,53 @@ def confinement_coverage_strip(
             ax.xaxis.set_major_locator(LogLocator(base=10.0, numticks=4))
         else:
             ax.xaxis.set_major_locator(MaxNLocator(nbins=3))
-        ax.set_xlabel(_label(column), fontsize=_font("axes.labelsize", AXIS_LABEL_SCALE))
-        ax.tick_params(axis="x", which="both", labelsize=_font("xtick.labelsize", TICK_LABEL_SCALE))
+        # Name over unit: a strip is narrow and its label large.
+        name, unit, _ = LABELS.get(column, (column, "", 1.0))
+        ax.set_xlabel(f"{name}\n[{unit}]" if unit else name, fontsize=_font("axes.labelsize", STRIP_TEXT_SCALE))
+        ax.tick_params(axis="x", which="both", labelsize=_font("xtick.labelsize", STRIP_TICK_SCALE))
         ax.grid(alpha=0.2, axis="x", which="both")
     axes[0].set_yticks(range(len(rows)))
-    axes[0].set_yticklabels(rows, fontsize=_font("ytick.labelsize", ROW_LABEL_SCALE))
+    axes[0].set_yticklabels(rows, fontsize=_font("ytick.labelsize", STRIP_TEXT_SCALE))
+    if title is not None:
+        fig.suptitle(title, fontsize=_font("figure.titlesize", STRIP_TEXT_SCALE))
     fig.tight_layout()
+    _thin_colliding_ticks(fig, axes)
     _finish(fig, show)
     return fig, axes
+
+
+def _thin_colliding_ticks(fig, axes) -> None:
+    """Where enlarged tick labels of a narrow strip touch, keep fewer ticks.
+
+    Measured with the renderer after layout: the ticks in view are kept left to
+    right while their labels leave half an em clear, and the axis is pinned to
+    those, so a presentation format's large type on a narrow strip drops a
+    tick rather than overprint.
+    """
+    from matplotlib.ticker import FixedLocator
+
+    try:
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+    except Exception:  # noqa: BLE001 - a canvas without a renderer: keep the ticks
+        return
+    changed = False
+    for ax in axes:
+        lo, hi = sorted(ax.get_xlim())
+        ticks = [(loc, label) for loc, label in zip(ax.get_xticks(), ax.get_xticklabels())
+                 if lo <= loc <= hi and label.get_text()]
+        boxes = [label.get_window_extent(renderer) for _, label in ticks]
+        gap = 0.5 * max((b.height for b in boxes), default=0.0)
+        keep, right = [], -np.inf
+        for (loc, _), box in sorted(zip(ticks, boxes), key=lambda item: item[1].x0):
+            if box.x0 >= right + gap:
+                keep.append(loc)
+                right = box.x1
+        if len(keep) < len(ticks):
+            ax.xaxis.set_major_locator(FixedLocator(keep))
+            changed = True
+    if changed:
+        fig.canvas.draw()
 
 
 def _observed_legend(ax, location="best"):
@@ -650,6 +711,7 @@ def machine_lcfs_comparison(
     limiter: bool = True,
     magnetic_axis: bool = True,
     labels: str = "direct",
+    title: str | None = None,
     ax=None,
     show: bool = False,
     figsize=(6.4, 6.0),
@@ -661,7 +723,7 @@ def machine_lcfs_comparison(
     equilibria : mapping
         Machine name -> equilibrium with ``lcfs`` (``.r``, ``.z`` in m) and,
         optionally, ``limiter`` (``.r``, ``.z``) and ``magnetic_axis``
-        (``(R, Z)``), e.g. :class:`vaft.process.equilibrium.EquilibriumData`;
+        (``(R, Z)``), e.g. :class:`vaft.data.equilibrium.EquilibriumData`;
         an entry without an LCFS is skipped [m].
     normalized_by : mapping or None, optional
         Machine name -> ``(R0, a)``; when given, draws ``(R - R0) / a``
@@ -676,6 +738,8 @@ def machine_lcfs_comparison(
         ``"direct"`` (default) writes each machine's name beside its LCFS in
         its colour, with leader lines where machines nest; ``"legend"`` draws
         a legend; ``"none"`` neither [str].
+    title : str or None, optional
+        Panel title, at the enlarged text size; default ``None`` [str].
     ax, show, figsize : optional
         Renderer contract, as in :func:`confinement_population`.
 
@@ -686,7 +750,8 @@ def machine_lcfs_comparison(
 
     Notes
     -----
-    Colours follow the categorical slots in the mapping's order.  The axes are
+    Text is drawn larger than the rcParams base (labels and title about 1.45x,
+    ticks 1.3x), so it reads beside small nested curves.  Colours follow the categorical slots in the mapping's order.  The axes are
     equal-aspect, so a spherical tokamak and ITER keep their true shapes.
     """
     _check_labels(labels)
@@ -720,14 +785,18 @@ def machine_lcfs_comparison(
     else:
         ax.set_xlabel("R [m]")
         ax.set_ylabel("Z [m]")
-    _legible_axes(ax)
+    _legible_axes(ax, label_scale=GEOMETRY_TEXT_SCALE, tick_scale=GEOMETRY_TICK_SCALE)
+    if title is not None:
+        ax.set_title(title, fontsize=_font("axes.titlesize", GEOMETRY_TEXT_SCALE))
+    # Room around the outermost boundary, where the names of nested machines go.
+    ax.margins(0.12)
     ax.set_aspect("equal", adjustable="box")
     ax.grid(alpha=0.25)
     if labels == "direct":
         from ._direct_labels import DirectLabel, add_direct_labels
 
         add_direct_labels(ax, [DirectLabel(name, color, r, z, "outside") for name, color, r, z in named],
-                          avoid=outlines)
+                          avoid=outlines, fontsize=_font("font.size", GEOMETRY_TEXT_SCALE))
     elif labels == "legend":
         ax.legend(fontsize="small")
     _finish(fig, show)

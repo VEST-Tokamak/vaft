@@ -44,8 +44,8 @@ def _labels(ax):
 
 
 def _leaders(ax):
-    return {line.get_gid()[len(LEADER_GID):]: line for line in ax.lines
-            if str(line.get_gid() or "").startswith(LEADER_GID)}
+    """Visible leader lines, owned by their label texts, by label."""
+    return {t.full_text: t.leader for t in _labels(ax) if t.leader is not None and t.leader.get_visible()}
 
 
 def _extents(fig, texts):
@@ -123,7 +123,7 @@ def test_a_displaced_label_gets_a_leader_in_its_colour_from_its_anchor():
                            DirectLabel("grid", "grey", gx.ravel(), gy.ravel())])
     fig.canvas.draw()
     leader = _leaders(ax)["target"]
-    assert leader.get_visible()
+    assert leader.get_gid() == f"{LEADER_GID}target"
     assert to_rgba(leader.get_color()) == to_rgba("#eb6834")
     start = ax.transAxes.transform(leader.get_xydata()[0])
     assert np.allclose(start, ax.transData.transform((0.5, 0.5)), atol=1.0)
@@ -162,7 +162,7 @@ def test_machine_lcfs_comparison_names_every_machine_without_a_legend():
     _assert_no_overlap(boxes)
     _assert_inside(ax, boxes)
     # Machines nest near the origin: at least one label needs a leader.
-    assert any(line.get_visible() for line in _leaders(ax).values())
+    assert _leaders(ax)
     plt.close(fig)
 
 
@@ -255,3 +255,151 @@ def test_coverage_strip_text_is_larger_and_scales_with_the_presentation_format()
         fig, axes = population.confinement_coverage_strip(table, columns=("i_p_A", "r_geo_m"))
         assert axes[0].xaxis.label.get_fontsize() > 1.5 * screen_label
         plt.close(fig)
+
+
+# --- cold-review follow-ups -------------------------------------------------
+
+
+def test_a_labelled_figure_survives_a_pickle_round_trip():
+    import pickle
+
+    from vaft.plot import population
+
+    table, _ = _population()
+    fig, ax = population.confinement_population(table, max_groups=4)
+    fig.canvas.draw()
+    clone = pickle.loads(pickle.dumps(fig))
+    clone.canvas.draw()
+    names = [t.get_text() for t in _labels(clone.axes[0])]
+    assert names == [t.get_text() for t in _labels(ax)]
+    plt.close(fig)
+    plt.close(clone)
+
+
+def test_a_collapsed_axes_draws_without_error_and_shows_no_label():
+    fig = plt.figure(figsize=(3, 3))
+    ax = fig.add_axes((0.1, 0.1, 0.0, 0.5))
+    text, = add_direct_labels(ax, [DirectLabel("x", "k", [0.5], [0.5])])
+    fig.canvas.draw()
+    assert text.placement_hidden
+    plt.close(fig)
+
+
+def test_shrink_stops_at_six_tenths_then_ellipsizes():
+    from vaft.plot._direct_labels import _MIN_SHRINK
+
+    fig, ax = plt.subplots(figsize=(1.2, 1.2))
+    long = "an extremely long machine name that cannot possibly fit in this tiny axes"
+    text, = add_direct_labels(ax, [DirectLabel(long, "k", [0.5], [0.5])], fontsize=10)
+    fig.canvas.draw()
+    assert text.get_fontsize() == pytest.approx(_MIN_SHRINK * 10)
+    assert text.get_text().endswith("…") and len(text.get_text()) < len(long)
+    assert text.full_text == long and text.get_gid() == f"{LABEL_GID}{long}"
+    _assert_inside(ax, _extents(fig, [text]))
+    plt.close(fig)
+
+
+def test_a_label_the_caller_hides_stays_hidden_after_redraws():
+    fig, ax, texts = _crowded()
+    fig.canvas.draw()
+    texts[2].set_visible(False)
+    fig.canvas.draw()
+    fig.canvas.draw()
+    assert not texts[2].get_visible()
+    # The hidden label is not placed, so it reserves no room among the others.
+    _assert_no_overlap(_extents(fig, [t for t in texts if t.get_visible()]))
+    plt.close(fig)
+
+
+def test_undisplaced_labels_add_no_lines():
+    fig, ax = plt.subplots(figsize=(4, 3))
+    ax.plot([0, 1], [0, 1])
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 10)
+    before = len(ax.lines)
+    text, = add_direct_labels(ax, [DirectLabel("lonely", "k", [5.0], [5.0])])
+    fig.canvas.draw()
+    assert len(ax.lines) == before
+    assert text.leader is None
+    plt.close(fig)
+
+
+def test_nan_anchors_and_non_positive_values_on_log_axes():
+    fig, ax = plt.subplots(figsize=(4, 3))
+    x = np.array([np.nan, -1.0, 0.0, 1.0, 10.0, 100.0])
+    y = np.array([1.0, 1.0, np.nan, 2.0, 20.0, 200.0])
+    ax.scatter(x, y)
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    shown, gone = add_direct_labels(ax, [DirectLabel("finite", "k", x, y),
+                                         DirectLabel("none", "r", [np.nan, -1.0], [1.0, np.nan])])
+    _assert_inside(ax, _extents(fig, [shown]))
+    assert not shown.placement_hidden and gone.placement_hidden
+    plt.close(fig)
+
+
+def test_repeated_draws_reuse_the_placement():
+    from vaft.plot import _direct_labels
+
+    fig, ax, texts = _crowded()
+    fig.canvas.draw()
+    calls = []
+    original = _direct_labels._place
+    _direct_labels._place = lambda *a: calls.append(a) or original(*a)
+    try:
+        fig.canvas.draw()
+        assert not calls
+        ax.set_xlim(-0.5, 4.0)
+        fig.canvas.draw()
+        assert len(calls) == 1
+    finally:
+        _direct_labels._place = original
+    plt.close(fig)
+
+
+def _big_population(n):
+    rng = np.random.default_rng(5)
+    machines = np.array(["JET", "AUG", "D3D", "NSTX", "MAST", "TCV", "START", "VEST"])
+    machine = machines[rng.integers(0, len(machines), n)]
+    scale = {m: 10.0 ** (-3 + i * 0.4) for i, m in enumerate(machines)}
+    ip = np.array([scale[m] for m in machine]) * 1e9 * np.exp(0.3 * rng.standard_normal(n))
+    tau = np.array([scale[m] for m in machine]) * np.exp(0.3 * rng.standard_normal(n))
+    return pd.DataFrame({"machine": machine, "i_p_A": ip, "b_t_T": 1.0, "tau_e_th_s": tau})
+
+
+def _draw_time(table, labels):
+    import time
+
+    from vaft.plot import population
+
+    fig, ax = population.confinement_population(table, labels=labels)
+    start = time.perf_counter()
+    fig.canvas.draw()
+    elapsed = time.perf_counter() - start
+    plt.close(fig)
+    return elapsed
+
+
+def test_placement_cost_is_bounded_for_large_populations():
+    # Generous bound: direct labels on 10k rows cost at most a few times the bare draw.
+    table = _big_population(10_000)
+    bare = min(_draw_time(table, "none") for _ in range(2))
+    labelled = min(_draw_time(table, "direct") for _ in range(2))
+    assert labelled < 6.0 * bare + 1.0
+    # 100k rows: obstacles are binned, so placement still completes in bounded time.
+    assert _draw_time(_big_population(100_000), "direct") < 30.0
+
+
+def test_occupancy_grid_matches_brute_force_counts_with_bounded_size():
+    from matplotlib.transforms import Bbox
+
+    from vaft.plot._direct_labels import _Occupancy
+
+    rng = np.random.default_rng(0)
+    pts = rng.uniform(0, 800, (200_000, 2))
+    grid = _Occupancy(pts, np.ones(len(pts)), Bbox([[0, 0], [800, 800]]))
+    assert grid.grid.size == 400 * 400 and grid.grid.sum() == len(pts)
+    boxes = np.array([[100.0, 100.0, 300.0, 140.0], [0.0, 0.0, 800.0, 800.0], [500.0, 20.0, 520.0, 60.0]])
+    brute = [((pts[:, 0] >= b[0]) & (pts[:, 0] < b[2]) & (pts[:, 1] >= b[1]) & (pts[:, 1] < b[3])).sum()
+             for b in boxes]
+    assert np.allclose(grid.boxes(boxes), brute, rtol=0.02)
