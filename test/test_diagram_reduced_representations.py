@@ -90,6 +90,7 @@ def test_a_relation_without_a_formula_or_kind_is_rejected():
 
 
 @pytest.mark.parametrize("name, kwargs", [("reduced_representation_hierarchy", {}),
+                                          ("reduced_representation_hierarchy_compact", {}),
                                           ("reduction_graph", {"family": "current_q"})])
 def test_deterministic_exported_and_labels(name, kwargs):
     fn = getattr(vaft.diagram, name)
@@ -114,3 +115,25 @@ def test_layout_accepts_a_relation_with_sources_at_different_depths(monkeypatch)
     monkeypatch.setattr(module, "REDUCTION_FAMILIES", families)
     d = module.reduction_graph("mixed")
     assert d.model["layers"]["s_hat"] == 2
+
+
+def test_compact_hierarchy_keeps_the_axes_and_arrows_without_counts():
+    full = vaft.diagram.reduced_representation_hierarchy()
+    compact = vaft.diagram.reduced_representation_hierarchy_compact()
+
+    def texts(d, role):
+        return [it.text for it in d.scene.role(role) if hasattr(it, "text")]
+
+    assert set(compact.model["cells"]) == set(full.model["cells"])
+    assert "counts" not in compact.model
+    for d in (full, compact):
+        assert texts(d, "column:dimensional") == ["dimensional"]
+    every = " ".join(it.text for it in compact.scene.items if hasattr(it, "text"))
+    assert "catalogued" not in every
+    assert "catalogued" in " ".join(it.text for it in full.scene.items if hasattr(it, "text"))
+    # the same seven reductions, as arrows, with the same meanings (the compact labels are one line)
+    arrows = [t.replace("\\\\ ", " ") for t in texts(full, "reduction")]
+    assert texts(compact, "reduction") == arrows
+    # and it is more compact: the rows are closer together
+    rows = lambda d: sorted(y for _, y in d.model["cells"].values())
+    assert rows(compact)[-1] - rows(compact)[0] < rows(full)[-1] - rows(full)[0]

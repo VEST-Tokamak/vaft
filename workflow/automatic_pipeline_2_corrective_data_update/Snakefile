@@ -83,8 +83,9 @@ workflow.global_resources.setdefault("hsds", REPLICATION_CONCURRENCY)
 
 # The Thomson lineage: a deliberate *subset* of the corrective stages, not all
 # of them. Soft X-ray and camera are ingested by
-# `ingest_external_diagnostics.py`, and `neoclassical` belongs to the GACODE
-# chain, so each has its own producer and none of them belongs in this DAG.
+# `ingest_external_diagnostics.py`, and `neoclassical` and `turbulent_transport`
+# belong to the GACODE chain, so each has its own producer and none of them
+# belongs in this DAG.
 #
 # Named here rather than derived, because "which stages does this pipeline
 # build" is a real decision -- but checked against the registry, so a stage

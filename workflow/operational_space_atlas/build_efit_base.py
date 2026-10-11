@@ -20,6 +20,14 @@ population renderer can check identity and unit:
     plasma_surface_area       LCFS surface area S (derive_global_descriptors), for L-H thresholds
     inverse_cylindrical_q     |I_p| R_geo / (5 a^2 kappa_a B_T(R_geo)), B_T(R_geo) = |b0| R_0 / R_geo,
                               R_0 = resolve_reference_major_radius (the r0 leaf can be corrupt, #325)
+    internal_inductance_li1   <B_p^2>/B_pa^2, B_pa = mu0 |I_p| / Gamma (Strait 1994's l_i), <B_p^2> on the same grid
+                              cells as li3_grid_integral, Gamma the boundary outline's circumference
+    boundary_perimeter_m      Gamma [m]; grid_volume_m3 the volume of those grid cells [m^3]
+    volume_beta               100 * 2 mu0 int p dV / int B^2 dV, B the total equilibrium field (#1691 stage 1),
+                              from the summary's own helper so the atlas and the summary share one definition, %
+    normalized_volume_beta    volume_beta a B_0 / |I_p| with the a and B_0 of normalized_current: Menard's <beta_N>
+                              form with B_0 at r0 (Menard et al. take B_T at the geometric centre)
+    aspect_ratio              R_geo / a (derive_global_descriptors)
 
 Before #1477 that routine returned li_3 up to 10x and beta_normal up to 4x on many
 Tier A slices (#1462: open grid-edge branches posed as flux surfaces). Every row is
@@ -75,6 +83,12 @@ UNITS = {
     "poloidal_beta": "-",
     "plasma_surface_area": "m^2",
     "inverse_cylindrical_q": "-",
+    "internal_inductance_li1": "-",
+    "boundary_perimeter_m": "m",
+    "grid_volume_m3": "m^3",
+    "volume_beta": "%",
+    "normalized_volume_beta": "% m T/MA",
+    "aspect_ratio": "-",
     "plasma_current_ma": "MA",
     "minor_radius_m": "m",
     "major_radius_geo_m": "m",
@@ -117,6 +131,26 @@ def _leaf(ods, path):
 
 def _bp2_volume_integral(ods, k: int) -> float:
     """int B_p^2 dV [T^2 m^3] over the grid cells inside the boundary outline of slice k."""
+    return _bp2_and_volume(ods, k)[0]
+
+
+def _outline(ods, k: int) -> np.ndarray:
+    """Slice k's boundary outline as (N, 2) [m], non-finite points dropped: the one contour Gamma and V use."""
+    ts = f"equilibrium.time_slice.{k}"
+    r = np.asarray(ods[f"{ts}.boundary.outline.r"], dtype=float)
+    z = np.asarray(ods[f"{ts}.boundary.outline.z"], dtype=float)
+    ok = np.isfinite(r) & np.isfinite(z)
+    return np.c_[r[ok], z[ok]]
+
+
+def _boundary_perimeter(ods, k: int) -> float:
+    """Poloidal circumference Gamma [m] of slice k's boundary outline, closed on itself."""
+    closed = np.vstack([_outline(ods, k), _outline(ods, k)[:1]])
+    return float(np.sum(np.hypot(*np.diff(closed, axis=0).T)))
+
+
+def _bp2_and_volume(ods, k: int):
+    """(int B_p^2 dV [T^2 m^3], int dV [m^3]) over the same grid cells inside slice k's boundary outline."""
     from matplotlib.path import Path as _Path
     from vaft.omas import ods_psi_to_wb_per_radian_factor
 
@@ -127,12 +161,11 @@ def _bp2_volume_integral(ods, k: int) -> float:
     psi = np.asarray(ods[f"{grid}.psi"], dtype=float) * ods_psi_to_wb_per_radian_factor(ods)
     dpsi_dr, dpsi_dz = np.gradient(psi, r, z, edge_order=2)
     rr, zz = np.meshgrid(r, z, indexing="ij")
-    outline = np.c_[np.asarray(ods[f"{ts}.boundary.outline.r"]), np.asarray(ods[f"{ts}.boundary.outline.z"])]
-    inside = _Path(outline).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
+    inside = _Path(_outline(ods, k)).contains_points(np.c_[rr.ravel(), zz.ravel()]).reshape(rr.shape)
     # Per-cell widths: the DD allows a non-equispaced grid, and a stretched grid with
     # the first spacing applied everywhere gave a fraction of the integral.
     dv = 2.0 * np.pi * rr * np.gradient(r)[:, None] * np.gradient(z)[None, :]
-    return float(np.sum((dpsi_dr**2 + dpsi_dz**2) / rr**2 * dv * inside))
+    return float(np.sum((dpsi_dr**2 + dpsi_dz**2) / rr**2 * dv * inside)), float(np.sum(dv * inside))
 
 
 def _routine_diagnostic(ods, k: int):
@@ -160,6 +193,28 @@ def _routine_diagnostic(ods, k: int):
     return (float(li3) if li3 is not None else math.nan, float(bn) if bn is not None else math.nan, "wrote")
 
 
+def _volume_beta(ods, k: int, a: float, b0: float):
+    """(beta_B [-], <beta_N> [% m T/MA]) of slice k, on a copy; NaNs where the summary helper cannot form them.
+
+    The summary's own helper, imported rather than restated (#1691 forbids a second implementation of
+    beta_B). It needs ``profiles_1d.volume``, which an EFIT product does not store: the flux-surface
+    geometry is traced first, as the summary does, on a copy so the cached product the other columns read
+    is unchanged.
+    """
+    import copy
+
+    from vaft.database._summary import _beta_volume
+    from vaft.omas import update_equilibrium_profiles_1d_geometry
+
+    work = copy.deepcopy(ods)
+    try:
+        if f"equilibrium.time_slice.{k}.profiles_1d.volume" not in work:
+            update_equilibrium_profiles_1d_geometry(work, time_slice=k)
+    except Exception:  # noqa: BLE001 - no surfaces: the helper reports NaN for this slice
+        return math.nan, math.nan
+    return _beta_volume(work, k, work["equilibrium.time_slice"][k], a, b0)
+
+
 def _crosscheck(li3_routine, li3_grid, bn_routine, bn_desc, routine_status) -> str:
     """'agree' / 'disagree' within CROSSCHECK_RTOL, or 'unavailable' when either side is missing or zero."""
     pairs = [(li3_routine, li3_grid), (bn_routine, bn_desc)]
@@ -169,7 +224,7 @@ def _crosscheck(li3_routine, li3_grid, bn_routine, bn_desc, routine_status) -> s
 
 
 def _row(ods, t_s: float) -> dict:
-    from vaft.formula.equilibrium import li_3_from_Bp2_volume_integral
+    from vaft.formula.equilibrium import li_1_from_Bp2_volume_integral, li_3_from_Bp2_volume_integral
     from vaft.omas import resolve_reference_major_radius
     from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
 
@@ -179,9 +234,11 @@ def _row(ods, t_s: float) -> dict:
     if abs(dt) > TIME_TOLERANCE_S:
         return {"base_status": "time_unmatched", "base_reason": f"nearest slice {dt:+.4g} s away", "dt_slice_s": dt}
     d = derive_global_descriptors(as_equilibrium(ods, time_index=k)).values
-    bp2 = _bp2_volume_integral(ods, k)
+    bp2, grid_volume = _bp2_and_volume(ods, k)
     r_ref = float(resolve_reference_major_radius(ods))
-    li3 = li_3_from_Bp2_volume_integral(bp2, abs(float(ods[f"equilibrium.time_slice.{k}.global_quantities.ip"])), r_ref)
+    ip_gq = abs(float(ods[f"equilibrium.time_slice.{k}.global_quantities.ip"]))
+    gamma = _boundary_perimeter(ods, k)
+    li3 = li_3_from_Bp2_volume_integral(bp2, ip_gq, r_ref)
     li3_routine, bn_routine, routine_status = _routine_diagnostic(ods, k)
     pick = lambda n: float(d[n].value) if n in d and d[n].available else math.nan
     ip_ma = abs(pick("ip")) * 1e-6
@@ -204,6 +261,7 @@ def _row(ods, t_s: float) -> dict:
     kappa_a = area / (math.pi * a * a)
     b_geo = b0 * r_ref / r_geo  # vacuum field at R_geo, from the field at the resolved reference radius
     bn_desc = pick("beta_n")
+    beta_b, beta_n_b = _volume_beta(ods, k, a, b0)
     crosscheck = _crosscheck(li3_routine, float(li3), bn_routine, bn_desc, routine_status)
     # primary: the DD routine (post-#1477); where it wrote nothing, the independent path stands in, and says so
     use_routine = np.isfinite(li3_routine) and np.isfinite(bn_routine)
@@ -229,6 +287,14 @@ def _row(ods, t_s: float) -> dict:
         "poloidal_beta": pick("beta_p_boundary_average"),
         "plasma_surface_area": pick("surface_area"),
         "inverse_cylindrical_q": ip_ma * r_geo / (5.0 * a * a * kappa_a * b_geo),
+        # the same B_p^2 integral, cells and current as li3_grid_integral: the two l_i differ only in normalization,
+        # l_i(1) = l_i(3) R_0 Gamma^2 / (2 V)
+        "internal_inductance_li1": li_1_from_Bp2_volume_integral(bp2, grid_volume, ip_gq, gamma),
+        "boundary_perimeter_m": gamma,
+        "grid_volume_m3": grid_volume,
+        "volume_beta": 100.0 * beta_b,
+        "normalized_volume_beta": beta_n_b,
+        "aspect_ratio": r_geo / a,
         "plasma_current_ma": ip_ma,
         "minor_radius_m": a,
         "major_radius_geo_m": r_geo,
