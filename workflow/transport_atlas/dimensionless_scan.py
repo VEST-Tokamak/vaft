@@ -17,6 +17,11 @@ The scalings follow from how ``vaft.code.gacode.tglf.inputs`` builds these input
 taken proportional to q, as in the Verdoolaege form #548 fits
 (``vaft.formula.equilibrium.nu_star_from_n_T_B_R_epsilon_kappa_I``).
 
+Held fixed in every scan: ``DEBYE`` (lambda_De / rho_s, a fifth dimensionless parameter
+outside the #548 set, ~beta^-1/4 at fixed rho_*, nu_*; negligible at TGLF's ky range)
+and ``VEXB_SHEAR`` (zero in the atlas inputs; a real diamagnetic-level ExB shear in
+a/c_s units would scale with rho_* and break ``S_rho_star = 0``).
+
 The sensitivity is the centred log difference
 
     S_x = [ln Q(+) - ln Q(-)] / [ln(1 + delta) - ln(1 - delta)]
@@ -31,10 +36,14 @@ taken on the gyro-Bohm flux. Two kinds of sensitivity are written separately:
   ``gb`` ones.
 
 **This is a consistency test against #548, not the identity
-``S_x^{tau_E} = -S_x^Q``.** Suppose transport were local, stiff and the same at every
-radius. Then ``Omega_i tau_E ~ rho_*^-3 / G(nu_*, beta, q)`` would give
-``mu_rho = -3`` and ``mu_x = -S_x`` for the others.
+``S_x^{tau_E} = -S_x^Q``.** Suppose transport were local, the same at every radius,
+and the profile *shape* (a/L) stayed fixed while the parameters moved (a diffusive
+response, Q linear in the gradient). Then ``Omega_i tau_E ~ rho_*^-3 / G(nu_*, beta, q)``
+would give ``mu_rho = -3`` and ``mu_x = -S_x`` for the others.
 VEST departs from every one of those assumptions:
+- stiffness: if Q ~ grad^alpha at fixed power, ``mu_x ~ -S_x / alpha`` with alpha >> 1
+  for stiff transport, and fixed-gradient slopes near threshold carry the
+  threshold-shift amplification;
 - the power deposition differs between surfaces;
 - the edge is outside the surfaces scanned;
 - the gradients are fixed rather than flux-matched;
@@ -123,8 +132,9 @@ def _run_one(directory: Path, parameters: dict[str, Any], gacode: dict[str, str]
     record_path = directory / "record.json"
     if record_path.is_file():
         record = json.loads(record_path.read_text(encoding="utf-8"))
-        if record.get("parameters") == parameters and record.get("status") == "solved":
-            return record          # resumable: same input, already solved
+        if (record.get("parameters") == parameters and record.get("status") == "solved"
+                and record.get("gacode") == gacode):
+            return record          # resumable: same input and build, already solved
     if directory.exists():
         shutil.rmtree(directory)
     directory.mkdir(parents=True)
@@ -134,7 +144,7 @@ def _run_one(directory: Path, parameters: dict[str, Any], gacode: dict[str, str]
                       check=False)
     native = result.outputs_native
     solved = bool(result.ok and native is not None and native.gbflux)
-    record = {"parameters": parameters, "status": "solved" if solved else "failed",
+    record = {"parameters": parameters, "gacode": gacode, "status": "solved" if solved else "failed",
               "runtime_status": result.runtime_status, "returncode": result.returncode,
               "fluxes_gb": _fluxes(native) if solved else None,
               "version": None if native is None else native.version}
@@ -157,7 +167,7 @@ def run(args: argparse.Namespace) -> int:
                 "efit_lineage": state["efit_lineage"], "efit_quality": state["efit_quality"],
                 "state_identity": state["state_identity"], "r_over_a": r,
                 "sat_rule": (state.get("tglf_parameters") or {}).get("sat_rule"),
-                "native_dir": str(native_dir)}
+                "native_dir": str(native_dir), "delta": args.delta}
         leaf.mkdir(parents=True, exist_ok=True)
         (leaf / "case.json").write_text(json.dumps(meta, indent=1), encoding="utf-8")
         # A rerun of the unperturbed input checks the scan reproduces the stored run.
@@ -171,8 +181,13 @@ def run(args: argparse.Namespace) -> int:
         futures = {pool.submit(_run_one, directory, parameters, gacode): directory
                    for directory, parameters in jobs}
         for future in concurrent.futures.as_completed(futures):
-            if future.result().get("status") != "solved":
-                failed += 1
+            try:
+                solved = future.result().get("status") == "solved"
+            except Exception as error:  # one broken case must not abort the batch
+                print(json.dumps({"case": str(futures[future]), "error": f"{type(error).__name__}: {error}"}),
+                      flush=True)
+                solved = False
+            failed += 0 if solved else 1
     (args.out / "scan.json").write_text(json.dumps({"delta": args.delta, "configs": configs,
                                                     "scans": SCANS, "runs": len(jobs),
                                                     "failed": failed}, indent=1), encoding="utf-8")
@@ -204,6 +219,7 @@ def build_rows(out: Path, delta: float) -> list[dict[str, Any]]:
     rows = []
     for case_path in sorted((out / "runs").glob("*/*/*/*/r*/case.json")):
         case = json.loads(case_path.read_text(encoding="utf-8"))
+        delta = float(case.get("delta", delta))     # each leaf's own delta, not the latest run's
         leaf = case_path.parent
         records = {d.name: _record(d) for d in leaf.iterdir() if d.is_dir()}
         native_dir = Path(case["native_dir"])
@@ -286,7 +302,7 @@ def build_summary(rows: list[dict[str, Any]], references: dict) -> list[dict[str
     for config, sat, quantity in keys:
         group = [r for r in rows if (r["config"], r["sat_rule"], r["quantity"]) == (config, sat, quantity)]
         for name in ("rho_star", *SCANS):
-            # Consistency mapping (module docstring): mu_x = -S_x for local, stiff
+            # Consistency mapping (module docstring): mu_x = -S_x for local transport at fixed profile shape,
             # transport, and mu_rho = -3 by gyro-Bohm construction.
             values = [-3.0 if name == "rho_star" else -r[f"S_gb_{name}"]
                       for r in group if r.get(f"S_gb_{name}") is not None]
@@ -298,7 +314,8 @@ def build_summary(rows: list[dict[str, Any]], references: dict) -> list[dict[str
                         "fit548_completed": ref.get("completed"),
                         "fit548_completed_se": ref.get("completed_se"),
                         "note": ("gyro-Bohm by construction of a local model, not a TGLF result"
-                                 if name == "rho_star" else "consistency test, not S^tau = -S^Q")})
+                                 if name == "rho_star" else "consistency test at fixed profile shape, "
+                                                            "not S^tau = -S^Q")})
     return out
 
 
@@ -323,8 +340,10 @@ def build(args: argparse.Namespace) -> int:
         "delta": scan["delta"], "scans": scan["scans"],
         "S_gb": "d ln(Q/Q_GB) / d ln x; S_gb_rho_star = 0 by locality (no run)",
         "S_dim": "d ln(Q/(n T c_s)) / d ln x = S_gb, except S_dim_rho_star = 2",
-        "consistency_mapping": "mu_x = -S_gb_x and mu_rho = -3 hold only for local, stiff, radially "
-                               "uniform transport; summary.csv sets them beside #548, it does not equate them",
+        "consistency_mapping": "mu_x = -S_gb_x and mu_rho = -3 hold only for local, radially uniform "
+                               "transport at fixed profile shape (diffusive response); stiff transport "
+                               "divides them by the stiffness exponent. summary.csv sets them beside #548, "
+                               "it does not equate them",
         "fit548_direct": "Omega_i tau_E = C rho*^a beta^b nu*^c q^d on the Thomson subset (extensions.py)",
         "fit548_completed": "Kadomtsev-completed indices of the free engineering fit (closures.py, primary:A)",
         "base_reproduction": "|base rerun - stored run| / max(|stored|, 1e-3) in Q_GB",
