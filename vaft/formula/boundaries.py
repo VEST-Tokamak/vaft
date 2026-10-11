@@ -53,6 +53,7 @@ References
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Callable, Mapping, Optional
@@ -75,6 +76,8 @@ __all__ = [
     "boundary_value",
     "evaluate_boundary",
     "evaluate_window",
+    "BoundaryPropagation",
+    "propagate_boundary_uncertainty",
     "boundary_curve",
     "threshold_curve",
     "same_quantity",
@@ -527,6 +530,211 @@ def evaluate_boundary(boundary: Boundary, operating_value, **inputs) -> Boundary
         allowed_side=boundary.allowed_side,
         extrapolated=extrapolated,
         warnings=warnings,
+    )
+
+
+@dataclass(frozen=True, eq=False)
+class BoundaryPropagation:
+    """Measured-input uncertainty of a boundary value and of a state's margin, beside the source's own.
+
+    Three things that are kept apart, never summed:
+
+    * ``boundary`` and ``margin`` -- :class:`vaft.formula.sensitivity.FormulaPropagation`
+      results for $b$ (over the boundary inputs) and for the signed margin
+      (over the operating value and the inputs): how *measurement* uncertainty
+      moves them;
+    * ``source_parameters_relative`` -- the relative one-sigma spread of $b$
+      from the uncertainty its source reports for the coefficient and the
+      exponents, and ``source_scatter_relative`` -- the source's RMS scatter
+      of individual points about the fit.  ``None`` means the source reports
+      none (unknown, not zero); ``source_note`` says what was assumed;
+    * ``margin_std_from_source_*`` -- the same two components carried to the
+      margin.
+
+    Nothing here says whether the state satisfies the boundary.  That is an
+    assessment, made from ``margin`` and these spreads by the caller or by
+    :mod:`vaft.validation`; ``boundary.uncertainty`` is passed through as
+    ``source``, unchanged.
+    """
+
+    key: str
+    boundary: object
+    margin: object
+    source: "Uncertainty"
+    source_parameters_relative: Optional[float]
+    source_scatter_relative: Optional[float]
+    margin_std_from_source_parameters: Optional[float]
+    margin_std_from_source_scatter: Optional[float]
+    source_note: str
+
+
+def _source_relative_spread(boundary: "Boundary", inputs: Mapping) -> tuple:
+    r"""First-order relative spread of ``b`` from the source's coefficient and exponent uncertainty.
+
+    $\sigma_{\ln b}^2 = \sigma_{\ln C}^2 + \sum_i (\sigma_{\alpha_i}\ln x_i)^2$, with
+    the parameters taken as independent because sources rarely publish their
+    covariance.  ``None`` when the source reports nothing usable.
+    """
+    u = boundary.uncertainty
+    terms, notes = [], []
+    if u.coefficient_factor is not None:
+        terms.append(np.log(u.coefficient_factor) ** 2)
+    elif u.coefficient is not None:
+        if boundary.coefficient:
+            terms.append((u.coefficient / boundary.coefficient) ** 2)
+        else:
+            notes.append("the coefficient uncertainty is absolute but the boundary states no coefficient to "
+                         "normalise it by; it is not propagated")
+    for name, sigma in u.exponents.items():
+        if name not in inputs:
+            notes.append(f"the exponent uncertainty of {name} names no input; it is not propagated")
+            continue
+        terms.append((sigma * np.log(float(inputs[name]))) ** 2)
+    if u.exponents and boundary.form != "power_law":
+        notes.append("exponent uncertainties are applied as if the boundary were a power law in those inputs")
+    if not terms:
+        return None, notes
+    notes.append("source coefficient and exponent uncertainties are taken as independent (no covariance is "
+                 "published), so the spread may be over- or under-stated")
+    return float(np.sqrt(sum(terms))), notes
+
+
+def propagate_boundary_uncertainty(boundary: "Boundary", operating_value: float, *, inputs: Mapping[str, float],
+                                   std=None, covariance=None, input_names=None, method: str = "linear",
+                                   samples: int = 2000, seed: int = 0) -> BoundaryPropagation:
+    r"""Propagate measured-input uncertainty into a boundary value and a state's margin (#1874).
+
+    $$\Sigma_b \approx J_b\Sigma J_b^{\mathsf T},\qquad
+      \Sigma_m \approx J_m\Sigma J_m^{\mathsf T},\qquad
+      m = \pm\frac{b - x}{b}$$
+
+    Parameters
+    ----------
+    boundary : Boundary
+        The boundary [-].
+    operating_value : float
+        Operating value $x$ of the target quantity, in its unit [varies].
+    inputs : mapping
+        Every boundary input by name, in the units its ``BoundaryQuantity``
+        declares [varies].
+    std : array-like, optional
+        Standard deviations in ``input_names`` order. Exactly one of ``std``
+        and ``covariance`` [varies].
+    covariance : array-like, optional
+        Covariance in ``input_names`` order, or 1-D variances; this is how the
+        operating value and the inputs share a measurement (a density and the
+        current from one shot) [varies].
+    input_names : sequence of str, optional
+        Uncertain quantities: ``"operating_value"`` and any boundary inputs.
+        Default ``("operating_value", *the boundary inputs)`` [-].
+    method : str, optional
+        ``"linear"`` or ``"monte_carlo"``, as in
+        :func:`vaft.formula.sensitivity.propagate_formula_uncertainty` [-].
+    samples : int, optional
+        Monte Carlo draws [-].
+    seed : int, optional
+        Monte Carlo seed [-].
+
+    Returns
+    -------
+    BoundaryPropagation
+        The input-measurement propagation of $b$ and of the margin, and the
+        source-reported spreads kept apart from them [-].
+
+    Raises
+    ------
+    ValueError
+        Everything :func:`vaft.formula.sensitivity.propagate_formula_uncertainty`
+        refuses; a non-scalar input or operating value; or a boundary whose
+        value is not positive and finite at the inputs (no margin is defined
+        there).
+    TypeError
+        An input is missing or not one of the boundary's inputs.
+
+    Assumptions
+    -----------
+    First order unless ``method="monte_carlo"``; the margin is linear in $x$
+    and in $1/b$, so near the boundary ($m \to 0$) the linear result stays
+    accurate while $b$ is well determined. The three uncertainty parts are
+    independent by construction: measurement, source parameters, source
+    scatter. Combining them, and deciding what a margin within a few of
+    them means, is an assessment and is not done here.
+
+    Limitations
+    -----------
+    Scalar inputs only. The source parameters are taken as uncorrelated.
+
+    References
+    ----------
+    .. [1] JCGM 100:2008, *Guide to the expression of uncertainty in
+           measurement*, Sec. 5.2 (first-order propagation with correlations).
+    .. [2] Issue #1874, Phase C (measurement, source-parameter and scatter
+           uncertainty kept apart for an operational boundary).
+    """
+    from . import sensitivity
+
+    _check_inputs(boundary, inputs)
+    names_in = [quantity.name for quantity in boundary.inputs]
+    if np.ndim(operating_value) != 0 or any(np.ndim(inputs[name]) != 0 for name in names_in):
+        raise ValueError("propagate_boundary_uncertainty takes scalar inputs and a scalar operating value")
+    b0 = float(boundary_value(boundary, **inputs))
+    if not (np.isfinite(b0) and b0 > 0):
+        raise ValueError(f"{boundary.key!r} is not positive and finite at these inputs: no margin is defined")
+    sign = -1.0 if boundary.allowed_side == "below" else 1.0
+    parameters = [inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY) for name in names_in]
+
+    def value_of(**arguments):
+        return float(boundary_value(boundary, **arguments))
+
+    def margin_of(operating_value, **arguments):
+        b = float(boundary_value(boundary, **arguments))
+        return sign * (operating_value - b) / b
+
+    def positive(**arguments):
+        try:
+            b = float(boundary_value(boundary, **{name: arguments[name] for name in names_in}))
+        except (ArithmeticError, ValueError):
+            return False
+        return bool(np.isfinite(b) and b > 0)
+
+    value_of.__signature__ = inspect.Signature(parameters)
+    value_of.__name__ = f"{boundary.key}_value"
+    margin_of.__signature__ = inspect.Signature(
+        [inspect.Parameter("operating_value", inspect.Parameter.KEYWORD_ONLY), *parameters])
+    margin_of.__name__ = f"{boundary.key}_margin"
+
+    names = tuple(input_names) if input_names is not None else ("operating_value", *names_in)
+    unknown = [name for name in names if name != "operating_value" and name not in names_in]
+    if unknown:
+        raise ValueError(f"{boundary.key!r} has no input {', '.join(unknown)}")
+    cov = sensitivity._covariance_from(std, covariance, len(names))
+    in_margin = {"operating_value": float(operating_value), **{name: float(inputs[name]) for name in names_in}}
+    margin = sensitivity.propagate_formula_uncertainty(margin_of, in_margin, input_names=names, covariance=cov,
+                                                       method=method, samples=samples, seed=seed, domain=positive)
+    boundary_names = tuple(name for name in names if name != "operating_value")
+    if boundary_names:
+        index = [names.index(name) for name in boundary_names]
+        boundary_result = sensitivity.propagate_formula_uncertainty(
+            value_of, {name: float(inputs[name]) for name in names_in}, input_names=boundary_names,
+            covariance=cov[np.ix_(index, index)], method=method, samples=samples, seed=seed, domain=positive)
+    else:
+        boundary_result = None  # every boundary input exact: b carries no measurement uncertainty
+
+    parameters_relative, notes = _source_relative_spread(boundary, inputs)
+    scatter = boundary.uncertainty.rms_relative
+    # m = sign (x - b)/b, so dm/d ln b = -sign x/b
+    dm_dlnb = abs(float(operating_value) / b0)
+    return BoundaryPropagation(
+        key=boundary.key,
+        boundary=boundary_result,
+        margin=margin,
+        source=boundary.uncertainty,
+        source_parameters_relative=parameters_relative,
+        source_scatter_relative=scatter,
+        margin_std_from_source_parameters=None if parameters_relative is None else dm_dlnb * parameters_relative,
+        margin_std_from_source_scatter=None if scatter is None else dm_dlnb * scatter,
+        source_note="; ".join(notes) if notes else (
+            "the source reports no coefficient or exponent uncertainty" if parameters_relative is None else ""),
     )
 
 

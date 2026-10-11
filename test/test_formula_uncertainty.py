@@ -323,3 +323,99 @@ def test_a_zero_response_the_jacobian_does_not_predict_is_not_linear():
     result = sensitivity.propagate_formula_uncertainty(lambda x: x * (x - 1.0) * (x + 1.0), {"x": 0.0},
                                                        std=[1.0], fd_step=1e-6)
     assert result.linearity == float("inf")
+
+
+# --- Phase C: an operational boundary and its margin -------------------------------
+
+
+def _boundaries():
+    from vaft.formula import boundaries
+
+    return boundaries
+
+
+GREENWALD_INPUTS = {"plasma_current": 0.1, "minor_radius": 0.3}  # MA, m
+
+
+def test_the_greenwald_margin_matches_its_closed_form_with_a_shared_measurement():
+    B = _boundaries()
+    g = B.get_boundary("greenwald")
+    x, I, a = 2.0, GREENWALD_INPUTS["plasma_current"], GREENWALD_INPUTS["minor_radius"]
+    s_x, s_I, s_a, rho = 0.2, 0.005, 0.01, 0.6  # density and current from one shot, correlated
+    cov = np.array([[s_x ** 2, rho * s_x * s_I, 0.0], [rho * s_x * s_I, s_I ** 2, 0.0], [0.0, 0.0, s_a ** 2]])
+    result = B.propagate_boundary_uncertainty(g, x, inputs=GREENWALD_INPUTS, covariance=cov)
+    b = 10.0 * I / (np.pi * a ** 2)  # n_G = I_p/(pi a^2) in 1e20 m^-3; the target is in 1e19 m^-3
+    # m = 1 - x / b = 1 - x pi a^2 / (10 I)
+    J = np.array([-1.0 / b, x / (b * I), -2.0 * x / (b * a)])
+    np.testing.assert_allclose(result.boundary.value, b, rtol=1e-12)
+    np.testing.assert_allclose(result.margin.value, 1 - x / b, rtol=1e-12)
+    np.testing.assert_allclose(result.margin.std, [np.sqrt(J @ cov @ J)], rtol=1e-6)
+    np.testing.assert_allclose(result.boundary.std, [b * np.hypot(s_I / I, 2 * s_a / a)], rtol=1e-6)
+
+
+def test_a_state_on_the_boundary_gets_a_margin_spread_and_no_verdict():
+    B = _boundaries()
+    g = B.get_boundary("greenwald")
+    b = float(B.boundary_value(g, **GREENWALD_INPUTS))
+    linear = B.propagate_boundary_uncertainty(g, b, inputs=GREENWALD_INPUTS, std=[0.1 * b, 0.005, 0.005])
+    sampled = B.propagate_boundary_uncertainty(g, b, inputs=GREENWALD_INPUTS, std=[0.1 * b, 0.005, 0.005],
+                                               method="monte_carlo", samples=40000, seed=3)
+    assert abs(float(linear.margin.value)) < 1e-12 and linear.margin.std[0] > 0
+    np.testing.assert_allclose(sampled.margin.std, linear.margin.std, rtol=0.05)
+    # the propagation reports geometry and spread; whether the state is permitted is not its call
+    assert not hasattr(linear, "allowed") and not hasattr(linear.margin, "allowed")
+
+
+def test_the_margin_sign_follows_the_permitted_side():
+    B = _boundaries()
+    below = B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0, inputs=GREENWALD_INPUTS,
+                                             std=[0.1, 0.0, 0.0])
+    above = B.propagate_boundary_uncertainty(
+        B.get_boundary("martin_2008_lh"), 0.3,
+        inputs={"line_average_density": 1.0, "toroidal_field": 0.2, "plasma_surface_area": 3.0},
+        std=[0.03, 0.0, 0.0, 0.0])
+    assert below.margin.jacobian[0, 0] < 0 < above.margin.jacobian[0, 0]  # dm/dx, permitted below vs above
+
+
+def test_the_source_uncertainty_is_reported_apart_from_the_measurement():
+    B = _boundaries()
+    m = B.get_boundary("martin_2008_lh")
+    inputs = {"line_average_density": 1.0, "toroidal_field": 0.2, "plasma_surface_area": 3.0}
+    result = B.propagate_boundary_uncertainty(m, 0.3, inputs=inputs, std=[0.0, 0.0, 0.0, 0.0])
+    assert result.margin.std[0] == 0.0  # exact measurements: no measurement spread ...
+    u = m.uncertainty
+    expected = np.sqrt(np.log(u.coefficient_factor) ** 2 + sum(
+        (sigma * np.log(inputs[name])) ** 2 for name, sigma in u.exponents.items()))
+    np.testing.assert_allclose(result.source_parameters_relative, expected, rtol=1e-12)  # ... but the source's own
+    assert result.source_scatter_relative == u.rms_relative
+    b = float(B.boundary_value(m, **inputs))
+    np.testing.assert_allclose(result.margin_std_from_source_parameters, 0.3 / b * expected, rtol=1e-12)
+    assert result.source is u  # boundaries.Uncertainty passes through untouched
+    assert "independent" in result.source_note
+
+
+def test_a_boundary_without_source_uncertainty_reports_unknown_not_zero():
+    B = _boundaries()
+    result = B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0, inputs=GREENWALD_INPUTS,
+                                              std=[0.1, 0.005, 0.01])
+    assert result.source_parameters_relative is None and result.source_scatter_relative is None
+    assert result.margin_std_from_source_parameters is None and "reports no" in result.source_note
+
+
+def test_only_the_operating_value_uncertain_leaves_the_boundary_exact():
+    B = _boundaries()
+    result = B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0, inputs=GREENWALD_INPUTS,
+                                              input_names=("operating_value",), std=[0.1])
+    assert result.boundary is None
+    b = float(B.boundary_value(B.get_boundary("greenwald"), **GREENWALD_INPUTS))
+    np.testing.assert_allclose(result.margin.std, [0.1 / b], rtol=1e-6)
+
+
+def test_a_boundary_with_no_margin_at_the_inputs_is_refused():
+    B = _boundaries()
+    with pytest.raises(ValueError, match="no margin is defined"):
+        B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0,
+                                         inputs={"plasma_current": 0.0, "minor_radius": 0.3}, std=[0.1, 0.0, 0.0])
+    with pytest.raises(ValueError, match="has no input"):
+        B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0, inputs=GREENWALD_INPUTS,
+                                         input_names=("operating_value", "elongation"), std=[0.1, 0.1])

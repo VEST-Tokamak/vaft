@@ -209,6 +209,19 @@ result.linearity                    # largest linearity_ratio over +/- 1 sigma: 
 The result is local and first order. It carries only measured-input uncertainty, not the fitted coefficients
 or scatter of an empirical law. `compare_linear_to_monte_carlo` and `compare_jacobians` interpret it.
 
+**Operational boundaries.** `vaft.formula.boundaries.propagate_boundary_uncertainty(boundary, x, inputs=..., std= | covariance=)`
+carries measurement uncertainty into both the boundary value $b$ and the signed margin of an operating point.
+The operating value can share a covariance with the boundary inputs, for example a density and the current
+from one shot. Three parts stay apart:
+- `margin`, the measurement part;
+- `source_parameters_relative`, the coefficient and exponent uncertainty the source reports, taken as
+  uncorrelated because no covariance is published;
+- `source_scatter_relative`, the source's RMS scatter about its fit.
+
+A part the source does not report is `None`, meaning unknown rather than zero. `boundary.uncertainty` is passed
+through unchanged, and nothing returns a permitted/forbidden verdict. A margin within its spread is an
+assessment for the caller or `vaft.validation`, and crossing a soft boundary is not a prediction of failure.
+
 **Distinctions kept apart:**
 - **Provenance:** `native`, `finite_difference`, `autodiff` or `analytic`. Comparing a Jacobian
   with one of the *same* provenance is refused: that is repetition, not validation.
