@@ -86,7 +86,9 @@ def sector_currents(c: np.ndarray, angles: dict, groups, n: int, unit: float) ->
 
 def write_coil_in(template: Path, out: Path, coil_dir: Path, currents: dict, groups) -> None:
     """The template's coil.in with its data_dir and every ``coil_cur(k, j)`` replaced."""
-    text = re.sub(r'data_dir\s*=\s*"[^"]*"', f'data_dir="{coil_dir}"', template.read_text(), count=1)
+    # A function, not a template: a Windows path's backslashes (C:\Users) are not escapes.
+    data_dir = f'data_dir="{coil_dir}"'
+    text = re.sub(r'data_dir\s*=\s*"[^"]*"', lambda _: data_dir, template.read_text(), count=1)
     names = {int(k): v for k, v in re.findall(r'coil_name\((\d+)\)\s*=\s*"([^"]+)"', text)}
     if sorted(names.values()) != sorted(groups):
         raise ValueError(f"{template} activates {sorted(names.values())}, the scan drives {sorted(groups)}")

@@ -151,6 +151,10 @@ def test_the_driver_rewrites_every_coil_current_or_refuses(tmp_path):
     text = (tmp_path / "out.in").read_text()
     assert "coil_cur(1,1)= 10.000000\n" in text and "D3" not in text  # no Fortran exponent left behind
     assert "coil_cur(2,2)= 0.000000 ! note" in text
+    # A Windows coil directory is written verbatim, not read as regex escapes (\U).
+    windows_dir = r"C:\Users\runner\coil"
+    driver.write_coil_in(template, tmp_path / "out.in", windows_dir, currents, ("a", "b"))
+    assert f'data_dir="{windows_dir}"' in (tmp_path / "out.in").read_text()
     template.write_text(template.read_text().replace("coil_cur(2,2)=", "coil_cur(2, 2)="))
     with pytest.raises(ValueError, match="scalar"):
         driver.write_coil_in(template, tmp_path / "out.in", tmp_path, currents, ("a", "b"))
