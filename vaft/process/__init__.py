@@ -72,6 +72,7 @@ _SUBMODULES = {
     "ordering_state": ".ordering_state",
     "ntv_coil_response": ".ntv_coil_response",
     "coil_operating_space": ".coil_operating_space",
+    "resonant_coil_response": ".resonant_coil_response",
     "local_mhd_criteria": ".local_mhd_criteria",
 }
 
@@ -158,6 +159,9 @@ _IMPORT_ORDER = (
     # The common coil operating-space result of #1178 (schema settled on
     # #1886); nothing it exports collides.
     "coil_operating_space",
+    # Verified linear resonant-field operator Phi = H conj(c) and its optima
+    # (#1884); nothing it exports collides.
+    "resonant_coil_response",
     # Equilibrium-native Mercier / GGJ interchange indices, DCON's formulas
     # (#1902); nothing it exports collides.
     "local_mhd_criteria",
