@@ -53,6 +53,7 @@ def main() -> int:
         kwargs = dict(time=t, ionization="transient", plasma_age_s=age if age and age > 0 else None)
         three = kinetic_state_stages(ods, ion_temperature="inferred", **kwargs)
         base = kinetic_state_stages(ods, ion_temperature="assumed", **kwargs)
+        ratio_run = kinetic_state_stages(ods, ion_temperature="inferred_ratio", **kwargs)
         status = {s.name: (s.status if s.ok else f"unavailable: {s.reason[:160]}") for s in three.stages}
         entry = {"shot": shot, "time_s": t, "complete": three.complete, "stages": status}
         summary.append(entry)
@@ -62,6 +63,8 @@ def main() -> int:
             continue
         data = three.stage("data").fields
         pc, pb = three.stage("pressure_closure").fields, base.stage("pressure_closure").fields
+        pr = ratio_run.stage("pressure_closure")
+        pr_f = pr.fields if pr.ok else None
         zeff = three.stage("zeff_profile").fields
         rom = three.stage("romero_zeff").fields
         rho, ts = data["rho"], data["thomson"]
@@ -74,15 +77,29 @@ def main() -> int:
                      ti_over_te_median=float(np.nanmedian(pc["T_i_over_T_e"])),
                      valid_ti_points=int(np.isfinite(pc["T_i"]).sum()), points=int(rho.size),
                      volume_ratio_if_ti_eq_te=pb["closure_summary"]["volume_ratio"])
+        if pr_f is not None:
+            est = pr_f["ti_ratio_estimate"]
+            entry.update(ratio_estimate={k: float(v) for k, v in est.items()},
+                         volume_ratio_ratio_mode=pr_f["closure_summary"]["volume_ratio"],
+                         median_rel_residual_ratio_mode=pr_f["closure_summary"]["median_relative_residual"])
+        else:
+            entry["ratio_estimate"] = pr.reason
         ax[0].plot(rho, pc["p_eq"], "k-", label="$p_{eq}$ (magnetic EFIT)")
-        ax[0].plot(rho, pc["p_thermal"], "r-", label="$p_e+p_i$, $T_i$ inferred")
+        ax[0].plot(rho, pc["p_thermal"], "r-", lw=1, label="$p_e+p_i$, pointwise $T_i$")
+        if pr_f is not None:
+            ax[0].plot(rho, pr_f["p_thermal"], color="darkorange", lw=2, label="$p_e+p_i$, $T_i=rT_e$")
         ax[0].plot(rho, pc["p_e"], "b--", label="$p_e$")
         ax[0].plot(rho, pb["p_thermal"], color="gray", ls=":", label="$p_e+p_i$, $T_i=T_e$")
         if ts:
             ax[0].plot(ts["rho"], ts["p_e"], "kD", ms=4, label="$p_e^{TS}$")
         ax[0].set(ylabel="p [Pa]", title=f"{shot} @ {t*1e3:.0f} ms")
         ax[1].plot(rho, te, "b-", label="$T_e$")
-        ax[1].plot(rho, pc["T_i"], "r-", label="$T_i$ inferred (partition)")
+        ax[1].plot(rho, pc["T_i"], "r-", lw=1, label="$T_i$ pointwise (partition)")
+        if pr_f is not None:
+            ax[1].plot(rho, pr_f["T_i"], color="darkorange", lw=2,
+                       label=f"$T_i=rT_e$, $r={est['ratio']:.2f}\\pm{est['sigma']:.2f}$")
+            ax[1].fill_between(rho, (est["ratio"] - est["sigma"]) * te, (est["ratio"] + est["sigma"]) * te,
+                               color="darkorange", alpha=0.15)
         ax[1].plot(rho, te, color="gray", ls=":", label="$T_i=T_e$")
         if ts:
             ax[1].errorbar(ts["rho"], ts["t_e"], yerr=ts["t_e_error"], fmt="kD", ms=4, label="$T_e^{TS}\\pm1\\sigma$")

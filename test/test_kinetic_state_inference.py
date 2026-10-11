@@ -286,3 +286,28 @@ def test_the_inferred_ion_temperature_closes_the_pressure_with_the_romero_compos
     assert np.allclose(f["p_thermal"][valid], f["p_eq"][valid], rtol=1e-6), "the partition closes p_thermal onto p_eq"
     record = str(result.product["core_profiles.profiles_1d.%d.ion.0.temperature_fit.parameters" % 0])
     assert "origin=inferred" in record and "not measured" in record
+
+
+def test_the_ratio_estimate_is_widened_by_the_radial_spread_not_just_the_formal_error():
+    from vaft.omas.kinetic_state_inference import _ti_ratio_estimate
+
+    te = np.full(100, 100.0)
+    flat = _ti_ratio_estimate(np.full(100, 1.5), np.full(100, 5.0), te)
+    assert flat["ratio"] == pytest.approx(1.5) and flat["sigma"] == pytest.approx(flat["sigma_formal"])
+    varying = _ti_ratio_estimate(np.linspace(0.8, 2.2, 100), np.full(100, 5.0), te, n_independent=4)
+    assert varying["sigma"] > 5 * varying["sigma_formal"], "correlated points: the spread sets the error"
+    with pytest.raises(ValueError, match="fewer than three"):
+        _ti_ratio_estimate(np.array([1.0, np.nan]), np.array([1.0, 1.0]), np.array([1.0, 1.0]))
+
+
+def test_the_ratio_mode_puts_one_t_i_over_t_e_on_the_whole_profile(sample, tables):
+    _, result = _run(sample, tables, ion_temperature="inferred_ratio")
+    closure = result.stage("pressure_closure")
+    if not closure.ok:
+        assert "T_i" in closure.reason or "p_i" in closure.reason or "ratio" in closure.reason
+        return
+    f = closure.fields
+    r = f["ti_ratio_estimate"]["ratio"]
+    assert np.allclose(f["T_i_over_T_e"], r) and f["T_i_pointwise"] is not None
+    assert closure.provenance["role"] == "closure_scalar"
+    assert closure.assumptions == {"assume_ti_eq_te": 0, "assume_ti_profile_shape_eq_te": 1}

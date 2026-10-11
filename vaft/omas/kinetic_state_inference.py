@@ -193,6 +193,39 @@ def _full(inside: np.ndarray, values: np.ndarray) -> np.ndarray:
     return out
 
 
+#: ``assumed`` T_i = T_e; ``inferred`` the pointwise pressure partition (NaN where it
+#: carries no information); ``inferred_ratio`` one T_i/T_e from that partition.
+ION_TEMPERATURE_MODES = ("assumed", "inferred", "inferred_ratio")
+
+
+def _ti_ratio_estimate(
+    ti_te: np.ndarray, sigma_t_i: np.ndarray, t_e: np.ndarray, *, n_independent: int = 5,
+) -> dict[str, float]:
+    """Inverse-variance mean of the significant ``T_i/T_e`` points, with a conservative sigma.
+
+    The points of one profile are strongly correlated (smooth fits of a few Thomson
+    channels), so treating them as independent understates the error.  The reported
+    ``sigma`` is the larger of the formal error (scaled by ``sqrt(chi2/dof)`` when
+    the points scatter more than their sigmas allow) and the radial spread of the
+    points, half the 16-84 percentile range, divided by ``sqrt(n_independent)``
+    (the Thomson channel count).  A radially varying ``T_i/T_e`` therefore widens it.
+    """
+    ratio = np.asarray(ti_te, dtype=float)
+    sigma = np.asarray(sigma_t_i, dtype=float) / np.asarray(t_e, dtype=float)
+    ok = np.isfinite(ratio) & np.isfinite(sigma) & (sigma > 0)
+    if ok.sum() < 3:
+        raise ValueError("fewer than three significant T_i/T_e points: no ratio can be estimated")
+    w = 1.0 / sigma[ok] ** 2
+    mean = float(np.sum(w * ratio[ok]) / np.sum(w))
+    formal = float(1.0 / np.sqrt(np.sum(w)))
+    chi2 = float(np.sum(w * (ratio[ok] - mean) ** 2) / (ok.sum() - 1))
+    q16, q50, q84 = (float(x) for x in np.percentile(ratio[ok], [16, 50, 84]))
+    spread = 0.5 * (q84 - q16) / float(np.sqrt(max(1, n_independent)))
+    return {"ratio": mean, "sigma_formal": formal,
+            "sigma": max(formal * float(np.sqrt(max(1.0, chi2))), spread), "n_independent": int(n_independent),
+            "chi2_per_dof": chi2, "points": int(ok.sum()), "median": q50, "p16": q16, "p84": q84}
+
+
 def kinetic_state_stages(
     ods: ODS,
     *,
@@ -229,15 +262,19 @@ def kinetic_state_stages(
     estimator settings (``i_ni_a = 0`` asserts a purely Ohmic window).
 
     ``ion_temperature`` is ``"assumed"`` (``T_i = T_e``; the pressure closure is then a
-    consistency check) or ``"inferred"`` (the three closures together: the Romero
+    consistency check), ``"inferred_ratio"`` (the three closures with one
+    ``T_i/T_e``: the inverse-variance mean of the significant points of the partition,
+    ``T_i = r T_e`` over the whole profile, the pointwise result kept as a diagnostic)
+    or ``"inferred"`` (the three closures together: the Romero
     scalar closes the impurity amplitude, and ``T_i`` is partitioned out of the
     magnetic-EFIT pressure with that composition's ``n_i``, as
     :func:`vaft.process.kinetic_closure.infer_ti_pressure_partition`; ``p_thermal``
     then equals ``p_eq`` where ``T_i`` is defined by construction).  ``ti_floor`` and
     ``ti_window_s`` are the pressure sigma floor and neighbour window of that inference.
     """
-    if ion_temperature not in ("assumed", "inferred"):
-        raise ValueError(f"ion_temperature must be 'assumed' or 'inferred', got {ion_temperature!r}")
+    if ion_temperature not in ION_TEMPERATURE_MODES:
+        raise ValueError(f"ion_temperature must be one of {ION_TEMPERATURE_MODES}, got {ion_temperature!r}")
+    pointwise = ion_temperature in ("inferred", "inferred_ratio")
     from vaft.omas.vest_upstream import (
         PRESSURE_CLOSURE_RECORD,
         _append_record_fields,
@@ -324,6 +361,7 @@ def kinetic_state_stages(
         else:
             note = "no thomson_scattering channels in the ODS"
         fields["thomson"] = thomson
+        ctx["thomson"] = thomson
         return _stage(
             "data", fields=fields,
             provenance={"origin": "measured", "equilibrium_lineage": equilibrium_lineage,
@@ -536,6 +574,7 @@ def kinetic_state_stages(
             "not measured",
         ])
         ctx["ti_ratio"] = _full(inside, result["ti_te"])
+        ctx["ti_result"] = (result, inside)
         return t_i, record
 
     def pressure_closure() -> InferenceStage:
@@ -543,8 +582,23 @@ def kinetic_state_stages(
         product = populate_radial_impurity_profiles(ods, radial, time=time)
         base = f"core_profiles.profiles_1d.{cp}"
         lineage = {"equilibrium_lineage": equilibrium_lineage, "equilibrium_occurrence": 0}
-        if ion_temperature == "inferred":
+        if pointwise:
             t_i, ti_record = partition_ti()
+            if ion_temperature == "inferred_ratio":
+                result, inside = ctx["ti_result"]
+                try:
+                    n_ts = int(np.size(ctx["thomson"]["rho"])) if ctx.get("thomson") else 5
+                    estimate = _ti_ratio_estimate(result["ti_te"], result["sigma_t_i"], te[inside],
+                                                  n_independent=n_ts)
+                except ValueError as error:
+                    raise _Stop(str(error))
+                ctx["ti_pointwise"], ctx["ti_estimate"] = t_i, estimate
+                t_i = estimate["ratio"] * te
+                ti_record = "; ".join([
+                    "origin=inferred; method=equilibrium_pressure_partition_scalar",
+                    f"ti_te_ratio={estimate['ratio']:.4g}; sigma_ti_te_ratio={estimate['sigma']:.3g}",
+                    f"ratio_points={estimate['points']}", "not measured",
+                ])
         else:
             t_i, ti_record = te.copy(), "ti_te_ratio=1; status=assumed; source=assumption; assume_ti_eq_te=1"
         for k in range(len(product[f"{base}.ion"])):
@@ -557,7 +611,7 @@ def kinetic_state_stages(
         _append_record_fields(product, f"{base}.zeff_fit.parameters", zeff_extra)
         closure = infer_kinetic_closure(product, time=time, dilution="species", ti_te_ratio=1.0)
         pressure = closure.pressure
-        if ion_temperature == "inferred":
+        if pointwise:
             from vaft.process.kinetic_closure import assemble_pressure
 
             pressure = assemble_pressure(
@@ -594,20 +648,28 @@ def kinetic_state_stages(
         }
         return _stage(
             "pressure_closure",
-            fields={"T_i": t_i, "T_i_over_T_e": t_i / te, "p_e": np.asarray(pressure.p_e, dtype=float), "p_i": p_main,
+            fields={"T_i": t_i, "T_i_over_T_e": t_i / te, "T_i_pointwise": ctx.get("ti_pointwise"),
+                    "ti_ratio_estimate": ctx.get("ti_estimate"), "p_e": np.asarray(pressure.p_e, dtype=float), "p_i": p_main,
                     "p_imp": p_imp, "p_thermal": np.asarray(pressure.p_thermal, dtype=float), "p_eq": p_eq,
                     "residual": residual, "relative_residual": relative, "closure_summary": summary},
             provenance=(
-                {"origin": "inferred", "method": "equilibrium_pressure_partition", "dilution": "species",
-                 "role": "closure",
-                 "note": "T_i is partitioned out of p_eq with the Romero-closed n_i, so p_thermal equals p_eq "
-                         "where T_i is defined; the residual is an identity, not an agreement test"}
-                if ion_temperature == "inferred" else
+                ({"origin": "inferred", "method": "equilibrium_pressure_partition_scalar", "dilution": "species",
+                  "role": "closure_scalar",
+                  "note": "one T_i/T_e from the significant points of the pressure partition (Romero-closed "
+                          "n_i); T_i = r T_e over the whole profile, so the profile shape is assumed and the "
+                          "residual to p_eq is reported"}
+                 if ion_temperature == "inferred_ratio" else
+                 {"origin": "inferred", "method": "equilibrium_pressure_partition", "dilution": "species",
+                  "role": "closure",
+                  "note": "T_i is partitioned out of p_eq with the Romero-closed n_i, so p_thermal equals p_eq "
+                          "where T_i is defined; the residual is an identity, not an agreement test"})
+                if pointwise else
                 {"origin": "assumed", "method": "infer_kinetic_closure", "dilution": "species",
                  "role": "consistency_check",
                  "note": "T_i = T_e and the impurity amplitude are fixed before this stage; the residual "
                          "is reported, never minimised"}),
-            assumptions={"assume_ti_eq_te": int(ion_temperature == "assumed")},
+            assumptions={"assume_ti_eq_te": int(ion_temperature == "assumed")}
+            | ({"assume_ti_profile_shape_eq_te": 1} if ion_temperature == "inferred_ratio" else {}),
             lands={"p_e": f"{_CP}.electrons.pressure", "p_i_total": f"{_CP}.pressure_ion_total",
                    "p_thermal": f"{_CP}.pressure_thermal", "T_i": f"{_CP}.t_i_average"},
         )
