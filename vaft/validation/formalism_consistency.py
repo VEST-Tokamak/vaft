@@ -45,6 +45,7 @@ __all__ = [
     "FUTURE_FORMULATIONS",
     "FormalismFinding",
     "LAYERS",
+    "MODE_KEYS",
     "QUERIES",
     "REFERENCE_FORMULATIONS",
     "assert_comparable",
@@ -82,6 +83,13 @@ COMPARISON_KEYS = (
     "field_model",
     "realization",
 )
+
+#: The fields that make a run one adapter mode rather than another (#1738 §15): what is computed, what the bulk
+#: is, which equation, which coupling, which parent theory, which regime, which realization. Distribution,
+#: orbit, domain and field model are configuration of a mode (an electromagnetic CGYRO run is still the
+#: ``cgyro_linear`` mode), so :func:`mode_consistency` does not hold a run to the registry's default for them.
+MODE_KEYS = ("scientific_operation", "bulk_description", "fluid_model", "kinetic_equation", "kinetic_coupling",
+             "derived_from", "regime", "realization")
 
 #: Population names that mean a selected energetic population rather than the thermal bulk (#1738 §8).
 ENERGETIC_POPULATIONS = frozenset({"beam_ions", "fast_ions", "energetic_particles", "fusion_products", "alphas"})
@@ -261,14 +269,20 @@ def backend_consistency(recorded: Any, authoritative: Any, *, ignore: Iterable[s
 
 
 def mode_consistency(recorded: Any, adapter_mode: Any) -> tuple[FormalismFinding, ...]:
-    """Comparison-key fields where a run's record contradicts the adapter mode it claims to be."""
+    """:data:`MODE_KEYS` fields where a run's record contradicts the adapter mode it claims to be.
+
+    A field the mode leaves :data:`~vaft.code.formalism.UNKNOWN` (TGLF-NN's field model,
+    which only the trained model knows) constrains nothing.
+    """
+    from vaft.code.formalism import UNKNOWN
+
     expected = getattr(adapter_mode, "formalism", None)
     if expected is None:
         return ()
     mine, theirs = dict(comparison_key(recorded)), dict(comparison_key(expected))
     return tuple(FormalismFinding("backend", name, f"recorded {mine[name]!r}, but mode "
                                   f"{adapter_mode.adapter}:{adapter_mode.mode} is {theirs[name]!r}")
-                 for name in COMPARISON_KEYS if name != "realization" and mine[name] != theirs[name])
+                 for name in MODE_KEYS if theirs[name] != UNKNOWN and mine[name] != theirs[name])
 
 
 def _record(**fields: Any):

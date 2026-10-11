@@ -265,6 +265,42 @@ def test_a_cgyro_record_follows_its_configured_regime_and_fields():
     assert {f.field for f in mode_consistency(linear, adapter_mode("gacode:cgyro_nonlinear"))} >= {"regime"}
 
 
+def test_gacode_runs_agree_with_their_registry_modes():
+    """The registry's NEO/TGLF/TGLF-NN modes are the backends' records (#1735), so a run cannot drift from them."""
+    from vaft.code.gacode import neo, tglf
+    from vaft.code.gacode._formalism import tglf_surrogate_plasma_formalism
+
+    runs = {
+        "gacode:neo": neo.plasma_formalism(parameters={"COLLISION_MODEL": 2}),
+        "gacode:neo_analytic": neo.plasma_formalism(parameters={"SIM_MODEL": 5}),
+        "gacode:tglf": tglf.plasma_formalism(parameters={"SAT_RULE": 3}),
+        "gacode:tglf_linear": tglf.plasma_formalism(parameters={"USE_TRANSPORT_MODEL": False}),
+        "gacode:tglf_nn": tglf_surrogate_plasma_formalism(sat_rule=2, electromagnetic=True, model="m"),
+    }
+    for key, run in runs.items():
+        assert mode_consistency(run, adapter_mode(key)) == (), key
+    assert mode_consistency(runs["gacode:tglf_nn"], adapter_mode("gacode:tglf")) != ()   # realization differs
+    assert backend_consistency(_mode("gacode:neo"), neo.plasma_formalism()) == ()
+
+
+def test_a_configured_field_does_not_change_the_mode_but_does_change_the_group():
+    from vaft.code.gacode.cgyro import CGYROConfig, plasma_formalism
+
+    em = plasma_formalism(CGYROConfig(field_model="em-aperp"))
+    assert em.field_model == "electromagnetic"
+    assert mode_consistency(em, adapter_mode("gacode:cgyro_linear")) == ()
+    assert comparison_key(em) != comparison_key(_mode("gacode:cgyro_linear"))
+
+
+def test_neo_network_is_a_surrogate_not_the_analytic_theory():
+    from vaft.code.gacode import neo
+
+    network, theory = neo.plasma_formalism(parameters={"SIM_MODEL": 4}), neo.plasma_formalism(parameters={"SIM_MODEL": 0})
+    assert network.derived_from == theory.derived_from == "drift_kinetic"
+    assert comparison_key(network) != comparison_key(theory)
+    assert dict(comparison_key(network))["realization"] == "learned_surrogate"
+
+
 def test_imported_records_use_the_generic_rules_and_a_declared_evidence_level():
     legacy = {"scientific_operation": "turbulent_transport", "bulk_description": "kinetic",
               "kinetic_equation": "gyrokinetic", "distribution_formulation": UNKNOWN}
