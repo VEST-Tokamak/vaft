@@ -357,7 +357,7 @@ vaft.diagram.adapter_contract_map()
 
 ## Plasma-model guide
 
-Figures for the plasma-model guide (#1739, page `/reference/plasma-model-guide/`). Every node is
+Figures for the [plasma-model guide]({{ '/reference/plasma-model-guide/' | relative_url }}) (#1739). Every node is
 read from the formalism records: a node lists the `adapter:mode` ids of `vaft.validation.model_contracts.ADAPTER_MODES`
 whose record matches it, and codes not in VAFT (`vaft.diagram.EXTERNAL_CODES`) are hollow and labelled so. Four edge
 kinds are used: asymptotic reduction (solid), model coupling (double-headed), software dependency (dotted) and

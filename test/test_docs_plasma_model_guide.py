@@ -72,7 +72,16 @@ def render_matrix() -> str:
     return "\n".join(rows)
 
 
-GENERATED = {"formalism-axes": render_axes, "formalism-matrix": render_matrix}
+def render_external_codes() -> str:
+    from vaft.diagram import EXTERNAL_CODES
+
+    rows = ["| code | bulk | kinetic equation / fluid model | domain | numerical realization |",
+            "| --- | --- | --- | --- | --- |"]
+    rows += [f"| {c.code} | {c.bulk} | {c.model} | {c.domain} | {c.realization} |" for c in EXTERNAL_CODES]
+    return "\n".join(rows)
+
+
+GENERATED = {"formalism-axes": render_axes, "formalism-matrix": render_matrix, "external-codes": render_external_codes}
 TOKEN = r"`([A-Za-z0-9_.-]+)`"
 
 

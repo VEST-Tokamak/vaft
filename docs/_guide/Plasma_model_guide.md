@@ -48,27 +48,9 @@ $$\frac{\partial f_s}{\partial t} + \mathbf v\cdot\nabla f_s
 closed by Maxwell's equations with the charge and current of all species. VAFT runs no solver of this full system.
 The models it does run come from **different reductions**, not from one chain:
 
-```text
-                       Vlasov / Fokker-Planck + Maxwell   (f_s(x, v, t), 6-D phase space)
-                                        |
-   +-------------------+-----------------+--------------------+----------------------+
-   |                   |                 |                    |                      |
- velocity moments   gyro-phase average  gyro-phase average   single-particle      fluid bulk  +
- + closure          rho/L << 1,         omega/Omega ~ rho*,   orbits; f sampled    kinetic population
-   |                omega/Omega << 1    k_perp rho ~ 1        by markers, not      (coupling)
-   |                   |                 |                    gridded                |
-   v                   v                 v                    v                      v
- FLUID              DRIFT KINETIC       GYROKINETIC          ORBIT FOLLOWING       HYBRID KINETIC-MHD
- ideal / resistive  f(R, E, mu, t)      h(R, E, mu, t)       full orbit /          MHD + delta W_k,
- / extended MHD     neoclassical,       microinstability,    guiding centre        pressure, current
-   |                NTV, kinetic        turbulence           (+ Monte Carlo        or closure
-   |                response              |                  collisions)
-   |                                      | quasilinear moment closure
-   |                                      v
-   |                                    REDUCED: gyro-Landau-fluid (TGLF) --learned--> surrogate (TGLF-NN)
-   v
- equilibrium (static force balance): EFIT, CHEASE, TokaMaker, TES
-```
+![plasma model reduction map]({{ '/assets/diagrams/plasma_model_reduction_map.svg' | relative_url }})
+
+*`vaft.diagram.plasma_model_reduction_map`: every reduction from one kinetic starting point, arrows typed as in the table below; the mode ids under each node are read from the registry.*
 
 Arrow labels name the approximation, not "faster" or "more approximate". Arrows on this page have four meanings,
 and a diagram must not mix them:
@@ -78,10 +60,7 @@ and a diagram must not mix them:
 | asymptotic reduction | an ordering removes a scale or a variable | Vlasov → drift kinetics by gyro-averaging at $\rho/L\ll1$ |
 | model coupling | one model supplies a term to another at run time | δW_k from a drift-kinetic response added to ideal MHD |
 | software dependency | one program calls or reads another | GPEC reads DCON's `euler.bin` |
-| surrogate ancestry | a model is fitted to or trained on another | TGLF-NN trained on TGLF fluxes |
-
-*Figure pending (#1739 §25.1, model-reduction map): `vaft.diagram.plasma_model_reduction_map`, built from the diagram contract posted on #1739.* In short: the figure above, drawn reproducibly in `vaft.diagram`,
-with every arrow labelled by its approximation and styled by the four arrow types; no vertical "fidelity" axis.
+| surrogate ancestry | a model is trained on another model's outputs and stands in for it | TGLF-NN trained on TGLF fluxes |
 
 ## 2. The axes are independent
 
@@ -121,9 +100,9 @@ common axes and in `extensions` (audit §11), because the same equation can be s
 | linear ideal MHD energy principle | Euler–Lagrange ODE integration in a Fourier poloidal basis | DCON (in VAFT) |
 | extended / resistive MHD | finite elements | NIMROD, M3D-C1 |
 
-*Figure pending (#1739 §25.4, taxonomy axes): `vaft.diagram.formalism_axes_map`, built from the diagram contract posted on #1739.* In short: one column per axis of the table above, values listed under
-each, and three example runs drawn as polylines across the columns (CGYRO nonlinear; DCON kinetic; NUBEAM), so that
-no column reads as a level of another.
+![formalism axes]({{ '/assets/diagrams/formalism_axes_map.svg' | relative_url }})
+
+*`vaft.diagram.formalism_axes_map`: one column per axis; three runs (CGYRO nonlinear, DCON kinetic, NUBEAM) drawn across them, so no column is a level of another. Numerical representation sits apart, in `extensions`.*
 
 ## 3. Fluid models
 
@@ -250,9 +229,9 @@ rows of §9.
 RDCON only to compute the Spitzer resistivity and mass density of each layer (audit §3.4). No kinetic equation is
 solved. Kinetic *profiles* as input never make a model kinetic (§8 below).
 
-*Figure pending (#1739 §25, kinetic-MHD coupling): `vaft.diagram.kinetic_mhd_coupling`, built from the diagram contract posted on #1739.* In short: the loop above with the coupling arrows styled as "model
-coupling", and the five GPEC-suite modes placed on it; RDCON drawn outside the loop with a "profile-informed
-coefficient" input arrow.
+![kinetic-MHD coupling]({{ '/assets/diagrams/kinetic_mhd_coupling.svg' | relative_url }})
+
+*`vaft.diagram.kinetic_mhd_coupling`: the GPEC-suite modes on the fluid–kinetic loop with their contract roles; RDCON stays outside, with a profile-informed coefficient, not a coupling.*
 
 ## 6. Reduced models and surrogates
 
@@ -269,9 +248,9 @@ The record writes this as `bulk_description="reduced"` with `derived_from` set t
 reduced model **inherits** the orderings of its parent (role `inherited` in the contract map) and adds a closure
 or a fit that no ordering contract covers; the advisory check reports that as unmapped, never as a pass.
 
-*Figure pending (#1739 §19): `vaft.diagram.reduced_model_ancestry`, built from the diagram contract posted on #1739.* In short: parent theory → model reduction → computational realization in three columns,
-with "surrogate ancestry" arrows only where a model is trained on another (TGLF → TGLF-NN); analytic neoclassical
-theory is an asymptotic reduction of drift kinetics, not a surrogate of it.
+![reduced-model ancestry]({{ '/assets/diagrams/reduced_model_ancestry.svg' | relative_url }})
+
+*`vaft.diagram.reduced_model_ancestry`: parent theory, model reduction and computational realization of every reduced mode.*
 
 ## 7. What each family is for
 
@@ -310,11 +289,13 @@ state (`ILLUSTRATIVE_STATE`; its assumed values are listed in the figure caption
 precession has no formula kernel and $\tau_E$ needs an energy inventory the state does not carry, so the figure
 omits both and says so (#1724).
 
+![timescale hierarchy]({{ '/assets/diagrams/timescale_hierarchy.svg' | relative_url }})
+
 ### Spatial scales
 
-*Figure pending (#1739 §25.3, spatial scales): `vaft.diagram.spatial_scale_orderings`, built from the diagram contract posted on #1739.* In short: $\rho$, orbit width, $L$, $a$ and $qR$ on one log axis for an
-explicitly labelled illustrative state, with the ratios $\rho/L$, $k_\perp\rho$, $k_\parallel/k_\perp$ and
-$\omega/\Omega_c$ annotated, and a caption that the order is state-dependent.
+![spatial scale orderings]({{ '/assets/diagrams/spatial_scale_orderings.svg' | relative_url }})
+
+*`vaft.diagram.spatial_scale_orderings`: the lengths of one labelled illustrative state on a log axis, with the ratios the orderings compare; the order is state-dependent.*
 
 ## 8. "Kinetic" means seven different things
 
@@ -371,12 +352,15 @@ orbit representation; its FLR position sampling sits in `extensions` and fits ne
 | `nubeam:fast_ions` | `fast_ion_sources` | `particle` | — | `fokker_planck` | `sources` | `guiding_center` | `whole_volume` | `time_dependent` | — | test-particle orbit orderings (rho/L_B, slowing down on a fixed background) are not a registered contract | Plasma_models.md §5 |
 | `genray:ray_tracing` | *unclassified* | — | — | — | — | — | — | — | — | ray tracing (WKB) is neither a fluid nor a kinetic bulk description in the vocabulary | not audited |
 | `transp:integrated` | *unclassified* | — | — | — | — | — | — | — | — | an integrated-modelling run combines several formalisms; its components are classified | not audited |
+| `flare:field_lines` | *unclassified* | — | — | — | — | — | — | — | — | field-line tracing through a given equilibrium and 3-D perturbation: magnetic topology only, no plasma model is solved, so no plasma formalism applies | vaft/code/flare.py |
+| `mitim:drivers` | *unclassified* | — | — | — | — | — | — | — | — | a driver: the NEO and TGLF runs it launches are the gacode:neo and gacode:tglf modes; PORTALS flux matching (#1588, not yet in VAFT) will be transport_coupled | vaft/code/mitim (#1588) |
 <!-- /generated -->
 
 **Not in VAFT.** These codes are classified for comparison and interoperability only. The ASCOT5 row is verified
 from upstream documentation (audit §5); the others are provisional, from literature (audit §5, §9). None has a
 VAFT run adapter; ASCOT5 appears only as a diagram catalogue entry.
 
+<!-- generated:external-codes -->
 | code | bulk | kinetic equation / fluid model | domain | numerical realization |
 | --- | --- | --- | --- | --- |
 | GENE / GENE-X | kinetic | gyrokinetic; GENE-X full-f, across the separatrix | local or global; GENE-X whole volume | continuum |
@@ -385,16 +369,19 @@ VAFT run adapter; ASCOT5 appears only as a diagram catalogue entry.
 | MARS-F / MARS-K | fluid / hybrid | resistive MHD with flow and wall; MARS-K adds drift-kinetic resonances | whole volume | — |
 | ASCOT5 | particle | test-particle Fokker–Planck | whole volume | Monte Carlo, full or guiding-centre orbit |
 | SIMPLE | particle | none (orbit integration) | whole volume | symplectic guiding-centre integrator |
+<!-- /generated -->
 
-*Figure pending (#1739 §12–13, solver placement): `vaft.diagram.solver_placement_map`, built from the diagram contract posted on #1739.* In short: one matrix of the generated rows above against the axes of §2,
-with implemented modes filled and the codes of this table hollow and labelled "not in VAFT", so that no future
-backend looks implemented.
+![solver placement map]({{ '/assets/diagrams/solver_placement_map.svg' | relative_url }})
+
+*`vaft.diagram.solver_placement_map`: every registered mode against the axes of §2; codes not in VAFT (`vaft.diagram.EXTERNAL_CODES`) are hollow.*
 
 ## 10. Still unresolved
 
 These classifications are open and are shown as such, not smoothed over (audit §8):
 - **No record:** the GPEC threshold layer models (`gpec:thresholds`; SLAYER, Callen), GENRAY ray tracing (WKB is
-  neither a fluid nor a kinetic bulk description) and TRANSP integrated runs (combinations of formalisms). They are
+  neither a fluid nor a kinetic bulk description), TRANSP integrated runs (combinations of formalisms),
+  FLARE field-line tracing (topology only, no plasma model) and the MITIM drivers (the NEO and TGLF runs
+  they launch carry their own records). They are
   listed in the matrix as *unclassified* with the reason.
 - **No contract:** NUBEAM's test-particle orbit orderings ($\rho/L_B$, slowing down on a fixed background) are not
   a registered ordering contract, and a reduced model's own closure or fit is covered by none.
@@ -440,7 +427,7 @@ named here exists. A term without one is not part of the record, on purpose.
 | continuum | a solution on a phase-space grid (Eulerian) | none (`extensions`) |
 | PIC | particle-in-cell: markers sample the distribution; fields on a grid | none (`extensions`) |
 | Monte Carlo | stochastic markers, e.g. for collisions in a test-particle Fokker–Planck solution | none (`extensions`) |
-| surrogate | a model fitted to or trained on another model's outputs | `bulk_description`: `reduced`; `derived_from`: `gyrokinetic` |
+| surrogate | a model trained on another model's outputs to stand in for it (an analytic fit to a theory is a reduction, not a surrogate) | `bulk_description`: `reduced`; `derived_from`: `gyrokinetic` |
 <!-- /glossary -->
 
 ## References
