@@ -384,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>99bec43</code>. What is described
+  <code>2bf7841</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1066,6 +1066,7 @@ explains them. Which diagrams the scale-to-model chain needs, and which are stil
 <a href="/vaft/develop/reference/characteristic-scales/">Characteristic scales and orderings</a>, “Diagram contracts”.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">timescale_hierarchy</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">spatial_scale_orderings</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">ordering_contract_map</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">adapter_contract_map</span><span class="p">()</span>
 </code></pre></div></div>
@@ -1080,7 +1081,11 @@ explains them. Which diagrams the scale-to-model chain needs, and which are stil
   <tbody>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">timescale_hierarchy</code></td>
-      <td>Inverse gyrofrequencies, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$</td>
+      <td>Inverse gyrofrequencies, collision, Alfvén, sound-crossing, inverse ion transit and bounce frequencies, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$. Drift precession (no kernel) and $\tau_E$ (no inventory) are left out</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">spatial_scale_orderings</code></td>
+      <td>Electron and ion Larmor radii, $\rho_s$, $d_i$, the banana width, an illustrative gradient length, $a$, $R_0$ and $qR_0$ of the same state on one logarithmic axis. Below it are $\rho_i/L$, $\Delta_b/L$, $d_i/a$, with brackets for the ratios that need a mode ($k_\perp\rho$, $k_\parallel/k_\perp$, $\omega/\Omega_c$)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ordering_contract_map</code></td>
@@ -5393,7 +5398,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 19:10:43 +0000"
+        "time": "2026-10-11 19:31:43 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

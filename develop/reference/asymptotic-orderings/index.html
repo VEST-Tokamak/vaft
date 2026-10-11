@@ -384,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>99bec43</code>. What is described
+  <code>2bf7841</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -522,6 +522,13 @@ times faster.</li>
     </ul>
   </li>
 </ul>
+
+<p>The axis also places the sound crossing time $a/c_s$ and the inverse thermal-ion transit and bounce
+frequencies (#1739). They show where neoclassical and drift-kinetic dynamics sit between $\tau_A$ and the
+evolution time. Drift precession has no formula kernel, and $\tau_E$ needs an energy inventory the state
+does not carry, so neither is drawn. <code class="language-plaintext highlighter-rouge">spatial_scale_orderings</code> places the lengths of the same state on one
+axis: the Larmor radii, $\rho_s$, $d_i$, the banana width, an illustrative gradient length, $a$, $R_0$ and
+$qR_0$.</p>
 
 <p>These numbers come from an illustrative state, not a measured discharge. Answering the same questions
 across the VEST database is the ordering atlas of #1629.</p>
@@ -1232,7 +1239,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 19:10:43 +0000"
+        "time": "2026-10-11 19:31:43 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

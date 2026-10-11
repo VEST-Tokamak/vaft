@@ -384,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>99bec43</code>. What is described
+  <code>2bf7841</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1313,13 +1313,13 @@ is drawn only when it comes from values.</p>
       <td><code class="language-plaintext highlighter-rouge">length_scale_ladder</code></td>
       <td>state-dependent, or labelled illustrative</td>
       <td>$\lambda_D$, $\rho_e$, $d_e$, $\rho_i$/$\rho_s$, $d_i$, $\lambda_{\rm mfp}$, orbit width, gradient length, $a$, $R$; placed by value, never in a hard-coded order</td>
-      <td>planned</td>
+      <td><strong>partly exists</strong> as <code class="language-plaintext highlighter-rouge">spatial_scale_orderings</code> (#1739: $\rho_e$, $\rho_i$, $\rho_s$, $d_i$, banana width, gradient length, $a$, $R_0$, $qR_0$); $\lambda_D$, $d_e$ and $\lambda_{\rm mfp}$ still planned</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">time_scale_ladder</code></td>
       <td>state-dependent, or labelled illustrative</td>
       <td>gyration, collision, transit/bounce, Alfvén, growth, wall, confinement, transport, resistive diffusion, age/pulse; placed by value</td>
-      <td><strong>exists</strong> as <code class="language-plaintext highlighter-rouge">timescale_hierarchy</code> (illustrative state, eight times, placed by value)</td>
+      <td><strong>exists</strong> as <code class="language-plaintext highlighter-rouge">timescale_hierarchy</code> (illustrative state, eleven times including sound crossing, ion transit and bounce, placed by value; #1739)</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">model_ordering_map</code></td>
@@ -1606,7 +1606,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 19:10:43 +0000"
+        "time": "2026-10-11 19:31:43 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
