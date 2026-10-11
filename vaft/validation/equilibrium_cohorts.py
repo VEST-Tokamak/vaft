@@ -227,9 +227,15 @@ def join_regime_and_termination(
     labels = classify_equilibrium_regimes(ods, policy=policy, **evidence)
     status_by_ms: dict[int, str] = {}
     for record in slice_statuses or ():
-        status_by_ms[int(round(float(record["time"]) * 1000.0))] = str(
-            record.get("overall_status") or "unknown"
-        )
+        if record.get("time") is None:
+            continue  # a status for no instant grades nothing
+        key = int(round(float(record["time"]) * 1000.0))
+        if key in status_by_ms:
+            raise ValueError(
+                f"two slice statuses fall on the same millisecond ({key}); "
+                "joining them would grade a slice with another's status"
+            )
+        status_by_ms[key] = str(record.get("overall_status") or "unknown")
 
     by_ms: dict[int, int] = {}
     collisions: list[int] = []
@@ -267,6 +273,19 @@ def join_regime_and_termination(
     return CohortJoin(outcomes=tuple(outcomes), unmatched_log_times=unmatched)
 
 
+def _check_group_by(group_by: Sequence[str]) -> tuple[str, ...]:
+    from dataclasses import fields as dataclass_fields
+
+    fields = tuple(group_by)
+    if not fields:
+        raise ValueError("group_by must name at least one field")
+    known = {item.name for item in dataclass_fields(SliceOutcome)}
+    for field in fields:
+        if field not in known and not isinstance(getattr(SliceOutcome, field, None), property):
+            raise ValueError(f"SliceOutcome has no '{field}' to group by")
+    return fields
+
+
 def summarize_by_cohort(
     outcomes: Iterable[SliceOutcome], *, group_by: Sequence[str] = ("phase",)
 ) -> dict[str, Any]:
@@ -283,14 +302,8 @@ def summarize_by_cohort(
     VEST those are mostly ``findax`` reporting a separatrix it could not use.
     A cohort can be dominated by one while its modes name the other.
     """
-    fields = tuple(group_by)
-    if not fields:
-        raise ValueError("group_by must name at least one field")
-
+    fields = _check_group_by(group_by)
     items = list(outcomes)
-    for field in fields:
-        if not hasattr(SliceOutcome, field):
-            raise ValueError(f"SliceOutcome has no '{field}' to group by")
 
     cohorts: dict[str, dict[str, Any]] = {}
     for item in items:
@@ -396,6 +409,12 @@ def write_cohort_table(
     from vaft.machine_mapping.equilibrium_regime import vest_equilibrium_regime_policy
 
     resolved = policy or vest_equilibrium_regime_policy()
+    versions = {row.get("classification_version") for row in rows}
+    if versions - {resolved.version}:
+        raise ValueError(
+            f"rows were classified under version(s) {sorted(versions, key=str)} but the policy "
+            f"whose thresholds would be recorded is version {resolved.version}; pass that policy"
+        )
     target = Path(path)
     suffix = target.suffix.lower()
     if suffix not in {".csv", ".parquet"}:
@@ -430,22 +449,22 @@ def representative_cases(
     """Deterministic example slices per cohort: successes and failures.
 
     Within a cohort, the cases chosen are those whose ``|Ip|`` is nearest the
-    cohort's median, ties broken by shot then time -- the same input always
+    median of the *whole* cohort (successes and failures together, so both
+    lists are typical of the same population), ties broken by shot then time -- the same input always
     gives the same cases, and a "typical" case is typical of its cohort
     rather than the first one a loop met. Success follows
     :attr:`SliceOutcome.succeeded`; a slice where it is ``None`` is neither.
     """
-    fields = tuple(group_by)
-    for field in fields:
-        if not hasattr(SliceOutcome, field):
-            raise ValueError(f"SliceOutcome has no '{field}' to group by")
+    fields = _check_group_by(group_by)
     groups: dict[str, list[SliceOutcome]] = {}
     for item in outcomes:
         groups.setdefault("|".join(str(getattr(item, f)) for f in fields), []).append(item)
 
-    def pick(items: list[SliceOutcome]) -> list[dict[str, Any]]:
+    def median_current(items: list[SliceOutcome]) -> float:
         currents = [abs(i.regime.current) for i in items if i.regime.current is not None]
-        median = float(np.median(currents)) if currents else 0.0
+        return float(np.median(currents)) if currents else 0.0
+
+    def pick(items: list[SliceOutcome], median: float) -> list[dict[str, Any]]:
         ranked = sorted(
             items,
             key=lambda i: (
@@ -461,8 +480,8 @@ def representative_cases(
 
     return {
         key: {
-            "successful": pick([i for i in items if i.succeeded is True]),
-            "failed": pick([i for i in items if i.succeeded is False]),
+            "successful": pick([i for i in items if i.succeeded is True], median_current(items)),
+            "failed": pick([i for i in items if i.succeeded is False], median_current(items)),
         }
         for key, items in sorted(groups.items())
     }

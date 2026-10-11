@@ -199,3 +199,36 @@ def test_parquet_export_round_trips(tmp_path):
 def test_an_unknown_suffix_is_refused(tmp_path):
     with pytest.raises(ValueError, match="csv or .parquet"):
         write_cohort_table([], tmp_path / "cohorts.xlsx", policy=POLICY)
+
+
+def test_statuses_are_joined_by_time_and_collisions_refused():
+    ods = _ods([60e3, 70e3])
+    log = _log([300, 301], [True, True])
+    join = join_regime_and_termination(
+        ods, log, policy=POLICY,
+        slice_statuses=[{"time": 0.301, "overall_status": "usable"}, {"time": None, "overall_status": "x"}],
+    )
+    assert [item.quality for item in join] == ["unknown", "usable"]
+    with pytest.raises(ValueError, match="same millisecond"):
+        join_regime_and_termination(
+            ods, log, policy=POLICY,
+            slice_statuses=[{"time": 0.3001, "overall_status": "a"}, {"time": 0.2999, "overall_status": "b"}],
+        )
+
+
+def test_group_by_accepts_every_real_field_and_refuses_none():
+    join = list(_join([60e3], [True], ["usable"], 1))
+    assert set(summarize_by_cohort(join, group_by=("mode",))["cohorts"]) == {"accepted"}
+    assert set(representative_cases(join, group_by=("mode",))) == {"accepted"}
+    with pytest.raises(ValueError, match="at least one"):
+        representative_cases(join, group_by=())
+    with pytest.raises(ValueError, match="no 'nope'"):
+        summarize_by_cohort(join, group_by=("nope",))
+
+
+def test_the_sidecar_must_describe_the_rule_the_rows_were_drawn_with(tmp_path):
+    from dataclasses import replace
+
+    rows = cohort_rows(_join([60e3], [True], ["usable"], 7))
+    with pytest.raises(ValueError, match="version"):
+        write_cohort_table(rows, tmp_path / "cohorts.csv", policy=replace(POLICY, version=3))

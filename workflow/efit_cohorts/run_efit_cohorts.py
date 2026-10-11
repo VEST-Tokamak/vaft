@@ -61,12 +61,20 @@ def _constraints_ods(path: Path) -> ODS:
     """Only what the classifier reads: the slice times and measured Ip."""
     document = json.loads(path.read_text(encoding="utf-8"))
     equilibrium = document["equilibrium"]
+    times = np.asarray(equilibrium["time"], dtype=float)
+    slices = equilibrium.get("time_slice") or ()
+    if len(slices) != times.size:
+        raise ValueError(f"constraints ODS has {len(slices)} slices for {times.size} times")
     ods = ODS(consistency_check=False)
-    ods["equilibrium.time"] = np.asarray(equilibrium["time"], dtype=float)
-    for index, item in enumerate(equilibrium.get("time_slice") or ()):
+    ods["equilibrium.time"] = times
+    for index, item in enumerate(slices):
+        # Every slice exists, with its own time; a missing Ip is NaN, which the
+        # classifier labels plasma_current_unreadable instead of losing the shot.
+        ods[f"equilibrium.time_slice.{index}.time"] = float(times[index])
         ip = ((item.get("constraints") or {}).get("ip") or {}).get("measured")
-        if ip is not None:
-            ods[f"equilibrium.time_slice.{index}.constraints.ip.measured"] = float(ip)
+        ods[f"equilibrium.time_slice.{index}.constraints.ip.measured"] = (
+            float("nan") if ip is None else float(ip)
+        )
     return ods
 
 
@@ -77,9 +85,11 @@ def _passive_current(path: Path) -> tuple[np.ndarray, np.ndarray] | None:
         passive = json.load(handle).get("pf_passive") or {}
     time = np.asarray(passive.get("time") or [], dtype=float)
     loops = [np.asarray(loop.get("current") or [], dtype=float) for loop in passive.get("loop") or ()]
-    loops = [values for values in loops if values.size == time.size]
     if time.size < 2 or not loops:
         return None
+    if any(values.size != time.size for values in loops):
+        # A partial sum would be reported as the net current; refuse instead.
+        raise ValueError("eddy pf_passive loop currents do not all match pf_passive.time")
     return time, np.sum(loops, axis=0)
 
 
