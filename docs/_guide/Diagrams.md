@@ -338,7 +338,8 @@ vaft.diagram.mhd_mode_geometry_map()
 
 The scale separations a reduced model assumes, evaluated rather than assumed. The kernels are in
 `vaft.formula.ordering`, and [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}) (#1627)
-explains them.
+explains them. Which diagrams the scale-to-model chain needs, and which are still planned, is
+[Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}), "Diagram contracts".
 
 ```python
 vaft.diagram.timescale_hierarchy()
