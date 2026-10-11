@@ -111,6 +111,7 @@ def test_execution_edges_are_snakemake_rule_dependencies(snapshot):
         ("corrective:generate_core_profiles_ods", "corrective:generate_composition_ods"),
         # the kinetic lineages read the composed product, not the measured one (#1842)
         ("corrective:generate_composition_ods", "corrective:generate_kinetic_efit_ods"),
+        ("corrective:generate_composition_ods", "corrective:generate_ti_inferred_ods"),
     ]:
         assert edge in execution, edge
     # Snakemake never schedules across pipelines: those relations are references only.

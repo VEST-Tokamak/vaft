@@ -264,6 +264,10 @@ SCIENTIFIC_REFERENCES = (
         "generate_composition_ods", "diagnostics", "diagnostics_ods", "routine",
         "supplies the plasma onset, hence the age that sets the transient charge states",
     ),
+    ScientificReference(
+        "generate_ti_inferred_ods", "efit", "efit_ods", "routine",
+        "its pressure, partitioned into electron and ion parts, is where the inferred T_i comes from",
+    ),
     *(
         reference
         for stage in ("electron_efit", "kinetic_efit")
@@ -422,6 +426,7 @@ _LOG_OWNER = {
     "generate_ces_ods": ("omas", "ces"),
     "generate_core_profiles_ods": ("omas", "core_profiles"),
     "generate_composition_ods": ("omas", "composition"),
+    "generate_ti_inferred_ods": ("omas", "ti_inferred"),
     "generate_electron_efit_ods": ("omas", "electron_efit"),
     "generate_kinetic_efit_ods": ("omas", "kinetic_efit"),
     **{
@@ -435,6 +440,7 @@ _LOG_OWNER = {
             "efit",
             "core_profiles",
             "composition",
+            "ti_inferred",
             "electron_efit",
             "kinetic_efit",
             "chease",
@@ -702,6 +708,14 @@ class PipelinePaths:
     def composition_manifest(self, shot) -> str:
         self._canonical_only("composition")
         return str(self._filedb.omas_manifest("composition", shot=shot))
+
+    def ti_inferred_ods(self, shot) -> str:
+        self._canonical_only("ti_inferred")
+        return str(self._filedb.omas_product("ti_inferred", shot=shot))
+
+    def ti_inferred_manifest(self, shot) -> str:
+        self._canonical_only("ti_inferred")
+        return str(self._filedb.omas_manifest("ti_inferred", shot=shot))
 
     def electron_efit_ods(self, shot) -> str:
         self._canonical_only("electron_efit")

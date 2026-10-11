@@ -8,6 +8,7 @@ from datetime import datetime
 import gzip
 import hashlib
 import json
+import math
 from pathlib import Path
 import shutil
 import tempfile
@@ -2464,6 +2465,273 @@ def build_composition_ods(
             ]
     else:
         manifest["error"] = skipped[0]["reason"] if skipped else "no slice could be composed"
+    return ods, manifest
+
+
+#: Relative one-sigma model-form uncertainty of the EFIT pressure (#874), and the
+#: window of neighbouring slices whose spread can exceed it (#1426).
+TI_INFERENCE_FLOOR = 0.17
+TI_INFERENCE_WINDOW_S = 1e-3
+
+
+class _SliceSkipped(Exception):
+    """A slice the T_i inference cannot be made for; the message is the reason recorded."""
+
+
+def _magnetic_efit_lineage(efit_product: str | Path) -> str | None:
+    """``"magnetics"`` when the product lives under the FileDB ``efit/magnetic`` stage, else ``None``.
+
+    The pressure-partition guard trusts the lineage it is given, and nothing in
+    an equilibrium product records one, so it is read off *where the product
+    was loaded from* -- never asserted by the caller.
+    """
+    parts = Path(str(efit_product)).parts
+    return "magnetics" if any(pair == ("efit", "magnetic") for pair in zip(parts, parts[1:])) else None
+
+
+def _thomson_relative_errors(ods: ODS, time_s: float) -> tuple[float, float]:
+    """Median relative one-sigma of ``n_e`` and ``T_e`` over the valid channels nearest ``time_s``.
+
+    The fitted ``core_profiles`` carry no uncertainty of their own, so the
+    channels' median relative error is transferred to the fit (``NaN`` when the
+    product has no usable channel, which the kernel records as a missing sigma).
+    """
+    from vaft.ods_access import path_value
+
+    times = path_value(ods, "thomson_scattering.time", None)
+    if times is None or not _path_present(ods, "thomson_scattering.channel"):
+        return math.nan, math.nan
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+    it = int(np.argmin(np.abs(times - time_s)))
+    rel_n, rel_t = [], []
+    for i in range(len(ods["thomson_scattering.channel"])):
+        base = f"thomson_scattering.channel.{i}"
+        for leaf, store in (("n_e", rel_n), ("t_e", rel_t)):
+            data = path_value(ods, f"{base}.{leaf}.data", None)
+            error = path_value(ods, f"{base}.{leaf}.data_error_upper", None)
+            if data is None or error is None:
+                continue
+            data, error = np.atleast_1d(np.asarray(data, float)), np.atleast_1d(np.asarray(error, float))
+            if it < data.size and it < error.size and data[it] > 0 and np.isfinite(error[it]) and error[it] > 0:
+                store.append(float(error[it] / data[it]))
+    return (
+        float(np.median(rel_n)) if rel_n else math.nan,
+        float(np.median(rel_t)) if rel_t else math.nan,
+    )
+
+
+def _equilibrium_pressure_on(solution: ODS, index: int, psi_norm: np.ndarray) -> np.ndarray | None:
+    """The reconstructed pressure of slice ``index`` interpolated onto ``psi_norm`` points."""
+    from vaft.ods_access import path_value
+    from vaft.validation import kinetic_state as ks
+
+    grid = ks.rho_tor_norm_of(solution, index).get("psi_norm")
+    pressure = path_value(solution, f"equilibrium.time_slice.{index}.profiles_1d.pressure", None)
+    if grid is None or pressure is None:
+        return None
+    grid, pressure = np.asarray(grid, dtype=float), np.asarray(pressure, dtype=float)
+    if grid.size != pressure.size:
+        return None
+    order = np.argsort(grid)
+    return np.interp(psi_norm, grid[order], pressure[order])
+
+
+def build_ti_inferred_ods(
+    *,
+    shot: int,
+    core_profiles_product: str | Path,
+    efit_product: str | Path,
+    floor: float = TI_INFERENCE_FLOOR,
+    window_s: float = TI_INFERENCE_WINDOW_S,
+    equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Give the electron-only slices an ion temperature inferred from the magnetic pressure partition.
+
+    On a slice with no measured ``T_i``, ``T_i = p_eq / (e f n_e) - T_e / f`` with
+    ``p_eq`` the pipeline-1 magnetic EFIT pressure at the slice's own flux
+    surfaces and ``f = n_i,tot / n_e`` the composed product's diluted ion
+    density (:func:`vaft.process.kinetic_closure.infer_ti_pressure_partition`).
+    The result is **inferred**, never measured: it is written with
+    ``origin=inferred`` in the ion ``temperature_fit.parameters`` record (the
+    spelling ``classify_ti_record`` reads back), points where ``p_i`` is not
+    positive and significant stay NaN, and the slice's pressures are recomputed
+    from it, so ``p_thermal`` equals the equilibrium pressure there by
+    construction -- a closure identity, not an agreement test.
+
+    Only the ``efit/magnetic`` lineage is accepted, read from where the product
+    lives; the electron-kinetic EFIT was fitted with an assumed ``T_i/T_e`` and
+    would return that assumption.  Slices that already carry a measured ``T_i``
+    are left alone.  A slice with no composition is skipped rather than inferred
+    with ``n_i = n_e``: the ion density is half of the formula.  The stage reads
+    the *composed* product and must never be read by the kinetic EFIT stages.
+    """
+    from vaft.machine_mapping.core_profiles import inferred_ti_text, ti_record_fields
+    from vaft.ods_access import path_value
+    from vaft.process.kinetic_closure import (
+        TI_FLAGS,
+        assemble_pressure,
+        infer_kinetic_closure,
+        infer_ti_pressure_partition,
+    )
+    from vaft.validation import kinetic_state as ks
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    manifest = _external_profile_manifest("ti_inferred", shot, run, era.name)
+    manifest["input"] = {
+        "core_profiles_product": str(core_profiles_product),
+        "efit_product": str(efit_product),
+    }
+    manifest["configuration"].update(
+        floor=float(floor), window_s=float(window_s),
+        equilibrium_tolerance_ms=float(equilibrium_tolerance_ms),
+    )
+    if not Path(core_profiles_product).exists():
+        raise FileNotFoundError(f"the core_profiles product is missing: {core_profiles_product}")
+    ods, _ = load_ods(Path(core_profiles_product))
+    times = path_value(ods, "core_profiles.time", None)
+    if times is None or np.asarray(times).size == 0:
+        manifest["error"] = "the core_profiles product carries no slices"
+        return ods, manifest
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+
+    lineage = _magnetic_efit_lineage(efit_product)
+    manifest["configuration"]["equilibrium_lineage"] = lineage
+    if lineage is None:
+        manifest["error"] = (
+            f"the efit product {efit_product} is not under omas/efit/magnetic, so its lineage is "
+            "not established; the inference is refused rather than guessed"
+        )
+        return ods, manifest
+    if not Path(efit_product).exists():
+        manifest["error"] = f"the magnetic efit product is missing: {efit_product}"
+        return ods, manifest
+    solution, _ = load_ods(Path(efit_product))
+    eq_times_ms = _time_array_ms(solution, "equilibrium.time")
+    if eq_times_ms is None:
+        manifest["error"] = "the efit product carries no equilibrium.time"
+        return ods, manifest
+    usable_ms = usable_equilibrium_times_ms(solution)
+
+    counts = {"inferred": 0, "measured": 0, "unavailable": 0}
+    skipped: list[dict[str, Any]] = []
+    flag_totals: dict[str, int] = {}
+    ratios: list[float] = []
+
+    def infer_slice(index: int, time_s: float) -> None:
+        base = f"core_profiles.profiles_1d.{index}"
+        nearest = int(np.argmin(np.abs(eq_times_ms - time_s * 1e3)))
+        if abs(float(eq_times_ms[nearest]) - time_s * 1e3) > equilibrium_tolerance_ms:
+            raise _SliceSkipped(
+                f"no magnetic equilibrium within {equilibrium_tolerance_ms:g} ms of the slice"
+            )
+        origin = ti_record_fields(path_value(ods, f"{base}.zeff_fit.parameters", None)).get("origin")
+        if origin not in ("assumed", "derived"):
+            raise _SliceSkipped(f"the slice carries no composition (zeff record origin={origin})")
+        # n_i,tot/n_e from the stored ions; the ratio only lets the closure run
+        # on a slice with no ion temperature -- no T_i enters the densities.
+        closure = infer_kinetic_closure(ods, time=time_s, dilution="species", ti_te_ratio=1.0)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            fraction = np.sum(list(closure.ion_densities.values()), axis=0) / closure.n_e
+
+        electron = ks.core_profiles_electron_pressure(ods, time_s=time_s, tolerance_s=5e-4)
+        if not electron["available"] or electron["index"] != index:
+            raise _SliceSkipped(electron.get("reason", "the profile slice cannot be matched by time"))
+        placed = ks.core_profiles_grid_on_slice(ks.rho_tor_norm_of(solution, nearest), electron)
+        if not placed["available"]:
+            raise _SliceSkipped(placed["reason"])
+        psi = np.asarray(placed["psi_norm"], dtype=float)
+        inside = psi <= 1.0
+        if inside.sum() < 3:
+            raise _SliceSkipped("fewer than three profile points inside the last closed flux surface")
+        p_eq = _equilibrium_pressure_on(solution, nearest, psi[inside])
+        if p_eq is None:
+            raise _SliceSkipped("the equilibrium pressure cannot be sampled on the profile grid")
+        others = []
+        for k, eq_ms in enumerate(eq_times_ms):
+            if k == nearest or abs(eq_ms * 1e-3 - time_s) > window_s + 1e-9:
+                continue
+            if usable_ms is not None and not np.any(np.abs(usable_ms - eq_ms) < 1e-6):
+                continue
+            pressure = _equilibrium_pressure_on(solution, k, psi[inside])
+            if pressure is not None:
+                others.append(pressure)
+        sigma_p, basis = ks.pressure_sigma(p_eq, others, floor=floor)
+        rel_n, rel_t = _thomson_relative_errors(ods, time_s)
+        n_e, t_e = np.asarray(electron["n_e"], float)[inside], np.asarray(electron["t_e"], float)[inside]
+        result = infer_ti_pressure_partition(
+            p_eq, n_e, t_e,
+            composition={"ion_density_per_electron": fraction[inside],
+                         "composition_source": f"composition stage ions (zeff record origin={origin})"},
+            sigma_p_eq=sigma_p, sigma_n_e=rel_n * n_e, sigma_t_e=rel_t * t_e,
+            equilibrium_lineage=lineage,
+        )
+        if not result["eligible"]:
+            raise _SliceSkipped(result["reason"])
+        valid = np.isfinite(result["t_i"])
+        if not valid.any():
+            seen = sorted({f for flags in result["flags"] for f in flags})
+            raise _SliceSkipped(f"no point has a positive, significant p_i (flags: {', '.join(seen) or 'none'})")
+
+        rho = np.asarray(electron["rho_tor_norm"], dtype=float)
+        t_i = np.full(rho.shape, np.nan)
+        t_i[inside] = result["t_i"]
+        record = "; ".join([
+            inferred_ti_text("equilibrium_pressure_partition"),
+            f"equilibrium_lineage={lineage}", "equilibrium_occurrence=0",
+            f"equilibrium_time_s={float(eq_times_ms[nearest]) * 1e-3:.6f}",
+            f"sigma_p_eq_basis={basis}", f"valid_points={int(valid.sum())}/{valid.size}",
+            f"rho_valid={float(rho[inside][valid].min()):.4g}:{float(rho[inside][valid].max()):.4g}",
+            "not measured",
+        ])
+        for k in range(len(ods[f"{base}.ion"])):
+            ods[f"{base}.ion.{k}.temperature"] = t_i
+            ods[f"{base}.ion.{k}.temperature_fit.parameters"] = record
+        ods[f"{base}.t_i_average"] = t_i
+        pressure = assemble_pressure(
+            closure.n_e, closure.T_e, closure.ion_densities,
+            {label: t_i for label in closure.ion_densities},
+        )
+        ods[f"{base}.pressure_ion_total"] = pressure.p_i_thermal
+        ods[f"{base}.pressure_thermal"] = pressure.p_thermal
+        _append_record_fields(ods, f"{base}.ion.0.density_fit.parameters", PRESSURE_CLOSURE_RECORD)
+        for flags in result["flags"]:
+            for flag in flags:
+                flag_totals[flag] = flag_totals.get(flag, 0) + 1
+        ratios.extend(float(x) for x in result["ti_te"][valid])
+
+    for index, time_s in enumerate(times):
+        if path_value(ods, f"core_profiles.profiles_1d.{index}.ion.0.temperature", None) is not None:
+            counts["measured"] += 1
+            continue
+        try:
+            infer_slice(index, float(time_s))
+        except _SliceSkipped as skip:
+            counts["unavailable"] += 1
+            skipped.append({"time_s": float(time_s), "reason": str(skip)[:240]})
+            continue
+        counts["inferred"] += 1
+
+    manifest["slices"] = {**counts, "total": int(times.size)}
+    manifest["skipped_slices"] = skipped[:20]
+    manifest["inference"] = {
+        "method": "equilibrium_pressure_partition", "equilibrium_lineage": lineage,
+        "flags": {f: flag_totals.get(f, 0) for f in (*TI_FLAGS, "sigma_unavailable")},
+        "ti_te_median": float(np.median(ratios)) if ratios else None,
+    }
+    if counts["inferred"]:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        if skipped:
+            manifest["quality_summary"]["missing"] = [
+                f"ti_inferred:t={item['time_s']:.4f}s" for item in skipped[:20]
+            ]
+    else:
+        manifest["error"] = (
+            skipped[0]["reason"] if skipped
+            else "every slice already carries a measured ion temperature"
+        )
     return ods, manifest
 
 

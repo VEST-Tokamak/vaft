@@ -85,6 +85,7 @@ def test_the_snakefile_parses_and_builds_every_stage(tmp_path):
         "generate_ces_ods",
         "generate_core_profiles_ods",
         "generate_composition_ods",
+        "generate_ti_inferred_ods",
         "generate_electron_efit_ods",
         "generate_kinetic_efit_ods",
     ):
@@ -101,7 +102,7 @@ def test_both_kinetic_lineages_become_their_own_rule(tmp_path):
 def test_replication_adds_one_rule_per_stage(tmp_path):
     result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}'])
     assert result.returncode == 0, result.stderr[-3000:]
-    for stage in ("thomson", "ces", "core_profiles", "composition", "electron_efit", "kinetic_efit"):
+    for stage in ("thomson", "ces", "core_profiles", "composition", "ti_inferred", "electron_efit", "kinetic_efit"):
         assert f"replicate_{stage}_to_hsds" in result.stdout, result.stdout[-2000:]
 
 
@@ -129,7 +130,7 @@ def test_the_lineage_is_checked_against_the_registry():
     from vaft.database.sources import replicable_stages
 
     corrective = set(replicable_stages(produced_by="corrective"))
-    lineage = {"thomson", "ces", "core_profiles", "composition", "electron_efit", "kinetic_efit"}
+    lineage = {"thomson", "ces", "core_profiles", "composition", "ti_inferred", "electron_efit", "kinetic_efit"}
     assert lineage <= corrective, sorted(lineage - corrective)
 
 
@@ -233,3 +234,30 @@ def test_the_kinetic_dilution_is_configurable_and_validated(tmp_path):
     assert result.stdout.count("--dilution none") == 2
     bad = _dry_run(tmp_path, extra=["--config", 'kinetic={"dilution": "partial"}'])
     assert bad.returncode != 0 and "dilution" in (bad.stdout + bad.stderr)
+
+
+def test_the_inferred_ti_is_a_leaf_read_by_neither_kinetic_lineage(tmp_path):
+    """The kinetic EFIT pressure would otherwise be partitioned back into the T_i it was built from."""
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_ti_inferred_ods")
+    inputs = _input_line(job)
+    assert "omas/composition/48226/output/composition" in inputs and "omas/core_profiles/" not in inputs
+    assert "--efit-product" in job and "--floor 0.17" in job
+    for stage in ("electron_efit", "kinetic_efit"):
+        assert "ti_inferred" not in _input_line(_job(result.stdout, f"generate_{stage}_ods"))
+
+
+def test_the_inferred_ti_is_replicated_after_the_composition(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}', "-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    inputs = _input_line(_job(result.stdout, "replicate_ti_inferred_to_hsds"))
+    assert "omas/composition/48226/metadata/replication.json" in inputs
+    assert "ti_inferred" not in _input_line(_job(result.stdout, "replicate_composition_to_hsds"))
+
+
+def test_the_ti_inference_floor_and_window_are_configurable(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p", "--config", 'ti_inference={"floor": 0.25, "window_s": 0.002}'])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_ti_inferred_ods")
+    assert "--floor 0.25" in job and "--window-s 0.002" in job

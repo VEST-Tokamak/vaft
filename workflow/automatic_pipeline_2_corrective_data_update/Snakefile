@@ -81,6 +81,10 @@ COMPOSITION_IONIZATION = COMPOSITION_CONFIG.get("ionization", "transient")
 COMPOSITION_NORMALIZATION = COMPOSITION_CONFIG.get("normalization", "ne_weighted_mean")
 COMPOSITION_ADF11_CACHE = COMPOSITION_CONFIG.get("adf11_cache_dir", "") or ""
 
+TI_INFERENCE_CONFIG = config.get("ti_inference", {}) or {}
+TI_INFERENCE_FLOOR = TI_INFERENCE_CONFIG.get("floor", 0.17)
+TI_INFERENCE_WINDOW_S = TI_INFERENCE_CONFIG.get("window_s", 1e-3)
+
 HSDS_CONFIG = config.get("hsds", {}) or {}
 REPLICATION_ENABLED = bool(HSDS_CONFIG.get("replicate", False))
 REPLICATION_ATTEMPTS = HSDS_CONFIG.get("attempts", 3)
@@ -99,7 +103,9 @@ workflow.global_resources.setdefault("hsds", REPLICATION_CONCURRENCY)
 # Named here rather than derived, because "which stages does this pipeline
 # build" is a real decision -- but checked against the registry, so a stage
 # renamed or retired there fails the run instead of silently dropping out of it.
-THOMSON_LINEAGE = ("thomson", "ces", "core_profiles", "composition", "electron_efit", "kinetic_efit")
+THOMSON_LINEAGE = (
+    "thomson", "ces", "core_profiles", "composition", "ti_inferred", "electron_efit", "kinetic_efit",
+)
 _CORRECTIVE = frozenset(replicable_stages(produced_by="corrective"))
 _UNREGISTERED = tuple(stage for stage in THOMSON_LINEAGE if stage not in _CORRECTIVE)
 if _UNREGISTERED:
@@ -252,6 +258,42 @@ rule generate_composition_ods:
 
 
 ############################################################
+# The inferred ion temperature
+############################################################
+# T_i on the electron-only slices, from the magnetic EFIT's pressure partition,
+# written over the composed profiles. It is a leaf: the kinetic lineages below
+# read the composed product, never this one, because their pressure would then be
+# partitioned back into the T_i it was built from.
+rule generate_ti_inferred_ods:
+    input:
+        core_profiles=PATHS.shot_pattern("composition_ods")
+    output:
+        ods=PATHS.shot_pattern("ti_inferred_ods"),
+        manifest=PATHS.shot_pattern("ti_inferred_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_ti_inferred_ods")
+    params:
+        efit=scientific_reference(PATHS, "generate_ti_inferred_ods", "efit"),
+        floor=TI_INFERENCE_FLOOR,
+        window_s=TI_INFERENCE_WINDOW_S
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_ti_inferred_ods.py \
+            --shot {wildcards.shot} \
+            --core-profiles-product {input.core_profiles} \
+            --efit-product {params.efit} \
+            --floor {params.floor} \
+            --window-s {params.window_s} \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+############################################################
 # The kinetic lineages
 ############################################################
 # Both are asked for every shot and at most one can apply: whichever the
@@ -307,7 +349,11 @@ for _stage in ("electron_efit", "kinetic_efit"):
 # `main`, and a retry re-sends only what failed.
 if REPLICATION_ENABLED:
 
-    OVERLAID_BY = {"composition": [PATHS.shot_pattern("replication_record", "core_profiles")]}
+    # Three stages own `core_profiles` in `main`; each lands after the one it overlays.
+    OVERLAID_BY = {
+        "composition": [PATHS.shot_pattern("replication_record", "core_profiles")],
+        "ti_inferred": [PATHS.shot_pattern("replication_record", "composition")],
+    }
 
     for _stage in STAGES:
 

@@ -43,6 +43,12 @@ composition:
   # on a server without network. Empty uses the user cache.
   adf11_cache_dir: ""
 
+ti_inference:
+  # Relative one-sigma model-form uncertainty of the magnetic EFIT pressure
+  # (#874), and the window [s] of neighbouring slices whose spread can exceed it.
+  floor: 0.17
+  window_s: 0.001
+
 hsds:
   replicate: false
   attempts: 3

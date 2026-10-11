@@ -652,6 +652,18 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
         note="overlays core_profiles with the assumed impurity composition; replicated after it",
         produced_by="corrective",
     ),
+    # The composed profiles plus T_i inferred from the magnetic equilibrium's
+    # pressure partition on the slices with no measured T_i. A third overlay on
+    # `core_profiles` in this source, replicated after `composition`; its T_i
+    # records say `origin=inferred`, and it is never read by the kinetic EFIT
+    # stages (their pressure would then partition itself).
+    "ti_inferred": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("core_profiles",),
+        optional=True,
+        note="overlays composition with an inferred T_i; replicated after it",
+        produced_by="corrective",
+    ),
     # Both share the `equilibrium` IDS with the EFIT baseline and with each
     # other, so all three are separated by source rather than occurrence. Which
     # of the two runs for a shot is decided by whether CES data exist, not by

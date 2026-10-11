@@ -87,6 +87,11 @@ class OMASStage(str, Enum):
     # purpose: it replaces the measured product in `main` once it exists, and
     # the measured one stays when it does not.
     COMPOSITION = "composition"
+    # The composed profiles plus an ion temperature inferred from the magnetic
+    # pressure partition on the slices that have none measured (#1842). Another
+    # overlay on the same IDS: it replaces the composed product in `main` only
+    # when it exists.
+    TI_INFERRED = "ti_inferred"
     ELECTRON_EFIT = "electron_efit"
     KINETIC_EFIT = "kinetic_efit"
     CHEASE = "chease"

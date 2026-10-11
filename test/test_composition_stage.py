@@ -5,6 +5,8 @@ Synthetic ADF11 tables and synthetic products, no network and no repository data
 
 from __future__ import annotations
 
+import pathlib
+
 import numpy as np
 import pytest
 from omas import ODS
@@ -50,13 +52,14 @@ def tables(tmp_path):
     return {"C": _element(tmp_path, "C", 6), "O": _element(tmp_path, "O", 8)}
 
 
-def _core_profiles(tmp_path, *, kinetic=(0,), times=(0.300, 0.301), zeff_record=None, ti_record=True):
+def _core_profiles(tmp_path, *, kinetic=(0,), times=(0.300, 0.301), zeff_record=None, ti_record=True,
+                   rho_pol=None, thomson=False):
     ods = ODS(consistency_check=False)
     ods["core_profiles.time"] = np.asarray(times, dtype=float)
     for index in range(len(times)):
         base = f"core_profiles.profiles_1d.{index}"
         ods[f"{base}.grid.rho_tor_norm"] = RHO
-        ods[f"{base}.grid.rho_pol_norm"] = RHO
+        ods[f"{base}.grid.rho_pol_norm"] = RHO if rho_pol is None else rho_pol
         ods[f"{base}.electrons.temperature"] = TE
         ods[f"{base}.electrons.density"] = NE
         ods[f"{base}.electrons.temperature_fit.parameters"] = (
@@ -79,6 +82,16 @@ def _core_profiles(tmp_path, *, kinetic=(0,), times=(0.300, 0.301), zeff_record=
         if zeff_record is not None and index == 1:
             ods[f"{base}.zeff"] = np.full(RHO.size, 1.5)
             ods[f"{base}.zeff_fit.parameters"] = zeff_record
+    if thomson:
+        # five channels, 5 % one-sigma on both n_e and T_e, at the slice times
+        ods["thomson_scattering.time"] = np.asarray(times, dtype=float)
+        for i, r in enumerate(np.linspace(0.2, 0.6, 5)):
+            channel = f"thomson_scattering.channel.{i}"
+            ods[f"{channel}.position.r"] = float(r)
+            ods[f"{channel}.n_e.data"] = np.full(len(times), 1.0e19)
+            ods[f"{channel}.n_e.data_error_upper"] = np.full(len(times), 5.0e17)
+            ods[f"{channel}.t_e.data"] = np.full(len(times), 100.0)
+            ods[f"{channel}.t_e.data_error_upper"] = np.full(len(times), 5.0)
     path = tmp_path / "core_profiles.json"
     ods.save(str(path))
     return path
@@ -373,3 +386,158 @@ def test_an_unknown_dilution_is_refused(tmp_path, tables):
     with pytest.raises(ValueError, match="dilution"):
         vu.build_kinetic_efit_ods(shot=SHOT, stage="kinetic_efit", core_profiles_product="a",
                                   constraints_product="b", efit_product="c", dilution="partial")
+
+
+# --- the inferred T_i stage (item 4) ----------------------------------------------------------
+
+PSI_N = RHO ** (1.0 / 0.6)      # so that rho_tor_norm = psi_N**0.6, the equilibrium's own coordinate
+TI_OVER_TE = 1.0                # what the synthetic plasma really has
+
+
+def _magnetic_efit(tmp_path, pressure, *, times=(0.300, 0.301), under="efit/magnetic"):
+    """A magnetic EFIT product whose pressure is the given function of the profile points."""
+    ods = ODS(consistency_check=False)
+    ods["equilibrium.time"] = np.asarray(times, dtype=float)
+    for index in range(len(times)):
+        base = f"equilibrium.time_slice.{index}"
+        ods[f"{base}.global_quantities.psi_axis"] = 0.0
+        ods[f"{base}.global_quantities.psi_boundary"] = 1.0
+        ods[f"{base}.profiles_1d.psi"] = PSI_N
+        ods[f"{base}.profiles_1d.phi"] = PSI_N ** 1.2
+        ods[f"{base}.profiles_1d.pressure"] = pressure
+    directory = tmp_path / "omas" / pathlib.Path(under) / str(SHOT) / "output"
+    directory.mkdir(parents=True)
+    path = directory / "efit.json"
+    ods.save(str(path))
+    return path
+
+
+def _composed_electron_only(tmp_path, tables, *, thomson=True):
+    """A composed product whose slices have no measured T_i, and the closure's n_i,tot/n_e on it."""
+    from vaft.process.kinetic_closure import infer_kinetic_closure
+
+    product = _core_profiles(tmp_path, kinetic=(), rho_pol=np.sqrt(PSI_N), thomson=thomson)
+    efit = _efit(tmp_path)
+    composed, _ = vu.build_composition_ods(
+        shot=SHOT, core_profiles_product=product, efit_product=efit, ionization="coronal", tables=tables)
+    out = tmp_path / "composition.json"
+    composed.save(str(out))
+    closure = infer_kinetic_closure(composed, time=0.300, dilution="species", ti_te_ratio=1.0)
+    fraction = np.sum(list(closure.ion_densities.values()), axis=0) / NE
+    return out, fraction
+
+
+def _ti_stage(tmp_path, tables, *, p_scale=1.0, **kwargs):
+    composed, fraction = _composed_electron_only(tmp_path, tables, thomson=kwargs.pop("thomson", True))
+    truth = E * NE * (TE + fraction * TI_OVER_TE * TE) * p_scale
+    efit = kwargs.pop("efit", None) or _magnetic_efit(tmp_path, truth)
+    ods, manifest = vu.build_ti_inferred_ods(
+        shot=SHOT, core_profiles_product=composed, efit_product=efit, **kwargs)
+    return ods, manifest, truth, fraction
+
+
+def test_the_inferred_ti_recovers_the_temperature_the_pressure_was_made_from(tmp_path, tables):
+    ods, manifest, truth, _ = _ti_stage(tmp_path, tables)
+    assert manifest["status"] == "success", manifest.get("error")
+    assert manifest["slices"] == {"inferred": 2, "measured": 0, "unavailable": 0, "total": 2}
+    base = "core_profiles.profiles_1d.0"
+    t_i = np.asarray(ods[f"{base}.ion.0.temperature"], dtype=float)
+    valid = np.isfinite(t_i)
+    assert valid.sum() >= 5, "most of the profile passes the significance test"
+    assert np.allclose(t_i[valid], TI_OVER_TE * TE[valid], rtol=2e-3)
+    assert np.allclose(np.asarray(ods[f"{base}.t_i_average"], dtype=float), t_i, equal_nan=True)
+    for k in range(3):
+        assert np.allclose(np.asarray(ods[f"{base}.ion.{k}.temperature"], dtype=float), t_i, equal_nan=True)
+
+
+def test_the_inferred_ti_is_labelled_inferred_with_its_lineage_and_validity(tmp_path, tables):
+    ods, _, _, _ = _ti_stage(tmp_path, tables)
+    base = "core_profiles.profiles_1d.0"
+    record = ods[f"{base}.ion.0.temperature_fit.parameters"]
+    assert classify_ti_record(record) == "inferred", record
+    fields = ti_record_fields(record)
+    assert fields["method"] == "equilibrium_pressure_partition"
+    assert fields["equilibrium_lineage"] == "magnetics" and fields["equilibrium_occurrence"] == "0"
+    assert float(fields["equilibrium_time_s"]) == pytest.approx(0.300)
+    assert fields["sigma_p_eq_basis"] == "floor"
+    valid, total = fields["valid_points"].split("/")
+    assert 0 < int(valid) <= int(total)
+    assert "not measured" in record
+
+
+def test_the_pressures_follow_the_inferred_ti_as_a_closure_identity(tmp_path, tables):
+    ods, _, truth, _ = _ti_stage(tmp_path, tables)
+    base = "core_profiles.profiles_1d.0"
+    t_i = np.asarray(ods[f"{base}.ion.0.temperature"], dtype=float)
+    valid = np.isfinite(t_i)
+    total = np.asarray(ods[f"{base}.pressure_thermal"], dtype=float)
+    assert np.allclose(total[valid], truth[valid], rtol=2e-3), "p_thermal is p_eq where T_i is inferred"
+    assert np.all(np.isnan(total[~valid])), "invalid points stay empty"
+    assert np.allclose(total[valid], (np.asarray(ods[f"{base}.electrons.pressure"], dtype=float)
+                                      + np.asarray(ods[f"{base}.pressure_ion_total"], dtype=float))[valid])
+    assert ti_record_fields(ods[f"{base}.ion.0.density_fit.parameters"])["pressure_closure"] == "infer_kinetic_closure"
+
+
+def test_a_slice_with_a_measured_ion_temperature_is_left_alone(tmp_path, tables):
+    from vaft.database._local import load_ods
+
+    product = _core_profiles(tmp_path, kinetic=(0,), rho_pol=np.sqrt(PSI_N), thomson=True)
+    composed, _ = vu.build_composition_ods(
+        shot=SHOT, core_profiles_product=product, efit_product=_efit(tmp_path),
+        ionization="coronal", tables=tables)
+    path = tmp_path / "composition.json"
+    composed.save(str(path))
+    efit = _magnetic_efit(tmp_path, E * NE * TE * 2.0)
+    ods, manifest = vu.build_ti_inferred_ods(shot=SHOT, core_profiles_product=path, efit_product=efit)
+    assert manifest["slices"]["measured"] == 1 and manifest["slices"]["inferred"] == 1
+    before, _ = load_ods(path)
+    assert np.allclose(np.asarray(ods["core_profiles.profiles_1d.0.ion.0.temperature"], dtype=float),
+                       np.asarray(before["core_profiles.profiles_1d.0.ion.0.temperature"], dtype=float))
+    assert (ods["core_profiles.profiles_1d.0.ion.0.temperature_fit.parameters"]
+            == before["core_profiles.profiles_1d.0.ion.0.temperature_fit.parameters"])
+
+
+@pytest.mark.parametrize("under", ["electron_efit", "efit/kinetic", "somewhere/else"])
+def test_a_pressure_that_is_not_the_magnetic_lineage_is_refused_by_where_it_lives(tmp_path, tables, under):
+    composed, fraction = _composed_electron_only(tmp_path, tables)
+    efit = _magnetic_efit(tmp_path, E * NE * (TE + fraction * TE), under=under)
+    ods, manifest = vu.build_ti_inferred_ods(shot=SHOT, core_profiles_product=composed, efit_product=efit)
+    assert manifest["status"] == "unavailable"
+    assert "lineage is not established" in manifest["error"]
+    assert path_value(ods, "core_profiles.profiles_1d.0.ion.0.temperature", None) is None
+
+
+def test_a_slice_with_no_composition_is_skipped_not_inferred_with_one_ion_per_electron(tmp_path, tables):
+    product = _core_profiles(tmp_path, kinetic=(), rho_pol=np.sqrt(PSI_N), thomson=True)   # not composed
+    efit = _magnetic_efit(tmp_path, E * NE * TE * 2.0)
+    ods, manifest = vu.build_ti_inferred_ods(shot=SHOT, core_profiles_product=product, efit_product=efit)
+    assert manifest["status"] == "unavailable"
+    assert "no composition" in manifest["error"]
+    assert path_value(ods, "core_profiles.profiles_1d.0.ion.0.temperature", None) is None
+
+
+def test_no_equilibrium_near_the_slice_is_named(tmp_path, tables):
+    composed, fraction = _composed_electron_only(tmp_path, tables)
+    efit = _magnetic_efit(tmp_path, E * NE * (TE + fraction * TE), times=(0.350, 0.351))
+    _, manifest = vu.build_ti_inferred_ods(shot=SHOT, core_profiles_product=composed, efit_product=efit)
+    assert manifest["status"] == "unavailable" and "no magnetic equilibrium within" in manifest["error"]
+
+
+def test_a_pressure_below_the_electron_pressure_gives_no_ion_temperature(tmp_path, tables):
+    """p_i <= 0 everywhere: every point is flagged, never filled, and the slice says so."""
+    ods, manifest, _, _ = _ti_stage(tmp_path, tables, p_scale=0.4)
+    assert manifest["status"] == "unavailable"
+    assert "no point has a positive, significant p_i" in manifest["error"]
+    assert path_value(ods, "core_profiles.profiles_1d.0.ion.0.temperature", None) is None
+    assert path_value(ods, "core_profiles.profiles_1d.0.t_i_average", None) is None
+
+
+def test_without_thomson_errors_the_inference_runs_and_the_missing_sigma_is_counted(tmp_path, tables):
+    _, manifest, _, _ = _ti_stage(tmp_path, tables, thomson=False)
+    assert manifest["status"] == "success"
+    assert manifest["inference"]["flags"]["sigma_unavailable"] > 0
+
+
+def test_a_missing_composed_product_is_a_caller_error(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        vu.build_ti_inferred_ods(shot=SHOT, core_profiles_product=tmp_path / "no.json", efit_product=tmp_path / "e.json")

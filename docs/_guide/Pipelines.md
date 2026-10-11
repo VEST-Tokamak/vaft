@@ -37,7 +37,7 @@ calibration, mappings and conventions, the processing and model configuration, a
 | Pipeline | Orchestration | Purpose |
 |---|---|---|
 | `automatic_pipeline_1_routine_data_processing` | Snakemake DAG (10 rules) + `Makefile` | Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite |
-| `automatic_pipeline_2_corrective_data_update` | Snakemake DAG (6 stages + one replication rule each) | Builds Thomson, CES, `core_profiles` and the two kinetic EFIT lineages from externally uploaded profile diagnostics |
+| `automatic_pipeline_2_corrective_data_update` | Snakemake DAG (7 stages + one replication rule each) | Builds Thomson, CES, `core_profiles` and the two kinetic EFIT lineages from externally uploaded profile diagnostics |
 | `automatic_pipeline_3_data_summary` | partial Snakefile (2 rules) + manual scripts | Mines the file database into cross-shot `.xlsx` history sheets and plots |
 | `running_linear_stability` | Snakemake DAG (1 rule, fanned out) | Runs DCON / RDCON / STRIDE per (shot, time, n-mode) on refined equilibria |
 
@@ -307,6 +307,7 @@ executable and the named EFIT preset used for the base magnetic k-file.
 | `ces` | `build_ces_ods` | an uploaded CES file | `charge_exchange` → `main` |
 | `core_profiles` | `build_core_profiles_ods` | `thomson` (+ `ces`), pipeline 1's EFIT | `core_profiles` → `main` |
 | `composition` | `build_composition_ods` | `core_profiles`, pipeline 1's EFIT and diagnostics | `core_profiles` → `main`, after the stage above |
+| `ti_inferred` | `build_ti_inferred_ods` | `composition`, pipeline 1's magnetic EFIT | `core_profiles` → `main`, after `composition` |
 | `electron_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) without ion data | `equilibrium` → `electron-efit` |
 | `kinetic_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) with ion data | `equilibrium` → `kinetic-efit` |
 
@@ -340,6 +341,30 @@ fit record and, when it has an ion temperature, in that record.
 * **Replication is an overlay.** `core_profiles` and `composition` both own the `core_profiles` IDS in `main`,
   which the registry otherwise avoids. The `composition` replication waits for the `core_profiles` record, so `main`
   holds the composed product when the stage succeeded and the measured one when it was skipped.
+
+### The inferred ion temperature
+
+`ti_inferred` gives the slices that have **no measured `T_i`** an ion temperature from the pressure partition of
+pipeline 1's magnetic EFIT: `T_i = p_eq / (e f n_e) - T_e / f`, with `p_eq` sampled on the slice's own flux surfaces
+and `f = n_i,tot / n_e` the composed product's diluted ion density
+(`vaft.process.kinetic_closure.infer_ti_pressure_partition`, which moved there from
+`vaft.validation.kinetic_state` and keeps a warning alias in the old place).
+
+* **Inferred, never measured.** The ion records say `origin=inferred; method=equilibrium_pressure_partition`
+  together with `equilibrium_lineage`, `equilibrium_occurrence`, `equilibrium_time_s`, `sigma_p_eq_basis` and
+  `valid_points`; `classify_ti_record` reads them back as `inferred`. Points where `p_i` is not positive and
+  significant stay NaN (flagged, never filled), and `t_i_average`, `pressure_ion_total` and `pressure_thermal` follow:
+  `p_thermal` equals the equilibrium pressure there by construction, a closure identity and not an agreement test.
+* **Only the magnetic lineage.** The lineage is read from where the EFIT product lives (`omas/efit/magnetic`), never
+  asserted; a pressure from elsewhere is refused. The electron-kinetic EFIT was fitted with an assumed `T_i/T_e`
+  and would return that assumption. For the same reason `ti_inferred` is a leaf: the kinetic EFIT stages read
+  `composition`, never this product.
+* **`sigma(p_EFIT)`** is the spread over the usable neighbouring slices within `ti_inference.window_s`, floored at
+  `ti_inference.floor` (0.17, #874) of the pressure; `n_e` and `T_e` take the Thomson channels' median relative error.
+* **Skipped, and named, rather than guessed:** a slice with a measured `T_i`, with no composition (the ion density is
+  half the formula), with no equilibrium within the tolerance, or with no significant point.
+* On the archived 40326 / 322 ms case the stage reproduces the notebook's `T_i` to 1e-14 wherever both are valid, and
+  voids 8 more edge points (`rho_tor_norm > 0.86`) because it carries a different `sigma(p_EFIT)`.
 
 ### Dilution in the kinetic EFIT
 
