@@ -141,6 +141,7 @@ PIPELINE = frozenset({
     "mode_frequency_tracks",
     # ntv_coil_response (#1887): probes -> Q; expected -> tolerance -> per-kind check;
     # drop failed -> compare -> status; generalized eigen -> scale; grid -> polish
+    "ntv_operating_space",
     "hermitian_torque_matrix",
     "quadratic_invariance_checks",
     "qualify_torque_matrix",
@@ -150,6 +151,12 @@ PIPELINE = frozenset({
     "fixed_amplitude_phase_extrema",
     # coil_operating_space (#1178): ratio against group 0 -> wrapped phase, NaN at A = 0
     "relative_coil_coordinates",
+    # resonant_coil_response (#1884): set aside failed -> compare -> status; stack ->
+    # lstsq -> SVD; eigvec at mu -> bisect; reduce per window -> model rows
+    "qualify_response_operator",
+    "match_resonant_target",
+    "constrained_window_extremum",
+    "resonant_operating_space",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -400,6 +407,7 @@ CONVENTION_SENSITIVE = frozenset({
     # torques stay signed
     "coil_phasors",
     "quadratic_probe_design",
+    "ntv_operating_space",
     "hermitian_torque_matrix",
     "quadratic_torque",
     "quadratic_invariance_checks",
@@ -410,6 +418,13 @@ CONVENTION_SENSITIVE = frozenset({
     "fixed_amplitude_phase_extrema",
     # #1178: I_k = A cos(n phi_k + delta), relative phase of group g minus group 0
     "relative_coil_coordinates",
+    # #1884: Phi = H conj(c) (GPEC's exp(-i n phi) coefficient); Q = conj(H^H W H)
+    "resonant_response_operator",
+    "qualify_response_operator",
+    "window_weights",
+    "match_resonant_target",
+    "constrained_window_extremum",
+    "resonant_operating_space",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

@@ -24,6 +24,7 @@ Layout::
     wall_reduction.py the reduced-wall order study: full vs reduced, both vs data (#494)
     stage_evidence.py per-stage preconditions and metrics, composed from domain providers
     kinetic_state.py  Thomson against EFIT pressure per slice, the atlas state key (#1430, #1454)
+    kinetic_population.py  the atlas population: input contract, pressure/virial evidence, summaries (#1835)
     credibility.py    the six credibility axes (E/T/I/A/N/V) evidence is placed on (#1639)
     applicability.py  ordering assumptions: continuous margins and contract status (#1639, #1628)
     orderings.py      the ordering contracts of the reduced models and their quantities (#1627)

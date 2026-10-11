@@ -515,6 +515,10 @@ def test_the_saturation_rule_the_run_asked_for_is_recorded_against_the_models_ow
     mismatched = run_surrogate(local_input(), target, config=TGLFConfig(sat_rule=1))
     assert mismatched.provenance["sat_rule_matches_model"] is False
     assert mismatched.qualified is True
+    # The plasma-formalism record (#1735) names the trained variant, never the request.
+    record = mismatched.provenance["plasma_formalism"]
+    assert record["extensions"]["sat_rule"] == 2 and record["field_model"] == "electromagnetic"
+    assert record["solver"] == "tglf-nn" and record["extensions"]["realization"] == "learned_surrogate"
 
 
 def test_a_model_whose_name_states_no_rule_claims_no_match_either_way(synthetic):

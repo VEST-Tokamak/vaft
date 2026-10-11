@@ -123,6 +123,12 @@ CORE_MODULES: tuple[str, ...] = (
     # Quadratic coil-response algebra of a signed NTV torque (#1887): synthetic
     # Hermitian matrices, no solver, about a second.
     "test_ntv_coil_response.py",
+    # The #1887 direct GPEC -> PENTRC reference replayed without a solver: the
+    # committed 18 + 4 run table qualifies Q at converged tolerances only.
+    "test_ntv_coil_reference_1887.py",
+    # The verified resonant-field operator Phi = H conj(c) and stages A-D (#1884):
+    # synthetic operators plus the committed 19-run GPEC reference, no solver.
+    "test_resonant_coil_response.py",
     # The #1178 coil operating-space result schema (#1886 contract): synthetic
     # fixtures only, under a second.
     "test_coil_operating_space.py",
@@ -367,6 +373,9 @@ CORE_MODULES: tuple[str, ...] = (
     # records, the generic impossibilities, serialization and CGYRO's derived
     # #1353 record. Pure Python, ~3 s.
     "test_plasma_formalism.py",
+    # GACODE-suite formalism (#1735): NEO/TGLF/TGLF-NN/CGYRO records derived from the
+    # written input, and the distinctions that must not collapse. Pure Python, <1 s.
+    "test_gacode_plasma_formalism.py",
     # Cross-backend formalism consistency (lane AP, #1738): schema/semantic/backend layers,
     # reference and future fixtures, pairwise non-conflation, queries, grouping keys. Under 10 s.
     "test_formalism_consistency.py",

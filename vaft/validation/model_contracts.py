@@ -331,6 +331,12 @@ def _build_modes() -> Tuple[AdapterMode, ...]:
                     "ray tracing (WKB) is neither a fluid nor a kinetic bulk description in the vocabulary"),
         AdapterMode("transp", "integrated", "integrated", None, "not audited",
                     "an integrated-modelling run combines several formalisms; its components are classified"),
+        AdapterMode("flare", "field_lines", "field_lines", None, "vaft/code/flare.py",
+                    "field-line tracing through a given equilibrium and 3-D perturbation: magnetic topology only, "
+                    "no plasma model is solved, so no plasma formalism applies"),
+        AdapterMode("mitim", "drivers", "drivers", None, "vaft/code/mitim (#1588)",
+                    "a driver: the NEO and TGLF runs it launches are the gacode:neo and gacode:tglf modes; "
+                    "PORTALS flux matching (#1588, not yet in VAFT) will be transport_coupled"),
     )
 
 

@@ -162,8 +162,9 @@ def run_cgyro(
             "formalism": formalism(
                 configuration,
                 solver_version=revision or (None if version is None else version.get("commit")),
+                parameters=inputs.parameters,
             ),
-            "plasma_formalism": plasma_formalism(configuration).as_dict(),
+            "plasma_formalism": plasma_formalism(configuration, parameters=inputs.parameters).as_dict(),
             "ordering_check": _ordering_check(inputs, configuration, ordering_state),
             "parameters": dict(inputs.parameters),
             "inputs": staged,
@@ -269,7 +270,8 @@ def _ordering_check(inputs, configuration: CGYROConfig, extra: Optional[Mapping[
             finite = False
         if finite or name not in state:
             state[name] = value              # a caller's NaN never hides a derived finite value
-    return safe_ordering_provenance(plasma_formalism(configuration), state, notes=notes)
+    record = plasma_formalism(configuration, parameters=getattr(inputs, "parameters", None) or None)
+    return safe_ordering_provenance(record, state, notes=notes)
 
 
 def read_cgyro_case(workdir: str | Path) -> Optional[CgyroOutputs]:
