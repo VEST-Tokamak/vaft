@@ -41,13 +41,25 @@ def test_the_entry_adds_no_physics_of_its_own(result):
         np.testing.assert_array_equal(getattr(again, name), getattr(c, name), err_msg=name)
 
 
-def test_the_ods_is_not_written(ods):
-    before = copy.deepcopy(ods)
-    ohmic_confinement_ods(ods)
-    assert set(ods.flat()) == set(before.flat())
-    for k in range(len(ods["equilibrium.time_slice"])):
-        path = f"equilibrium.time_slice.{k}.global_quantities.li_3"
-        assert (path in ods) == (path in before)
+def test_the_ods_is_not_written():
+    """A fresh sample (the module fixture has been read before), checked for empty nodes too."""
+    from vaft.omas import sample_ods
+
+    fresh = sample_ods(39915)
+    before = copy.deepcopy(fresh)
+    ohmic_confinement_ods(fresh)
+    ohmic_confinement_ods(fresh, w_source="core_profiles_thermal")
+    assert set(fresh.flat()) == set(before.flat())
+    for k in range(len(fresh["equilibrium.time_slice"])):
+        for leaf in ("global_quantities.li_3", "global_quantities.volume", "boundary"):
+            path = f"equilibrium.time_slice.{k}.{leaf}"
+            assert (path in fresh) == (path in before), path
+
+
+def test_time_slices_must_be_distinct_in_range_indices(ods):
+    for bad in ([-1], [0, 0], [10_000]):
+        with pytest.raises(ValueError, match="time_slices"):
+            ohmic_confinement_ods(ods, time_slices=bad)
 
 
 def test_slices_are_selected_and_ordered_by_physical_time(ods, result):

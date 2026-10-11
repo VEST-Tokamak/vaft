@@ -1295,8 +1295,11 @@ CORE_PROFILES_DEFINITIONS = {
     "p_ohm_MW": "P_OH = measured I_p * V_res",
     "p_net_MW": "P_net = P_OH - dW_MHD/dt; radiation not subtracted (unmeasured), as DB5 PLTH",
     "w_mhd_kJ": "W_MHD = (3/2) int p_EFIT dV of the matched equilibrium slice (reconstruction-derived)",
-    "tau_e_net_s": ("W_MHD / P_net; rates over the equilibrium slices with finite positive W_MHD (3 ms "
-                    "local linear fit); NaN with no rate, never dW/dt = 0"),
+    "tau_e_net_s": ("W_MHD / P_net; rates over every equilibrium slice with finite positive W_MHD (3 ms "
+                    "local linear fit), validated or not: the summary knows no study labels, so an "
+                    "unreconstructed slice with positive W can bias its neighbours' rate (the Tier A table "
+                    "of workflow/confinement_scaling uses labelled slices only); NaN with no rate, never "
+                    "dW/dt = 0"),
 }
 
 

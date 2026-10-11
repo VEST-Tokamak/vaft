@@ -15,8 +15,7 @@ and the legacy modelled power budget (:func:`vaft.omas.formula_wrapper.compute_p
 Spitzer heating and modelled radiation), which answers a different question
 and keeps its own definition.
 
-Nothing here writes to the ODS it reads: $l_{i,3}$ and the core-profile
-energy are evaluated on scratch copies.
+Nothing here writes to the ODS it reads: every reader works on a private copy.
 """
 
 from __future__ import annotations
@@ -92,11 +91,10 @@ def _slice_times(ods: Any) -> np.ndarray:
     return times
 
 
-def _li3_all(ods: Any) -> np.ndarray:
-    """$l_{i,3}$ of every slice from the post-#1477 update routine, on a scratch copy."""
+def _li3_all(work: Any) -> np.ndarray:
+    """$l_{i,3}$ of every slice from the post-#1477 update routine; ``work`` is the private copy."""
     from vaft.omas.update import update_equilibrium_global_quantities_beta_li
 
-    work = copy.deepcopy(ods)
     n = len(work["equilibrium.time_slice"])
     for k in range(n):
         for name in ("li_3", "beta_normal"):
@@ -126,12 +124,12 @@ def _energy_efit_pressure(ods: Any, indices: Sequence[int]) -> np.ndarray:
 
 
 def _energy_core_profiles(ods: Any, indices: Sequence[int]) -> np.ndarray:
-    """The legacy energy, (3/2) <p>_V V, exactly as compute_power_balance forms it, on a scratch copy."""
+    """The legacy energy, (3/2) <p>_V V, exactly as compute_power_balance forms it; ``ods`` is the private copy."""
     from vaft.formula.equilibrium import thermal_energy_from_p_V
     from vaft.omas.process_wrapper import compute_volume_averaged_pressure
     from vaft.omas.update import update_equilibrium_global_quantities_volume
 
-    work = copy.deepcopy(ods)
+    work = ods
     update_equilibrium_global_quantities_volume(work, time_slice=None)
     p_avg = np.asarray(compute_volume_averaged_pressure(work, time_slice=None, option="core_profiles"), dtype=float)
     out = np.full(len(indices), np.nan)
@@ -211,12 +209,18 @@ def ohmic_confinement_ods(
         raise ValueError(f"w_source must be one of {', '.join(W_SOURCES)}, got {w_source!r}")
     if "equilibrium.time_slice" not in ods or not len(ods["equilibrium.time_slice"]):
         raise ValueError("the ODS has no equilibrium slice")
-    diag = ods if diagnostics is None else diagnostics
+    # Every reader below works on private copies: OMAS creates a node on a
+    # failed walk (as_equilibrium's boundary lookup does), so reading the
+    # caller's ODS directly would leave empty nodes behind.
+    ods = copy.deepcopy(ods)
+    diag = ods if diagnostics is None else copy.deepcopy(diagnostics)
     if "magnetics.ip.0.data" not in diag or "magnetics.ip.0.time" not in diag:
         raise ValueError("no measured plasma current (magnetics.ip.0) to pair with the equilibrium")
 
     times = _slice_times(ods)
     indices = np.arange(times.size) if time_slices is None else np.asarray(list(time_slices), dtype=int)
+    if indices.size and (indices.min() < 0 or indices.max() >= times.size or np.unique(indices).size != indices.size):
+        raise ValueError(f"time_slices must be distinct indices in [0, {times.size}), got {list(time_slices)}")
     indices = indices[np.isfinite(times[indices])]
     indices = indices[np.argsort(times[indices], kind="stable")]  # physical time order, whatever was passed
     w_all = (_energy_efit_pressure(ods, indices) if w_source == "efit_pressure"
