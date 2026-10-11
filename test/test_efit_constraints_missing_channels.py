@@ -415,3 +415,26 @@ def test_constraints_and_kfile_without_a_diamagnetic_flux(full_constraints_input
     text = sorted((kfile_dir / "kfile").glob("*"))[0].read_text(encoding="utf-8")
     assert "FWTDLC= 0" in text
     assert "DFLUX= 0.0" in text
+
+
+def test_constraints_without_a_tf_waveform_refuse_by_name(full_constraints_input_ods, tmp_path):
+    """42675 (#1799): the raw dump had no TF coil current, so the diagnostics
+    product had no ``tf``. OMAS answers a read of the missing path with an
+    empty ODS, and the builder failed deep inside as ``float * ODS``. It now
+    refuses before reading anything, naming the input."""
+    ods = copy.deepcopy(full_constraints_input_ods)
+    assert "tf.b_field_tor_vacuum_r.data" in ods
+    del ods["tf"]
+    times = np.array([0.30, 0.301])
+    ods["equilibrium.time"] = times
+
+    # ValueError, not the TypeError the arithmetic used to raise.
+    with pytest.raises(ValueError, match=r"tf\.b_field_tor_vacuum_r\.data") as error:
+        generate_constraints_ods(
+            ods, SHOT, str(tmp_path), "", times,
+            DEFAULT_UNCERTAINTY, DEFAULT_WEIGHTING,
+            broken=[], fit=0, FFCUR=2, PPCUR=2,
+        )
+    assert type(error.value).__name__ == "MissingConstraintInputError"
+    assert list(error.value.missing) == ["tf.b_field_tor_vacuum_r.data"]
+    assert "tf" not in ods  # the refusal read nothing, so it created nothing
