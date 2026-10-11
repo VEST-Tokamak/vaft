@@ -25,7 +25,7 @@ import numpy as np
 from .availability import MITIMAvailability
 from .config import MITIMConfig, MITIMResult
 
-__all__ = ["ClosedLoopReport", "closed_loop_report", "run_portals_closed_loop"]
+__all__ = ["NO_EARLY_STOP", "ClosedLoopReport", "closed_loop_report", "run_portals_closed_loop"]
 
 
 @dataclass(frozen=True)
@@ -69,6 +69,13 @@ def closed_loop_report(result: dict, perturbation: float) -> ClosedLoopReport:
     )
 
 
+#: ``stopping_criteria_parameters`` that switch off PORTALS's early stops (MITIM 5.3.0):
+#: an absolute residual threshold of 0 is never exceeded by ``-residual``, a Ricci
+#: metric is never below 0, and ``None`` skips the stalled-input check.
+NO_EARLY_STOP = {"maximum_value": 0.0, "maximum_value_is_rel": False, "ricci_value": 0.0,
+                 "minimum_inputs_variation": None}
+
+
 def run_portals_closed_loop(
     profile: Any,
     r_over_a,
@@ -84,6 +91,7 @@ def run_portals_closed_loop(
     neo_extra_options: Optional[dict] = None,
     initial_training: int = 5,
     maximum_iterations: int = 10,
+    stopping_criteria_parameters: Optional[dict] = None,
     availability: Optional[MITIMAvailability] = None,
 ) -> tuple[MITIMResult, Optional[ClosedLoopReport]]:
     """Manufacture a flux-matched problem from ``profile`` and check MITIM recovers it.
@@ -104,6 +112,12 @@ def run_portals_closed_loop(
         ``analytic``: the solver starts from the true a/L_Te times (1 + perturbation).
         ``tglf_neo``: the same, as PORTALS's initial-relaxation ``perturbation_base`` on
         the manufactured state itself; only the node gradients move [-].
+    stopping_criteria_parameters
+        ``tglf_neo`` only: entries merged into PORTALS's ``stopping_criteria_parameters``.
+        PORTALS stops on a residual threshold, the Ricci metric or stalled inputs
+        before ``maximum_iterations``. :data:`NO_EARLY_STOP` disables all three, so
+        the iteration cap is what ends the run. The result records the effective
+        parameters and ``stopped_before_cap``.
 
     Returns
     -------
@@ -128,7 +142,8 @@ def run_portals_closed_loop(
                          tglf_extra_options=dict(tglf_extra_options or {}),
                          neo_extra_options=dict(neo_extra_options or {}),
                          initial_training=int(initial_training),
-                         maximum_iterations=int(maximum_iterations))
+                         maximum_iterations=int(maximum_iterations),
+                         stopping_criteria_parameters=dict(stopping_criteria_parameters or {}))
         driver = "portals_tglf_closed_loop"
     elif model == "analytic":
         driver = "portals_closed_loop"

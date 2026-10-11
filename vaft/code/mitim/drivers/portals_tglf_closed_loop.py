@@ -58,7 +58,7 @@ def main(argument_file):
         roa = [float(x) for x in args["r_over_a"]]
         n = len(roa)
 
-        def setup(folder, training, iterations, perturbation_base=None):
+        def setup(folder, training, iterations, perturbation_base=None, stopping=None):
             pf = PORTALSmain.portals(Path(folder).resolve())
             parameters = pf.portals_parameters
             parameters["solution"]["predicted_channels"] = ["te"]
@@ -72,6 +72,11 @@ def main(argument_file):
                 args.get("neo_extra_options") or {})
             pf.optimization_options["initialization_options"]["initial_training"] = training
             pf.optimization_options["convergence_options"]["maximum_iterations"] = iterations
+            if stopping:
+                # PORTALS stops early on its own criteria (a residual threshold, the
+                # Ricci metric, stalled inputs); overriding them is what lets an
+                # iteration cap actually bind.
+                pf.optimization_options["convergence_options"]["stopping_criteria_parameters"].update(stopping)
             if perturbation_base is not None:
                 pf.optimization_options["initialization_options"]["initialization_params"] = [
                     {"perturbation_base": float(perturbation_base)}]
@@ -126,7 +131,8 @@ def main(argument_file):
         # 3. The same state; only the optimiser's starting gradients are perturbed.
         run_pf = setup(work / "run", int(args.get("initial_training", 5)),
                        int(args.get("maximum_iterations", 10)),
-                       perturbation_base=float(args["perturbation"]))
+                       perturbation_base=float(args["perturbation"]),
+                       stopping=args.get("stopping_criteria_parameters"))
         run_pf.prep(copy.deepcopy(state))
         STRATEGYtools.MITIM_BO(run_pf, cold_start=True, askQuestions=False).run()
         rows = _rows(work / "run")
@@ -151,6 +157,14 @@ def main(argument_file):
             final_required_MWm2=[float(best[f"Qe_tar_{i + 1}"]) for i in range(n)],
             evaluations=len(rows), best_iteration=int(float(best["Iteration"])),
             residual_history=[float(np.linalg.norm(residual(entry))) for entry in rows],
+            # Per-evaluation diagnostics, so convergence is judged radius by radius.
+            aLte_history=[[float(entry[f"aLte_{i + 1}"]) for i in range(n)] for entry in rows],
+            residual_by_radius_history=[residual(entry) for entry in rows],
+            stopping_criteria_parameters={
+                key: value for key, value in run_pf.optimization_options["convergence_options"][
+                    "stopping_criteria_parameters"].items() if isinstance(value, (int, float, str, list, type(None)))},
+            evaluation_cap=int(args.get("initial_training", 5)) + int(args.get("maximum_iterations", 10)),
+            stopped_before_cap=len(rows) < int(args.get("initial_training", 5)) + int(args.get("maximum_iterations", 10)),
         )
     except Exception as error:  # reported, not raised: the caller reads result.json
         out["error"] = f"{type(error).__name__}: {error}"

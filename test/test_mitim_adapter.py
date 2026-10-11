@@ -459,3 +459,18 @@ def test_the_closed_loop_driver_is_handed_vaft_radii_and_the_bridged_rho(ready, 
     assert arguments["model"] == "analytic" and arguments["chi_e"] == 0.8
     # The stub has no powertorch, so the driver reports the failure instead of raising.
     assert not result.ok and report is None and "powertorch" in result.result["error"]
+
+
+def test_the_tglf_closed_loop_can_switch_off_portals_early_stops(ready, profile, tmp_path):
+    """PORTALS ended a 40-iteration C1b run after 8 on its Ricci metric; the override is
+    what makes maximum_iterations bind, and it reaches the driver verbatim."""
+    from vaft.code.mitim.portals import NO_EARLY_STOP
+
+    result, _ = mitim.run_portals_closed_loop(profile, [0.55], tmp_path / "run", ready, model="tglf_neo",
+                                              maximum_iterations=40,
+                                              stopping_criteria_parameters=NO_EARLY_STOP)
+    arguments = result.record["arguments"]
+    assert arguments["maximum_iterations"] == 40
+    assert arguments["stopping_criteria_parameters"] == NO_EARLY_STOP
+    assert NO_EARLY_STOP["ricci_value"] == 0.0 and NO_EARLY_STOP["minimum_inputs_variation"] is None
+    assert NO_EARLY_STOP["maximum_value"] == 0.0 and NO_EARLY_STOP["maximum_value_is_rel"] is False
