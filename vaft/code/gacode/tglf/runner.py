@@ -22,7 +22,7 @@ from .._runtime import (
     run_gacode,
     stopped_reason,
 )
-from ._types import TGLFConfig, TGLFResult
+from ._types import TGLFConfig, TGLFResult, plasma_formalism
 from .inputs import TGLFInputs, prepare_tglf_case
 from .outputs import TglfOutputs, collect_tglf_outputs
 
@@ -99,6 +99,7 @@ def run_tglf(
             "platform": platform,
             "parameters": dict(inputs.parameters),
             "inputs": dict(inputs.provenance),
+            "plasma_formalism": plasma_formalism(configuration, parameters=inputs.parameters).as_dict(),
             "version": None if native is None else native.version,
         },
     )
