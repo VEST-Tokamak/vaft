@@ -76,11 +76,11 @@ def test_summary_sources_lists_the_catalog(capsys):
     # listing has to say that rather than let a missing shot read as a gap.
     impa = next(line for line in printed.splitlines() if line.startswith("impa"))
     assert "sparse" in impa
-    assert all(
-        "complete" in line
-        for line in printed.splitlines()
-        if line.startswith(("main", "public"))
-    )
+    # The transitional per-configuration TGLF sources under `main` (#1900) are
+    # sparse by design; every other `main`/`public` line is a complete source.
+    lines = [line for line in printed.splitlines() if line.startswith(("main", "public"))]
+    assert all("complete" in line for line in lines if "/tglf-" not in line.split()[0])
+    assert all("sparse" in line for line in lines if "/tglf-" in line.split()[0])
 
 
 def test_export_cli_forwards_to_the_database_api(monkeypatch, tmp_path, capsys):
