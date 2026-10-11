@@ -2431,6 +2431,10 @@ def _map_diamagnetic_flux(
     ip: np.ndarray,
     raw_source: raw_db.RawSource | None = None,
 ) -> None:
+    # A shot with no sensor raises here, before H-alpha is read for a window
+    # nothing will use -- the same error vest_diamagnetic_flux_detailed raises,
+    # and what raw_sources("magnetics.diamagnetic_flux") reports (#1742).
+    _diamagnetic_field(shot, "diamagnetic flux")
     window = detect_plasma_window(shot, ip_time, ip, raw_source)
 
     time_dia, dia_flux, report = vest_diamagnetic_flux_detailed(

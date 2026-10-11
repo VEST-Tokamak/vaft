@@ -113,6 +113,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plot_taxonomy.py",
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
+    # Raw DAQ sources per registry id (#1742): resolver contract, no mapper run.
+    "test_raw_sources.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
     # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
