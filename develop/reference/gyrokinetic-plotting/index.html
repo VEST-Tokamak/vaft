@@ -384,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>2bf7841</code>. What is described
+  <code>f76168c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -700,6 +700,41 @@ local calculation, not a radial collection of them.</p>
 
 <p><strong>Radial family.</strong> <code class="language-plaintext highlighter-rouge">core_transport</code> with one anomalous model per SAT rule over r/a 0.6-0.8. Each model gets one color, with electrons solid and ions dashed.</p>
 
+<h2 id="turbulencezonal-flow-predatorprey-views">Turbulence–zonal-flow (predator–prey) views</h2>
+
+<p>Three native views in <code class="language-plaintext highlighter-rouge">vaft.plot.gyrokinetics</code> (#1820) draw what <code class="language-plaintext highlighter-rouge">vaft.process.gyrokinetics</code> derived from a nonlinear run. They do not detect peaks, correlate or fit anything themselves.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>view</th>
+      <th>draws</th>
+      <th>takes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plot_predator_prey_trace</code></td>
+      <td>$N(t)$, $E(t)$ and optionally $Q(t)$ in stacked panels</td>
+      <td>the traces, plus an optional <code class="language-plaintext highlighter-rouge">PredatorPreyFit</code> (dashed, on its own window) and an optional <code class="language-plaintext highlighter-rouge">PredatorPreyCycleMetrics</code> (peak markers)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plot_predator_prey_phase_space</code></td>
+      <td>the measured $N$–$E$ trajectory, coloured by time and with direction arrows</td>
+      <td>an optional fit, which adds the fitted orbit, both nullclines ($\dot N=0$: $E=\gamma_\mathrm{eff}/c_1$; $\dot E=0$: $N=\gamma_Z/c_2$), the fixed point and the model vector field, all evaluated from <code class="language-plaintext highlighter-rouge">vaft.formula.turbulence</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">plot_predator_prey_lag</code></td>
+      <td>the cross-correlation $\mathrm{corr}(N(t), E(t+\tau))$ against $\tau$</td>
+      <td>the curve from <code class="language-plaintext highlighter-rouge">predator_prey_cycle_metrics</code>, plus the correlation maximum, the mean peak response lag and a model lag (e.g. the linearized $T/4$) as markers</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>$N$ and $E$ are potential-intensity proxies (<code class="language-plaintext highlighter-rouge">zonal_turbulence_intensity</code>). Fitted couplings $c_1, c_2$ depend on that definition, and the fit records it.</p>
+
+<p>The classical Lotka–Volterra orbit is one of a family of neutrally stable closed orbits, not an attracting limit cycle. A good fit means the traces are compatible with predator–prey dynamics; it does not prove the mechanism.</p>
+
 <h2 id="what-stays-outside-plotting">What stays outside plotting</h2>
 
 <p>Descriptors such as $\gamma_{max}$, the $k_y$ of the flux peak, $f_e$ and $f_{EM}$ are computed in the analysis layer (<code class="language-plaintext highlighter-rouge">workflow/transport_atlas</code>, <code class="language-plaintext highlighter-rouge">vaft.process</code>) and only drawn here. The plot layer infers no turbulence-mode labels (ITG, TEM, ETG, KBM, MTM).</p>
@@ -811,7 +846,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-families-two-layers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two families, two layers</a></li><li class="page-toc-item page-toc-level-2"><a href="#linear-quasilinear-and-nonlinear-coverage" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Linear, quasilinear and nonlinear coverage</a></li><li class="page-toc-item page-toc-level-2"><a href="#coverage-matrix-mitim-benchmark--vaft" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coverage matrix: MITIM benchmark → VAFT</a></li><li class="page-toc-item page-toc-level-2"><a href="#comparing-solvers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Comparing solvers</a></li><li class="page-toc-item page-toc-level-2"><a href="#example-one-vest-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Example: one VEST state</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-stays-outside-plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What stays outside plotting</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#two-families-two-layers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Two families, two layers</a></li><li class="page-toc-item page-toc-level-2"><a href="#linear-quasilinear-and-nonlinear-coverage" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Linear, quasilinear and nonlinear coverage</a></li><li class="page-toc-item page-toc-level-2"><a href="#coverage-matrix-mitim-benchmark--vaft" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Coverage matrix: MITIM benchmark → VAFT</a></li><li class="page-toc-item page-toc-level-2"><a href="#comparing-solvers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Comparing solvers</a></li><li class="page-toc-item page-toc-level-2"><a href="#example-one-vest-state" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Example: one VEST state</a></li><li class="page-toc-item page-toc-level-2"><a href="#turbulencezonal-flow-predatorprey-views" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Turbulence–zonal-flow (predator–prey) views</a></li><li class="page-toc-item page-toc-level-2"><a href="#what-stays-outside-plotting" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">What stays outside plotting</a></li></ul>
     </nav>
 </aside>
 
@@ -929,7 +964,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 19:31:43 +0000"
+        "time": "2026-10-11 19:54:57 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
