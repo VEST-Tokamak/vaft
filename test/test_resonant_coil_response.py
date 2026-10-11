@@ -214,3 +214,91 @@ def test_every_predicted_optimum_is_what_gpec_returned():
     assert np.sqrt(budget["T_max"]) == pytest.approx(rms["C_edge_max", "edge"], rel=1e-4)
     # Stage D kept the core at its cap and still drove the edge.
     assert rms["D_edge_capped", "edge"] > rms["D_edge_capped", "core"]
+
+
+def _slsqp_reference(qo, qc, budget, limit, starts=40, seed=7):
+    """An independent answer: multistart SLSQP on the real parametrization."""
+    from scipy.optimize import minimize
+
+    k = qo.shape[0]
+    rng = np.random.default_rng(seed)
+
+    def vec(x):
+        return x[:k] + 1j * x[k:]
+
+    best = -np.inf
+    for _ in range(starts):
+        x0 = rng.normal(size=2 * k)
+        x0 *= np.sqrt(budget) / np.linalg.norm(x0)
+        found = minimize(lambda x: -np.real(vec(x).conj() @ qo @ vec(x)), x0, method="SLSQP", constraints=[
+            {"type": "eq", "fun": lambda x: np.real(vec(x).conj() @ vec(x)) - budget},
+            {"type": "ineq", "fun": lambda x: limit - np.real(vec(x).conj() @ qc @ vec(x))},
+        ], options={"ftol": 1e-12, "maxiter": 500})
+        if found.success:
+            best = max(best, -found.fun)
+    return best
+
+
+@pytest.mark.parametrize("case", ["diagonal", "more_groups_than_surfaces"])
+def test_a_degenerate_top_eigenspace_still_lands_on_the_cap(case):
+    """Cold review: when null(Q_c) lies inside null(Q_o) the top eigenvalue is degenerate at mu*."""
+    if case == "diagonal":
+        qo, qc, limit = np.diag([2.0, 1.0, 0.0]), np.diag([1.0, 1.0, 0.0]), 0.3
+        expected = 0.6
+    else:
+        rng = np.random.default_rng(3)
+        h = rng.normal(size=(3, 4)) + 1j * rng.normal(size=(3, 4))
+        op = resonant_response_operator(list(h.T), field="Phi_res", psi_n_rational=[0.5, 0.9, 0.97],
+                                        m_rational=[2, 3, 4], n=1, groups=("a", "b", "c", "d"), amplitude_unit=1.0)
+        qo = op.quadratic(window_weights(op, ResonantWindow("edge", 0.95, 1.0, "synthetic")))
+        qc = op.quadratic(window_weights(op, ResonantWindow("total", 0.0, 1.0, "synthetic")))
+        limit = 0.443
+        expected = _slsqp_reference(qo, qc, 1.0, limit)
+    out = constrained_window_extremum(qo, qc, metric=np.eye(qo.shape[0]), budget=1.0, limit=limit)
+    assert out["status"] == "active"
+    assert out["constraint"] == pytest.approx(limit, rel=1e-6)
+    assert out["objective"] == pytest.approx(expected, rel=1e-5)
+
+
+def test_a_zero_cap_on_a_singular_constraint_is_feasible_and_lives_in_its_null_space():
+    rng = np.random.default_rng(11)
+    for _ in range(5):
+        b = rng.normal(size=(2, 3)) + 1j * rng.normal(size=(2, 3))
+        qc = b.conj().T @ b  # rank 2 of 3
+        qo = np.diag(rng.uniform(0.5, 2.0, 3)).astype(complex)
+        out = constrained_window_extremum(qo, qc, metric=np.eye(3), budget=1.0, limit=0.0)
+        assert out["status"] in ("unconstrained", "active", "at_floor")
+        assert out["constraint"] == pytest.approx(0.0, abs=1e-9)
+        null = np.linalg.eigh(qc)[1][:, 0]
+        assert out["objective"] == pytest.approx(np.real(null.conj() @ qo @ null), rel=1e-6)
+
+
+def test_an_infeasible_cap_returns_the_least_constraint_excitation():
+    qo, qc = np.diag([1.0, 2.0]), np.diag([1.0, 3.0])
+    out = constrained_window_extremum(qo, qc, metric=np.eye(2), budget=1.0, limit=0.5)
+    assert out["status"] == "infeasible" and out["constraint"] == pytest.approx(1.0)
+
+
+def test_stage_d_and_stage_b_on_the_gpec_operator():
+    op = _real_operator("Phi_res")
+    qc, qe = op.quadratic(window_weights(op, WINDOWS["core"])), op.quadratic(window_weights(op, WINDOWS["edge"]))
+    budget_max = budgeted_torque_extrema(qe, np.eye(3), 3.0)["c_max"]
+    cap = (0.2 * np.sqrt(np.real(budget_max.conj() @ qc @ budget_max))) ** 2  # 20 % of the free core RMS
+    out = constrained_window_extremum(qe, qc, metric=np.eye(3), budget=3.0, limit=cap)
+    confirmed = _c(next(r for r in DATA["confirmations"] if r["sample_id"] == "D_edge_capped"))
+    assert out["status"] == "active"
+    assert abs(np.vdot(out["c"], confirmed)) == pytest.approx(np.vdot(confirmed, confirmed).real, rel=1e-6)
+    # Stage B: a reachable complex target comes back with the conjugate phase.
+    c_true = np.array([0.6 * np.exp(0.2j), 0.9 * np.exp(-1.0j), 0.3])
+    match = match_resonant_target(op, op.response(c_true), weights=np.eye(5), regularization=0.0, metric=np.eye(3))
+    np.testing.assert_allclose(match["c"], c_true, atol=1e-9)
+    assert match["rank"] == 3
+
+
+def test_the_builder_refuses_an_operator_for_a_field_it_was_not_given():
+    held = np.array([[1j, 0, 0]])
+    qualification = qualify_response_operator(OP, held, OP.response(held), sample_ids=["x"], rtol=1e-9)
+    with pytest.raises(ValueError, match="without responses"):
+        resonant_operating_space(("a", "b", "c"), 1, held, {"Phi_res_v": OP.response(held)}, psi_n_rational=PSI,
+                                 windows={"edge": EDGE}, sample_ids=["x"], roles=["scan"], amplitude_unit=1.0,
+                                 frame="-", provenance={}, operators={"Phi_res": (OP, qualification)})

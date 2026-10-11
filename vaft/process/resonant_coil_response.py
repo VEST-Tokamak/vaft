@@ -352,7 +352,8 @@ def match_resonant_target(
         ``c`` [phasor]; ``response`` [T]; ``residual`` ``||W^1/2 (H conj c - t)||``
         and ``relative_residual`` against ``||W^1/2 t||`` [T, -];
         ``singular_values`` of ``W^1/2 H`` [T / phasor], ``rank`` and
-        ``condition`` [-]; ``null_space`` (columns of excitations with no
+        ``condition`` (largest over smallest *nonzero* singular value; finite
+        even when rank deficient) [-]; ``null_space`` (columns of excitations with no
         weighted response) [phasor].
 
     Raises
@@ -459,8 +460,10 @@ def constrained_window_extremum(
     solution : dict
         ``c`` [phasor], ``objective`` and ``constraint`` values [T^2],
         ``multiplier`` ``mu >= 0`` [-], and ``status``: ``unconstrained``
-        (the cap is not active), ``active`` or ``infeasible`` (no ``c`` on the
-        budget meets the cap) [-].
+        (the cap is not active), ``active`` (the constraint sits on the cap),
+        ``at_floor`` (only the least-constraint excitations meet it; the
+        multiplier diverges) or ``infeasible`` (none does; ``c`` is then the
+        least-constraint excitation) [-].
 
     Raises
     ------
@@ -470,12 +473,13 @@ def constrained_window_extremum(
 
     Processing steps
     ----------------
-    1. For a multiplier ``mu``, take the top generalized eigenvector of
-       ``(Q_o - mu Q_c, D)``, scaled to the budget.
-    2. ``mu = 0`` if it already meets the cap; otherwise bisect ``mu`` until
-       ``c^H Q_c c = limit``.
-    3. ``infeasible`` when even the smallest ``c^H Q_c c`` on the budget
-       (the bottom generalized eigenvalue of ``(Q_c, D)``) exceeds the cap.
+    1. ``infeasible`` when even the least ``c^H Q_c c`` on the budget (the
+       bottom generalized eigenvector of ``(Q_c, D)``) exceeds the cap.
+    2. For a multiplier ``mu``, the top generalized eigen*space* of
+       ``(Q_o - mu Q_c, D)``; ``mu = 0`` if some excitation in it meets the cap.
+    3. Otherwise bisect ``mu`` on the least constraint within that space, and
+       at the converged ``mu`` combine the space's extreme directions so the
+       constraint lands on the cap (the objective is then maximal).
 
     Convention
     ----------
@@ -489,8 +493,10 @@ def constrained_window_extremum(
     Limitations
     -----------
     The multiplier route is exact for two Hermitian quadratic forms on a
-    complex sphere (no duality gap), but a degenerate top eigenvalue at the
-    active multiplier can leave a combination of eigenvectors unexplored.
+    complex sphere (no duality gap); degenerate top eigenvalues, which occur
+    whenever the cap's null space lies inside the objective's (e.g. more
+    groups than capped surfaces), are handled by working on the eigenspace.
+    Eigenvalues within ``1e-9`` of the spectral scale are treated as equal.
     Sector-current limits are not imposed.
 
     Provenance
@@ -508,34 +514,63 @@ def constrained_window_extremum(
         raise ValueError("budget must be positive and limit not negative")
     if np.linalg.eigvalsh(d).min() <= 0:
         raise ValueError("metric must be positive definite")
+    scale = max(float(np.max(np.abs(qo))), float(np.max(np.abs(qc))), np.finfo(float).tiny)
+    slack = 1e-10 * float(np.max(np.abs(qc))) * budget  # round-off of a constraint value
 
-    def top(mu):
-        _, vectors = eigh(qo - mu * qc, d)
-        v = vectors[:, -1]
-        v = v * np.sqrt(budget / float(np.real(v.conj() @ d @ v)))
-        return v, float(np.real(v.conj() @ qc @ v))
+    def objective(c):
+        return float(np.real(c.conj() @ qo @ c))
 
-    floor = float(eigh(qc, d, eigvals_only=True)[0]) * budget
-    if floor > limit * (1 + tolerance):
-        v, value = top(0.0)
-        return {"c": v, "objective": float(np.real(v.conj() @ qo @ v)), "constraint": value,
-                "multiplier": float("nan"), "status": "infeasible"}
-    v, value = top(0.0)
-    status, mu = "unconstrained", 0.0
-    if value > limit:
-        status = "active"
-        low, high = 0.0, 1.0
-        while top(high)[1] > limit:
-            high *= 2.0
-            if high > 1e15:
-                break
-        while high - low > tolerance * max(high, 1.0):
-            mid = 0.5 * (low + high)
-            low, high = (mid, high) if top(mid)[1] > limit else (low, mid)
-        mu = high
-        v, value = top(mu)
-    return {"c": v, "objective": float(np.real(v.conj() @ qo @ v)), "constraint": value,
-            "multiplier": mu, "status": status}
+    def constraint(c):
+        return float(np.real(c.conj() @ qc @ c))
+
+    def top_space(mu):
+        # The top generalized eigenspace, not one eigenvector: when the cap's null
+        # space lies inside the objective's, the top eigenvalue is degenerate at the
+        # active multiplier and a single eigenvector can sit far below the cap.
+        values, vectors = eigh(qo - mu * qc, d)  # D-orthonormal columns
+        keep = values >= values[-1] - 1e-9 * scale * max(1.0, mu)
+        return vectors[:, keep]
+
+    def pick(space, cap):
+        """Budget-scaled excitation in ``space`` with the largest constraint <= cap (or the least, if none)."""
+        m = space.conj().T @ qc @ space
+        values, vectors = np.linalg.eigh(0.5 * (m + m.conj().T))
+        low, high = values[0] * budget, values[-1] * budget
+        if low > cap + slack:
+            a = vectors[:, 0]
+        elif high <= cap + slack:
+            a = vectors[:, -1]
+        else:  # mix the extremes to land on the cap
+            share = float(np.clip((cap - low) / (high - low), 0.0, 1.0))
+            a = np.sqrt(share) * vectors[:, -1] + np.sqrt(1.0 - share) * vectors[:, 0]
+        return space @ (a * np.sqrt(budget / float(np.real(a.conj() @ a))))
+
+    def least(mu):
+        m = top_space(mu)
+        mm = m.conj().T @ qc @ m
+        return float(np.linalg.eigvalsh(0.5 * (mm + mm.conj().T))[0]) * budget
+
+    def result(c, mu, status):
+        return {"c": c, "objective": objective(c), "constraint": constraint(c), "multiplier": mu, "status": status}
+
+    floor_vector = eigh(qc, d)[1][:, 0]
+    floor_vector = floor_vector * np.sqrt(budget / float(np.real(floor_vector.conj() @ d @ floor_vector)))
+    if constraint(floor_vector) > limit + slack:
+        return result(floor_vector, float("nan"), "infeasible")
+    free = pick(top_space(0.0), limit)
+    if constraint(free) <= limit + slack:
+        return result(free, 0.0, "unconstrained")
+    # The bisection itself uses the exact cap; the slack only decides feasibility.
+    low, high = 0.0, 1.0
+    while least(high) > limit:
+        high *= 2.0
+        if high > 1e12:
+            # Only the least-constraint excitations meet the cap: the multiplier diverges.
+            return result(floor_vector, float("inf"), "at_floor")
+    while high - low > tolerance * max(high, 1.0):
+        mid = 0.5 * (low + high)
+        low, high = (mid, high) if least(mid) > limit else (low, mid)
+    return result(pick(top_space(high), limit), high, "active")
 
 
 def resonant_operating_space(
@@ -632,6 +667,9 @@ def resonant_operating_space(
         samples[f"amplitude_{group}"] = np.abs(c[:, index]) * float(amplitude_unit)
         samples[f"phase_{group}"] = np.mod(np.angle(c[:, index]), 2 * np.pi)
     rows, record = [], {}
+    unused = set(operators or {}) - set(responses)
+    if unused:
+        raise ValueError(f"operators given for fields without responses: {sorted(unused)}")
     for field, values in responses.items():
         if field not in RESONANT_FIELDS:
             raise ValueError(f"unknown field {field!r}")
@@ -660,8 +698,12 @@ def resonant_operating_space(
                                  "value": rms_resonant_field(psi, model[i], window=window) if not empty else np.nan,
                                  "status": "undefined" if empty else "valid"})
             if model is not None:
-                record[f"{metric}_model"] = {**record[metric], "model": "Phi = H conj(c)",
-                                             "qualification": operators[field][1].status}
+                record[f"{metric}_model"] = {
+                    **record[metric], "model": "Phi = H conj(c)", "qualification": operators[field][1].status,
+                    "held_out_errors": dict(operators[field][1].relative_errors),
+                    "note": "predicted for every sample, including the unit runs H was built from and runs "
+                            "whose direct evaluation failed",
+                }
     return CoilOperatingSpace(
         n=n, groups=tuple(groups), samples=samples, values=pd.DataFrame(rows),
         convention={**COIL_EXCITATION_CONVENTION, "frame": frame}, grid={"kind": "irregular"}, provenance=record,
