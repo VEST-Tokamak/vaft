@@ -210,6 +210,9 @@ def kinetic_state_stages(
     inductive_max: float = 1.0,
     tables: Mapping[str, Any] | None = None,
     cache_dir: str | None = None,
+    ion_temperature: str = "assumed",
+    ti_floor: float = 0.17,
+    ti_window_s: float = 1e-3,
 ) -> KineticStateStages:
     """Infer the kinetic state of the slice at ``time`` in the seven named stages.
 
@@ -224,13 +227,24 @@ def kinetic_state_stages(
     ``ionization`` is ``"transient"`` (needs ``plasma_age_s``) or ``"coronal"``;
     ``conductivity_model``, ``ln_lambda``, ``bounds``, ``i_ni_a`` are Lane Z's
     estimator settings (``i_ni_a = 0`` asserts a purely Ohmic window).
+
+    ``ion_temperature`` is ``"assumed"`` (``T_i = T_e``; the pressure closure is then a
+    consistency check) or ``"inferred"`` (the three closures together: the Romero
+    scalar closes the impurity amplitude, and ``T_i`` is partitioned out of the
+    magnetic-EFIT pressure with that composition's ``n_i``, as
+    :func:`vaft.process.kinetic_closure.infer_ti_pressure_partition`; ``p_thermal``
+    then equals ``p_eq`` where ``T_i`` is defined by construction).  ``ti_floor`` and
+    ``ti_window_s`` are the pressure sigma floor and neighbour window of that inference.
     """
+    if ion_temperature not in ("assumed", "inferred"):
+        raise ValueError(f"ion_temperature must be 'assumed' or 'inferred', got {ion_temperature!r}")
     from vaft.omas.vest_upstream import (
         PRESSURE_CLOSURE_RECORD,
         _append_record_fields,
         _equilibrium_pressure_on,
         _romero_window,
         _thomson_relative_errors,
+        _time_array_ms,
         _volume_weights_on_grid,
     )
     from vaft.ods_access import path_value
@@ -246,7 +260,7 @@ def kinetic_state_stages(
         math.isclose(weights.get("C", math.nan), weights.get("O", math.nan))
         and set(weights) == {"C", "O"}
     )
-    assumptions: dict[str, Any] = {"assume_ti_eq_te": 1, "assume_ohmic": int(float(i_ni_a) == 0.0)}
+    assumptions: dict[str, Any] = {"assume_ti_eq_te": int(ion_temperature == "assumed"), "assume_ohmic": int(float(i_ni_a) == 0.0)}
     if nc_no:
         assumptions.update(assume_nc_eq_no=1, n_c_over_n_o=1.0)
     else:
@@ -479,23 +493,77 @@ def kinetic_state_stages(
         )
 
     # -- 7. pressure_closure -------------------------------------------------------------------
+    def partition_ti() -> tuple[np.ndarray, str]:
+        """``T_i`` from the magnetic-EFIT pressure and the Romero-closed ``n_i``; and its record."""
+        from vaft.machine_mapping.core_profiles import inferred_ti_text
+        from vaft.omas.vest_upstream import usable_equilibrium_times_ms
+        from vaft.process.kinetic_closure import infer_ti_pressure_partition
+
+        if equilibrium_lineage != "magnetics":
+            raise _Stop(f"the T_i inference accepts only the magnetics lineage, got {equilibrium_lineage!r}")
+        inside, ne, te, eq = ctx["inside"], ctx["ne"], ctx["te"], ctx["eq_index"]
+        fraction = (ctx["n_main"] + sum(ctx["n_charged"].values())) / ne
+        psi = ctx["psi_norm"][inside]
+        usable = usable_equilibrium_times_ms(ods)
+        others = []
+        eq_ms = _time_array_ms(ods, "equilibrium.time")
+        for k, t_ms in enumerate([] if eq_ms is None else eq_ms):
+            if k == eq or not abs(float(t_ms) * 1e-3 - time) <= ti_window_s + 1e-9:
+                continue
+            if usable is not None and not np.any(np.abs(usable - t_ms) < 1e-6):
+                continue
+            pressure_k = _equilibrium_pressure_on(ods, k, psi)
+            if pressure_k is not None:
+                others.append(pressure_k)
+        sigma_p, basis = ks.pressure_sigma(ctx["p_eq"][inside], others, floor=ti_floor)
+        rel_n, rel_t = _thomson_relative_errors(ods, time)
+        result = infer_ti_pressure_partition(
+            ctx["p_eq"][inside], ne[inside], te[inside],
+            composition={"ion_density_per_electron": fraction[inside],
+                         "composition_source": "resistive-closed impurity amplitude (stage 4)"},
+            sigma_p_eq=sigma_p, sigma_n_e=rel_n * ne[inside], sigma_t_e=rel_t * te[inside],
+            equilibrium_lineage=equilibrium_lineage,
+        )
+        if not result["eligible"]:
+            raise _Stop(result["reason"])
+        valid = np.isfinite(result["t_i"])
+        if not valid.any():
+            raise _Stop("no point has a positive, significant p_i")
+        t_i = _full(inside, result["t_i"])
+        record = "; ".join([
+            inferred_ti_text("equilibrium_pressure_partition"),
+            f"sigma_p_eq_basis={basis}", f"valid_points={int(valid.sum())}/{valid.size}",
+            "not measured",
+        ])
+        ctx["ti_ratio"] = _full(inside, result["ti_te"])
+        return t_i, record
+
     def pressure_closure() -> InferenceStage:
         radial, ne, te, cp = ctx["radial"], ctx["ne"], ctx["te"], ctx["cp_index"]
         product = populate_radial_impurity_profiles(ods, radial, time=time)
         base = f"core_profiles.profiles_1d.{cp}"
         lineage = {"equilibrium_lineage": equilibrium_lineage, "equilibrium_occurrence": 0}
+        if ion_temperature == "inferred":
+            t_i, ti_record = partition_ti()
+        else:
+            t_i, ti_record = te.copy(), "ti_te_ratio=1; status=assumed; source=assumption; assume_ti_eq_te=1"
         for k in range(len(product[f"{base}.ion"])):
-            product[f"{base}.ion.{k}.temperature"] = te.copy()
-            product[f"{base}.ion.{k}.temperature_fit.parameters"] = (
-                "ti_te_ratio=1; status=assumed; source=assumption; assume_ti_eq_te=1"
-            )
-        product[f"{base}.t_i_average"] = te.copy()
+            product[f"{base}.ion.{k}.temperature"] = t_i
+            product[f"{base}.ion.{k}.temperature_fit.parameters"] = ti_record
+        product[f"{base}.t_i_average"] = t_i
         _append_record_fields(product, f"{base}.ion.0.temperature_fit.parameters", lineage)
         zeff_extra = {"resistive_target": ctx["z_res"], "ionization": ionization,
                       **{k: v for k, v in assumptions.items() if k.startswith(("assume_nc", "n_c"))}}
         _append_record_fields(product, f"{base}.zeff_fit.parameters", zeff_extra)
         closure = infer_kinetic_closure(product, time=time, dilution="species", ti_te_ratio=1.0)
         pressure = closure.pressure
+        if ion_temperature == "inferred":
+            from vaft.process.kinetic_closure import assemble_pressure
+
+            pressure = assemble_pressure(
+                closure.n_e, closure.T_e, closure.ion_densities,
+                {label: t_i for label in closure.ion_densities},
+            )
         product[f"{base}.electrons.pressure"] = pressure.p_e
         product[f"{base}.electrons.pressure_thermal"] = pressure.p_e
         product[f"{base}.pressure_ion_total"] = pressure.p_i_thermal
@@ -526,14 +594,20 @@ def kinetic_state_stages(
         }
         return _stage(
             "pressure_closure",
-            fields={"T_i": te.copy(), "p_e": np.asarray(pressure.p_e, dtype=float), "p_i": p_main,
+            fields={"T_i": t_i, "T_i_over_T_e": t_i / te, "p_e": np.asarray(pressure.p_e, dtype=float), "p_i": p_main,
                     "p_imp": p_imp, "p_thermal": np.asarray(pressure.p_thermal, dtype=float), "p_eq": p_eq,
                     "residual": residual, "relative_residual": relative, "closure_summary": summary},
-            provenance={"origin": "assumed", "method": "infer_kinetic_closure", "dilution": "species",
-                        "role": "consistency_check",
-                        "note": "T_i = T_e and the impurity amplitude are fixed before this stage; the residual "
-                                "is reported, never minimised"},
-            assumptions={"assume_ti_eq_te": 1},
+            provenance=(
+                {"origin": "inferred", "method": "equilibrium_pressure_partition", "dilution": "species",
+                 "role": "closure",
+                 "note": "T_i is partitioned out of p_eq with the Romero-closed n_i, so p_thermal equals p_eq "
+                         "where T_i is defined; the residual is an identity, not an agreement test"}
+                if ion_temperature == "inferred" else
+                {"origin": "assumed", "method": "infer_kinetic_closure", "dilution": "species",
+                 "role": "consistency_check",
+                 "note": "T_i = T_e and the impurity amplitude are fixed before this stage; the residual "
+                         "is reported, never minimised"}),
+            assumptions={"assume_ti_eq_te": int(ion_temperature == "assumed")},
             lands={"p_e": f"{_CP}.electrons.pressure", "p_i_total": f"{_CP}.pressure_ion_total",
                    "p_thermal": f"{_CP}.pressure_thermal", "T_i": f"{_CP}.t_i_average"},
         )

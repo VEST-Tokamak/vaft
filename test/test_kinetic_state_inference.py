@@ -264,3 +264,25 @@ def test_transient_ionization_without_a_plasma_age_stops_at_the_amplitude(sample
     amplitude = result.stage("impurity_amplitude")
     assert not amplitude.ok and "ionisation age" in amplitude.reason
     assert result.product is None
+
+
+def test_an_unknown_ion_temperature_mode_is_refused(sample, tables):
+    with pytest.raises(ValueError, match="ion_temperature"):
+        _run(sample, tables, ion_temperature="measured")
+
+
+def test_the_inferred_ion_temperature_closes_the_pressure_with_the_romero_composition(sample, tables):
+    _, result = _run(sample, tables, ion_temperature="inferred")
+    assert result.stage("impurity_amplitude").ok, "the Romero-closed composition is unchanged by the T_i mode"
+    closure = result.stage("pressure_closure")
+    if not closure.ok:  # the sample's pressure may leave no significant p_i: named, not guessed
+        assert "p_i" in closure.reason or "T_i" in closure.reason or "eligible" in closure.reason
+        return
+    f = closure.fields
+    assert closure.provenance["origin"] == "inferred" and closure.provenance["role"] == "closure"
+    assert closure.assumptions == {"assume_ti_eq_te": 0}
+    valid = np.isfinite(f["T_i"])
+    assert valid.any()
+    assert np.allclose(f["p_thermal"][valid], f["p_eq"][valid], rtol=1e-6), "the partition closes p_thermal onto p_eq"
+    record = str(result.product["core_profiles.profiles_1d.%d.ion.0.temperature_fit.parameters" % 0])
+    assert "origin=inferred" in record and "not measured" in record
