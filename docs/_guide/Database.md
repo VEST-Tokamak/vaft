@@ -600,6 +600,10 @@ digitiser origin: 0.24 s for `shot < 41446`, 0.26 s for shots 41446–41451, 0.2
 
 ### Processing new shots automatically
 
+The Thomson lineage (pipeline 2) has its own worker, `vaft corrective-worker run`, which watches the upload
+directory instead of the SQL table; it is described in the Pipelines guide and in
+`workflow/automatic_pipeline_2_corrective_data_update/DEPLOYMENT.md`. The rest of this section is the routine worker.
+
 On the VEST server, `vaft pipeline-worker run` polls the SQL `shot` table and runs the routine
 Snakemake pipeline on each new shot as soon as its upload has finished (issue #58). The upload
 counts as finished when either condition holds:

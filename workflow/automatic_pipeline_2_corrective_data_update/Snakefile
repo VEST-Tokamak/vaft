@@ -16,6 +16,7 @@
 # paths.SCIENTIFIC_REFERENCES, and built from that declaration, so the lineage
 # graph (#1647) shows exactly what these rules consult.
 
+import os
 import sys
 from pathlib import Path
 
@@ -99,8 +100,21 @@ RESISTIVE_INDUCTIVE_MAX = RESISTIVE_CONFIG.get("inductive_max", 1.0)
 if len(RESISTIVE_BOUNDS) != 2:
     raise WorkflowError("resistive_zeff.bounds must be [z_min, z_max]")
 
+def _flag(value, default):
+    """A configuration switch. A value given as `--config key={"x": false}` reaches the
+    Snakefile as the *string* "false", which `bool()` would read as true: and for
+    `hsds.replicate` that switches HSDS replication on when the operator said off."""
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "false", "0", "no", "off", "none", "null")
+    return bool(value)
+
+
+PLOTS_ENABLED = _flag((config.get("plots") or {}).get("enabled"), True)
+
 HSDS_CONFIG = config.get("hsds", {}) or {}
-REPLICATION_ENABLED = bool(HSDS_CONFIG.get("replicate", False))
+REPLICATION_ENABLED = _flag(HSDS_CONFIG.get("replicate"), False)
 REPLICATION_ATTEMPTS = HSDS_CONFIG.get("attempts", 3)
 REPLICATION_RETRY_DELAY = HSDS_CONFIG.get("retry_delay", 5.0)
 # Same bound as pipeline 1: uploads are limited by the HSDS deployment, not by
@@ -139,11 +153,21 @@ except ValueError as error:
     raise WorkflowError(str(error))
 STAGES = scoped(STAGE_SCOPE)
 REPLICATE_SCRIPT = PIPELINE1_DIR / "replicate_to_hsds.py"
+PLOT_SCRIPT = PIPELINE1_DIR / "generate_stage_plots.py"
 
 
 def stage_products(shots):
     return [PATHS.shot_pattern(stage + "_ods").format(shot=shot)
             for shot in shots for stage in STAGES]
+
+
+def plot_directory(stage):
+    """The ``plot/`` directory of a stage, with the shot left as a wildcard."""
+    return os.path.dirname(PATHS.shot_pattern("stage_plot", stage, "x.png"))
+
+
+def stage_plot_manifests(shots):
+    return [PATHS.stage_plot_manifest(shot, stage) for shot in shots for stage in STAGES]
 
 
 def replication_records(shots):
@@ -153,7 +177,8 @@ def replication_records(shots):
 
 rule all:
     input:
-        replication_records(SHOTS) if REPLICATION_ENABLED else stage_products(SHOTS)
+        replication_records(SHOTS) if REPLICATION_ENABLED else stage_products(SHOTS),
+        stage_plot_manifests(SHOTS) if PLOTS_ENABLED else []
 
 
 ############################################################
@@ -411,6 +436,44 @@ for _stage in ("electron_efit", "kinetic_efit"):
                 --metadata {output.manifest} \
                 > {log} 2>&1
             """
+
+
+############################################################
+# Validation figures
+############################################################
+# One figure set per stage, declared once in vaft.database.production_qa and
+# rendered by pipeline 1's driver. Every figure is optional (most shots have no
+# Thomson upload), so the plot manifest is the only declared output: it records
+# which figures were generated and which were skipped, with the reason. The worker
+# does not judge figures; a stage's verdict is its manifest.
+if PLOTS_ENABLED:
+
+    for _stage in STAGES:
+
+        rule:
+            name: "plot_" + _stage
+            input:
+                ods=PATHS.shot_pattern(_stage + "_ods")
+            output:
+                manifest=PATHS.shot_pattern("stage_plot_manifest", _stage)
+            log:
+                PATHS.shot_pattern("log", "plot_" + _stage)
+            params:
+                stage=_stage,
+                directory=plot_directory(_stage)
+            conda:
+                CONDA if CONDA else None
+            shell:
+                """
+                mkdir -p $(dirname {log})
+                python {PLOT_SCRIPT} \
+                    --stage {params.stage} \
+                    --shot {wildcards.shot} \
+                    --input {input.ods} \
+                    --output-dir "{params.directory}" \
+                    --metadata {output.manifest} \
+                    > {log} 2>&1
+                """
 
 
 ############################################################

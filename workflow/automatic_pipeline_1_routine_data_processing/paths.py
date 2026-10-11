@@ -432,6 +432,14 @@ _LOG_OWNER = {
     "generate_composition_ods": ("omas", "composition"),
     "generate_ti_inferred_ods": ("omas", "ti_inferred"),
     "generate_resistive_zeff_ods": ("omas", "resistive_zeff"),
+    # The corrective stages' validation figures (#1842): one rule per stage.
+    **{
+        f"plot_{stage}": ("omas", stage)
+        for stage in (
+            "thomson", "ces", "core_profiles", "composition", "ti_inferred",
+            "resistive_zeff", "electron_efit", "kinetic_efit",
+        )
+    },
     "generate_electron_efit_ods": ("omas", "electron_efit"),
     "generate_kinetic_efit_ods": ("omas", "kinetic_efit"),
     **{

@@ -431,8 +431,19 @@ historical record. **Pipeline 3 does not use it**: its generators list shots wit
 `vaft.database.exist_shot(source=..., strict=True)` (no filter) inside `vaft.database.summary`, i.e. the shots
 present in the named HSDS source.
 
-The worker (`vaft pipeline-worker`) does not yet drive this pipeline, and there is no era table, static
-product or stage plot for it; those are tracked in issue #1842.
+### Running it unattended
+
+`vaft corrective-worker` watches the upload directory (`external.data_root`) and runs this pipeline for a shot when
+an upload for it appears or changes and has been quiet for `quiet_seconds`. It is independent of
+`vaft pipeline-worker` (its own state file, lock and run directories), judges each shot by the stage manifests of the
+stages in scope (`stages`; `unavailable` and `no_output` are results, `failed` is retried), forces the rerun of a
+changed or failed shot (the root rules have no input files, so Snakemake would otherwise call it up to date), and stops
+starting runs while its `hold_file` exists, which is how it stays off shots a regeneration owns. It does not notice a
+change in pipeline 1's products. Each stage also has an optional validation figure set (`plots.enabled`) that the worker
+does not judge. See `workflow/automatic_pipeline_2_corrective_data_update/DEPLOYMENT.md`.
+
+There is no era table or static product for this pipeline: the machine era enters through `vest.yaml` (the impurity
+model and the Thomson/CES mappers), not through a per-era product.
 
 ---
 

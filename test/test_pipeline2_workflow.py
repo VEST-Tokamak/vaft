@@ -319,3 +319,34 @@ def test_a_scope_whose_upstream_is_missing_stops_the_run(tmp_path):
     result = _dry_run(tmp_path, extra=["--config", 'stages=["composition"]'])
     assert result.returncode != 0
     assert "core_profiles" in (result.stdout + result.stderr)
+
+
+def test_every_stage_gets_a_plot_rule_whose_only_declared_output_is_its_manifest(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE
+
+    for stage in CORRECTIVE_LINEAGE:
+        job = _job(result.stdout, f"plot_{stage}")
+        assert f"omas/{stage}/48226/output/{stage}" in _input_line(job)
+        output = next(line for line in job.splitlines() if line.strip().startswith("output:"))
+        assert output.count("/") and output.strip().endswith("plot_manifest.json"), output
+        assert f"--stage {stage}" in job and "generate_stage_plots.py" in job
+
+
+def test_the_plots_can_be_switched_off_and_follow_the_stage_scope(tmp_path):
+    off = _dry_run(tmp_path, extra=["-p", "--config", 'plots={"enabled": false}'])
+    assert off.returncode == 0, off.stderr[-3000:]
+    assert "rule plot_" not in off.stdout
+    scoped = _dry_run(tmp_path, extra=["--config", 'stages=["thomson","ces"]'])
+    assert scoped.returncode == 0, scoped.stderr[-3000:]
+    assert "rule plot_thomson" in scoped.stdout and "rule plot_composition" not in scoped.stdout
+
+
+def test_a_switch_given_as_false_on_the_command_line_is_off(tmp_path):
+    """`--config key={"x": false}` arrives as the string "false"; read as truthy it would enable replication."""
+    off = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": false}', 'plots={"enabled": false}'])
+    assert off.returncode == 0, off.stderr[-3000:]
+    assert "replicate_" not in off.stdout and "rule plot_" not in off.stdout
+    on = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}'])
+    assert "replicate_thomson_to_hsds" in on.stdout

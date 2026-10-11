@@ -1,0 +1,73 @@
+# Corrective-pipeline worker (issue #1842) -- example server configuration.
+#
+# Copy it OUTSIDE the repository (e.g. /srv/vaft/corrective.yaml), edit, and run
+#   vaft corrective-worker run --config /srv/vaft/corrective.yaml
+# Relative paths resolve against the directory holding this file.
+# See DEPLOYMENT.md in this directory.
+#
+# This worker is independent of `vaft pipeline-worker`: its own state file, its
+# own lock, its own run directories. It watches the directory where Thomson and
+# CES `.mat` files are uploaded (external.data_root of the pipeline configuration)
+# and runs this pipeline for a shot when an upload for it appears or changes.
+
+# Durable state: one row per shot with an upload, runs, stage status, events.
+state_db: ${VAFT_FILEDB_DIR}/pipeline/corrective/corrective.sqlite
+# One directory per run: the exact config handed to Snakemake and its log.
+log_dir: ${VAFT_FILEDB_DIR}/pipeline/corrective/logs
+
+# The checkout whose Snakefile runs, and the pipeline configuration it runs with.
+# Snakemake merges this file over the workflow's own config.yaml, and so does the
+# worker; `shots:` is replaced per run. The merged configuration must set
+# external.data_root (the upload directory the worker watches) and layout: filedb.
+workflow_dir: ${VAFT_CHECKOUT}/workflow/automatic_pipeline_2_corrective_data_update
+pipeline_config: ${VAFT_CHECKOUT}/workflow/automatic_pipeline_2_corrective_data_update/config.yaml
+# Where paths.py lives: the stage products are resolved through the routine
+# pipeline's PipelinePaths. Defaults to the sibling directory, so it is rarely set.
+# paths_workflow_dir: ${VAFT_CHECKOUT}/workflow/automatic_pipeline_1_routine_data_processing
+
+# The worker owns shots in [first_shot, last_shot]. Uploads for other shots are
+# ignored, not queued. Leave last_shot out for "no upper bound".
+first_shot: 39000
+# last_shot: 49999
+
+# Seconds between scans of the upload directory.
+poll_interval: 120
+# An upload counts as finished once no file of the shot has changed for this long.
+# A Thomson file is copied in one go, but a person may replace it a few minutes later.
+quiet_seconds: 600
+
+cores: 4
+snakemake_cmd: [snakemake]
+extra_args: []
+max_shots_per_run: 20
+# A shot whose stages still FAIL after this many runs is given up on and waits for
+# `vaft corrective-worker retry`. `unavailable` is a result, not a failure, and is
+# never retried: most shots have no Thomson upload, and a shot is the kinetic or the
+# electron-only lineage, never both.
+max_attempts: 3
+# Seconds before a run is terminated (SIGTERM, then SIGKILL). null = no limit.
+run_timeout: 21600
+
+# Environment for Snakemake. A non-interactive service shell excludes
+# ~/.local/bin, where hsload/hsget live (routine DEPLOYMENT.md, section 4).
+env:
+  PATH: ${HOME}/.local/bin:${PATH}
+  # $EFIT or $EFITHOME must name the EFIT install the kinetic lineages use.
+  # EFIT: ${HOME}/git/efit/vaft-install/bin/efitd129d
+
+# Which stages to build and judge. Omitted: the whole lineage
+#   thomson, ces, core_profiles, composition, ti_inferred, resistive_zeff,
+#   electron_efit, kinetic_efit
+# A list narrows rule all, the replication rules and the worker's verdict to those
+# stages; a stage needs its upstream (core_profiles needs thomson and ces,
+# composition needs core_profiles, ti_inferred needs composition, resistive_zeff
+# needs ti_inferred, the kinetic lineages need composition). Examples:
+#   stages: [thomson, ces]                       # ingest the uploads only
+#   stages: [thomson, ces, core_profiles]        # measured profiles, no assumptions
+# stages: [thomson, ces]
+
+# While this file exists no run starts. Uploads are still scanned and recorded, so
+# nothing is lost and everything pending runs when the file is removed. Create it
+# while an EFIT or routine-pipeline regeneration owns the same shots: one writer
+# per shot (DEPLOYMENT.md, "One writer per shot").
+hold_file: ${VAFT_FILEDB_DIR}/pipeline/corrective/HOLD

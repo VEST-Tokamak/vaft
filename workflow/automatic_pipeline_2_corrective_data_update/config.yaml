@@ -62,6 +62,11 @@ resistive_zeff:
   max_excluded_current: 0.05   # a state with more j_tor outside its profiles is dropped
   inductive_max: 1.0           # a state with |V_I|/|V_B| at or above this is dropped
 
+plots:
+  # Validation figures per stage (vaft.database.production_qa). All optional; a
+  # figure whose data is absent is recorded as skipped. false schedules none.
+  enabled: true
+
 hsds:
   replicate: false
   attempts: 3
