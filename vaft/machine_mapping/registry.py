@@ -46,6 +46,7 @@ AVAILABILITY_VALUES = frozenset({"Routine", "If-requested", "Retired"})
 LIFECYCLE_VALUES = frozenset({"available", "in_maintenance", "retired"})
 MAPPING_STATUS_VALUES = frozenset({"implemented", "partial", "not_implemented"})
 _IDENTIFIER = re.compile(r"^[a-z][a-z0-9_.-]*$")
+_RAW_FIELDS_SPEC = re.compile(r"^[A-Za-z_][\w.]*:[A-Za-z_]\w*$")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -143,6 +144,13 @@ def validate_diagnostic_registry(
         source = record["source"]
         if not isinstance(source, Mapping) or not isinstance(source.get("type"), str):
             raise DiagnosticRegistryError(f"{context}: source requires a type")
+        raw_fields = source.get("raw_fields")
+        # The resolver behind vaft.machine_mapping.raw_daq_sources (#1742); the
+        # name is checked here, the import by test_raw_sources.
+        if raw_fields is not None and (
+            not isinstance(raw_fields, str) or not _RAW_FIELDS_SPEC.fullmatch(raw_fields)
+        ):
+            raise DiagnosticRegistryError(f"{context}: source.raw_fields must be '<module>:<function>'")
         if record["mapping_status"] == "implemented":
             module = record.get("mapping")
             if not isinstance(module, Mapping) or not module.get("module") or not module.get("entrypoint"):

@@ -46,9 +46,16 @@ from .applicability import ApproximationContract, OrderingAssumption
 __all__ = [
     "CONTRACTS",
     "GROUPS",
+    "MARGIN_LABELS",
     "ORDERING_QUANTITIES",
+    "ORDERING_SPACES",
     "OrderingQuantity",
+    "OrderingSpace",
+    "SYMBOLS",
     "contract",
+    "margin_label",
+    "ordering_threshold",
+    "required_ordering",
 ]
 
 #: Where an ordering quantity lives, in the order the contract map draws them.
@@ -311,3 +318,129 @@ def contract(name: str) -> ApproximationContract:
         return CONTRACTS[name]
     except KeyError:
         raise KeyError(f"no ordering contract {name!r}; known: {', '.join(CONTRACTS)}") from None
+
+
+#: LaTeX symbol of each ordering quantity, shared by the contract map and the ordering-space plots
+SYMBOLS = {
+    "debye_length_over_L": "$\\lambda_D/L$",
+    "omega_over_ion_gyrofrequency": "$\\omega/\\Omega_{ci}$",
+    "lundquist_number": "$S$",
+    "ion_skin_depth_over_a": "$d_i/a$",
+    "inverse_aspect_ratio": "$\\epsilon = a/R_0$",
+    "beta": "$\\beta$",
+    "beta_over_inverse_aspect_ratio": "$\\beta/\\epsilon$",
+    "rho_i_over_LTi": "$\\rho_i/L_{T_i}$",
+    "rho_s_over_LTe": "$\\rho_s/L_{T_e}$",
+    "electron_parallel_knudsen_number": "$\\lambda_e/qR$",
+    "ion_parallel_knudsen_number": "$\\lambda_i/qR$",
+    "electron_magnetization": "$\\Omega_{ce}\\tau_e$",
+    "ion_magnetization": "$\\Omega_{ci}\\tau_i$",
+    "electron_collisionality": "$\\nu_{*e}$",
+    "ion_collisionality": "$\\nu_{*i}$",
+    "ion_orbit_width_over_L": "$\\Delta_{b,i}/L_p$",
+    "sonic_mach_number": "$M = U/v_{ti}$",
+    "alfven_mach_number": "$M_A = U/v_A$",
+    "pressure_anisotropy": "$|p_\\perp - p_\\parallel|/p$",
+    "k_perp_rho_i": "$k_\\perp\\rho_i$",
+    "k_ion_skin_depth": "$k\\,d_i$",
+    "k_electron_skin_depth": "$k\\,d_e$",
+    "omega_tau_i": "$\\omega\\tau_i$",
+    "k_par_over_k_perp": "$k_\\parallel/k_\\perp$",
+    "fluctuation_amplitude": "$\\delta n/n$",
+    "ion_skin_depth_over_layer": "$d_i/\\delta$",
+    "electron_skin_depth_over_layer": "$d_e/\\delta$",
+    "rho_s_over_layer": "$\\rho_s/\\delta$",
+    "tau_evolution_over_tau_alfven": "$\\tau_{evol}/\\tau_A$",
+    "tau_age_over_tau_resistive": "$\\tau_{age}/\\tau_R$",
+    "tau_transport_over_tau_turbulence": "$\\tau_{transp}/\\tau_{turb}$",
+}
+
+
+def _ordering_of(quantity: str) -> Tuple[str, float]:
+    found = {(a.ordering, a.threshold) for c in CONTRACTS.values() for a in c.assumptions if a.quantity == quantity}
+    if not found:
+        raise KeyError(f"no contract orders {quantity!r}")
+    if len(found) > 1:
+        raise ValueError(f"contracts disagree on the ordering of {quantity!r}: {sorted(found)}")
+    return found.pop()
+
+
+def required_ordering(quantity: str) -> str:
+    """``"small"`` or ``"large"``: the side every contract that uses ``quantity`` requires.
+
+    A quantity is ordered the same way, against the same threshold, by every
+    model that orders it; a registry that asked one model for ``x << 1`` and
+    another for ``x >> 1`` would be an error, and this raises on it.
+    """
+    return _ordering_of(quantity)[0]
+
+
+def ordering_threshold(quantity: str) -> float:
+    """The threshold every contract that uses ``quantity`` orders it against (order unity unless sourced)."""
+    return _ordering_of(quantity)[1]
+
+
+#: Names of the margin bands m (decades), by exclusive lower bound. They name how many decades of
+#: scale separation a value has; they are NOT an applicability status. The status stays the
+#: two-sided SUPPORTED / OUTSIDE of :func:`~vaft.validation.applicability.evaluate_contract`,
+#: which has no "marginal" on purpose, and a margin of exactly zero is "outside" as it is OUTSIDE
+#: there. The continuous margin is the result; a band name only reads it (#1627).
+MARGIN_LABELS: Tuple[Tuple[float, str], ...] = ((2.0, "over 2 decades"), (1.0, "1-2 decades"),
+                                                (0.0, "0-1 decade"), (float("-inf"), "outside"))
+
+
+def margin_label(margin: float) -> str:
+    """The :data:`MARGIN_LABELS` band of an ordering margin in decades; ``"unassessed"`` for NaN.
+
+    A band name, not an applicability status (see :data:`MARGIN_LABELS`).
+    """
+    m = float(margin)
+    if m != m:
+        return "unassessed"
+    for bound, label in MARGIN_LABELS:
+        if m > bound:
+            return label
+    return MARGIN_LABELS[-1][1]
+
+
+@dataclass(frozen=True)
+class OrderingSpace:
+    """Two ordering quantities read together, and what each side of each means.
+
+    ``x_reading`` and ``y_reading`` are ``(holds, fails)``: the regime a state
+    is in when that axis's ordering holds, and when it fails.
+    """
+
+    name: str
+    x: str
+    y: str
+    title: str
+    x_reading: Tuple[str, str]
+    y_reading: Tuple[str, str]
+
+    def __post_init__(self) -> None:
+        for axis in (self.x, self.y):
+            if axis not in ORDERING_QUANTITIES:
+                raise KeyError(f"{self.name}: {axis!r} is not an ordering quantity")
+
+
+#: The model-validity spaces of #1627 §3. They are ordering spaces, not stability boundaries.
+#: ``flr_collisional_electron`` is the electron form of ``flr_collisional``, for data without a
+#: trustworthy ion temperature.
+ORDERING_SPACES: Dict[str, OrderingSpace] = {s.name: s for s in (
+    OrderingSpace("resistive_two_fluid", "ion_skin_depth_over_a", "lundquist_number",
+                  "resistive vs two-fluid ordering",
+                  ("single-fluid", "Hall / two-fluid"), ("ideal", "resistive")),
+    OrderingSpace("closure_magnetization", "electron_parallel_knudsen_number", "electron_magnetization",
+                  "fluid closure vs magnetization",
+                  ("local closure", "non-local transport"), ("magnetized", "weakly magnetized")),
+    OrderingSpace("flr_collisional", "ion_parallel_knudsen_number", "rho_i_over_LTi",
+                  "FLR vs kinetic closure",
+                  ("collisional fluid", "kinetic closure"), ("small FLR", "large FLR")),
+    OrderingSpace("flr_collisional_electron", "electron_parallel_knudsen_number", "rho_s_over_LTe",
+                  "FLR vs kinetic closure (electrons)",
+                  ("collisional fluid", "kinetic closure"), ("small FLR", "large FLR")),
+    OrderingSpace("equilibrium_relaxation", "tau_age_over_tau_resistive", "tau_evolution_over_tau_alfven",
+                  "equilibrium vs current relaxation",
+                  ("relaxed current", "unrelaxed current"), ("quasi-static", "dynamic")),
+)}

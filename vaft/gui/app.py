@@ -966,6 +966,25 @@ def build_shell(*, workspace: str | None = None, hosted: bool = False, **app_opt
     return shell
 
 
+def session_page(*, hosted: bool = False, **app_options: Any) -> Callable[[], Any]:
+    """The page factory :func:`serve` hands Panel: one :class:`Shell` per browser session.
+
+    Every session gets its own shell, explorer, loaded data and selection;
+    nothing a reader opens is visible to another (#1863).  When Bokeh
+    discards the session -- the tab closed, or never connected and past the
+    server's unused-session lifetime -- the shell is closed, which releases
+    its figures, its loaded data and any uploaded files.
+    """
+
+    def page() -> Any:
+        pn = require_panel()
+        shell = build_shell(hosted=hosted, **app_options)
+        pn.state.on_session_destroyed(lambda _context: shell.close())
+        return shell.view()
+
+    return page
+
+
 AUTH_MODES = ("auto", "password", "hsds", "none")
 #: The largest upload one browser message may carry (all files of one upload).
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
@@ -1075,18 +1094,13 @@ def serve(
     if prefix:
         options["prefix"] = "/" + prefix.strip("/")
 
-    def page() -> Any:
-        shell = build_shell(hosted=hosted, **app_options)
-        pn.state.on_session_destroyed(lambda _context: shell.close())
-        return shell.view()
-
     return pn.serve(
-        {"/": page}, address=address, port=port, show=show,
+        {"/": session_page(hosted=hosted, **app_options)}, address=address, port=port, show=show,
         websocket_origin=origins, title="VAFT", **options,
     )
 
 
 __all__ = [
     "AUTH_MODES", "BrowserApp", "LOOPBACK", "PLOTLY_CONFIG", "TIME_CONTROLS",
-    "build_app", "build_shell", "parse_shots", "serve",
+    "build_app", "build_shell", "parse_shots", "serve", "session_page",
 ]

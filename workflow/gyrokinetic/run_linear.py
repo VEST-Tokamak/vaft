@@ -225,9 +225,17 @@ def _run_cgyro_job(job: dict, workdir: Path) -> dict:
         native.write_json(workdir / "cgyro_outputs.json")
         if result.ok:
             ods = ODS(consistency_check=False)
+            from vaft.code.gacode.cgyro import locality_report
+
+            # Linear runs have no turbulence to correlate: rho*, L_x/a and the profile
+            # scale lengths are recorded, the locality verdict stays "unknown".
+            locality = locality_report(job["local"], native)
+            record["locality"] = {k: locality[k] for k in (
+                "rho_star", "L_x_over_a", "scale_lengths_over_a", "limiting_scale",
+                "distance_to_edge_over_a")}
             report = gyrokinetics_local_from_cgyro(
                 ods, job["local"], native, provenance=result.provenance,
-                time=job["state_key"]["time_efit_s"])
+                time=job["state_key"]["time_efit_s"], locality=locality)
             if report["written"]:
                 save_ods(ods, workdir / "gyrokinetics_local.json")
             record["imas_skipped"] = report["skipped"]

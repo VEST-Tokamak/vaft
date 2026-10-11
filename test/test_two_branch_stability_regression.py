@@ -218,7 +218,12 @@ def test_neither_branch_is_reachable_by_loading_the_parent():
     or either stability product.
     """
     assert _sources.resolve("main") == "main"
-    assert [entry.name for entry in _sources.children("main")] == ["main/chease"]
+    # Besides the refinement, `main` holds only the transitional per-configuration
+    # TGLF sources (#1900), which are siblings of `main/chease`, not part of it.
+    lasting = [entry.name for entry in _sources.children("main") if entry.transitional_until is None]
+    assert lasting == ["main/chease"]
+    assert all(entry.name.startswith("main/tglf-") for entry in _sources.children("main")
+               if entry.transitional_until is not None)
     assert {entry.name for entry in _sources.children("main/chease")} >= {
         "main/chease/dcon-peeling",
         "main/chease/dcon-kink",

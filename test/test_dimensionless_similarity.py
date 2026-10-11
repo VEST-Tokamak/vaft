@@ -78,7 +78,10 @@ def test_similarity_axes_are_distinct_from_every_other_registered_quantity():
 
 def test_existing_projections_are_unchanged_by_the_new_field():
     assert ops.get_projection("hugill").interpretation is None
-    assert ops.get_projection("troyon").default_boundaries == ("troyon",)
+    troyon = ops.get_projection("troyon")
+    assert troyon.interpretation is None
+    # the Troyon plane leads with the Troyon reference; its literature beta_N references follow (#1691)
+    assert troyon.default_boundaries[0] == "troyon"
 
 
 def test_interpretation_rejects_unknown_vocabulary_and_duplicate_conventions():
