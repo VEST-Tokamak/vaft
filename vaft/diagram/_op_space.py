@@ -83,6 +83,18 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
             "toroidal_beta", "beta_T", "%",
             "Toroidal beta 2 mu0 <p> / B_T^2, in percent.",
         ),
+        # the aspect-ratio-robust companions of #1691 stage 2B (definitions in vaft.formula.equilibrium)
+        _b.BoundaryQuantity(
+            "volume_beta", "beta_B", "%",
+            "Volume beta 2 mu0 int p dV / int B^2 dV inside the LCFS, B the total equilibrium field "
+            "(equilibrium.beta_volume_from_p_B2), in percent; not the toroidal beta 2 mu0 <p> / B_T^2.",
+        ),
+        _b.BoundaryQuantity(
+            "normalized_volume_beta", "<beta_N>", "% m T/MA",
+            "beta_B[%] a[m] B_T[T] / I_p[MA] (equilibrium.beta_normal_from_beta_volume), with the a and B_T of "
+            "normalized_current; Menard's <beta_N>. Not beta_N, whose beta is the toroidal beta.",
+        ),
+        _registered("takizuka_2004_lh", "aspect_ratio"),
     )
 }
 
@@ -107,6 +119,9 @@ class OperationalProjection:
     ``diagram`` is the :mod:`vaft.diagram` builder for the reference picture, if any.
     ``interpretation`` states what the space is for and the conventions of its
     axes (#1624); see :mod:`vaft.diagram._projection_interpretation`.
+    ``equality_line`` marks axes that are two normalizations of one physical
+    ratio, such as $\\beta_N$ and $\\langle\\beta_N\\rangle$: the renderer draws
+    $y = x$ as a guide, a comparison and not a boundary.
     """
 
     key: str
@@ -119,6 +134,7 @@ class OperationalProjection:
     diagram: Optional[str] = None
     ratio: Optional[_b.BoundaryQuantity] = None
     interpretation: Optional[ProjectionInterpretation] = None
+    equality_line: bool = False
 
 
 @dataclass(frozen=True)
@@ -178,6 +194,61 @@ _register(OperationalProjection(
     ),
     diagram="troyon",
     ratio=_q("normalized_beta"),
+))
+
+# Stage 2B of #1691: the same plane with the volume beta, and the two normalizations against each other and
+# against aspect ratio. Every registered beta_N reference targets normalized_beta (toroidal beta), so none is
+# drawn on a volume-beta axis: that would be the substitution #1691 forbids.
+_MENARD_ASPECT_RATIO = ("J. E. Menard et al., Phys. Plasmas 11 (2004) 639 (PPPL-3908): the <beta_N> definition",
+                        "J. E. Menard et al., PPPL-3779, Fig. 3: optimized no-wall beta_N rises from 3.15 at A = 10 "
+                        "to 5.85 at A = 1.25 while <beta_N> stays near 3.2 (not drawn: no curve is registered)")
+
+_register(OperationalProjection(
+    key="volume_beta_in",
+    title="Volume beta against normalised current",
+    x=_q("normalized_current"),
+    y=_q("volume_beta"),
+    references=_MENARD_ASPECT_RATIO,
+    assumptions=(
+        "y is beta_B = 2 mu0 int p dV / int B^2 dV, not the toroidal beta of the Troyon plane; <beta_N> is the "
+        "ratio of the axes",
+        "the registered beta_N references (Troyon and the experimental levels) are stated on normalized_beta and "
+        "are not drawn here",
+    ),
+    ratio=_q("normalized_volume_beta"),
+))
+
+_register(OperationalProjection(
+    key="beta_n_normalizations",
+    title="Normalized beta: toroidal-field against total-field normalization",
+    x=_q("normalized_volume_beta"),
+    y=_q("normalized_beta"),
+    references=_MENARD_ASPECT_RATIO,
+    assumptions=(
+        "both share I_p, a and B_T; they differ only in the beta (2 mu0 <p> over B_T^2 or over <B^2>)",
+        "y = x is drawn as a guide: the distance above it is how much the toroidal-field normalization "
+        "adds at this aspect ratio and beta",
+    ),
+    equality_line=True,
+))
+
+_register(OperationalProjection(
+    key="aspect_ratio_beta_n",
+    title="Normalized beta against aspect ratio",
+    x=_q("aspect_ratio"),
+    y=_q("normalized_beta"),
+    references=_MENARD_ASPECT_RATIO,
+    assumptions=("no aspect-ratio dependent beta_N limit is registered; the Troyon level does not depend on A in "
+                 "its entry and is not a default here",),
+))
+
+_register(OperationalProjection(
+    key="aspect_ratio_volume_beta_n",
+    title="Total-field normalized beta against aspect ratio",
+    x=_q("aspect_ratio"),
+    y=_q("normalized_volume_beta"),
+    references=_MENARD_ASPECT_RATIO,
+    assumptions=("the companion of aspect_ratio_beta_n with <beta_N>; no limit on <beta_N> is registered",),
 ))
 
 _register(OperationalProjection(

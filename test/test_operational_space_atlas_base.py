@@ -55,3 +55,19 @@ def test_b0_is_paired_with_the_slice_on_the_equilibrium_time_base(product):
             assert "b0_t" not in refused and "normalized_current" not in refused
     finally:
         product["equilibrium.vacuum_toroidal_field.b0"] = b0
+
+
+def test_the_volume_beta_columns_share_the_normalization_of_the_troyon_plane(product):
+    # #1691 stage 2B: <beta_N> must be the ratio of the plotted axes, beta_B / I_N, or the companion
+    # Troyon plane would read a different normalization than its own axes
+    beb = _build_efit_base()
+    times = np.asarray(product["equilibrium.time"], dtype=float)
+    reconstructed = [i for i in range(times.size) if f"equilibrium.time_slice.{i}.boundary.outline.r" in product]
+    row = beb._row(product, float(times[reconstructed[len(reconstructed) // 2]]))
+    assert row["base_status"] == "valid"
+    assert np.isfinite(row["volume_beta"]) and row["volume_beta"] > 0
+    assert row["normalized_volume_beta"] == pytest.approx(row["volume_beta"] / row["normalized_current"])
+    assert row["aspect_ratio"] == pytest.approx(row["major_radius_geo_m"] / row["minor_radius_m"])
+    # at VEST's aspect ratio the total field energy is not B_0^2: the two betas are different numbers
+    assert abs(row["volume_beta"] / row["toroidal_beta"] - 1.0) > 0.05
+    assert {"volume_beta", "normalized_volume_beta", "aspect_ratio"} <= set(beb.UNITS)
