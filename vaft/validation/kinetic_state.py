@@ -455,19 +455,9 @@ def integrated_pressure_ratio(equilibrium: Any, index: int, rho_tor_norm: np.nda
 # ion temperature from the pressure partition (#1426)
 # ---------------------------------------------------------------------------
 
-#: Equilibrium lineages whose pressure carries information independent of the
-#: ion temperature being inferred.  ``electron_kinetic`` is excluded: its
-#: pressure was fitted to ``n_e T_e (1 + Ti/Te)`` with Ti/Te *assumed*, so
-#: inverting it returns the assumption (#1426 section 6).
-INDEPENDENT_LINEAGES = ("magnetics",)
-
-#: The flags that void a pressure-partition point: a flagged point has no T_i.
-TI_FLAGS = ("p_i_nonpositive", "p_i_not_significant", "non_finite_input")
-
-#: Notes a point can carry that leave its T_i in place.  ``sigma_unavailable``:
-#: an input uncertainty is missing, so neither sigma(T_i) nor the significance
-#: test exists for that point.
-TI_NOTES = ("sigma_unavailable",)
+# The lineage rule and the flag vocabularies now live with the kernel in
+# vaft.process.kinetic_closure (#1842); these names stay importable from here.
+from vaft.process.kinetic_closure import INDEPENDENT_LINEAGES, TI_FLAGS, TI_NOTES  # noqa: E402,F401
 
 
 def ion_composition(z_eff: float = 2.0, impurity: str = "C") -> dict[str, Any]:
@@ -529,78 +519,19 @@ def pressure_sigma(pressure: np.ndarray, neighbours: Sequence[np.ndarray] = (), 
     return sigma, basis
 
 
-def infer_ti_pressure_partition(p_eq: Any, n_e: Any, t_e: Any, *, composition: Mapping[str, Any],
-                                sigma_p_eq: Any, sigma_n_e: Any, sigma_t_e: Any,
-                                equilibrium_lineage: str) -> dict[str, Any]:
-    """T_i from ``p_i = p_eq - e n_e T_e`` and ``T_i = p_i / (e sum n_i)``.
+def infer_ti_pressure_partition(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    """Moved to :func:`vaft.process.kinetic_closure.infer_ti_pressure_partition` (#1842).
 
-    All arrays are on the same points: ``p_eq`` [Pa], ``n_e`` [m^-3], ``t_e`` [eV]
-    and their one-sigma uncertainties.  The ion density is
-    ``composition["ion_density_per_electron"] * n_e`` with a common ion
-    temperature, so ``T_i = p_eq / (e f n_e) - T_e / f``.
-
-    The uncertainty is propagated linearly through that form, which keeps the
-    n_e correlation between ``p_e`` and the ion density::
-
-        dT_i/dp_eq = 1/(e f n_e), dT_i/dn_e = -p_eq/(e f n_e^2), dT_i/dT_e = -1/f
-
-    Points are **flagged, never filled**: ``p_i <= 0`` (``p_i_nonpositive``) and
-    ``p_i < sigma(p_i)`` (``p_i_not_significant``) get ``T_i = NaN``.
-
-    An input uncertainty that is missing (NaN) does not void the point: its
-    T_i stands, ``sigma_t_i`` is NaN, the significance test is skipped, and the
-    point carries the note ``sigma_unavailable`` (:data:`TI_NOTES`).
-
-    The inference is refused (``eligible = False``) unless the equilibrium
-    lineage is in :data:`INDEPENDENT_LINEAGES`: a pressure fitted with an
-    assumed Ti/Te returns the assumption.  **The guard trusts the declared
-    lineage**; the equilibrium products carry no machine-readable record of
-    one, so a caller must derive ``equilibrium_lineage`` from *where the
-    pressure came from* (the FileDB stage it loaded), never from intent.  The
-    result is an *inferred* quantity, never a measurement.
-
-    Scalars broadcast against arrays; every input is brought to one shape.
+    The same inference, unchanged; this name only warns and delegates so existing
+    callers keep working.  The lineage guard moved with it.
     """
-    if equilibrium_lineage not in INDEPENDENT_LINEAGES:
-        return {"eligible": False, "origin": "inferred", "method": "equilibrium_pressure_partition",
-                "reason": (f"circular: the {equilibrium_lineage!r} equilibrium pressure was reconstructed with an "
-                           "assumed Ti/Te, so partitioning it returns that assumption")}
-    p_eq, n_e, t_e, s_p, s_n, s_t = np.broadcast_arrays(
-        *(np.asarray(x, dtype=float) for x in (p_eq, n_e, t_e, sigma_p_eq, sigma_n_e, sigma_t_e)))
-    fraction = float(composition["ion_density_per_electron"])
-    p_e = _ELEMENTARY_CHARGE * n_e * t_e
-    p_i = p_eq - p_e
-    sigma_p_e = _ELEMENTARY_CHARGE * np.hypot(t_e * s_n, n_e * s_t)
-    sigma_p_i = np.hypot(s_p, sigma_p_e)
-    with np.errstate(divide="ignore", invalid="ignore"):
-        t_i = p_i / (_ELEMENTARY_CHARGE * fraction * n_e)
-        d_p = 1.0 / (_ELEMENTARY_CHARGE * fraction * n_e)
-        d_n = -p_eq / (_ELEMENTARY_CHARGE * fraction * n_e ** 2)
-        d_t = -1.0 / fraction
-        sigma_t_i = np.sqrt((d_p * s_p) ** 2 + (d_n * s_n) ** 2 + (d_t * s_t) ** 2)
-        ti_te = t_i / t_e
-    flags: list[list[str]] = []
-    for k in range(p_eq.size):
-        point: list[str] = []
-        values = (p_eq.flat[k], n_e.flat[k], t_e.flat[k])
-        sigmas_known = all(math.isfinite(v) for v in (s_p.flat[k], s_n.flat[k], s_t.flat[k]))
-        if not all(math.isfinite(v) for v in values) or n_e.flat[k] <= 0 or t_e.flat[k] <= 0:
-            point.append("non_finite_input")
-        elif p_i.flat[k] <= 0:
-            point.append("p_i_nonpositive")
-        elif sigmas_known and p_i.flat[k] < sigma_p_i.flat[k]:
-            point.append("p_i_not_significant")
-        if not point and not sigmas_known:
-            point.append("sigma_unavailable")
-        flags.append(point)
-    bad = np.array([any(f in TI_FLAGS for f in point) for point in flags], dtype=bool).reshape(p_eq.shape)
-    t_i = np.where(bad, np.nan, t_i)
-    sigma_t_i = np.where(bad, np.nan, sigma_t_i)
-    ti_te = np.where(bad, np.nan, ti_te)
-    return {
-        "eligible": True, "origin": "inferred", "method": "equilibrium_pressure_partition",
-        "equilibrium_lineage": equilibrium_lineage,
-        "assumptions": ("common ion temperature", composition["composition_source"]),
-        "p_e": p_e, "p_i": p_i, "sigma_p_i": sigma_p_i,
-        "t_i": t_i, "sigma_t_i": sigma_t_i, "ti_te": ti_te, "flags": flags,
-    }
+    warnings.warn(
+        "vaft.validation.kinetic_state.infer_ti_pressure_partition moved to "
+        "vaft.process.kinetic_closure.infer_ti_pressure_partition (issue #1842); "
+        "import it from there.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from vaft.process.kinetic_closure import infer_ti_pressure_partition as _infer
+
+    return _infer(*args, **kwargs)

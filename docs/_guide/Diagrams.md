@@ -1795,7 +1795,7 @@ Measured electron profiles and the equilibrium resolved into an ion temperature,
 | Electron profiles | measured | $T_e(\rho),\ n_e(\rho)$ |  | `core_profiles.profiles_1d[:].electrons.{temperature, density_thermal}` |
 | Equilibrium | reconstructed | $p_{\mathrm{eq}}(\psi),\ r(\psi)$ |  | `equilibrium.time_slice[:].profiles_1d.{pressure, r_inboard, r_outboard}` |
 | Measured ion temperature (CX) | measured | $T_i^{\mathrm{CX}}(\rho)$ |  | `core_profiles.profiles_1d[:].ion[:].temperature` |
-| Pressure-partition ion temperature | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Pressure-partition ion temperature | inferred |  | `vaft.process.kinetic_closure.infer_ti_pressure_partition` |  |
 | Temperature ratio | model assumption / prior |  | `vaft.machine_mapping.core_profiles.vest_core_profiles_policy` |  |
 | Ion-temperature branch selection | derived | $\mathrm{measured} \succ \mathrm{pressure\ partition} \succ \mathrm{ratio}$ | `vaft.process.transport_state.resolve_transport_state` |  |
 | Zeff and one impurity species | model assumption / prior (enters Species resolution) | $Z_{\mathrm{eff}},\ Z_I\ (\mathrm{default\ C})$ |  | `core_profiles.profiles_1d[:].zeff` |
@@ -2096,7 +2096,7 @@ Where inference sits: diagnostics and the equilibrium give reconstructed but inc
 | Reconstructed kinetic profiles | reconstructed | $T_e(\rho),\ n_e(\rho)\ (\mathrm{fitted}),\ [T_i(\rho)], p_{\mathrm{eq}}(\rho),\ q(\rho)$ |  | `core_profiles.profiles_1d[:].electrons` |
 | Fitting assumptions | model choice / convention (enters Reconstructed kinetic profiles) | $\mathrm{polynomial\ \|\ core\text{-}poly/edge\text{-}exp\ \|\ GP}, \mathrm{order}\ N,\ x = \rho_{\mathrm{tor},N}\ \mathrm{or}\ \psi_N, T, n > 0,\ \sigma\text{-}\mathrm{weighted}$ | `vaft.process.profile.profile_fitting_thomson_scattering` |  |
 | Closure assumptions | model assumption / prior (enters Reconstructed kinetic profiles) | $\mathrm{common}\ T_i,\ \mathrm{impurity\ species},\ Z_{\mathrm{eff}}, \sigma_\parallel:\ \mathrm{Spitzer\ or\ neoclassical},\ \ln\Lambda$ |  |  |
-| Thermodynamic closure | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Thermodynamic closure | inferred |  | `vaft.process.kinetic_closure.infer_ti_pressure_partition` |  |
 | Impurity closure | inferred |  | `vaft.process.impurity.resolve_impurity_composition` |  |
 | Resistive closure | inferred | $V_R^{\mathrm{obs}} \to Z_{\mathrm{eff}}^{\mathrm{res}}\ (\mathrm{scalar}), \sigma_\parallel:\ \mathrm{Spitzer\ \|\ neoclassical\ (Sauter,\ Redl)}$ | `vaft.process.resistive_zeff.infer_resistive_zeff` |  |
 | Completed kinetic profiles | derived | $n_e, T_e, T_i, n_s, Z_{\mathrm{eff}}, \mathrm{each\ with\ origin=\ldots;\ method=\ldots}$ |  | `core_profiles.profiles_1d[:].{electrons, ion[:], zeff}` |
@@ -2129,7 +2129,7 @@ Provenance propagates: a composition assumption fixes the ion densities, which s
 | Equilibrium pressure | reconstructed | $p_{\mathrm{eq}}(\psi)\ \ (\mathrm{independent\ lineage})$ |  | `equilibrium.time_slice[:].profiles_1d.pressure` |
 | Impurity source | model assumption / prior (enters Ion densities) | $\mathrm{measured} \succ \mathrm{explicit} \succ \mathrm{derived} \succ \mathrm{assumed}$ |  |  |
 | Ion densities | derived |  | `vaft.process.impurity.resolve_impurity_composition` |  |
-| Pressure-partition ion temperature | inferred |  | `vaft.validation.kinetic_state.infer_ti_pressure_partition` |  |
+| Pressure-partition ion temperature | inferred |  | `vaft.process.kinetic_closure.infer_ti_pressure_partition` |  |
 | Ion pressure | derived | $p_i(\rho),\ dp_i/dr$ |  |  |
 | Normalized gradients | derived | $a/L_{T_i},\ a/L_{n_i},\ T_i/T_e$ | `vaft.code.gacode.tglf.prepare_tglf_input` |  |
 | ExB shear | model assumption / prior (enters Gyrokinetic input) | $\gamma_E = 0\ \ (\mathrm{assumed})$ |  |  |

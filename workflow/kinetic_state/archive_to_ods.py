@@ -20,7 +20,7 @@ writers** wherever one exists so that a drift in a writer breaks the tests:
   replay itself needs the tables, which tests must not download).  It writes
   the diluted main ion, one bundled entry per element with its charge-state
   densities, ``zeff`` and their ``origin=derived`` records;
-* ``T_i`` is :func:`vaft.validation.kinetic_state.infer_ti_pressure_partition`,
+* ``T_i`` is :func:`vaft.process.kinetic_closure.infer_ti_pressure_partition`,
   point by point, exactly as the notebooks call it, with its record spelled by
   :func:`vaft.machine_mapping.core_profiles.inferred_ti_text`; written into
   ``ion[0]`` before the composition writer, which carries it onto the
@@ -158,7 +158,7 @@ def _composition(s: dict, ne: np.ndarray, rho: np.ndarray, volume: np.ndarray) -
 
 def _partition(peq, ne, te, comp, lineage):
     """T_i by pressure partition, point by point, as the notebooks call it."""
-    from vaft.validation.kinetic_state import infer_ti_pressure_partition
+    from vaft.process.kinetic_closure import infer_ti_pressure_partition
 
     rho_size = ne.size
     ti = np.full(rho_size, np.nan)
