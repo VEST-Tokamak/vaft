@@ -667,10 +667,11 @@ def generate_constraints_ods(
         for i in anchored:
             EQ[f"time_slice.{i}.constraints.diamagnetic_flux.weight"] = 0.0
         if anchored:
+            anchor_times = np.asarray(EQ["time"], dtype=float)
+            listed = ", ".join(f"{anchor_times[i]:.4f}" for i in anchored)
             warnings.warn(
                 f"shot {shotnumber}: the diamagnetic flux is zero by construction at its baseline "
-                f"anchors and after the window end; its row is left out at "
-                f"{', '.join(f'{float(EQ['time'][i]):.4f}' for i in anchored)} s",
+                f"anchors and after the window end; its row is left out at {listed} s",
                 RuntimeWarning,
                 stacklevel=2,
             )
