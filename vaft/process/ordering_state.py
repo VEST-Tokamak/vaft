@@ -999,6 +999,7 @@ def ordering_inputs_from_ods(ods, time, *, time_tolerance=_TIME_TOLERANCE_S, z_e
     if ok.sum() > t_ok.size:
         notes.append("repeated equilibrium slice times: the first I_p of each time is used for dI_p/dt")
     if np.isfinite(ip_history[eq_index]) and t_ok.size >= 2:
+        # anti-alias: point evaluation -- dI_p/dt read at one slice time, not a resampled series.
         current_rate = abs(float(np.interp(eq_time, t_ok, np.gradient(ip_ok, t_ok))))
     else:
         notes.append("dI_p/dt needs at least two equilibrium slices with I_p at distinct times")
@@ -1059,6 +1060,7 @@ def ordering_inputs_from_ods(ods, time, *, time_tolerance=_TIME_TOLERANCE_S, z_e
         r = rho_sorted * a
         finite = np.isfinite(q_rho) & np.isfinite(q)
         q_order = np.argsort(q_rho[finite])
+        # anti-alias: spatial -- the equilibrium q onto the core_profiles rho grid.
         q_on = (np.interp(rho_sorted, q_rho[finite][q_order], np.abs(q[finite])[q_order], left=np.nan, right=np.nan)
                 if finite.sum() >= 2 else np.full(rho_sorted.shape, np.nan))
         t_i_on = t_i_profile[order] if t_i_profile is not None and t_i_profile.size == rho.size else None
