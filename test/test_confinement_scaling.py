@@ -285,5 +285,72 @@ class ConfinementScalingTests(unittest.TestCase):
         with self.assertRaises(KeyError):
             confinement_scaling_basis("not_a_scaling")
 
+
+class ITPA20ScalingTests(unittest.TestCase):
+    """ITPA20 and ITPA20-IL, Verdoolaege et al., Nucl. Fusion 61 (2021) 076006."""
+
+    # The paper's ITER baseline inductive Q = 10 point (Sec. 4, before table 6).
+    ITER = dict(I_p=15e6, B_t=5.3, n_e=10.3e19, P_loss=87e6, R=6.2, delta=0.48,
+                kappa=1.7, epsilon=0.32, M=2.5)
+
+    def _tau(self, scaling, **changes):
+        return confinement_time_from_engineering_parameters(scaling=scaling, **{**self.ITER, **changes})
+
+    def test_iter_predictions_reproduce_the_paper(self):
+        # Eq. (7) ITPA20: 3.07 s at P_l,th = 87 MW, 2.79 s at 100 MW; eq. (5)
+        # ITPA20-IL: 2.90 s and 2.65 s. Both quoted with two decimals from the
+        # unrounded fits (tables 16 and 10); the printed, rounded coefficients
+        # stored here give 3.082, 2.807, 2.891 and 2.643 s (within 0.7 %).
+        for scaling, p_loss, paper in (("ITPA20", 87e6, 3.07), ("ITPA20", 100e6, 2.79),
+                                       ("ITPA20_IL", 87e6, 2.90), ("ITPA20_IL", 100e6, 2.65)):
+            self.assertAlmostEqual(self._tau(scaling, P_loss=p_loss), paper, delta=0.007 * paper)
+        # Same point, IPB98(y,2): the paper's 3.62 s.
+        self.assertAlmostEqual(self._tau("H98y2"), 3.62, delta=0.005)
+
+    def test_values_match_the_hand_written_power_laws(self):
+        ip, bt, n, p, r, d, k, e, m = 1.2, 0.55, 4.2, 4.0, 0.85, 0.35, 1.8, 0.62, 2.0
+        kw = dict(I_p=ip * 1e6, B_t=bt, n_e=n * 1e19, P_loss=p * 1e6, R=r, delta=d, kappa=k, epsilon=e, M=m)
+        itpa20 = (0.053 * ip**0.98 * bt**0.22 * n**0.24 * p**-0.669 * r**1.71 * (1 + d)**0.36
+                  * k**0.80 * e**0.35 * m**0.20)
+        itpa20_il = (0.067 * ip**1.29 * bt**-0.13 * n**0.147 * p**-0.644 * r**1.19 * (1 + d)**0.56
+                     * k**0.67 * m**0.30)
+        np.testing.assert_allclose(
+            confinement_time_from_engineering_parameters(scaling="ITPA20", **kw), itpa20, rtol=1e-12)
+        np.testing.assert_allclose(
+            confinement_time_from_engineering_parameters(scaling="ITPA20_IL", **kw), itpa20_il, rtol=1e-12)
+
+    def test_exponent_signs_and_the_missing_epsilon_of_itpa20_il(self):
+        # Doubling one input scales tau by 2**alpha: the sign of every exponent.
+        for scaling, signs in (("ITPA20", {"I_p": 1, "B_t": 1, "n_e": 1, "P_loss": -1, "R": 1,
+                                           "kappa": 1, "epsilon": 1, "M": 1}),
+                               ("ITPA20_IL", {"I_p": 1, "B_t": -1, "n_e": 1, "P_loss": -1, "R": 1,
+                                              "kappa": 1, "epsilon": 0, "M": 1})):
+            base = self._tau(scaling)
+            for name, sign in signs.items():
+                ratio = self._tau(scaling, **{name: 2 * self.ITER[name]}) / base
+                self.assertEqual(int(np.sign(np.log(ratio).round(12))), sign, (scaling, name))
+        # Triangularity enters as (1 + delta): delta = 0 is allowed, a negative
+        # delta lowers tau, 1 + delta <= 0 is refused.
+        self.assertAlmostEqual(self._tau("ITPA20", delta=0.0) / self._tau("ITPA20"), 1.48**-0.36, places=12)
+        self.assertLess(self._tau("ITPA20_IL", delta=-0.3), self._tau("ITPA20_IL", delta=0.0))
+        for bad in (-1.0, -1.5, float("nan")):
+            with self.assertRaisesRegex(ValueError, r"delta must satisfy 1 \+ delta > 0, got"):
+                self._tau("ITPA20", delta=bad)
+
+    def test_a_triangularity_scaling_requires_delta_and_others_ignore_it(self):
+        kw = {key: value for key, value in self.ITER.items() if key != "delta"}
+        for scaling in ("ITPA20", "ITPA20_IL"):
+            with self.assertRaisesRegex(ValueError, "delta"):
+                confinement_time_from_engineering_parameters(scaling=scaling, **kw)
+        self.assertEqual(confinement_time_from_engineering_parameters(scaling="H98y2", **kw),
+                         self._tau("H98y2", delta=-5.0))
+
+    def test_basis_is_thermal_on_the_thermal_loss_power(self):
+        for scaling in ("ITPA20", "ITPA20_IL"):
+            basis = confinement_scaling_basis(scaling)
+            self.assertEqual((basis.energy_basis, basis.power_basis), ("thermal", "p_loss"))
+            self.assertIn("radiation", basis.power_source)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -224,6 +224,28 @@ PROBE_WEIGHT_INDEX = {"inboard": 3, "side": 4, "outboard": 5}
 FLUX_WEIGHT_INDEX = {"inboard": 6, "outboard": 7}
 
 
+#: Constraint inputs EFIT cannot be run without: BTOR (from the TF coil
+#: current) and the plasma current. Diamagnetic flux is optional (#993).
+REQUIRED_CONSTRAINT_INPUTS = {
+    "tf.b_field_tor_vacuum_r.data": "vacuum toroidal field R*B_t (TF coil current)",
+    "magnetics.ip.0.data": "plasma current",
+}
+
+
+class MissingConstraintInputError(ValueError):
+    """A required EFIT constraint input is absent from the ODS.
+
+    Raised before anything is read: OMAS answers a read of a missing path with
+    an empty ODS rather than an error, which surfaced as ``float * ODS``
+    deep in the arithmetic (42675, #1799).
+    """
+
+    def __init__(self, missing: dict[str, str]):
+        self.missing = dict(missing)
+        listed = "; ".join(f"{path} ({what})" for path, what in self.missing.items())
+        super().__init__(f"EFIT constraints need inputs this ODS does not have: {listed}")
+
+
 @dataclass(frozen=True)
 class ConstraintErrors:
     """The relative error assigned to each constraint family.
@@ -458,6 +480,10 @@ def generate_constraints_ods(
                 "table for this era (workflow/efit_tables/regenerate_legacy_table.py "
                 f"--era {expected_table_era}) or analyse a shot from {declared!r}."
             )
+
+    missing_inputs = {path: what for path, what in REQUIRED_CONSTRAINT_INPUTS.items() if path not in ods}
+    if missing_inputs:
+        raise MissingConstraintInputError(missing_inputs)
 
     # coilset_opt
     # "16_coils" : PF1 - 8 segments + PF5, 6, 9, 10 Upper and Lower Segments
@@ -1409,5 +1435,6 @@ __all__ = [
     "apply_channel_decisions",
     "generate_constraints_ods",
     "generate_kfile",
+    "MissingConstraintInputError",
     "diamagnetic_anchored_slices",
 ]
