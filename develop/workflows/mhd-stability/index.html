@@ -384,7 +384,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>270398d</code>. What is described
+  <code>99bec43</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -658,6 +658,25 @@ counted in the reader’s <code class="language-plaintext highlighter-rouge">sum
 </code></pre></div></div>
 
 <p><code class="language-plaintext highlighter-rouge">notebooks/stability_atlas_population.ipynb</code> re-runs it from <code class="language-plaintext highlighter-rouge">$VAFT_ATLAS_DIR</code>.</p>
+
+<h3 id="local-mhd-criteria-from-one-equilibrium">Local MHD criteria from one equilibrium</h3>
+
+<p><code class="language-plaintext highlighter-rouge">vaft.process.local_mhd_criteria</code> evaluates, from one reconstructed equilibrium and with no stability code:</p>
+<ul>
+  <li>Mercier <code class="language-plaintext highlighter-rouge">D_I</code> and GGJ <code class="language-plaintext highlighter-rouge">D_R</code> (DCON’s formulas, checked against DCON’s own output);</li>
+  <li>the normal and geodesic field-line curvature and the local shear, along flux surfaces and in R–Z;</li>
+  <li>per-surface s–α in the #1720 normalisation (#1902).</li>
+</ul>
+
+<p>The renderers in <code class="language-plaintext highlighter-rouge">vaft.plot.local_mhd_criteria</code> draw each against its own criterion: <code class="language-plaintext highlighter-rouge">D &gt; 0</code> is unstable, and the s–α boundary is the circular model’s, labelled as such.</p>
+
+<!-- docs-snippet: skip fragment (ods is a reconstructed equilibrium the reader supplies) -->
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.process.local_mhd_criteria</span> <span class="kn">import</span> <span class="n">mercier_ggj_from_ods</span><span class="p">,</span> <span class="n">s_alpha_from_ods</span>
+<span class="kn">from</span> <span class="n">vaft.plot.local_mhd_criteria</span> <span class="kn">import</span> <span class="n">local_mhd_criteria_profile_interchange</span><span class="p">,</span> <span class="n">local_mhd_criteria_s_alpha</span>
+<span class="n">profile</span> <span class="o">=</span> <span class="nf">mercier_ggj_from_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>            <span class="c1"># D_I, D_R, H per surface
+</span><span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="nf">local_mhd_criteria_profile_interchange</span><span class="p">(</span><span class="n">profile</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="nf">local_mhd_criteria_s_alpha</span><span class="p">(</span><span class="nf">s_alpha_from_ods</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+</code></pre></div></div>
 
 <hr />
 
@@ -1157,7 +1176,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-deprecated-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper (deprecated), and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#internal-inductance-against-edge-q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Internal inductance against edge q</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atlas-population-histograms" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atlas population histograms</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#density-limit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Density limit</a></li><li class="page-toc-item page-toc-level-2"><a href="#the-combined-margin-helper-deprecated-and-its-one-trap" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The combined margin helper (deprecated), and its one trap</a></li><li class="page-toc-item page-toc-level-2"><a href="#operational-space-traces" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Operational-space traces</a></li><li class="page-toc-item page-toc-level-2"><a href="#internal-inductance-against-edge-q" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Internal inductance against edge q</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#atlas-population-histograms" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Atlas population histograms</a></li><li class="page-toc-item page-toc-level-3"><a href="#local-mhd-criteria-from-one-equilibrium" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Local MHD criteria from one equilibrium</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#configure-prepare-run" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configure, prepare, run</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#3-d-coil-input-for-any-machine" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3-D coil input for any machine</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#directory-layout-and-outputs" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Directory layout and outputs</a></li><li class="page-toc-item page-toc-level-2"><a href="#geqdsk-headers" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">GEQDSK headers</a></li></ul>
     </nav>
 </aside>
 
@@ -1275,7 +1294,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 18:38:44 +0000"
+        "time": "2026-10-11 19:10:43 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
