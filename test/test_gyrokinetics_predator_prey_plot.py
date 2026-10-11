@@ -71,7 +71,34 @@ def test_the_phase_space_shows_the_fitted_structure_from_the_formula(data):
     assert star.get_xdata()[0] == pytest.approx(n_star) and star.get_ydata()[0] == pytest.approx(e_star)
     labels = {str(line.get_label()) for line in axes.get_lines()}
     assert {"LV fit", r"$\dot N = 0$", r"$\dot E = 0$"} <= labels
-    assert axes.collections                                       # trajectory + vector field
+    from matplotlib.quiver import Quiver
+
+    assert any(isinstance(c, Quiver) for c in axes.collections)
+
+
+@pytest.mark.parametrize("log", [True, False])
+def test_the_vector_field_points_along_the_model_flow_on_screen(data, log):
+    """Each arrow's screen direction is the model's (dN/dt, dE/dt) mapped through the
+    axes' scale: same signs, and the screen slope matches the scaled ratio."""
+    from matplotlib.quiver import Quiver
+
+    _, n, e, fit, _ = data
+    _, axes = gkplot.plot_predator_prey_phase_space(n, e, fit=fit, log=log)
+    quiver = [c for c in axes.collections if isinstance(c, Quiver)][0]
+    gn, ge = quiver.X, quiver.Y
+    dn, de = pp.predator_prey_rhs(gn, ge, fit.gamma_eff, fit.coupling_suppression,
+                                  fit.coupling_drive, fit.gamma_zonal)
+    assert np.all(np.sign(quiver.U) == np.sign(dn))
+    assert np.all(np.sign(quiver.V) == np.sign(de))
+    # screen direction through the axes transform: a tiny step along the flow
+    trans = axes.transData
+    k = len(gn) // 2
+    h = 1e-6 * min(gn[k] / max(abs(dn[k]), 1e-300), ge[k] / max(abs(de[k]), 1e-300))
+    base = trans.transform((gn[k], ge[k]))
+    step = trans.transform((gn[k] + h * dn[k], ge[k] + h * de[k]))
+    expected = np.arctan2(*(step - base)[::-1])
+    drawn = np.arctan2(quiver.V[k], quiver.U[k])
+    assert drawn == pytest.approx(expected, abs=2e-2)
 
 
 def test_the_phase_space_without_a_fit_draws_only_the_data(data):
@@ -105,11 +132,22 @@ def test_plotting_does_no_analysis(data, monkeypatch):
 
     for name in ("predator_prey_cycle_metrics", "fit_predator_prey_model", "_peaks"):
         monkeypatch.setattr(gk, name, forbidden)
-    import scipy.signal
+    import scipy.integrate
     import scipy.optimize
-    monkeypatch.setattr(scipy.signal, "find_peaks", forbidden)
-    monkeypatch.setattr(scipy.optimize, "least_squares", forbidden)
+    import scipy.signal
+    for module, name in ((scipy.signal, "find_peaks"), (scipy.signal, "correlate"),
+                         (scipy.optimize, "least_squares"), (scipy.optimize, "curve_fit"),
+                         (scipy.integrate, "solve_ivp"), (np, "correlate")):
+        monkeypatch.setattr(module, name, forbidden)
     gkplot.plot_predator_prey_trace(t, n, e, transport=2 * n, fit=fit, metrics=metrics)
     gkplot.plot_predator_prey_phase_space(n, e, time=t, fit=fit)
     gkplot.plot_predator_prey_lag(metrics.correlation_lags, metrics.cross_correlation,
                                   correlation_lag=metrics.correlation_lag)
+
+
+def test_bad_optional_inputs_are_refused_or_dropped(data):
+    t, n, e, _, _ = data
+    with pytest.raises(ValueError, match="transport"):
+        gkplot.plot_predator_prey_trace(t, n, e, transport=np.ones(t.size + 1))
+    _, axes = gkplot.plot_predator_prey_phase_space(n, e, arrows=0, log=False)
+    assert not axes.texts and not [c for c in axes.get_children() if type(c).__name__ == "Annotation"]

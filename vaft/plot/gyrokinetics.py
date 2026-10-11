@@ -668,7 +668,8 @@ def _fit_times(time: np.ndarray, fit: Any) -> np.ndarray:
     """The data times a ``PredatorPreyFit`` was evaluated on, recovered from its window."""
     t0, t1 = fit.time_window
     inside = time[(time >= t0) & (time <= t1)]
-    if inside.size != np.asarray(fit.turbulence_fit).size:
+    if (inside.size != np.asarray(fit.turbulence_fit).size or inside.size == 0
+            or inside[0] != t0 or inside[-1] != t1):
         raise ValueError(
             "fit does not belong to this time axis: its window holds "
             f"{inside.size} samples here but the fit has {np.asarray(fit.turbulence_fit).size}")
@@ -721,7 +722,9 @@ def plot_predator_prey_trace(
     panels[1].set_ylabel(axis_label("E", "potential intensity"))
     if transport is not None:
         q = np.asarray(transport, dtype=float)
-        panels[2].plot(t[: q.size], q, color="k", linewidth=1.0, label="Q")
+        if q.shape != t.shape:
+            raise ValueError("transport must have one value per time sample")
+        panels[2].plot(t, q, color="k", linewidth=1.0, label="Q")
         panels[2].set_ylabel(transport_label)
     for panel in panels[:2]:
         if log:
@@ -772,7 +775,7 @@ def plot_predator_prey_phase_space(
     if time is not None:
         figure.colorbar(line, ax=axes, label=axis_label(r"$t$", "a/c_s"))
     step = max(1, n.size // max(int(arrows), 1))
-    for k in range(step // 2, n.size - 1, step):
+    for k in (range(step // 2, n.size - 1, step) if int(arrows) > 0 else ()):
         axes.annotate("", xy=(n[k + 1], e[k + 1]), xytext=(n[k], e[k]),
                       arrowprops={"arrowstyle": "->", "color": "0.2", "lw": 1.0})
     if fit is not None:
@@ -785,28 +788,53 @@ def plot_predator_prey_phase_space(
         axes.axvline(n_star, color="C2", linestyle=":", linewidth=1.0, label=r"$\dot E = 0$")
         axes.plot([n_star], [e_star], marker="*", markersize=11, color="k", linestyle="none",
                   label="fixed point")
-        if vector_field:
-            lo_n, hi_n = min(n.min(), n_star), max(n.max(), n_star)
-            lo_e, hi_e = min(e.min(), e_star), max(e.max(), e_star)
-            grid = (np.geomspace if log else np.linspace)
-            gn, ge = np.meshgrid(grid(lo_n, hi_n, 12), grid(lo_e, hi_e, 12))
-            dn, de = predator_prey_rhs(gn, ge, *params)
-            if log:   # direction in log coordinates: d ln N/dt, d ln E/dt
-                dn, de = dn / gn, de / ge
-            norm = np.hypot(dn, de)
-            norm[norm == 0] = 1.0
-            axes.quiver(gn, ge, dn / norm, de / norm, color="0.6", alpha=0.6, width=0.003,
-                        angles="uv", pivot="mid")
         axes.legend(fontsize="small", loc="best")
     axes.autoscale_view()
     if log:
         axes.set_xscale("log")
         axes.set_yscale("log")
+    if fit is not None and vector_field:
+        if ax is None:
+            # the screen directions depend on the axes' final pixel size
+            figure.tight_layout()
+        _draw_vector_field(axes, params, log=log)
     axes.set_xlabel(axis_label("N (turbulence)", "potential intensity"))
     axes.set_ylabel(axis_label("E (zonal)", "potential intensity"))
     if title:
         axes.set_title(title)
     return finalize(figure, axes, show=show, tight_layout=ax is None)
+
+
+def _draw_vector_field(axes: Any, params: tuple, *, log: bool, points: int = 12) -> None:
+    """The model's flow direction on a grid, as it appears on screen.
+
+    A direction in (N, E) is drawn correctly only after converting to display
+    units: per pixel, a log axis spans ``ln(max/min)/size`` and a linear one
+    ``(max - min)/size``. The vectors are computed from the final limits and then
+    passed as screen directions (``angles="uv"``); the limits are restored after.
+    """
+    from vaft.formula.turbulence import predator_prey_rhs
+
+    figure = axes.figure
+    figure.canvas.draw_idle()
+    (x0, x1), (y0, y1) = axes.get_xlim(), axes.get_ylim()
+    bbox = axes.get_window_extent()
+    width, height = bbox.width, bbox.height
+    grid = np.geomspace if log else np.linspace
+    gn, ge = np.meshgrid(grid(x0, x1, points + 2)[1:-1], grid(y0, y1, points + 2)[1:-1])
+    dn, de = predator_prey_rhs(gn, ge, *params)
+    if log:
+        u = dn / gn / np.log(x1 / x0) * width
+        v = de / ge / np.log(y1 / y0) * height
+    else:
+        u = dn / (x1 - x0) * width
+        v = de / (y1 - y0) * height
+    norm = np.hypot(u, v)
+    norm[norm == 0] = 1.0
+    axes.quiver(gn, ge, u / norm, v / norm, color="0.6", alpha=0.6, width=0.003,
+                angles="uv", pivot="mid")
+    axes.set_xlim(x0, x1)
+    axes.set_ylim(y0, y1)
 
 
 def plot_predator_prey_lag(
