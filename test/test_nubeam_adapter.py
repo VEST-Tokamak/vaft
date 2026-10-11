@@ -342,6 +342,22 @@ def test_birth_is_the_last_step_by_integer_suffix(tmp_path):
     assert native.birth.species == "H"
 
 
+def test_birth_merges_the_cpu_files_of_one_step_and_skips_strays(tmp_path):
+    """A step split across ranks is one entry; a stray file is not a step."""
+    runid = nubeam.NUBEAMConfig().runid
+    _write_birth_file(tmp_path / f"{runid}_birth_cpu0_1.cdf_1", r_cm=1.0)
+    _write_birth_file(tmp_path / f"{runid}_birth_cpu0_1.cdf_2", r_cm=20.0)
+    _write_birth_file(tmp_path / f"{runid}_birth_cpu1_1.cdf_2", r_cm=21.0)
+    (tmp_path / f"{runid}_birth_cpu0_1.cdf_3.tmp").write_bytes(b"not netCDF")
+
+    native = nubeam.collect_nubeam_outputs(tmp_path).outputs_native
+
+    assert [m.step for m in native.birth_steps] == [1, 2]
+    assert native.birth.step == 2
+    assert native.birth.count == 2
+    assert sorted(native.birth.columns["r"].tolist()) == [20.0, 21.0]
+
+
 # --------------------------------------------------------------------------
 # Integration
 # --------------------------------------------------------------------------

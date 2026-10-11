@@ -120,7 +120,7 @@ class NUBEAMBirthMarkers:
     species: str
     count: int
     columns: Mapping[str, Any] = field(default_factory=dict)
-    #: The ``_<step>`` suffix of the file name, 1-based; ``None`` if absent.
+    #: The ``_<step>`` suffix of the file name, 1-based.
     step: Optional[int] = None
 
 
@@ -355,7 +355,8 @@ class NUBEAMOutputs:
     #: Deposition of the *last* step written, i.e. the one the final state
     #: belongs to. Every step's markers are in `birth_steps`.
     birth: Optional[NUBEAMBirthMarkers] = None
-    #: One entry per birth file, in step order (``_cdf_2`` before ``_cdf_10``).
+    #: One entry per step, in step order (``_cdf_2`` before ``_cdf_10``); a
+    #: step written by several CPUs is their markers concatenated.
     birth_steps: tuple[NUBEAMBirthMarkers, ...] = ()
     lost: Optional[NUBEAMLostParticles] = None
     grid: Optional[NUBEAMRadialGrid] = None
@@ -440,7 +441,7 @@ def _read_variables(path: Path, *, profiles_only: bool = False) -> dict[str, Any
 
 
 #: ``<runid>_birth_cpu0_1.cdf_5`` -> cpu 0, step 5.
-_BIRTH_NAME = re.compile(r"_birth_cpu(?P<cpu>\d+)_\d+\.cdf_(?P<step>\d+)$")
+_BIRTH_NAME = re.compile(r"_birth_cpu(?P<cpu>\d+)_(?P<k>\d+)\.cdf_(?P<step>\d+)$")
 
 
 def _birth_step(path: Path) -> Optional[int]:
@@ -448,16 +449,55 @@ def _birth_step(path: Path) -> Optional[int]:
     return int(match["step"]) if match else None
 
 
-def _birth_order(path: Path) -> tuple[int, int, str]:
-    """Sort key for birth files: by step number, then CPU, as integers.
+def _birth_order(path: Path) -> tuple[int, int, int]:
+    """Sort key for birth files: step, CPU, then file index, all as integers.
 
-    A lexical sort puts ``_cdf_10`` before ``_cdf_2``. A name without a step
-    suffix sorts first, so it is never mistaken for the final step.
+    A lexical sort puts ``_cdf_10`` before ``_cdf_2``. Only call this on names
+    that match :data:`_BIRTH_NAME`.
     """
     match = _BIRTH_NAME.search(path.name)
-    if match is None:
-        return (-1, -1, path.name)
-    return (int(match["step"]), int(match["cpu"]), path.name)
+    return (int(match["step"]), int(match["cpu"]), int(match["k"]))
+
+
+def _merge_birth(parts: list[NUBEAMBirthMarkers]) -> NUBEAMBirthMarkers:
+    """One step's markers from its per-CPU files, concatenated.
+
+    A serial run writes one file per step and this returns it unchanged. With
+    several ranks each file holds that rank's share, so taking any one of them
+    would undercount the step.
+    """
+    import numpy as np
+
+    if len(parts) == 1:
+        return parts[0]
+    shared = [name for name in parts[0].columns if all(name in p.columns for p in parts)]
+    columns = {
+        name: np.concatenate([np.asarray(p.columns[name]) for p in parts])
+        for name in shared
+    }
+    return NUBEAMBirthMarkers(
+        path=parts[0].path,
+        species=parts[0].species,
+        count=sum(p.count for p in parts),
+        columns=columns,
+        step=parts[0].step,
+    )
+
+
+def _read_birth_steps(paths: list[Path]) -> tuple[NUBEAMBirthMarkers, ...]:
+    """Every step's deposition, in step order, one entry per step.
+
+    Names that do not end in ``_cdf_<step>`` are skipped rather than read, so
+    a stray ``.tmp`` or editor backup next to the run cannot be taken for a
+    step or make the read fail.
+    """
+    named = sorted((p for p in paths if _BIRTH_NAME.search(p.name)), key=_birth_order)
+    by_step: dict[int, list[NUBEAMBirthMarkers]] = {}
+    for path in named:
+        markers = _read_birth(path)
+        if markers is not None:
+            by_step.setdefault(markers.step, []).append(markers)
+    return tuple(_merge_birth(by_step[step]) for step in sorted(by_step))
 
 
 def _read_birth(path: Path) -> Optional[NUBEAMBirthMarkers]:
@@ -572,12 +612,7 @@ def collect_nubeam_outputs(
 
     # One birth file per step. `birth` is the last step's, the deposition
     # that goes with the final state; earlier steps stay in `birth_steps`.
-    birth_files = sorted(directory.glob(f"{runid}_birth_cpu*"), key=_birth_order)
-    birth_steps = tuple(
-        markers
-        for markers in (_read_birth(path) for path in birth_files)
-        if markers is not None
-    )
+    birth_steps = _read_birth_steps(list(directory.glob(f"{runid}_birth_cpu*")))
     birth = birth_steps[-1] if birth_steps else None
 
     # The radial grid and zone measures live in the Plasma State, not in
