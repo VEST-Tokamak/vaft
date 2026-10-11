@@ -431,8 +431,8 @@ is drawn only when it comes from values.
 | diagram | kind | contract | state |
 | --- | --- | --- | --- |
 | `characteristic_scale_map` | conceptual, state-independent | primitive state → frequencies, speeds, lengths → times → dimensionless ratios → model orderings; no numerical ranking | planned |
-| `length_scale_ladder` | state-dependent, or labelled illustrative | $\lambda_D$, $\rho_e$, $d_e$, $\rho_i$/$\rho_s$, $d_i$, $\lambda_{\rm mfp}$, orbit width, gradient length, $a$, $R$; placed by value, never in a hard-coded order | planned |
-| `time_scale_ladder` | state-dependent, or labelled illustrative | gyration, collision, transit/bounce, Alfvén, growth, wall, confinement, transport, resistive diffusion, age/pulse; placed by value | **exists** as `timescale_hierarchy` (illustrative state, eight times, placed by value) |
+| `length_scale_ladder` | state-dependent, or labelled illustrative | $\lambda_D$, $\rho_e$, $d_e$, $\rho_i$/$\rho_s$, $d_i$, $\lambda_{\rm mfp}$, orbit width, gradient length, $a$, $R$; placed by value, never in a hard-coded order | **partly exists** as `spatial_scale_orderings` (#1739: $\rho_e$, $\rho_i$, $\rho_s$, $d_i$, banana width, gradient length, $a$, $R_0$, $qR_0$); $\lambda_D$, $d_e$ and $\lambda_{\rm mfp}$ still planned |
+| `time_scale_ladder` | state-dependent, or labelled illustrative | gyration, collision, transit/bounce, Alfvén, growth, wall, confinement, transport, resistive diffusion, age/pulse; placed by value | **exists** as `timescale_hierarchy` (illustrative state, eleven times including sound crossing, ion transit and bounce, placed by value; #1739) |
 | `model_ordering_map` | multidimensional relationship map | fluid ↔ kinetic closure, ideal ↔ dissipative, single- ↔ two-fluid, long wavelength ↔ finite $k_\perp\rho$, local ↔ global, equilibrium ↔ fluctuation scale; no single fidelity axis | **exists** in parts: `ordering_contract_map`, `adapter_contract_map`, `reduced_representation_hierarchy`, `geometry_ordering_map` |
 
 Diagrams live in `vaft.diagram` and are conceptual. Ladders of measured states belong to `vaft.plot`, with the

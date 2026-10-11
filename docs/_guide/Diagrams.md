@@ -343,13 +343,15 @@ explains them. Which diagrams the scale-to-model chain needs, and which are stil
 
 ```python
 vaft.diagram.timescale_hierarchy()
+vaft.diagram.spatial_scale_orderings()
 vaft.diagram.ordering_contract_map()
 vaft.diagram.adapter_contract_map()
 ```
 
 | Diagram | Concept |
 | --- | --- |
-| `timescale_hierarchy` | Inverse gyrofrequencies, collision, Alfvén, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$ |
+| `timescale_hierarchy` | Inverse gyrofrequencies, collision, Alfvén, sound-crossing, inverse ion transit and bounce frequencies, evolution, wall, pulse and resistive times of one illustrative state on one logarithmic axis, each from a formula kernel. Below it are the ordering ratios: $S$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$. Drift precession (no kernel) and $\tau_E$ (no inventory) are left out |
+| `spatial_scale_orderings` | Electron and ion Larmor radii, $\rho_s$, $d_i$, the banana width, an illustrative gradient length, $a$, $R_0$ and $qR_0$ of the same state on one logarithmic axis. Below it are $\rho_i/L$, $\Delta_b/L$, $d_i/a$, with brackets for the ratios that need a mode ($k_\perp\rho$, $k_\parallel/k_\perp$, $\omega/\Omega_c$) |
 | `ordering_contract_map` | Which model needs which ordering, read from `vaft.validation.orderings.CONTRACTS`. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered. |
 | `adapter_contract_map` | Which ordering contracts each VAFT code-adapter mode consumes, and how each enters the calculation: governing (filled), RDCON's outer solution and layer solution, DCON-kinetic's fluid part and kinetic part, PENTRC's closure, inherited by a reduced model that does not solve its parent theory (dashed). An empty cell is no registered contract, not physical independence (`vaft.validation.model_contracts`, #1823) |
 

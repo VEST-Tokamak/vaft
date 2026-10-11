@@ -1,4 +1,4 @@
-"""Asymptotic orderings: the timescale hierarchy a reduced model assumes (#1627).
+"""Asymptotic orderings: the time and length scales a reduced model assumes (#1627, #1739).
 
 ``timescale_hierarchy``
     the characteristic times of one illustrative low-field spherical-tokamak
@@ -30,8 +30,11 @@ from vaft.formula.ordering import (
     evolution_time,
     inertial_length,
     resistive_diffusion_time,
+    thermal_speed,
 )
+from vaft.formula.neoclassical import deeply_trapped_bounce_frequency, transit_frequency
 from vaft.formula.particle import gyrofrequency
+from vaft.formula.sol import ion_sound_speed
 from vaft.formula.stability import v_alfven_from_B_n_mi
 from vaft.formula.vde import thin_wall_time
 
@@ -53,7 +56,17 @@ ILLUSTRATIVE_STATE: Dict[str, float] = {
     "wall_sigma": 1.39e6,  # wall conductivity, stainless steel [S/m]
     "wall_d": 0.006,       # wall thickness [m]
     "wall_b": 0.6,         # wall radius [m]
+    # added for the plasma-model guide (#1739): illustrative, not measured
+    "T_i": 30.0,           # ion temperature [eV]
+    "R0": 0.4,             # major radius [m]
+    "q": 2.5,              # safety factor at mid-radius [-]
 }
+
+
+def _free_level(placed, x: float, up: bool, threshold: float) -> int:
+    """The lowest stacking level no earlier label on the same side within ``threshold`` cm uses."""
+    used = {level for (px, pup, level) in placed if pup == up and abs(px - x) < threshold}
+    return min(set(range(len(used) + 1)) - used)
 
 
 def timescales(state: Dict[str, float] = ILLUSTRATIVE_STATE) -> Dict[str, Tuple[str, float, bool]]:
@@ -62,7 +75,13 @@ def timescales(state: Dict[str, float] = ILLUSTRATIVE_STATE) -> Dict[str, Tuple[
     ln_lambda = coulomb_logarithm_from_n_T(s["n"], s["T_e"])
     eta = spitzer_resistivity_from_T_e_Z_eff_ln_Lambda(s["T_e"], s["Z_eff"], ln_lambda)
     v_A = v_alfven_from_B_n_mi(s["B"], s["n"], MI_P)
+    v_ti = thermal_speed(s["T_i"], MI_P)
+    epsilon = 0.5 * s["a"] / s["R0"]            # mid-radius inverse aspect ratio
     return {
+        "sound": ("$a/c_s$", s["a"] / ion_sound_speed(s["T_e"], s["T_i"], MI_P), False),
+        "transit": ("$\\omega_{t,i}^{-1}$", 1.0 / transit_frequency(v_ti, s["q"], s["R0"]), False),
+        "bounce": ("$\\omega_{b,i}^{-1}$", 1.0 / deeply_trapped_bounce_frequency(v_ti, s["q"], s["R0"], epsilon),
+                   False),
         "electron_gyration": ("$\\Omega_{ce}^{-1}$", 1.0 / abs(gyrofrequency(-QE, ME, s["B"])), False),
         "ion_gyration": ("$\\Omega_{ci}^{-1}$", 1.0 / abs(gyrofrequency(QE, MI_P, s["B"])), False),
         "alfven": ("$\\tau_A$", alfven_time(s["a"], v_A), False),
@@ -101,9 +120,16 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
 
     Inverse gyrofrequencies $1/\Omega$ (``particle.gyrofrequency``), the electron collision time
     (``ordering.braginskii_electron_collision_time``), the Alfven time over
-    the minor radius, the $I_p$-ramp evolution time, the thin-wall time
+    the minor radius, the sound crossing time ``a/c_s`` (``sol.ion_sound_speed``,
+    $c_s = \\sqrt{(T_e + T_i)/m_i}$), the inverse thermal-ion transit and
+    deeply-trapped bounce frequencies at $v_{ti} = \\sqrt{T_i/m_i}$
+    (``neoclassical.transit_frequency``, ``deeply_trapped_bounce_frequency``;
+    a period is $2\\pi$ times longer),
+    the $I_p$-ramp evolution time, the thin-wall time
     (``vde.thin_wall_time``), the pulse (an input) and the resistive
-    diffusion time from Spitzer resistivity. The ratios below the axis --
+    diffusion time from Spitzer resistivity. The drift precession has no
+    formula kernel and $\tau_E$ needs an energy inventory the state does not
+    carry; both are left out and the caption says so. The ratios below the axis --
     $S = \tau_R/\tau_A$, $\tau_{evol}/\tau_A$, $\tau_{pulse}/\tau_R$, $d_i/a$
     -- are the ordering parameters; the hierarchy is evaluated, not
     assumed.
@@ -119,15 +145,17 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
         items.append(Label((x, -0.25), f"$10^{{{int(_X0) + k}}}$", "ticklabel", anchor="north", role="ticks"))
     items.append(Label((length + 0.6, -0.25), "$t$ [s]", "xlabel", anchor="north west", role="axis"))
     order = sorted(times.items(), key=lambda kv: kv[1][1])
-    placed = []
+    placed, below = [], []
     for i, (key, (symbol, value, given)) in enumerate(order):
         x = _x(value)
         items.append(Marker((x, 0.0), "o", "opoint" if not given else "xpoint", role=f"time:{key}"))
         up = i % 2 == 0
-        # stack labels that would collide with an earlier one on the same side
-        level = sum(1 for (px, pup) in placed if pup == up and abs(px - x) < 3.4)
-        placed.append((x, up))
+        # stack labels that would collide with an earlier one on the same side: the first free level
+        level = _free_level(placed, x, up, 3.4)
+        placed.append((x, up, level))
         y = (0.9 + 1.25 * level) * (1 if up else -1) - (0.0 if up else 0.55)
+        if not up:
+            below.append(y)
         # below the axis the leader starts under the tick labels, so it never strikes through one
         items.append(Polyline.of([(x, 0.0 if up else -0.75), (x, y)], "approx", role=f"time:{key}"))
         if labels:
@@ -141,21 +169,124 @@ def timescale_hierarchy(*, labels: bool = True) -> Diagram:
         "relaxation": times["pulse"][1] / times["resistive"][1],
         "hall": inertial_length(s["n"], MI_P) / s["a"],
     }
+    lowest = min(below + [-0.75]) - 1.6   # under the deepest label (up to three lines tall)
     if labels:
-        items.append(Label((0.5 * length, -4.4),
+        items.append(Label((0.5 * length, lowest - 0.3),
                            f"$S = \\tau_R/\\tau_A \\approx {_sci(ratios['lundquist'])}$, "
                            f"$\\tau_{{evol}}/\\tau_A \\approx {_sci(ratios['quasi_static'])}$: well separated. "
                            f"$\\tau_{{pulse}}/\\tau_R \\approx {ratios['relaxation']:.2g}$, "
                            f"$d_i/a \\approx {ratios['hall']:.2g}$: of order one, not ordered",
                            "label", anchor="north", role="ratios"))
-        items.append(Label((0.5 * length, -5.2),
+        items.append(Label((0.5 * length, lowest - 1.1),
                            f"Illustrative low-field spherical tokamak, not a measurement: $B = {s['B']:g}$ T, "
-                           f"$n = 10^{{19}}$ m$^{{-3}}$, $T_e = {s['T_e']:g}$ eV, $a = {s['a']:g}$ m, "
-                           f"$I_p = 100$ kA ramped at $20$ MA/s ($\\tau_{{evol}} = I_p/\\dot I_p$)",
-                           "note", anchor="north", role="note"))
+                           f"$n = 10^{{19}}$ m$^{{-3}}$, $T_e = {s['T_e']:g}$ eV, $T_i = {s['T_i']:g}$ eV, "
+                           f"$a = {s['a']:g}$ m, $R_0 = {s['R0']:g}$ m, $q = {s['q']:g}$, "
+                           f"$I_p = 100$ kA ramped at $20$ MA/s ($\\tau_{{evol}} = I_p/\\dot I_p$).\\\\ "
+                           "The order is evaluated for one illustrative state; it depends on species, machine, "
+                           "radius, $T$, $B$, collisionality and mode frequency.\\\\ Transit and bounce are inverse "
+                           "frequencies at $v_{ti} = \\sqrt{T_i/m_i}$; $c_s = \\sqrt{(T_e + T_i)/m_i}$. Drift "
+                           "precession (no kernel) and $\\tau_E$ (no energy inventory) are left out.",
+                           "note,align=center", anchor="north", role="note"))
     model = {"times": {k: v[1] for k, v in times.items()}, "inputs": {k for k, v in times.items() if v[2]},
              "ratios": ratios, "state": dict(ILLUSTRATIVE_STATE)}
     return Diagram("timescale_hierarchy", Scene(tuple(items)), model=model)
+
+
+def lengths(state: Dict[str, float] = ILLUSTRATIVE_STATE) -> Dict[str, Tuple[str, float, bool]]:
+    """Each length of ``state``: its symbol, its value [m] and whether it is an assumed scale rather than computed."""
+    from vaft.formula.neoclassical import banana_width
+    from vaft.formula.ordering import sound_gyroradius
+    from vaft.formula.particle import larmor_radius
+
+    s = state
+    rho_e = larmor_radius(-QE, ME, thermal_speed(s["T_e"], ME), s["B"])
+    rho_i = larmor_radius(QE, MI_P, thermal_speed(s["T_i"], MI_P), s["B"])
+    epsilon = 0.5 * s["a"] / s["R0"]
+    return {
+        "rho_e": ("$\\rho_e$", rho_e, False),
+        "rho_i": ("$\\rho_i$", rho_i, False),
+        "rho_s": ("$\\rho_s$", sound_gyroradius(s["T_e"], MI_P, s["B"]), False),
+        "d_i": ("$d_i$", inertial_length(s["n"], MI_P), False),
+        "banana": ("$\\Delta_b$", banana_width(rho_i, s["q"], epsilon), False),
+        "gradient": ("$L = a/2$", 0.5 * s["a"], True),
+        "minor": ("$a$", s["a"], True),
+        "major": ("$R_0$", s["R0"], True),
+        "connection": ("$qR_0$", s["q"] * s["R0"], True),
+    }
+
+
+_LX0, _LDECADES, _LDECADE = -5.0, 6, 2.6   # length axis: log10 origin [m], decades, cm per decade
+
+
+def spatial_scale_orderings(*, labels: bool = True) -> Diagram:
+    r"""The lengths of one illustrative state on a logarithmic axis, with the ratios that order them.
+
+    Electron and ion Larmor radii (``particle.larmor_radius`` at the thermal
+    speed), the sound gyroradius (``ordering.sound_gyroradius``), the ion
+    skin depth (``ordering.inertial_length``), the ion banana width
+    (``neoclassical.banana_width``), an illustrative gradient length $a/2$,
+    the minor radius, the connection length $qR_0$ and $R_0$, all on the
+    state of :func:`timescale_hierarchy`. Below the axis, the ordering ratios
+    a length fixes ($\rho_i/L$, $d_i/a$, $\Delta_b/L$) and, as brackets, the
+    ones that need a mode ($k_\perp\rho$, $k_\parallel/k_\perp$,
+    $\omega/\Omega_c$). The order is state-dependent.
+    """
+    labels = _check_labels(labels)
+    values = lengths()
+    items: List = []
+    length = _LDECADES * _LDECADE
+    items.append(Arrow((0.0, 0.0), (length + 0.5, 0.0), "chart axis", role="axis"))
+    for k in range(_LDECADES + 1):
+        x = k * _LDECADE
+        items.append(Polyline.of([(x, -0.12), (x, 0.12)], "connector line", role="ticks"))
+        items.append(Label((x, -0.25), f"$10^{{{int(_LX0) + k}}}$", "ticklabel", anchor="north", role="ticks"))
+    items.append(Label((length + 0.6, -0.25), "length [m]", "xlabel", anchor="north west", role="axis"))
+    order = sorted(values.items(), key=lambda kv: kv[1][1])
+    placed, below = [], []
+    for i, (key, (symbol, value, assumed)) in enumerate(order):
+        x = (math.log10(value) - _LX0) * _LDECADE
+        items.append(Marker((x, 0.0), "x" if assumed else "o", "xpoint" if assumed else "opoint",
+                            role=f"length:{key}"))
+        up = i % 2 == 0
+        level = _free_level(placed, x, up, 2.4)
+        placed.append((x, up, level))
+        y = (0.9 + 1.25 * level) * (1 if up else -1) - (0.0 if up else 0.55)
+        if not up:
+            below.append(y)
+        items.append(Polyline.of([(x, 0.0 if up else -0.75), (x, y)], "approx", role=f"length:{key}"))
+        if labels:
+            text = f"{symbol}\\\\ {_fmt_length(value)}"
+            items.append(Label((x, y), text, "small label,align=center", anchor="south" if up else "north",
+                               role=f"length:{key}"))
+    lowest = min(below + [-0.75]) - 1.0   # under the deepest label (about two lines tall)
+    v = {k: val[1] for k, val in values.items()}
+    ratios = {"rho_i_over_L": v["rho_i"] / v["gradient"], "d_i_over_a": v["d_i"] / v["minor"],
+              "banana_over_L": v["banana"] / v["gradient"]}
+    if labels:
+        items.append(Label((0.5 * length, lowest - 0.5),
+                           f"$\\rho_i/L \\approx {ratios['rho_i_over_L']:.2g}$, "
+                           f"$\\Delta_b/L \\approx {ratios['banana_over_L']:.2g}$, "
+                           f"$d_i/a \\approx {ratios['d_i_over_a']:.2g}$.\\\\ "
+                           "$k_\\perp\\rho$, $k_\\parallel/k_\\perp$ and $\\omega/\\Omega_c$: "
+                           "[ need a mode $(k, \\omega)$ ], not a property of the state",
+                           "label,align=center", anchor="north", role="ratios"))
+        s = ILLUSTRATIVE_STATE
+        items.append(Label((0.5 * length, lowest - 1.8),
+                           f"Illustrative state, not a measurement ($B = {s['B']:g}$ T, $n = 10^{{19}}$ m$^{{-3}}$, "
+                           f"$T_e = {s['T_e']:g}$ eV, $T_i = {s['T_i']:g}$ eV, $a = {s['a']:g}$ m, "
+                           f"$R_0 = {s['R0']:g}$ m, $q = {s['q']:g}$ assumed). The order is state-dependent; "
+                           "crosses mark assumed scales. $\\rho_s$ is cold-ion ($c_s = \\sqrt{T_e/m_i}$).",
+                           "note", anchor="north", role="note"))
+    model = {"lengths": v, "assumed": {k for k, val in values.items() if val[2]}, "ratios": ratios,
+             "state": dict(ILLUSTRATIVE_STATE)}
+    return Diagram("spatial_scale_orderings", Scene(tuple(items)), model=model)
+
+
+def _fmt_length(x: float) -> str:
+    for unit, scale in (("m", 1.0), ("cm", 1e-2), ("mm", 1e-3), ("$\\mu$m", 1e-6)):
+        if x >= scale:
+            return f"{x / scale:.3g} {unit}"
+    return f"{x:.2g} m"
 
 
 # ---------------------------------------------------------------------------
