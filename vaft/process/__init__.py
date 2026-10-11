@@ -65,6 +65,7 @@ _SUBMODULES = {
     "impurity": ".impurity",
     "species": ".species",
     "kinetic_closure": ".kinetic_closure",
+    "gyrokinetics": ".gyrokinetics",
     "zeff_projection": ".zeff_projection",
     "mode_frequency": ".mode_frequency",
     "mhd_stability": ".mhd_stability",
@@ -137,6 +138,9 @@ _IMPORT_ORDER = (
     # Dilution-aware pressure and the classical fast-ion baseline (#1606); nothing
     # it exports collides.
     "kinetic_closure",
+    # Turbulence-zonal-flow intensities, cycle metrics and the predator-prey fit
+    # (#1820); nothing it exports collides.
+    "gyrokinetics",
     # Z_eff(rho) -> R_p -> Z_eff^res,equiv (#1566); nothing it exports collides.
     "zeff_projection",
     # Predicted mode-frequency tracks from rotation at q = m/n (#460); nothing
