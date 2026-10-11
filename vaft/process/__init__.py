@@ -71,6 +71,7 @@ _SUBMODULES = {
     "q_profile_context": ".q_profile_context",
     "ordering_state": ".ordering_state",
     "ntv_coil_response": ".ntv_coil_response",
+    "coil_operating_space": ".coil_operating_space",
     "gyrokinetics": ".gyrokinetics",
 }
 
@@ -154,6 +155,9 @@ _IMPORT_ORDER = (
     # Quadratic coil-response model of a signed NTV torque and its
     # qualification (#1887); solver-free, nothing it exports collides.
     "ntv_coil_response",
+    # The common coil operating-space result of #1178 (schema settled on
+    # #1886); nothing it exports collides.
+    "coil_operating_space",
     # Turbulence-zonal-flow intensities, cycle metrics and the predator-prey fit
     # (#1820); nothing it exports collides.
     "gyrokinetics",

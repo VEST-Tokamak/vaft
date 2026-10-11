@@ -172,6 +172,11 @@ class PlotCapability:
     #: ``available`` (what this input can draw), ``default`` (what is drawn
     #: with no ``members=``) and ``labels`` (name -> identity).
     members: Mapping[str, Any] = field(default_factory=dict)
+    #: A categorical sequence the plot declares (issue #1957): states that are
+    #: not times, such as the inference stages of the kinetic state --
+    #: ``option``, ``states``, ``labels``, ``label``, ``selected`` (``None``
+    #: when the static call draws no state of it), ``coordinate``, ``unit``.
+    categorical: Mapping[str, Any] = field(default_factory=dict)
 
     # The old ``available_plots`` rows were plain dictionaries; keep that
     # access so ``row["name"]`` and friends still work on a record.
@@ -215,7 +220,8 @@ class PlotCapability:
         a camera's frames, a few stored reconstructions:
 
         ``kind``
-            ``"samples"``, ``"frames"`` or ``"stored"``.
+            ``"samples"``, ``"frames"``, ``"stored"`` or ``"categorical"``
+            (states that are not times, with ``labels``; issue #1957).
         ``option``
             The keyword that picks one state: ``time_index``,
             ``frame_index`` or ``time_slice``.  It keeps its storage
@@ -248,7 +254,19 @@ class PlotCapability:
         slices = self.slices or {}
         usable = tuple(int(i) for i in slices.get("usable", ()))
         if len(usable) < 2:
-            return {}
+            categorical = self.categorical or {}
+            if not categorical:
+                return {}
+            # Categorical states (#1957): ``labels`` names each one, and
+            # ``selected`` is ``None`` where the static call draws none of them.
+            states = tuple(int(v) for v in categorical["states"])
+            return {
+                "kind": "categorical", "option": categorical["option"], "states": states,
+                "labels": tuple(categorical.get("labels", ())), "label": categorical.get("label", ""),
+                "selected": categorical.get("selected"),
+                "coordinate": categorical.get("coordinate", "stage"), "unit": categorical.get("unit"),
+                "start": states[0], "stop": states[-1],
+            }
         stamps = slices.get("times", ())
         known = [float(stamps[i]) for i in usable if i < len(stamps) and math.isfinite(float(stamps[i]))]
         selected = slices.get("selected")

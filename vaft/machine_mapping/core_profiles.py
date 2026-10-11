@@ -156,7 +156,9 @@ def classify_ti_record(record: Any) -> str:
       [; measured_span=a:b]``, :meth:`vaft.process.profile.FittedProfile.parameters_text`)
       -> ``"measured"``;
     * ``origin=<x>`` in any spelling -> ``"inferred"`` when ``x`` names an
-      inference, ``"measured"`` when ``x`` is ``measured``, else ``"unknown"``;
+      inference, ``"measured"`` when ``x`` is ``measured``, ``"assumed"`` when
+      ``x`` is ``assumed`` (``origin=assumed; method=ti_equals_te``), else
+      ``"unknown"``;
     * a ratio record (``ti_te_ratio=<r>; ...`` from :meth:`CoreProfilesPolicy.ti_te_ratio_text`,
       the caller-argument record or the legacy Ti = Te fallback), or a
       ``status`` of ``assumed``/``unspecified`` -> ``"assumed"``;
@@ -170,6 +172,10 @@ def classify_ti_record(record: Any) -> str:
         origin = origin.lower()
         if origin == "measured":
             return "measured"
+        if origin == "assumed":
+            # ``origin=assumed; method=ti_equals_te`` (#1957): the composition
+            # grammar's assumption, the same kind as a ratio record.
+            return "assumed"
         return "inferred" if INFERRED_TI_ORIGIN in origin else "unknown"
     if "ti_te_ratio" in fields or fields.get("status", "").lower() in ("assumed", "unspecified"):
         return "assumed"

@@ -152,6 +152,8 @@ PIPELINE = frozenset({
     "two_group_phase_extrema",
     "budgeted_torque_extrema",
     "fixed_amplitude_phase_extrema",
+    # coil_operating_space (#1178): ratio against group 0 -> wrapped phase, NaN at A = 0
+    "relative_coil_coordinates",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -416,6 +418,8 @@ CONVENTION_SENSITIVE = frozenset({
     "two_group_phase_extrema",
     "budgeted_torque_extrema",
     "fixed_amplitude_phase_extrema",
+    # #1178: I_k = A cos(n phi_k + delta), relative phase of group g minus group 0
+    "relative_coil_coordinates",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

@@ -3492,9 +3492,24 @@ def test_nubeam_recipes_refuse_a_tree_path_with_whitespace(name, tmp_path):
     assert re.search(r"\$source -match '\\s'", wrapper), "windows.ps1 refuses whitespace too"
 
 
+def _bash_path(path) -> str:
+    """The spelling bash sees for ``path``: ``C:\\a\\b`` is ``/c/a/b`` under Git-Bash.
+
+    The NUBEAM manifests are written by the recipes running inside bash, so
+    their entries are POSIX spellings even on Windows; a test that writes a
+    manifest from Python must do the same, or the uninstaller's inside-the-tree
+    guard compares ``/c/.../nubeam`` with ``C:\\...\\nubeam\\local`` and refuses.
+    """
+    text = str(path).replace("\\", "/")
+    match = re.match(r"^([A-Za-z]):/(.*)$", text)
+    if match:
+        return f"/{match.group(1).lower()}/{match.group(2)}"
+    return text
+
+
 def _nubeam_uninstall(root: Path, *entries: tuple[str, str]):
     (root / ".nubeam-install-manifest").write_text(
-        "".join(f"{kind}\t{path}\n" for kind, path in entries), encoding="utf-8"
+        "".join(f"{kind}\t{_bash_path(path)}\n" for kind, path in entries), encoding="utf-8"
     )
     return subprocess.run(
         [BASH, str(NUBEAM_DIR / "uninstall.sh"), "--nubeam-root", str(root), "--dry-run"],
