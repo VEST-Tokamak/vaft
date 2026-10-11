@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import importlib
 import subprocess
 import sys
 from pathlib import Path
@@ -39,6 +40,31 @@ def _fake_module(name, **attrs):
     return module
 
 
+_ABSENT = object()
+
+
+@contextlib.contextmanager
+def _modules_substituted(**modules):
+    """``sys.modules`` with the named entries replaced, and only those put back on exit.
+
+    ``patch.dict("sys.modules", ...)`` restores the whole dict, which also drops
+    every module first imported inside the block (``vaft.plot``, matplotlib
+    submodules, ...); later tests re-import them as fresh objects, so class
+    identity and dotted-string ``monkeypatch.setattr`` land on stale modules.
+    This puts back exactly the substituted entries and leaves the rest alone.
+    """
+    originals = {name: sys.modules.get(name, _ABSENT) for name in modules}
+    sys.modules.update(modules)
+    try:
+        yield
+    finally:
+        for name, original in originals.items():
+            if original is _ABSENT:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = original
+
+
 class _Substituted(contextlib.ExitStack):
     """The fake lazy store plus the shot's IDS listing; re-enterable, as the tests reuse it."""
 
@@ -49,7 +75,7 @@ class _Substituted(contextlib.ExitStack):
     def __enter__(self):
         stack = super().__enter__()
         module = _fake_module("vaft.database.lazy_ods", open_ods=self._open_ods, h5pyd=None)
-        stack.enter_context(patch.dict("sys.modules", {"vaft.database.lazy_ods": module}))
+        stack.enter_context(_modules_substituted(**{"vaft.database.lazy_ods": module}))
         stack.enter_context(patch("vaft.database.plotting.stored_ids", lambda shot, source=None: self._stored))
         return stack
 
@@ -58,6 +84,29 @@ def _no_hsds(sample_ods):
     # The adapters list the shot's IDS before opening; the sample's are what it stores.
     open_ods = Mock(return_value=sample_ods)
     return open_ods, _Substituted(open_ods, tuple(sample_ods.keys()))
+
+
+def test_substitution_keeps_modules_first_imported_inside_the_block():
+    # Regression: the helper used to restore all of sys.modules on exit, dropping
+    # whatever a block imported for the first time.
+    name = "vaft.process.ml"
+    sys.modules.pop(name, None)
+    fake = _fake_module("vaft.database.lazy_ods")
+    with _modules_substituted(**{"vaft.database.lazy_ods": fake}):
+        assert sys.modules["vaft.database.lazy_ods"] is fake
+        imported = importlib.import_module(name)
+    assert sys.modules.get(name) is imported
+    assert importlib.import_module(name) is imported
+
+
+def test_substitution_restores_exactly_the_named_entries():
+    before = sys.modules.get("vaft.database.lazy_ods")
+    added = _fake_module("not_a_real_vaft_module")
+    with _modules_substituted(**{"vaft.database.lazy_ods": _fake_module("vaft.database.lazy_ods"),
+                                 "not_a_real_vaft_module": added}):
+        assert sys.modules["not_a_real_vaft_module"] is added
+    assert sys.modules.get("vaft.database.lazy_ods") is before
+    assert "not_a_real_vaft_module" not in sys.modules
 
 
 def test_options_are_typed_python_literals_or_strings():
@@ -196,10 +245,7 @@ def _saving_the_figure(monkeypatch):
         Path(path).write_bytes(b"still")
         return path
 
-    # Through sys.modules, not the dotted string: the substitution above
-    # drops the modules a block imported, so ``vaft.plot`` may be a fresh
-    # module while the ``vaft`` package still holds the old one.  Patched
-    # where save_rendered looks it up (its own module) and on the package.
+    # Patched where save_rendered looks it up (its own module) and on the package.
     import vaft.plot as plot_package
     import vaft.plot.style as style_module
 
