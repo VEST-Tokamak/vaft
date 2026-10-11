@@ -385,6 +385,8 @@ CORE_MODULES: tuple[str, ...] = (
     # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
     # and the advisory check. Under 5 s.
     "test_validation_model_contracts.py",
+    # Plasma-model guide figures (#1739 E2): nodes computed from ADAPTER_MODES and AXES. Under 5 s.
+    "test_diagram_plasma_models.py",
     # Advisory ordering checks in EFIT, GPEC-suite and CGYRO run provenance (#1823). Under 10 s.
     "test_adapter_ordering_provenance.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
