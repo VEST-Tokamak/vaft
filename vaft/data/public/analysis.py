@@ -43,7 +43,7 @@ SCALING_INPUTS: dict[str, tuple[str, str]] = {
 #: sources do not settle which one they regressed on: ``elongation_note`` in
 #: :data:`vaft.formula.constants._SCALING_COEFS`).
 KAPPA_DEFINITIONS: dict[str, str] = {
-    "kappa_area": "kappa_area: area elongation, cross-section area / (pi a^2)",
+    "kappa_area": "kappa_area: volume elongation V / (2 pi^2 a^2 R), the kappa_a of IPB98(y,2) and ITPA20",
     "kappa": "kappa: boundary (LCFS) elongation b/a",
 }
 

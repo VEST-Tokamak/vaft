@@ -47,13 +47,14 @@ from fit import SELECTIONS, _git, select  # noqa: E402
 SPHERICAL = ("NSTX", "MAST", "START")
 LABELS = {"H98y2": "IPB98(y,2)", "NSTX2006L": "NSTX 2006 L-mode", "NSTX2006H": "NSTX 2006 H-mode",
           "ITER89P": "ITER89-P (L-mode)", "Kurskiev2022": "Kurskiev 2022 (ST H-mode)",
-          "ITPA20": "ITPA20", "ITPA20_IL": "ITPA20-IL"}
+          "ITPA20": "ITPA20"}
 LABELS.update(extra_scalings.LABELS)
 #: Every confinement scaling vaft.formula carries: the _SCALING_COEFS power laws plus
 #: the ohmic and L-mode ones extra_scalings.py maps onto table columns (#670);
-#: ohmic, then L-mode, then H-mode.
+#: ohmic, then L-mode, then H-mode. ITPA20-IL (vaft.formula "ITPA20_IL") is left out:
+#: its ITER-like fit domain has epsilon < 0.5, and VEST sits at epsilon ~ 0.72.
 ALL_SCALINGS = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L", "ITER89P", "ITER97L", "NSTX2006L",
-                "H98y2", "ITPA20", "ITPA20_IL", "NSTX2006H", "Kurskiev2022")
+                "H98y2", "ITPA20", "NSTX2006H", "Kurskiev2022")
 
 
 #: Where each scaling was fitted and for which regime, as a compact label tag:
@@ -61,7 +62,7 @@ ALL_SCALINGS = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L", "ITER89P", "ITE
 #: and confinement mode. Goldston 1984 and ITER89-P/97-L are multi-machine L-mode
 #: (neo-Alcator: ohmic) compilations; NSTX 2006 is NSTX alone; Kurskiev 2022 is the
 #: multi-machine ST H-mode set; IPB98(y,2) the ITPA ELMy H-mode set; ITPA20 the
-#: DB5.2.3-STD5 ELMy H-mode set and ITPA20-IL its ITER-like subset (Verdoolaege 2021).
+#: DB5.2.3-STD5 ELMy H-mode set (Verdoolaege 2021).
 SCALING_TAGS = {
     "NeoAlcator": ("multi", "ohmic"),
     "Goldston84OhmicL": ("multi", "ohmic+L"),
@@ -71,7 +72,6 @@ SCALING_TAGS = {
     "NSTX2006L": ("single ST", "L"),
     "H98y2": ("multi", "H"),
     "ITPA20": ("multi", "H"),
-    "ITPA20_IL": ("multi", "H"),
     "NSTX2006H": ("single ST", "H"),
     "Kurskiev2022": ("multi ST", "H"),
 }
