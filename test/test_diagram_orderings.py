@@ -42,3 +42,34 @@ def test_deterministic_exported_and_labels():
     assert fn().scene.role("note") and not fn(labels=False).scene.role("note")
     with pytest.raises(ValueError):
         fn(labels="yes")
+
+
+def test_timescales_include_the_guides_bounce_transit_and_sound_times():
+    from vaft.diagram._orderings import timescales
+
+    t = {k: v[1] for k, v in timescales().items()}
+    # a deeply trapped ion bounces slower than a passing one transits, and both after the sound crossing
+    assert t["sound"] < t["transit"] < t["bounce"]
+    assert t["alfven"] < t["sound"]
+    note = vaft.diagram.timescale_hierarchy().scene.role("note")[0].text
+    assert "Drift precession" in note and "illustrative state" in note
+
+
+def test_spatial_scales_are_kernel_values_on_the_same_state():
+    from vaft.diagram._orderings import ILLUSTRATIVE_STATE, lengths
+    from vaft.formula.constants import MI_P
+    from vaft.formula.neoclassical import banana_width
+    from vaft.formula.ordering import inertial_length, sound_gyroradius
+
+    s, v = ILLUSTRATIVE_STATE, {k: val[1] for k, val in lengths().items()}
+    assert v["d_i"] == pytest.approx(inertial_length(s["n"], MI_P))
+    assert v["rho_s"] == pytest.approx(sound_gyroradius(s["T_e"], MI_P, s["B"]))
+    assert v["banana"] == pytest.approx(banana_width(v["rho_i"], s["q"], 0.5 * s["a"] / s["R0"]))
+    assert v["rho_e"] < v["rho_i"] < v["banana"] < v["minor"] < v["connection"]
+    d = vaft.diagram.spatial_scale_orderings()
+    assert d.model["assumed"] == {"gradient", "minor", "major", "connection"}
+    assert "need a mode" in d.scene.role("ratios")[0].text
+    assert "spatial_scale_orderings" in vaft.diagram.__all__
+    assert d.tikz == vaft.diagram.spatial_scale_orderings().tikz
+    with pytest.raises(ValueError):
+        vaft.diagram.spatial_scale_orderings(labels="yes")
