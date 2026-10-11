@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>5e854fb</code>. What is described
+  <code>56ebfc4</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -580,7 +580,7 @@ which has no closed form, is a schematic, and the figure says so.</p>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">s_alpha_ballooning</span><span class="p">(</span><span class="n">s_max</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">alpha_max</span><span class="o">=</span><span class="mf">3.5</span><span class="p">)</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">hugill</span><span class="p">(</span><span class="n">elongation</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>                       <span class="c1"># no size parameter: R, a, B cancel
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">hugill_st</span><span class="p">(</span><span class="n">elongation</span><span class="o">=</span><span class="mf">1.8</span><span class="p">)</span>                   <span class="c1"># spherical-tokamak q_cyl (Sykes et al. 2000, MAST)
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">troyon</span><span class="p">(</span><span class="n">aspect_ratio</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">elongation</span><span class="o">=</span><span class="mf">1.7</span><span class="p">)</span>      <span class="c1"># registered Troyon limit, ~2.76
+</span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">troyon</span><span class="p">(</span><span class="n">aspect_ratio</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">elongation</span><span class="o">=</span><span class="mf">1.7</span><span class="p">)</span>      <span class="c1"># Troyon stability reference ~2.76, experimental levels dashed
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">li_qa</span><span class="p">(</span><span class="n">reference</span><span class="o">=</span><span class="sh">"</span><span class="s">wesson_1989</span><span class="sh">"</span><span class="p">)</span>                <span class="c1"># JET empirical l_i-q_psi space
 </span><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">li_qa</span><span class="p">(</span><span class="n">reference</span><span class="o">=</span><span class="sh">"</span><span class="s">cheng_1987</span><span class="sh">"</span><span class="p">)</span>                 <span class="c1"># theoretical MHD-stable l_i-q(a) domain
 </span></code></pre></div></div>
@@ -650,9 +650,9 @@ which has no closed form, is a schematic, and the figure says so.</p>
     </tr>
     <tr>
       <td>Troyon</td>
-      <td>How much pressure can the current hold?</td>
+      <td>How much pressure has the current held, against which references?</td>
       <td>$I_p/(aB_T)$, $\beta_T$</td>
-      <td>The registered <code class="language-plaintext highlighter-rouge">troyon</code> limit, $\beta_N \le 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$. <code class="language-plaintext highlighter-rouge">beta_N_max=</code> draws a what-if value and the note says so; <code class="language-plaintext highlighter-rouge">q_limit=</code> adds a dashed reference $q_\mathrm{cyl}$ cutoff</td>
+      <td>The registered <code class="language-plaintext highlighter-rouge">troyon</code> <em>stability reference</em>, $\beta_N = 2.2\,\mu_0 10^6 \approx 2.76$, through $\beta_T = \beta_N I_p/(aB_T)$, with the experimental $\beta_N$ levels of the <code class="language-plaintext highlighter-rouge">troyon</code> projection dashed (DIII-D envelope and record, ST reference, NSTX record; #1691). None is a limit, so no side is shaded or called stable. <code class="language-plaintext highlighter-rouge">beta_N_max=</code> draws a what-if value and the note says so; <code class="language-plaintext highlighter-rouge">q_limit=</code> adds a dashed reference $q_\mathrm{cyl}$ cutoff</td>
     </tr>
   </tbody>
 </table>
@@ -5328,7 +5328,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-10 21:29:36 +0000"
+        "time": "2026-10-11 03:47:07 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
