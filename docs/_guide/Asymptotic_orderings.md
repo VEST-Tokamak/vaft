@@ -123,6 +123,161 @@ Full Vlasov–Maxwell kinetics assumes none of these orderings and has no contra
 gyrokinetic orderings and differs only in its closure. The plateau regime between banana and
 Pfirsch–Schlüter has no ordering of its own.
 
+## Ordering spaces and margins
+
+Two orderings read together form an **ordering space**. Its lines are where an expansion parameter
+reaches one. They are not empirical stability or operating boundaries. The spaces are registered in
+`vaft.validation.orderings.ORDERING_SPACES`:
+
+| Space | $x$ | $y$ | Reading |
+| --- | --- | --- | --- |
+| `resistive_two_fluid` | $d_i/a$ | $S$ | Hall / two-fluid separation against resistive separation |
+| `closure_magnetization` | $\lambda_e/qR$ | $\Omega_{ce}\tau_e$ | local fluid closure against strong magnetization |
+| `flr_collisional` | $\lambda_i/qR$ | $\rho_i/L_{T_i}$ | collisional fluid against FLR smallness |
+| `flr_collisional_electron` | $\lambda_e/qR$ | $\rho_s/L_{T_e}$ | the same with electrons, for data without a trustworthy $T_i$ |
+| `equilibrium_relaxation` | $\tau_{age}/\tau_R$ | $\tau_{evol}/\tau_A$ | resistive current relaxation against quasi-static equilibrium |
+
+```python
+from vaft.plot.ordering_space import ordering_space, ordering_margins_plot
+
+fig, ax = ordering_space(states, "resistive_two_fluid", group="efit_quality")
+fig, ax = ordering_margins_plot(states, points)   # global orderings per state, profile ones per point
+```
+
+`ordering_space` draws a population on log axes. It shows:
+- the order-unity line of each axis;
+- the region where both orderings hold, shaded;
+- dashed lines one and two decades into the permitted side;
+- the four quadrants, named by the regime each side means.
+
+A quadrant name describes only these two orderings. "Ideal, single-fluid" says nothing about the
+other orderings of the ideal-MHD contract. A row whose value is missing or not positive is counted as
+unassessed and left off, never placed at a guessed position.
+
+`ordering_margins_plot(states, points)` shows, for each ordering, the margin $m = \mp\log_{10}(x/x_0)$ of
+every state or point, its median, the fraction with $m > 0$ and the number assessed. A global or
+time-history ordering is read from `states`, once per state. Any other ordering is read from `points`,
+once per flux-surface point. So $n$ and the fraction match `vaft.process.ordering_state.ordering_margins`
+on the same data. A row without one quantity is left out of that ordering only. Each ordering is drawn
+against its contract threshold $x_0$ (`ordering_threshold`), which is order unity today. The background
+bands are `MARGIN_LABELS`:
+
+| Margin $m$ [decades] | Band |
+| --- | --- |
+| $m > 2$ | over 2 decades |
+| $1 < m \le 2$ | 1-2 decades |
+| $0 < m \le 1$ | 0-1 decade |
+| $m \le 0$ | outside |
+
+The bands name the scale separation. They are **not an applicability status**: that stays the two-sided
+`SUPPORTED` / `OUTSIDE` of `evaluate_contract`, which has no "marginal" on purpose. A margin of exactly
+zero, a quantity at its threshold, falls in "outside", as it is `OUTSIDE` there. The continuous margin
+is the result, and `margin_label` only names its band.
+
+## Which codes consume which contracts
+
+A contract says what a model assumes. A run's `vaft.code.formalism.PlasmaFormalism` record (#1727) says which
+model the run used. `vaft.validation.model_contracts` joins the two (#1823).
+
+`contracts_for(formalism)` maps a record to the contracts it consumes, as `(contract, role)` pairs. It reads
+the record's fields as they are. The **role** says how the assumption enters the calculation. It is not a
+statement about how much of the plasma the assumption covers:
+
+| Role | How the assumption enters | Example |
+| --- | --- | --- |
+| `governing` | the model the calculation solves rests on it | DCON ideal, CGYRO, NEO, EFIT |
+| `outer_solution`, `layer_solution` | it holds for the ideal outer solution, or for the resistive inner-layer solution, of a matched calculation | RDCON + RMATCH; STRIDE is `outer_solution` only |
+| `fluid_part`, `kinetic_response` | it underlies a fluid energy principle, or the kinetic term added to it | DCON kinetic, GPEC kinetic |
+| `closure` | it underlies a kinetic quantity evaluated on a given fluid displacement, not fed back | PENTRC |
+| `inherited` | a reduced model is derived from a theory that rests on it, but does not solve that theory | TGLF, TGLF-NN (gyrokinetics); NEO's analytic values |
+| `transport_coupling` | local turbulent fluxes drive a transport solver | none yet (opt-in, see below) |
+
+![adapter contracts]({{ '/assets/diagrams/adapter_contract_map.svg' | relative_url }})
+
+**How to read the figure:**
+- The figure is deliberately simple. The validity conditions behind each cell are listed below, not drawn.
+- **An empty cell means no registered contract.** It does not mean the calculation is independent of that
+  physics. A part of a formalism that no contract covers is returned as a reason, never as a guessed contract:
+  - test-particle orbit orderings (NUBEAM);
+  - full-$f$ gyrokinetics;
+  - a reduced model's own closure or fit.
+- **Governing vs inherited.** CGYRO solves gyrokinetics, so the gyrokinetic contract governs it. TGLF and
+  TGLF-NN only inherit it. Their gyro-Landau-fluid closure, saturation rule and, for TGLF-NN, the training
+  domain add assumptions that no ordering contract states. A gyrokinetic ordering that holds is therefore
+  necessary for TGLF, not sufficient.
+
+**Validity conditions by mode.** All modes are checked against the adapter code.
+
+| Mode | Contracts and the conditions behind them |
+| --- | --- |
+| EFIT, CHEASE, TokaMaker, TES, NICE | equilibrium sequence: $\tau_{evol}/\tau_A \gg 1$, $M \ll 1$, $M_A \ll 1$. These are static force balance with scalar pressure, and make no claim about $S$, $k\,d_i$ or $k_\perp\rho_i$. |
+| DCON ideal, GPEC ideal | ideal MHD governs: $S \gg 1$, $d_i/a$, $k\,d_i$, $k_\perp\rho_i$, $\rho_i/L_{T_i} \ll 1$, quasineutral, low frequency, scalar pressure |
+| RDCON + RMATCH | ideal MHD for the outer solution; single-fluid resistive MHD (GGJ) for the inner layer, with $d_i/\delta \ll 1$ and $\rho_s/\delta \ll 1$. **A large $S$ does not establish single-fluid validity in the layer.** The layer width falls as a power of $S$: $\delta/a \propto S^{-2/5}$ for a $\Delta'$-driven tearing layer, and $S^{-1/3}$ for a resistive kink. So a larger $S$ makes the layer thinner and pushes $d_i/\delta$ and $\rho_s/\delta$ up. Two-fluid (drift-tearing) physics then enters even though the global ordering $S \gg 1$ holds better. The layer orderings are evaluated on $\delta$, never inferred from $S$. |
+| STRIDE | the ideal outer solution and its $\Delta'$ only; no resistivity is solved. Its empty resistive-MHD cell is not independence from layer physics: reading $\Delta'>0$ as tearing-unstable passes through an inner-layer model STRIDE does not solve (constant-$\psi$, single-fluid), so the layer orderings of the RDCON row apply to that interpretation. |
+| DCON kinetic, GPEC kinetic | ideal MHD for the fluid part; drift kinetics for the $\delta W_k$ term ($\omega/\Omega_{ci}$, $\rho_i/L$, $k_\perp\rho_i \ll 1$) |
+| PENTRC | drift kinetics as a closure on a given ideal or kinetic GPEC displacement; the displacement's own contract is the fluid part |
+| NEO | drift kinetics and local neoclassical transport govern: $\rho_i/L$, $\Delta_b/L_p$, $M \ll 1$. All collisionality regimes are solved, so neither the banana nor the Pfirsch–Schlüter contract applies. |
+| NEO analytic | the analytic, fitted and moment-method theory values a NEO run writes out (Hinton–Hazeltine, Chang–Hinton, Sauter, Redl, Hinton–Rosenbluth, NCLASS). They inherit the same contracts, plus each model's own assumptions. |
+| CGYRO linear, nonlinear | δf gyrokinetics governs: $\rho_i/L_{T_i}$, $k_\parallel/k_\perp$, $\omega/\Omega_{ci}$, $\delta n/n$, $M \ll 1$. $k_\perp\rho_i$ is not ordered. $M \ll 1$ is VAFT's choice: its input writer sets `MACH=0`, while CGYRO itself supports sonic rotation. |
+| TGLF linear, TGLF, TGLF-NN | gyrokinetics inherited: necessary, not sufficient (see above) |
+
+**Gyrokinetic–transport separation is opt-in.** A standalone flux-tube run, linear or nonlinear, imposes a
+fixed background. Comparing its fluxes with experiment still assumes $\tau_{transp}/\tau_{turb} \gg 1$. The δf
+ordering makes turbulence-driven profile evolution $\rho_*^{-2}$ slower than the turbulence. It says nothing
+about evolution driven by the current ramp or actuators, which dominates VEST's ~10 ms discharges. The registry
+books the separate contract only when the run's fluxes drive a transport solver, as in a PORTALS-type
+flux-matching loop (#1588, not yet in VAFT). This is a bookkeeping choice. The record has no
+field that says so. A workflow therefore passes `contracts_for(..., transport_coupled=True)`, or sets
+`AdapterMode.transport_coupled`. No VAFT mode sets it today, so the figure has no coupling column.
+
+**Sources and checks:**
+- `ADAPTER_MODES` lists the modes of VAFT's adapters with their formalisms, from the audit in
+  [Plasma models]({{ '/reference/plasma-models/' | relative_url }}).
+- CGYRO's two modes are the records its own `plasma_formalism` builds.
+- A test checks the GPEC-suite modes field by field against the records `vaft.code.gpec` resolves from the
+  packaged namelists.
+- Modes VAFT does not run are not listed. RDCON's RPEC path is one: `rdcon.in` sets `coil%rpec_flag=f`, even
+  though the resolver can classify it.
+- The modes the audit leaves unresolved, today the GPEC threshold layer models, are listed with no record and
+  a reason.
+
+`advisory_ordering_check(formalism, state, points)` evaluates those contracts on a run's input:
+- `state` is the global and time-history quantities of `vaft.process.ordering_state`;
+- `points` is its profile quantities.
+
+A contract with a local ordering is evaluated at every point, and the most constraining point is reported. Each
+result goes through `evaluate_contract` and is placed on the credibility `applicability` axis with
+`as_evidence`. The statuses are the four of applicability, with no "marginal". A quantity the input does not
+carry is `UNASSESSED`, never a pass. This covers a mode's $k_\perp\rho_i$ without mode numbers, and a layer
+width. The check is advisory: it reports and never blocks a run.
+
+**Recorded in run provenance.** `ordering_provenance(formalism, state, points)` reduces the check to a strict-JSON
+record. It lists the contracts consumed with their roles, statuses, limiting orderings, margins and point counts.
+A missing margin is `null`. Three adapters store it, one per family:
+
+| Adapter | Where | State it adds itself | State a caller passes |
+| --- | --- | --- | --- |
+| EFIT | `ordering_check` in the resolved configuration: `efit_configuration.json`, `EFITResult.configuration` and each slice's provenance | none (EFIT's inputs carry no $n_e$, $T_e$ or $\dot I_p$) | `EFITConfig.ordering_state`, e.g. from `vaft.process.ordering_state` |
+| GPEC suite | `GPECModuleRun.ordering_check` of each prepared cell, carried by the `asdict` run manifest | none | `GPECSuiteConfig.ordering_state` |
+| CGYRO | `CGYROResult.provenance["ordering_check"]` | $\rho_i/L_{T_i}$ and $\lambda_D/L_{T_e}$ from the local input (`cgyro.local_ordering_state`) | `run_cgyro(..., ordering_state=...)`: a mode's frequency or $k_\parallel/k_\perp$, a measured flow |
+
+The state is advisory. It never enters EFIT's scientific identity and never changes a namelist or an input file.
+A failure inside the check is recorded as an `error` entry; it never costs a run its result. For CGYRO, a finite
+caller value takes precedence over a derived one, and a caller's NaN does not hide it. If `extra_parameters`
+override species keys (a gradient scan), nothing is derived from the staged input, and the record says why.
+State keys that are not ordering quantities are listed under `ignored`.
+
+**For now this is plumbing.** No production workflow passes `ordering_state` yet, so a routine EFIT or GPEC
+record lists the consumed contracts with every ordering `UNASSESSED`. The kinetic EFIT chain
+(`KineticEFITConfig`) builds its own `EFITConfig` and has no `ordering_state` yet.
+CGYRO's two local quantities are in GACODE's units: $\rho_s$ is deuterium-normalised in $B_{unit}$. That is an
+order-one difference from the local field, inside the order-unity thresholds.
+
+**Known gap.** The drift-kinetic contract orders $\omega/\Omega_{ci}$ and $k_\perp\rho_i$. A steady
+axisymmetric solve (NEO) or a zero-frequency one (DCON kinetic) has neither as an input, so that contract stays
+`UNASSESSED` for those modes. A NaN at a profile point never hides a finite state value. The reported point is
+the DataFrame's index label when `points` is a DataFrame.
+
 ## References
 
 1. S. I. Braginskii, in *Reviews of Plasma Physics*, Vol. 1, Consultants Bureau (1965), p. 205.

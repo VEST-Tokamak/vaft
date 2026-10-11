@@ -183,6 +183,29 @@ def test_h_factor_is_measured_over_predicted(db5):
     assert h.iloc[0] == pytest.approx(db5.tau_e_th_s.iloc[0] / predicted.iloc[0])
 
 
+@pytest.mark.parametrize("scaling", ["ITPA20", "ITPA20_IL"])
+def test_itpa20_prediction_and_h_factor_use_kappa_area_and_delta(db5, scaling):
+    predicted = predict_confinement_time(db5, scaling)
+    row = db5.iloc[0]
+    expected = confinement_time_from_engineering_parameters(
+        I_p=row.i_p_A, B_t=row.b_t_T, P_loss=row.p_loss_W, n_e=row.n_e_line_avg_m3,
+        M=row.m_eff_amu, R=row.r_geo_m, epsilon=row.epsilon, kappa=row.kappa_area,
+        delta=row.delta, scaling=scaling,
+    )
+    assert predicted.iloc[0] == pytest.approx(expected, rel=1e-12)
+    assert predicted.attrs["kappa_definition"].startswith("kappa_area")
+    h = h_factor(db5, scaling)
+    assert h.iloc[0] == pytest.approx(db5.tau_e_th_s.iloc[0] / expected)
+    assert h.attrs["energy_basis"] == "thermal"
+    # Zero or negative triangularity is a value; a missing one is NaN, never a default.
+    table = db5.copy()
+    table.loc[0, "delta"] = -0.2
+    assert np.isfinite(predict_confinement_time(table, scaling).iloc[0])
+    table.loc[0, "delta"] = np.nan
+    assert np.isnan(predict_confinement_time(table, scaling).iloc[0])
+    assert np.isnan(h_factor(table, scaling).iloc[0])
+
+
 def test_unknown_scaling_is_an_error(db5):
     with pytest.raises(ValueError, match="Unknown scaling"):
         predict_confinement_time(db5, "not-a-scaling")

@@ -676,6 +676,7 @@ rule generate_constraints_ods:
         eddy=PATHS.shot_pattern("eddy_ods"),
         diagnostics=PATHS.shot_pattern("diagnostics_ods"),
         eddy_manifest=PATHS.shot_pattern("eddy_manifest"),
+        diagnostics_manifest=PATHS.shot_pattern("diagnostics_manifest"),
         # Empty for a shot of the base table's era, so its inputs -- and
         # therefore Snakemake's rerun decision -- are what they always were.
         efit_table=efit_table_inputs_for_shot
@@ -705,6 +706,7 @@ rule generate_constraints_ods:
             --eddy-ods {input.eddy} \
             --diagnostics-ods {input.diagnostics} \
             --eddy-manifest {input.eddy_manifest} \
+            --diagnostics-manifest {input.diagnostics_manifest} \
             --output {output.ods} \
             --efit-table-dir "{params.efit_table_dir}" \
             --timeset {params.timeset} \

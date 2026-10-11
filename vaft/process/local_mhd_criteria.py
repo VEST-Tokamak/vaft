@@ -480,6 +480,7 @@ def interchange_comparison(profile: InterchangeProfile, psi_n: Sequence[float], 
         raise ValueError("psi_n must be increasing and di, dr on it")
     lv = profile.psi_n
     inside = (lv >= x[0]) & (lv <= x[-1])
+    # anti-alias: spatial interpolation over normalized flux, not time -- no sample rate to reduce
     di_i = np.where(inside, np.interp(lv, x, di), np.nan)
     dr_i = np.where(inside, np.interp(lv, x, dr), np.nan)
     root = np.sqrt(np.clip(dr_i - di_i, 0.0, None))

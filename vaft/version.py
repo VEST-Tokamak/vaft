@@ -27,6 +27,12 @@ __all__ = ["__version__"]
 #   by vaft.code.gpec beside run_pentrc; vaft.code.pentrc and
 #   vaft.code.pentrc.outputs re-export the same objects, and the external-code
 #   registry lists PENTRC as run through vaft.code.gpec (#1883)
+# - vaft.process.ntv_coil_response: solver-free test and use of a Hermitian
+#   quadratic coil-response model of the signed NTV torque, T = c^H Q c --
+#   the K^2 probe design and Q reconstruction, scaling/sign/common-phase and
+#   held-out qualification (qualified/rejected/insufficient), an
+#   inhomogeneous fit, two-group analytic, budgeted and fixed-amplitude
+#   extrema (#1887)
 # - vaft.process.local_mhd_criteria: Mercier D_I, GGJ H and D_R from flux-
 #   surface averages of one equilibrium (DCON's mercier_scan, coordinate-
 #   free, with V'' and q' on each surface from the flux map), an ODS path

@@ -240,5 +240,7 @@ def test_loading_a_parent_never_composes_its_children():
     assert isinstance(parent, str), "resolution is one source, never a union"
 
     # The children are discoverable, and discovering them composes nothing.
-    assert [entry.name for entry in _sources.children("main")] == ["main/chease"]
+    assert [entry.name for entry in _sources.children("main")] == [
+        "main/chease", *(f"main/{c}" for c in _sources.tglf_configurations())
+    ]
     assert _sources.resolve("main") == parent

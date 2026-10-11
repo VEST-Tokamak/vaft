@@ -199,12 +199,31 @@ def test_every_scaling_is_tagged_and_the_vest_h_figure_draws():
     # Colour = fit database, hatch = regime, each with a legend of what is drawn.
     boxes = [p for p in ax.patches if p.get_hatch() is not None]
     assert {b.get_hatch() for b in boxes} == {"//", "--"}
-    texts = [[t.get_text() for t in leg.get_texts()] for leg in ax.findobj(matplotlib.legend.Legend)]
+    texts = [[t.get_text() for t in leg.get_texts()] for leg in fig.findobj(matplotlib.legend.Legend)]
     assert ["multi"] in texts and ["L-mode", "H-mode"] in texts
     assert figures.mode_hatch("ohmic") == "" and figures.mode_hatch("ohmic+L") not in ("", "//", "--")
     assert figures.mode_hatch("I-mode") in figures.SPARE_HATCHES
     matplotlib.pyplot.close(fig)
 
+
+
+def test_itpa20_sits_in_the_h_mode_block_and_draws_in_the_vest_h_figure():
+    figures = _figures()
+    order = list(figures.ALL_SCALINGS)
+    assert order.index("H98y2") + 1 == order.index("ITPA20")
+    # ITPA20-IL stays in vaft.formula but is out of the VEST presentation (epsilon < 0.5 fit domain).
+    assert "ITPA20_IL" not in order
+    assert figures.SCALING_TAGS["ITPA20"] == ("multi", "H")
+    vest = pd.DataFrame([{**ROW.iloc[0].to_dict(), "delta": 0.3, "machine": "VEST", "tau_e_th_s": 1.5e-3 * k}
+                         for k in (1.0, 1.2, 0.8)])
+    h = figures.h_factor_of(vest, "ITPA20")
+    assert h.notna().all() and h.attrs["approximation"] is None
+    fig, ax = figures.vest_h_factor_figure(vest, ("H98y2", "ITPA20"))
+    by_position = {tick: label.get_text() for tick, label in zip(ax.get_yticks(), ax.get_yticklabels())}
+    assert [by_position[p] for p in sorted(by_position, reverse=True)] == ["IPB98(y,2)", "ITPA20"]
+    matplotlib.pyplot.close(fig)
+    # Without a triangularity the ITPA20 rows are empty, not evaluated at a default.
+    assert figures.h_factor_of(vest.drop(columns="delta").assign(delta=np.nan), "ITPA20").isna().all()
 
 
 def test_observed_tau_uses_the_scaling_basis_and_approximates_only_for_ohmic_machines():
@@ -241,3 +260,154 @@ def test_both_iter97_paths_state_which_elongation_they_use():
     # Scalings without an elongation term say so instead of naming a column.
     assert predict_confinement_time(table, "NSTX2006H").attrs["kappa_definition"] == "no elongation term"
     assert figures.h_factor_of(table, "NeoAlcator").attrs["kappa_definition"] == "no elongation term"
+
+
+# --- #1946: presentation of the tau_E figures --------------------------------
+
+
+def _tau_table():
+    from vaft.data.public.schema import CONFINEMENT_COLUMNS
+
+    base = {c: np.nan for c in CONFINEMENT_COLUMNS}
+    rng = np.random.default_rng(2)
+    rows = []
+    for machine, n, ip, bt, ne, p, r, a, tau in (("JET", 30, 2e6, 2.5, 3e19, 5e6, 2.9, 0.95, 0.3),
+                                                 ("NSTX", 20, 8e5, 0.45, 4e19, 3e6, 0.85, 0.6, 0.04)):
+        for _ in range(n):
+            f = np.exp(0.2 * rng.standard_normal())
+            rows.append({**base, "machine": machine, "population": machine, "selected": True,
+                         "i_p_A": ip * f, "b_t_T": bt, "n_e_line_avg_m3": ne, "p_loss_W": p,
+                         "r_geo_m": r, "a_m": a, "epsilon": a / r, "kappa": 1.7, "kappa_area": 1.6,
+                         "m_eff_amu": 2.0, "tau_e_th_s": tau * f})
+    for i in range(6):
+        rows.append({**base, "machine": "VEST", "population": "VEST (ohmic, this work)", "i_p_A": 1e5,
+                     "b_t_T": 0.2, "n_e_line_avg_m3": 1e19 if i < 4 else np.nan, "p_loss_W": 2e5,
+                     "r_geo_m": 0.4, "a_m": 0.3, "epsilon": 0.75, "kappa": 1.6, "kappa_area": 1.5,
+                     "m_eff_amu": 1.0, "tau_e_th_s": 1e-3, "thomson_consistent": i % 2 == 0})
+    return pd.DataFrame(rows)
+
+
+def _direct_texts(ax):
+    from vaft.plot._direct_labels import LABEL_GID
+
+    return [t.get_text() for t in ax.texts if str(t.get_gid() or "").startswith(LABEL_GID)]
+
+
+def test_predicted_vs_measured_figure_defaults_name_scaling_and_note_vest_details():
+    figures = _figures()
+    table = _tau_table()
+    fig, axes = figures.predicted_vs_measured_figure(table, ("ITER89P", "ITER97L"))
+    for ax, scaling in zip(axes, ("ITER89P", "ITER97L")):
+        assert ax.get_title() == f"{figures.LABELS[scaling]}{figures.basis_marker(scaling)}"
+        assert ax.get_ylabel() == r"$\tau_E$ measured [s]"
+        names = _direct_texts(ax)
+        assert figures.VEST_LABEL in names  # no row counts
+        if scaling == "ITER97L":  # ITER89-P needs DB5's global tau, absent from this table
+            assert "JET" in names
+        assert not any("(" in n and n.endswith(")") and n.split("(")[-1][:-1].isdigit() for n in names)
+        assert not any(c.get_edgecolor().size and np.allclose(c.get_edgecolor()[0][:3], (0.863, 0.078, 0.235),
+                                                                atol=0.01) for c in ax.collections)
+    note = fig._supxlabel.get_text().replace("\n", " ")
+    assert "VEST: tau_E,th" in note and "rows" in note and "EFIT p outside [1, 2] p_e" in note
+    matplotlib.pyplot.close(fig)
+
+
+def test_predicted_vs_measured_figure_options_restore_counts_and_rings():
+    figures = _figures()
+    table = _tau_table()
+    fig, axes = figures.predicted_vs_measured_figure(table, ("ITER97L",), label_counts=True, mark_thomson=True)
+    names = _direct_texts(axes[0])
+    assert any(n.startswith("JET (") for n in names)
+    assert any(n.startswith(figures.THOMSON_RING_SHORT) for n in names)  # the ring's direct label
+    matplotlib.pyplot.close(fig)
+
+
+def test_h_factor_figure_draws_on_a_small_table():
+    figures = _figures()
+    fig, axes = figures.h_factor_figure(_tau_table(), ("ITER97L",))
+    assert "VEST" in axes[0].get_title()
+    matplotlib.pyplot.close(fig)
+
+
+def test_mark_thomson_inconsistent_adds_a_short_direct_label():
+    from vaft.plot.population import confinement_population
+
+    figures = _figures()
+    table = _population_with_verdict()
+    fig, ax = matplotlib.pyplot.subplots()
+    confinement_population(table, x="i_p_A", y="tau_e_th_s", by="population",
+                           highlight="VEST (ohmic, this work)", ax=ax)
+    figures.mark_thomson_inconsistent(ax, table, "i_p_A", "tau_e_th_s")
+    assert f"{figures.THOMSON_RING_SHORT} (2)" in _direct_texts(ax)
+    matplotlib.pyplot.close(fig)
+
+
+def test_wrap_to_width_breaks_at_spaces_keeps_newlines_and_is_idempotent():
+    figures = _figures()
+    fig, ax = matplotlib.pyplot.subplots(figsize=(3, 2))
+    text = ax.set_title("alpha beta gamma delta epsilon zeta eta theta\nshort")
+    renderer = fig.canvas.get_renderer()
+    width = 0.5 * text.get_window_extent(renderer).width
+    assert figures._wrap_to_width(text, width, renderer)
+    lines = text.get_text().split("\n")
+    assert lines[-1] == "short" and len(lines) > 2
+    assert " ".join(" ".join(lines[:-1]).split()) == "alpha beta gamma delta epsilon zeta eta theta"
+    wrapped = text.get_text()
+    assert not figures._wrap_to_width(text, width, renderer)
+    assert text.get_text() == wrapped
+    math = ax.set_xlabel(r"$\tau_E$ a long label with math " * 3)
+    assert not figures._wrap_to_width(math, 10.0, renderer)
+    matplotlib.pyplot.close(fig)
+
+
+def test_fit_titles_and_footnote_keeps_titles_inside_their_axes():
+    figures = _figures()
+    fig, axes = figures._grid(2, figsize=(5, 3))
+    for ax in axes:
+        ax.set_title("a deliberately long panel title that cannot fit in a narrow axes")
+    fig.supxlabel("a footnote " * 20, fontsize="x-small", x=0.01, ha="left")
+    figures._fit_titles_and_footnote(fig, axes)
+    renderer = fig.canvas.get_renderer()
+    for ax in axes:
+        assert ax.title.get_window_extent(renderer).width <= ax.get_window_extent(renderer).width + 1
+    assert fig._supxlabel.get_window_extent(renderer).x1 <= fig.bbox.width + 1
+    matplotlib.pyplot.close(fig)
+
+
+# --- VEST H figure: default rows and median labels ---------------------------
+
+
+def _vest_rows():
+    return _tau_table().loc[lambda t: t["machine"] == "VEST"].reset_index(drop=True)
+
+
+def _row_labels(ax):
+    return [label.get_text() for label in ax.get_yticklabels()]
+
+
+def test_vest_h_factor_figure_leaves_out_the_goldston_1984_fits_by_default():
+    figures = _figures()
+    fig, ax = figures.vest_h_factor_figure(_vest_rows())
+    shown = _row_labels(ax)
+    for name in figures.H_FIGURE_EXCLUDE:
+        assert not any(label.startswith(figures.LABELS[name]) for label in shown)
+    assert len(shown) == len(figures.ALL_SCALINGS) - len(figures.H_FIGURE_EXCLUDE)
+    matplotlib.pyplot.close(fig)
+    fig, ax = figures.vest_h_factor_figure(_vest_rows(), exclude=())
+    assert len(_row_labels(ax)) == len(figures.ALL_SCALINGS)
+    matplotlib.pyplot.close(fig)
+
+
+def test_vest_h_factor_figure_writes_each_box_median_inside_the_axes():
+    figures = _figures()
+    table = _vest_rows()
+    fig, ax = figures.vest_h_factor_figure(table, ("ITER97L", "H98y2"))
+    labels = {t.get_gid()[len(figures.H_MEDIAN_GID):]: t for t in ax.texts
+              if str(t.get_gid() or "").startswith(figures.H_MEDIAN_GID)}
+    assert set(labels) == {"ITER97L", "H98y2"}
+    renderer = fig.canvas.get_renderer()
+    for name, text in labels.items():
+        h = figures.h_factor_of(table, name).replace([np.inf, -np.inf], np.nan).dropna()
+        assert text.get_text() == f"H~{h.median():.3g}"
+        assert text.get_window_extent(renderer).x1 <= ax.get_window_extent(renderer).x1
+    matplotlib.pyplot.close(fig)

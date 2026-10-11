@@ -75,3 +75,23 @@ def test_the_volume_beta_columns_share_the_normalization_of_the_troyon_plane(pro
     # the DD routine's beta_N and this <beta_N> take a and I_p by different paths, which agree to about 1 %
     assert row["normalized_beta"] / row["normalized_volume_beta"] == pytest.approx(
         row["toroidal_beta"] / row["volume_beta"], rel=0.02)
+
+
+def test_li1_shares_the_li3_integral_and_differs_by_the_shape_factor(product):
+    beb = _build_efit_base()
+    times = np.asarray(product["equilibrium.time"], dtype=float)
+    reconstructed = [i for i in range(times.size) if f"equilibrium.time_slice.{i}.boundary.outline.r" in product]
+    k = reconstructed[0]
+    row = beb._row(product, float(times[k]))
+    _, volume = beb._bp2_and_volume(product, k)
+    gamma = beb._boundary_perimeter(product, k)
+    assert row["internal_inductance_li1"] == pytest.approx(
+        row["li3_grid_integral"] * row["r_reference_m"] * gamma**2 / (2 * volume))
+    assert (row["boundary_perimeter_m"], row["grid_volume_m3"]) == pytest.approx((gamma, volume))
+    # the factor splits into a shape part Gamma^2/(4 pi A) >= 1 (isoperimetric) and the radius part R_0/R_c of
+    # l_i(3)'s normalization, R_c = V/(2 pi A): neither alone fixes the sign of l_i(1) - l_i(3)
+    area = row["area_elongation"] * np.pi * row["minor_radius_m"] ** 2
+    shape, radius = gamma**2 / (4 * np.pi * area), row["r_reference_m"] * 2 * np.pi * area / volume
+    assert shape >= 1.0
+    assert row["internal_inductance_li1"] == pytest.approx(row["li3_grid_integral"] * shape * radius, rel=1e-9)
+    assert {"internal_inductance_li1", "boundary_perimeter_m", "grid_volume_m3"} <= set(beb.UNITS)

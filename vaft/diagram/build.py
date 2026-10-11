@@ -70,9 +70,11 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
     "mode_number_mapping.svg": ("mode_number_mapping", {}),
     "timescale_hierarchy.svg": ("timescale_hierarchy", {}),  # asymptotic orderings (#1627)
     "ordering_contract_map.svg": ("ordering_contract_map", {}),
+    "adapter_contract_map.svg": ("adapter_contract_map", {}),  # adapter modes x contracts (#1823)
     "mhd_mode_geometry_map.svg": ("mhd_mode_geometry_map", {}),
     # reduced physical representations (#1626)
     "reduced_representation_hierarchy.svg": ("reduced_representation_hierarchy", {}),
+    "reduced_representation_hierarchy_compact.svg": ("reduced_representation_hierarchy_compact", {}),
     **{f"reduction_graph_{f}.svg": ("reduction_graph", {"family": f})
        for f in ("current_q", "pressure_energy", "kinetic_profiles", "dimensionless_similarity")},
     # tokamak geometry and flux coordinates

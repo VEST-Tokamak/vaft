@@ -113,11 +113,16 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plot_taxonomy.py",
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
+    # Raw DAQ sources per registry id (#1742): resolver contract, no mapper run.
+    "test_raw_sources.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
     # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
     # analytic fixtures only, a few seconds.
     "test_mode_frequency_overlay.py",
+    # Quadratic coil-response algebra of a signed NTV torque (#1887): synthetic
+    # Hermitian matrices, no solver, about a second.
+    "test_ntv_coil_response.py",
     # Equilibrium-native Mercier / GGJ indices against DCON tables (#1902):
     # packaged VEST g-file, no solver, a few seconds.
     "test_local_mhd_criteria.py",
@@ -296,6 +301,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_classical_transport_summary.py",
     "test_neoclassical_summary.py",
     "test_plot_transport_atlas.py",
+    "test_transport_projection.py",
     "test_transport_state.py",
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
@@ -322,6 +328,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_fast_ion.py",
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
+    "test_kinetic_closure_nubeam.py",
     "test_process_impurity.py",
     "test_process_kinetic_closure.py",
     "test_process_species.py",
@@ -364,6 +371,14 @@ CORE_MODULES: tuple[str, ...] = (
     # Ordering contracts (#1627 phase C): the registry against applicability's rules,
     # the cited kernels against the catalog, and evaluation on synthetic states.
     "test_validation_orderings.py",
+    # Ordering spaces and margins (#1627 §3): the space registry, the margin bands and both plots
+    # on a synthetic population. Under 5 s.
+    "test_plot_ordering_space.py",
+    # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
+    # and the advisory check. Under 5 s.
+    "test_validation_model_contracts.py",
+    # Advisory ordering checks in EFIT, GPEC-suite and CGYRO run provenance (#1823). Under 10 s.
+    "test_adapter_ordering_provenance.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
     "test_q_profile_context.py",
