@@ -70,6 +70,7 @@ _SUBMODULES = {
     "mhd_stability": ".mhd_stability",
     "q_profile_context": ".q_profile_context",
     "ordering_state": ".ordering_state",
+    "ntv_coil_response": ".ntv_coil_response",
     "coil_operating_space": ".coil_operating_space",
 }
 
@@ -150,6 +151,9 @@ _IMPORT_ORDER = (
     # Asymptotic ordering quantities of measured states (#1627 §2, #1629);
     # nothing it exports collides.
     "ordering_state",
+    # Quadratic coil-response model of a signed NTV torque and its
+    # qualification (#1887); solver-free, nothing it exports collides.
+    "ntv_coil_response",
     # The common coil operating-space result of #1178 (schema settled on
     # #1886); nothing it exports collides.
     "coil_operating_space",

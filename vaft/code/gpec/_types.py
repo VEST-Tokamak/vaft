@@ -620,6 +620,11 @@ class GPECSuiteConfig:
     verify_outputs: bool = False
     timeout: Optional[float] = 1200.0
     env: Mapping[str, str] = field(default_factory=dict)
+    #: Ordering quantities of the equilibrium being analysed, by
+    #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name (#1823), e.g. from
+    #: ``vaft.process.ordering_state``; mode and layer quantities when the caller
+    #: has them. Advisory only: recorded per run as ``ordering_check``.
+    ordering_state: Mapping[str, Any] = field(default_factory=dict)
     dcon: DCONOptions = field(default_factory=DCONOptions)
     rdcon: RDCONOptions = field(default_factory=RDCONOptions)
     stride: STRIDEOptions = field(default_factory=STRIDEOptions)
@@ -671,6 +676,11 @@ class GPECModuleRun:
     #: manifest built with ``dataclasses.asdict`` carries it unchanged; ``None``
     #: when the cell was never prepared.  :attr:`formalism` rebuilds the record.
     plasma_formalism: Optional[Mapping[str, Any]] = None
+    #: The advisory ordering check of that formalism on
+    #: :attr:`GPECSuiteConfig.ordering_state` (#1823): the contracts the run
+    #: consumes, in what role, with each status and margin.  JSON-ready, so the
+    #: ``dataclasses.asdict`` run manifest carries it; ``None`` with no formalism.
+    ordering_check: Optional[Mapping[str, Any]] = None
 
     @property
     def formalism(self):

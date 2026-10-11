@@ -31,6 +31,9 @@ integral of $B_p$, not a moment of $j_\phi$.
 
 ![reduced representations]({{ '/assets/diagrams/reduced_representation_hierarchy.svg' | relative_url }})
 
+`reduced_representation_hierarchy_compact()` draws the same axes and arrows with only the symbols in each
+box, for slides and overview pages.
+
 ## Declaring it
 
 The formula's docstring is the single source of truth. A formula declares its place in the taxonomy with

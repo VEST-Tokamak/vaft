@@ -40,7 +40,7 @@ __all__ = [
 # ------------------------------------------------------------------
 
 def gradient(x: np.ndarray, y: np.ndarray) -> np.ndarray:
-    r"""Derivative $dy/dx$ on a sampled 1-D profile.
+    r"""Derivative $dy/dx$ along the first axis of a sampled profile or map.
 
     $$\frac{dy}{dx}\Big|_i \approx \frac{y_{i+1} - y_{i-1}}{x_{i+1} - x_{i-1}}$$
 
@@ -51,22 +51,25 @@ def gradient(x: np.ndarray, y: np.ndarray) -> np.ndarray:
     x : np.ndarray
         Independent variable, monotonic [any].
     y : np.ndarray
-        Dependent variable, same length as ``x`` [any].
+        Dependent variable whose first axis has the length of ``x``: a 1-D
+        profile or an N-D map indexed ``[x, ...]`` [any].
 
     Returns
     -------
     np.ndarray
-        $dy/dx$ at every sample, in units of ``y`` per unit ``x`` [any].
+        $dy/dx$ at every sample, of the shape of ``y``, in units of ``y`` per
+        unit ``x`` [any].
 
     Numerical notes
     ---------------
-    Wraps ``numpy.gradient(y, x)``: second-order accurate in the interior,
-    first-order one-sided at the two end points, and noise-amplifying (a
-    relative noise $\delta$ on ``y`` becomes $\delta/\Delta x$ on the
-    derivative).  Needs at least two samples; only the first axis of a 2-D
-    ``y`` is differentiated.
+    Wraps ``numpy.gradient(y, x, axis=0)``: second-order accurate in the
+    interior, first-order one-sided at the two end points, and
+    noise-amplifying (a relative noise $\delta$ on ``y`` becomes
+    $\delta/\Delta x$ on the derivative).  Needs at least two samples; only
+    the first axis of an N-D ``y`` is differentiated, each column
+    independently, so the result equals stacking the 1-D derivatives.
     """
-    return np.gradient(y, x)
+    return np.gradient(y, x, axis=0)
 
 
 def normalized_gradient_scale_length(x: np.ndarray, y: np.ndarray, a: float) -> np.ndarray:

@@ -182,6 +182,8 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
         - epsilon: Inverse aspect ratio [-]
         - kappa: Elongation [-]
         - M: Average ion mass [amu]
+        - delta: Average boundary triangularity [-], only when the boundary
+          carries one (see :func:`_boundary_triangularity`)
     """
     eq_ts = ods['equilibrium.time_slice'][time_slice]
     
@@ -214,6 +216,7 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
     a = _required_scalar('boundary.minor_radius')  # [m]
     kappa = _required_scalar('boundary.elongation')  # [-]
     epsilon = inverse_aspect_ratio_from_a_R(a, R)  # [-]
+    delta = _boundary_triangularity(eq_ts)  # [-] or None
 
     # Compute P_loss from compute_power_balance
     power_balance = _get_cached_power_balance(ods)
@@ -392,7 +395,7 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
     if not np.isfinite(kappa) or kappa <= 0:
         raise ValueError(f"Invalid kappa: {kappa}")
     
-    return {
+    params = {
         'I_p': I_p,
         'B_t': B_t,
         'P_loss': P_loss,
@@ -404,6 +407,33 @@ def compute_tau_E_engineering_parameters(ods, time_slice: int,
         'kappa': kappa,
         'M': M,
     }
+    if delta is not None:
+        params['delta'] = delta
+    return params
+
+
+def _boundary_triangularity(eq_ts) -> Optional[float]:
+    """Average LCFS triangularity of one equilibrium time slice, or ``None``.
+
+    The mean of ``boundary.triangularity_upper`` and
+    ``boundary.triangularity_lower`` when both are present and finite, else
+    ``boundary.triangularity``, else ``None``. Read by membership, so a missing
+    leaf is not materialised on the ODS.
+    """
+    def _finite(path: str) -> Optional[float]:
+        if path not in eq_ts:
+            return None
+        try:
+            value = float(eq_ts[path])
+        except (TypeError, ValueError):
+            return None
+        return value if np.isfinite(value) else None
+
+    upper = _finite('boundary.triangularity_upper')
+    lower = _finite('boundary.triangularity_lower')
+    if upper is not None and lower is not None:
+        return 0.5 * (upper + lower)
+    return _finite('boundary.triangularity')
 
 
 def _density_input_for_scaling(
@@ -448,6 +478,14 @@ def _compute_tau_E_scaling_from_eng_params(
 ) -> float:
     """Compute tau_E from a precomputed engineering-parameter dictionary."""
     n_e_value, n_e_definition = _density_input_for_scaling(eng_params, scaling)
+    delta = eng_params.get('delta')
+    needs_delta = "one_plus_delta" in _SCALING_COEFS[scaling].get("exponents", {})
+    if needs_delta and (delta is None or not np.isfinite(float(delta))):
+        raise ValueError(
+            f"Scaling '{scaling}' needs the boundary triangularity, which is missing: "
+            "equilibrium.time_slice[i].boundary has neither triangularity_upper and "
+            "triangularity_lower nor triangularity (or eng_params has no 'delta')."
+        )
     tau_E = confinement_time_from_engineering_parameters(
         I_p=eng_params['I_p'],
         B_t=eng_params['B_t'],
@@ -459,6 +497,7 @@ def _compute_tau_E_scaling_from_eng_params(
         kappa=eng_params['kappa'],
         scaling=scaling,
         input_density_definition=n_e_definition,
+        delta=None if delta is None else float(delta),
     )  # [s]
 
     # Handle complex numbers (should not happen with valid inputs, but handle gracefully)
@@ -537,7 +576,7 @@ def compute_tau_E_scaling(
             f"P_loss={eng_params.get('P_loss')}, n_e_line_avg={eng_params.get('n_e_line_avg')}, "
             f"n_e_vol_avg={eng_params.get('n_e_vol_avg')}, M={eng_params.get('M')}, "
             f"R={eng_params.get('R')}, epsilon={eng_params.get('epsilon')}, "
-            f"kappa={eng_params.get('kappa')}"
+            f"kappa={eng_params.get('kappa')}, delta={eng_params.get('delta')}"
         )
         return float("nan")
 

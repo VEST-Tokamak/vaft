@@ -282,6 +282,28 @@ need internet access; the server does not.
 Hosted, one process holds every reader's session, and each session keeps the IDS it has read in
 memory until its tab closes. `MemoryMax` in the unit bounds the whole service.
 
+### Sessions
+
+Every browser tab is its own session on the server.
+
+- **Isolation.** A session has its own shell, workspaces, loaded data, selection, time slice and
+  uploads. What one reader opens or changes is never visible to another. Sessions share
+  code, the list of workspaces and the server process's settings. One known leak of the
+  latter: the Database workspace's **Test connection** changes the process-wide logging
+  level.
+- **Clean-up.** When a tab is closed, the server discards its session once Bokeh's
+  unused-session lifetime has passed: 15 s, checked every 17 s, so within about half a minute.
+  Discarding a session closes its shell, which releases its figures, loaded data and uploaded
+  files.
+- **Not limited yet.**
+  - A tab left open keeps its session, and its data, until it is closed.
+  - There is no idle timeout, per-session memory cap or concurrency limit.
+  - These limits will be set from measurements on the hosted test instance (#1862, #1863), not
+    guessed in advance.
+- **Shared data account.** With `--auth hsds`, sign-in only decides who may open the page. Every
+  session reads data with the service's own HSDS credentials, so the GUI does not apply each
+  user's HSDS permissions.
+
 ## What comes next
 
 The browser application is Track A of the GUI roadmap (#1359). A fuller plot explorer follows,
