@@ -302,8 +302,8 @@ def build_summary(rows: list[dict[str, Any]], references: dict) -> list[dict[str
     for config, sat, quantity in keys:
         group = [r for r in rows if (r["config"], r["sat_rule"], r["quantity"]) == (config, sat, quantity)]
         for name in ("rho_star", *SCANS):
-            # Consistency mapping (module docstring): mu_x = -S_x for local transport at fixed profile shape,
-            # transport, and mu_rho = -3 by gyro-Bohm construction.
+            # Consistency mapping (module docstring): mu_x = -S_x for local transport at
+            # fixed profile shape, and mu_rho = -3 by gyro-Bohm construction.
             values = [-3.0 if name == "rho_star" else -r[f"S_gb_{name}"]
                       for r in group if r.get(f"S_gb_{name}") is not None]
             ref = references.get(name, {})
