@@ -62,6 +62,13 @@ than assuming it. Every time comes from a formula kernel; only the pulse length 
     times faster.
   - $d_i/a \approx 0.3$, so Hall corrections are not globally negligible.
 
+The axis also places the sound crossing time $a/c_s$ and the inverse thermal-ion transit and bounce
+frequencies (#1739). They show where neoclassical and drift-kinetic dynamics sit between $\tau_A$ and the
+evolution time. Drift precession has no formula kernel, and $\tau_E$ needs an energy inventory the state
+does not carry, so neither is drawn. `spatial_scale_orderings` places the lengths of the same state on one
+axis: the Larmor radii, $\rho_s$, $d_i$, the banana width, an illustrative gradient length, $a$, $R_0$ and
+$qR_0$.
+
 These numbers come from an illustrative state, not a measured discharge. Answering the same questions
 across the VEST database is the ordering atlas of #1629.
 

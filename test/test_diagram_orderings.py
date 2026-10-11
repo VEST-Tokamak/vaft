@@ -47,7 +47,17 @@ def test_deterministic_exported_and_labels():
 def test_timescales_include_the_guides_bounce_transit_and_sound_times():
     from vaft.diagram._orderings import timescales
 
+    from vaft.formula.constants import MI_P
+    from vaft.formula.neoclassical import deeply_trapped_bounce_frequency, transit_frequency
+    from vaft.formula.ordering import thermal_speed
+    from vaft.formula.sol import ion_sound_speed
+
+    s = ILLUSTRATIVE_STATE
     t = {k: v[1] for k, v in timescales().items()}
+    v_ti = thermal_speed(s["T_i"], MI_P)
+    assert t["sound"] == pytest.approx(s["a"] / ion_sound_speed(s["T_e"], s["T_i"], MI_P))
+    assert t["transit"] == pytest.approx(1.0 / transit_frequency(v_ti, s["q"], s["R0"]))
+    assert t["bounce"] == pytest.approx(1.0 / deeply_trapped_bounce_frequency(v_ti, s["q"], s["R0"], 0.5 * s["a"] / s["R0"]))
     # a deeply trapped ion bounces slower than a passing one transits, and both after the sound crossing
     assert t["sound"] < t["transit"] < t["bounce"]
     assert t["alfven"] < t["sound"]
@@ -61,7 +71,15 @@ def test_spatial_scales_are_kernel_values_on_the_same_state():
     from vaft.formula.neoclassical import banana_width
     from vaft.formula.ordering import inertial_length, sound_gyroradius
 
+    from vaft.formula.constants import ME, QE
+    from vaft.formula.ordering import thermal_speed
+    from vaft.formula.particle import larmor_radius
+
     s, v = ILLUSTRATIVE_STATE, {k: val[1] for k, val in lengths().items()}
+    assert v["rho_i"] == pytest.approx(larmor_radius(QE, MI_P, thermal_speed(s["T_i"], MI_P), s["B"]))
+    assert v["rho_e"] == pytest.approx(larmor_radius(QE, ME, thermal_speed(s["T_e"], ME), s["B"]))
+    # a different state moves the lengths: they are computed, not stored
+    assert lengths({**s, "B": 2 * s["B"]})["rho_i"][1] == pytest.approx(0.5 * v["rho_i"])
     assert v["d_i"] == pytest.approx(inertial_length(s["n"], MI_P))
     assert v["rho_s"] == pytest.approx(sound_gyroradius(s["T_e"], MI_P, s["B"]))
     assert v["banana"] == pytest.approx(banana_width(v["rho_i"], s["q"], 0.5 * s["a"] / s["R0"]))
@@ -73,3 +91,12 @@ def test_spatial_scales_are_kernel_values_on_the_same_state():
     assert d.tikz == vaft.diagram.spatial_scale_orderings().tikz
     with pytest.raises(ValueError):
         vaft.diagram.spatial_scale_orderings(labels="yes")
+
+
+def test_close_neighbours_never_share_a_stacking_level():
+    from vaft.diagram._orderings import _free_level
+
+    placed = [(0.0, False, 0), (1.0, False, 1)]
+    assert _free_level(placed, 1.5, False, 2.4) == 2          # both earlier neighbours are close
+    assert _free_level(placed, 1.5, True, 2.4) == 0           # the other side is free
+    assert _free_level([(0.0, False, 1)], 0.5, False, 2.4) == 0   # level 0 is free again
