@@ -44,7 +44,7 @@ flowchart LR
 | `vaft.formula.atomic` | OPEN-ADAS ADF11 interpolation, coronal charge-state fractions, line-radiation cooling coefficients |
 | `vaft.formula.impurity` | Impurity-mixture moments, densities for a target $Z_\mathrm{eff}$, the reduced pseudo-impurity, main-ion dilution |
 | `vaft.formula.fast_ion` | Classical fast-ion slowing down: critical speed and energy, slowing-down times, distribution, density, energy density and pressure |
-| `vaft.formula.kinetic` | Multi-species electron collision time and electron–ion energy-exchange time |
+| `vaft.formula.kinetic` | Multi-species electron and ion collision times, electron–ion energy-exchange time, and the Braginskii perpendicular heat diffusivities (classical baseline) |
 | `vaft.formula.turbulence` | Turbulence–zonal-flow predator–prey (Lotka–Volterra) model: right-hand side, fixed point, invariant, small-amplitude period and response lag |
 | `vaft.formula.statistics` | Residual, goodness-of-fit and solver-convergence statistics used by the validation layer |
 
@@ -233,7 +233,7 @@ Only the `'conventional'` and `'ST'` branches return `beta_max` / `beta_crit`; `
 
 $$ q_{\rm kink} = \frac{2\pi a^2 B_t}{\mu_0 I_p R}\left(1 + \frac{\kappa^2}{2}\right) $$
 
-Normalised plasma current (Phys. Plasmas **23**, 072508):
+Normalised plasma current, the Troyon normalisation $I_N = I_p/(a B_t)$ (Plasma Phys. Control. Fusion **26**, 209) and the current axis of the Menard et al. low-aspect-ratio stability maps (Nucl. Fusion **37**, 595):
 
 <!-- docs-snippet: skip fragment (placeholder name Ip is never defined on the page) -->
 ```python
@@ -341,16 +341,35 @@ H = vaft.formula.confinement_factor_ITER89P(tau_exp, tau_iter89p)   # H = tau_ex
 
 $$ \tau_{E,\rm th}^{\rm fit} = C \prod_i x_i^{\alpha_i} $$
 
-with the product running **only** over the variables the selected scaling actually declares. Five
+with the product running **only** over the variables the selected scaling actually declares. Eight
 `scaling` names are accepted; anything else raises `ValueError` listing the available keys.
 
 | `scaling` | $C$ | Variables in the product | Reference stored in the table |
 | --- | --- | --- | --- |
 | `"ITER89P"` (default) | 0.038 | `Ip_MA`, `R`, `epsilon`, `kappa`, `n_19`, `Bt`, `Mi`, `P_MW` | ITER Physics Basis 1989 L-mode scaling |
 | `"H98y2"` | 0.0562 | `Ip_MA`, `R`, `epsilon`, `kappa`, `n_19`, `Bt`, `Mi`, `P_MW` | IPB98(y,2) ELMy H-mode scaling |
+| `"ITER97L"` | 0.023 | `Ip_MA`, `Bt`, `R`, `epsilon`, `kappa`, `n_19`, `Mi`, `P_MW` | Kaye *et al.*, Nucl. Fusion **37**, 1303 (1997), thermal L-mode |
 | `"NSTX2006H"` | 0.0715 | `Ip_MA`, `Bt`, `n_19`, `P_MW` | Kaye *et al.*, Nucl. Fusion **46**, 848 (2006), H-mode thermal |
 | `"NSTX2006L"` | 0.141 | `Ip_MA`, `Bt`, `n_19`, `P_MW` | Kaye *et al.*, Nucl. Fusion **46**, 848 (2006), L-mode global |
 | `"Kurskiev2022"` | 0.066 | `Ip_MA`, `Bt`, `n_19`, `P_MW`, `R`, `kappa` | Kurskiev *et al.*, Nucl. Fusion **62**, 016011 (2022), ST multi-machine H-mode |
+| `"ITPA20"` | 0.053 | `Ip_MA`, `Bt`, `n_19`, `P_MW`, `R`, `one_plus_delta`, `kappa`, `epsilon`, `Mi` | Verdoolaege *et al.*, Nucl. Fusion **61**, 076006 (2021), eq. (7), all DB5.2.3-STD5 ELMy H-modes |
+| `"ITPA20_IL"` | 0.067 | `Ip_MA`, `Bt`, `n_19`, `P_MW`, `R`, `one_plus_delta`, `kappa`, `Mi` | same paper, eq. (5), the ITER-like subset (ITPA20-IL, the basis of $H_{20}$) |
+
+The ITPA20 fits add a triangularity factor $(1+\delta)^{\alpha}$: pass `delta=` (the average of the upper and
+lower LCFS triangularity) or they raise `ValueError`; the other scalings ignore it. Their `kappa` is the volume
+elongation $\kappa_a = V/(2\pi R\,\pi a^2)$ and their power the thermal loss power through the LCFS with
+radiation not subtracted. The paper's ITER point (15 MA, 5.3 T, $10.3\times10^{19}$ m⁻³, 87 MW, 6.2 m,
+$\delta = 0.48$, $\kappa_a = 1.7$, $\epsilon = 0.32$, $M = 2.5$) gives 3.08 s (ITPA20) and 2.89 s (ITPA20-IL)
+with the printed coefficients, against the paper's 3.07 s and 2.90 s from the unrounded fits.
+ITPA20-IL was fitted on the paper's ITER-like subset (Sec. 2.1: eight conventional tokamaks, $q_{95} > 2.8$,
+$1.3 < \kappa < 2.2$, $\epsilon < 0.5$, $Z_{eff} < 5$), so it is an ITER extrapolation tool, not a fit for a
+spherical tokamak.
+
+On the ODS path, `vaft.omas.formula_wrapper.compute_tau_E_scaling` takes $\delta$ from
+`equilibrium.time_slice[i].boundary`: the mean of `triangularity_upper` and `triangularity_lower` when both
+exist, else `triangularity`. Without either, an ITPA20 scaling does not raise there: the slice gets `NaN` and a
+warning that names the missing triangularity, as the wrapper does for every input it cannot map. That wrapper
+passes `boundary.elongation` (b/a) as `kappa` for every scaling, not $\kappa_a$.
 
 The two NSTX entries omit `R`, `epsilon`, `kappa` and `Mi` on purpose: only the dependencies the paper
 publishes are implemented, and unspecified ones are not assumed. The signature is the same for every
@@ -365,7 +384,7 @@ Things the evaluator does for you, and things it does not:
   papers' SI-like form into this common convention, so the stored $C$ is only correct with the inputs above.
 - **Every variable used by the selected scaling must be finite and strictly positive**, or you get a
   `ValueError` naming the offending argument.
-- **Density definitions are explicit.** Each table entry declares a `density_definition`; all five
+- **Density definitions are explicit.** Each table entry declares a `density_definition`; all eight
   currently declare `"line_avg"`. If your `input_density_definition` differs from the entry's target,
   you must also pass `line_to_volume_factor` — the evaluator refuses to guess and raises `ValueError`.
 

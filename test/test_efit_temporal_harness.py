@@ -32,6 +32,60 @@ def test_iterations_are_split_where_the_counter_restarts_not_on_the_printed_time
     assert blocks[1]["gs_error_log"] == 0.2 and blocks[0]["chi2_log"] == 1.02e-6
 
 
+SILENT_SLICE_LOG = """
+ r=  0 t=   318 it=  1 chi2=7.09E+02 zm= 1.19E-07 err=3.905E+00 dz= 1.192E-07 chigam= 0.00E+00
+ r=  0 t=   318 it=  2 chi2=1.02E-06 zm= 3.86E-03 err=3.517E-01 dz= 2.511E-04 chigam= 0.00E+00
+ r=  0 t=   320 it=  1 chi2=7.32E+02 zm= 9.81E-04 err=3.867E+00 dz=-2.799E-03 chigam= 0.00E+00
+ r=  0 t=   320 it=  2 chi2=3.00E+01 zm= 9.81E-04 err=1.000E+00 dz=-2.799E-03 chigam= 0.00E+00
+ r=  0 t=   320 it=  3 chi2=3.00E+01 zm= 9.81E-04 err=5.000E-01 dz=-2.799E-03 chigam= 0.00E+00
+ERROR in bound at r=  0, t=   320: First and last contour points are too far apart
+"""
+
+
+def test_log_blocks_are_paired_with_kfiles_by_printed_time_not_position():
+    """Cold review 0.7.0 efit-workflows F5 (#1888).
+
+    Three k-files, and slice 319 printed nothing (below the current cut).
+    Pairing by position handed 320's block -- three steps and a bound error
+    -- to 319 and left 320 with none.
+    """
+    progress = STUDY.iterations_from_log(SILENT_SLICE_LOG)
+    assert [block["time_ms"] for block in progress] == [318, 320]
+
+    by_key = STUDY.blocks_by_kfile(["00318", "00319", "00320"], progress)
+
+    assert "00319" not in by_key
+    assert by_key["00318"]["iterations_n"] == 2
+    assert by_key["00320"]["iterations_n"] == 3 and by_key["00320"]["bound_error"]
+
+
+def test_the_printed_millisecond_rule_has_one_definition():
+    """PR #1920 review F5: the scripts use the library's rule, not a private copy."""
+    from vaft.code.efit.iteration_history import printed_ms
+
+    assert printed_ms(0.306999) == 307  # >= 0.999 ms remainder rounds up
+    assert printed_ms(0.30699) == 306
+    assert printed_ms(0.3205) == 320
+    assert STUDY.printed_ms is printed_ms
+    assert "def _printed_ms" not in SCRIPT.read_text(encoding="utf-8")
+    assert STUDY.blocks_by_kfile(["00306_999"], [{"time_ms": 307, "iterations_n": 1}]) == {
+        "00306_999": {"time_ms": 307, "iterations_n": 1}
+    }
+
+
+def test_two_sub_millisecond_slices_of_one_millisecond_take_their_own_blocks():
+    log = """
+ r=  0 t=   320 it=  1 chi2=7.32E+02 zm= 9.81E-04 err=3.867E+00 dz=-2.799E-03 chigam= 0.00E+00
+ r=  0 t=   320 it=  1 chi2=7.32E+02 zm= 9.81E-04 err=3.867E+00 dz=-2.799E-03 chigam= 0.00E+00
+ r=  0 t=   320 it=  2 chi2=3.00E+01 zm= 9.81E-04 err=1.000E+00 dz=-2.799E-03 chigam= 0.00E+00
+"""
+    progress = STUDY.iterations_from_log(log)
+    by_key = STUDY.blocks_by_kfile(["00320", "00320_500", "00321"], progress)
+    assert by_key["00320"]["iterations_n"] == 1
+    assert by_key["00320_500"]["iterations_n"] == 2
+    assert "00321" not in by_key
+
+
 def test_slice_times_are_snapped_to_the_diagnostics_grid_and_inclusive():
     times = STUDY.slice_times(0.3063, 0.3308, 0.0004)
     assert abs(times[0] - 0.3063) <= STUDY.DIAGNOSTIC_DT and times[-1] <= 0.3308 + STUDY.DIAGNOSTIC_DT
@@ -163,3 +217,18 @@ def test_below_cut_slices_are_counted_against_the_configured_cut_on_the_magnitud
     assert [row["constraint_ip"] for row in case["slices"]] == [30.0e3, -80.0e3]
     assert case["below_current_cut"] == 0
     assert "below 15 kA" in STUDY.markdown({"cases": {"only": case}})
+
+
+def test_tstep_must_be_a_whole_number_of_milliseconds():
+    """PR #1920 review F1: 1.5 ms passed the "below 1 ms" guard and mispaired every other slice."""
+    import argparse
+
+    import pytest
+
+    from vaft.code.efit.slice_name import whole_millisecond_tstep
+
+    assert whole_millisecond_tstep("0.001") == 0.001
+    assert whole_millisecond_tstep("0.002") == 0.002
+    for text in ("0.0015", "0.0004", "0.00099999"):
+        with pytest.raises(argparse.ArgumentTypeError, match="whole number of milliseconds"):
+            whole_millisecond_tstep(text)

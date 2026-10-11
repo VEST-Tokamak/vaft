@@ -17,6 +17,7 @@ from vaft.formula import (
     calculate_distance,
     calculate_poloidal_flux,
     calculate_toroidal_flux,
+    gradient,
     make_fit_function,
     phi_from_Bphi,
     psi_from_RBtheta,
@@ -207,3 +208,23 @@ def test_distance_broadcasts_over_arrays():
     assert calculate_distance(r1, 0.0, z1, 0.0) == pytest.approx(
         np.array([0.0, 5.0]), rel=1e-13, abs=1e-15
     )
+
+
+# --------------------------------------------------------------------------
+# gradient
+# --------------------------------------------------------------------------
+
+def test_gradient_of_a_1d_profile_is_numpy_gradient():
+    x = np.array([0.0, 0.1, 0.25, 0.5, 0.6, 1.0])
+    y = np.sin(3.0 * x)
+    np.testing.assert_array_equal(gradient(x, y), np.gradient(y, x))
+
+
+def test_gradient_of_a_2d_map_stacks_the_1d_derivatives_of_its_columns():
+    # A single coordinate with a 2-D y used to raise "invalid number of
+    # arguments" from numpy; the documented contract is the first axis.
+    x = np.linspace(0.0, 1.0, 17) ** 1.5
+    columns = np.linspace(0.5, 2.0, 5)
+    y = np.exp(np.outer(x, columns))
+    expected = np.stack([np.gradient(y[:, j], x) for j in range(y.shape[1])], axis=1)
+    np.testing.assert_array_equal(gradient(x, y), expected)

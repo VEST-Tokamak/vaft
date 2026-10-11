@@ -280,6 +280,76 @@ def test_radial_field_from_a_linear_psi_cut_matches_the_cocos_prefactor():
     )
 
 
+def _solovev_psi_and_field(R, Z, A=0.3, B=0.8, R0=0.45):
+    # psi = A R^2 Z^2 + B (R^2 - R0^2)^2 has Delta* psi = (2A + 8B) R^2: a
+    # Solov'ev equilibrium (constant p', zero FF'), with closed-form
+    # dpsi/dZ = 2 A R^2 Z and dpsi/dR = 2 A R Z^2 + 4 B R (R^2 - R0^2).
+    RR, ZZ = np.meshgrid(R, Z)  # [Z, R]
+    psi = A * RR**2 * ZZ**2 + B * (RR**2 - R0**2) ** 2
+    k = poloidal_field_factor(None)
+    B_R = k / RR * (2 * A * RR**2 * ZZ)
+    B_Z = -k / RR * (2 * A * RR * ZZ**2 + 4 * B * RR * (RR**2 - R0**2))
+    return psi, B_R, B_Z
+
+
+def test_radial_field_of_a_2d_ZR_map_stacks_the_1d_cuts():
+    R = np.linspace(0.15, 0.85, 23)
+    Z = np.linspace(-0.6, 0.6, 31)
+    psi, _, _ = _solovev_psi_and_field(R, Z)
+    expected = np.stack(
+        [radial_magnetic_field_from_psi(psi[:, j], R[j], Z) for j in range(R.size)],
+        axis=1,
+    )
+    np.testing.assert_allclose(
+        radial_magnetic_field_from_psi(psi, R, Z), expected, rtol=1e-13, atol=0.0
+    )
+
+
+def test_vertical_field_of_a_2d_RZ_map_stacks_the_1d_cuts():
+    R = np.linspace(0.15, 0.85, 23)
+    Z = np.linspace(-0.6, 0.6, 31)
+    psi_RZ = _solovev_psi_and_field(R, Z)[0].T
+    expected = np.stack(
+        [vertical_magnetic_field_from_psi(psi_RZ[:, i], R, Z[i]) for i in range(Z.size)],
+        axis=1,
+    )
+    np.testing.assert_allclose(
+        vertical_magnetic_field_from_psi(psi_RZ, R, Z), expected, rtol=1e-13, atol=0.0
+    )
+
+
+def test_vertical_field_of_a_square_RZ_map_divides_by_R_along_the_R_axis():
+    # With nR == nZ a 1/R broadcast along the last (Z) axis raises nothing and
+    # is silently wrong; the column through each Z must still match its cut.
+    R = np.linspace(0.15, 0.85, 25)
+    Z = np.linspace(-0.6, 0.6, 25)
+    psi_RZ = _solovev_psi_and_field(R, Z)[0].T
+    field = vertical_magnetic_field_from_psi(psi_RZ, R, Z)
+    for i in (0, 7, 24):
+        np.testing.assert_allclose(
+            field[:, i], vertical_magnetic_field_from_psi(psi_RZ[:, i], R, Z[i]),
+            rtol=1e-13, atol=0.0,
+        )
+
+
+def test_the_poloidal_field_of_a_solovev_map_matches_its_closed_form():
+    R = np.linspace(0.15, 0.85, 281)
+    Z = np.linspace(-0.6, 0.6, 241)
+    psi, B_R, B_Z = _solovev_psi_and_field(R, Z)
+    interior = (slice(1, -1), slice(1, -1))
+
+    numeric_B_R = radial_magnetic_field_from_psi(psi, R, Z)
+    numeric_B_Z = vertical_magnetic_field_from_psi(psi.T, R, Z).T
+    # psi is quadratic in Z, so the central difference in Z is exact; the
+    # quartic R dependence leaves an O(h^2) residual in B_Z.
+    np.testing.assert_allclose(
+        numeric_B_R[interior], B_R[interior], rtol=0.0, atol=1e-12 * np.abs(B_R).max()
+    )
+    np.testing.assert_allclose(
+        numeric_B_Z[interior], B_Z[interior], rtol=0.0, atol=1e-4 * np.abs(B_Z).max()
+    )
+
+
 def test_an_explicit_cocos_index_rescales_the_field_by_the_factor_ratio():
     R = np.linspace(1.0, 2.0, 41)
     psi = 0.3 + 0.07 * R

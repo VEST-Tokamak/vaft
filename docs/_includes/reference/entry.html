@@ -21,7 +21,7 @@ catalog: one per entry, no more and no fewer.
 <section class="ref-entry" id="{{ f.name }}" data-catalog="{{ include.kind }}" markdown="block">
 <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#{{ f.name }}"><code>{{ f.name }}</code></a></h3>
-<span class="ref-flags">{% if include.kind == "process" %}{% if f.machine_scope == "independent" %}<span class="ref-flag">Machine-independent</span>{% elsif f.machine_scope == "vest" %}<span class="ref-flag ref-flag-vest">VEST-specific</span>{% endif %}{% endif %}{% if f.empirical %}<span class="ref-flag ref-flag-empirical">Empirical fit</span>{% endif %}{% if f.convention_sensitive %}<span class="ref-flag ref-flag-convention">Convention-sensitive</span>{% endif %}{% if f.deprecated %}<span class="ref-flag ref-flag-deprecated">Deprecated</span>{% endif %}</span>
+<span class="ref-flags">{% if include.kind == "process" %}{% if f.machine_scope == "independent" %}<span class="ref-flag">Machine-independent</span>{% elsif f.machine_scope == "vest" %}<span class="ref-flag ref-flag-vest">VEST-specific</span>{% endif %}{% endif %}{% if f.empirical %}<span class="ref-flag ref-flag-empirical">Empirical fit</span>{% endif %}{% if f.convention_sensitive %}<span class="ref-flag ref-flag-convention">Convention-sensitive</span>{% endif %}{% if f.uncertainty_propagation %}<span class="ref-flag">Uncertainty propagation{% if f.analytic_jacobian %} · analytic Jacobian{% endif %}</span>{% endif %}{% if f.deprecated %}<span class="ref-flag ref-flag-deprecated">Deprecated</span>{% endif %}</span>
 {% include reference/source-link.html src=f.source ref=include.ref key=f.name %}
 </header>
 <pre class="ref-signature"><code>{{ f.name }}{{ f.signature | escape }}</code></pre>

@@ -79,6 +79,8 @@ CAPABILITIES: Tuple[Capability, ...] = (
     Capability("interfaces", "Agent interfaces", "optional",
                "The MCP server for agent clients (vaft[gui] is kept as an empty alias)"),
     Capability("acceleration", "Acceleration", "optional", "JIT compilation, reserved until a measurement justifies it"),
+    Capability("optimization", "Adaptive scientific optimization", "optional",
+               "Optuna studies behind domain-owned methods, imported only when such a strategy runs"),
     Capability("development", "Testing, quality and notebooks", "development",
                "The test suite, linters, formatters and notebook execution"),
     Capability("architecture", "Architecture and documentation tooling", "development",
@@ -131,6 +133,7 @@ EXTRA_ROLES = {
     "mcp": ("interfaces", "the local, read-only MCP server for agent clients"),
     "gui": ("interfaces", "nothing: Panel is core now; the empty extra keeps vaft[gui] working"),
     "accel": ("acceleration", "nothing yet: no VAFT module imports numba"),
+    "optimize": ("optimization", "nothing yet: reserved for domain-owned adaptive optimization (#1875)"),
     "architecture": ("architecture", "the import graph behind the dependency explorer"),
     "dev": ("development", "running the test suite and contributing"),
 }
@@ -349,10 +352,19 @@ EXTERNAL_CODES: Tuple[ExternalCode, ...] = (
         note="VAFT reads TRANSP results; it does not run TRANSP.",
     ),
     ExternalCode(
-        "pentrc", "PENTRC (reader)", ("neoclassical toroidal viscosity",), "vaft.code.pentrc", "native_reader",
-        installation="reader_only", maturity="read_only", native="reads pentrc_output_n*.nc",
-        links=(_doi("N. C. Logan, J.-K. Park et al., Phys. Plasmas 20, 122507 (2013)", "10.1063/1.4849395"),),
-        note="The PENTRC executable is built with the GPEC suite and launched through vaft.code.gpec.",
+        "pentrc", "PENTRC", ("neoclassical toroidal viscosity",), "vaft.code.gpec", "subprocess_executable",
+        # install_gpec.sh builds and installs pentrc into $GPECHOME/bin; the Windows installer does not
+        # build it and check_gpec.py does not check it.
+        home="vaft.code.gpec._types:GPEC_HOME_ENV", installation="vaft_managed_source_build",
+        installers=("install/install_gpec.sh",), provenance=("install/install_gpec.sh",),
+        native="pentrc.in and a .kin in a completed ideal-GPEC cell, pentrc_output_n*.nc out",
+        install_section="external-fusion-codes-chease-dcongpec-nubeam-gacode",
+        links=(Reference("repository", "Princeton University GitHub (in the GPEC suite)",
+                         "https://github.com/PrincetonUniversity/GPEC"),
+               _doi("N. C. Logan, J.-K. Park et al., Phys. Plasmas 20, 122507 (2013)", "10.1063/1.4849395")),
+        note="Built with the GPEC suite and run in a completed ideal-GPEC cell by vaft.code.gpec.run_pentrc "
+             "(not a GPECSuiteConfig module); vaft.code.gpec also reads its native output, and "
+             "vaft.code.pentrc re-exports that reader.",
     ),
 )
 

@@ -10,7 +10,7 @@ globals that the old ``vaft.plot.onedim`` created at import time.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -18,7 +18,9 @@ from matplotlib.figure import Figure
 from ..models import Profile1D
 from ..registry import renderer
 from ..presentation import presented, resolve_style
-from ..style import apply_legend, axis_label, draw_series, finalize, resolve_axes, trace_labels
+from ..style import (
+    apply_legend, axis_label, draw_series, finalize, resolve_axes, resolve_legend_placement, trace_labels,
+)
 
 __all__ = [
     "impa_profile_field",
@@ -67,9 +69,15 @@ def render_profile_1d(
     validity: str = "show",
     format: str | None = None,
     theme: str | None = None,
+    legend_placement: Mapping[str, Any] | None = None,
     **style: Any,
 ) -> tuple[Figure, Axes]:
-    """Draw a :class:`Profile1D` into one axes."""
+    """Draw a :class:`Profile1D` into one axes.
+
+    ``legend_placement`` sets where and how a drawn legend sits, as for
+    :func:`~vaft.plot.renderers.lines.render_line_series`
+    (:func:`vaft.plot.style.resolve_legend_placement`).
+    """
     if not isinstance(model, Profile1D):
         raise TypeError(
             f"expected a vaft.plot.models.Profile1D; got {type(model).__name__}. "
@@ -85,6 +93,15 @@ def render_profile_1d(
         draw_series(axes, series, uncertainty=uncertainty, validity=validity, **options)
 
     for line in model.reference_lines:
+        if line.x_end is not None:
+            # A shaded interval sits beneath the data it qualifies.
+            axes.axvspan(
+                line.x, line.x_end,
+                **resolve_style({"color": "emphasis:faint", "alpha": 0.25, "linewidth": 0, "zorder": 0,
+                                 **line.style}),
+                label=line.label or None,
+            )
+            continue
         axes.axvline(
             line.x,
             **resolve_style({"color": "emphasis:medium", "linestyle": ":", "linewidth": 1.0, **line.style}),
@@ -100,7 +117,8 @@ def render_profile_1d(
         axes.set_xlim(model.x_limits)
     if grid:
         axes.grid(True, alpha=0.3)
-    apply_legend(axes, legend=legend, title=legend_title)
+    apply_legend(axes, legend=legend, title=legend_title,
+                 placement=resolve_legend_placement(legend_placement))
     return finalize(figure, axes, show=show, tight_layout=ax is None)
 
 

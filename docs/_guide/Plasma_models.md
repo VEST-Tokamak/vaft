@@ -393,7 +393,9 @@ profiles.
 ## 7. Orderings and scales
 
 **Purpose of this section.** It is a compact map from scales to the classifications above. The full reference for
-characteristic scales and orderings is #1724. The ordering parameters themselves are #1627.
+characteristic scales and orderings is #1724. The ordering parameters themselves are #1627. The ordering contracts
+each mode of §3–§5 and §12 consumes are `vaft.validation.model_contracts.ADAPTER_MODES` (#1823), drawn under the
+contract map in [Asymptotic orderings]({{ '/reference/asymptotic-orderings/' | relative_url }}).
 
 **Frequencies.** For thermal **ions** they are typically ordered as
 
@@ -630,4 +632,23 @@ A run whose governing namelist is absent, or whose physics flag cannot be read, 
 the upstream defaults. MATCH and RMATCH get no record of their own: they are numerical stages of the DCON and RDCON calculations they
 complete, recorded in those runs' extensions. No named kinetic limit (Kruskal-Oberman, ...) is recorded from
 `kin_flag` alone.
+
+## 12. Equilibrium codes
+
+Added with #1823, so that every adapter whose results feed the ordering contracts has a classified mode.
+
+| mode | operation | bulk | fluid model | topology | regime | ordering contract | confidence |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| EFIT reconstruction (magnetic, kinetic) | Grad–Shafranov fit to measurements | fluid | ideal MHD (static force balance) | across the separatrix | static | equilibrium sequence | verified (equation class) |
+| CHEASE fixed boundary | Grad–Shafranov solve for given $p'$, $FF'$ or $j$ | fluid | ideal MHD (static force balance) | closed flux surfaces | static | equilibrium sequence | verified (equation class) |
+| TokaMaker, TES free boundary | Grad–Shafranov with coils and conductors | fluid | ideal MHD (static force balance) | across the separatrix | static | equilibrium sequence | verified (equation class) |
+| NICE reconstruction | Grad–Shafranov fit to measurements | fluid | ideal MHD (static force balance) | across the separatrix | static | equilibrium sequence | provisional (experimental adapter) |
+
+**Notes:**
+- An equilibrium solves $\mathbf j\times\mathbf B = \nabla p$ with a scalar pressure and no flow. Its ordering is
+  that force balance is re-established faster than the state moves, $\tau_{evol}/\tau_A \gg 1$, with subsonic
+  and sub-Alfvénic flow. It is not the ideal-MHD stability contract: an equilibrium makes no claim about
+  $S$, $k\,d_i$ or $k_\perp\rho_i$, which concern perturbations.
+- A kinetic-profile constraint (§6 category C) does not change this classification.
+- A time series of reconstructions is a sequence of equilibria, not a time-dependent MHD calculation.
 

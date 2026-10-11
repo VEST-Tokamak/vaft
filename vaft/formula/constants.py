@@ -10,8 +10,8 @@ fitted prefactors whose meaning is defined by the single function that uses
 each of them, documented there.
 
 The private ``_SCALING_COEFS`` table holds the engineering-unit confinement
-scalings (ITER89P, IPB98(y,2), ITER97-L, the two NSTX 2006 fits and the Kurskiev
-2022 ST fit).  Each entry carries its prefactor, exponents, target density definition,
+scalings (ITER89P, IPB98(y,2), ITER97-L, the two NSTX 2006 fits, the Kurskiev
+2022 ST fit and the ITPA20 / ITPA20-IL H-mode fits of Verdoolaege 2021).  Each entry carries its prefactor, exponents, target density definition,
 source reference and unit-convention notes; the table is read by
 :func:`vaft.formula.equilibrium.confinement_time_from_engineering_parameters`,
 which documents the conventions and cites every entry.
@@ -44,6 +44,7 @@ import numpy as np
 #: The physical constants this module publishes. Declared so ``np`` does not
 #: reach ``vaft.formula.__all__`` as though it were one of them (#368).
 __all__ = [
+    "AMU",
     "COLLISIONALITY_COEF",
     "C_B",
     "C_LIGHT",
@@ -68,6 +69,7 @@ EPS0 = 8.8541878128e-12     # [F m⁻¹] - Vacuum permittivity
 QE = 1.602176634e-19        # [C] - Elementary charge
 ME = 9.10938356e-31         # [kg] - Electron mass
 MI_P = 1.67262192e-27       # [kg] - Proton mass
+AMU = 1.66053906660e-27     # [kg] - Atomic mass unit (CODATA 2018)
 
 # Fusion related constants
 E_ALPHA = 3.5e6 * QE        # [J] - Alpha particle energy
@@ -318,6 +320,88 @@ _SCALING_COEFS = {
             "not as a dimensionally universal SI law."
         ),
     },
+
+    # ITPA20 and ITPA20-IL: G. Verdoolaege et al., Nucl. Fusion 61 (2021) 076006,
+    # the WLS fits of DB5.2.3-STD5 ELMy H-modes with triangularity. Coefficients as
+    # printed in the paper's conclusion, eqs. (7) and (5); the unrounded fits are
+    # table 16 (ITPA20) and table 10 (ITPA20-IL).
+    "ITPA20": {
+        "C": 0.053,
+        "exponents": {
+            "Ip_MA": 0.98,            # Plasma current [MA]
+            "Bt": 0.22,               # On-axis vacuum toroidal field [T]
+            "n_19": 0.24,             # Central line-averaged electron density [10^19 m^-3]
+            "P_MW": -0.669,           # Thermal loss power P_l,th [MW]
+            "R": 1.71,                # Geometric major radius R_geo [m]
+            "one_plus_delta": 0.36,   # 1 + average LCFS triangularity [-]
+            "kappa": 0.80,            # Volume elongation kappa_a = V / (2 pi R_geo pi a^2) [-]
+            "epsilon": 0.35,          # Inverse aspect ratio a / R_geo [-]
+            "Mi": 0.20,               # Effective atomic mass M_eff [amu]
+        },
+        "density_definition": "line_avg",
+        "reference": (
+            "G. Verdoolaege et al., 2021, Nucl. Fusion 61 076006, eq. (7) (ITPA20: all DB5.2.3-STD5 ELMy "
+            "H-modes, WLS, with triangularity; table 16)"
+        ),
+        "unit_convention_note": (
+            "Published in the fusion engineering convention: Ip[MA], Bt[T], n_e[1e19 m^-3], P[MW], R[m], "
+            "M_eff[amu]; thermal confinement time tau_E,th = W_th / P_l,th [s]."
+        ),
+        "elongation_note": (
+            "kappa is the volume elongation kappa_a = V / (2 pi R_geo pi a^2) (Verdoolaege 2021 Sec. 2.2.1, the "
+            "IPB98(y,2) definition); feed kappa_area, not the boundary b/a."
+        ),
+        "triangularity_note": (
+            "delta is the average triangularity of the LCFS (Verdoolaege 2021 Sec. 2.2.1), i.e. DB5 DELTA = "
+            "(delta_upper + delta_lower) / 2; it enters as (1 + delta)."
+        ),
+        "power_note": (
+            "P_l,th is the thermal power lost by transport through the LCFS: the total loss power less "
+            "charge-exchange, unconfined-orbit and NBI shine-through losses. Radiation from inside the LCFS "
+            "was NOT subtracted (Verdoolaege 2021 Sec. 2.2.1)."
+        ),
+        "secondary_sources_note": (
+            "UKAEA PROCESS (i_confinement_time = 49) and cfspopcon (ITPA20_STD5) carry the same prefactor and "
+            "exponents."
+        ),
+    },
+
+    "ITPA20_IL": {
+        "C": 0.067,
+        "exponents": {
+            "Ip_MA": 1.29,            # Plasma current [MA]
+            "Bt": -0.13,              # On-axis vacuum toroidal field [T]
+            "n_19": 0.147,            # Central line-averaged electron density [10^19 m^-3]
+            "P_MW": -0.644,           # Thermal loss power P_l,th [MW]
+            "R": 1.19,                # Geometric major radius R_geo [m]
+            "one_plus_delta": 0.56,   # 1 + average LCFS triangularity [-]
+            "kappa": 0.67,            # Volume elongation kappa_a = V / (2 pi R_geo pi a^2) [-]
+            "Mi": 0.30,               # Effective atomic mass M_eff [amu]
+        },
+        "density_definition": "line_avg",
+        "reference": (
+            "G. Verdoolaege et al., 2021, Nucl. Fusion 61 076006, eq. (5) (ITPA20-IL: DB5.2.3-STD5 ELMy "
+            "H-modes under ITER-like constraints, WLS, with triangularity; table 10)"
+        ),
+        "unit_convention_note": (
+            "Published in the fusion engineering convention: Ip[MA], Bt[T], n_e[1e19 m^-3], P[MW], R[m], "
+            "M_eff[amu]; thermal confinement time tau_E,th = W_th / P_l,th [s]. No epsilon term: its fitted "
+            "exponent is -0.000 and eq. (5) drops it."
+        ),
+        "elongation_note": "As ITPA20: kappa is the volume elongation kappa_a; feed kappa_area.",
+        "triangularity_note": "As ITPA20: delta is the average LCFS triangularity; it enters as (1 + delta).",
+        "power_note": "As ITPA20: P_l,th, radiation from inside the LCFS not subtracted.",
+        "secondary_sources_note": (
+            "UKAEA PROCESS (i_confinement_time = 50) and cfspopcon (ITPA20_IL) round the density exponent to "
+            "0.15; eq. (5) of the paper prints 0.147 (table 10: 0.1473), which is used here."
+        ),
+        "scope_note": (
+            "The paper's recommended H-mode scaling and the basis of its H_20 factor. Fitted on the ITER-like "
+            "subset of STD5 (Verdoolaege 2021 Sec. 2.1): eight devices (ASDEX Upgrade, Alcator C-Mod, COMPASS-D, "
+            "DIII-D, JET, JFT-2M, JT-60U, PBX-M; AUG and JET with both carbon and metal walls), no spherical "
+            "tokamak, and q95 > 2.8, 1.3 < kappa < 2.2 (kappa = b/a), epsilon < 0.5, Z_eff < 5."
+        ),
+    },
 }
 
 # -----------------------------------------------------------------------------
@@ -351,6 +435,14 @@ _SCALING_BASES = {
     "NSTX2006L": {"energy_basis": "global", "power_basis": "unaudited",
                   "energy_source": "issue #1713 (Kaye et al. 2006: L-mode global scaling)",
                   "power_source": "unaudited: loss power vs total heating power not checked against the paper"},
+    "ITPA20": {"energy_basis": "thermal", "power_basis": "p_loss",
+               "energy_source": "Verdoolaege et al. 2021 Sec. 2.2.1: tau_E,th = W_th / P_l,th (thermal)",
+               "power_source": ("Verdoolaege et al. 2021 Sec. 2.2.1: P_l,th, thermal transport loss through "
+                                "the LCFS; radiation inside the LCFS not subtracted")},
+    "ITPA20_IL": {"energy_basis": "thermal", "power_basis": "p_loss",
+                  "energy_source": "Verdoolaege et al. 2021 Sec. 2.2.1: tau_E,th = W_th / P_l,th (thermal)",
+                  "power_source": ("Verdoolaege et al. 2021 Sec. 2.2.1: P_l,th, thermal transport loss through "
+                                   "the LCFS; radiation inside the LCFS not subtracted")},
     "Kurskiev2022": {"energy_basis": "unaudited", "power_basis": "p_abs",
                      "energy_source": "unaudited: thermal vs global not checked against the paper",
                      "power_source": "the paper's absorbed-power dependence (power_note of _SCALING_COEFS)"},

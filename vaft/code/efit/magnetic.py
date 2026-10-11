@@ -89,6 +89,12 @@ class EFITConfig:
     numerics: EFITNumericsConfig = field(default_factory=EFITNumericsConfig)
     constraints: EFITConstraintConfig = field(default_factory=EFITConstraintConfig)
     provenance: Mapping[str, Any] = field(default_factory=dict)
+    #: Ordering quantities of the states being reconstructed (#1823), by
+    #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name -- what
+    #: ``vaft.process.ordering_state`` builds from the pipeline's n_e, T_e and
+    #: I_p history, which EFIT's own inputs do not carry. Advisory only: it is
+    #: recorded as ``ordering_check`` and never enters the scientific identity.
+    ordering_state: Mapping[str, Any] = field(default_factory=dict)
     # Execution-only diagnostics/continuation controls.  These deliberately do
     # not participate in EFITScientificConfig (and therefore cannot change the
     # scientific k-file identity).
@@ -273,7 +279,15 @@ def resolved_efit_configuration(config: EFITConfig) -> dict[str, Any]:
             "iteration_history": config.iteration_history,
         },
         "provenance": _json_value(config.provenance),
+        "ordering_check": _ordering_check(config),
     }
+
+
+def _ordering_check(config: EFITConfig) -> Optional[dict[str, Any]]:
+    """The advisory check of the equilibrium-sequence contract an EFIT run consumes (#1823)."""
+    from vaft.validation.model_contracts import adapter_mode, safe_ordering_provenance
+
+    return safe_ordering_provenance(adapter_mode("efit:reconstruction").formalism, config.ordering_state)
 
 
 def _file_sha256(path: Path) -> str:

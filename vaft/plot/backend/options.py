@@ -254,6 +254,13 @@ def _specs() -> tuple[OptionSpec, ...]:
                    "edge-q estimate: START (Akers 2000) or ITER (Post 1991)"),
         OptionSpec("start_configuration", "choice", "recipes.START_CONFIGURATIONS",
                    "edge-q estimate: START scaling C, limiter (1.0) or double_null (0.77)"),
+        # One matched kinetic state (#1837): the equilibrium occurrence the
+        # caller says the input's equilibrium is, refused when it contradicts
+        # the occurrence the kinetic state was built on.  Only
+        # kinetic_overview_state takes it (DECLARED_ONLY_OPTIONS).
+        OptionSpec("equilibrium_occurrence", "int",
+                   description="kinetic state: the equilibrium occurrence the Thomson channels are mapped "
+                               "through; must match the one the state records"),
         # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that
         # reached no growth-rate tolerance is left out unless asked for.  Only
         # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
@@ -281,6 +288,8 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "include_unconverged",
     # roadmap #1242 C3: the vacuum benchmark's knobs.
     "resistance_scale", "n_tau",
+    # issue #1837: the kinetic state's equilibrium occurrence.
+    "equilibrium_occurrence",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);

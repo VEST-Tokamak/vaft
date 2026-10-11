@@ -361,3 +361,18 @@ def test_records_still_compare_equal_to_the_flat_rows():
 def test_an_empty_query_matches_nothing_and_says_so():
     assert "(no plots match)" in str(vaft.plot.available_plots(query=""))
     assert "(no plots match)" in str(vaft.plot.available_plots(query="   "))
+
+
+def test_camera_frame_discovery_leaves_a_frame_without_a_time_untouched():
+    """Looking for a frame's time must not create one (cold review 0.7.0 plot F2)."""
+    import numpy as np
+
+    from vaft.plot.backend.discovery import _camera_frames_block
+
+    ods = omas.ODS(consistency_check=False)
+    base = "camera_visible.channel.0.detector.0.frame"
+    for index in range(3):
+        ods[f"{base}.{index}.image_raw"] = np.zeros((4, 4))
+    assert _camera_frames_block(ods) == {}
+    for index in range(3):
+        assert list(ods[f"{base}.{index}"].keys()) == ["image_raw"]

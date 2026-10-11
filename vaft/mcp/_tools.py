@@ -575,6 +575,8 @@ def list_boundaries(family: str | None = None) -> dict[str, Any]:
         rows.append({
             "key": key,
             "kind": type(entry).__name__,
+            # limit, stability_reference, experimental_envelope, ...: only a limit has a forbidden side (#1691)
+            "reference_kind": getattr(entry, "kind", ""),
             "family": getattr(entry, "family", ""),
             "target": getattr(target, "name", ""),
             "unit": getattr(target, "unit", ""),
@@ -597,7 +599,11 @@ def describe_boundary(key: str) -> dict[str, Any]:
     except KeyError as error:
         raise ToolInputError(_message(error)) from None
     converter = Bounded()
-    return _finish({"kind": type(entry).__name__, **converter(entry)}, converter=converter, converted=True)
+    # "kind" stays the entry's class; the Boundary field of that name is reported as "reference_kind" (#1691)
+    described = {**converter(entry)}
+    reference_kind = described.pop("kind", getattr(entry, "kind", ""))
+    return _finish({"kind": type(entry).__name__, "reference_kind": reference_kind, **described},
+                   converter=converter, converted=True)
 
 
 # ---------------------------------------------------------------------------

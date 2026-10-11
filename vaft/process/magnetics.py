@@ -1737,13 +1737,13 @@ def rogowski_coil_ip(
     .. [1] Issue #214, which records the dimensional argument for the unused
        vessel resistance and the flux-loop compensation it belongs to.
     """
-    # Convert baseline onset/offset in seconds to integer indices
-    onset_idx = np.searchsorted(time, baseline_onset)
-    offset_idx = np.searchsorted(time, baseline_offset)
-
-    # Define baseline indices
+    # `define_baseline` takes the onset and offset in seconds and converts
+    # them itself; handing it sample indices made it search the time axis for
+    # a "time" of several thousand seconds and fit the record's last samples
+    # instead of the window around the discharge (cold review 0.7.0 process
+    # F5, #1888).
     baseline_indices_rogowski = define_baseline(
-        time, onset_idx, baseline_onset_window, offset_idx, baseline_offset_window
+        time, baseline_onset, baseline_onset_window, baseline_offset, baseline_offset_window
     )
     baseline_indices_flux = baseline_indices_rogowski  # same region, typically
 
@@ -1870,12 +1870,9 @@ def b_field_pol_probe_field(
     # Apply gain at the start
     raw = raw * gain
 
-    # Convert baseline onset/offset in seconds to integer indices
-    onset_idx = np.searchsorted(time, baseline_onset)
-    offset_idx = np.searchsorted(time, baseline_offset)
-
+    # Seconds, not indices: see rogowski_coil_ip (cold review 0.7.0 process F5).
     baseline_indices = define_baseline(
-        time, onset_idx, baseline_onset_window, offset_idx, baseline_offset_window
+        time, baseline_onset, baseline_onset_window, baseline_offset, baseline_offset_window
     )
 
     # Apply low-pass filter
@@ -1982,11 +1979,9 @@ def flux_loop_flux(
     # Apply gain at the start
     raw = raw * gain
 
-    # Convert baseline onset/offset in seconds to integer indices
-    onset_idx = np.searchsorted(time, baseline_onset)
-    offset_idx = np.searchsorted(time, baseline_offset)
+    # Seconds, not indices: see rogowski_coil_ip (cold review 0.7.0 process F5).
     baseline_indices = define_baseline(
-        time, onset_idx, baseline_onset_window, offset_idx, baseline_offset_window
+        time, baseline_onset, baseline_onset_window, baseline_offset, baseline_offset_window
     )
 
     # Integrate flux loop data for each signal

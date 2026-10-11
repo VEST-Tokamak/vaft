@@ -57,6 +57,32 @@ def test_a_table_compared_with_itself_is_identical_everywhere(compare_tables):
     assert "## Tables at 129x129" in text and "| ep | rsilpc |" in text
 
 
+def _in3(groups):
+    import f90nml
+
+    n = len(groups)
+    return f90nml.Namelist(
+        {"rf": [0.1 * g for g in groups], "zf": [0.0] * n, "wf": [0.01] * n,
+         "hf": [0.01] * n, "fcid": list(range(1, n + 1)), "fcturn": [1.0] * n}
+    )
+
+
+def test_pf_groups_are_not_paired_when_the_group_counts_differ(compare_tables):
+    """Cold review 0.7.0 efit-workflows F17 (#1888).
+
+    A group number is a position in ``fcid``. B inserts a group in the
+    middle, so pairing by position would set A's group 2 against the new
+    coil and drop B's last group.
+    """
+    out = compare_tables._compare_pf_groups(_in3([1, 2]), _in3([1, 9, 2]), 2, 3)
+    assert out["nfsum"] == [2, 3]
+    assert out["comparable"] is False
+    assert out["groups"] == []
+    assert [len(rows) for rows in out["group_tables"]] == [2, 3]
+    same = compare_tables._compare_pf_groups(_in3([1, 2]), _in3([1, 2]), 2, 2)
+    assert same["comparable"] is True and len(same["groups"]) == 2
+
+
 def test_kfile_diff_accepts_only_the_two_directory_lines(ab_efit_table, tmp_path):
     a = tmp_path / "A"
     b = tmp_path / "B"
@@ -107,6 +133,19 @@ def test_log_parser_keeps_a_slice_that_collapsed_before_its_first_step(ab_efit_t
     assert [block["iterations_n"] for block in blocks] == [1, 0, 1]
     assert [block["bound_error"] for block in blocks] == [False, True, False]
     assert blocks[1]["chi2_log"] is None and blocks[2]["chi2_log"] == 90.0
+
+
+def test_ab_arm_pairs_log_blocks_with_kfiles_by_printed_time(ab_efit_table):
+    """Cold review 0.7.0 efit-workflows F5 (#1888): the A/B arm has the same pairing."""
+    text = (
+        " r=  0 t=   318 it=  1 chi2=7.09E+02 zm= 1.19E-07 err=3.905E+00 dz= 1.192E-07 chigam= 0.00E+00\n"
+        " r=  0 t=   320 it=  1 chi2=7.32E+02 zm= 9.81E-04 err=3.867E+00 dz=-2.799E-03 chigam= 0.00E+00\n"
+        " r=  0 t=   320 it=  2 chi2=3.00E+01 zm= 9.81E-04 err=1.000E+00 dz=-2.799E-03 chigam= 0.00E+00\n"
+    )
+    progress = ab_efit_table.iterations_from_log(text)
+    by_key = ab_efit_table.blocks_by_kfile(["00318", "00319", "00320"], progress)
+    assert "00319" not in by_key
+    assert by_key["00320"]["iterations_n"] == 2
 
 
 def test_reference_rows_read_the_stored_39915_reference(ab_efit_table):

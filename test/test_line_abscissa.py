@@ -259,3 +259,35 @@ def test_the_abscissa_survives_a_grouped_layout_with_a_selection(entries):
     )
     assert isinstance(grouped, Panels)
     assert all(m.x_label == "Sample index" for m in grouped.models)
+
+
+# ---------------------------------------------------------------------------
+# the index fallback says so, and keeps only what has an index (cold review 0.7.0 plot G13)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="module")
+def mismatched_pair(sample):
+    """Two entries whose plasma-current time bases differ: one cannot share the other's time."""
+    other = copy.deepcopy(sample)
+    time = np.asarray(other["magnetics.ip.0.time"], dtype=float)
+    other["magnetics.ip.0.time"] = time[:-7]
+    if "magnetics.time" in other:
+        other["magnetics.time"] = time[:-7]
+    return normalize_entries([sample, other], label=["a", "b"])
+
+
+def test_the_index_fallback_warns_and_ignores_xunit(mismatched_pair):
+    with pytest.warns(UserWarning, match="sample index.*xunit='ms' is ignored"):
+        model = build_model("plasma_current_time", mismatched_pair, xunit="ms")
+    assert model.x_label == "Sample index" and model.x_unit == ""
+    assert all(np.asarray(s.x)[0] == 0.0 for s in model.series)
+
+
+def test_the_index_fallback_drops_the_reconstruction_overlay(sample, mismatched_pair):
+    with_time = build_model("plasma_current_time", normalize_entries(sample), synthetic="equilibrium")
+    assert any(s.role == "reconstruction" for s in with_time.series)
+    with pytest.warns(UserWarning, match="overlay is dropped"):
+        model = build_model("plasma_current_time", mismatched_pair, synthetic="equilibrium")
+    assert model.x_label == "Sample index"
+    assert not any(s.role in ("reconstruction", "constraint") for s in model.series)
+    assert len(model.series) == 2

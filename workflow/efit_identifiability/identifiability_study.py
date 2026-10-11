@@ -111,7 +111,13 @@ class GateThresholds:
     residual_relative_error: float = 1.0e-10
     singular_value_relative_error: float = 1.0e-10
     condition_number_relative_error: float = 5.0e-6
-    curvature_sum_relative_error: float = 1.0e-10
+    # There is deliberately no curvature-sum threshold: summing per-family
+    # A_f^T A_f over a partition of the rows of the same weighted_a and
+    # comparing it with A^T A is an algebraic identity (relative error at
+    # machine epsilon for any matrix), so it could never fail on data. The
+    # family shares are checked where they are computed (mode_share_sum_error)
+    # and the physical/solver matrices against column_scale by the sidecar
+    # reader (cold review F14).
     mode_share_sum_error: float = 1.0e-10
     ip_vcurrt_relative_error: float = 5.0e-8
     # Flux-loop and probe rows are persisted as float32 in the m-file.  The
@@ -141,7 +147,6 @@ class Stage1Validation:
     residual_relative_error: float | None
     singular_value_relative_error: float | None
     condition_number_relative_error: float | None
-    curvature_sum_relative_error: float | None
     mode_share_sum_error: float | None
     ip_vcurrt_relative_error: float | None
     mfile_family_chi2_max_relative_error: float | None
@@ -757,11 +762,6 @@ def stage1_gate(
             "condition_number_relative_error",
             thresholds.condition_number_relative_error,
         )
-        require_limit(
-            item,
-            "curvature_sum_relative_error",
-            thresholds.curvature_sum_relative_error,
-        )
         require_limit(item, "mode_share_sum_error", thresholds.mode_share_sum_error)
         require_limit(
             item,
@@ -861,14 +861,11 @@ def validate_native_problem(
             abs(float(block.condno)), np.finfo(float).tiny
         )
 
-    physical_a = np.asarray(block.weighted_a, dtype=float)
-    total_curvature = physical_a.T @ physical_a
-    family_curvature = np.zeros_like(total_curvature)
-    row_families = np.asarray(block.row_family, dtype=object)
-    for family in set(block.row_family):
-        selected = physical_a[row_families == family]
-        family_curvature += selected.T @ selected
-    curvature_error = _relative_norm(family_curvature, total_curvature)
+    if len(block.row_family) != int(np.asarray(block.weighted_a).shape[0]):
+        raise ValueError(
+            f"row_family has {len(block.row_family)} entries for "
+            f"{np.asarray(block.weighted_a).shape[0]} rows of weighted_a"
+        )
 
     share_errors = []
     for mode in report.modes:
@@ -918,7 +915,6 @@ def validate_native_problem(
         residual_relative_error=residual_error,
         singular_value_relative_error=singular_error,
         condition_number_relative_error=condition_error,
-        curvature_sum_relative_error=curvature_error,
         mode_share_sum_error=share_error,
         ip_vcurrt_relative_error=ip_vcurrt_error,
         mfile_family_chi2_max_relative_error=chi2_audit.get(
@@ -942,6 +938,10 @@ def _validation_from_dict(payload: Mapping[str, Any]) -> Stage1Validation:
     values.setdefault("mfile_family_chi2_max_relative_error", None)
     values.setdefault("mfile_family_chi2_max_absolute_error", None)
     values.setdefault("mfile_family_chi2_passed", False)
+    # Stage-1 manifests written before cold review F14 retired the
+    # curvature-sum identity still carry it; resume and the Stage-2 gate
+    # must keep loading them.
+    values.pop("curvature_sum_relative_error", None)
     return Stage1Validation(**values)
 
 
@@ -1671,17 +1671,19 @@ def summarize_native_rows(
         residual = np.asarray(
             [row.get("physical_residual", np.nan) for row in selected], dtype=float
         )
-        finite_residual = residual[np.isfinite(residual)]
         processed = np.asarray(
             [row.get("processed_weight", np.nan) for row in selected], dtype=float
         )
+        # A row with zero processed weight is exported but never entered the
+        # fit, so its residual is not the fit's (cold review F16).
+        active = np.isfinite(processed) & (processed != 0.0)
+        finite_residual = residual[active & np.isfinite(residual)]
         uncertainty = np.asarray(
             [row.get("uncertainty", np.nan) for row in selected], dtype=float
         )
         submitted = np.asarray(
             [row.get("submitted_fwt", np.nan) for row in selected], dtype=float
         )
-        active = np.isfinite(processed) & (processed != 0.0)
         diagnostic = np.asarray(
             [row.get("diagnostic_chi2", np.nan) for row in selected], dtype=float
         )
@@ -1704,6 +1706,7 @@ def summarize_native_rows(
                 "family": family,
                 "row_count": len(selected),
                 "active_channel_count": int(np.count_nonzero(active)),
+                "inactive_row_count": int(np.count_nonzero(~active)),
                 "residual_bias": (
                     float(np.mean(finite_residual)) if finite_residual.size else None
                 ),
@@ -5048,6 +5051,17 @@ def _direction_point(
         updates.update(
             {
                 **asdict(baseline_metrics),
+                **achieved_direction_value(
+                    payload.get("parameter_state"),
+                    baseline.get("parameter_state"),
+                    report.parameter_scale,
+                    next(
+                        item.scaled_parameter_direction
+                        for item in report.modes
+                        if int(item.index) == mode.mode_index
+                    ),
+                    target,
+                ),
                 "displacement": displacement,
                 "adjacent_displacement": nonlinear_displacement(adjacent_metrics),
                 "response_onset": (
@@ -5978,6 +5992,32 @@ def _execute_direction_chain(
     return results
 
 
+def achieved_direction_value(
+    state: Sequence[float] | None,
+    baseline_state: Sequence[float] | None,
+    parameter_scale: Sequence[float],
+    scaled_direction: Sequence[float],
+    target: float,
+) -> dict[str, Any]:
+    """Where the solve actually landed on the direction, beside where it was sent.
+
+    The equality row is ``physical_c . (theta - theta0) = target`` with
+    ``physical_c = mode / column_scale``. A case that converged with the
+    row inert reports the requested target and nothing else, so the achieved
+    coordinate is recorded with the request (cold review F15).
+    """
+    if state is None or baseline_state is None:
+        return {"achieved_value": None, "target_residual": None}
+    theta = np.asarray(state, dtype=float)
+    theta0 = np.asarray(baseline_state, dtype=float)
+    scale = np.asarray(parameter_scale, dtype=float)
+    mode = np.asarray(scaled_direction, dtype=float)
+    if theta.shape != theta0.shape or theta.shape != scale.shape or theta.shape != mode.shape:
+        return {"achieved_value": None, "target_residual": None}
+    achieved = float(np.dot(mode / scale, theta - theta0))
+    return {"achieved_value": achieved, "target_residual": achieved - float(target)}
+
+
 def _direction_linearity(
     records: Sequence[Mapping[str, Any]],
     baseline_state: Sequence[float],
@@ -6030,25 +6070,35 @@ def _direction_linearity(
         left_derivative = derivatives[index]
         right_derivative = derivatives[index + 1]
         relative = _relative_norm(right_derivative, left_derivative)
-        denominator = float(
-            np.linalg.norm(left_derivative) * np.linalg.norm(right_derivative)
-        )
+        left_norm = float(np.linalg.norm(left_derivative))
+        right_norm = float(np.linalg.norm(right_derivative))
+        denominator = left_norm * right_norm
+        # Two zero derivatives are not parallel, they are absent: the step
+        # left the parameters where they were, so the constraint did not act
+        # and there is nothing to call linear (cold review F15).
+        moved = denominator > 0.0
         cosine = (
             float(np.dot(left_derivative, right_derivative) / denominator)
-            if denominator > 0.0
-            else 1.0
+            if moved
+            else None
         )
         comparison = {
             "left_segment": list(segments[index]),
             "right_segment": list(segments[index + 1]),
+            "derivative_norms": [left_norm, right_norm],
             "derivative_relative_difference": relative,
             "derivative_cosine": cosine,
-            "passed": relative <= 0.05 and cosine >= 0.995,
+            "passed": moved and relative <= 0.05 and cosine >= 0.995,
         }
         result[name] = comparison
         comparisons.append(comparison)
     result["adjacent_comparisons"] = comparisons
     result["passed"] = all(item["passed"] for item in comparisons)
+    if not result["passed"] and any(item["derivative_cosine"] is None for item in comparisons):
+        result["reason"] = (
+            "a direction step left the parameter state at its neighbour's: "
+            "the constraint did not act, so the response is inert, not linear"
+        )
     return result
 
 
