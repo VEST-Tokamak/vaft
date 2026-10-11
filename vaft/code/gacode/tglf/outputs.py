@@ -27,7 +27,7 @@ import numpy as np
 #: Bumped when the stored shape changes incompatibly; `from_dict` refuses a payload
 #: written by a newer version rather than silently misreading it.
 SCHEMA = "vaft.code.gacode.tglf.TglfOutputs"
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 #: `out.tglf.gbflux` is one flat row, quantity-major: every species' particle flux,
 #: then every species' energy flux, and so on. Verified against the per-species table
@@ -118,6 +118,12 @@ class TglfOutputs:
         :data:`FLUX_SPECTRUM_QUANTITIES` (``write_tglf_QL_flux_spectrum``). These are
         not fluxes: the saturated flux is weight x intensity, which
         :attr:`sum_flux_spectrum` already carries.
+    ql_intensity_spectrum
+        ``(species, ky, mode, 4)``, moments :data:`INTENSITY_MOMENTS`
+        (``write_tglf_QL_intensity_spectrum``): the per-mode quasilinear intensity
+        *weights*, i.e. :attr:`intensity_spectrum` before ``get_multiscale_spectrum``
+        multiplies it by the saturated potential intensity (``field_spectrum``
+        column ``phi``). Species are :attr:`spectral_species`.
     width_spectrum, spectral_shift_spectrum, ave_p0_spectrum
         ``(ky,)`` model internals: the Gaussian width of the Hermite basis, the
         ``kx/ky`` spectral shift (its model depends on SAT_RULE and UNITS), and the SAT0
@@ -147,6 +153,7 @@ class TglfOutputs:
     nete_crossphase_spectrum: Optional[np.ndarray] = None
     nsts_crossphase_spectrum: Optional[np.ndarray] = None
     ql_flux_spectrum: Optional[np.ndarray] = None
+    ql_intensity_spectrum: Optional[np.ndarray] = None
     width_spectrum: Optional[np.ndarray] = None
     spectral_shift_spectrum: Optional[np.ndarray] = None
     ave_p0_spectrum: Optional[np.ndarray] = None
@@ -558,6 +565,51 @@ def _parse_ql_flux_spectrum(
     return out, species
 
 
+def _parse_ql_intensity_spectrum(
+    directory: Path, n_species: Optional[int], nky: Optional[int]
+) -> tuple[Optional[np.ndarray], Optional[tuple[int, ...]]]:
+    """``out.tglf.QL_intensity_spectrum``: 4 prose lines, ``4 ns nky nmodes``, then per
+    species a ``species = is`` line and per mode a ``mode = m`` line followed by ``nky``
+    rows of the four :data:`INTENSITY_MOMENTS`. Returned ``(species, ky, mode, 4)``, the
+    axis order of :attr:`TglfOutputs.intensity_spectrum`."""
+    path = directory / "out.tglf.QL_intensity_spectrum"
+    if not path.is_file() or nky is None:
+        return None, None
+    limits = _header_numbers(path, "index limits")
+    if not limits or len(limits) != 4 or limits[0] != 4 or limits[2] != nky:
+        return None, None
+    nmodes = limits[3]
+    blocks: dict[tuple[int, int], list[list[float]]] = {}
+    species: Optional[int] = None
+    current: Optional[tuple[int, int]] = None
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+        text = line.strip()
+        numbers = [part for part in text.replace("=", " ").split() if part.lstrip("-").isdigit()]
+        if text.startswith("species") and len(numbers) == 1:
+            species, current = int(numbers[0]), None
+            continue
+        if text.startswith("mode") and len(numbers) == 1 and species is not None:
+            current = (species, int(numbers[0]))
+            blocks[current] = []
+            continue
+        try:
+            row = [float(part) for part in text.split()]
+        except ValueError:
+            continue
+        if current is not None and len(row) == 4:
+            blocks[current].append(row)
+    present = tuple(sorted({key[0] for key in blocks}))
+    if (not blocks or any(len(rows) != nky for rows in blocks.values())
+            or len(blocks) != len(present) * nmodes
+            or any(not 1 <= mode <= nmodes for _, mode in blocks)
+            or _species_rows(len(present), 1, n_species if n_species else limits[1]) != present):
+        return None, None
+    out = np.empty((len(present), nky, nmodes, 4))
+    for (spec, mode), rows in blocks.items():
+        out[present.index(spec), :, mode - 1] = np.asarray(rows, dtype=float)
+    return out, present
+
+
 def _parse_ky_scalar_spectrum(directory: Path, name: str, nky: Optional[int]) -> Optional[np.ndarray]:
     """``width``/``spectral_shift``/``ave_p0`` spectra: prose lines, ``nky``, ``nky`` values."""
     rows = _numeric_rows(directory / f"out.tglf.{name}")
@@ -670,6 +722,7 @@ def collect_tglf_outputs(workdir: str | Path) -> Optional[TglfOutputs]:
     nky = None if ky is None else int(ky.size)
     intensity, intensity_species = _parse_intensity_spectrum(directory, n_species, nky)
     ql_flux, ql_species = _parse_ql_flux_spectrum(directory, nky)
+    ql_intensity, ql_intensity_species = _parse_ql_intensity_spectrum(directory, n_species, nky)
     sum_flux = _parse_sum_flux_spectrum(directory, n_species, nky)
     flags = _field_flags(directory)
     if sum_flux is not None and flags is not None and sum_flux.shape[1] == 3 and not flags[0]:
@@ -689,11 +742,12 @@ def collect_tglf_outputs(workdir: str | Path) -> Optional[TglfOutputs]:
         nete_crossphase_spectrum=_parse_nete_crossphase(directory, nky),
         nsts_crossphase_spectrum=_parse_nsts_crossphase(directory, nky),
         ql_flux_spectrum=ql_flux,
+        ql_intensity_spectrum=ql_intensity,
         width_spectrum=_parse_ky_scalar_spectrum(directory, "width_spectrum", nky),
         spectral_shift_spectrum=_parse_ky_scalar_spectrum(directory, "spectral_shift_spectrum", nky),
         ave_p0_spectrum=_parse_ky_scalar_spectrum(directory, "ave_p0_spectrum", nky),
         saturation_parameters=_parse_saturation_parameters(directory),
-        spectral_species=intensity_species or ql_species,
+        spectral_species=intensity_species or ql_species or ql_intensity_species,
         grid=grid,
         precision=_parse_precision(directory),
         version=_parse_version(directory),
