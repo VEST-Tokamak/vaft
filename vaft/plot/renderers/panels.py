@@ -980,6 +980,22 @@ def kinetic_overview_profiles(
 #: Below this canvas width [in] a legend beside each panel leaves the panels no
 #: room, so the legends go inside them (issue #1837).
 _KINETIC_STATE_OUTSIDE_LEGEND_MIN_WIDTH_IN = 6.0
+#: ``layout="stages"`` without a format: inches per stage column (#1957).
+_KINETIC_STAGE_COLUMN_IN = 1.9
+#: Its column titles (the stage names) against the format's title size.
+_KINETIC_STAGE_TITLE_SCALE = 0.8
+#: A caption line at least as tall as any a stage cut writes, laid out in
+#: its place so every stage of a sequence gets one layout.
+_KINETIC_CAPTION_STRUT = r"Stage $p_{\mathrm{eq}}^{\mathrm{TS}}$ $Z_{\mathrm{eff}}(\rho)$ [$n_{\mathrm{imp}}^{+}$]"
+#: Its row legends against the format's base type size.
+_KINETIC_STAGE_LEGEND_SCALE = 0.6
+
+
+def _kinetic_stage_legend_pt(axis: Any) -> float:
+    """The row legends' type: a fraction of the axis-label size the format drew with."""
+    from ..style import LEGEND_MIN_PT
+
+    return max(LEGEND_MIN_PT, _KINETIC_STAGE_LEGEND_SCALE * float(axis.xaxis.label.get_fontsize()))
 
 
 @_panel_renderer(
@@ -1000,6 +1016,7 @@ _KINETIC_STATE_OUTSIDE_LEGEND_MIN_WIDTH_IN = 6.0
         "core_profiles.profiles_1d.{i}.t_i_average",
         "core_profiles.profiles_1d.{i}.pressure_ion_total",
         "core_profiles.profiles_1d.{i}.ion.{j}.density",
+        "core_profiles.profiles_1d.{i}.ion.{j}.pressure",
         "core_profiles.profiles_1d.{i}.ion.{j}.temperature_fit.parameters",
         "core_profiles.profiles_1d.{i}.zeff",
         "core_profiles.profiles_1d.{i}.zeff_fit.parameters",
@@ -1031,7 +1048,17 @@ def kinetic_overview_state(
     magnetics-only equilibrium but fit input of an electron-kinetic one.
     p_e + p_i is labelled a closure identity when T_i was inferred by
     partitioning the equilibrium pressure, because it then equals p_eq by
-    construction and is no agreement test.
+    construction and is no agreement test.  A stored impurity pressure is
+    drawn as the part of p_i it is (p_i is the total over every ion), never
+    added to the sum again.  What the records say was assumed -- T_i = T_e,
+    n_C = n_O -- is listed under the title.
+
+    The figure can also be read as the inference chain that built the state:
+    Thomson and equilibrium data (1), the n_e and T_e fits (2), T_i (3), the
+    Z_eff reference such as Romero's resistive estimate (4), the impurity
+    density (5), the main-ion density (6), the Z_eff profile (7) and the
+    pressure closure (8).  The stage of a trace is fixed by its quantity, not
+    by the data, so a state built in another order is drawn as stored.
 
     Options
     -------
@@ -1046,7 +1073,15 @@ def kinetic_overview_state(
     radius (refused when it is the sqrt(psi_N) proxy, never relabelled) or
     the normalized poloidal flux.  ``layout=`` arranges the same four panels
     as a 2 x 2 grid or a 4 x 1 stack; ``format=`` and ``theme=`` size and
-    style the figure.
+    style the figure.  ``stage=`` (1-8) draws the chain up to that stage: the
+    newest stage's traces in front at full opacity, earlier ones faded in
+    their own colours, every axis on the full figure's limits and every
+    legend keeping the full figure's room, so a sequence of stages does not
+    move.  ``animation=True`` walks the eight stages (``stage=[...]`` picks
+    some) at the selected ``time=``.  ``layout="stages"`` draws the four
+    quantities as rows and one column per stage of ``stages=`` (default 1,
+    2, 4, 5, 7, 8), each the cumulative figure at that stage, with one
+    legend of symbols per row; it is sized for ``format="slide"``.
 
     Limitations
     -----------
@@ -1058,7 +1093,8 @@ def kinetic_overview_state(
     channel "measured"), not guessed; a record in no known grammar is
     refused.  Non-finite T_i, p_i and Z_eff points stay empty.  On a canvas
     narrower than 6 inches the legends move inside the panels and may cover
-    data.
+    data.  The stages layout's legends name symbols only; the roles are the
+    single figure's to state.
 
     See Also
     --------
@@ -1067,18 +1103,139 @@ def kinetic_overview_state(
     """
     from ..presentation import FORMATS
 
+    stages = getattr(model.models[0], "metadata", {}).get("layout") == "stages"
     fmt = FORMATS.get(style.get("format")) if isinstance(style.get("format"), str) else None
     if fmt is not None and fmt.width_in < _KINETIC_STATE_OUTSIDE_LEGEND_MIN_WIDTH_IN and model.member_styles:
         inside = {"legend_placement": {"loc": "best", "fontsize_scale": 0.58}}
-        model = replace(model, member_styles=tuple({**dict(m), **inside} for m in model.member_styles),
-                        suptitle=model.suptitle.replace(" (", "\n(", 1))
-    figure, axes = render_panels(model, ax=ax, show=show, **style)
-    if model.ncols > 1:
-        # The legends stand beside the panels, so a grid's axes are narrow:
-        # three ticks across the normalized radius keep their labels apart.
-        for axis in np.asarray(axes, dtype=object).ravel():
-            axis.locator_params(axis="x", nbins=3)
+        model = replace(model, member_styles=tuple(
+            {**dict(m), **inside} if dict(m).get("legend", True) is not False else dict(m)
+            for m in model.member_styles), suptitle=model.suptitle.replace(" (", "\n(", 1))
+    if stages and fmt is None and ax is None and style.get("figsize") is None:
+        # No format: a canvas as wide as its columns, not the 6.5-inch screen
+        # format a 2 x 2 grid is drawn on (format="slide" for a slide).
+        style["figsize"] = (_KINETIC_STAGE_COLUMN_IN * model.ncols + 1.0, 7.5)
+    reserved = [getattr(m, "metadata", {}).get("legend_labels") for m in model.models]
+    # Shown once the stage layout or the reserved legends below are done.
+    deferred = stages or (ax is None and any(reserved))
+    figure, axes = render_panels(model, ax=ax, show=show and not deferred, **style)
+    grid = np.asarray(axes, dtype=object)
+    if stages and grid.ndim == 2:
+        # Narrow columns: the radius is marked at its ends only, labelled once
+        # under the first column; every column of a row shares the full
+        # figure's y range, so the first carries the row's label and ticks.
+        # The last column holds each row's legend, the symbols of the row's
+        # last stage (the roles are the single figure's to state).
+        from ..backend.kinetic_state import EARLIER_STAGE_ALPHA
+
+        hosts, data = grid[:, -1], grid[:, :-1]
+        legend_pt = _kinetic_stage_legend_pt(data[-1, 0])
+        for axis in data.ravel():
+            axis.set_xticks((0.0, 1.0), ("0", "1"))
+        for axis in data[-1, 1:]:
+            axis.set_xlabel("")
+        for axis in data[:, 1:].ravel():
+            axis.tick_params(labelleft=False)
+            axis.set_ylabel("")
+        for host, source in zip(hosts, data[:, -1]):
+            handles, labels = source.get_legend_handles_labels()
+            if handles:
+                # Two columns past five symbols: a row is short, the cell wide enough.
+                key = host.legend(handles, labels, loc="center left", frameon=False, borderaxespad=0.0,
+                                  fontsize=legend_pt, labelspacing=0.2, handlelength=1.4, handletextpad=0.4,
+                                  ncols=1 if len(handles) <= 5 else 2, columnspacing=0.8)
+                # A key identifies; the fading of earlier stages is the panels' to show.
+                for handle in getattr(key, "legend_handles", getattr(key, "legendHandles", ())):
+                    if hasattr(handle, "get_alpha") and handle.get_alpha() == EARLIER_STAGE_ALPHA:
+                        handle.set_alpha(1.0)
+        for axis in data[0]:
+            axis.title.set_fontsize(axis.title.get_fontsize() * _KINETIC_STAGE_TITLE_SCALE)
+        for axis in data[:, 0]:
+            # A row is short: the unit goes under the symbol, in smaller type.
+            label = axis.yaxis.label
+            label.set_text(label.get_text().replace(" [", "\n[", 1))
+            label.set_fontsize(label.get_fontsize() * _KINETIC_STAGE_TITLE_SCALE)
+        if ax is None:
+            # Laid out again for what changed above, with the format's padding.
+            from ..style import finalize
+
+            finalize(figure, grid, show=False, tight_layout=True, pad=_kinetic_pad(style, ax))
+        if show:
+            plt.show()
+    else:
+        if model.ncols > 1:
+            # The legends stand beside the panels, so a grid's axes are narrow:
+            # three ticks across the normalized radius keep their labels apart.
+            for axis in grid.ravel():
+                axis.locator_params(axis="x", nbins=3)
+        if ax is None and any(reserved):
+            # A stage cut (#1957): each legend keeps the room of the full
+            # figure's -- the entries not drawn yet are there, invisible -- so
+            # every stage of a sequence has the same panels in the same place.
+            sizes = [t.get_fontsize() for a in grid.ravel() if a.get_legend() for t in a.get_legend().get_texts()]
+            for index, (axis, labels) in enumerate(zip(grid.ravel(), reserved)):
+                if labels:
+                    placement = dict((model.member_styles or ({},) * len(reserved))[index].get("legend_placement")
+                                     or {})
+                    placement.pop("fontsize_scale", None)
+                    _reserve_legend(axis, labels, placement, sizes[0] if sizes else None)
+            from ..style import finalize
+
+            # Until it settles: a legend hung beside its axes moves with it, so
+            # one pass from the first layout is not where the full figure's
+            # settles, and every stage must land on the same layout.
+            # The caption line's height varies with its symbols; the layout is
+            # made for a strut line as tall as any, then the caption put back.
+            title = figure._suptitle
+            caption = title.get_text() if title is not None else ""
+            if "\n" in caption:
+                title.set_text(caption.split("\n", 1)[0] + "\n" + _KINETIC_CAPTION_STRUT)
+            for _ in range(6):
+                before = [tuple(a.get_position().bounds) for a in grid.ravel()]
+                finalize(figure, grid, show=False, tight_layout=True, pad=_kinetic_pad(style, ax))
+                if np.allclose(before, [tuple(a.get_position().bounds) for a in grid.ravel()], atol=1e-4):
+                    break
+            if title is not None:
+                title.set_text(caption)
+        if show and deferred:
+            plt.show()
     return figure, axes
+
+
+def _kinetic_pad(style: Mapping[str, Any], ax: Any) -> float | None:
+    """The layout padding the presentation format of this render used, or ``None``."""
+    from ..presentation import DEFAULT_FORMAT, FORMATS
+
+    name = style.get("format")
+    if name in (None, "", "none") and ax is None and style.get("figsize") is None:
+        name = DEFAULT_FORMAT
+    fmt = FORMATS.get(name) if isinstance(name, str) else None
+    return None if fmt is None else fmt.outer_pad_pt / fmt.base_font_pt
+
+
+def _reserve_legend(axis: Any, labels: Sequence[str], placement: Mapping[str, Any], fontsize: Any) -> None:
+    """Redraw ``axis``'s legend with every label in ``labels``; those not drawn are invisible.
+
+    A panel with nothing drawn yet gets the legend it will have, invisible,
+    placed as ``placement`` says.
+    """
+    from matplotlib.lines import Line2D
+
+    drawn = {label: handle for handle, label in zip(*axis.get_legend_handles_labels())}
+    handles = [drawn.get(label) or Line2D([], [], alpha=0.0) for label in labels]
+    legend = axis.get_legend()
+    gid = None
+    if legend is not None:
+        gid = legend.get_gid()
+        fontsize = legend.get_texts()[0].get_fontsize() if legend.get_texts() else fontsize
+    options = {"fontsize": fontsize, **{("ncols" if k == "ncol" else k): v for k, v in placement.items()}}
+    rebuilt = axis.legend(handles, list(labels), **{k: v for k, v in options.items() if v is not None})
+    if gid is not None:
+        rebuilt.set_gid(gid)
+    for text, label in zip(rebuilt.get_texts(), labels):
+        if label not in drawn:
+            text.set_alpha(0.0)
+    if not drawn:
+        rebuilt.get_frame().set_alpha(0.0)
 
 
 @_panel_renderer(

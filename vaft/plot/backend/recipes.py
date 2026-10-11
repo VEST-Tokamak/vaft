@@ -87,6 +87,7 @@ __all__ = [
     "PanelRecipe",
     "ProfileRecipe",
     "RECIPES",
+    "SequenceDeclaration",
     "required_ids",
     "SpectrogramRecipe",
     "build_model",
@@ -990,6 +991,38 @@ CoordinateDeclaration = ChoiceDeclaration
 
 
 @dataclass(frozen=True)
+class SequenceDeclaration:
+    """A categorical sequence a computed view declares: states that are not times (issue #1957).
+
+    ``option`` is the keyword one state is drawn with (``stage=``),
+    ``states`` the integer values it accepts in order and ``labels`` the text
+    of each.  ``default`` is the state the static call draws, ``None`` when
+    the static call draws no state of it (the full figure); ``coordinate``
+    names what the states are.  Discovery publishes it as the plot's
+    sequence, so the slice control, the GUI player and ``animation=True``
+    walk these states exactly as they walk stored slices -- with the values
+    the states themselves, and ``time=`` a fixed option beside them.
+    """
+
+    option: str
+    states: tuple[int, ...]
+    labels: tuple[str, ...]
+    label: str = ""
+    default: int | None = None
+    coordinate: str = "stage"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "states", tuple(int(v) for v in self.states))
+        object.__setattr__(self, "labels", tuple(str(v) for v in self.labels))
+        if len(self.states) < 2 or len(set(self.states)) != len(self.states):
+            raise ValueError("a SequenceDeclaration needs at least two distinct states")
+        if len(self.labels) != len(self.states):
+            raise ValueError(f"one label per state: {len(self.labels)} for {len(self.states)}")
+        if self.default is not None and self.default not in self.states:
+            raise ValueError(f"default {self.default!r} is not one of {self.states}")
+
+
+@dataclass(frozen=True)
 class CallableRecipe:
     """A plot whose extraction needs real computation, not just path reads.
 
@@ -1037,6 +1070,9 @@ class CallableRecipe:
     #: Other choice options the builder declares, by option name; each must be
     #: an option of the schema (:mod:`vaft.plot.backend.options`).
     choices: Mapping[str, "ChoiceDeclaration"] = field(default_factory=dict)
+    #: A categorical sequence of states that are not times
+    #: (:class:`SequenceDeclaration`), or ``None``.
+    sequence: "SequenceDeclaration | None" = None
 
     def __post_init__(self) -> None:
         if self.backend not in BACKENDS:
@@ -9768,7 +9804,18 @@ def declares_option(name: str, option: str) -> bool:
         return name in VACUUM_BENCHMARK_PLOTS
     if option in KINETIC_STATE_OPTIONS:
         return name in KINETIC_STATE_PLOTS
+    if sequence_declaration_for(name, option) is not None:
+        return True
     return choice_options_for(name, option) is not None
+
+
+def sequence_declaration_for(name: str, option: str | None = None) -> "SequenceDeclaration | None":
+    """The categorical sequence plot ``name`` declares (for ``option``, when given), or ``None``."""
+    recipe = RECIPES.get(name)
+    declared = recipe.sequence if isinstance(recipe, CallableRecipe) else None
+    if declared is None or (option is not None and declared.option != option):
+        return None
+    return declared
 
 
 def _rational_request(options: Mapping[str, Any]) -> tuple[tuple[float, ...], tuple[tuple[int, int], ...]] | None:
@@ -16450,12 +16497,13 @@ RECIPES["kinetic_overview_profiles"] = CallableRecipe(
 from .kinetic_state import (  # noqa: E402
     COORDINATES as KINETIC_STATE_COORDINATES,
     LAYOUTS as KINETIC_STATE_LAYOUTS,
+    STAGES as KINETIC_STATE_STAGES,
     _available as _kinetic_state_available,
     build_kinetic_state,
 )
 
 #: Options only ``kinetic_overview_state`` takes (DECLARED_ONLY_OPTIONS).
-KINETIC_STATE_OPTIONS = frozenset({"equilibrium_occurrence"})
+KINETIC_STATE_OPTIONS = frozenset({"equilibrium_occurrence", "stage", "stages"})
 KINETIC_STATE_PLOTS = frozenset({"kinetic_overview_state"})
 
 _KINETIC_STATE_CORE = "core_profiles.profiles_1d.{i}"
@@ -16490,6 +16538,7 @@ RECIPES["kinetic_overview_state"] = CallableRecipe(
            f"{_KINETIC_STATE_CORE}.ion.{{j}}.density",
            f"{_KINETIC_STATE_CORE}.ion.{{j}}.density_fit.parameters",
            f"{_KINETIC_STATE_CORE}.ion.{{j}}.state.{{k}}.density",
+           f"{_KINETIC_STATE_CORE}.ion.{{j}}.pressure",
            f"{_KINETIC_STATE_CORE}.ion.{{j}}.temperature_fit.parameters",
            f"{_KINETIC_STATE_CORE}.t_i_average",
            f"{_KINETIC_STATE_CORE}.t_i_average_fit.parameters",
@@ -16502,6 +16551,13 @@ RECIPES["kinetic_overview_state"] = CallableRecipe(
     time_axis=OWN_TIME,
     coordinates=CoordinateDeclaration("rho_tor_norm", KINETIC_STATE_COORDINATES),
     choices={"layout": ChoiceDeclaration("grid", KINETIC_STATE_LAYOUTS)},
+    # The inference stages (#1957): stage=k cuts the figure; animation=True
+    # walks them.  The static call draws the full figure, no stage cut.
+    sequence=SequenceDeclaration(
+        "stage", tuple(number for number, _ in KINETIC_STATE_STAGES),
+        tuple(f"Stage {number}/{len(KINETIC_STATE_STAGES)}: {name}" for number, name in KINETIC_STATE_STAGES),
+        label="Inference stage",
+    ),
 )
 
 

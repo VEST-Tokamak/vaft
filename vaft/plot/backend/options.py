@@ -261,6 +261,14 @@ def _specs() -> tuple[OptionSpec, ...]:
         OptionSpec("equilibrium_occurrence", "int",
                    description="kinetic state: the equilibrium occurrence the Thomson channels are mapped "
                                "through; must match the one the state records"),
+        # Inference stages (#1957): stage= cuts the kinetic state at one stage
+        # of its chain (and is what animation=True walks); stages= names the
+        # columns of its layout="stages" small multiples.
+        OptionSpec("stage", "int",
+                   description="kinetic state: draw the inference chain up to this stage (1-8), the newest "
+                               "stage emphasised; default the full figure"),
+        OptionSpec("stages", "any",
+                   description="kinetic state: the stages layout='stages' draws as columns, increasing"),
         # Linear gyrokinetic spectra (#1591): an initial-value eigenmode that
         # reached no growth-rate tolerance is left out unless asked for.  Only
         # the plots in recipes.UNCONVERGED_MODE_PLOTS take it (DECLARED_ONLY_OPTIONS).
@@ -290,6 +298,8 @@ DECLARED_ONLY_OPTIONS: frozenset[str] = frozenset({
     "resistance_scale", "n_tau",
     # issue #1837: the kinetic state's equilibrium occurrence.
     "equilibrium_occurrence",
+    # issue #1957: the kinetic state's inference stages.
+    "stage", "stages",
 })
 
 #: Options an adapter passes on internally (besides leading-underscore keys);

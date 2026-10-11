@@ -201,6 +201,15 @@ def _slice_controls(record: Any) -> list[ControlSpec]:
     """
     sequence = getattr(record, "sequence", None) or {}
     option = sequence.get("option")
+    if sequence.get("kind") == "categorical":
+        # States that are not times (#1957): a labelled choice, unset where
+        # the static call draws none of them.
+        states = tuple(sequence["states"])
+        labels = tuple(sequence.get("labels") or ()) or tuple(map(str, states))
+        return [ControlSpec(
+            option, "choice", sequence.get("label") or option.replace("_", " ").capitalize(),
+            sequence.get("selected"), states, labels, group="slice",
+        )]
     if option in _DENSE_INDEX_LABELS:
         states = sequence["states"]
         return [ControlSpec(

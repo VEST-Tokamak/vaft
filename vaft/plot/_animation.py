@@ -5,7 +5,11 @@ The contract agreed on #1049:
 * A plot's **sequence coordinate** is its slice-group control, the one
   :func:`vaft.plot.controls.controls_for` offers for the record and the
   slider and the GUI player already drive (``time_slice``, ``frame_index``,
-  ``time_index``).  No second coordinate vocabulary exists.
+  ``time_index``, or a categorical control a recipe declares, such as the
+  kinetic state's ``stage``, #1957).  No second coordinate vocabulary exists.
+* A **categorical** driver's states are their own values and carry labels;
+  it has no time axis, so ``time_range=`` is refused and ``time=`` is a fixed
+  option every frame is drawn at.
 * States are **selected before rendering**, against that control's options
   only: the driver keyword as a sequence, ``time_range=(t0, t1)``, or
   nothing for all of them.  N states give N frames -- no interpolation, no
@@ -73,6 +77,8 @@ class Driver:
     unit: str | None
     indices: tuple[int, ...]
     values: tuple[float, ...]
+    #: Each chosen state's label, for a categorical driver (#1957); empty otherwise.
+    labels: tuple[str, ...] = ()
 
 
 def _equilibrium_section_context(data: Any, driver: Driver, options: Mapping[str, Any]) -> dict[str, Any]:
@@ -188,6 +194,8 @@ def render_animation(
     )
     options.pop(control.name, None)
     options.pop("time_range", None)
+    # time= reached here only with a driver that is not time (_select refuses
+    # it otherwise): it is a fixed option of every frame, as in the static call.
     validate_options(spec.name, options)
     fixed, style = split_options(options)
     if duration is not None:
@@ -265,7 +273,13 @@ def _select(
     """
     from .backend.discovery import sequence_values
 
+    from .backend.recipes import sequence_declaration_for
+
     coordinate, unit, axis = sequence_values(name, entries, control.name, **options)
+    declared = sequence_declaration_for(name, control.name)
+    if declared is not None:
+        # Categorical states (#1957): offered as declared, each its own value.
+        return _select_categorical(control, declared, axis, options)
     if control.name == "frame_index":
         # The record's control counts channel 0, detector 0; the frames that
         # exist are those of the camera the call draws.
@@ -320,6 +334,47 @@ def _select(
     return driver, selection
 
 
+def _select_categorical(control: Any, declared: Any, axis: np.ndarray, options: Mapping[str, Any]):
+    """The chosen states of a categorical control: the declared ones, or those given, in order.
+
+    The states are not times: ``time_range=`` cannot select among them and is
+    refused, while ``time=`` stays a fixed option every frame is drawn at.
+    """
+    offered = tuple(declared.states)
+    value_of = dict(zip(offered, (float(v) for v in axis)))
+    label_of = dict(zip(offered, declared.labels))
+    if options.get("time_range") is not None:
+        raise ValueError(
+            f"time_range= selects states along a time axis; the {control.name} states are not times -- "
+            f"pass {control.name}=[...] to choose among {', '.join(map(str, offered))}"
+        )
+    given = options.get(control.name)
+    if given is not None:
+        if _is_number(given):
+            raise ValueError(f"{control.name}={given!r} is {_ONE_STATE}; pass a sequence of states")
+        if isinstance(given, (str, bytes)):
+            raise ValueError(f"{control.name}= takes a sequence of states; got {given!r}")
+        chosen = tuple(given)
+        outside = [v for v in chosen if not _is_number(v) or v not in offered or v != int(v)]
+        if outside:
+            raise ValueError(f"{control.name} {outside} not offered; this plot offers {', '.join(map(str, offered))}")
+        chosen = tuple(int(v) for v in chosen)
+        selection = {"kind": control.name, "value": list(chosen)}
+    else:
+        chosen = offered
+        selection = {"kind": "all", "value": None}
+    repeated = sorted({i for i in chosen if chosen.count(i) > 1})
+    if repeated:
+        raise ValueError(f"the selection repeats {control.name} {repeated}; each state is one frame")
+    if len(chosen) < 2:
+        raise ValueError(f"the selection holds {control.name}={chosen[0] if chosen else None} only: {_ONE_STATE}")
+    driver = Driver(
+        name=control.name, label=control.label, coordinate=declared.coordinate, unit=None,
+        indices=chosen, values=tuple(value_of[i] for i in chosen), labels=tuple(label_of[i] for i in chosen),
+    )
+    return driver, selection
+
+
 class Animation:
     """One canonical plot over a sequence of its states: ``len``, ``metadata``, ``frames()``, ``save()``, ``show()``.
 
@@ -368,6 +423,9 @@ class Animation:
 
     def _caption(self) -> str:
         values = self.driver.values
+        if self.driver.labels:
+            first, last = self.driver.indices[0], self.driver.indices[-1]
+            return f"{len(self)} frames of {self.driver.name} ({first}-{last}), {self.fps:g} fps"
         span = (
             f"t = {min(values):.4f}-{max(values):.4f} s" if self.driver.unit == "s"
             else f"{self.driver.coordinate} {min(values):g}-{max(values):g}"
@@ -513,6 +571,8 @@ class Animation:
         """The state a frame shows, in the frame: the static title need not name it."""
         driver = self.driver
         value = driver.values[position]
+        if driver.labels:
+            return f"{self.label}  {driver.labels[position]}".strip()
         if driver.unit == "s":
             coordinate = f"t = {value:.5f} s"
         else:
@@ -594,6 +654,7 @@ class Animation:
             "driver": {
                 "name": driver.name, "label": driver.label, "coordinate": driver.coordinate,
                 "unit": driver.unit, "indices": list(driver.indices), "values": list(driver.values),
+                **({"labels": list(driver.labels)} if driver.labels else {}),
             },
             "selection": dict(self._selection),
             "n_states": len(self),

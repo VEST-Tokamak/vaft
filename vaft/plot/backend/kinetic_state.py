@@ -33,13 +33,44 @@ Evidence (the contract as amended by Lane KP on #1837)
   ``magnetics`` -> independent validation, ``electron_kinetic`` -> fit input.
 * **Z_eff reference**: ``core_profiles.global_quantities.z_eff_resistive`` at
   the slice's own entry of ``core_profiles.time``, else ``target_zeff=...`` of
-  the ``zeff_fit.parameters`` record.
+  the ``zeff_fit.parameters`` record.  A ``resistive_method=`` field of that
+  record names the estimate in the label (Romero, #781).
+* **Impurity pressure** ``p_imp`` is the sum of the stored ``ion[k].pressure``
+  of every impurity (``element[0].z_n > 1``), drawn as the *part of* ``p_i``
+  it is: ``pressure_ion_total`` is the DD's sum over all ion species, so
+  ``p_e + p_i`` already holds it and it is never added a second time.  Without
+  a stored impurity pressure it is omitted and the legend says so.
+* **Assumptions** are read from the records, never hard-coded: an
+  ``assumption=...`` field of any record the plot reads, else a record whose
+  ``origin=`` or ``status=`` is ``assumed`` (named by its quantity and
+  ``method=``, or ``T_i = r T_e`` for a ratio record), are listed in one
+  figure note, ``Assumed: T_i = T_e; n_C = n_O``.  Nothing is listed when no
+  record states an assumption.
+
+Inference stages (#1957)
+------------------------
+The maintainer's chain -- equilibrium and Thomson in, ``T_i = T_e`` and
+``n_C = n_O`` assumed, the Romero ``Z_eff`` first, then ``n_I,eff``, ``n_i``
+and ``Z_eff(rho)`` -- fixes the stage of every trace by its *quantity* alone
+(:data:`QUANTITY_STAGES`); the data never does.  ``stage=k`` cuts the figure
+at stage ``k``: only quantities of stage ``<= k`` are drawn, the newest
+stage's traces at full opacity in front, earlier ones faded
+(:data:`EARLIER_STAGE_ALPHA`) in their own colours, every panel on the limits
+of the full figure so a sequence of stages does not jump.  ``stage=None``
+(the default) is the full figure without emphasis.  ``layout="stages"`` puts
+the cumulative figure at several stages side by side, one column per stage.
+The electron pressure profile ``p_e`` is a closure input (stage 8), not a fit
+product: the Thomson pressure points ``e n_e T_e`` are the stage-1 data.  The
+stage names are neutral (``T_i``, not ``T_i = T_e``): what a stage assumed is
+the records' to say, in the note and the legend roles, so a slice built in
+another order is drawn as stored and never claimed to follow this one.
 """
 
 from __future__ import annotations
 
 import re
 from collections.abc import Mapping
+from dataclasses import replace
 from typing import Any
 
 import numpy as np
@@ -48,15 +79,70 @@ from vaft.plot.backend.access import array, count, get
 from vaft.plot.backend.kinetic_overview import _closest, _core_coordinate, _equilibrium_time_axis
 from vaft.plot.display import COORDINATE_LABELS, resolve_display
 from vaft.plot.intent import palette
-from vaft.plot.models import Panels, Profile1D, ReferenceLine, Series
+from vaft.plot.models import Panels, Profile1D, ReferenceLine, Series, TextPanel
 
 __all__ = []  # The registered plot is public; the extraction is not.
 
 #: ``coordinate=`` of the view: the toroidal-flux radius the core grid is
 #: stored on, or the normalized poloidal flux.
 COORDINATES = ("rho_tor_norm", "psi_norm")
-#: ``layout=``: a 2 x 2 grid or a 4 x 1 stack of the same four panels.
-LAYOUTS = ("grid", "stack")
+#: ``layout=``: a 2 x 2 grid or a 4 x 1 stack of the same four panels, or the
+#: four panels as rows with one column per inference stage (``stages=``).
+LAYOUTS = ("grid", "stack", "stages")
+
+#: The inference stages (#1957), in order: ``(number, name)``.  The names are
+#: plain text, for a control, a caption and a column title alike.
+STAGES = (
+    (1, "Thomson and equilibrium"),
+    (2, "n_e, T_e fits"),
+    (3, "T_i"),
+    (4, "Z_eff reference"),
+    (5, "impurity density"),
+    (6, "main-ion density"),
+    (7, "Z_eff profile"),
+    (8, "pressure closure"),
+)
+STAGE_NAMES = dict(STAGES)
+#: The stage each quantity belongs to; a trace's stage is its quantity's.
+QUANTITY_STAGES = {
+    "p_eq": 1, "p_e_thomson": 1, "n_e_thomson": 1, "T_e_thomson": 1,
+    "n_e": 2, "T_e": 2,
+    "T_i": 3,
+    "Z_eff_reference": 4,
+    "n_impurity_ion": 5,
+    "n_main_ion": 6,
+    "Z_eff": 7,
+    "p_e": 8, "p_i": 8, "p_imp": 8, "p_kin": 8,
+}
+#: The stage names as the figure writes them (mathtext), in a caption ...
+#: Every one carries a subscripted symbol, so the caption line has one height
+#: whatever the stage and a sequence of stages keeps one layout.
+_STAGE_CAPTIONS = {
+    1: r"Thomson $n_e$, $T_e$ and $p_{\mathrm{eq}}$", 2: r"$n_e$, $T_e$ fits", 3: r"$T_i$",
+    4: r"$Z_{\mathrm{eff}}$ reference", 5: r"impurity density $n_{\mathrm{imp}}$", 6: r"main-ion density $n_i$",
+    7: r"$Z_{\mathrm{eff}}$ profile", 8: r"pressure closure $p_e + p_i$ vs $p_{\mathrm{eq}}$",
+}
+#: ... and as a column title of ``layout="stages"``, where a column is narrow.
+_STAGE_TITLES = {
+    1: "data", 2: "fits", 3: r"$T_i$", 4: r"$Z_{\mathrm{eff}}$ ref.", 5: r"$n_I$", 6: r"$n_i$",
+    7: r"$Z_{\mathrm{eff}}(\rho)$", 8: "closure",
+}
+#: The symbol each quantity is named by in the compact legends of
+#: ``layout="stages"``; the roles are the single figure's to state.
+_SYMBOLS = {
+    "p_eq": r"$p_{\mathrm{eq}}$", "p_e_thomson": r"$p_e^{\mathrm{TS}}$", "n_e_thomson": r"$n_e^{\mathrm{TS}}$",
+    "T_e_thomson": r"$T_e^{\mathrm{TS}}$", "n_e": r"$n_e$", "T_e": r"$T_e$", "T_i": r"$T_i$",
+    "Z_eff_reference": r"$Z_{\mathrm{eff}}^{\mathrm{ref}}$", "n_impurity_ion": r"$n_{\mathrm{imp}}^{+}$",
+    "n_main_ion": r"$n_i$", "Z_eff": r"$Z_{\mathrm{eff}}$", "p_e": r"$p_e$", "p_i": r"$p_i$",
+    "p_imp": r"$p_{\mathrm{imp}}$", "p_kin": r"$p_e + p_i$",
+}
+#: The columns ``layout="stages"`` draws without ``stages=``: data, fits, the
+#: Romero reference, the impurity it fixes, the Z_eff profile and the closure --
+#: six columns, what an 11-inch slide holds legibly.  ``stages=range(1, 9)``
+#: draws all eight.
+DEFAULT_STAGE_COLUMNS = (1, 2, 4, 5, 7, 8)
+#: Opacity of a trace from a stage before the one shown.
+EARLIER_STAGE_ALPHA = 0.45
 #: How far apart two samples may be [s] when the time base they are matched on
 #: has a single sample, so no step to compare with -- the composition
 #: resolver's own pairing tolerance.
@@ -67,6 +153,7 @@ GLOBAL_TIME_TOLERANCE = 1e-6
 
 #: Legend type as a fraction of the format's base size (Matplotlib's "x-small").
 LEGEND_FONTSIZE_SCALE = 0.7
+
 
 #: Elementary charge [C].
 _E = 1.602176634e-19
@@ -158,6 +245,11 @@ def _ti_role(path: str, text: str | None) -> str:
     if text is None:
         return "stored"
     fields = _fields(path, text)
+    origin = fields.get("origin", "").lower()
+    if origin in ("assumed", "derived"):
+        # ``origin=assumed; method=ti_equals_te`` (#1957): an assumption by the
+        # composition grammar, which classify_ti_record does not read.
+        return "assumed"
     kind = classify_ti_record(text)
     if kind == "measured":
         return "measurement" if "origin" in fields else "fit"
@@ -211,6 +303,34 @@ def _target_zeff(path: str, text: str | None) -> float | None:
     if not np.isfinite(value) or value < 1.0:
         raise ValueError(f"{path}: target_zeff={raw!r} is not a finite Z_eff >= 1")
     return value
+
+
+def _stage_option(value: Any, name: str = "stage") -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, (bool, np.bool_)) or not isinstance(value, (int, np.integer)) or int(value) not in STAGE_NAMES:
+        raise ValueError(f"{name} must be an inference stage, one of {', '.join(map(str, STAGE_NAMES))}; "
+                         f"got {value!r}")
+    return int(value)
+
+
+def _stage_columns(value: Any, layout: str, stage: int | None) -> tuple[int, ...] | None:
+    """The stages ``layout="stages"`` draws as columns, validated; ``None`` for another layout."""
+    if layout != "stages":
+        if value is not None:
+            raise ValueError("stages= names the columns of layout='stages'; pass layout='stages' or stage= to "
+                             "cut one figure")
+        return None
+    if stage is not None:
+        raise ValueError("layout='stages' draws one column per stage; give stages=(...), not stage=")
+    if value is None:
+        return DEFAULT_STAGE_COLUMNS
+    if isinstance(value, (str, bytes)) or not hasattr(value, "__iter__"):
+        raise ValueError(f"stages= takes a sequence of stages, e.g. (1, 4, 8); got {value!r}")
+    chosen = tuple(_stage_option(v, "each of stages=") for v in value)
+    if not chosen or any(b <= a for a, b in zip(chosen, chosen[1:])):
+        raise ValueError(f"stages= must hold distinct stages in increasing order; got {tuple(value)!r}")
+    return chosen
 
 
 def _occurrence_option(value: Any) -> int | None:
@@ -382,12 +502,15 @@ def _plain(text: str) -> str:
 
 
 def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occurrence: Any = None,
-                        layout: str = "grid", coordinate: str = "rho_tor_norm", **options: Any) -> Panels:
+                        layout: str = "grid", coordinate: str = "rho_tor_norm", stage: Any = None,
+                        stages: Any = None, **options: Any) -> Panels:
     """Four matched panels of one stored kinetic state; refuse what does not match."""
     if coordinate not in COORDINATES:
         raise ValueError(f"coordinate must be one of {', '.join(COORDINATES)}; got {coordinate!r}")
     if layout not in LAYOUTS:
         raise ValueError(f"layout must be one of {', '.join(LAYOUTS)}; got {layout!r}")
+    stage = _stage_option(stage)
+    columns = _stage_columns(stages, layout, stage)
     if options.get("time_slice") is not None:
         raise ValueError("kinetic_overview_state selects its state by time=, matched by time on every IDS; "
                          "time_slice= would index one of them")
@@ -492,6 +615,14 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
     zeff_text = _record(ods, zeff_record)
     zeff_role = _origin_role(zeff_record, zeff_text)
     main, impurity = _ion_densities(ods, base, size)
+    p_imp, p_imp_paths, p_imp_reason = _impurity_pressure(ods, base, size)
+    # Every record the plot reads, by the quantity it belongs to: the
+    # assumptions note lists what they state (#1957).
+    records = [("n_e", ne_record, ne_text), ("T_e", te_record, te_text), ("T_i", ti_path, ti_text),
+               ("Z_eff", zeff_record, zeff_text)]
+    for quantity, group in (("n_main_ion", main), ("n_impurity_ion", impurity)):
+        if group is not None:
+            records.extend((quantity, path, text) for path, text in group[4])
 
     # --- Thomson, mapped through the selected equilibrium -------------------------
     ts = _thomson(ods, t_core)
@@ -540,7 +671,7 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
             return
         panel.append(series)
         traces.append({"panel": panel_name[id(panel)], "label": series.label, "quantity": quantity,
-                       "path": path, "role": role, "sigma": sigma})
+                       "path": path, "role": role, "sigma": sigma, "stage": QUANTITY_STAGES[quantity]})
 
     p_eq = array(ods, f"{eq_base}.profiles_1d.pressure")
     p_eq_reason = None
@@ -566,6 +697,17 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
     if pi is not None:
         add(pressure, _series(x, pi, rf"$p_i$ ({ti_role})", _COLOURS["ion"]),
             "p_i", f"{base}.pressure_ion_total", ti_role, "none")
+    if p_imp is not None:
+        # A part of pressure_ion_total (the DD's sum over every ion species),
+        # drawn as such and never added to p_e + p_i a second time.
+        add(pressure, _series(x, _finite(p_imp), r"$p_{\mathrm{imp}}$ (stored, part of $p_i$)", _COLOURS["impurity"],
+                              linestyle="-."),
+            "p_imp", " + ".join(p_imp_paths), "stored", "none")
+    elif p_imp_reason is not None:
+        # Short: the legend sits beside the panel and its width is the panel's loss.
+        add(pressure, _note(r"$p_{\mathrm{imp}}$ not stored"),
+            "p_imp", " + ".join(p_imp_paths), "unavailable", "none")
+    if pi is not None:
         p_kin = pe + pi
         if np.isfinite(p_kin).any():
             role = p_kin_role(ti_fields)
@@ -587,11 +729,11 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
                          yerr=None if sigma is None else sigma * scale),
         "n_e", f"{base}.electrons.{ne_leaf}", ne_role, "stored" if sigma is not None else "none")
     if main is not None:
-        values, labels, paths, role = main
+        values, labels, paths, role, _ = main
         add(density, _series(x, _finite(values) * scale, rf"$n_i$ {', '.join(labels)} ({role})", _COLOURS["ion"]),
             "n_main_ion", " + ".join(paths), role, "none")
     if impurity is not None:
-        values, labels, paths, role = impurity
+        values, labels, paths, role, _ = impurity
         add(density, _series(x, _finite(values) * scale,
                              rf"$n_{{\mathrm{{imp}}}}^{{+}}$ {', '.join(labels)} ({role})", _COLOURS["impurity"]),
             "n_impurity_ion", " + ".join(paths), role, "none")
@@ -641,6 +783,7 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
             return ()
         return (ReferenceLine(x=span_line[0], x_end=span_line[1], label="TS span" if first else ""),)
 
+    assumptions = _assumptions(records)
     selection = {
         "time": t_core, "core_profiles_slice": j, "equilibrium_time": t_eq, "equilibrium_slice": i,
         "equilibrium_lineage": lineage, "equilibrium_occurrence": occurrence,
@@ -652,22 +795,52 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         "thomson_note": ts_note,
         "thomson_span": None if span_line is None else list(span_line),
         "t_i_finite_range": valid_range, "coordinate": coordinate,
+        "assumptions": [{"quantity": q, "record": path, "statement": text} for q, path, text in assumptions],
     }
     label = COORDINATE_LABELS[coordinate]
+    panels = (
+        ("pressure", pressure, "$p$", "Pa", None),
+        ("density", density, "$n$", display.unit, display),
+        ("temperature", temperature, "$T$", "eV", None),
+        ("zeff", charge, r"$Z_{\mathrm{eff}}$", "", None),
+    )
+    all_series = {name: list(series) for name, series, *_ in panels}
+    cut = stage is not None or columns is not None
+    # The full figure's limits, kept by every cut of it so stages do not jump.
+    limits = {name: _y_limits(series) for name, series, *_ in panels} if cut else {}
 
-    def panel(series, y_label, unit, name, first=False, display_spec=None):
+    def panel(name, series, y_label, unit, display_spec, at, *, first=False, title="", extra=None, compact=False):
+        records_ = [t for t in traces if t["panel"] == name]
+        if at is not None:
+            kept = [(s, dict(t)) for s, t in zip(series, records_) if t["stage"] <= at]
+            series = [_staged(s, t["stage"] == at) for s, t in kept]
+            records_ = [t for _, t in kept]
+            for t in records_:
+                t["emphasis"] = "newest" if t["stage"] == at else "earlier"
+        if compact:
+            # A narrow column: symbols in the legend, the bare symbol on the
+            # axis; a stated absence is the single figure's to name.
+            kept = [(s, t) for s, t in zip(series, records_) if t["role"] != "unavailable"]
+            series = [replace(s, label=_SYMBOLS[t["quantity"]]) for s, t in kept]
+            records_ = [t for _, t in kept]
+            for s, t in zip(series, records_):
+                t["label"] = s.label
+        if at is not None and not compact:
+            # The full figure's legend, in the order Matplotlib lists it (lines,
+            # then the span, then markers): the renderer reserves its room in
+            # every cut, so a sequence of stages keeps one layout.
+            full = [(s, t) for s, t in zip(all_series[name], [t for t in traces if t["panel"] == name])]
+            lines = [s.label for s, _ in full if "marker" not in s.style]
+            marks = [s.label for s, _ in full if "marker" in s.style]
+            extra = {**(extra or {}), "legend_labels": lines + (["TS span"] if first and span_line else []) + marks}
         return Profile1D(
-            series=tuple(series), coordinate_label=label, y_label=y_label, y_unit=unit,
-            x_limits=(0.0, 1.0), display=display_spec, reference_lines=spans(first),
-            metadata={"panel": name, "traces": [t for t in traces if t["panel"] == name], **selection},
+            series=tuple(series), coordinate_label=_symbol(label) if compact else label, y_label=y_label,
+            y_unit=unit, title=title,
+            x_limits=(0.0, 1.0), y_limits=limits.get(name), display=display_spec, reference_lines=spans(first),
+            metadata={"panel": name, "traces": records_, **selection, "stage": at,
+                      "stage_name": STAGE_NAMES.get(at) if at is not None else None, **(extra or {})},
         )
 
-    models = (
-        panel(pressure, "$p$", "Pa", "pressure", first=True),
-        panel(density, "$n$", display.unit, "density", display_spec=display),
-        panel(temperature, "$T$", "eV", "temperature"),
-        panel(charge, r"$Z_{\mathrm{eff}}$", "", "zeff"),
-    )
     # One line: a stacked layout needs every inch of its height for the panels.
     if occurrence is None:
         occurrence_text = ""
@@ -682,15 +855,137 @@ def build_kinetic_state(ods: Any, *, time: float | None = None, equilibrium_occu
         ts_text = f", TS {ts['time'][0] * 1e3:.1f}-{ts['time'][1] * 1e3:.1f} ms"
     else:
         ts_text = f", TS {ts['time'] * 1e3:.1f} ms"
-    grid = layout == "grid"
-    # Legends beside the panels, a stack's in two columns; the renderer moves
-    # them inside for a format too narrow for that.
+    suptitle = f"Kinetic state at {t_core * 1e3:.1f} ms ({eq_text}{ts_text})"
+    # Beside the panels, a stack's in two columns; the renderer moves them
+    # inside for a format too narrow for that.
     beside = {"loc": "upper left", "bbox_to_anchor": (1.02, 1.0), "borderaxespad": 0.0,
               "fontsize_scale": LEGEND_FONTSIZE_SCALE}
-    legends = ({"legend_placement": beside if grid else {**beside, "ncol": 2}},) * len(models)
+
+    if columns is not None:
+        # Rows are the four quantities, columns the cumulative figure at each
+        # stage; the rightmost column's legend speaks for its row.
+        shown = max(columns)
+        caption = _caption(None, [a for a in assumptions if QUANTITY_STAGES[a[0]] <= shown], ())
+        models, styles = [], []
+        for row, (name, series, y_label, unit, display_spec) in enumerate(panels):
+            for col, at in enumerate(columns):
+                title = f"{at}: {_STAGE_TITLES[at]}" if row == 0 else ""
+                last = col == len(columns) - 1
+                # The span is named once, in the legend of the first row.
+                models.append(panel(name, series, y_label, unit, display_spec, at, first=row == 0 and last,
+                                    title=title, extra={"layout": "stages", "column": col}, compact=True))
+                styles.append({"legend": False})
+            # A cell of its own for the row's legend, which the renderer fills
+            # from the row's last column: inside an axes, the layout makes room
+            # for it, where a legend hung beside the column would squeeze the rows.
+            models.append(TextPanel(lines=(), title=""))
+            styles.append({})
+        return Panels(models=tuple(models), nrows=4, ncols=len(columns) + 1, share_x=True,
+                      member_styles=tuple(styles), suptitle=suptitle + caption)
+
+    caption = _caption(
+        stage, [a for a in assumptions if stage is None or QUANTITY_STAGES[a[0]] <= stage],
+        [t for t in traces if stage is not None and t["stage"] == stage],
+    )
+    models = tuple(panel(name, series, y_label, unit, display_spec, stage, first=index == 0)
+                   for index, (name, series, y_label, unit, display_spec) in enumerate(panels))
+    grid = layout == "grid"
+    legends = tuple(_legend_style(model, beside if grid else {**beside, "ncol": 2}) for model in models)
     return Panels(models=models, nrows=2 if grid else 4, ncols=2 if grid else 1, share_x=True,
-                  member_styles=legends,
-                  suptitle=f"Kinetic state at {t_core * 1e3:.1f} ms ({eq_text}{ts_text})")
+                  member_styles=legends, suptitle=suptitle + caption)
+
+
+def _legend_style(model: Profile1D, placement: Mapping[str, Any]) -> dict[str, Any]:
+    """A panel's legend: drawn even for one trace -- its role is the point -- and absent when empty."""
+    style: dict[str, Any] = {"legend_placement": dict(placement)}
+    if model.series:
+        style["legend"] = True
+    return style
+
+
+def _symbol(label: str) -> str:
+    """The mathtext symbol of a coordinate label: ``Normalized Toroidal Flux $\\rho_N$`` -> ``$\\rho_N$``."""
+    found = re.findall(r"\$[^$]+\$", label)
+    return found[-1] if found else label
+
+
+def _staged(series: Series, newest: bool) -> Series:
+    """``series`` emphasised as the newest stage's, or faded as an earlier one's, in its own colour."""
+    style = {**series.style, "alpha": 1.0, "zorder": 3} if newest else {**series.style, "alpha": EARLIER_STAGE_ALPHA}
+    return replace(series, style=style)
+
+
+def _y_limits(series: list[Series]) -> tuple[float, float] | None:
+    """The y range Matplotlib would autoscale every series (and error bar) of a panel to."""
+    low, high = np.inf, -np.inf
+    for item in series:
+        y = np.asarray(item.y, dtype=float)
+        parts = [y]
+        if item.yerr is not None:
+            err = np.asarray(item.yerr, dtype=float)
+            lo, hi = (err[0], err[1]) if err.ndim == 2 else (err, err)
+            parts += [y - lo, y + hi]
+        values = np.concatenate([np.ravel(v) for v in parts])
+        values = values[np.isfinite(values)]
+        if values.size:
+            low, high = min(low, float(values.min())), max(high, float(values.max()))
+    if not np.isfinite(low):
+        return None
+    margin = 0.05 * (high - low) if high > low else max(abs(high) * 0.05, 1e-12)
+    return (low - margin, high + margin)
+
+
+def _statement(quantity: str, fields: Mapping[str, str]) -> str | None:
+    """What one record says was assumed, from its own fields; ``None`` when nothing."""
+    if "assumption" in fields:
+        return re.sub(r"\s*=\s*", " = ", fields["assumption"])
+    origin, status = fields.get("origin", "").lower(), fields.get("status", "").lower()
+    if origin != "assumed" and status != "assumed":
+        return None
+    if "ti_te_ratio" in fields:
+        return f"T_i = {fields['ti_te_ratio']} T_e"
+    method = fields.get("method")
+    return f"{quantity} ({method})" if method else quantity
+
+
+def _assumptions(records: list[tuple[str, str, str | None]]) -> list[tuple[str, str, str]]:
+    """``(quantity, record path, statement)`` for every record stating an assumption, once per statement.
+
+    A statement several records make is kept with the earliest stage's
+    quantity, so a stage cut names it from the stage that first relies on it.
+    """
+    out, seen = [], set()
+    for quantity, path, text in sorted(records, key=lambda item: QUANTITY_STAGES[item[0]]):
+        if text is None:
+            continue
+        statement = _statement(quantity, _fields(path, text))
+        if statement is not None and statement not in seen:
+            seen.add(statement)
+            out.append((quantity, path, statement))
+    return out
+
+
+#: A relation of symbols such as ``T_i = T_e`` or ``T_i = 0.5 T_e``, which the
+#: caption may set in mathtext; anything else stays plain text.
+_RELATION = re.compile(r"[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)?(\s*[=<>]\s*([0-9.]+\s*)?[A-Za-z][A-Za-z0-9]*(_[A-Za-z0-9]+)?)+")
+
+
+def _math(statement: str) -> str:
+    """``T_i = T_e`` -> ``$T_i = T_e$``; a statement in no such form is left as it is."""
+    return f"${statement}$" if _RELATION.fullmatch(statement.strip()) else _plain(statement)
+
+
+def _caption(stage: int | None, assumptions: list, newest: list) -> str:
+    """The figure note under the title: the stage shown and what the records assumed."""
+    parts = []
+    if stage is not None:
+        text = f"Stage {stage}/{len(STAGES)}: {_STAGE_CAPTIONS[stage]}"
+        if not any(t["role"] != "unavailable" for t in newest):
+            text += " (nothing stored)"
+        parts.append(text)
+    if assumptions:
+        parts.append("Assumed: " + "; ".join(_math(statement) for _, _, statement in assumptions))
+    return ("\n" + " | ".join(parts)) if parts else ""
 
 
 def _equilibrium_psi_norm(ods: Any, eq_base: str) -> np.ndarray | None:
@@ -716,7 +1011,7 @@ def _main_ion_path(ods: Any, base: str) -> str | None:
 
 
 def _ion_densities(ods: Any, base: str, size: int):
-    """``(main, impurity)``: each ``(density, labels, paths, role)`` or ``None``.
+    """``(main, impurity)``: each ``(density, labels, paths, role, records)`` or ``None``.
 
     Species are classified by the nuclear charge of their first element,
     ``element[0].z_n``: 1 is the hydrogenic main ion (several are summed), more
@@ -725,6 +1020,7 @@ def _ion_densities(ods: Any, base: str, size: int):
     element alone.  An impurity's *charged* density is the sum of its
     ``state[].density`` when the states are stored (the bundled writer's
     ``density`` counts the neutral atoms too), else its ``density`` as stored.
+    ``records`` are the ``(path, text)`` of each species' density record.
     """
     groups: dict[str, list] = {"main": [], "impurity": []}
     for k in range(count(ods, f"{base}.ion")):
@@ -741,9 +1037,10 @@ def _ion_densities(ods: Any, base: str, size: int):
         if density is None or density.size != size:
             continue
         record = f"{prefix}.density_fit.parameters"
-        role = _origin_role(record, _record(ods, record))
+        text = _record(ods, record)
+        role = _origin_role(record, text)
         label = _plain(get(ods, f"{prefix}.label", "") or f"ion {k}") or f"ion {k}"
-        groups["main" if hydrogenic else "impurity"].append((density, label, path, role))
+        groups["main" if hydrogenic else "impurity"].append((density, label, path, role, (record, text)))
     out = []
     for name in ("main", "impurity"):
         items = groups[name]
@@ -752,8 +1049,35 @@ def _ion_densities(ods: Any, base: str, size: int):
             continue
         roles = sorted({item[3] for item in items})
         out.append((np.sum([item[0] for item in items], axis=0), [item[1] for item in items],
-                    [item[2] for item in items], "/".join(roles)))
+                    [item[2] for item in items], "/".join(roles), [item[4] for item in items]))
     return tuple(out)
+
+
+def _impurity_pressure(ods: Any, base: str, size: int):
+    """``(p_imp, paths, reason)``: the summed stored impurity ``ion[k].pressure``.
+
+    ``p_imp`` is ``None`` when any impurity (``element[0].z_n > 1``) stores no
+    pressure on the grid -- then ``reason`` says so -- or when the slice holds
+    no impurity at all (``reason`` ``None``: nothing to omit).
+    """
+    values, paths, missing = [], [], []
+    for k in range(count(ods, f"{base}.ion")):
+        prefix = f"{base}.ion.{k}"
+        z_n = _z_n(ods, prefix)
+        if z_n is None or round(z_n) <= 1:
+            continue
+        path = f"{prefix}.pressure"
+        pressure = array(ods, path)
+        paths.append(path)
+        if pressure is None or pressure.size != size:
+            missing.append(k)
+        else:
+            values.append(pressure)
+    if not paths:
+        return None, [], None
+    if missing:
+        return None, paths, "no impurity ion[k].pressure stored"
+    return np.sum(values, axis=0), paths, None
 
 
 def _zeff_reference(ods: Any, t_core: float, record_path: str, record_text: str | None, zeff_role: str):
@@ -770,7 +1094,10 @@ def _zeff_reference(ods: Any, t_core: float, record_path: str, record_text: str 
         k = _closest(times, t_core)
         value = float(stored.reshape(-1)[k])
         if abs(float(times[k]) - t_core) <= GLOBAL_TIME_TOLERANCE and np.isfinite(value):
-            return (value, rf"$Z_{{\mathrm{{eff}}}}^{{\mathrm{{res}}}} = {value:.3g}$ (stored)",
+            fields = _fields(record_path, record_text) if record_text is not None else {}
+            method = _plain(fields.get("resistive_method", ""))
+            how = f"stored, {method}" if method else "stored"
+            return (value, rf"$Z_{{\mathrm{{eff}}}}^{{\mathrm{{res}}}} = {value:.3g}$ ({how})",
                     "core_profiles.global_quantities.z_eff_resistive", "stored")
     target = _target_zeff(record_path, record_text)
     if target is None:
