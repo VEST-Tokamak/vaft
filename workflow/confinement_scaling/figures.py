@@ -163,6 +163,48 @@ def _basis_footnote(fig, scalings) -> None:
         fig.supxlabel(BASIS_FOOTNOTE, fontsize="x-small", x=0.01, ha="left")
 
 
+def _wrap_to_width(text, width_px: float, renderer) -> None:
+    """Break ``text`` at spaces so that no line is wider than ``width_px``; wording unchanged.
+
+    Mathtext (``$...$``) is left alone: a break inside it would not render.
+    Returns whether the text was wrapped.
+    """
+    content = text.get_text()
+    if not content or "$" in content or text.get_window_extent(renderer).width <= width_px:
+        return False
+    lines, current = [], ""
+    for word in content.split():
+        trial = f"{current} {word}" if current else word
+        text.set_text(trial)
+        if current and text.get_window_extent(renderer).width > width_px:
+            lines.append(current)
+            current = word
+        else:
+            current = trial
+    lines.append(current)
+    text.set_text("\n".join(lines))
+    return True
+
+
+def _fit_titles_and_footnote(fig, axes) -> None:
+    """Wrap panel titles wider than their axes, and the footnote to the figure width (#1946).
+
+    Drawn once first so the measurement uses the laid-out axes (constrained
+    layout) and the active presentation format's type size.
+    """
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    wrapped = [_wrap_to_width(ax.title, ax.get_window_extent(renderer).width, renderer) for ax in axes]
+    footnote = getattr(fig, "_supxlabel", None)
+    if footnote is not None:
+        x0 = fig.transFigure.transform((footnote.get_position()[0], 0.0))[0]
+        wrapped.append(_wrap_to_width(footnote, 0.98 * fig.bbox.width - x0, renderer))
+    if any(wrapped):
+        # Constrained layout settles on taller text over two passes; run the first
+        # here so the caller's single savefig draw is already the settled one.
+        fig.canvas.draw()
+
+
 #: Footnote for basis_marker.
 BASIS_FOOTNOTE = ("* global or unaudited energy basis: VEST uses tau_E,th (ohmic, W_global ~ W_th); "
                   "DB5 uses TAUTOT for global scalings and is omitted for unaudited ones")
@@ -315,6 +357,7 @@ def predicted_vs_measured_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX20
         ax.set_title(f"{LABELS.get(scaling, scaling)}{basis_marker(scaling)}: "
                      f"{_vest_coverage(table, predicted)}", fontsize="small")
     _basis_footnote(fig, scalings)
+    _fit_titles_and_footnote(fig, axes)
     return fig, axes
 
 
@@ -339,6 +382,7 @@ def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L")):
         ax.set_title(f"{LABELS.get(scaling, scaling)}{basis_marker(scaling)}: {_vest_coverage(table, h)}",
                      fontsize="small")
     _basis_footnote(fig, scalings)
+    _fit_titles_and_footnote(fig, axes)
     return fig, axes
 
 
