@@ -475,7 +475,10 @@ def atlas_state_table(base, *, machine: str = "VEST", machine_class: str = "sphe
         key (``shot``, ``time_s``, ``efit_lineage``) and ``efit_quality`` are kept.
         :data:`ATLAS_EXTRA_UNITS` columns are kept when the table has them.
         ``triangularity_upper``, ``triangularity_lower`` and
-        ``normalized_shafranov_shift`` are not in the atlas and stay NaN.
+        ``normalized_shafranov_shift`` are not in the atlas and stay NaN. The
+        rows are not COCOS-identified (``cocos_status`` says so); the one
+        sign-carrying quantity, $q$, is taken as a magnitude, as in
+        :func:`equilibrium_state_table`.
     """
     import pandas as pd
 
@@ -487,6 +490,12 @@ def atlas_state_table(base, *, machine: str = "VEST", machine_class: str = "sphe
     if missing:
         raise KeyError(f"not an atlas base table: no column(s) {missing}")
     table = pd.DataFrame({new: pd.to_numeric(atlas[old], errors="coerce") for old, new in _ATLAS_RENAMES.items()})
+    # magnitudes, as _slice_values: the atlas stores q in its product's own COCOS, whose sign is the helicity
+    # sgn(I_p B_T) there, not part of the op-space axis
+    for name in ("edge_safety_factor_95", "edge_safety_factor"):
+        table[name] = table[name].abs()
+    # a value the atlas wrote that is not a number becomes NaN; the row says which, so it is not silent
+    unreadable = {new: atlas[old].notna() & table[new].isna() for old, new in _ATLAS_RENAMES.items()}
     extra = [name for name in ATLAS_EXTRA_UNITS if name in atlas.columns]
     for name in extra:
         table[name] = pd.to_numeric(atlas[name], errors="coerce")
@@ -521,6 +530,8 @@ def atlas_state_table(base, *, machine: str = "VEST", machine_class: str = "sphe
         "state_reason": reason.fillna("").where(~valid, ""),
         "state_notes": "triangularity_upper, triangularity_lower and normalized_shafranov_shift are not atlas columns",
     }, index=atlas.index)
+    for name, bad in unreadable.items():
+        provenance.loc[bad, "state_notes"] += f"; {name} is not a number in the atlas table"
     for name in _ATLAS_CARRIED:
         if name in atlas.columns and name not in provenance:
             provenance[name] = atlas[name]

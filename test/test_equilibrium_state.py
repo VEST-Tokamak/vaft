@@ -399,6 +399,20 @@ def test_the_atlas_table_reproduces_the_equilibrium_state_table(vest_ods, vest_r
     assert compared >= 5
 
 
+def test_the_atlas_table_reads_the_csv_the_build_script_writes(vest_ods, vest_rows, tmp_path):
+    from vaft.omas import atlas_state_table
+
+    base = _atlas_rows(vest_ods, [r for r in vest_rows if r["state_status"] == "valid"][:3])
+    base.loc[2, ["base_status", "base_reason"]] = ["failed", "raised ValueError"]
+    path = tmp_path / "efit_base.csv"
+    base.to_csv(path, index=False)
+    from_csv, in_memory = atlas_state_table(path), atlas_state_table(base)
+    assert list(from_csv["state_status"]) == ["valid", "valid", "failed"]
+    assert list(from_csv["state_reason"]) == ["", "", "raised ValueError"]   # a blank reason reads back as NaN
+    for name in EQUILIBRIUM_STATE_UNITS:
+        assert list(from_csv[name]) == pytest.approx(list(in_memory[name]), nan_ok=True), name
+
+
 def test_the_atlas_table_keeps_failed_rows_and_refuses_another_table(vest_ods, vest_rows):
     import pandas as pd
 
@@ -410,5 +424,16 @@ def test_the_atlas_table_keeps_failed_rows_and_refuses_another_table(vest_ods, v
     assert list(table["state_status"]) == ["valid", "product_changed"]
     assert table.loc[1, "state_reason"] == "product sha256 differs" and table.loc[0, "state_reason"] == ""
     assert "volume_beta" not in base or "volume_beta" in table.attrs["units"]
+    # q is a magnitude whatever COCOS the atlas product stored it in, as in equilibrium_state_rows
+    flipped = base.assign(edge_safety_factor_95=-base["edge_safety_factor_95"],
+                          edge_safety_factor=-base["edge_safety_factor"])
+    again = atlas_state_table(flipped)
+    for name in ("edge_safety_factor_95", "edge_safety_factor"):
+        assert list(again[name]) == pytest.approx(list(table[name])) and (again[name] > 0).all()
+    # a value that is not a number is NaN and named in the notes, not silently dropped
+    garbled = base.astype({"elongation": object})
+    garbled.loc[0, "elongation"] = "n/a"
+    noted = atlas_state_table(garbled)
+    assert math.isnan(noted.loc[0, "elongation"]) and "elongation is not a number" in noted.loc[0, "state_notes"]
     with pytest.raises(KeyError, match="not an atlas base table"):
         atlas_state_table(pd.DataFrame({"shot": [1], "time_efit_s": [0.3]}))
