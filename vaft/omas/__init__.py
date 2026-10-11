@@ -264,10 +264,42 @@ def save(ods, target, *, compression=None):
     staged = target_path.with_name(f".{target_path.stem}.tmp-{token}{target_path.suffix}")
     try:
         _write_ods_file(ods, staged, suffixes, compression, reopenable_temporary_file)
-        os.replace(staged, target_path)
+        _replace(staged, target_path)
     finally:
         staged.unlink(missing_ok=True)
     return target_path
+
+
+#: How long a Windows rename onto a busy target is retried before giving up.
+REPLACE_RETRY_SECONDS = 5.0
+
+
+def _replace(source, target, *, retry_busy=None, timeout=REPLACE_RETRY_SECONDS):
+    """``os.replace``, retried while Windows reports the target busy.
+
+    Windows refuses to rename onto a file another handle is replacing or
+    reading at that instant (``PermissionError``, WinError 5) -- two threads
+    saving the same product collide there, where POSIX simply lets the last
+    rename win (Windows Package CI, 2026-10-11). The condition clears within
+    milliseconds, so the rename is retried with a short backoff. On POSIX a
+    ``PermissionError`` is a real permission problem and is raised at once.
+    """
+    import os
+    import time
+
+    if retry_busy is None:
+        retry_busy = os.name == "nt"
+    deadline = time.monotonic() + timeout
+    delay = 0.005
+    while True:
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if not retry_busy or time.monotonic() >= deadline:
+                raise
+            time.sleep(delay)
+            delay = min(delay * 2, 0.2)
 
 
 def _write_ods_file(ods, path, suffixes, compression, reopenable_temporary_file):

@@ -231,3 +231,41 @@ def test_imas_handle_reclaims_its_scratch_tree_when_open_fails(monkeypatch):
     with pytest.raises(RuntimeError, match="the DD rejected an IDS"):
         handle.open()
     assert _scratch_count("vaft-imas-handle-") == before
+
+
+def test_a_busy_target_on_windows_is_retried_and_a_real_permission_error_is_not(tmp_path, monkeypatch):
+    """Windows Package CI (2026-10-11): two threads saving one product collided
+    in ``os.replace`` -- Windows refuses a rename onto a target another rename is
+    using (WinError 5) where POSIX lets the last one win. The rename is retried
+    there; elsewhere a PermissionError is a real one and raises at once."""
+    import os
+
+    from vaft.omas import _replace
+
+    source, target = tmp_path / "staged", tmp_path / "target"
+    source.write_text("new")
+    real = os.replace
+    attempts = []
+
+    def busy_twice(src, dst):
+        attempts.append(1)
+        if len(attempts) <= 2:
+            raise PermissionError(13, "Access is denied")
+        real(src, dst)
+
+    monkeypatch.setattr(os, "replace", busy_twice)
+    _replace(source, target, retry_busy=True)
+    assert len(attempts) == 3 and target.read_text() == "new"
+
+    attempts.clear()
+    source.write_text("again")
+    with pytest.raises(PermissionError):
+        _replace(source, target, retry_busy=False)
+    assert len(attempts) == 1
+
+    def always_busy(src, dst):
+        raise PermissionError(13, "Access is denied")
+
+    monkeypatch.setattr(os, "replace", always_busy)
+    with pytest.raises(PermissionError):
+        _replace(source, target, retry_busy=True, timeout=0.05)
