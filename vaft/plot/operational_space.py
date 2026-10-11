@@ -103,6 +103,7 @@ BOUNDARY_NAMES = {
     "taylor_1995_diiid_beta_n_record": "DIII-D, wall-stabilised",
     "garstka_2002_st_beta_n_reference": "ST (START, PEGASUS)",
     "sabbagh_2006_nstx_beta_n_record": "NSTX, wall-stabilised",
+    "strait_1994_beta_n_li": "DIII-D/JET",
     "wesson_1989_jet_li_qpsi_lower": "Kink / double-tearing limit",
     "wesson_1989_jet_li_qpsi_upper": "Density-limit disruptions",
     "cheng_1987_li_qa_lower": "Lower: ideal external kink",
@@ -274,6 +275,14 @@ REFERENCE_SHORT_NAMES = {
 }
 
 
+def _linear_reference(entry) -> Optional[str]:
+    """``{coefficient} {input}`` (mathtext body) of a reference proportional to one input, such as
+    beta_N = 4 l_i(1), else None: the value comes from the registry, never from the renderer."""
+    if entry.form != "power_law" or len(entry.inputs) != 1 or dict(entry.exponents) != {entry.inputs[0].name: 1.0}:
+        return None
+    return f"{entry.coefficient:.3g}\\,{_math(entry.inputs[0].symbol)[1:-1]}"
+
+
 def _kind(key: str) -> str:
     return getattr(_b.get_boundary(key), "kind", "limit")
 
@@ -282,7 +291,9 @@ def _reference_label(curve: _b.BoundaryCurve, suffix: str = "", x_name: Optional
     """``{name}, {target} = {value}: {kind word}``: the value from the registry, not the renderer; the basis only
     when it is not empirical (an experimental level is empirical by its kind)."""
     entry = _b.get_boundary(curve.key)
-    value = f", {_math(entry.target.symbol)} = {entry.coefficient:.3g}" if entry.form == "threshold" else ""
+    linear = _linear_reference(entry)
+    value = (f", {_math(entry.target.symbol)} = {entry.coefficient:.3g}" if entry.form == "threshold" else
+             f", ${_math(entry.target.symbol)[1:-1]} = {linear}$" if linear is not None else "")
     basis = "" if _basis_word(entry) == "Empirical" else f" ({_basis_word(entry)})"
     evidence = entry.applicability.evidence_ranges if entry.applicability is not None else {}
     span = evidence.get(x_name) if x_name is not None else None   # only on the axis the evidence is on
@@ -1263,6 +1274,8 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
             entry = _b.get_boundary(curve.key)
             if entry.kind in REFERENCE_KINDS and entry.form == "threshold":   # short: the legend has the full name
                 name = f"{REFERENCE_SHORT_NAMES.get(curve.key, entry.target.symbol)} {entry.coefficient:.3g}"
+            elif entry.kind in REFERENCE_KINDS and _linear_reference(entry) is not None:
+                name = f"${_linear_reference(entry)}$"
             _place_label(ax, curve, name, BOUNDARY_COLORS[i % len(BOUNDARY_COLORS)], placed)
         limits = [curve for curve in plan.curves
                   if curve.key not in REFERENCE_ONLY and _kind(curve.key) not in REFERENCE_KINDS]

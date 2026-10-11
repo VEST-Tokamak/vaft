@@ -75,6 +75,7 @@ AXIS_QUANTITIES: Dict[str, _b.BoundaryQuantity] = {
         _registered("iter_1991_q95_estimate_min"),
         _registered("akers_2000_q95_estimate_min"),
         _registered("greenwald_hugill_st", "inverse_cylindrical_q_st"),
+        _registered("strait_1994_beta_n_li", "internal_inductance_li1"),
         _b.BoundaryQuantity(
             "normalized_current", "I_p/(a B_T)", "MA m^-1 T^-1",
             "Plasma current over minor radius times vacuum toroidal field (Troyon's I_N up to mu0).",
@@ -260,6 +261,21 @@ _register(OperationalProjection(
     default_boundaries=("troyon",),
     references=("F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209",),
     assumptions=("li is the DD li_3; the Troyon line does not depend on li in this entry",),
+))
+
+_register(OperationalProjection(
+    key="beta_n_li1",
+    title="Normalized beta against internal inductance l_i(1)",
+    x=_q("internal_inductance_li1"),
+    y=_q("normalized_beta"),
+    default_boundaries=("troyon", "strait_1994_beta_n_li"),
+    references=("F. Troyon et al., Plasma Phys. Control. Fusion 26 (1984) 209",
+                "E. J. Strait, Phys. Plasmas 1 (1994) 1415, p. 1422 (beta_max = 4 l_i I/aB; l_i on p. 1421)"),
+    assumptions=(
+        "x is l_i(1) = <B_p^2>/B_pa^2, B_pa = mu0 I/Gamma: the l_i of Strait's scaling, not the DD l_i(3) of "
+        "beta_n_li",
+        "the 4 l_i line is an empirical DIII-D/JET envelope, heavy over the 1 < l_i < 2 the PRL states",
+    ),
 ))
 
 _register(OperationalProjection(
