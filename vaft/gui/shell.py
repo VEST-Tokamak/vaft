@@ -11,7 +11,7 @@ workspaces of roadmap #1359) plugs in with one call::
 
     from vaft.gui.shell import register_workspace
 
-    register_workspace("shot_notes", "Shot notes", ShotNotesWorkspace, order=90)
+    register_workspace("my_workspace", "My workspace", MyWorkspace, order=90)
 
 A workspace is any object with ``sidebar()`` and ``main()`` returning lists
 of Panel objects; ``activate()`` (called each time it is shown) and

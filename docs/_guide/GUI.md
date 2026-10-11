@@ -153,7 +153,7 @@ in the same way:
 ```python
 from vaft.gui import register_workspace
 
-class ShotNotesWorkspace:
+class MyWorkspace:
     def __init__(self, shell):           # shell.selection, shell.report, shell.show
         self.shell = shell
     def sidebar(self): return [...]      # Panel objects
@@ -161,7 +161,7 @@ class ShotNotesWorkspace:
     def activate(self): ...              # optional: called each time it is shown
     def close(self): ...                 # optional: called when the browser session ends
 
-register_workspace("shot_notes", "Shot notes", ShotNotesWorkspace, order=90)
+register_workspace("my_workspace", "My workspace", MyWorkspace, order=90)
 ```
 
 A workspace is built the first time it is shown. It reads and changes the shared selection
