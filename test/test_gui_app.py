@@ -780,3 +780,49 @@ def test_serve_signs_in_with_hsds_accounts(monkeypatch):
     assert "basic_auth" not in kwargs, "no shared password: the accounts are HSDS's"
     assert kwargs["auth_provider"].login_handler.__name__ == "HSDSLoginHandler"
     assert kwargs["cookie_secret"]
+
+
+# -- touch screens (#1866) -------------------------------------------------------------------
+def test_a_drag_zooms_on_a_desktop_and_scrolls_the_page_on_a_touch_screen(ods, monkeypatch):
+    monkeypatch.setattr("vaft.gui.state.load_source", lambda source: ods)
+    desktop = gui_app.BrowserApp(_Session())
+    phone = gui_app.BrowserApp(_Session(), touch=True)
+    try:
+        for built in (desktop, phone):
+            assert built.load(Source("sample", 39915))
+        assert desktop.drag.value == "zoom" and desktop.interactive.object.layout.dragmode == "zoom"
+        assert phone.drag.value == "scroll" and phone.interactive.object.layout.dragmode is False
+        # legends move under a phone's plot; the desktop keeps Plotly's own placement
+        assert phone.interactive.object.layout.legend.orientation == "h"
+        assert phone.interactive.config["displayModeBar"] is True, "no hover reveals it on a touch screen"
+        assert "displayModeBar" not in desktop.interactive.config
+        assert desktop.interactive.object.layout.legend.orientation is None
+        # the reader may still choose, and switching keeps the zoom (same uirevision)
+        revision = phone.interactive.object.layout.uirevision
+        phone.drag.value = "pan"
+        assert phone.interactive.object.layout.dragmode == "pan"
+        assert phone.interactive.object.layout.uirevision == revision
+    finally:
+        desktop.close()
+        phone.close()
+
+
+def test_the_drag_choice_is_offered_only_for_an_interactive_plot(app):
+    assert app.drag.visible
+    app.plot.value = "plasma_current_time"  # static only
+    assert not app.drag.visible
+    app.plot.value = "equilibrium_profile_q"
+    assert app.drag.visible
+    app.renderer.value = "matplotlib"
+    assert not app.drag.visible
+
+
+def test_a_touch_screen_is_told_by_its_browser():
+    from vaft.gui.layout import is_touch_request
+
+    iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148"
+    android = "Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/130.0 Mobile Safari/537.36"
+    mac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/18.0 Safari/605.1.15"
+    assert is_touch_request({"User-Agent": iphone}) and is_touch_request({"user-agent": android})
+    assert not is_touch_request({"User-Agent": mac})
+    assert not is_touch_request(None) and not is_touch_request({}) and not is_touch_request(42)

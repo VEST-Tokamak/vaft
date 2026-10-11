@@ -123,9 +123,19 @@ CORE_MODULES: tuple[str, ...] = (
     # Quadratic coil-response algebra of a signed NTV torque (#1887): synthetic
     # Hermitian matrices, no solver, about a second.
     "test_ntv_coil_response.py",
+    # The #1887 direct GPEC -> PENTRC reference replayed without a solver: the
+    # committed 18 + 4 run table qualifies Q at converged tolerances only.
+    "test_ntv_coil_reference_1887.py",
+    # The verified resonant-field operator Phi = H conj(c) and stages A-D (#1884):
+    # synthetic operators plus the committed 19-run GPEC reference, no solver.
+    "test_resonant_coil_response.py",
     # The #1178 coil operating-space result schema (#1886 contract): synthetic
     # fixtures only, under a second.
     "test_coil_operating_space.py",
+    # Equilibrium-native Mercier / GGJ indices against DCON tables (#1902):
+    # packaged VEST g-file, no solver, a few seconds.
+    "test_local_mhd_criteria.py",
+    "test_local_mhd_criteria_plots.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
@@ -340,8 +350,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
     # Turbulence-zonal-flow predator-prey reduced model (#1820): analytic kernels
-    # checked against a numerical orbit. Pure NumPy, under 5 s.
+    # checked against a numerical orbit, and the process layer (intensity split,
+    # cycle metrics, trajectory fit) on synthetic orbits. Under 30 s.
     "test_formula_turbulence.py",
+    "test_process_gyrokinetics.py",
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
@@ -370,6 +382,9 @@ CORE_MODULES: tuple[str, ...] = (
     # records, the generic impossibilities, serialization and CGYRO's derived
     # #1353 record. Pure Python, ~3 s.
     "test_plasma_formalism.py",
+    # GACODE-suite formalism (#1735): NEO/TGLF/TGLF-NN/CGYRO records derived from the
+    # written input, and the distinctions that must not collapse. Pure Python, <1 s.
+    "test_gacode_plasma_formalism.py",
     # Ordering contracts (#1627 phase C): the registry against applicability's rules,
     # the cited kernels against the catalog, and evaluation on synthetic states.
     "test_validation_orderings.py",
@@ -379,6 +394,8 @@ CORE_MODULES: tuple[str, ...] = (
     # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
     # and the advisory check. Under 5 s.
     "test_validation_model_contracts.py",
+    # Plasma-model guide figures (#1739 E2): nodes computed from ADAPTER_MODES and AXES. Under 5 s.
+    "test_diagram_plasma_models.py",
     # Advisory ordering checks in EFIT, GPEC-suite and CGYRO run provenance (#1823). Under 10 s.
     "test_adapter_ordering_provenance.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic

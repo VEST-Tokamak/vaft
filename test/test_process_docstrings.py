@@ -130,6 +130,10 @@ DEFINITIONAL = frozenset({
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # gyrokinetics (#1820): peaks -> periods -> peak lag -> correlation lag -> verdict;
+    # initial guess -> integrate -> log residual -> least squares
+    "predator_prey_cycle_metrics",
+    "fit_predator_prey_model",
     # ordering_state (#1627 §2): inputs -> v_A, eta -> ratios; gradients -> gyroradii,
     # collision times -> Knudsen, magnetization, collisionality; columns -> rows
     "global_ordering_quantities",
@@ -141,6 +145,7 @@ PIPELINE = frozenset({
     "mode_frequency_tracks",
     # ntv_coil_response (#1887): probes -> Q; expected -> tolerance -> per-kind check;
     # drop failed -> compare -> status; generalized eigen -> scale; grid -> polish
+    "ntv_operating_space",
     "hermitian_torque_matrix",
     "quadratic_invariance_checks",
     "qualify_torque_matrix",
@@ -150,6 +155,21 @@ PIPELINE = frozenset({
     "fixed_amplitude_phase_extrema",
     # coil_operating_space (#1178): ratio against group 0 -> wrapped phase, NaN at A = 0
     "relative_coil_coordinates",
+    # resonant_coil_response (#1884): set aside failed -> compare -> status; stack ->
+    # lstsq -> SVD; eigvec at mu -> bisect; reduce per window -> model rows
+    "qualify_response_operator",
+    "match_resonant_target",
+    "constrained_window_extremum",
+    "resonant_operating_space",
+    # local_mhd_criteria (#1902): trace -> averages -> derivatives -> indices;
+    # read and convert the slice; interpolate -> differences -> implied H
+    "mercier_ggj_profile",
+    "mercier_ggj_from_ods",
+    "interchange_comparison",
+    "flux_surface_curvature",
+    "curvature_map",
+    "s_alpha_profile",
+    "s_alpha_from_ods",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -316,6 +336,9 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    "s_alpha_from_ods",
+    # local_mhd_criteria (#1902): ODS equilibrium in, raw indices out (no QA cut)
+    "mercier_ggj_from_ods",
     # soft_x_rays (#886): prescribed island -> synthetic chord signal
     "synthetic_island_soft_x_rays",
     # wall_modes (#571): element space <-> mode space
@@ -355,6 +378,12 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # gyrokinetics (#1820): |phi|^2 is a proxy, ky = 0 is zonal, positive lag = zonal
+    # after turbulence, c1/c2 carry the intensity normalisation
+    "zonal_turbulence_intensity",
+    "zonal_shear_proxy",
+    "predator_prey_cycle_metrics",
+    "fit_predator_prey_model",
     # #1627 §2: S and tau ratios on a, n_i = n_e, v_t = sqrt(T/m), L_T on r in metres
     "global_ordering_quantities",
     "time_history_ordering_quantities",
@@ -400,6 +429,7 @@ CONVENTION_SENSITIVE = frozenset({
     # torques stay signed
     "coil_phasors",
     "quadratic_probe_design",
+    "ntv_operating_space",
     "hermitian_torque_matrix",
     "quadratic_torque",
     "quadratic_invariance_checks",
@@ -410,6 +440,21 @@ CONVENTION_SENSITIVE = frozenset({
     "fixed_amplitude_phase_extrema",
     # #1178: I_k = A cos(n phi_k + delta), relative phase of group g minus group 0
     "relative_coil_coordinates",
+    # #1884: Phi = H conj(c) (GPEC's exp(-i n phi) coefficient); Q = conj(H^H W H)
+    "resonant_response_operator",
+    "qualify_response_operator",
+    "window_weights",
+    "match_resonant_target",
+    "constrained_window_extremum",
+    "resonant_operating_space",
+    # #1902: DCON's sign (D_I < 0 stable), chi increasing outward, |F|, |q|
+    "mercier_ggj_profile",
+    "mercier_ggj_from_ods",
+    "interchange_comparison",
+    "flux_surface_curvature",
+    "curvature_map",
+    "s_alpha_profile",
+    "s_alpha_from_ods",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

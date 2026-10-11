@@ -33,11 +33,35 @@ __all__ = ["__version__"]
 #   held-out qualification (qualified/rejected/insufficient), an
 #   inhomogeneous fit, two-group analytic, budgeted and fixed-amplitude
 #   extrema (#1887)
+# - #1887 direct GPEC -> PENTRC reference (upstream DIII-D-like example, n=1,
+#   three coil groups): T = c^H Q c qualifies at converged PENTRC tolerances
+#   (held-out <= 0.03 %), not at the example's defaults; ntv_operating_space
+#   writes direct and qualified-model torques into the #1178 result; driver
+#   workflow/gpec_ntv_coil_scan
+# - vaft.process.resonant_coil_response: a verified linear resonant-field
+#   operator Phi = H conj(c) (GPEC's exp(-i n phi) coefficient of VAFT's
+#   c = A exp(+i delta)), pedestal-based core/edge window metrics, complex
+#   target matching with rank/SVD, a core-capped edge maximum, and a #1178
+#   builder; on the DIII-D-like example every predicted optimum is what GPEC
+#   returned (#1884)
 # - vaft.process.coil_operating_space.CoilOperatingSpace: the common result
 #   of a coil amplitude/phase operating-space study -- samples, per-(sample,
 #   metric) values with a status, the excitation convention
 #   I_k = A cos(n phi_k + delta) and a long-form to_frame() (#1178, schema
 #   settled on #1886)
+# - vaft.process.local_mhd_criteria: Mercier D_I, GGJ H and D_R from flux-
+#   surface averages of one equilibrium (DCON's mercier_scan, coordinate-
+#   free, with V'' and q' on each surface from the flux map), an ODS path
+#   and a DCON comparison; D_I matches DCON within 0.5 % from psi_N 0.1 on
+#   the packaged VEST 39915@319 g-file (#1902)
+# - local_mhd_criteria: normal/geodesic field-line curvature and Greene-
+#   Johnson local shear along flux surfaces and on the (R, Z) grid, each
+#   surface checked against force balance and the shear identity (#1902)
+# - local_mhd_criteria: per-surface s and alpha in the #1720 volume-radius
+#   normalisation with the circular s-alpha first-stability boundary as an
+#   indicator, from arrays or one ODS slice (#1902)
+# - vaft.plot.local_mhd_criteria: D_I/D_R against psi_N, the s-alpha plane
+#   and R-Z maps of curvature and local shear (Field2D) (#1902)
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the

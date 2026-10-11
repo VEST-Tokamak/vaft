@@ -1,0 +1,568 @@
+{
+ "summary": {
+  "slices": 641,
+  "rows": 641,
+  "cohorts": {
+   "good": {
+    "slices": 18,
+    "thomson_consistent": 7,
+    "thomson_inconsistent": 4,
+    "thomson_not_judged": 7
+   },
+   "admissible": {
+    "slices": 115,
+    "thomson_consistent": 15,
+    "thomson_inconsistent": 38,
+    "thomson_not_judged": 62
+   },
+   "unreconstructible": {
+    "slices": 508,
+    "thomson_consistent": 8,
+    "thomson_inconsistent": 48,
+    "thomson_not_judged": 452
+   }
+  }
+ },
+ "census": {
+  "matrix": {
+   "rule_convergence": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.04330708661417323,
+     "fail": 0.9566929133858267,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    }
+   },
+   "rule_pressure_nonnegative": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.07283464566929133,
+     "fail": 0.9271653543307087,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    }
+   },
+   "rule_beta_p_positive": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.2204724409448819,
+     "fail": 0.7795275590551181,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    }
+   },
+   "rule_w_positive": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.2204724409448819,
+     "fail": 0.7795275590551181,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    }
+   },
+   "rule_q95": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.2283464566929134,
+     "fail": 0.7716535433070866,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    }
+   },
+   "rule_ip_ratio": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.4448818897637795,
+     "fail": 0.5551181102362205,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    }
+   },
+   "rule_probe_fit": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 0.23478260869565218,
+     "fail": 0.7652173913043478,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.08858267716535433,
+     "fail": 0.3641732283464567,
+     "indeterminate": 0.0,
+     "not_available": 0.547244094488189
+    }
+   },
+   "rule_loop_fit": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 0.3391304347826087,
+     "fail": 0.6608695652173913,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.08661417322834646,
+     "fail": 0.3661417322834646,
+     "indeterminate": 0.0,
+     "not_available": 0.547244094488189
+    }
+   },
+   "rule_ip_fit": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.39960629921259844,
+     "fail": 0.0531496062992126,
+     "indeterminate": 0.0,
+     "not_available": 0.547244094488189
+    }
+   },
+   "rule_dia_fit": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.3661417322834646,
+     "fail": 0.08661417322834646,
+     "indeterminate": 0.0,
+     "not_available": 0.547244094488189
+    }
+   },
+   "virial_status": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.1594488188976378,
+     "fail": 0.04330708661417323,
+     "indeterminate": 0.797244094488189,
+     "not_available": 0.0
+    }
+   },
+   "grad_shafranov_status": {
+    "good": {
+     "n": 18,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 1.0,
+     "fail": 0.0,
+     "indeterminate": 0.0,
+     "not_available": 0.0
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.05511811023622047,
+     "fail": 0.39763779527559057,
+     "indeterminate": 0.547244094488189,
+     "not_available": 0.0
+    }
+   },
+   "thomson_status": {
+    "good": {
+     "n": 18,
+     "pass": 0.3888888888888889,
+     "fail": 0.2222222222222222,
+     "indeterminate": 0.0,
+     "not_available": 0.3888888888888889
+    },
+    "admissible": {
+     "n": 115,
+     "pass": 0.13043478260869565,
+     "fail": 0.33043478260869563,
+     "indeterminate": 0.0,
+     "not_available": 0.5391304347826087
+    },
+    "unreconstructible": {
+     "n": 508,
+     "pass": 0.015748031496062992,
+     "fail": 0.09448818897637795,
+     "indeterminate": 0.1220472440944882,
+     "not_available": 0.7677165354330708
+    }
+   }
+  },
+  "pareto": {
+   "admissible": [
+    [
+     "rule_probe_fit",
+     88
+    ],
+    [
+     "rule_loop_fit",
+     76
+    ]
+   ],
+   "unreconstructible": [
+    [
+     "rule_convergence",
+     486
+    ],
+    [
+     "rule_pressure_nonnegative",
+     471
+    ],
+    [
+     "rule_beta_p_positive",
+     396
+    ],
+    [
+     "rule_w_positive",
+     396
+    ],
+    [
+     "rule_q95",
+     392
+    ],
+    [
+     "rule_ip_ratio",
+     282
+    ],
+    [
+     "grad_shafranov_status",
+     202
+    ],
+    [
+     "rule_loop_fit",
+     186
+    ],
+    [
+     "rule_probe_fit",
+     185
+    ],
+    [
+     "rule_dia_fit",
+     44
+    ],
+    [
+     "rule_ip_fit",
+     27
+    ],
+    [
+     "virial_status",
+     22
+    ]
+   ]
+  },
+  "slices": 641
+ },
+ "crosswalk": [
+  {
+   "generic": "verification.convergence",
+   "study": "rule_convergence",
+   "available": true,
+   "rows": 363,
+   "decided": 363,
+   "agreement": 0.9917355371900827,
+   "agreement_warn_as_fail": 0.9917355371900827,
+   "counts": {
+    "fail|fail": 205,
+    "pass|pass": 155,
+    "pass|fail": 3
+   }
+  },
+  {
+   "generic": "diagnostic_fit.global",
+   "study": "measurement_status",
+   "available": true,
+   "rows": 363,
+   "decided": 0,
+   "agreement": NaN,
+   "agreement_warn_as_fail": NaN,
+   "counts": {
+    "indeterminate|fail": 332,
+    "indeterminate|pass": 31
+   }
+  },
+  {
+   "generic": "diagnostic_fit.bpol_probe",
+   "study": "rule_probe_fit",
+   "available": true,
+   "rows": 363,
+   "decided": 363,
+   "agreement": 0.46005509641873277,
+   "agreement_warn_as_fail": 0.8539944903581267,
+   "counts": {
+    "pass|fail": 53,
+    "pass|pass": 90,
+    "fail|fail": 77,
+    "warn|fail": 143
+   }
+  },
+  {
+   "generic": "diagnostic_fit.flux_loop",
+   "study": "rule_loop_fit",
+   "available": true,
+   "rows": 363,
+   "decided": 363,
+   "agreement": 0.3746556473829201,
+   "agreement_warn_as_fail": 0.6198347107438017,
+   "counts": {
+    "pass|pass": 101,
+    "fail|fail": 35,
+    "pass|fail": 138,
+    "warn|fail": 89
+   }
+  },
+  {
+   "generic": "diagnostic_fit.ip",
+   "study": "rule_ip_fit",
+   "available": true,
+   "rows": 363,
+   "decided": 363,
+   "agreement": 0.9256198347107438,
+   "agreement_warn_as_fail": 1.0,
+   "counts": {
+    "pass|pass": 336,
+    "warn|fail": 27
+   }
+  },
+  {
+   "generic": "diagnostic_fit.diamagnetic_flux",
+   "study": "rule_dia_fit",
+   "available": true,
+   "rows": 363,
+   "decided": 363,
+   "agreement": 0.9201101928374655,
+   "agreement_warn_as_fail": 1.0,
+   "counts": {
+    "pass|pass": 319,
+    "fail|fail": 15,
+    "warn|fail": 29
+   }
+  },
+  {
+   "generic": "physical_validity.virial_pair_consistency",
+   "study": "virial_status",
+   "available": true,
+   "rows": 363,
+   "decided": 208,
+   "agreement": 0.9278846153846154,
+   "agreement_warn_as_fail": 0.9086538461538461,
+   "counts": {
+    "fail|indeterminate": 44,
+    "pass|fail": 9,
+    "pass|pass": 183,
+    "indeterminate|pass": 21,
+    "pass|indeterminate": 22,
+    "warn|pass": 9,
+    "warn|indeterminate": 49,
+    "warn|fail": 5,
+    "indeterminate|fail": 7,
+    "fail|pass": 1,
+    "indeterminate|indeterminate": 12,
+    "fail|fail": 1
+   }
+  },
+  {
+   "generic": "physical_validity.pressure_profile",
+   "study": "rule_pressure_nonnegative",
+   "available": true,
+   "rows": 363,
+   "decided": 363,
+   "agreement": 0.46831955922865015,
+   "agreement_warn_as_fail": 0.6143250688705234,
+   "counts": {
+    "warn|fail": 193,
+    "warn|pass": 140,
+    "pass|pass": 30
+   }
+  },
+  {
+   "generic": "independent_validation.thomson_pressure",
+   "study": "thomson_status",
+   "available": true,
+   "rows": 363,
+   "decided": 0,
+   "agreement": NaN,
+   "agreement_warn_as_fail": NaN,
+   "counts": {
+    "not_available|not_available": 181,
+    "not_available|pass": 30,
+    "not_available|fail": 90,
+    "not_available|indeterminate": 62
+   }
+  }
+ ],
+ "representative_cases": [
+  {
+   "case": "good_consistent",
+   "shot": 39916,
+   "time_s": 0.318,
+   "setting": "statistical_891",
+   "candidates": 7,
+   "reason": "good, Thomson consistent; closest to the cohort median in probe_reduced_chi2, loop_reduced_chi2, gs_residual, virial_log_ratio",
+   "failure_reasons": ""
+  },
+  {
+   "case": "good_inconsistent",
+   "shot": 42962,
+   "time_s": 0.333,
+   "setting": "statistical_891",
+   "candidates": 4,
+   "reason": "good, Thomson inconsistent; closest to the cohort median in probe_reduced_chi2, loop_reduced_chi2, gs_residual, virial_log_ratio",
+   "failure_reasons": "thomson: ln(sum p_e / sum p_recon) -1.25"
+  },
+  {
+   "case": "admissible_only",
+   "shot": 42931,
+   "time_s": 0.332,
+   "setting": "statistical_891",
+   "candidates": 88,
+   "reason": "admissible-only, failing the dominant blocking rule rule_probe_fit; closest to the median probe_reduced_chi2 of those",
+   "failure_reasons": "measurement: probe reduced chi2 6.81; thomson: ln(sum p_e / sum p_recon) -0.748"
+  },
+  {
+   "case": "unreconstructible",
+   "shot": 39906,
+   "time_s": 0.313,
+   "setting": "statistical_891",
+   "candidates": 486,
+   "reason": "unreconstructible, failing the dominant rule rule_convergence; a slice with a stored failed attempt first, then the earliest (shot, time)",
+   "failure_reasons": "admissible: not converged; admissible: pressure_min -261.83974; admissible: betap -0.179406642; admissible: wmhd -38.6883419; measurement: probe reduced chi2 2.27; grad_shafranov: GS residual 0.588"
+  }
+ ]
+}
