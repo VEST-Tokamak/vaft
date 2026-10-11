@@ -157,6 +157,15 @@ PIPELINE = frozenset({
     "match_resonant_target",
     "constrained_window_extremum",
     "resonant_operating_space",
+    # local_mhd_criteria (#1902): trace -> averages -> derivatives -> indices;
+    # read and convert the slice; interpolate -> differences -> implied H
+    "mercier_ggj_profile",
+    "mercier_ggj_from_ods",
+    "interchange_comparison",
+    "flux_surface_curvature",
+    "curvature_map",
+    "s_alpha_profile",
+    "s_alpha_from_ods",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -323,6 +332,9 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    "s_alpha_from_ods",
+    # local_mhd_criteria (#1902): ODS equilibrium in, raw indices out (no QA cut)
+    "mercier_ggj_from_ods",
     # soft_x_rays (#886): prescribed island -> synthetic chord signal
     "synthetic_island_soft_x_rays",
     # wall_modes (#571): element space <-> mode space
@@ -425,6 +437,14 @@ CONVENTION_SENSITIVE = frozenset({
     "match_resonant_target",
     "constrained_window_extremum",
     "resonant_operating_space",
+    # #1902: DCON's sign (D_I < 0 stable), chi increasing outward, |F|, |q|
+    "mercier_ggj_profile",
+    "mercier_ggj_from_ods",
+    "interchange_comparison",
+    "flux_surface_curvature",
+    "curvature_map",
+    "s_alpha_profile",
+    "s_alpha_from_ods",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

@@ -73,6 +73,7 @@ _SUBMODULES = {
     "ntv_coil_response": ".ntv_coil_response",
     "coil_operating_space": ".coil_operating_space",
     "resonant_coil_response": ".resonant_coil_response",
+    "local_mhd_criteria": ".local_mhd_criteria",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -161,6 +162,9 @@ _IMPORT_ORDER = (
     # Verified linear resonant-field operator Phi = H conj(c) and its optima
     # (#1884); nothing it exports collides.
     "resonant_coil_response",
+    # Equilibrium-native Mercier / GGJ interchange indices, DCON's formulas
+    # (#1902); nothing it exports collides.
+    "local_mhd_criteria",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a

@@ -132,6 +132,10 @@ CORE_MODULES: tuple[str, ...] = (
     # The #1178 coil operating-space result schema (#1886 contract): synthetic
     # fixtures only, under a second.
     "test_coil_operating_space.py",
+    # Equilibrium-native Mercier / GGJ indices against DCON tables (#1902):
+    # packaged VEST g-file, no solver, a few seconds.
+    "test_local_mhd_criteria.py",
+    "test_local_mhd_criteria_plots.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
