@@ -3105,9 +3105,9 @@ def build_resistive_zeff_ods(
 def _has_kinetic_slice(ods: ODS) -> bool:
     """Whether any core_profiles slice carries a measured ion temperature.
 
-    The same predicate :func:`vaft.process.profile.strip_electron_only_pressure`
-    uses to decide which slices may keep a total pressure, so the two cannot
-    disagree about what counts as kinetic.
+    Measured is read from the slice's ion temperature record
+    (:func:`vaft.machine_mapping.core_profiles.classify_ti_record`), not from the
+    presence of ``ion.0.temperature``.
     """
     # `in` is not total over a reloaded product. OMAS walks the path segment by
     # segment, so a membership test whose parent resolves to a scalar raises
@@ -3120,15 +3120,21 @@ def _has_kinetic_slice(ods: ODS) -> bool:
         count = len(ods["core_profiles.profiles_1d"])
     except TypeError:  # an AoS that is not a list is an AoS with no slices
         return False
-    from vaft.process import profile as _profile
+    # A T_i the composition stage assumed (T_i = T_e) or ti_inferred inferred does
+    # not make a slice kinetic: its record decides (no record means measured).
+    # strip_electron_only_pressure keys on presence, which agrees on the measured
+    # core_profiles product it runs on -- no assumed or inferred T_i exists there.
+    from vaft.machine_mapping.core_profiles import classify_ti_record
 
-    # A T_i the composition stage assumed (T_i = T_e) or ti_inferred inferred
-    # does not make a slice kinetic: the record decides, as in strip_electron_only_pressure.
-    return any(
-        _path_present(ods, f"core_profiles.profiles_1d.{index}.ion.0.temperature")
-        and _profile._has_measured_ion_temperature(ods, index)
-        for index in range(count)
-    )
+    def measured(index: int) -> bool:
+        base = f"core_profiles.profiles_1d.{index}.ion.0"
+        if not _path_present(ods, f"{base}.temperature"):
+            return False
+        record = ods[f"{base}.temperature_fit.parameters"] if _path_present(
+            ods, f"{base}.temperature_fit.parameters") else None
+        return classify_ti_record(record) == "measured"
+
+    return any(measured(index) for index in range(count))
 
 
 KINETIC_DILUTIONS = ("species", "none")
