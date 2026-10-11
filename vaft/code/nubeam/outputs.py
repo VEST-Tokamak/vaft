@@ -95,7 +95,7 @@ BIRTH_MARKER_FIELDS = (
     "zgc",    # guiding-centre elevation [cm]
     "xksid",  # pitch, v_parallel / v
     "einj",   # injection energy [eV]
-    "wght",   # Monte Carlo marker weight
+    "wght",   # Monte Carlo marker weight [particles deposited in the step]
     "zeta",   # toroidal angle [degrees]
     "time",   # deposition time [s]
     "ib",     # originating beam index
@@ -104,17 +104,24 @@ BIRTH_MARKER_FIELDS = (
 
 @dataclass
 class NUBEAMBirthMarkers:
-    """Deposition markers from ``<runid>_birth_cpu*.cdf_*``.
+    """Deposition markers from ``<runid>_birth_cpu<n>_<k>.cdf_<step>``.
 
     One entry per Monte Carlo deposition track. The columns line up closely
     with what a marker-based source description needs, but this container
     keeps NUBEAM's own names and units; no conversion is applied.
+
+    NUBEAM writes one birth file per time step, and each holds only that
+    step's deposition. ``wght`` is therefore particles per step: summed and
+    divided by the step length it is the deposition rate in #/s, which on the
+    packaged VEST case reproduces the injected power less shine-through.
     """
 
     path: Path
     species: str
     count: int
     columns: Mapping[str, Any] = field(default_factory=dict)
+    #: The ``_<step>`` suffix of the file name, 1-based; ``None`` if absent.
+    step: Optional[int] = None
 
 
 #: Heading of the power-accounting block NUBEAM prints at the end of a step.
@@ -345,7 +352,11 @@ class NUBEAMOutputs:
     profiles: Mapping[str, Any] = field(default_factory=dict)
     #: Scalar diagnostics from ``<runid>_scalars_out.cdf``.
     scalars: Mapping[str, Any] = field(default_factory=dict)
+    #: Deposition of the *last* step written, i.e. the one the final state
+    #: belongs to. Every step's markers are in `birth_steps`.
     birth: Optional[NUBEAMBirthMarkers] = None
+    #: One entry per birth file, in step order (``_cdf_2`` before ``_cdf_10``).
+    birth_steps: tuple[NUBEAMBirthMarkers, ...] = ()
     lost: Optional[NUBEAMLostParticles] = None
     grid: Optional[NUBEAMRadialGrid] = None
     flux_surface: Optional[NUBEAMFluxSurfaceAverages] = None
@@ -428,6 +439,27 @@ def _read_variables(path: Path, *, profiles_only: bool = False) -> dict[str, Any
     return values
 
 
+#: ``<runid>_birth_cpu0_1.cdf_5`` -> cpu 0, step 5.
+_BIRTH_NAME = re.compile(r"_birth_cpu(?P<cpu>\d+)_\d+\.cdf_(?P<step>\d+)$")
+
+
+def _birth_step(path: Path) -> Optional[int]:
+    match = _BIRTH_NAME.search(path.name)
+    return int(match["step"]) if match else None
+
+
+def _birth_order(path: Path) -> tuple[int, int, str]:
+    """Sort key for birth files: by step number, then CPU, as integers.
+
+    A lexical sort puts ``_cdf_10`` before ``_cdf_2``. A name without a step
+    suffix sorts first, so it is never mistaken for the final step.
+    """
+    match = _BIRTH_NAME.search(path.name)
+    if match is None:
+        return (-1, -1, path.name)
+    return (int(match["step"]), int(match["cpu"]), path.name)
+
+
 def _read_birth(path: Path) -> Optional[NUBEAMBirthMarkers]:
     import numpy as np
 
@@ -449,7 +481,11 @@ def _read_birth(path: Path) -> Optional[NUBEAMBirthMarkers]:
             return None
         count = int(len(next(iter(columns.values()))))
     return NUBEAMBirthMarkers(
-        path=path, species=species, count=count, columns=columns
+        path=path,
+        species=species,
+        count=count,
+        columns=columns,
+        step=_birth_step(path),
     )
 
 
@@ -534,10 +570,15 @@ def collect_nubeam_outputs(
     if scalars_file.is_file():
         scalars = _read_variables(scalars_file)
 
-    birth = None
-    birth_files = sorted(directory.glob(f"{runid}_birth_cpu*"))
-    if birth_files:
-        birth = _read_birth(birth_files[0])
+    # One birth file per step. `birth` is the last step's, the deposition
+    # that goes with the final state; earlier steps stay in `birth_steps`.
+    birth_files = sorted(directory.glob(f"{runid}_birth_cpu*"), key=_birth_order)
+    birth_steps = tuple(
+        markers
+        for markers in (_read_birth(path) for path in birth_files)
+        if markers is not None
+    )
+    birth = birth_steps[-1] if birth_steps else None
 
     # The radial grid and zone measures live in the Plasma State, not in
     # state_changes.cdf, so they are collected alongside the profiles they
@@ -611,6 +652,7 @@ def collect_nubeam_outputs(
         profiles=profiles,
         scalars=scalars,
         birth=birth,
+        birth_steps=birth_steps,
         lost=lost,
         grid=grid,
         flux_surface=flux_surface,

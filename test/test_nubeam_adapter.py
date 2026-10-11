@@ -305,6 +305,43 @@ def test_collecting_a_missing_directory_is_an_error(tmp_path):
         nubeam.collect_nubeam_outputs(tmp_path / "absent")
 
 
+def _write_birth_file(path: Path, r_cm: float) -> Path:
+    """A one-marker birth file, columns named the way NUBEAM names them."""
+    import numpy as np
+    import xarray as xr
+
+    xr.Dataset(
+        {
+            "bs_r_H_MCBEAM": (("n",), np.asarray([r_cm])),
+            "bs_wght_H_MCBEAM": (("n",), np.asarray([1.0e14])),
+        }
+    ).to_netcdf(path)
+    return path
+
+
+def test_birth_is_the_last_step_by_integer_suffix(tmp_path):
+    """NUBEAM writes one birth file per step; `birth` must be the final one.
+
+    A lexical sort orders ``_cdf_10`` before ``_cdf_2``, and taking the first
+    file returns step 1. Each file's radius encodes its step so the test
+    reads which one was picked from the data, not just from the name.
+    """
+    runid = nubeam.NUBEAMConfig().runid
+    for step in (2, 10, 1):  # creation order must not matter either
+        _write_birth_file(
+            tmp_path / f"{runid}_birth_cpu0_1.cdf_{step}", r_cm=float(step)
+        )
+
+    native = nubeam.collect_nubeam_outputs(tmp_path).outputs_native
+
+    assert [m.step for m in native.birth_steps] == [1, 2, 10]
+    assert native.birth is native.birth_steps[-1]
+    assert native.birth.step == 10
+    assert native.birth.path.name.endswith(".cdf_10")
+    assert float(native.birth.columns["r"][0]) == 10.0
+    assert native.birth.species == "H"
+
+
 # --------------------------------------------------------------------------
 # Integration
 # --------------------------------------------------------------------------
