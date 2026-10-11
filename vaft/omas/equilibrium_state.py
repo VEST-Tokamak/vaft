@@ -54,8 +54,8 @@ from typing import Any, Iterable, Mapping, Optional, Sequence
 
 import numpy as np
 
-__all__ = ["EQUILIBRIUM_STATE_CONVENTIONS", "EQUILIBRIUM_STATE_UNITS", "equilibrium_state_rows",
-           "equilibrium_state_table"]
+__all__ = ["ATLAS_EXTRA_UNITS", "EQUILIBRIUM_STATE_CONVENTIONS", "EQUILIBRIUM_STATE_UNITS", "atlas_state_table",
+           "equilibrium_state_rows", "equilibrium_state_table"]
 
 #: Units of the quantity columns, as ``table.attrs["units"]`` declares them.
 EQUILIBRIUM_STATE_UNITS = {
@@ -410,3 +410,123 @@ def equilibrium_state_table(entries: Iterable, *, cocos: Optional[Mapping[str, i
     table.attrs["units"] = dict(EQUILIBRIUM_STATE_UNITS)
     table.attrs["conventions"] = copy.deepcopy(EQUILIBRIUM_STATE_CONVENTIONS)
     return table
+
+
+# ---------------------------------------------------------------------------
+# The VEST Tier A atlas as an equilibrium-state table (#1620)
+# ---------------------------------------------------------------------------
+
+#: Columns of the atlas base table (``workflow/operational_space_atlas/build_efit_base.py``) that are already
+#: equilibrium-state quantities, under the base table's name. Its derivation is the one this module uses
+#: (``_slice_values``), so a column moves across unchanged.
+_ATLAS_RENAMES = {
+    "plasma_current_ma": "plasma_current",
+    "b0_t": "b0",
+    "r_reference_m": "reference_major_radius",
+    "major_radius_geo_m": "major_radius",
+    "minor_radius_m": "minor_radius",
+    **{name: name for name in ("elongation", "area_elongation", "triangularity", "plasma_surface_area",
+                               "edge_safety_factor_95", "edge_safety_factor", "internal_inductance_li3",
+                               "li3_grid_integral", "normalized_beta", "toroidal_beta", "poloidal_beta",
+                               "normalized_current", "inverse_cylindrical_q")},
+}
+
+#: Quantities the atlas carries beyond :data:`EQUILIBRIUM_STATE_UNITS` (#1691), kept under their registry names.
+ATLAS_EXTRA_UNITS = {
+    "internal_inductance_li1": "-",
+    "volume_beta": "%",
+    "normalized_volume_beta": "% m T/MA",
+}
+
+#: Atlas columns carried as they are: the state key of Lane K's contract (#1454) and the cross-check labels.
+_ATLAS_CARRIED = ("efit_lineage", "efit_quality", "efit_setting", "kinetic_admissible", "li_beta_source",
+                  "li_beta_crosscheck", "update_routine_status")
+
+#: Equilibrium-state columns the atlas base table does not carry; they stay NaN and every row says so.
+_ATLAS_ABSENT = ("triangularity_upper", "triangularity_lower", "normalized_shafranov_shift")
+
+
+def atlas_state_table(base, *, machine: str = "VEST", machine_class: str = "spherical_tokamak",
+                      dataset_source: str = "VEST Tier A atlas (#1331)"):
+    """The conference atlas base table as an equilibrium-state table.
+
+    ``base`` is the Lane V atlas base table (``lane_v/efit_base.csv`` of
+    ``$VAFT_ATLAS_DIR``, written by ``workflow/operational_space_atlas/build_efit_base.py``)
+    or its path. Its columns are renamed to the quantity names of
+    :func:`equilibrium_state_table`, whose derivation the atlas shares, and the
+    columns the atlas does not store are evaluated from its own: the vacuum field
+    at the geometric radius ``b0 R_ref / R_geo``, the aspect ratio, and the
+    shape coordinates by the same registered functions. The result declares the
+    same ``attrs["units"]`` and ``attrs["conventions"]``, so it joins the
+    equilibrium-state and PR08 tables on any plane whose radius conventions agree.
+
+    Parameters
+    ----------
+    base : str, path or pandas.DataFrame
+        The atlas base table.
+    machine, machine_class, dataset_source : str
+        Provenance written into every row.
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per atlas state. ``state_status`` is ``"valid"`` where the atlas row
+        is valid and otherwise the atlas ``base_status``, with its reason. The state
+        key (``shot``, ``time_s``, ``efit_lineage``) and ``efit_quality`` are kept.
+        :data:`ATLAS_EXTRA_UNITS` columns are kept when the table has them.
+        ``triangularity_upper``, ``triangularity_lower`` and
+        ``normalized_shafranov_shift`` are not in the atlas and stay NaN.
+    """
+    import pandas as pd
+
+    from vaft.formula import boundaries as _b
+    from vaft.formula.equilibrium import inverse_aspect_ratio_from_a_R
+
+    atlas = base.copy() if isinstance(base, pd.DataFrame) else pd.read_csv(base)
+    missing = [c for c in ("shot", "time_efit_s", "base_status", *_ATLAS_RENAMES) if c not in atlas.columns]
+    if missing:
+        raise KeyError(f"not an atlas base table: no column(s) {missing}")
+    table = pd.DataFrame({new: pd.to_numeric(atlas[old], errors="coerce") for old, new in _ATLAS_RENAMES.items()})
+    extra = [name for name in ATLAS_EXTRA_UNITS if name in atlas.columns]
+    for name in extra:
+        table[name] = pd.to_numeric(atlas[name], errors="coerce")
+    a, r_geo, r_ref = table["minor_radius"], table["major_radius"], table["reference_major_radius"]
+    kappa, delta, ip_ma = table["elongation"], table["triangularity"], table["plasma_current"]
+    table["toroidal_field"] = table["b0"] * r_ref / r_geo   # the vacuum field at R_geo, as _slice_values
+    table["aspect_ratio"] = r_geo / a
+    table["inverse_aspect_ratio"] = inverse_aspect_ratio_from_a_R(a.to_numpy(float), r_geo.to_numpy(float))
+    b_geo = table["toroidal_field"].to_numpy(float)
+    args = (a.to_numpy(float), r_geo.to_numpy(float), b_geo, kappa.to_numpy(float))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        table["kink_safety_factor_elliptic"] = _b.kink_coordinates(*args, ip_ma.to_numpy(float))
+        table["kink_safety_factor_cylindrical"] = _b.cylindrical_kink_coordinates(*args, ip_ma.to_numpy(float))
+        table["edge_safety_factor_95_estimate_iter"] = _b.iter_q95_coordinates(*args, delta.to_numpy(float),
+                                                                              ip_ma.to_numpy(float))
+        table["edge_safety_factor_95_estimate_start"] = _b.start_q95_coordinates(*args, delta.to_numpy(float),
+                                                                                ip_ma.to_numpy(float))
+    for name in _ATLAS_ABSENT:
+        table[name] = math.nan
+    valid = atlas["base_status"].eq("valid")
+    reason = atlas["base_reason"] if "base_reason" in atlas.columns else pd.Series("", index=atlas.index)
+    provenance = pd.DataFrame({
+        "machine": machine, "machine_class": machine_class, "dataset_source": dataset_source,
+        "dataset_type": "experimental", "source_format": "atlas_base_table",
+        "shot": pd.to_numeric(atlas["shot"], errors="coerce").astype("Int64"),
+        "time_s": pd.to_numeric(atlas["time_efit_s"], errors="coerce"),
+        "time_index": pd.NA,
+        "equilibrium_provenance": "EFIT product of the atlas state (efit_product)",
+        "cocos_source": pd.NA, "cocos_status": "not identified: the atlas stores derived quantities, not the slice",
+        "cocos_target": pd.NA,
+        "state_status": atlas["base_status"].where(~valid, "valid"),
+        "state_reason": reason.fillna("").where(~valid, ""),
+        "state_notes": "triangularity_upper, triangularity_lower and normalized_shafranov_shift are not atlas columns",
+    }, index=atlas.index)
+    for name in _ATLAS_CARRIED:
+        if name in atlas.columns and name not in provenance:
+            provenance[name] = atlas[name]
+    columns = list(_PROVENANCE) + list(EQUILIBRIUM_STATE_UNITS)
+    out = pd.concat([provenance, table], axis=1)
+    out = out.reindex(columns=columns + [c for c in out.columns if c not in columns])
+    out.attrs["units"] = {**EQUILIBRIUM_STATE_UNITS, **{name: ATLAS_EXTRA_UNITS[name] for name in extra}}
+    out.attrs["conventions"] = copy.deepcopy(EQUILIBRIUM_STATE_CONVENTIONS)
+    return out

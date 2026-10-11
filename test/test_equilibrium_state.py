@@ -353,3 +353,62 @@ def test_both_state_tables_declare_the_radius_of_every_field_or_radius_dependent
     assert EQUILIBRIUM_STATE_CONVENTIONS["toroidal_field"]["radius_symbol"] == "R_geo"
     code = _code(NEW_NOTEBOOK)
     assert '["radius_symbol"]' in code and "COMBINED" in code
+
+
+# --- the VEST Tier A atlas as an equilibrium-state table (#1620) -----------------------
+
+
+def _atlas_rows(ods, rows, *, quality="good"):
+    """The atlas base table the build script would write for these slices, failures included."""
+    import pandas as pd
+
+    beb = _atlas_base()
+    out = []
+    for row in rows:
+        try:
+            atlas = beb._row(ods, float(row["time_s"]))
+        except Exception as error:   # build_efit_base.main records a raising slice as failed
+            atlas = {"base_status": "failed", "base_reason": f"{type(error).__name__}: {error}"}
+        atlas.update(shot=39915, time_efit_s=float(row["time_s"]), efit_lineage="magnetics", efit_quality=quality)
+        out.append(atlas)
+    return pd.DataFrame(out)
+
+
+def test_the_atlas_table_reproduces_the_equilibrium_state_table(vest_ods, vest_rows):
+    from vaft.omas import ATLAS_EXTRA_UNITS, atlas_state_table
+
+    valid = [r for r in vest_rows if r["state_status"] == "valid"]
+    table = atlas_state_table(_atlas_rows(vest_ods, valid))
+    assert table.attrs["units"] == {**EQUILIBRIUM_STATE_UNITS, **ATLAS_EXTRA_UNITS}
+    assert table.attrs["conventions"] == equilibrium_state_table([]).attrs["conventions"]
+    compared = 0
+    absent = {"triangularity_upper", "triangularity_lower", "normalized_shafranov_shift"}
+    for row, (_, atlas) in zip(valid, table.iterrows()):
+        if atlas["state_status"] != "valid":
+            assert atlas["state_reason"]   # a slice the build script cannot read keeps its reason
+            continue
+        compared += 1
+        assert atlas["shot"] == 39915 and atlas["time_s"] == row["time_s"] and atlas["efit_lineage"] == "magnetics"
+        for name in EQUILIBRIUM_STATE_UNITS:
+            if name in absent:
+                assert math.isnan(atlas[name]), name
+            elif np.isfinite(row[name]):
+                assert atlas[name] == pytest.approx(row[name], rel=1e-9), name
+            else:
+                assert math.isnan(atlas[name]), name
+    assert compared >= 5
+
+
+def test_the_atlas_table_keeps_failed_rows_and_refuses_another_table(vest_ods, vest_rows):
+    import pandas as pd
+
+    from vaft.omas import atlas_state_table
+
+    base = _atlas_rows(vest_ods, [r for r in vest_rows if r["state_status"] == "valid"][:2])
+    base.loc[1, ["base_status", "base_reason"]] = ["product_changed", "product sha256 differs"]
+    table = atlas_state_table(base)
+    assert list(table["state_status"]) == ["valid", "product_changed"]
+    assert table.loc[1, "state_reason"] == "product sha256 differs" and table.loc[0, "state_reason"] == ""
+    assert "volume_beta" not in base or "volume_beta" in table.attrs["units"]
+    with pytest.raises(KeyError, match="not an atlas base table"):
+        atlas_state_table(pd.DataFrame({"shot": [1], "time_efit_s": [0.3]}))
