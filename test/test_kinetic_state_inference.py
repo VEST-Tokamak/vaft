@@ -336,3 +336,26 @@ def test_the_ratio_profile_mode_is_continuous_and_marks_its_extrapolation(sample
     assert np.all(np.isfinite(f["T_i"])), "continuous over the whole profile"
     assert closure.provenance["role"] == "closure_profile"
     assert closure.assumptions["ti_extrapolated_outside_rho_valid"] == 1
+
+
+def test_a_window_ratio_is_the_inverse_variance_mean_widened_by_excess_scatter():
+    from vaft.omas.kinetic_state_inference import combine_ti_ratios
+
+    quiet = combine_ti_ratios([1.2, 1.3, 1.25], [0.2, 0.2, 0.2])
+    assert quiet["ratio"] == pytest.approx(1.25) and quiet["sigma"] == pytest.approx(quiet["sigma_formal"])
+    noisy = combine_ti_ratios([0.5, 2.0, 1.0, 1.8], [0.1, 0.1, 0.1, 0.1])
+    assert noisy["sigma"] > 3 * noisy["sigma_formal"]
+    with pytest.raises(ValueError):
+        combine_ti_ratios([1.0], [0.1])
+
+
+def test_a_sloped_fit_over_a_wide_axis_gap_warns_that_the_axis_is_extrapolated():
+    from vaft.omas.kinetic_state_inference import _ti_ratio_profile
+
+    rho = np.linspace(0.35, 0.95, 60)
+    fit = _ti_ratio_profile(rho, 0.5 + 1.5 * rho, np.full(60, 1.0), np.full(60, 100.0),
+                            np.linspace(0, 1, 11), n_independent=10)
+    assert fit["order"] >= 1 and fit["warnings"] and "axis_extrapolated" in fit["warnings"][0]
+    flat = _ti_ratio_profile(rho, np.full(60, 1.2), np.full(60, 1.0), np.full(60, 100.0),
+                             np.linspace(0, 1, 11), n_independent=10)
+    assert flat["order"] == 0 and flat["warnings"] == [], "a constant ratio has no axis to extrapolate"

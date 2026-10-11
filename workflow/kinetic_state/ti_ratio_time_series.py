@@ -35,7 +35,7 @@ def main() -> int:
 
     from vaft.database._local import load_ods
     from vaft.omas import vest_upstream as vu
-    from vaft.omas.kinetic_state_inference import kinetic_state_stages
+    from vaft.omas.kinetic_state_inference import combine_ti_ratios, kinetic_state_stages
 
     tier_a = load_tier_a(args.tier_a)
     args.out.mkdir(parents=True, exist_ok=True)
@@ -71,7 +71,7 @@ def main() -> int:
                 w = ne * te * np.gradient(rho**2)  # electron-energy weight on the profile grid
                 ok = np.isfinite(fit["ratio"]) & np.isfinite(w)
                 row.update(
-                    order=fit["order"], coefficients=fit["coefficients"], rho_span=fit["rho_span"],
+                    order=fit["order"], warnings=fit["warnings"], coefficients=fit["coefficients"], rho_span=fit["rho_span"],
                     ratio_axis=float(fit["ratio"][0]), sigma_axis=float(fit["sigma"][0]),
                     ratio_mean=float(np.sum((fit["ratio"] * w)[ok]) / np.sum(w[ok])),
                     sigma_mean=float(np.sum((fit["sigma"] * w)[ok]) / np.sum(w[ok])),
@@ -82,7 +82,18 @@ def main() -> int:
             rows.append(row)
             print(json.dumps({k: row.get(k) for k in ("shot", "time_s", "status", "order", "ratio_mean", "sigma_mean",
                                                        "volume_ratio_profile", "volume_ratio_ti_eq_te", "tier_a")}, default=str))
-    (args.out / "ti_ratio_time_series.json").write_text(json.dumps(rows, indent=1, default=str))
+    windows = {}
+    for shot in args.shots:
+        chosen = [r for r in rows if r["shot"] == shot and r["status"] == "ok"
+                  and r["tier_a"] and r["tier_a"]["thomson_consistent"] == "True"]
+        try:
+            windows[shot] = combine_ti_ratios([r["ratio_mean"] for r in chosen], [r["sigma_mean"] for r in chosen])
+            windows[shot]["times_s"] = [r["time_s"] for r in chosen]
+        except ValueError as error:
+            windows[shot] = {"error": str(error)}
+        print("window", shot, json.dumps(windows[shot]))
+    (args.out / "ti_ratio_time_series.json").write_text(
+        json.dumps({"slices": rows, "windows": windows}, indent=1, default=str))
 
     fig, axes = plt.subplots(3, len(args.shots), figsize=(7.5 * len(args.shots), 9.5), sharex="col", squeeze=False)
     for col, shot in enumerate(args.shots):
@@ -97,10 +108,17 @@ def main() -> int:
             ax[0].plot(t_ms, r_mean, "-", color="purple", lw=1)
             ax[0].plot(t_ms[consistent], r_mean[consistent], "o", color="purple", label="Tier A, Thomson-consistent")
             ax[0].plot(t_ms[~consistent], r_mean[~consistent], "o", mfc="white", color="purple", label="other slices")
-            ax[0].plot(t_ms, [r["ratio_axis"] for r in good], "x", color="gray", label="on axis")
+            axis_ok = [not r["warnings"] for r in good]
+            ax[0].plot(t_ms[axis_ok], [r["ratio_axis"] for r, k in zip(good, axis_ok) if k], "x", color="gray",
+                       label="on axis")
+            win = windows.get(shot, {})
+            if "ratio" in win:
+                ax[0].axhspan(win["ratio"] - win["sigma"], win["ratio"] + win["sigma"], color="k", alpha=0.08)
+                ax[0].axhline(win["ratio"], color="k", lw=1.5,
+                              label=f"window mean (consistent) {win['ratio']:.2f}$\\pm${win['sigma']:.2f}")
             for r, x in zip(good, t_ms):
                 if r["order"]:
-                    ax[0].annotate(f"order {r['order']}", (x, r["ratio_mean"]), fontsize=7, xytext=(3, 6),
+                    ax[0].annotate(f"order {r['order']}" + (" (axis extrapolated)" if r["warnings"] else ""), (x, r["ratio_mean"]), fontsize=7, xytext=(3, 6),
                                    textcoords="offset points")
             ax[1].plot(t_ms, [r["volume_ratio_profile"] for r in good], "o-", color="purple", label="$T_i=r(\\rho)T_e$")
             ax[1].plot(t_ms, [r.get("volume_ratio_ti_eq_te") for r in good], "s--", color="gray", label="$T_i=T_e$")

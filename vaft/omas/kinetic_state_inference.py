@@ -56,9 +56,11 @@ from omas import ODS
 
 __all__ = [
     "DEFAULT_ELEMENTAL_WEIGHTS",
+    "ION_TEMPERATURE_MODES",
     "STAGE_NAMES",
     "InferenceStage",
     "KineticStateStages",
+    "combine_ti_ratios",
     "kinetic_state_stages",
 ]
 
@@ -200,6 +202,34 @@ ION_TEMPERATURE_MODES = ("assumed", "inferred", "inferred_ratio", "inferred_prof
 #: Highest polynomial order in rho of the ``inferred_profile`` T_i/T_e.
 TI_PROFILE_MAX_ORDER = 2
 
+#: A sloped (order >= 1) ratio profile whose first significant point lies beyond this
+#: rho is flagged ``axis_extrapolated``: its axis value is set by the polynomial alone.
+TI_PROFILE_AXIS_GAP = 0.2
+
+
+def combine_ti_ratios(ratios: Sequence[float], sigmas: Sequence[float]) -> dict[str, float]:
+    """One ``T_i/T_e`` for a time window from per-slice estimates: inverse-variance mean.
+
+    The slices of one window are treated as independent repeats; when they scatter
+    more than their sigmas allow (``chi2/dof > 1``) the error of the mean is scaled
+    up by ``sqrt(chi2/dof)``, so a drifting ratio is not reported with a false
+    precision.  Non-finite entries are ignored.
+
+    Raises:
+        ValueError: Fewer than two usable slices.
+    """
+    r = np.asarray(ratios, dtype=float)
+    s = np.asarray(sigmas, dtype=float)
+    ok = np.isfinite(r) & np.isfinite(s) & (s > 0)
+    if ok.sum() < 2:
+        raise ValueError("fewer than two slices with a T_i/T_e and its sigma")
+    w = 1.0 / s[ok] ** 2
+    mean = float(np.sum(w * r[ok]) / np.sum(w))
+    formal = float(1.0 / np.sqrt(np.sum(w)))
+    chi2 = float(np.sum(w * (r[ok] - mean) ** 2) / (ok.sum() - 1))
+    return {"ratio": mean, "sigma": formal * float(np.sqrt(max(1.0, chi2))), "sigma_formal": formal,
+            "chi2_per_dof": chi2, "slices": int(ok.sum()), "std": float(np.std(r[ok], ddof=1))}
+
 
 def _ti_ratio_profile(
     rho: np.ndarray, ti_te: np.ndarray, sigma_t_i: np.ndarray, t_e: np.ndarray, rho_out: np.ndarray,
@@ -251,7 +281,12 @@ def _ti_ratio_profile(
         raise ValueError("no polynomial T_i/T_e stays positive over the profile")
     best = min(fits, key=lambda o: fits[o]["bic"])
     span = (float(x.min()), float(x.max()))
-    return {"order": int(best), "coefficients": [float(c) for c in fits[best]["coef"]],
+    warnings = []
+    if best >= 1 and span[0] > TI_PROFILE_AXIS_GAP:
+        # a sloped fit carried over a wide gap is the polynomial speaking, not the data
+        warnings.append(f"axis_extrapolated: order-{best} fit carried over rho < {span[0]:.2f} with no point; "
+                        "do not quote the axis value")
+    return {"order": int(best), "warnings": warnings, "coefficients": [float(c) for c in fits[best]["coef"]],
             "ratio": fits[best]["ratio"], "sigma": fits[best]["sigma"],
             "bic": {int(o): float(f["bic"]) for o, f in fits.items()},
             "rho_span": span, "extrapolated": (out < span[0]) | (out > span[1]),
@@ -660,7 +695,8 @@ def kinetic_state_stages(
                     f"ti_te_order={fit['order']}",
                     "ti_te_coefficients=" + ",".join(f"{c:.4g}" for c in fit["coefficients"]),
                     f"rho_valid={fit['rho_span'][0]:.4g}:{fit['rho_span'][1]:.4g}",
-                    "extrapolated_outside_rho_valid=1", "not measured",
+                    "extrapolated_outside_rho_valid=1",
+                    *(["axis_extrapolated=1"] if fit["warnings"] else []), "not measured",
                 ])
             if ion_temperature == "inferred_ratio":
                 result, inside = ctx["ti_result"]
