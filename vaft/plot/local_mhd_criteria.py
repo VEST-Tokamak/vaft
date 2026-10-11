@@ -91,7 +91,8 @@ def local_mhd_criteria_profile_interchange(
     ax.set_yscale("symlog", linthresh=0.5)
     ax.set_xlabel(r"$\psi_N$")
     ax.set_ylabel("interchange index (symlog)")
-    ax.legend(fontsize="small", loc="lower right")
+    # "best", not a fixed corner: the rational-surface labels sit at the bottom.
+    ax.legend(fontsize="small", loc="best")
     if show:
         plt.show()
     return fig, ax
@@ -127,13 +128,14 @@ def local_mhd_criteria_s_alpha(profile, *, ax=None, show: bool = False, figsize=
     s, alpha, psi_n = (np.asarray(v, dtype=float) for v in (profile.s, profile.alpha, profile.psi_n))
     ok = np.isfinite(s) & np.isfinite(alpha)
     s_top = max(float(np.nanmax(s[ok])) * 1.05 if ok.any() else 1.0, 0.5)
-    grid = np.linspace(0.0, s_top, 121)
+    s_low = min(float(np.nanmin(s[ok])) * 1.05 if ok.any() else 0.0, 0.0)  # reversed shear stays visible
+    grid = np.linspace(0.0, s_top, 41)  # the model has no first-stability boundary at s <= 0
     first, _ = s_alpha_marginal_alpha(grid)
     ax.plot(grid, first, color=_ZERO, lw=1.2, label="s–α circular, first stability")
     points = ax.scatter(s[ok], alpha[ok], c=psi_n[ok], cmap="viridis", s=18, zorder=3)
     ax.plot(s[ok], alpha[ok], color="0.5", lw=0.8, zorder=2)
     fig.colorbar(points, ax=ax, label=r"$\psi_N$")
-    ax.set_xlim(0.0, s_top)
+    ax.set_xlim(s_low, s_top)
     ax.set_ylim(0.0, max(float(np.nanmax(alpha[ok])) * 1.3 if ok.any() else 1.0, 0.5))
     ax.set_xlabel(r"shear $\hat s_V$")
     ax.set_ylabel(r"$\alpha$")
@@ -149,6 +151,7 @@ def local_mhd_criteria_field_curvature(
     quantity: str = "all",
     boundary: tuple[np.ndarray, np.ndarray] | None = None,
     ax=None,
+    clip_percentile: float = 98.0,
     show: bool = False,
     figsize=None,
 ):
@@ -167,6 +170,10 @@ def local_mhd_criteria_field_curvature(
         ``(R, Z)`` of an outline to overlay, e.g. the LCFS [m].
     ax : matplotlib Axes or sequence of three, optional
         One Axes, or three for ``"all"``; a new figure when omitted [-].
+    clip_percentile : float, optional
+        The colour scale spans +/- this percentile of ``|value|``; values
+        beyond saturate (``extend="both"``).  The local shear peaks sharply at
+        the inboard edge, so a lower percentile shows more of the interior [-].
     show : bool, optional
         Call ``plt.show()`` [-].
     figsize : tuple of float, optional
@@ -209,9 +216,9 @@ def local_mhd_criteria_field_curvature(
     for axis, name in zip(axes, names):
         values = np.asarray(maps[name], dtype=float).T  # Field2D is indexed (Z, R)
         finite = values[np.isfinite(values)]
-        top = float(np.percentile(np.abs(finite), 98)) if finite.size else 1.0
+        top = float(np.percentile(np.abs(finite), clip_percentile)) if finite.size else 1.0
         top = top if top > 0 else 1.0
-        model = Field2D(r=r, z=z, values=np.nan_to_num(values, nan=0.0), value_label=_CURVATURE_LABELS[name],
+        model = Field2D(r=r, z=z, values=values, value_label=_CURVATURE_LABELS[name],
                         contour_levels=list(np.linspace(-top, top, 21)), extend="both",
                         region=np.isfinite(values), overlays=overlays)
         render_field_2d(model, ax=axis, cmap="RdBu_r", norm=TwoSlopeNorm(vcenter=0.0, vmin=-top, vmax=top))

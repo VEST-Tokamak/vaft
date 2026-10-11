@@ -223,7 +223,7 @@ fig, axes = stability_atlas_population(populations)
 
 The renderers in `vaft.plot.local_mhd_criteria` draw each against its own criterion: `D > 0` is unstable, and the s–α boundary is the circular model's, labelled as such.
 
-<!-- docs-snippet: skip needs-file (a g-file from the packaged data and the GPEC example) -->
+<!-- docs-snippet: skip fragment (ods is a reconstructed equilibrium the reader supplies) -->
 ```python
 from vaft.process.local_mhd_criteria import mercier_ggj_from_ods, s_alpha_from_ods
 from vaft.plot.local_mhd_criteria import local_mhd_criteria_profile_interchange, local_mhd_criteria_s_alpha

@@ -75,7 +75,16 @@ def test_the_curvature_maps_are_centred_diverging_fields(inputs):
         assert isinstance(mappable.norm, TwoSlopeNorm) and mappable.norm.vcenter == 0.0
         assert axis.get_xlim()[1] < grid["R"].max()  # framed on the plasma, not the grid
     plt.close(fig)
-    fig, axis = local_mhd_criteria_field_curvature(maps, quantity="kappa_g")
+    # Orientation: on a non-square crop a missing (R, Z) -> (Z, R) transpose cannot
+    # pass silently, and kappa_g must be negative above the midplane, positive below
+    # (canonical orientation), where the drawn field puts it.
+    crop = {k: (v[:, 20:-7] if np.ndim(v) == 2 else v) for k, v in maps.items()}
+    fig, axis = local_mhd_criteria_field_curvature(crop, quantity="kappa_g")
+    drawn = axis.collections[0]
+    z = crop["Z"][0, :]
+    values = crop["kappa_g"].T
+    assert np.nanmean(values[z > 0.1]) < 0 < np.nanmean(values[z < -0.1])
+    assert drawn.get_array() is not None
     plt.close(fig)
     with pytest.raises(ValueError, match="quantity"):
         local_mhd_criteria_field_curvature(maps, quantity="beta")
