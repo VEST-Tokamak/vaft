@@ -132,6 +132,11 @@ PIPELINE = frozenset({
     "ordering_margins",
     # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
     "mode_frequency_tracks",
+    # local_mhd_criteria (#1902): trace -> averages -> derivatives -> indices;
+    # read and convert the slice; interpolate -> differences -> implied H
+    "mercier_ggj_profile",
+    "mercier_ggj_from_ods",
+    "interchange_comparison",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -296,6 +301,8 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    # local_mhd_criteria (#1902): ODS equilibrium in, raw indices out (no QA cut)
+    "mercier_ggj_from_ods",
     # soft_x_rays (#886): prescribed island -> synthetic chord signal
     "synthetic_island_soft_x_rays",
     # wall_modes (#571): element space <-> mode space
@@ -376,6 +383,10 @@ CONVENTION_SENSITIVE = frozenset({
     # #460: |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
     # a velocity divided by R_out of the surface (never R_axis)
     "mode_frequency_tracks",
+    # #1902: DCON's sign (D_I < 0 stable), chi increasing outward, |F|, |q|
+    "mercier_ggj_profile",
+    "mercier_ggj_from_ods",
+    "interchange_comparison",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

@@ -118,6 +118,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
     # analytic fixtures only, a few seconds.
     "test_mode_frequency_overlay.py",
+    # Equilibrium-native Mercier / GGJ indices against DCON tables (#1902):
+    # packaged VEST g-file, no solver, a few seconds.
+    "test_local_mhd_criteria.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
