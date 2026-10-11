@@ -117,7 +117,7 @@ def test_the_code_h_is_the_root_nearer_the_equilibrium():
     from vaft.process.local_mhd_criteria import InterchangeProfile
 
     profile = InterchangeProfile(psi_n=np.array([0.5]), D_I=np.array([-0.3]), D_R=np.array([-0.05]), H=np.array([0.0]),
-                                 E_plus_F=np.array([-0.05]), dV_dchi=np.array([1.0]), q=np.array([2.0]),
+                                 E_plus_F=np.array([-0.05]), dV_dchi=np.array([1.0]), q=np.array([2.0]), dq_dchi=np.array([1.0]),
                                  averages={})
     c = interchange_comparison(profile, [0.0, 1.0], [-0.3, -0.3], [-0.05, -0.05], label="synthetic")
     assert c["H_code"][0] == pytest.approx(0.0)  # (H - 1/2)^2 = 0.25: roots 0 and 1, 0 is nearer
@@ -158,3 +158,54 @@ def test_differentiating_the_file_q_is_what_degrades_the_core(vest):
     core = (LEVELS >= 0.1) & (LEVELS < 0.3)
     assert np.nanmax(np.abs(worse["dD_I"][core])) > 3 * np.nanmax(np.abs(better["dD_I"][core]))
 
+
+
+# ------------------------------------------------ curvature and local shear (part 2)
+
+from vaft.process.local_mhd_criteria import curvature_map, flux_surface_curvature  # noqa: E402
+
+CURVATURE_LEVELS = [0.2, 0.4, 0.6, 0.8, 0.95]
+
+
+@pytest.fixture(scope="module")
+def vest_curvature(vest):
+    grid, profiles, _ = vest
+    return flux_surface_curvature(**grid, levels_norm=CURVATURE_LEVELS, **profiles)
+
+
+def test_curvature_satisfies_its_identities(vest_curvature):
+    checks = vest_curvature.checks
+    assert np.nanmax(checks["kappa_dot_b"]) < 1e-8  # curvature is perpendicular to b
+    assert np.nanmax(checks["kappa_g_force_balance"]) < 1e-6  # (b x n).grad(B^2/2)/B^2
+    # n.grad(B^2/2)/B^2 + mu0 p'|grad psi|/B^2: limited by the file's p' spline; measured <= 0.5 %
+    assert np.nanmax(checks["kappa_n_force_balance"]) < 1e-2
+    # closed(local_shear R dl/|grad psi|) = 2 pi dq/dpsi: measured <= 1.6e-5
+    assert np.nanmax(checks["shear_identity"]) < 1e-4
+
+
+def test_bad_curvature_is_outboard_and_geodesic_curvature_is_up_down_odd(vest_curvature):
+    surface = vest_curvature.surfaces[CURVATURE_LEVELS.index(0.6)]
+    outboard = np.argmin(np.abs(np.mod(surface["theta"] + np.pi, 2 * np.pi) - np.pi))
+    inboard = np.argmin(np.abs(surface["theta"] - np.pi))
+    assert surface["kappa_n"][outboard] < 0 < surface["kappa_n"][inboard]
+    assert np.corrcoef(surface["Z"], surface["kappa_g"])[0, 1] < -0.9
+
+
+def test_curvature_and_shear_do_not_depend_on_cocos_signs(vest, vest_curvature):
+    grid, profiles, _ = vest
+    flipped = flux_surface_curvature(
+        **{**grid, "psi_grid": -grid["psi_grid"], "psi_axis": -grid["psi_axis"], "psi_boundary": -grid["psi_boundary"]},
+        levels_norm=CURVATURE_LEVELS, **{**profiles, "f": -profiles["f"], "q": -profiles["q"]},
+    )
+    for a, b in zip(flipped.surfaces, vest_curvature.surfaces):
+        for name in ("kappa_n", "kappa_g", "local_shear"):
+            np.testing.assert_allclose(a[name], b[name], rtol=1e-6, atol=1e-9 * np.max(np.abs(b[name])))
+
+
+def test_the_map_masks_outside_the_requested_band(vest):
+    grid, profiles, _ = vest
+    maps = curvature_map(**grid, profile_psi_n=profiles["profile_psi_n"], f=profiles["f"], pressure=profiles["pressure"],
+                         psi_n_min=0.1, psi_n_max=0.9)
+    band = (maps["psi_n"] >= 0.1) & (maps["psi_n"] <= 0.9)
+    assert np.isfinite(maps["kappa_n"][band]).all() and np.isnan(maps["kappa_n"][~band]).all()
+    assert maps["kappa_n"].shape == grid["psi_grid"].shape

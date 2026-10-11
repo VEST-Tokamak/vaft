@@ -62,6 +62,9 @@ import numpy as np
 
 __all__ = [
     "InterchangeProfile",
+    "SurfaceCurvature",
+    "curvature_map",
+    "flux_surface_curvature",
     "interchange_comparison",
     "mercier_ggj_from_ods",
     "mercier_ggj_profile",
@@ -88,6 +91,8 @@ class InterchangeProfile:
     dV_dchi: np.ndarray
     #: |q| from the flux map on each surface, F/(2 pi) closed(dl/(R |grad psi|)) [-].
     q: np.ndarray
+    #: d|q|/dchi on each surface, from the map [1/Wb].
+    dq_dchi: np.ndarray
     #: The five surface averages, keyed as in the module notation [SI].
     averages: Mapping[str, np.ndarray]
     provenance: Mapping[str, Any] = field(default_factory=dict)
@@ -301,7 +306,7 @@ def mercier_ggj_profile(
     given_q = q_spline(levels)
     q_mismatch = float(np.nanmax(np.abs(q_surface - given_q) / given_q)) if resolved.any() else float("nan")
     return InterchangeProfile(
-        psi_n=levels, D_I=d_I, D_R=d_I + (h - 0.5) ** 2, H=h, E_plus_F=d_I - h + 0.25, dV_dchi=dV, q=q_surface,
+        psi_n=levels, D_I=d_I, D_R=d_I + (h - 0.5) ** 2, H=h, E_plus_F=d_I - h + 0.25, dV_dchi=dV, q=q_surface, dq_dchi=dq_surface,
         averages=averages,
         provenance={"formulas": "DCON mercier_scan (dcon/mercier.f), coordinate-free", "oversample": int(oversample),
                     "V''": "local surface integral of div(R grad psi / |grad psi|^2)",
@@ -472,3 +477,321 @@ def interchange_comparison(profile: InterchangeProfile, psi_n: Sequence[float], 
     return {"psi_n": lv, "D_I": profile.D_I, "di": di_i, "D_R": profile.D_R, "dr": dr_i,
             "dD_I": profile.D_I - di_i, "dD_R": profile.D_R - dr_i, "H": profile.H, "H_code": h_code,
             "label": label}
+
+
+@dataclass(frozen=True)
+class SurfaceCurvature:
+    """Field-line curvature and local shear along flux surfaces (#1902)."""
+
+    #: Normalized flux of each traced surface [-].
+    psi_n: np.ndarray
+    #: Per surface: ``R``, ``Z`` [m], ``theta`` (geometric angle about the axis,
+    #: from the outboard midplane, counter-clockwise in (R, Z)) [rad], ``dl`` [m],
+    #: ``kappa_n``, ``kappa_g`` [1/m], ``local_shear`` [1/m^3], ``B`` [T].
+    surfaces: tuple[Mapping[str, np.ndarray], ...]
+    #: Per surface, the identity residuals the values must satisfy (Limitations) [-].
+    checks: Mapping[str, np.ndarray]
+    provenance: Mapping[str, Any] = field(default_factory=dict)
+
+
+class _OrientedField:
+    """B, b, n and their spatial derivatives in one canonical orientation.
+
+    psi is flipped to increase outward and F taken by magnitude, so the signs
+    of the geodesic curvature and the local shear do not depend on the
+    record's COCOS; the normal curvature does not depend on them at all.
+    """
+
+    def __init__(self, psi, r_axis, z_axis, psi_axis, psi_boundary, profile_psi_n, f, pressure):
+        from scipy.interpolate import CubicSpline, RectBivariateSpline
+
+        self.sign = float(np.sign(psi_boundary - psi_axis))
+        self.axis, self.span = psi_axis, psi_boundary - psi_axis
+        self.flux = RectBivariateSpline(r_axis, z_axis, self.sign * np.asarray(psi, dtype=float), kx=5, ky=5)
+        self.f = CubicSpline(profile_psi_n, np.abs(np.asarray(f, dtype=float)))
+        self.p = CubicSpline(profile_psi_n, MU0 * np.asarray(pressure, dtype=float))
+        self.h = 1e-6 * max(float(np.ptp(r_axis)), float(np.ptp(z_axis)))
+
+    def psi_n(self, r, z):
+        return (self.sign * self.flux(r, z, grid=False) - self.axis) / self.span
+
+    def at(self, r, z):
+        pr, pz = self.flux(r, z, dx=1, grid=False), self.flux(r, z, dy=1, grid=False)
+        g = np.hypot(pr, pz)
+        B_vec = np.array([-pz / r, self.f(self.psi_n(r, z)) / r, pr / r])  # (R, phi, Z)
+        B = np.linalg.norm(B_vec, axis=0)
+        return B_vec, B, np.array([pr, 0.0 * pr, pz]) / g, g
+
+    def derivative(self, fun, r, z):
+        h = self.h
+        return (fun(r + h, z) - fun(r - h, z)) / (2 * h), (fun(r, z + h) - fun(r, z - h)) / (2 * h)
+
+    @staticmethod
+    def curl(A, dA_dR, dA_dZ, r):
+        return np.array([-dA_dZ[1], dA_dZ[0] - dA_dR[2], (A[1] + r * dA_dR[1]) / r])
+
+    def quantities(self, r, z):
+        B_vec, B, n, g = self.at(r, z)
+        b = B_vec / B
+        db_dR, db_dZ = self.derivative(lambda rr, zz: self.at(rr, zz)[0] / self.at(rr, zz)[1], r, z)
+        kappa = np.array([b[0] * db_dR[0] + b[2] * db_dZ[0] - b[1] ** 2 / r,
+                          b[0] * db_dR[1] + b[2] * db_dZ[1] + b[0] * b[1] / r,
+                          b[0] * db_dR[2] + b[2] * db_dZ[2]])
+        binormal = np.cross(b.T, n.T).T
+        def h_vec(rr, zz):
+            Bv, _, nn, gg = self.at(rr, zz)
+            return np.cross(Bv.T, (nn * gg).T).T / gg**2
+        h = h_vec(r, z)
+        shear = np.sum(h * self.curl(h, *self.derivative(h_vec, r, z), r), axis=0)
+        dB2_dR, dB2_dZ = self.derivative(lambda rr, zz: 0.5 * self.at(rr, zz)[1] ** 2, r, z)
+        grad_b2 = np.array([dB2_dR, 0.0 * r, dB2_dZ])
+        dp_dpsi = self.p(self.psi_n(r, z), 1) / self.span * self.sign
+        return {
+            "B": B, "grad_psi": g, "kappa_n": np.sum(kappa * n, axis=0), "kappa_g": np.sum(kappa * binormal, axis=0),
+            "local_shear": shear,
+            "kappa_dot_b": np.sum(kappa * b, axis=0),
+            "kappa_n_force_balance": (np.sum(grad_b2 * n, axis=0) + dp_dpsi * self.sign * g) / B**2,
+            "kappa_g_force_balance": np.sum(grad_b2 * binormal, axis=0) / B**2,
+        }
+
+
+def flux_surface_curvature(
+    psi_grid,
+    R,
+    Z,
+    psi_axis: float,
+    psi_boundary: float,
+    levels_norm: Sequence[float],
+    *,
+    profile_psi_n: Sequence[float],
+    f: Sequence[float],
+    pressure: Sequence[float],
+    q: Sequence[float],
+    axis_rz: tuple[float, float],
+    min_points: int = 40,
+    oversample: int = 2,
+) -> SurfaceCurvature:
+    """Normal and geodesic field-line curvature and local shear along flux surfaces.
+
+    Parameters
+    ----------
+    psi_grid : array_like
+        Poloidal flux on the grid, indexed ``(R, Z)``, per radian [Wb/rad].
+    R : array_like
+        Major-radius grid axis [m].
+    Z : array_like
+        Height grid axis [m].
+    psi_axis : float
+        Flux on the magnetic axis [Wb/rad].
+    psi_boundary : float
+        Flux on the boundary [Wb/rad].
+    levels_norm : sequence of float
+        Normalized flux of the surfaces to trace, inside ``(0, 1)`` [-].
+    profile_psi_n : sequence of float
+        Normalized flux grid of ``f``, ``pressure`` and ``q``, increasing [-].
+    f : sequence of float
+        ``F = R B_phi``, either sign [T m].
+    pressure : sequence of float
+        Plasma pressure [Pa].
+    q : sequence of float
+        Safety factor, either sign; only for the shear-identity check [-].
+    axis_rz : tuple of float
+        Magnetic-axis position [m].
+    min_points : int, optional
+        Fewest contour vertices for a resolved surface; a numerical-resolution
+        control [-].
+    oversample : int, optional
+        Contours traced on the flux map refined this many times by its
+        quintic spline; a numerical-resolution control [-].
+
+    Returns
+    -------
+    curvature : SurfaceCurvature
+        Per surface the contour, ``kappa_n``, ``kappa_g`` [1/m],
+        ``local_shear`` [1/m^3], ``B`` [T], and the identity residuals in
+        ``checks`` [-].
+
+    Raises
+    ------
+    ValueError
+        Shapes disagree or a level is outside ``(0, 1)``.
+
+    Processing steps
+    ----------------
+    1. Orient: psi increasing outward, ``F`` by magnitude.
+    2. Trace each level (axis-enclosing closed contour) on the refined map.
+    3. At the segment midpoints: ``b``, ``n = grad psi/|grad psi|``,
+       ``kappa = b . grad b`` (cylindrical, axisymmetric), ``kappa_n = kappa . n``,
+       ``kappa_g = kappa . (b x n)``, ``local_shear = h . curl h`` with
+       ``h = B x grad psi / |grad psi|^2``; derivatives by central
+       differences of the spline-evaluated fields.
+    4. Checks: ``max |kappa . b|``; ``kappa_n`` and ``kappa_g`` against force
+       balance, ``(n . grad(B^2/2) + mu0 p' |grad psi|) / B^2`` and
+       ``(b x n) . grad(B^2/2) / B^2``; and ``closed(local_shear R dl/|grad psi|)``
+       against ``2 pi dq/dpsi`` from the map.
+
+    Convention
+    ----------
+    ``n`` points outward (psi increasing outward), so ``kappa_n < 0`` -- the
+    curvature vector pointing inward, as on the outboard side -- is the
+    unfavourable sign for a pressure falling outward.  ``kappa_g`` is along
+    ``b x n`` and ``local_shear`` is ``h . curl h`` in the canonical
+    orientation (``B_phi > 0``, psi increasing outward); in it
+    ``closed(local_shear R dl/|grad psi|) = 2 pi d|q|/dpsi``, the local
+    shear whose surface average is the global shear.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    Ideal static equilibrium (the force-balance checks assume it).  Near the
+    axis the flux gradient vanishes and ``n`` is ill-defined; trace from
+    psi_N of about 0.05 on a VEST-sized map.
+
+    Provenance
+    ----------
+    .. [GJ68] J. M. Greene and J. L. Johnson, Plasma Phys. 10, 729 (1968): local
+       shear ``h . curl h`` with ``h = B x grad psi/|grad psi|^2``.
+    .. [1902] Issue #1902, normal/geodesic curvature and local shear maps.
+    """
+    from .equilibrium import _closed_contour, _enclosing_segment, extract_flux_surface_contours
+
+    psi = np.asarray(psi_grid, dtype=float)
+    r_axis, z_axis = np.asarray(R, dtype=float), np.asarray(Z, dtype=float)
+    if psi.shape != (r_axis.size, z_axis.size):
+        raise ValueError(f"psi_grid {psi.shape} is not indexed (R, Z) = ({r_axis.size}, {z_axis.size})")
+    levels = np.asarray(levels_norm, dtype=float)
+    if np.any(levels <= 0) or np.any(levels >= 1):
+        raise ValueError("levels_norm must lie inside (0, 1)")
+    x = np.asarray(profile_psi_n, dtype=float)
+    field_ = _OrientedField(psi, r_axis, z_axis, psi_axis, psi_boundary, x, f, pressure)
+    r_fine = np.linspace(r_axis[0], r_axis[-1], (r_axis.size - 1) * int(oversample) + 1)
+    z_fine = np.linspace(z_axis[0], z_axis[-1], (z_axis.size - 1) * int(oversample) + 1)
+    psi_fine = psi if int(oversample) == 1 else field_.sign * field_.flux(r_fine, z_fine)
+    contours = extract_flux_surface_contours(psi_fine, r_fine, z_fine, psi_axis, psi_boundary, levels)
+    surfaces, checks = [], {name: np.full(levels.size, np.nan) for name in
+                            ("kappa_dot_b", "kappa_n_force_balance", "kappa_g_force_balance", "shear_identity")}
+    # q' from the map at the same levels, for the shear identity (the profile
+    # needs five levels; pad with interior ones when fewer are asked for).
+    check_levels = levels if levels.size >= 5 else np.unique(np.r_[levels, 0.5, 0.6, 0.7, 0.8, 0.9])
+    profile = mercier_ggj_profile(psi, r_axis, z_axis, psi_axis, psi_boundary, check_levels, profile_psi_n=x, f=f,
+                                  pressure=pressure, q=q, axis_rz=axis_rz, min_points=min_points, oversample=oversample)
+    for i, level in enumerate(levels):
+        segment = _enclosing_segment(contours.get(float(level), []), axis_rz, min_points)
+        if segment is None:
+            surfaces.append({})
+            continue
+        rc, zc = _closed_contour(*segment)
+        r, z = 0.5 * (rc[1:] + rc[:-1]), 0.5 * (zc[1:] + zc[:-1])
+        dl = np.hypot(np.diff(rc), np.diff(zc))
+        values = field_.quantities(r, z)
+        theta = np.mod(np.arctan2(z - axis_rz[1], r - axis_rz[0]), 2 * np.pi)
+        surfaces.append({"R": r, "Z": z, "theta": theta, "dl": dl, **{k: values[k] for k in
+                         ("kappa_n", "kappa_g", "local_shear", "B")}})
+        scale_n = np.max(np.abs(values["kappa_n"]))
+        checks["kappa_dot_b"][i] = float(np.max(np.abs(values["kappa_dot_b"])) / scale_n)
+        checks["kappa_n_force_balance"][i] = float(np.max(np.abs(values["kappa_n"] - values["kappa_n_force_balance"])) / scale_n)
+        checks["kappa_g_force_balance"][i] = float(np.max(np.abs(values["kappa_g"] - values["kappa_g_force_balance"]))
+                                                   / max(np.max(np.abs(values["kappa_g"])), np.finfo(float).tiny))
+        match = np.flatnonzero(np.isclose(profile.psi_n, level))
+        if match.size and np.isfinite(profile.dq_dchi[match[0]]):
+            integral = float(np.sum(values["local_shear"] * r * dl / values["grad_psi"]))
+            dq_dpsi = profile.dq_dchi[match[0]] * 2.0 * np.pi  # chi = 2 pi psi
+            checks["shear_identity"][i] = abs(integral / (2.0 * np.pi * dq_dpsi) - 1.0)
+    return SurfaceCurvature(psi_n=levels, surfaces=tuple(surfaces), checks=checks,
+                            provenance={"orientation": "psi increasing outward, B_phi > 0", "oversample": int(oversample)})
+
+
+def curvature_map(
+    psi_grid,
+    R,
+    Z,
+    psi_axis: float,
+    psi_boundary: float,
+    *,
+    profile_psi_n: Sequence[float],
+    f: Sequence[float],
+    pressure: Sequence[float],
+    psi_n_max: float = 0.98,
+    psi_n_min: float = 0.02,
+) -> dict[str, np.ndarray]:
+    """``kappa_n``, ``kappa_g`` and local shear on the (R, Z) grid inside the plasma.
+
+    Parameters
+    ----------
+    psi_grid : array_like
+        Poloidal flux, indexed ``(R, Z)``, per radian [Wb/rad].
+    R : array_like
+        Major-radius grid axis [m].
+    Z : array_like
+        Height grid axis [m].
+    psi_axis : float
+        Flux on the axis [Wb/rad].
+    psi_boundary : float
+        Flux on the boundary [Wb/rad].
+    profile_psi_n : sequence of float
+        Normalized flux grid of ``f`` and ``pressure`` [-].
+    f : sequence of float
+        ``F = R B_phi``, either sign [T m].
+    pressure : sequence of float
+        Plasma pressure [Pa].
+    psi_n_max : float, optional
+        Outermost normalized flux kept; a display choice, short of the
+        boundary where ``psi_n`` stops labelling closed surfaces [-].
+    psi_n_min : float, optional
+        Innermost kept; a display choice, outside the axis where ``n`` is
+        ill-defined [-].
+
+    Returns
+    -------
+    maps : dict
+        ``R``, ``Z`` (2-D, indexed ``(R, Z)``) [m], ``psi_n`` [-],
+        ``kappa_n``, ``kappa_g`` [1/m], ``local_shear`` [1/m^3] and ``B`` [T]; NaN
+        outside ``[psi_n_min, psi_n_max]`` [-].
+
+    Raises
+    ------
+    ValueError
+        ``psi_grid`` is not indexed ``(R, Z)``.
+
+    Processing steps
+    ----------------
+    1. Orient and spline as :func:`flux_surface_curvature`.
+    2. Evaluate the same pointwise quantities at every grid node.
+    3. Mask nodes outside the requested normalized-flux band.
+
+    Convention
+    ----------
+    As :func:`flux_surface_curvature`.  The mask is by normalized flux only:
+    a private-flux region with psi_n in the band outside the separatrix is
+    not removed.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1902] Issue #1902, R-Z maps of curvature and local shear.
+    """
+    psi = np.asarray(psi_grid, dtype=float)
+    r_axis, z_axis = np.asarray(R, dtype=float), np.asarray(Z, dtype=float)
+    if psi.shape != (r_axis.size, z_axis.size):
+        raise ValueError(f"psi_grid {psi.shape} is not indexed (R, Z) = ({r_axis.size}, {z_axis.size})")
+    field_ = _OrientedField(psi, r_axis, z_axis, psi_axis, psi_boundary, np.asarray(profile_psi_n, dtype=float),
+                            f, pressure)
+    rr, zz = np.meshgrid(r_axis, z_axis, indexing="ij")
+    psi_n = field_.psi_n(rr.ravel(), zz.ravel()).reshape(rr.shape)
+    inside = (psi_n >= psi_n_min) & (psi_n <= psi_n_max)
+    out = {"R": rr, "Z": zz, "psi_n": psi_n}
+    names = ("kappa_n", "kappa_g", "local_shear", "B")
+    for name in names:
+        out[name] = np.full(rr.shape, np.nan)
+    if inside.any():
+        values = field_.quantities(rr[inside], zz[inside])
+        for name in names:
+            out[name][inside] = values[name]
+    return out
+

@@ -137,6 +137,8 @@ PIPELINE = frozenset({
     "mercier_ggj_profile",
     "mercier_ggj_from_ods",
     "interchange_comparison",
+    "flux_surface_curvature",
+    "curvature_map",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -387,6 +389,8 @@ CONVENTION_SENSITIVE = frozenset({
     "mercier_ggj_profile",
     "mercier_ggj_from_ods",
     "interchange_comparison",
+    "flux_surface_curvature",
+    "curvature_map",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",

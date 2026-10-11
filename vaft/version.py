@@ -32,6 +32,9 @@ __all__ = ["__version__"]
 #   free, with V'' and q' on each surface from the flux map), an ODS path
 #   and a DCON comparison; D_I matches DCON within 0.5 % from psi_N 0.1 on
 #   the packaged VEST 39915@319 g-file (#1902)
+# - local_mhd_criteria: normal/geodesic field-line curvature and Greene-
+#   Johnson local shear along flux surfaces and on the (R, Z) grid, each
+#   surface checked against force balance and the shear identity (#1902)
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the
