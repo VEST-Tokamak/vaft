@@ -1890,9 +1890,11 @@ def radial_magnetic_field_from_psi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux along the vertical direction; a 1-D cut in $Z$ [Wb/rad or Wb].
+        Poloidal flux; a 1-D cut in $Z$ or a 2-D map indexed ``[Z, R]``
+        [Wb/rad or Wb].
     R : np.ndarray or float
-        Major radius of the samples [m].
+        Major radius of the samples: a scalar, an array of the shape of
+        ``psi``, or for a ``[Z, R]`` map the 1-D radial grid [m].
     Z : np.ndarray
         Vertical coordinate of the samples, monotonic [m].
     cocos : int or None, optional
@@ -1943,9 +1945,11 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
     Parameters
     ----------
     psi : np.ndarray
-        Poloidal flux along the radial direction; a 1-D cut in $R$ [Wb/rad or Wb].
+        Poloidal flux; a 1-D cut in $R$ or a 2-D map indexed ``[R, Z]``
+        [Wb/rad or Wb].
     R : np.ndarray
-        Major radius of the samples, monotonic [m].
+        Major radius of the samples, 1-D and monotonic, of the length of the
+        first axis of ``psi`` [m].
     Z : np.ndarray
         Vertical coordinate of the samples, unused by the derivative [m].
     cocos : int or None, optional
@@ -1967,7 +1971,9 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
     Assumptions
     -----------
     Axisymmetry.  The derivative is taken along the *first* axis of ``psi``
-    against ``R``, so the map must be indexed ``[R]`` or ``[R, Z]``.
+    against ``R``, so the map must be indexed ``[R]`` or ``[R, Z]``; the
+    $1/R$ prefactor is broadcast along that same axis.  A ``[Z, R]``-ordered
+    2-D array differentiates along the wrong axis.
 
     Numerical notes
     ---------------
@@ -1978,7 +1984,11 @@ def vertical_magnetic_field_from_psi(psi: np.ndarray,
     .. [1] O. Sauter and S. Yu. Medvedev, Comput. Phys. Commun. 184 (2013) 293,
            Eq. (20) and Table I.
     """
-    return -poloidal_field_factor(cocos)/R * gradient(R, psi)
+    R = np.asarray(R, dtype=float)
+    psi = np.asarray(psi)
+    # R is the first-axis grid; align 1/R with that axis, not the last one.
+    R_axis = R.reshape(R.shape + (1,) * (psi.ndim - 1)) if R.ndim == 1 else R
+    return -poloidal_field_factor(cocos)/R_axis * gradient(R, psi)
 
 
 
