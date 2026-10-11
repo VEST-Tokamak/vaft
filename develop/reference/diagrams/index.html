@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>91cfb8f</code>. What is described
+  <code>1a4773c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1090,6 +1090,7 @@ are built from the formulas’ <code class="language-plaintext highlighter-rouge
 <code class="language-plaintext highlighter-rouge">vaft.formula._taxonomy</code>.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">reduced_representation_hierarchy</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">reduced_representation_hierarchy_compact</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">reduction_graph</span><span class="p">(</span><span class="n">family</span><span class="o">=</span><span class="sh">"</span><span class="s">current_q</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># "pressure_energy", "kinetic_profiles", "dimensionless_similarity"
 </span></code></pre></div></div>
 
@@ -1104,6 +1105,10 @@ are built from the formulas’ <code class="language-plaintext highlighter-rouge
     <tr>
       <td><code class="language-plaintext highlighter-rouge">reduced_representation_hierarchy</code></td>
       <td>Spatial reduction (field, profile, scalar) down, dimensionless normalisation across, so a dimensionless quantity can still be a profile. Each cell counts the catalogued formulas that land there</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">reduced_representation_hierarchy_compact</code></td>
+      <td>The same axes and arrows with only the example symbols in each box, without the counts, at reduced box height and spacing, for slides and overview pages</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">reduction_graph</code></td>
@@ -5330,7 +5335,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 08:40:39 +0000"
+        "time": "2026-10-11 09:10:51 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
