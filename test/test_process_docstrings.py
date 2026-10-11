@@ -141,6 +141,8 @@ PIPELINE = frozenset({
     "profile_ordering_quantities",
     "ordering_table",
     "ordering_margins",
+    # #1823 follow-up: equilibrium slice by time -> core_profiles by time -> means -> builders
+    "ordering_inputs_from_ods",
     # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
     "mode_frequency_tracks",
     # ntv_coil_response (#1887): probes -> Q; expected -> tolerance -> per-kind check;
@@ -388,6 +390,8 @@ CONVENTION_SENSITIVE = frozenset({
     "global_ordering_quantities",
     "time_history_ordering_quantities",
     "profile_ordering_quantities",
+    # #1823 follow-up: vacuum b0 r0/R0, r = rho_tor_norm a, cross-section means, beta_tor fraction
+    "ordering_inputs_from_ods",
     # #1608: COCOS source profiles versus full-weber Green response orientation.
     "fit_free_boundary_coils",
     # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
