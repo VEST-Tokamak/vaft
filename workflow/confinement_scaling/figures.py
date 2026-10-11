@@ -213,8 +213,8 @@ def population_figure(table: pd.DataFrame, *, max_groups: int = 4, figsize=(11.0
     from vaft.plot.population import confinement_population
 
     fig, axes = plt.subplots(1, 2, figsize=figsize, constrained_layout=True)
-    # VEST sits bottom left and the I_p panel's upper left is empty; the two panels
-    # draw the same series, so the P_loss panel, which has no empty corner, keeps none.
+    # Groups are labelled on their clusters (#1946). Should a caller ask for legends,
+    # the two panels draw the same series, so only the I_p panel keeps one.
     for ax, x in zip(axes, ("i_p_A", "p_loss_W")):
         confinement_population(table, x=x, y="tau_e_th_s", by="population",
                                highlight=VEST_LABEL, max_groups=max_groups, ax=ax)
@@ -229,6 +229,8 @@ def population_figure(table: pd.DataFrame, *, max_groups: int = 4, figsize=(11.0
 #: Legend text of the ring drawn around a VEST point whose EFIT pressure is outside
 #: [1, 2] p_e of its Thomson profile (Lane K criteria v2, #1521).
 THOMSON_RING_LABEL = "VEST: EFIT p outside [1, 2] p_e (#1521)"
+#: The same, as a direct label beside the rings themselves (#1946).
+THOMSON_RING_SHORT = "EFIT p outside [1, 2] p_e"
 
 
 def thomson_inconsistent(table: pd.DataFrame) -> np.ndarray:
@@ -244,14 +246,17 @@ def mark_thomson_inconsistent(ax, table: pd.DataFrame, x, y: str, *, legend_loc:
     """Ring the VEST points of ``ax`` whose stored energy disagrees with Thomson.
 
     ``x`` is a column name or an array aligned with ``table``. The ring is drawn
-    only when some row is marked; the legend is redrawn in the style of
-    ``vaft.plot.population`` (x-small, frameless) so the ring joins it.
+    only when some row is marked. It is named the way ``vaft.plot.population``
+    names its groups: beside the rings, in their colour, when the axes carry
+    direct labels (the default, #1946); otherwise the legend is redrawn
+    (x-small, frameless) so the ring joins it.
     """
     mask = thomson_inconsistent(table)
     if not mask.any():
         return
     import matplotlib
 
+    from vaft.plot._direct_labels import LABEL_GID, DirectLabel, add_direct_labels
     from vaft.plot.population import LABELS as POPULATION_UNITS
 
     def values(v):
@@ -266,10 +271,15 @@ def mark_thomson_inconsistent(ax, table: pd.DataFrame, x, y: str, *, legend_loc:
     if not shown.any():
         return
     size = 2.2 * float(matplotlib.rcParams["lines.markersize"]) ** 2
+    label = f"{THOMSON_RING_LABEL} ({int(shown.sum())})"
     ax.scatter(xs[shown], ys[shown], s=size, facecolors="none", edgecolors="crimson",
-               linewidths=1.2, zorder=6, label=f"{THOMSON_RING_LABEL} ({int(shown.sum())})")
+               linewidths=1.2, zorder=6, label=label)
     if ax.get_legend() is not None:
         ax.legend(fontsize="x-small", markerscale=1.5, frameon=False, loc=legend_loc)
+    elif any(str(t.get_gid() or "").startswith(LABEL_GID) for t in ax.texts):
+        # Beside the VEST rings, "VEST:" and the issue number are implied; keep the label short.
+        add_direct_labels(ax, [DirectLabel(f"{THOMSON_RING_SHORT} ({int(shown.sum())})", "crimson",
+                                           xs[shown], ys[shown], "any")])
 
 
 def _grid(n: int, panel=(5.4, 5.0), figsize=None):
