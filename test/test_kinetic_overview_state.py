@@ -112,22 +112,28 @@ def test_the_layout_changes_the_grid_not_the_panels(case_40326):
         assert [s.label for s in a.series] == [s.label for s in b.series]
 
 
-def test_plotly_draws_the_state_and_its_measured_span(case_40326):
+def test_plotly_draws_the_state_without_a_measured_span(case_40326):
     pytest.importorskip("plotly")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         figure = vaft.omas.plot_kinetic_overview_state(case_40326.ods, backend="plotly")
     assert len(figure.data) >= 10
-    rects = [shape for shape in figure.layout.shapes if shape.type == "rect"]
-    span = _extract(case_40326.ods).models[0].reference_lines[0]
-    assert any(np.isclose(r.x0, span.x) and np.isclose(r.x1, span.x_end) for r in rects)
+    assert not [shape for shape in figure.layout.shapes if shape.type == "rect"]
 
 
-def test_the_span_reaches_xarray(case_40326):
-    pytest.importorskip("xarray")
-    lines = _extract(case_40326.ods).models[0].to_xarray().attrs["reference_lines"]
-    lines = json.loads(lines) if isinstance(lines, str) else lines
-    assert "x_end" in lines[0]
+def test_no_measured_span_is_shaded_in_any_layout_or_stage(case_40326):
+    """The Thomson span band was removed on user review (#1957)."""
+    for options in ({}, {"layout": "stack"}, {"stage": 1}, {"stage": 8}, {"layout": "stages"}):
+        model = _extract(case_40326.ods, **options)
+        for panel in model.models:
+            assert not getattr(panel, "reference_lines", ()), options
+            assert "thomson_span" not in getattr(panel, "metadata", {})
+    figure, axes = vaft.omas.plot_kinetic_overview_state(case_40326.ods, format="slide")
+    labels = [t.get_text() for a in np.asarray(axes).ravel() if a.get_legend() for t in a.get_legend().get_texts()]
+    assert "TS span" not in labels
+    assert not any(type(p).__name__ == "Rectangle" and p.get_label() == "TS span"
+                   for a in np.asarray(axes).ravel() for p in a.patches)
+    json.dumps(_extract(case_40326.ods).models[0].metadata, default=str)  # still serialisable
 
 
 # --- the archive notebook's numbers -------------------------------------------------
@@ -190,7 +196,7 @@ def test_the_roles_are_the_records_the_writers_wrote(case_40326):
     traces = _traces(model)
     expected = {
         "n_e": "fit", "T_e": "fit",                     # coordinate=...; method=external
-        "n_main_ion": "assumed", "n_impurity_ion": "assumed", "Z_eff": "assumed",   # origin=derived
+        "n_main_ion": "derived", "n_impurity_ion": "derived", "Z_eff": "derived",   # origin=derived
         "T_i": "inferred", "p_i": "inferred",           # origin=inferred (inferred_ti_text)
         "p_kin": "closure identity",                    # method=equilibrium_pressure_partition
         "n_e_thomson": "fit input", "T_e_thomson": "fit input",
@@ -401,8 +407,7 @@ def test_per_channel_time_is_honoured_without_a_homogeneous_base(ods, case_40326
     assert len(traces["n_e_thomson"][0].x) == 5 and len(traces["T_e_thomson"][0].x) == 4
 
 
-def test_a_non_finite_thomson_sigma_demotes_points_and_shrinks_the_span(ods):
-    full = _extract(ods).models[0].reference_lines[0]
+def test_a_non_finite_thomson_sigma_demotes_points(ods):
     # Channel 4 (R = 0.255 m) is the outermost mapped channel, rho_tor_norm 0.476.
     # The DD carries no validity flag on Thomson n_e/t_e: a non-finite value or
     # stored sigma is the invalid sample, as in the Thomson mapping.
@@ -415,8 +420,6 @@ def test_a_non_finite_thomson_sigma_demotes_points_and_shrinks_the_span(ods):
     for quantity in ("n_e_thomson", "T_e_thomson", "p_e_thomson"):
         mask = traces[quantity][0].valid_mask
         assert mask is not None and int((~mask).sum()) == 1 and not mask[-1], quantity
-    span = model.models[0].reference_lines[0]
-    assert span.x_end < full.x_end
 
 
 def test_without_thomson_ions_or_zeff_the_rest_is_drawn(ods):

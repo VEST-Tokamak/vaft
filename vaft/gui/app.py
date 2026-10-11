@@ -50,6 +50,10 @@ PLOTLY_CONFIG = {
     "toImageButtonOptions": {"format": "png", "scale": 2},
 }
 _DEFAULT_HEIGHT = 520
+#: What a one-finger or mouse drag over an interactive plot does.  "scroll"
+#: leaves the drag to the page (Plotly dragmode False); zoom stays on the mode
+#: bar's buttons.  Plotly has no pinch-to-zoom on 2-D axes.
+_DRAG_LABELS = {"Zoom box": "zoom", "Pan": "pan", "Scroll the page": "scroll"}
 
 #: What vaft.omas.load reads (vaft/database/_local.py), shown by the file source.
 FILE_FORMATS = (
@@ -81,9 +85,12 @@ class BrowserApp:
 
     def __init__(
         self, session: BrowserSession | None = None, *, plot: str | None = None, hosted: bool = False,
+        touch: bool | None = None,
     ) -> None:
         """``hosted`` serves readers who are not the server's user: files, the
         server browser and uploads are left out, and :meth:`load` refuses files.
+        ``touch`` picks phone/tablet defaults (page scrolling over the plot,
+        legends under it); ``None`` reads it from the session's User-Agent.
         """
         pn = require_panel()
         self.session = session or BrowserSession()
@@ -152,10 +159,22 @@ class BrowserApp:
             self.about, title="About this plot", collapsed=True, sizing_mode="stretch_width",
         )
         self.renderer = pn.widgets.RadioButtonGroup(options=_RENDERER_LABELS, value="plotly", disabled=True)
+        if touch is None:
+            from .layout import is_touch_request
+
+            touch = is_touch_request(getattr(pn.state, "headers", None))
+        #: A phone or tablet: a drag over the plot scrolls the page by default
+        #: (a full-width plot must not trap the reader), legends sit underneath.
+        self.touch = bool(touch)
+        self.drag = pn.widgets.Select(
+            label="Drag on the plot", options=_DRAG_LABELS, value="scroll" if self.touch else "zoom",
+            sizing_mode="stretch_width", visible=False,
+        )
+        self.drag.param.watch(lambda _event: self._refresh(), "value")
         self.controls = pn.Column()
         self.composer = CompositionEditor(on_draw=lambda editor: self.draw_composition())
         self.plot_box = pn.Column(
-            self.search, self.scope, self.plot, self.about_card, self.renderer, self.controls,
+            self.search, self.scope, self.plot, self.about_card, self.renderer, self.drag, self.controls,
             sizing_mode="stretch_width",
         )
         self.compose_box = pn.Column(*self.composer.widgets(), visible=False, sizing_mode="stretch_width")
@@ -189,8 +208,10 @@ class BrowserApp:
         self.status = pn.pane.Markdown("No source loaded.")
         self.alert = pn.pane.Alert("", alert_type="danger", visible=False)
         self.static = pn.pane.Matplotlib(None, tight=True, dpi=110, sizing_mode="stretch_width", visible=False)
+        # A touch screen has no hover to reveal the mode bar: keep it shown.
+        config = {**PLOTLY_CONFIG, "displayModeBar": True} if self.touch else PLOTLY_CONFIG
         self.interactive = pn.pane.Plotly(
-            None, config=PLOTLY_CONFIG, sizing_mode="stretch_width", min_height=_DEFAULT_HEIGHT, visible=False,
+            None, config=config, sizing_mode="stretch_width", min_height=_DEFAULT_HEIGHT, visible=False,
         )
 
         self.kind.param.watch(self._on_kind, "value")
@@ -347,7 +368,7 @@ class BrowserApp:
         """Nothing drawn: no figure, no controls, nothing to export or reproduce."""
         self.controls.objects = []
         self.interactive.object = self.static.object = None
-        self.interactive.visible = self.static.visible = False
+        self.interactive.visible = self.static.visible = self.drag.visible = False
         self.download.disabled = True
         self.renderer.disabled = True
         if not keep_selector:
@@ -518,6 +539,7 @@ class BrowserApp:
         finally:
             self._updating = False
         self.interactive.visible, self.static.visible = plotly, not plotly
+        self.drag.visible = plotly  # a static image has nothing to drag
         (self.static if plotly else self.interactive).object = None
         self.download.disabled = False
         self._name_download()
@@ -553,10 +575,20 @@ class BrowserApp:
             import plotly.graph_objects as go
 
             shown = go.Figure(figure)
+            if self.touch:
+                # A side legend takes a phone's plot width: put it underneath
+                # (Figure Options, applied next, still decide when set).
+                shown.update_layout(legend={"orientation": "h", "x": 0, "xanchor": "left", "y": -0.22, "yanchor": "top"})
             if not composed and options:
                 options.apply_plotly(shown)
             ranges = {key: value for key, value in options.to_dict().items() if key in ("xlim", "ylim", "xscale", "yscale")}
-            shown.update_layout(uirevision=f"{self.session.plot or 'composition'}|{ranges!r}")
+            drag = self.drag.value
+            shown.update_layout(
+                dragmode=False if drag == "scroll" else drag,
+                # Not keyed on the drag choice: a new uirevision would drop the
+                # reader's zoom.  Plotly still applies a dragmode the figure changes.
+                uirevision=f"{self.session.plot or 'composition'}|{ranges!r}",
+            )
             self.interactive.object = shown
         else:
             # The Matplotlib figure is redrawn in place: lay the options' edits
@@ -668,6 +700,7 @@ class BrowserApp:
         plotly = self.session.renderer == "plotly"
         self.controls.objects = []
         self.interactive.visible, self.static.visible = plotly, not plotly
+        self.drag.visible = plotly  # a static image has nothing to drag
         (self.static if plotly else self.interactive).object = None
         self.download.disabled = False
         self._name_download()
@@ -966,6 +999,25 @@ def build_shell(*, workspace: str | None = None, hosted: bool = False, **app_opt
     return shell
 
 
+def session_page(*, hosted: bool = False, **app_options: Any) -> Callable[[], Any]:
+    """The page factory :func:`serve` hands Panel: one :class:`Shell` per browser session.
+
+    Every session gets its own shell, explorer, loaded data and selection;
+    nothing a reader opens is visible to another (#1863).  When Bokeh
+    discards the session -- the tab closed, or never connected and past the
+    server's unused-session lifetime -- the shell is closed, which releases
+    its figures, its loaded data and any uploaded files.
+    """
+
+    def page() -> Any:
+        pn = require_panel()
+        shell = build_shell(hosted=hosted, **app_options)
+        pn.state.on_session_destroyed(lambda _context: shell.close())
+        return shell.view()
+
+    return page
+
+
 AUTH_MODES = ("auto", "password", "hsds", "none")
 #: The largest upload one browser message may carry (all files of one upload).
 MAX_UPLOAD_BYTES = 512 * 1024 * 1024
@@ -1075,18 +1127,13 @@ def serve(
     if prefix:
         options["prefix"] = "/" + prefix.strip("/")
 
-    def page() -> Any:
-        shell = build_shell(hosted=hosted, **app_options)
-        pn.state.on_session_destroyed(lambda _context: shell.close())
-        return shell.view()
-
     return pn.serve(
-        {"/": page}, address=address, port=port, show=show,
+        {"/": session_page(hosted=hosted, **app_options)}, address=address, port=port, show=show,
         websocket_origin=origins, title="VAFT", **options,
     )
 
 
 __all__ = [
     "AUTH_MODES", "BrowserApp", "LOOPBACK", "PLOTLY_CONFIG", "TIME_CONTROLS",
-    "build_app", "build_shell", "parse_shots", "serve",
+    "build_app", "build_shell", "parse_shots", "serve", "session_page",
 ]

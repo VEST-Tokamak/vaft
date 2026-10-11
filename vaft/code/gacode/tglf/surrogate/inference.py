@@ -20,6 +20,7 @@ from typing import Mapping, Optional
 
 import numpy as np
 
+from ..._formalism import tglf_surrogate_plasma_formalism
 from .._types import TGLFConfig
 from ..inputs import TGLFInput
 from ._types import (
@@ -185,6 +186,13 @@ def run_surrogate(
             "extrapolation_allowed": bool(allow_extrapolation),
             "assumed_features": audit.assumed,
             "rho": float(local.rho),
+            # The TGLF variant the network reproduces, realized by a learned surrogate
+            # (#1735): its physics fields come from the model identity, not the request.
+            "plasma_formalism": tglf_surrogate_plasma_formalism(
+                sat_rule=identity.sat_rule, electromagnetic=identity.electromagnetic, model=identity.name,
+                parameters={"GEOMETRY_FLAG": int(requested.geometry_flag),
+                            **{str(k).upper(): v for k, v in requested.extra_parameters.items()}},
+            ).as_dict(),
             **settings,
         },
     )

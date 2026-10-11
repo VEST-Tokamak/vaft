@@ -117,15 +117,6 @@ def _match(times: np.ndarray, t: float):
     return k if abs(times[k] - t) <= TIME_TOLERANCE_S else None
 
 
-def _window_mean(t, y, at, width):
-    out = np.full(np.shape(at), np.nan)
-    for k, t0 in enumerate(np.atleast_1d(at)):
-        sel = np.abs(t - t0) <= 0.5 * width
-        if np.any(sel & np.isfinite(y)):
-            out[k] = float(np.nanmean(y[sel]))
-    return out
-
-
 def _li3_beta(efit):
     """li_3 and beta_normal per slice from the post-#1477 update routine, on a scratch copy."""
     import copy
@@ -277,10 +268,7 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     (good/admissible) slices: the product's other slices are unreconstructed and
     their stored energy is meaningless (down to -75 kJ on 42985).
     """
-    from vaft.omas.discharge_timing import inboard_midplane_loop, loop_voltage
     from vaft.omas.formula_wrapper import compute_voltage_consumption
-    from vaft.omas.update import resolve_reference_major_radius
-    from vaft.process.confinement import smoothed_time_derivative
 
     efit_path = filedb / "omas/efit/magnetic" / str(shot) / "output/efit.json.gz"
     diag = _load(filedb / "omas/diagnostics" / str(shot) / "output/diagnostics.json.gz")
@@ -295,28 +283,23 @@ def shot_series(shot: int, filedb: Path, labelled_times: list, args) -> dict:
     descriptors = [every_slice[i] for i in idx]
     w_mhd = np.array([r.get("w_th_J", np.nan) for r in descriptors], dtype=float)
 
-    # Measured current and its rate at the EFIT times.
-    ip_t = np.asarray(diag["magnetics.ip.0.time"], dtype=float)
-    ip_y = np.asarray(diag["magnetics.ip.0.data"], dtype=float)
-    ip_meas = _window_mean(ip_t, ip_y, t, args.vloop_window_s)
-    dip_dt = smoothed_time_derivative(ip_t, ip_y, window_s=args.dip_window_s, at=t)
+    # The ODS-facing chain of #1905: measured I_p and inboard loop voltage at the
+    # labelled EFIT times, l_i3, R0 and W_mhd, power balance and tau_E.
+    from vaft.omas.confinement import ohmic_confinement_ods
+    from vaft.process.confinement import confinement_slice_evidence
 
-    # Measured loop voltage at the inboard midplane.
-    loop = inboard_midplane_loop(diag)
-    if loop is None:
-        raise RuntimeError("no inboard flux loop carries a waveform")
-    vt, vy, v_source = loop_voltage(diag, loop, prefer_measured=True)
-    v_loop = _window_mean(np.asarray(vt, float), np.asarray(vy, float), t, args.vloop_window_s)
-    name_path = f"magnetics.flux_loop.{loop}.name"
-    loop_name = str(diag[name_path]) if name_path in diag else str(loop)
-
-    li3_all, beta_all = _li3_beta(efit)
-    li3, beta_n = li3_all[idx], beta_all[idx]
-    r0 = float(resolve_reference_major_radius(efit))
-
-    split, pb, ev, orientation = power_balance_series(
-        t, ip_meas, dip_dt, v_loop, li3, r0, w_mhd,
-        dwdt_window_s=args.dwdt_window_s, rate_polyorder=args.rate_polyorder)
+    result = ohmic_confinement_ods(
+        efit, diagnostics=diag, time_slices=idx, w_source="efit_pressure", rate_window_s=args.dwdt_window_s,
+        rate_polyorder=args.rate_polyorder, dip_window_s=args.dip_window_s, average_window_s=args.vloop_window_s)
+    split = result.chain
+    if not np.array_equal(result.eq_index, idx):
+        raise RuntimeError("the confinement chain reordered or dropped labelled slices")
+    pb, orientation = split.power_balance(), split.orientation
+    ip_meas, dip_dt, v_loop, r0 = split.i_p, split.dip_dt, split.v_loop, split.r0
+    ev = confinement_slice_evidence(ip_meas, dip_dt, w_mhd, pb.p_ohmic, pb.dwdt, pb.tau_e_net)
+    loop_name, v_source = result.loop_name, result.voltage_source
+    li3 = split.li_3
+    beta_n = _li3_beta(efit)[1][idx]
 
     # Comparison path: the EFIT boundary flux (#652) over the labelled slices; never the default.
     v_res_efit = np.full(t.size, np.nan)

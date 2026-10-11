@@ -9,8 +9,9 @@ call them directly. They draw only from Lane D's files and Lane M's public data:
   ones. It reuses ``vaft.plot.population.confinement_population``.
 - ``predicted_vs_measured_figure`` and ``h_factor_figure``: tau_E against
   IPB98(y,2) and NSTX2006L by default, or any of ``ALL_SCALINGS``. That covers the
-  five of ``vaft.formula`` (via Lane M's ``predict_confinement_time``) and the
-  ohmic/L-mode ones of ``extra_scalings.py`` (neo-Alcator, Goldston 1984, ITER97-L).
+  ``_SCALING_COEFS`` power laws of ``vaft.formula`` (via Lane M's
+  ``predict_confinement_time``) except ITPA20-IL, and the ohmic/L-mode ones of
+  ``extra_scalings.py`` (neo-Alcator, Goldston 1984, ITER97-L).
   The plot functions are Lane M's.
 - Variants: by machine (the seven largest, the rest as "Other"), and every DB5 row
   instead of the standard set. VEST is ohmic L-mode, so its IPB98 H factor is a location, not a
@@ -46,20 +47,25 @@ from fit import SELECTIONS, _git, select  # noqa: E402
 
 SPHERICAL = ("NSTX", "MAST", "START")
 LABELS = {"H98y2": "IPB98(y,2)", "NSTX2006L": "NSTX 2006 L-mode", "NSTX2006H": "NSTX 2006 H-mode",
-          "ITER89P": "ITER89-P (L-mode)", "Kurskiev2022": "Kurskiev 2022 (ST H-mode)"}
+          "ITER89P": "ITER89-P (L-mode)", "Kurskiev2022": "Kurskiev 2022 (ST H-mode)",
+          "ITPA20": "ITPA20"}
 LABELS.update(extra_scalings.LABELS)
 #: Every confinement scaling vaft.formula carries: the _SCALING_COEFS power laws plus
 #: the ohmic and L-mode ones extra_scalings.py maps onto table columns (#670);
-#: ohmic, then L-mode, then H-mode.
+#: ohmic, then L-mode, then H-mode. ITPA20-IL (vaft.formula "ITPA20_IL") is left out:
+#: it was fitted on the ITER-like subset of Verdoolaege et al. 2021 (Sec. 2.1: eight
+#: conventional tokamaks, no ST, with epsilon < 0.5 among its constraints), and VEST
+#: is a spherical tokamak at epsilon ~ 0.72.
 ALL_SCALINGS = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L", "ITER89P", "ITER97L", "NSTX2006L",
-                "H98y2", "NSTX2006H", "Kurskiev2022")
+                "H98y2", "ITPA20", "NSTX2006H", "Kurskiev2022")
 
 
 #: Where each scaling was fitted and for which regime, as a compact label tag:
 #: database ("single" machine, "multi"-machine; "ST" when spherical tokamaks only)
 #: and confinement mode. Goldston 1984 and ITER89-P/97-L are multi-machine L-mode
 #: (neo-Alcator: ohmic) compilations; NSTX 2006 is NSTX alone; Kurskiev 2022 is the
-#: multi-machine ST H-mode set; IPB98(y,2) the ITPA ELMy H-mode set.
+#: multi-machine ST H-mode set; IPB98(y,2) the ITPA ELMy H-mode set; ITPA20 the
+#: DB5.2.3-STD5 ELMy H-mode set (Verdoolaege 2021).
 SCALING_TAGS = {
     "NeoAlcator": ("multi", "ohmic"),
     "Goldston84OhmicL": ("multi", "ohmic+L"),
@@ -68,6 +74,7 @@ SCALING_TAGS = {
     "ITER97L": ("multi", "L"),
     "NSTX2006L": ("single ST", "L"),
     "H98y2": ("multi", "H"),
+    "ITPA20": ("multi", "H"),
     "NSTX2006H": ("single ST", "H"),
     "Kurskiev2022": ("multi ST", "H"),
 }
@@ -438,17 +445,32 @@ def h_factor_figure(table: pd.DataFrame, scalings=("H98y2", "NSTX2006L")):
     return fig, axes
 
 
-def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, figsize=(9.5, 5.6)):
+#: Scalings left out of the VEST H figure by default (#1946 follow-up): the three
+#: Goldston 1984 fits. They stay in ALL_SCALINGS and in every table; ``exclude=()``
+#: draws them.
+H_FIGURE_EXCLUDE = ("NeoAlcator", "Goldston84OhmicL", "Goldston84L")
+#: gid prefix of the median value written beside each box.
+H_MEDIAN_GID = "h-median:"
+
+
+def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, exclude=H_FIGURE_EXCLUDE,
+                         figsize=(9.5, 5.6)):
     """VEST alone: the H factor against each scaling, one box per scaling.
 
     ``table`` holds VEST rows only (e.g. the primary selection); a scaling with a
     density term uses the rows with a Thomson density. The axis names only the
     scaling: the box colour is where it was fitted and the hatch its confinement
-    mode (SCALING_TAGS), each with its own legend.
+    mode (SCALING_TAGS), each with its own legend. Each box carries its median H
+    as text right of its upper whisker (or outlier). ``exclude`` names scalings
+    not drawn; by default the three Goldston 1984 fits (H_FIGURE_EXCLUDE).
     """
     import matplotlib.pyplot as plt
+    from matplotlib import patheffects
     from matplotlib.patches import Patch
 
+    from vaft.plot.population import AXIS_LABEL_SCALE, TICK_LABEL_SCALE, _font
+
+    scalings = [name for name in scalings if name not in set(exclude or ())]
     values, labels, colours, hatches = [], [], [], []
     for name in scalings:
         h = h_factor_of(table, name).replace([np.inf, -np.inf], np.nan).dropna()
@@ -465,30 +487,58 @@ def vest_h_factor_figure(table: pd.DataFrame, scalings=ALL_SCALINGS, *, figsize=
     for patch, colour, hatch in zip(boxes["boxes"], colours, hatches):
         patch.set_facecolor(colour)
         patch.set_hatch(hatch)
-    ax.set_yticks(positions, labels, fontsize="small")
+    ax.set_yticks(positions, labels, fontsize=_font("ytick.labelsize", TICK_LABEL_SCALE))
+    ax.tick_params(axis="x", which="both", labelsize=_font("xtick.labelsize", TICK_LABEL_SCALE))
     ax.axvline(1.0, color="k", ls="--", lw=1)
     ax.set_xscale("log")
-    ax.set_xlabel(r"$H = \tau_{E,obs}/\tau_{E,scaling}$")
+    ax.set_xlabel(r"$H = \tau_{E,obs}/\tau_{E,scaling}$", fontsize=_font("axes.labelsize", AXIS_LABEL_SCALE))
+    # The median each box draws, written just right of everything the box draws on its row.
+    medians = []
+    halo = [patheffects.withStroke(linewidth=3.0, foreground="white")]
+    for name, data, y, line in zip(scalings, values, positions, boxes["medians"]):
+        if not len(data):
+            continue
+        median = float(np.median(line.get_xdata()))
+        right = float(np.nanmax(data))
+        medians.append(ax.text(right * 1.08, y, f"H~{median:.3g}", ha="left", va="center",
+                               fontsize=_font("ytick.labelsize", TICK_LABEL_SCALE), color="k",
+                               path_effects=halo, gid=f"{H_MEDIAN_GID}{name}", zorder=6))
     if any(basis_marker(name) for name in scalings):
-        ax.annotate("* global or unaudited energy basis: $\\tau_{E,th}$ used (ohmic VEST, $W_{global} \\approx W_{th}$)",
-                    xy=(0.0, -0.13), xycoords="axes fraction", fontsize="x-small", ha="left", va="top")
+        # A figure-level footnote: the layout engine places it under the (enlarged) x label.
+        fig.supxlabel("* global or unaudited energy basis: $\\tau_{E,th}$ used (ohmic VEST, $W_{global} \\approx W_{th}$)",
+                      fontsize="x-small", x=0.01, ha="left")
     ax.grid(alpha=0.25, which="both", axis="x")
-    ax.set_title("VEST (ohmic): H against each scaling", fontsize="medium")
+    ax.set_title("VEST (ohmic): H against each scaling")
     tags = [SCALING_TAGS.get(name, ("?", "?")) for name in scalings]
     databases = list(dict.fromkeys(db for db, _ in tags))
     modes = list(dict.fromkeys(mode for _, mode in tags))
-    # Short labels under a "fit database" title: the first legend is placed with
-    # add_artist, which the layout engine does not make room for.
+    # Short labels under a "fit database" title.
     fit_handles = [Patch(facecolor=DATABASE_COLOURS.get(db, "0.85"), edgecolor="k", label=db) for db in databases]
     mode_handles = [Patch(facecolor="white", edgecolor="k", hatch=mode_hatch(m),
                           label=f"{m}-mode" if len(m) == 1 else m) for m in modes]
-    # Both legends sit outside the axes, right: no H range is free of boxes or outliers.
-    first = ax.legend(handles=fit_handles, fontsize="x-small", loc="upper left", bbox_to_anchor=(1.01, 1.0),
-                      frameon=False, title="fit database", title_fontsize="x-small", alignment="left")
-    ax.add_artist(first)
-    ax.legend(handles=mode_handles, fontsize="x-small", loc="lower left", bbox_to_anchor=(1.01, 0.0),
-              frameon=False, title="regime", title_fontsize="x-small", alignment="left")
+    # Both legends sit outside the axes, right: no H range is free of boxes or outliers,
+    # and the median values live inside it. Figure legends "outside", so the layout
+    # engine makes room for both (an axes legend kept with add_artist got clipped).
+    fig.legend(handles=fit_handles, fontsize="small", loc="outside right upper", frameon=False,
+               title="fit database", title_fontsize="small", alignment="left")
+    fig.legend(handles=mode_handles, fontsize="small", loc="outside right lower", frameon=False,
+               title="regime", title_fontsize="small", alignment="left")
+    _keep_texts_inside(fig, ax, medians)
     return fig, ax
+
+
+def _keep_texts_inside(fig, ax, texts, passes: int = 4) -> None:
+    """Widen a log x axis to the right until every text in ``texts`` fits inside it."""
+    for _ in range(passes):
+        fig.canvas.draw()
+        renderer = fig.canvas.get_renderer()
+        box = ax.get_window_extent(renderer)
+        overflow = max((t.get_window_extent(renderer).x1 - box.x1 for t in texts), default=0.0)
+        if overflow <= -4.0:
+            return
+        lo, hi = ax.get_xlim()
+        decades = np.log10(hi / lo)
+        ax.set_xlim(lo, hi * 10 ** ((overflow + 8.0) / max(box.width, 1.0) * decades * 1.1))
 
 
 def exponent_table(closures: pd.DataFrame, nstx: pd.DataFrame, data: str = "primary:A") -> pd.DataFrame:
