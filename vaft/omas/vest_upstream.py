@@ -2735,6 +2735,256 @@ def build_ti_inferred_ods(
     return ods, manifest
 
 
+#: The conductivity models Lane Z's estimator offers (#1214); ``redl`` is the neoclassical one.
+RESISTIVE_MODELS = ("redl", "sauter", "spitzer_nrl")
+
+
+def _composition_equivalent_scalar(
+    states: Sequence[Any], solution: ODS, ods: ODS, *, model: str, ln_lambda: Any, bounds: tuple[float, float]
+) -> dict[str, Any]:
+    """The resistive scalar the stored composition ``Z_eff(rho)`` would give, for the cross-check.
+
+    Each state's surfaces are put on the composition's ``rho_tor_norm`` through
+    the equilibrium's own ``rho_tor(psi_N)``, and Lane L's projection
+    (:func:`vaft.process.zeff_projection.project_window_to_resistive_scalar`)
+    turns the profiles into the scalar Lane Z's estimator would report if they
+    were the truth -- the same objective, so the two numbers are comparable.
+    """
+    from vaft.machine_mapping.core_profiles import ti_record_fields
+    from vaft.ods_access import path_value
+    from vaft.process.zeff_projection import project_window_to_resistive_scalar
+    from vaft.validation import kinetic_state as ks
+
+    profiles, used, skipped = [], [], []
+    for state in states:
+        base = f"core_profiles.profiles_1d.{state.source['cp_index']}"
+        origin = ti_record_fields(path_value(ods, f"{base}.zeff_fit.parameters", None)).get("origin")
+        zeff = path_value(ods, f"{base}.zeff", None)
+        rho_cp = path_value(ods, f"{base}.grid.rho_tor_norm", None)
+        if origin not in ("assumed", "derived") or zeff is None or rho_cp is None:
+            skipped.append(f"t={state.time:.4f}: no composition Z_eff")
+            continue
+        coordinate = ks.rho_tor_norm_of(solution, int(state.source["eq_index"]))
+        if coordinate.get("coordinate") != "rho_tor_norm":
+            skipped.append(f"t={state.time:.4f}: {coordinate.get('reason')}")
+            continue
+        order = np.argsort(coordinate["psi_norm"])
+        rho_state = np.interp(state.psi_norm, coordinate["psi_norm"][order], coordinate["rho_tor_norm"][order])
+        rho_cp, zeff = np.asarray(rho_cp, dtype=float), np.asarray(zeff, dtype=float)
+        good = np.isfinite(zeff) & np.isfinite(rho_cp)
+        if good.sum() < 2:
+            skipped.append(f"t={state.time:.4f}: composition Z_eff undefined")
+            continue
+        sort = np.argsort(rho_cp[good])
+        # Surfaces beyond the composition's support take its end values (np.interp holds them).
+        profiles.append(np.interp(rho_state, rho_cp[good][sort], zeff[good][sort]))
+        used.append(state)
+    if not used:
+        return {"available": False, "reason": "; ".join(skipped) or "no state"}
+    projection = project_window_to_resistive_scalar(
+        used, profiles, model=model, ln_lambda=ln_lambda, bounds=bounds,
+        weights="uniform", profile_source="composition stage",
+    )
+    return {"available": True, "zeff_equivalent": float(projection.zeff_equivalent),
+            "status": str(projection.convergence["status"]), "states": len(used), "skipped": skipped}
+
+
+def build_resistive_zeff_ods(
+    *,
+    shot: int,
+    core_profiles_product: str | Path,
+    efit_product: str | Path,
+    model: str = "redl",
+    ln_lambda: Any = "sauter",
+    bounds: tuple[float, float] = (1.0, 8.0),
+    i_ni_a: float = 0.0,
+    smoothing_window_s: float | None = None,
+    smoothing_order: int = 2,
+    time_range: tuple[float, float] | None = None,
+    max_excluded_current: float = 0.05,
+    inductive_max: float = 1.0,
+    time_tolerance_s: float = 5e-5,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Add the Romero resistive ``Z_eff`` to ``core_profiles.global_quantities.z_eff_resistive``.
+
+    The pipeline-1 magnetic EFIT supplies the boundary flux, ``I_p`` and
+    ``l_i`` over the current-carrying window (Romero's transformer balance,
+    :func:`vaft.omas.resistive_zeff.compute_resistive_zeff_ods`) and the
+    Grad-Shafranov geometry at each kinetic slice; the profiles supply
+    ``T_e`` and ``n_e``.  Lane Z's estimator then finds the one ``Z_eff`` that
+    makes the model resistance match the observed one.  Nothing of that physics
+    is re-implemented here.
+
+    What is stored is the **window estimate**: one scalar for the whole window
+    (#1214 Sec. 9), written at every usable kinetic slice and NaN elsewhere.
+    The per-slice solutions are a diagnostic -- each carries the full noise of a
+    differentiated ``V_R`` -- and go to the manifest, labelled so, not into the
+    IDS.  A fit that sits on a bound (``bound_hit``) or is not identifiable is
+    recorded and not stored.  The value is a model-inferred estimate, kept apart
+    from the composition ``Z_eff`` (``profiles_1d.zeff``), which stays as it was.
+
+    Provenance goes in the slice's ``zeff_fit.parameters`` as ``resistive_*``
+    fields (never ``origin``/``method``, which belong to the composition):
+    model, conductivity, window, status, uncertainty, the equilibrium lineage
+    and occurrence, ``I_ni`` and the smoothing -- stated, because Lane Z's
+    estimator has no defaults for them.
+
+    The manifest cross-checks the result against the composition: the stored
+    ``Z_eff(rho)`` is turned into the scalar the same estimator would report
+    were it the truth (Lane L's projection) and the two are compared.
+
+    Only the ``efit/magnetic`` lineage is accepted, read from where the product
+    lives: the geometry and ``<J.B>`` must not come from a pressure fitted with
+    an assumed ``T_i``.  The product is read from the inferred-``T_i`` stage's,
+    so the overlay that replaces ``core_profiles`` in ``main`` keeps what that
+    stage and the composition wrote.
+    """
+    import copy
+
+    from vaft.omas.resistive_zeff import compute_resistive_zeff_ods
+    from vaft.ods_access import path_value
+    from vaft.process.resistive_zeff import (
+        Smoothing,
+        infer_resistive_zeff,
+        per_slice_resistive_zeff,
+    )
+
+    if model not in RESISTIVE_MODELS:
+        raise ValueError(f"model must be one of {RESISTIVE_MODELS}, got {model!r}")
+    shot = int(shot)
+    bounds = (float(bounds[0]), float(bounds[1]))
+    smoothing = (
+        Smoothing("none") if smoothing_window_s is None
+        else Smoothing("local_polynomial", window_s=float(smoothing_window_s), order=int(smoothing_order))
+    )
+    era = machine_era_for_shot(shot)
+    manifest = _external_profile_manifest("resistive_zeff", shot, run, era.name)
+    manifest["input"] = {
+        "core_profiles_product": str(core_profiles_product), "efit_product": str(efit_product),
+    }
+    lineage = _magnetic_efit_lineage(efit_product)
+    manifest["configuration"].update(
+        model=model, ln_lambda=str(ln_lambda), bounds=list(bounds), i_ni_a=float(i_ni_a),
+        smoothing=smoothing.describe(), max_excluded_current=float(max_excluded_current),
+        inductive_max=float(inductive_max), equilibrium_lineage=lineage,
+        time_range=None if time_range is None else [float(time_range[0]), float(time_range[1])],
+    )
+    if not Path(core_profiles_product).exists():
+        raise FileNotFoundError(f"the core_profiles product is missing: {core_profiles_product}")
+    ods, _ = load_ods(Path(core_profiles_product))
+    times = path_value(ods, "core_profiles.time", None)
+    if times is None or np.asarray(times).size == 0:
+        manifest["error"] = "the core_profiles product carries no slices"
+        return ods, manifest
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+    if lineage is None:
+        manifest["error"] = (
+            f"the efit product {efit_product} is not under omas/efit/magnetic, so its lineage is "
+            "not established; the geometry is refused rather than guessed"
+        )
+        return ods, manifest
+    if not Path(efit_product).exists():
+        manifest["error"] = f"the magnetic efit product is missing: {efit_product}"
+        return ods, manifest
+    solution, _ = load_ods(Path(efit_product))
+    if not _path_present(solution, "equilibrium.time_slice") or len(solution["equilibrium.time_slice"]) < 3:
+        manifest["error"] = "the efit product has fewer than three equilibrium slices; the balance needs a window"
+        return ods, manifest
+
+    work = ODS(consistency_check=False)
+    work["core_profiles"] = copy.deepcopy(ods["core_profiles"])
+    work["equilibrium"] = solution["equilibrium"]
+    try:
+        result = compute_resistive_zeff_ods(
+            work, time_range=time_range, model=model, ln_lambda=ln_lambda, bounds=bounds,
+            I_ni=float(i_ni_a), smoothing=smoothing, time_tolerance_s=time_tolerance_s,
+        )
+    except (ValueError, KeyError, IndexError) as error:
+        # Lane Z refuses on purpose (an undetected flux unit, no current window, ...):
+        # that is an absence for this shot, with the reason, not a failed stage.
+        manifest["error"] = f"{type(error).__name__}: {error}"[:300]
+        return ods, manifest
+    observed, states = result["observed"], result["states"]
+    manifest["window"] = {"t_start_s": float(result["window"][0]), "t_end_s": float(result["window"][1])}
+    manifest["states"] = {
+        "built": len(states), "skipped": [{"time_s": t, "reason": r[:200]} for t, r in result["skipped"][:20]],
+    }
+
+    # The model leaves out the surfaces beyond the profiles' support -- the cold, most
+    # resistive edge -- while the observed R_p includes them, so a state missing much of
+    # the current would bias Z_eff high; and where V_I dwarfs V_B, V_R is a small
+    # difference of large numbers. Lane Z's atlas applies the same two filters.
+    def inductive_at(state):
+        return float(observed.inductive_fraction[int(np.argmin(np.abs(observed.time - state.time)))])
+
+    usable = [
+        s for s in states
+        if (s.source.get("excluded_current_fraction") or 0.0) <= max_excluded_current
+        and inductive_at(s) < inductive_max
+    ]
+    manifest["states"]["usable"] = len(usable)
+    if not usable:
+        manifest["error"] = (
+            f"no kinetic state is usable: {len(states)} built, each either beyond "
+            f"{max_excluded_current:g} of j_tor outside the profiles or with |V_I|/|V_B| >= {inductive_max:g}"
+            if states else "no core_profiles slice in the window has electron profiles at an equilibrium time"
+        )
+        return ods, manifest
+
+    kwargs = dict(model=model, ln_lambda=ln_lambda, bounds=bounds, time_tolerance_s=time_tolerance_s)
+    inference = infer_resistive_zeff(observed, usable, weights="uniform", **kwargs)
+    diagnostic = per_slice_resistive_zeff(observed, usable, **kwargs)
+    estimate = inference.estimate
+    manifest["inference"] = {
+        "status": inference.status, "zeff": inference.zeff, "uncertainty": estimate.get("uncertainty"),
+        "reason": inference.reason, "median_inductive_fraction": float(np.nanmedian(observed.inductive_fraction)),
+    }
+    manifest["per_slice_diagnostic"] = {
+        "note": "each solved alone: the full noise of a differentiated V_R; a diagnostic, not the estimate",
+        "time_s": [float(t) for t in diagnostic["time"]],
+        "zeff": [None if not np.isfinite(z) else float(z) for z in diagnostic["zeff"]],
+        "status": list(diagnostic["status"]),
+    }
+    manifest["crosscheck"] = _composition_equivalent_scalar(
+        usable, solution, ods, model=model, ln_lambda=ln_lambda, bounds=bounds)
+    if manifest["crosscheck"]["available"] and inference.zeff is not None:
+        check = manifest["crosscheck"]
+        check["resistive_zeff"] = float(inference.zeff)
+        check["difference"] = check["zeff_equivalent"] - float(inference.zeff)
+        check["relative_difference"] = check["difference"] / float(inference.zeff)
+
+    if inference.status != "ok":
+        manifest["error"] = (
+            f"the window estimate is {inference.status}"
+            + (f" ({inference.reason})" if inference.reason else "")
+            + "; it is recorded here and not stored as z_eff_resistive"
+        )
+        return ods, manifest
+
+    stored = np.full(times.shape, np.nan)
+    fields = {
+        "resistive_origin": "inferred", "resistive_model": "romero_transformer",
+        "resistive_conductivity": model, "resistive_scope": "window",
+        "resistive_window": f"{result['window'][0]:.4f}:{result['window'][1]:.4f}",
+        "resistive_status": inference.status, "resistive_n_states": len(usable),
+        "resistive_equilibrium_lineage": lineage, "resistive_equilibrium_occurrence": 0,
+        "resistive_i_ni_a": float(i_ni_a), "resistive_smoothing": smoothing.describe().replace("=", ":"),
+        "resistive_ln_lambda": str(ln_lambda),
+    }
+    if estimate.get("uncertainty") is not None and np.isfinite(estimate["uncertainty"]):
+        fields["resistive_sigma"] = f"{float(estimate['uncertainty']):.4g}"
+    for state in usable:
+        index = int(state.source["cp_index"])
+        stored[index] = float(inference.zeff)
+        _append_record_fields(ods, f"core_profiles.profiles_1d.{index}.zeff_fit.parameters", fields)
+    ods["core_profiles.global_quantities.z_eff_resistive"] = stored
+    manifest["status"] = "success"
+    manifest["quality_summary"]["unavailable"] = []
+    manifest["stored"] = {"slices": int(np.isfinite(stored).sum()), "total": int(times.size)}
+    return ods, manifest
+
+
 def _has_kinetic_slice(ods: ODS) -> bool:
     """Whether any core_profiles slice carries a measured ion temperature.
 

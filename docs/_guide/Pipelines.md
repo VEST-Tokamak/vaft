@@ -37,7 +37,7 @@ calibration, mappings and conventions, the processing and model configuration, a
 | Pipeline | Orchestration | Purpose |
 |---|---|---|
 | `automatic_pipeline_1_routine_data_processing` | Snakemake DAG (10 rules) + `Makefile` | Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite |
-| `automatic_pipeline_2_corrective_data_update` | Snakemake DAG (7 stages + one replication rule each) | Builds Thomson, CES, `core_profiles` and the two kinetic EFIT lineages from externally uploaded profile diagnostics |
+| `automatic_pipeline_2_corrective_data_update` | Snakemake DAG (8 stages + one replication rule each) | Builds Thomson, CES, `core_profiles` and the two kinetic EFIT lineages from externally uploaded profile diagnostics |
 | `automatic_pipeline_3_data_summary` | partial Snakefile (2 rules) + manual scripts | Mines the file database into cross-shot `.xlsx` history sheets and plots |
 | `running_linear_stability` | Snakemake DAG (1 rule, fanned out) | Runs DCON / RDCON / STRIDE per (shot, time, n-mode) on refined equilibria |
 
@@ -308,6 +308,7 @@ executable and the named EFIT preset used for the base magnetic k-file.
 | `core_profiles` | `build_core_profiles_ods` | `thomson` (+ `ces`), pipeline 1's EFIT | `core_profiles` → `main` |
 | `composition` | `build_composition_ods` | `core_profiles`, pipeline 1's EFIT and diagnostics | `core_profiles` → `main`, after the stage above |
 | `ti_inferred` | `build_ti_inferred_ods` | `composition`, pipeline 1's magnetic EFIT | `core_profiles` → `main`, after `composition` |
+| `resistive_zeff` | `build_resistive_zeff_ods` | `ti_inferred`, pipeline 1's magnetic EFIT | `core_profiles` → `main`, after `ti_inferred` |
 | `electron_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) without ion data | `equilibrium` → `electron-efit` |
 | `kinetic_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) with ion data | `equilibrium` → `kinetic-efit` |
 
@@ -365,6 +366,32 @@ and `f = n_i,tot / n_e` the composed product's diluted ion density
   half the formula), with no equilibrium within the tolerance, or with no significant point.
 * On the archived 40326 / 322 ms case the stage reproduces the notebook's `T_i` to 1e-14 wherever both are valid, and
   voids 8 more edge points (`rho_tor_norm > 0.86`) because it carries a different `sigma(p_EFIT)`.
+
+### The resistive Z_eff
+
+`resistive_zeff` stores Lane Z's Romero estimate (issue #1214) in
+`core_profiles.global_quantities.z_eff_resistive`, beside the composition `Z_eff` (`profiles_1d.zeff`) and never over it.
+Romero's transformer balance over the current-carrying window of the magnetic EFIT (boundary flux, `I_p`, `l_i`) gives the
+observed plasma resistance; the one `Z_eff` that makes the conductivity model, run on each kinetic slice's `T_e`, `n_e`
+and Grad-Shafranov geometry, match it is the estimate. The physics is Lane Z's (`vaft.omas.resistive_zeff`,
+`vaft.process.resistive_zeff`); this stage orchestrates it.
+
+* **A window scalar, not a per-slice value.** One slice carries the full noise of a differentiated `V_R`, so the
+  estimate is a single number for the window (#1214 Sec. 9): it is written at every usable kinetic slice and is NaN
+  elsewhere. The per-slice solutions are in the manifest as a labelled diagnostic and are not stored in the IDS. An
+  estimate that sits on a bound (`bound_hit`), or is not identifiable, is recorded and not stored.
+* **Stated settings.** The estimator has no defaults: `resistive_zeff.model` (`redl`), `ln_lambda` (`sauter`), `bounds`
+  (1-8), `i_ni_a` (0, a purely Ohmic window), `smoothing` (none) and the two state filters (a state with more than 5 % of
+  `j_tor` outside its profiles, or `|V_I|/|V_B| >= 1`, is dropped) are config and are recorded in the product.
+* **Provenance** is `resistive_*` fields in the slice's `zeff_fit.parameters` (`resistive_origin=inferred`,
+  `resistive_model=romero_transformer`, `resistive_conductivity`, `resistive_window`, `resistive_status`,
+  `resistive_sigma`, `resistive_equilibrium_lineage`, `resistive_equilibrium_occurrence`, `resistive_i_ni_a`,
+  `resistive_smoothing`): prefixed so they cannot be read as the composition record's `origin`/`method`.
+* **Cross-check.** The manifest turns the stored composition `Z_eff(rho)` into the scalar the same estimator would report
+  were it the truth (`vaft.process.zeff_projection`) and compares it with the estimate (`crosscheck`: the equivalent, the
+  difference and the relative difference). It needs a real toroidal-flux coordinate: with the `sqrt(psi_N)` proxy in
+  `rho_tor_norm` it is withheld and says why, and the estimate still stands.
+* Only the `efit/magnetic` lineage is accepted (read from where the product lives), as for `ti_inferred`. It is a leaf.
 
 ### Dilution in the kinetic EFIT
 

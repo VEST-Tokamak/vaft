@@ -49,6 +49,19 @@ ti_inference:
   floor: 0.17
   window_s: 0.001
 
+resistive_zeff:
+  # Lane Z's estimator (#1214) has no defaults for these: they are stated here and
+  # recorded in the product. One Z_eff for the whole current-carrying window.
+  model: redl              # redl | sauter | spitzer_nrl
+  ln_lambda: sauter        # a number, or sauter (n_e, T_e dependent)
+  bounds: [1.0, 8.0]
+  i_ni_a: 0.0              # non-inductive current [A]; 0 asserts a purely Ohmic window
+  smoothing:
+    window_s: null         # null = none; else a local polynomial of this window [s]
+    order: 2
+  max_excluded_current: 0.05   # a state with more j_tor outside its profiles is dropped
+  inductive_max: 1.0           # a state with |V_I|/|V_B| at or above this is dropped
+
 hsds:
   replicate: false
   attempts: 3

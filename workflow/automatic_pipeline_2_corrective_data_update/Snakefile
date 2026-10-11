@@ -85,6 +85,19 @@ TI_INFERENCE_CONFIG = config.get("ti_inference", {}) or {}
 TI_INFERENCE_FLOOR = TI_INFERENCE_CONFIG.get("floor", 0.17)
 TI_INFERENCE_WINDOW_S = TI_INFERENCE_CONFIG.get("window_s", 1e-3)
 
+RESISTIVE_CONFIG = config.get("resistive_zeff", {}) or {}
+RESISTIVE_MODEL = RESISTIVE_CONFIG.get("model", "redl")
+RESISTIVE_LN_LAMBDA = RESISTIVE_CONFIG.get("ln_lambda", "sauter")
+RESISTIVE_BOUNDS = list(RESISTIVE_CONFIG.get("bounds", [1.0, 8.0]))
+RESISTIVE_I_NI = RESISTIVE_CONFIG.get("i_ni_a", 0.0)
+RESISTIVE_SMOOTHING = RESISTIVE_CONFIG.get("smoothing", {}) or {}
+RESISTIVE_SMOOTHING_WINDOW_S = RESISTIVE_SMOOTHING.get("window_s")
+RESISTIVE_SMOOTHING_ORDER = RESISTIVE_SMOOTHING.get("order", 2)
+RESISTIVE_MAX_EXCLUDED = RESISTIVE_CONFIG.get("max_excluded_current", 0.05)
+RESISTIVE_INDUCTIVE_MAX = RESISTIVE_CONFIG.get("inductive_max", 1.0)
+if len(RESISTIVE_BOUNDS) != 2:
+    raise WorkflowError("resistive_zeff.bounds must be [z_min, z_max]")
+
 HSDS_CONFIG = config.get("hsds", {}) or {}
 REPLICATION_ENABLED = bool(HSDS_CONFIG.get("replicate", False))
 REPLICATION_ATTEMPTS = HSDS_CONFIG.get("attempts", 3)
@@ -104,7 +117,8 @@ workflow.global_resources.setdefault("hsds", REPLICATION_CONCURRENCY)
 # build" is a real decision -- but checked against the registry, so a stage
 # renamed or retired there fails the run instead of silently dropping out of it.
 THOMSON_LINEAGE = (
-    "thomson", "ces", "core_profiles", "composition", "ti_inferred", "electron_efit", "kinetic_efit",
+    "thomson", "ces", "core_profiles", "composition", "ti_inferred", "resistive_zeff",
+    "electron_efit", "kinetic_efit",
 )
 _CORRECTIVE = frozenset(replicable_stages(produced_by="corrective"))
 _UNREGISTERED = tuple(stage for stage in THOMSON_LINEAGE if stage not in _CORRECTIVE)
@@ -294,6 +308,58 @@ rule generate_ti_inferred_ods:
 
 
 ############################################################
+# The Romero resistive Z_eff
+############################################################
+# Lane Z's window estimate (#1214), stored in `global_quantities.z_eff_resistive`
+# beside, never over, the composition Z_eff. It is built on the inferred-T_i
+# product so that replacing `core_profiles` in `main` keeps what the stages before
+# it wrote, and it is a leaf: nothing reads it. Its settings are stated, not
+# defaulted in code -- the estimator has none -- and recorded in the product.
+rule generate_resistive_zeff_ods:
+    input:
+        core_profiles=PATHS.shot_pattern("ti_inferred_ods")
+    output:
+        ods=PATHS.shot_pattern("resistive_zeff_ods"),
+        manifest=PATHS.shot_pattern("resistive_zeff_manifest")
+    log:
+        PATHS.shot_pattern("log", "generate_resistive_zeff_ods")
+    params:
+        efit=scientific_reference(PATHS, "generate_resistive_zeff_ods", "efit"),
+        model=RESISTIVE_MODEL,
+        ln_lambda=RESISTIVE_LN_LAMBDA,
+        z_min=RESISTIVE_BOUNDS[0],
+        z_max=RESISTIVE_BOUNDS[1],
+        i_ni=RESISTIVE_I_NI,
+        smoothing=(
+            "" if RESISTIVE_SMOOTHING_WINDOW_S is None
+            else "--smoothing-window-s " + str(RESISTIVE_SMOOTHING_WINDOW_S)
+            + " --smoothing-order " + str(RESISTIVE_SMOOTHING_ORDER)
+        ),
+        max_excluded=RESISTIVE_MAX_EXCLUDED,
+        inductive_max=RESISTIVE_INDUCTIVE_MAX
+    conda:
+        CONDA if CONDA else None
+    shell:
+        """
+        mkdir -p $(dirname {log})
+        python {SCRIPT_DIR}/generate_resistive_zeff_ods.py \
+            --shot {wildcards.shot} \
+            --core-profiles-product {input.core_profiles} \
+            --efit-product {params.efit} \
+            --model {params.model} \
+            --ln-lambda {params.ln_lambda} \
+            --bounds {params.z_min} {params.z_max} \
+            --i-ni {params.i_ni} \
+            {params.smoothing} \
+            --max-excluded-current {params.max_excluded} \
+            --inductive-max {params.inductive_max} \
+            --output {output.ods} \
+            --metadata {output.manifest} \
+            > {log} 2>&1
+        """
+
+
+############################################################
 # The kinetic lineages
 ############################################################
 # Both are asked for every shot and at most one can apply: whichever the
@@ -349,10 +415,11 @@ for _stage in ("electron_efit", "kinetic_efit"):
 # `main`, and a retry re-sends only what failed.
 if REPLICATION_ENABLED:
 
-    # Three stages own `core_profiles` in `main`; each lands after the one it overlays.
+    # Four stages own `core_profiles` in `main`; each lands after the one it overlays.
     OVERLAID_BY = {
         "composition": [PATHS.shot_pattern("replication_record", "core_profiles")],
         "ti_inferred": [PATHS.shot_pattern("replication_record", "composition")],
+        "resistive_zeff": [PATHS.shot_pattern("replication_record", "ti_inferred")],
     }
 
     for _stage in STAGES:

@@ -86,6 +86,7 @@ def test_the_snakefile_parses_and_builds_every_stage(tmp_path):
         "generate_core_profiles_ods",
         "generate_composition_ods",
         "generate_ti_inferred_ods",
+        "generate_resistive_zeff_ods",
         "generate_electron_efit_ods",
         "generate_kinetic_efit_ods",
     ):
@@ -102,7 +103,7 @@ def test_both_kinetic_lineages_become_their_own_rule(tmp_path):
 def test_replication_adds_one_rule_per_stage(tmp_path):
     result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}'])
     assert result.returncode == 0, result.stderr[-3000:]
-    for stage in ("thomson", "ces", "core_profiles", "composition", "ti_inferred", "electron_efit", "kinetic_efit"):
+    for stage in ("thomson", "ces", "core_profiles", "composition", "ti_inferred", "resistive_zeff", "electron_efit", "kinetic_efit"):
         assert f"replicate_{stage}_to_hsds" in result.stdout, result.stdout[-2000:]
 
 
@@ -130,7 +131,7 @@ def test_the_lineage_is_checked_against_the_registry():
     from vaft.database.sources import replicable_stages
 
     corrective = set(replicable_stages(produced_by="corrective"))
-    lineage = {"thomson", "ces", "core_profiles", "composition", "ti_inferred", "electron_efit", "kinetic_efit"}
+    lineage = {"thomson", "ces", "core_profiles", "composition", "ti_inferred", "resistive_zeff", "electron_efit", "kinetic_efit"}
     assert lineage <= corrective, sorted(lineage - corrective)
 
 
@@ -245,7 +246,7 @@ def test_the_inferred_ti_is_a_leaf_read_by_neither_kinetic_lineage(tmp_path):
     assert "omas/composition/48226/output/composition" in inputs and "omas/core_profiles/" not in inputs
     assert "--efit-product" in job and "--floor 0.17" in job
     for stage in ("electron_efit", "kinetic_efit"):
-        assert "ti_inferred" not in _input_line(_job(result.stdout, f"generate_{stage}_ods"))
+        assert "omas/ti_inferred/" not in _input_line(_job(result.stdout, f"generate_{stage}_ods"))
 
 
 def test_the_inferred_ti_is_replicated_after_the_composition(tmp_path):
@@ -253,7 +254,7 @@ def test_the_inferred_ti_is_replicated_after_the_composition(tmp_path):
     assert result.returncode == 0, result.stderr[-3000:]
     inputs = _input_line(_job(result.stdout, "replicate_ti_inferred_to_hsds"))
     assert "omas/composition/48226/metadata/replication.json" in inputs
-    assert "ti_inferred" not in _input_line(_job(result.stdout, "replicate_composition_to_hsds"))
+    assert "omas/ti_inferred/" not in _input_line(_job(result.stdout, "replicate_composition_to_hsds"))
 
 
 def test_the_ti_inference_floor_and_window_are_configurable(tmp_path):
@@ -261,3 +262,39 @@ def test_the_ti_inference_floor_and_window_are_configurable(tmp_path):
     assert result.returncode == 0, result.stderr[-3000:]
     job = _job(result.stdout, "generate_ti_inferred_ods")
     assert "--floor 0.25" in job and "--window-s 0.002" in job
+
+
+def test_the_resistive_zeff_is_a_leaf_built_on_the_inferred_ti_product(tmp_path):
+    result = _dry_run(tmp_path, extra=["-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_resistive_zeff_ods")
+    inputs = _input_line(job)
+    assert "omas/ti_inferred/48226/output/ti_inferred" in inputs and inputs.count("/omas/") == 1
+    assert "--efit-product" in job
+    # Lane Z's estimator has no defaults: every setting is stated on the command line
+    for flag in ("--model redl", "--ln-lambda sauter", "--bounds 1.0 8.0", "--i-ni 0.0",
+                 "--max-excluded-current 0.05", "--inductive-max 1.0"):
+        assert flag in job, flag
+    assert "--smoothing-window-s" not in job, "no smoothing unless asked for"
+    for stage in ("electron_efit", "kinetic_efit"):
+        assert "omas/resistive_zeff/" not in _input_line(_job(result.stdout, f"generate_{stage}_ods"))
+
+
+def test_the_resistive_zeff_is_replicated_last_after_the_inferred_ti(tmp_path):
+    result = _dry_run(tmp_path, extra=["--config", 'hsds={"replicate": true}', "-p"])
+    assert result.returncode == 0, result.stderr[-3000:]
+    inputs = _input_line(_job(result.stdout, "replicate_resistive_zeff_to_hsds"))
+    assert "omas/ti_inferred/48226/metadata/replication.json" in inputs
+    assert "omas/resistive_zeff/" not in _input_line(_job(result.stdout, "replicate_ti_inferred_to_hsds"))
+
+
+def test_the_resistive_zeff_settings_are_configurable(tmp_path):
+    options = 'resistive_zeff={"model": "sauter", "ln_lambda": 17, "bounds": [1.0, 6.0], "i_ni_a": 500.0, ' \
+              '"smoothing": {"window_s": 0.002, "order": 3}, "max_excluded_current": 0.1, "inductive_max": 0.8}'
+    result = _dry_run(tmp_path, extra=["-p", "--config", options])
+    assert result.returncode == 0, result.stderr[-3000:]
+    job = _job(result.stdout, "generate_resistive_zeff_ods")
+    for flag in ("--model sauter", "--ln-lambda 17", "--bounds 1.0 6.0", "--i-ni 500.0",
+                 "--smoothing-window-s 0.002 --smoothing-order 3", "--max-excluded-current 0.1",
+                 "--inductive-max 0.8"):
+        assert flag in job, flag

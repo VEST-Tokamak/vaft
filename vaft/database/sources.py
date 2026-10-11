@@ -664,6 +664,17 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
         note="overlays composition with an inferred T_i; replicated after it",
         produced_by="corrective",
     ),
+    # The Romero resistive Z_eff of the discharge window, in
+    # `core_profiles.global_quantities.z_eff_resistive`. The last overlay on
+    # `core_profiles` in this source: it is built on the inferred-T_i product, so
+    # replacing the IDS keeps the composition and T_i written before it.
+    "resistive_zeff": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("core_profiles",),
+        optional=True,
+        note="overlays ti_inferred with the window resistive Z_eff; replicated after it",
+        produced_by="corrective",
+    ),
     # Both share the `equilibrium` IDS with the EFIT baseline and with each
     # other, so all three are separated by source rather than occurrence. Which
     # of the two runs for a shot is decided by whether CES data exist, not by

@@ -268,6 +268,10 @@ SCIENTIFIC_REFERENCES = (
         "generate_ti_inferred_ods", "efit", "efit_ods", "routine",
         "its pressure, partitioned into electron and ion parts, is where the inferred T_i comes from",
     ),
+    ScientificReference(
+        "generate_resistive_zeff_ods", "efit", "efit_ods", "routine",
+        "its boundary flux, I_p and l_i give the observed resistance, and its geometry the model's",
+    ),
     *(
         reference
         for stage in ("electron_efit", "kinetic_efit")
@@ -427,6 +431,7 @@ _LOG_OWNER = {
     "generate_core_profiles_ods": ("omas", "core_profiles"),
     "generate_composition_ods": ("omas", "composition"),
     "generate_ti_inferred_ods": ("omas", "ti_inferred"),
+    "generate_resistive_zeff_ods": ("omas", "resistive_zeff"),
     "generate_electron_efit_ods": ("omas", "electron_efit"),
     "generate_kinetic_efit_ods": ("omas", "kinetic_efit"),
     **{
@@ -441,6 +446,7 @@ _LOG_OWNER = {
             "core_profiles",
             "composition",
             "ti_inferred",
+            "resistive_zeff",
             "electron_efit",
             "kinetic_efit",
             "chease",
@@ -716,6 +722,14 @@ class PipelinePaths:
     def ti_inferred_manifest(self, shot) -> str:
         self._canonical_only("ti_inferred")
         return str(self._filedb.omas_manifest("ti_inferred", shot=shot))
+
+    def resistive_zeff_ods(self, shot) -> str:
+        self._canonical_only("resistive_zeff")
+        return str(self._filedb.omas_product("resistive_zeff", shot=shot))
+
+    def resistive_zeff_manifest(self, shot) -> str:
+        self._canonical_only("resistive_zeff")
+        return str(self._filedb.omas_manifest("resistive_zeff", shot=shot))
 
     def electron_efit_ods(self, shot) -> str:
         self._canonical_only("electron_efit")

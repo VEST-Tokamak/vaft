@@ -92,6 +92,9 @@ class OMASStage(str, Enum):
     # overlay on the same IDS: it replaces the composed product in `main` only
     # when it exists.
     TI_INFERRED = "ti_inferred"
+    # The window Z_eff of Lane Z's Romero estimator, stored beside the composition
+    # Z_eff and never over it (#1842). The last overlay on `core_profiles`.
+    RESISTIVE_ZEFF = "resistive_zeff"
     ELECTRON_EFIT = "electron_efit"
     KINETIC_EFIT = "kinetic_efit"
     CHEASE = "chease"
