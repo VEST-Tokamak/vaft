@@ -236,16 +236,23 @@ def flux_decomposition(native: Any, *, kygrid_model: int = 1,
     ky_weights = ky_integration_weights(ky, kygrid_model)
     nfield = native_sum.shape[1]
     rebuilt = _integrate(flux.sum(axis=2), ky_weights)[:, :nfield]  # (species, field, ky, 5)
-    target = np.nan_to_num(np.asarray(native_sum, dtype=float))
+    target = np.asarray(native_sum, dtype=float)
     if rebuilt.shape != target.shape:
         return FluxDecomposition("unavailable", f"species/field axes disagree: {rebuilt.shape} vs "
                                  f"{target.shape}", **common)
+    # A NaN field slot is one the run did not include (outputs.py); any other
+    # non-finite native value is a flux that cannot be checked, so nothing is validated.
+    present = ~np.all(np.isnan(target), axis=(0, 2, 3))
+    if not present.any() or not np.all(np.isfinite(target[:, present])):
+        return FluxDecomposition("unavailable", "sum_flux_spectrum is missing or not finite", **common)
+    target, rebuilt = target[:, present], rebuilt[:, present]
     errors = []
     for q in range(target.shape[-1]):
         scale = float(np.max(np.abs(target[..., q])))
-        if scale > 0:
-            errors.append(float(np.max(np.abs(rebuilt[..., q] - target[..., q]))) / scale)
-    error = max(errors) if errors else 0.0
+        difference = float(np.max(np.abs(rebuilt[..., q] - target[..., q])))
+        # A quantity TGLF reports as exactly zero must be rebuilt as zero, not skipped.
+        errors.append(difference / scale if scale > 0 else (0.0 if difference == 0.0 else np.inf))
+    error = max(errors)
     if not error <= tolerance:
         return FluxDecomposition("reconstruction_mismatch",
                                  f"rebuild differs from sum_flux_spectrum by {error:.3g} (> {tolerance:g})",

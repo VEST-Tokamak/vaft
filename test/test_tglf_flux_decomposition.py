@@ -202,3 +202,40 @@ def test_a_combined_pair_is_reported_but_not_split(runs, tmp_path):
     assert pair["split_status"] == "linear_differs" and pair["linear_identical"] is False
     assert "qe_gb_change" not in pair
     assert pair["gamma_max_a"] is not None and pair["gamma_max_b"] is not None
+
+
+def _synthetic_sat3(x_target, *, zero_ions=False):
+    """One mode, kinetic electrons + one ion, weights chosen so x hits ``x_target`` at kymax."""
+    from types import SimpleNamespace
+
+    ky = np.array([0.2, 0.4, 0.6, 0.8])
+    w = np.zeros((2, 1, 1, ky.size, 5))
+    w[1, 0, 0, :, :] = 0.0 if zero_ions else 1.0
+    # Electron/ion energy-weight ratio linear in ky, so TGLF's interpolation is exact.
+    w[0, 0, 0, :, 1] = x_target + (ky - 0.5)
+    w[0, 0, 0, :, 0] = 1.0
+    return SimpleNamespace(ql_flux_spectrum=w, ky_spectrum=ky, spectral_species=(1, 2),
+                           saturation_parameters={"SAT_RULE": 3, "kymax_out": 0.5})
+
+
+@pytest.mark.parametrize("x", [0.7, 0.85, 0.9, 0.95, 1.1])
+def test_sat3_factor_interpolates_x_at_kymax_and_follows_the_transition(x):
+    qla, xs = sat3_qla_factors(_synthetic_sat3(x))
+    assert xs[0] == pytest.approx(x, abs=1e-12)
+    blend = min(max((x - 0.8) / 0.2, 0.0), 1.0)
+    assert qla[0, 0] == pytest.approx(2 * (1.1 * (1 - blend) + 0.6 * blend))
+    assert qla[1, 0] == pytest.approx(2 * (0.75 * (1 - blend) + 0.6 * blend))
+
+
+def test_sat3_factor_falls_back_to_x_half_when_the_ion_sum_vanishes():
+    qla, xs = sat3_qla_factors(_synthetic_sat3(0.9, zero_ions=True))
+    assert xs[0] == 0.5 and qla[1, 0] == pytest.approx(1.5) and qla[0, 0] == pytest.approx(2.2)
+
+
+def test_a_missing_or_zero_native_flux_is_not_validated(runs):
+    run = runs["sat0-es"]
+    missing = flux_decomposition(dataclasses.replace(run, sum_flux_spectrum=run.sum_flux_spectrum * np.nan))
+    assert missing.status == "unavailable"
+    zeroed = run.sum_flux_spectrum.copy()
+    zeroed[..., 1] = 0.0                 # TGLF "says" zero energy flux; the rebuild does not
+    assert flux_decomposition(dataclasses.replace(run, sum_flux_spectrum=zeroed)).status == "reconstruction_mismatch"

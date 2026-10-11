@@ -138,7 +138,9 @@ SAT_PAIR_SCHEMA = {
     "linear_identical": ("-", "model_derived", "ky grid, eigenvalues and QL weights agree within LINEAR_RTOL"),
     "linear_max_rel_diff": ("-", "model_derived", "their largest relative difference; empty when the grids differ "
                                                   "in shape"),
-    "split_status": ("-", "provenance", "split | linear_differs | unavailable (ClosureSplit.status)"),
+    "split_status": ("-", "provenance", "split | linear_differs | unavailable (ClosureSplit.status; also "
+                                        "unavailable when the two runs use different KYGRID_MODELs, which leaves "
+                                        "linear_identical empty, or when electrons are adiabatic)"),
 }
 for _q in QUANTITIES:
     SAT_PAIR_SCHEMA[f"{_q}_a"] = ("GB", "tglf_predicted", f"{_q} of sat_a")
@@ -266,6 +268,8 @@ def effective_controls(native: Any) -> dict[str, Any]:
     if "SAT_RULE" in parameters:
         out["units_effective"] = parameters.get("UNITS")
         out["xnu_model_effective"] = parameters.get("XNU_MODEL")
+        # tglf_startup.f90 (USE_PRESETS hard-coded true) zeroes WDIA_TRAPPED for every
+        # SAT rule before setting it to 1 for SAT2/3, so no input value survives.
         out["wdia_trapped_effective"] = 1.0 if int(parameters["SAT_RULE"]) in (2, 3) else 0.0
     ky = getattr(native, "ky_spectrum", None)
     eigen = getattr(native, "eigenvalue_spectrum", None)
@@ -435,7 +439,10 @@ def build_sat_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                        and abs(b["r_over_a"] - a["r_over_a"]) <= tolerance]
             if not matches:
                 continue
-            (b,) = matches     # build_rows refuses a configuration twice on one state
+            if len(matches) > 1:   # build_rows refuses a configuration twice on one state
+                raise ValueError(f"{a['shot']} {a['time_efit_s']} {a['efit_lineage']} r/a {a['r_over_a']}: "
+                                 f"sat{sat_b} {a['field_model']} matches {len(matches)} surfaces")
+            (b,) = matches
             pair = {"shot": a["shot"], "time_efit_s": a["time_efit_s"], "efit_lineage": a["efit_lineage"],
                     "r_over_a": a["r_over_a"], "field_model": a["field_model"],
                     "pair": f"sat{sat_a}-sat{sat_b}", "comparison": comparison,
@@ -454,7 +461,13 @@ def build_sat_pairs(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 pair["split_status"] = split.status
                 pair["linear_max_rel_diff"] = split.linear_max_rel_diff
                 pair["linear_identical"] = split.status != "linear_differs"
-                if split.status == "split":
+                # The channels index species 0 as the electrons; with adiabatic electrons
+                # (spectral species 2..ns) that slot is an ion, so nothing is split.
+                kinetic_electrons = all((getattr(r["_native"], "spectral_species", None) or (0,))[0] == 1
+                                        for r in (a, b))
+                if split.status == "split" and not kinetic_electrons:
+                    pair["split_status"] = "unavailable"
+                if pair["split_status"] == "split":
                     for q, (species, quantity) in SPLIT_CHANNELS.items():
                         for suffix, values in (("change", split.total), ("intensity_term", split.intensity_term),
                                                ("qla_term", split.qla_term)):
