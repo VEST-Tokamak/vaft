@@ -584,3 +584,30 @@ def test_an_assumed_or_inferred_ion_temperature_does_not_make_a_slice_kinetic(tm
     assert not vu._has_kinetic_slice(ods), "an assumed T_i alone is not kinetic"
     ods["core_profiles.profiles_1d.1.ion.0.temperature_fit.parameters"] = "origin=inferred; method=equilibrium_pressure_partition"
     assert not vu._has_kinetic_slice(ods), "an inferred T_i alone is not kinetic"
+
+
+def test_the_composed_slices_state_species_pressures_and_the_normalisation_target(tmp_path, tables):
+    ods, _ = _build(tmp_path, tables, assume_ti_eq_te=True)
+    for index in (0, 1):
+        base = f"core_profiles.profiles_1d.{index}"
+        n_ion = len(ods[f"{base}.ion"])
+        total = sum(np.asarray(ods[f"{base}.ion.{k}.pressure"], dtype=float) for k in range(n_ion))
+        assert np.allclose(total, ods[f"{base}.pressure_ion_total"], rtol=1e-6, equal_nan=True)
+        for k in range(n_ion):
+            assert float(ti_record_fields(ods[f"{base}.ion.{k}.density_fit.parameters"])["target_zeff"]) == 2.0
+    assert ti_record_fields(ods["core_profiles.profiles_1d.1.t_i_average_fit.parameters"])["status"] == "assumed"
+
+
+def test_the_inferred_ti_rewrites_the_species_pressures_built_on_the_assumed_one(tmp_path, tables):
+    product = _core_profiles(tmp_path, kinetic=(0,), rho_pol=np.sqrt(PSI_N), thomson=True)
+    composed, _ = vu.build_composition_ods(
+        shot=SHOT, core_profiles_product=product, efit_product=_efit(tmp_path),
+        ionization="coronal", tables=tables)
+    path = tmp_path / "composition.json"
+    composed.save(str(path))
+    ods, _ = vu.build_ti_inferred_ods(shot=SHOT, core_profiles_product=path,
+                                     efit_product=_magnetic_efit(tmp_path, E * NE * TE * 2.0))
+    base = "core_profiles.profiles_1d.1"
+    total = sum(np.asarray(ods[f"{base}.ion.{k}.pressure"], dtype=float) for k in range(len(ods[f"{base}.ion"])))
+    assert np.allclose(total, ods[f"{base}.pressure_ion_total"], rtol=1e-6, equal_nan=True)
+    assert ti_record_fields(ods[f"{base}.t_i_average_fit.parameters"])["origin"] == "inferred"

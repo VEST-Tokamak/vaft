@@ -2277,6 +2277,28 @@ COMPOSITION_IONIZATIONS = ("transient", "coronal")
 PRESSURE_CLOSURE_RECORD = {"pressure_closure": "infer_kinetic_closure", "dilution": "species"}
 
 
+def _write_species_pressures(ods: ODS, base: str) -> None:
+    """``ion[k].pressure`` = e n_k T_i for every ion of a slice that has an ion temperature.
+
+    Only the total ``pressure_ion_total`` was stored, so a reader drawing the
+    impurity pressure had to rebuild it; this states it per species.  A slice with
+    no ion temperature gets none (its total was not written either).
+    """
+    from vaft.ods_access import path_value
+
+    t_i = path_value(ods, f"{base}.ion.0.temperature", None)
+    if t_i is None:
+        return
+    t_i = np.asarray(t_i, dtype=float)
+    for k in range(len(ods[f"{base}.ion"])):
+        n_k = path_value(ods, f"{base}.ion.{k}.density", None)
+        if n_k is None:
+            continue
+        p_k = 1.602176634e-19 * np.asarray(n_k, dtype=float) * t_i
+        ods[f"{base}.ion.{k}.pressure"] = p_k
+        ods[f"{base}.ion.{k}.pressure_thermal"] = p_k
+
+
 def _write_closure_pressures(ods: ODS, index: int, time_s: float) -> str:
     """Rewrite one slice's pressures from its (now diluted) composition; say what was done.
 
@@ -2481,6 +2503,7 @@ def build_composition_ods(
                 ods[f"{base}.ion.{k}.temperature"] = te.copy()
                 ods[f"{base}.ion.{k}.temperature_fit.parameters"] = assumed_ti_record
             ods[f"{base}.t_i_average"] = te.copy()
+            ods[f"{base}.t_i_average_fit.parameters"] = assumed_ti_record
             assumed_ti += 1
             closure = infer_kinetic_closure(ods, time=float(time_s), dilution="species", ti_te_ratio=1.0)
             pressure = closure.pressure
@@ -2493,6 +2516,10 @@ def build_composition_ods(
             pressures[_write_closure_pressures(ods, index, float(time_s))] += 1
 
         _append_record_fields(ods, f"{base}.zeff_fit.parameters", {"target_zeff": target_zeff})
+        # the record that states the normalization also states what it normalised to
+        for k in range(len(ods[f"{base}.ion"])):
+            _append_record_fields(ods, f"{base}.ion.{k}.density_fit.parameters", {"target_zeff": target_zeff})
+        _write_species_pressures(ods, base)
         if equilibrium_index is not None:
             lineage = {
                 "equilibrium_lineage": "magnetics", "equilibrium_occurrence": 0,
@@ -2752,6 +2779,8 @@ def build_ti_inferred_ods(
         )
         ods[f"{base}.pressure_ion_total"] = pressure.p_i_thermal
         ods[f"{base}.pressure_thermal"] = pressure.p_thermal
+        ods[f"{base}.t_i_average_fit.parameters"] = record
+        _write_species_pressures(ods, base)  # the composed ones were built on the assumed T_i
         _append_record_fields(ods, f"{base}.ion.0.density_fit.parameters", PRESSURE_CLOSURE_RECORD)
         for flags in result["flags"]:
             for flag in flags:

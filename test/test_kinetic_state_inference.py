@@ -371,3 +371,23 @@ def test_an_inferred_t_i_refuses_a_kinetic_equilibrium(sample, tables):
     _, result = _run(sample, tables, ion_temperature="inferred_profile", equilibrium_lineage="electron_kinetic")
     closure = result.stage("pressure_closure")
     assert not closure.ok and "magnetics" in closure.reason
+
+
+def test_the_product_states_its_romero_closure_t_i_record_and_species_pressures(sample, tables):
+    """What the kinetic-stages figure (#1963) reads off the product, not off the call (#1842)."""
+    ods, result = _run(sample, tables)
+    product = result.product
+    base = "core_profiles.profiles_1d.0"
+    zeff = ti_record_fields(product[f"{base}.zeff_fit.parameters"])
+    romero = result.stage("romero_zeff").fields
+    assert zeff["resistive_method"] == "romero"
+    assert float(zeff["resistive_target"]) == pytest.approx(romero["z_eff_resistive"])
+    assert zeff["resistive_status"] == "ok" and int(zeff["resistive_n_states"]) == romero["n_states"]
+    assert ":" in zeff["resistive_window"]
+    for k in range(len(product[f"{base}.ion"])):
+        record = ti_record_fields(product[f"{base}.ion.{k}.density_fit.parameters"])
+        assert record["resistive_method"] == "romero" and "normalization" in record
+    assert str(product[f"{base}.t_i_average_fit.parameters"]) == str(product[f"{base}.ion.0.temperature_fit.parameters"])
+    total = sum(np.asarray(product[f"{base}.ion.{k}.pressure"], dtype=float) for k in range(len(product[f"{base}.ion"])))
+    assert np.allclose(total, product[f"{base}.pressure_ion_total"], rtol=1e-6, equal_nan=True)
+    assert "wall" not in product.keys() or "wall" in ods.keys(), "no phantom wall"

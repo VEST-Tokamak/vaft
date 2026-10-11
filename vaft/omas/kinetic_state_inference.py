@@ -293,6 +293,10 @@ def _ti_ratio_profile(
             "points": n, "n_independent": n_eff}
 
 
+#: Elementary charge [J/eV]: p [Pa] = e n [m^-3] T [eV].
+_QE = 1.602176634e-19
+
+
 def _ti_ratio_estimate(
     ti_te: np.ndarray, sigma_t_i: np.ndarray, t_e: np.ndarray, *, n_independent: int = 5,
 ) -> dict[str, float]:
@@ -414,6 +418,7 @@ def kinetic_state_stages(
 
     ctx: dict[str, Any] = {}
     stages: list[InferenceStage] = []
+    had_wall = "wall" in ods.keys()
 
     # -- 1. data -------------------------------------------------------------------------------
     def data() -> InferenceStage:
@@ -541,6 +546,7 @@ def kinetic_state_stages(
                                      "provenance": provenance})
         ctx["z_res"] = float(inference.zeff)
         ctx["romero_provenance"] = provenance
+        ctx["romero_fields"] = fields
         return _stage("romero_zeff", fields=fields, provenance=provenance,
                       assumptions={"assume_ohmic": assumptions["assume_ohmic"]},
                       lands={"z_eff_resistive": "core_profiles.global_quantities.z_eff_resistive[j]"})
@@ -734,9 +740,23 @@ def kinetic_state_stages(
             product[f"{base}.ion.{k}.temperature_fit.parameters"] = ti_record
         product[f"{base}.t_i_average"] = t_i
         _append_record_fields(product, f"{base}.ion.0.temperature_fit.parameters", lineage)
-        zeff_extra = {"resistive_target": ctx["z_res"], "ionization": ionization,
+        # t_i_average says what it is too (same record, lineage included) -- a reader of
+        # the average must not have to know it was copied from the main ion
+        product[f"{base}.t_i_average_fit.parameters"] = str(product[f"{base}.ion.0.temperature_fit.parameters"])
+        romero = ctx["romero_fields"]
+        closure_fields = {
+            "resistive_target": ctx["z_res"], "resistive_method": "romero",
+            **({"resistive_sigma": float(romero["z_eff_resistive_sigma"])}
+               if romero.get("z_eff_resistive_sigma") is not None else {}),
+            "resistive_window": f"{romero['window_s'][0]:.6g}:{romero['window_s'][1]:.6g}",
+            "resistive_status": romero["estimate_status"], "resistive_n_states": int(romero["n_states"]),
+        }
+        zeff_extra = {**closure_fields, "ionization": ionization,
                       **{k: v for k, v in assumptions.items() if k.startswith(("assume_nc", "n_c"))}}
         _append_record_fields(product, f"{base}.zeff_fit.parameters", zeff_extra)
+        # the record that states the normalization carries the closure it was normalised to
+        for k in range(len(product[f"{base}.ion"])):
+            _append_record_fields(product, f"{base}.ion.{k}.density_fit.parameters", closure_fields)
         closure = infer_kinetic_closure(product, time=time, dilution="species", ti_te_ratio=1.0)
         pressure = closure.pressure
         if pointwise:
@@ -750,7 +770,17 @@ def kinetic_state_stages(
         product[f"{base}.electrons.pressure_thermal"] = pressure.p_e
         product[f"{base}.pressure_ion_total"] = pressure.p_i_thermal
         product[f"{base}.pressure_thermal"] = pressure.p_thermal
+        # per species, so p_imp is read rather than rebuilt: p_k = e n_k T_i for every ion
+        for k in range(len(product[f"{base}.ion"])):
+            n_k = np.asarray(product[f"{base}.ion.{k}.density"], dtype=float)
+            p_k = _QE * n_k * np.asarray(t_i, dtype=float)
+            product[f"{base}.ion.{k}.pressure"] = p_k
+            product[f"{base}.ion.{k}.pressure_thermal"] = p_k
         _append_record_fields(product, f"{base}.ion.0.density_fit.parameters", PRESSURE_CLOSURE_RECORD)
+        if not had_wall and "wall" in product.keys():
+            # a read somewhere in the chain materialised an empty, NaN wall (OMAS creates
+            # what it is asked for); the input had none, so neither does the product
+            del product["wall"]
         z_stored = np.full(np.atleast_1d(np.asarray(product["core_profiles.time"], dtype=float)).shape, np.nan)
         z_stored[cp] = ctx["z_res"]
         product["core_profiles.global_quantities.z_eff_resistive"] = z_stored
