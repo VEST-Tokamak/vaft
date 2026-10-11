@@ -151,21 +151,61 @@ def run_directories(root: Path, shot: int) -> list[Path]:
     )
 
 
-def check_directory(workdir: Path, shot: int, diagnostics: Any) -> list[dict[str, Any]]:
-    """Every g-file in one run directory, in time order."""
-    return [
-        check_gfile(path, diagnostics)
-        for path in sorted(workdir.glob(f"g0{shot}.*"), key=lambda p: _time_ms(p) or 0)
-    ]
+def check_directory(
+    workdir: Path,
+    shot: int,
+    diagnostics: Any,
+    outcomes: Mapping[int, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Every g-file in one run directory, in time order.
+
+    ``outcomes`` maps the slice time in ms to the run's own verdict on it
+    (``"accepted"`` or ``"flagged"``).  EFIT writes a g-file for a flagged
+    slice too, so a directory listing alone cannot tell the two apart; when
+    the verdicts are given each row carries its own, and :func:`summarize`
+    keeps the flagged ones out of the comparison.
+    """
+    rows = []
+    for path in sorted(workdir.glob(f"g0{shot}.*"), key=lambda p: _time_ms(p) or 0):
+        row = check_gfile(path, diagnostics)
+        row["time_ms"] = _time_ms(path)
+        if outcomes is not None:
+            row["outcome"] = outcomes.get(row["time_ms"])
+        rows.append(row)
+    return rows
+
+
+def _is_flagged(row: Mapping[str, Any]) -> bool:
+    """The run flagged this slice (an outcome was given and it is not accepted)."""
+    return row.get("outcome") is not None and row["outcome"] != "accepted"
+
+
+def _is_unmatched(row: Mapping[str, Any]) -> bool:
+    """A g-file no run verdict names: a stale file, or a time the keys could not pair."""
+    return "outcome" in row and row["outcome"] is None
+
+
+def _excluded(row: Mapping[str, Any]) -> bool:
+    return _is_flagged(row) or _is_unmatched(row)
 
 
 def summarize(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     """What the comparable slices say, and how many there were.
 
     Slices whose nearest Thomson sample is out of tolerance are counted, never
-    averaged into the answer: a missing comparison is not agreement.
+    averaged into the answer: a missing comparison is not agreement.  A slice
+    the run itself flagged (``outcome`` other than ``"accepted"``) is counted
+    under ``flagged_slices`` and left out of every ratio: its g-file holds
+    whatever the solver had when ``chkerr`` rejected it, not a reconstruction.
+    A g-file the run's verdicts do not name at all (``outcome`` ``None``) is
+    counted under ``unmatched_slices`` and left out too, but is not a chkerr
+    rejection and must not be read as one.
     """
-    compared = [row for row in rows if row.get("log_ratio") is not None]
+    flagged = [row for row in rows if _is_flagged(row)]
+    unmatched = [row for row in rows if _is_unmatched(row)]
+    compared = [
+        row for row in rows if row.get("log_ratio") is not None and not _excluded(row)
+    ]
     ratios = np.asarray([row["log_ratio"] for row in compared], dtype=float)
     ratios = ratios[np.isfinite(ratios)]
     statuses: dict[str, int] = {}
@@ -175,6 +215,8 @@ def summarize(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         return {
             "reconstructions": len(rows),
             "compared": 0,
+            "flagged_slices": len(flagged),
+            "unmatched_slices": len(unmatched),
             "statuses": statuses,
             "median_log_ratio": None,
             "median_sum_ratio": None,
@@ -185,6 +227,8 @@ def summarize(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
     return {
         "reconstructions": len(rows),
         "compared": int(ratios.size),
+        "flagged_slices": len(flagged),
+        "unmatched_slices": len(unmatched),
         "statuses": statuses,
         "median_log_ratio": median,
         "median_sum_ratio": math.exp(median),
@@ -237,7 +281,12 @@ def _lower_side_verdict(summary: Mapping[str, Any]) -> str:
 
 
 def compare_ladder(
-    workdirs: Mapping[str, Path], *, shot: int, output: Path | None = None
+    workdirs: Mapping[str, Path],
+    *,
+    shot: int,
+    output: Path | None = None,
+    outcomes: Mapping[str, Mapping[int, str]] | None = None,
+    headline: str | None = None,
 ) -> dict[str, Any]:
     """The same comparison at every rung of the weight ladder.
 
@@ -246,18 +295,46 @@ def compare_ladder(
     the measurement it never used.  A rung that raises the weight and leaves
     this ratio where it was has not improved the reconstruction, whatever it
     did to the residual.
+
+    ``outcomes`` is ``{rung: {time_ms: outcome}}`` from the runs themselves;
+    with it a flagged slice is reported, not averaged (see :func:`summarize`),
+    and the rungs are also compared on the slices *every* rung accepted
+    (``common_summary``), so a rung that kept more or fewer slices is not
+    mistaken for one that moved the ratio.  ``closest_to_thomson`` is read
+    from that common set (``closest_to_thomson_basis = "common"``); when
+    several rungs compared but share no accepted slice it is ``None`` with a
+    reason, because medians over different slice sets do not rank rungs.  A
+    single rung is its own common set.  The headline verdict is the
+    ``headline`` rung's (default: the first rung given), which the caller
+    makes the rung the ladder is measured against.
     """
     diagnostics = thomson_diagnostics(shot)
     if diagnostics is None:
         return {"available": False, "reason": f"no packaged Thomson data for {shot}"}
     rungs: dict[str, Any] = {}
     for name, workdir in workdirs.items():
-        rows = check_directory(Path(workdir), shot, diagnostics)
+        rung_outcomes = None if outcomes is None else outcomes.get(name, {})
+        rows = check_directory(Path(workdir), shot, diagnostics, rung_outcomes)
         rungs[name] = {"summary": summarize(rows), "slices": rows}
+    # The slices every rung both accepted and could compare with Thomson.
+    common: set[int] | None = None
+    for item in rungs.values():
+        kept = {
+            row["time_ms"]
+            for row in item["slices"]
+            if row.get("log_ratio") is not None and not _excluded(row)
+        }
+        common = kept if common is None else common & kept
+    common = common or set()
+    for item in rungs.values():
+        item["common_summary"] = summarize(
+            [row for row in item["slices"] if row.get("time_ms") in common]
+        )
+    comparing = [name for name, item in rungs.items() if item["summary"]["compared"]]
     ordered = [
-        (name, item["summary"]["median_log_ratio"])
+        (name, item["common_summary"]["median_log_ratio"])
         for name, item in rungs.items()
-        if item["summary"]["median_log_ratio"] is not None
+        if item["common_summary"]["median_log_ratio"] is not None
     ]
     best = min(ordered, key=lambda pair: abs(pair[1]), default=None)
     payload: dict[str, Any] = {
@@ -265,22 +342,38 @@ def compare_ladder(
         "shot": shot,
         "decisive_log_ratio": DECISIVE_LOG_RATIO,
         "rungs": rungs,
+        "common_slices_ms": sorted(common),
         "closest_to_thomson": None if best is None else best[0],
+        "closest_to_thomson_basis": "common" if best is not None else None,
     }
+    if best is None and len(comparing) > 1:
+        payload["closest_to_thomson_reason"] = (
+            "no slice was accepted and Thomson-comparable on every rung, and "
+            "medians over different slice sets do not rank rungs"
+        )
     silent = [
         name
         for name, item in rungs.items()
         if not item["summary"]["compared"]
     ]
     payload["rungs_with_no_comparable_slice"] = silent
-    if ordered:
-        first = ordered[0]
-        payload["verdict"] = (
-            verdict(rungs[first[0]]["summary"])
-            + ". Across the ladder the closest agreement is at "
-            f"{best[0]} (median ratio "
-            f"{rungs[best[0]]['summary']['median_sum_ratio']:.3g}x)"
-        )
+    if headline is None:
+        headline = next(iter(workdirs), None)
+    payload["headline_rung"] = headline
+    if comparing:
+        head = rungs.get(headline, {}).get("summary")
+        if head is None or head["median_log_ratio"] is None:
+            head = rungs[comparing[0]]["summary"]
+        payload["verdict"] = verdict(head)
+        if best is not None:
+            payload["verdict"] += (
+                ". Across the ladder the closest agreement is at "
+                f"{best[0]} (median ratio "
+                f"{rungs[best[0]]['common_summary']['median_sum_ratio']:.3g}x "
+                f"on the {len(common)} slice(s) every rung accepted)"
+            )
+        else:
+            payload["verdict"] += ". " + payload["closest_to_thomson_reason"]
         if silent:
             # The slices a high weight keeps need not be the ones Thomson
             # covers, so this arm can fall silent exactly where it is needed.

@@ -69,6 +69,7 @@ _SUBMODULES = {
     "mode_frequency": ".mode_frequency",
     "mhd_stability": ".mhd_stability",
     "q_profile_context": ".q_profile_context",
+    "ordering_state": ".ordering_state",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -145,6 +146,9 @@ _IMPORT_ORDER = (
     # The module is q_profile_context so that its key never shadows the
     # core_q_context function it exports (#1838).
     "q_profile_context",
+    # Asymptotic ordering quantities of measured states (#1627 §2, #1629);
+    # nothing it exports collides.
+    "ordering_state",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
@@ -244,6 +248,14 @@ def __getattr__(name: str):
         value = _public_names()
         globals()["__all__"] = value
         return value
+
+    if name.startswith("_"):
+        # No submodule exports a private or dunder name, so there is nothing
+        # to hunt for: answering `hasattr(vaft.process, "__wrapped__")` (what
+        # inspect, pickle and doctest probe) by importing every submodule cost
+        # the whole package for a guaranteed "no" (cold review 0.7.0 process
+        # F6, #1888).
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
     value = _resolve(name)
     globals()[name] = value

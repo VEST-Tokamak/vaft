@@ -152,6 +152,33 @@ def _apply_legend_policy(
     figure.update_layout(showlegend=True)
 
 
+def _secondary_axis(figure: Any, model: LineSeries, cell: dict) -> tuple[str, str]:
+    """A right-hand y-axis overlaying the cell's own: ``(x reference, y reference)``.
+
+    The new axis takes the next free ``yaxisN`` and overlays the cell's y-axis,
+    anchored to its x-axis, so :attr:`Series.secondary` traces share the time
+    axis but not the scale.
+    """
+    if cell:
+        subplot = figure.get_subplot(cell["row"], cell["col"])
+        x_ref, y_ref = subplot.yaxis.anchor or "x", subplot.xaxis.anchor or "y"
+    else:
+        x_ref, y_ref = "x", "y"
+    taken = [1]
+    for key in figure.layout.to_plotly_json():
+        if key.startswith("yaxis"):
+            suffix = key[len("yaxis"):]
+            taken.append(int(suffix) if suffix.isdigit() else 1)
+    number = max(taken) + 1
+    figure.update_layout({
+        f"yaxis{number}": {
+            "overlaying": y_ref, "anchor": x_ref, "side": "right", "showgrid": False,
+            "title_text": plain_axis_label(model.secondary_y_label, model.secondary_y_unit),
+        }
+    })
+    return x_ref, f"y{number}"
+
+
 def add_line_series(
     figure: Any,
     model: LineSeries,
@@ -162,20 +189,34 @@ def add_line_series(
     uncertainty: str = "auto",
     validity: str = "show",
     x_title: bool = True,
+    legend_placement: Any = None,
     **style: Any,
 ) -> None:
-    """Draw a :class:`LineSeries` into a cell of ``figure`` (or the whole figure)."""
+    """Draw a :class:`LineSeries` into a cell of ``figure`` (or the whole figure).
+
+    ``legend_placement`` is the Matplotlib renderer's corner and type size for
+    a legend; a Plotly cell places its own legend (``_apply_legend_policy``),
+    so it is accepted and not used.
+    """
     cell = {"row": row, "col": col} if row is not None else {}
     labels, legend_title = trace_labels(model.series, panel_title=model.title)
     labelled = 0
     judged = 0
     start = len(figure.data)
+    secondary = (
+        _secondary_axis(figure, model, cell) if any(s.secondary for s in model.series) else None
+    )
     for series, label in zip(model.series, labels):
+        before = len(figure.data)
+        target = {} if series.secondary else cell
         if add_series(figure, series, name=label, uncertainty=uncertainty, validity=validity,
-                      legend=legend is not False, **cell, **style):
+                      legend=legend is not False, **target, **style):
             labelled += 1
             if not series.role:
                 judged += 1
+        if series.secondary:
+            for trace in figure.data[before:]:
+                trace.update(xaxis=secondary[0], yaxis=secondary[1])
     _apply_legend_policy(figure, judged, labelled, legend, legend_title, cell, start)
     figure.update_xaxes(title_text=plain_axis_label(model.x_label, model.x_unit) if x_title else None,
                         range=list(model.x_limits) if model.x_limits else None, **cell)

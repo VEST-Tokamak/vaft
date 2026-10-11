@@ -179,7 +179,8 @@ def profile_dataset(model: Any, **extra: Any) -> "xr.Dataset":
     ds = _series_dataset(model.series)
     ds.attrs.update(dataset_attrs(model, "coordinate_label", "y_label", "y_unit", "title", "x_limits", **extra))
     ds.attrs["reference_lines"] = _plain(
-        [{"x": line.x, "label": line.label, "style": dict(line.style)} for line in model.reference_lines]
+        [{"x": line.x, "label": line.label, "style": dict(line.style),
+          **({} if line.x_end is None else {"x_end": line.x_end})} for line in model.reference_lines]
     )
     metadata = getattr(model, "metadata", None)
     if metadata:

@@ -73,9 +73,15 @@ NEUTRAL = frozenset({
     # reads through vaft.ods_access.
     "summary_time_estimated_q95", "summary_time_q_star_cylindrical",
     "summary_time_q_star_kink", "summary_time_normalized_current",
+    # The I_p/PF/eddy overview reads paths through the accessor and grades
+    # each slice with vaft.validation.equilibrium.verify_convergence, which
+    # reads through vaft.ods_access.
+    "current_overview_reconstruction",
 })
 OMAS_BOUND = frozenset({
     "kinetic_overview_profiles",
+    # issue #1837: the Thomson channels go through equilibrium_mapping_points.
+    "kinetic_overview_state",
     "passive_structure_geometry_wall_mode",
     "passive_structure_overview_wall_time", "passive_structure_overview_wall_reduction",
     "passive_structure_field_wall_reduction", "neoclassical_profile_bootstrap_current",
@@ -111,6 +117,7 @@ _MAPPER_PROBES = {
 }
 IGNORED_READS: dict[str, dict[str, str]] = {
     "kinetic_overview_profiles": _MAPPER_PROBES,
+    "kinetic_overview_state": _MAPPER_PROBES,
     "thomson_scattering_profile_fit": _MAPPER_PROBES,
     "charge_exchange_profile_fit": _MAPPER_PROBES,
 }

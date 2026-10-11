@@ -326,6 +326,9 @@ CORE_MODULES: tuple[str, ...] = (
     "test_impurity_plots.py",
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
+    # Turbulence-zonal-flow predator-prey reduced model (#1820): analytic kernels
+    # checked against a numerical orbit. Pure NumPy, under 5 s.
+    "test_formula_turbulence.py",
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
@@ -334,7 +337,9 @@ CORE_MODULES: tuple[str, ...] = (
     # import checks that keep both off the default processing path. Under 10 s.
     "test_validation_credibility.py",
     # Sensitivity contract (lane AP, #1642): finite differences against the
-    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map. ~2 s.
+    # analytic Green field, J Sigma J^T against Monte Carlo on a closed-form map; per-formula
+    # propagation and analytic Jacobians of the pilot formulas (#1874). ~3 s.
+    "test_formula_uncertainty.py",
     "test_sensitivity_contract.py",
     # Asymptotic ordering parameters (#1627): Lundquist, inertial lengths,
     # Braginskii times, Knudsen, magnetization against the NRL formulary.
@@ -358,6 +363,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
     "test_q_profile_context.py",
+    # Ordering summary layer (lane AP, #1627 §2 / #1629): each builder against
+    # its textbook definition; missing inputs stay NaN. Pure NumPy, ~3 s.
+    "test_ordering_state.py",
     # The gate's own contract.
     "test_core_selection.py",
 )

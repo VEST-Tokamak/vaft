@@ -1,6 +1,6 @@
 """Running PENTRC, and the one convention that decides whether the answer means anything.
 
-``vaft.code.pentrc`` reads what PENTRC produced.  This is the half that produces
+``vaft.code.gpec.read_pentrc_output`` reads what PENTRC produced.  This is the half that produces
 it, and the thing worth testing is not the subprocess call -- it is the
 ``pentrc.in`` that goes beside the result:
 
@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from vaft.code import gpec, pentrc
+from vaft.code import gpec
 from vaft.code.gpec import PENTRCOptions
 
 import stat
@@ -178,7 +178,7 @@ def test_the_requested_methods_are_on_and_every_other_one_is_written_off(cell):
     # PENTRC's own default for this one is `.true.`, so leaving it unwritten
     # would add a calculation nobody asked for.
     assert values["tgar_flag"] == "f"
-    for method in pentrc.TORQUE_METHODS:
+    for method in gpec.TORQUE_METHODS:
         assert values[f"{method}_flag"] == ("t" if method == "fgar" else "f"), method
 
 
@@ -194,11 +194,11 @@ def test_every_method_vaft_can_read_has_a_namelist_flag_to_ask_for_it(cell):
     path = gpec.prepare_pentrc_run(
         cell,
         mode=1,
-        options=_options(methods=tuple(pentrc.TORQUE_METHODS)),
+        options=_options(methods=tuple(gpec.TORQUE_METHODS)),
         kinetic_file=cell.parents[2] / "profiles.kin",
     )
     values = _pent(path, "pent_output")
-    assert all(values[f"{method}_flag"] == "t" for method in pentrc.TORQUE_METHODS)
+    assert all(values[f"{method}_flag"] == "t" for method in gpec.TORQUE_METHODS)
 
 
 def _template_without(tmp_path, *methods: str) -> Path:
@@ -721,9 +721,9 @@ def test_the_grid_names_are_the_readers_grid_names_where_they_overlap():
     that produced it.  Pinned so the mismatch is a documented fact rather than a
     surprise at read time.
     """
-    assert set(PENTRCOptions.GRID_FLAGS) - {"dynamic"} <= set(pentrc.TORQUE_GRIDS)
-    assert "dynamic" not in pentrc.TORQUE_GRIDS
-    assert "lsode" in pentrc.TORQUE_GRIDS
+    assert set(PENTRCOptions.GRID_FLAGS) - {"dynamic"} <= set(gpec.TORQUE_GRIDS)
+    assert "dynamic" not in gpec.TORQUE_GRIDS
+    assert "lsode" in gpec.TORQUE_GRIDS
 
 
 def test_the_packaged_template_ships_every_method_off():
@@ -735,7 +735,7 @@ def test_the_packaged_template_ships_every_method_off():
     from vaft.code.gpec._runtime import package_vest_dir
 
     values = _pent(package_vest_dir() / "pentrc.in", "pent_output")
-    for method in pentrc.TORQUE_METHODS:
+    for method in gpec.TORQUE_METHODS:
         assert values[f"{method}_flag"] == "f", method
 
 

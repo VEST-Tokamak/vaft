@@ -10,6 +10,7 @@ than discovering on a server.
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -42,12 +43,15 @@ pytestmark = [
 ]
 
 
-def _dry_run(tmp_path: Path, shot: int = 48226, extra: list[str] | None = None):
+def _dry_run(
+    tmp_path: Path, shot: int = 48226, extra: list[str] | None = None,
+    *, base_dir: str | None = None, env: dict | None = None,
+):
     config = tmp_path / "config.yaml"
     config.write_text(
         json.dumps(
             {
-                "base_dir": str(tmp_path / "filedb"),
+                "base_dir": base_dir or str(tmp_path / "filedb"),
                 "layout": "filedb",
                 "shots": [shot],
                 "external": {"data_root": str(tmp_path / "incoming"), "ces_options": "ids"},
@@ -69,6 +73,7 @@ def _dry_run(tmp_path: Path, shot: int = 48226, extra: list[str] | None = None):
         ],
         capture_output=True,
         text=True,
+        env=env,
     )
 
 
@@ -187,3 +192,22 @@ def test_the_composition_ionization_is_configurable(tmp_path):
     result = _dry_run(tmp_path, extra=["-p", "--config", 'composition={"ionization": "coronal"}'])
     assert result.returncode == 0, result.stderr[-3000:]
     assert "--ionization coronal" in result.stdout
+
+
+def test_the_run_config_reads_the_filedb_root_from_the_environment(tmp_path):
+    """`${VAFT_FILEDB_DIR}` in a pipeline-2 config means the same as in pipeline 1.
+
+    Pipeline 2 read `base_dir` raw, so the reference stayed a literal
+    `${VAFT_FILEDB_DIR}` directory name (cold review 0.7.0 data F12, #1888).
+    """
+    root = tmp_path / "from-env"
+    env = dict(os.environ, VAFT_FILEDB_DIR=str(root))
+    result = _dry_run(tmp_path, base_dir="${VAFT_FILEDB_DIR}", env=env)
+    assert result.returncode == 0, result.stderr[-3000:]
+    assert str(root) in result.stdout
+    assert "${VAFT_FILEDB_DIR}" not in result.stdout
+
+    env.pop("VAFT_FILEDB_DIR")
+    refused = _dry_run(tmp_path, base_dir="${VAFT_FILEDB_DIR}", env=env)
+    assert refused.returncode != 0
+    assert "VAFT_FILEDB_DIR" in refused.stdout + refused.stderr
