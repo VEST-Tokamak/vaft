@@ -38,6 +38,8 @@ __all__ = ["__version__"]
 # - local_mhd_criteria: per-surface s and alpha in the #1720 volume-radius
 #   normalisation with the circular s-alpha first-stability boundary as an
 #   indicator, from arrays or one ODS slice (#1902)
+# - vaft.plot.local_mhd_criteria: D_I/D_R against psi_N, the s-alpha plane
+#   and R-Z maps of curvature and local shear (Field2D) (#1902)
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the

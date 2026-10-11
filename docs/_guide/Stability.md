@@ -214,6 +214,24 @@ fig, axes = stability_atlas_population(populations)
 
 `notebooks/stability_atlas_population.ipynb` re-runs it from `$VAFT_ATLAS_DIR`.
 
+### Local MHD criteria from one equilibrium
+
+`vaft.process.local_mhd_criteria` evaluates, from one reconstructed equilibrium and with no stability code:
+- Mercier `D_I` and GGJ `D_R` (DCON's formulas, checked against DCON's own output);
+- the normal and geodesic field-line curvature and the local shear, along flux surfaces and in R–Z;
+- per-surface s–α in the #1720 normalisation (#1902).
+
+The renderers in `vaft.plot.local_mhd_criteria` draw each against its own criterion: `D > 0` is unstable, and the s–α boundary is the circular model's, labelled as such.
+
+<!-- docs-snippet: skip needs-file (a g-file from the packaged data and the GPEC example) -->
+```python
+from vaft.process.local_mhd_criteria import mercier_ggj_from_ods, s_alpha_from_ods
+from vaft.plot.local_mhd_criteria import local_mhd_criteria_profile_interchange, local_mhd_criteria_s_alpha
+profile = mercier_ggj_from_ods(ods, 0)            # D_I, D_R, H per surface
+fig, ax = local_mhd_criteria_profile_interchange(profile)
+fig, ax = local_mhd_criteria_s_alpha(s_alpha_from_ods(ods, 0))
+```
+
 ---
 
 # Running the GPEC suite
