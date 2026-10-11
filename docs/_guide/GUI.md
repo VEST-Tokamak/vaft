@@ -153,7 +153,7 @@ in the same way:
 ```python
 from vaft.gui import register_workspace
 
-class EquilibriumWorkspace:
+class ShotNotesWorkspace:
     def __init__(self, shell):           # shell.selection, shell.report, shell.show
         self.shell = shell
     def sidebar(self): return [...]      # Panel objects
@@ -161,7 +161,7 @@ class EquilibriumWorkspace:
     def activate(self): ...              # optional: called each time it is shown
     def close(self): ...                 # optional: called when the browser session ends
 
-register_workspace("equilibrium", "Equilibrium", EquilibriumWorkspace, order=30)
+register_workspace("shot_notes", "Shot notes", ShotNotesWorkspace, order=90)
 ```
 
 A workspace is built the first time it is shown. It reads and changes the shared selection
@@ -186,6 +186,28 @@ install.
 Every control is reachable at every width; nothing is hidden on small screens. The rules live
 in `vaft.gui.layout`, and a new workspace gets them by using `vaft.gui.layout.page`, as the
 shell does.
+
+### Touch
+
+On a phone or tablet the page renders at the device's own width (it declares a `viewport`), and
+interactive plots start in a touch-friendly mode:
+
+- **Drag on the plot** (under the renderer choice, for a single plot) decides what a one-finger drag over an
+  interactive plot does: *Zoom box*, *Pan* or *Scroll the page*. Phones and tablets start on
+  *Scroll the page*, so a plot as wide as the screen never traps the reader; desktops start on
+  *Zoom box*. The choice is recognised from the browser's User-Agent and only sets the default.
+  Switching keeps the current zoom. A composition uses the default; use its mode bar to zoom or
+  pan.
+  An iPad that asks for desktop sites starts on *Zoom box*; change it in the list.
+- To zoom in on a touch screen, choose *Zoom box* and drag over the region you want, or use the
+  zoom buttons in the plot's mode bar, which stays shown on a touch screen. To zoom back out, use the mode bar's *Autoscale* or
+  *Reset axes*. A double tap does not reset the zoom, and Plotly has no two-finger pinch zoom on
+  its 2-D plots.
+- Legends move underneath the plot on a touch screen, so they do not take the plot's width.
+  *Figure options* can still hide the legend.
+- A static (Matplotlib) image is scaled to the screen width, so its text gets small on a phone.
+  Pinch-zoom the page or turn the phone sideways, or switch to the interactive renderer when
+  the plot has one.
 
 ## Run on a remote host over SSH
 
