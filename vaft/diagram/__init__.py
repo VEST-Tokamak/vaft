@@ -29,6 +29,9 @@ reduced representations (#1626): ``reduced_representation_hierarchy``,
 ``reduced_representation_hierarchy_compact`` and ``reduction_graph``;
 asymptotic orderings (#1627): ``timescale_hierarchy``, ``ordering_contract_map`` and
 ``adapter_contract_map`` (#1823);
+plasma-model guide (#1739): ``plasma_model_reduction_map``, ``formalism_axes_map``,
+``solver_placement_map`` (with ``EXTERNAL_CODES``), ``kinetic_mhd_coupling`` and
+``reduced_model_ancestry``;
 tokamak geometry: ``tokamak_torus``, ``flux_surfaces``, ``shaping_family``,
 ``hfs_lfs_field``, ``safety_factor_winding``, ``flux_coordinates``,
 ``poloidal_angle_comparison``, ``unwrapped_flux_surface`` and ``field_line_pitch``;
@@ -111,6 +114,12 @@ __all__ = [
     "timescale_hierarchy",
     "ordering_contract_map",
     "adapter_contract_map",
+    "plasma_model_reduction_map",
+    "formalism_axes_map",
+    "solver_placement_map",
+    "kinetic_mhd_coupling",
+    "reduced_model_ancestry",
+    "EXTERNAL_CODES",
     "tokamak_torus",
     "flux_surfaces",
     "shaping_family",
@@ -314,6 +323,12 @@ _LOCATIONS = {
     "timescale_hierarchy": "._orderings",
     "ordering_contract_map": "._orderings",
     "adapter_contract_map": "._orderings",
+    "plasma_model_reduction_map": "._plasma_models",
+    "formalism_axes_map": "._plasma_models",
+    "solver_placement_map": "._plasma_models",
+    "kinetic_mhd_coupling": "._plasma_models",
+    "reduced_model_ancestry": "._plasma_models",
+    "EXTERNAL_CODES": "._plasma_models",
     "mhd_mode_geometry_map": "._mode_geometry",
     "tokamak_torus": "._tokamak_geometry",
     "flux_surfaces": "._tokamak_geometry",
