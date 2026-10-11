@@ -452,7 +452,10 @@ def _attach_formalism(record: GPECModuleRun, config: GPECSuiteConfig, *, dcon_di
 
     formalism = resolve_plasma_formalism(record.module, record.workdir, config=config, dcon_dir=dcon_dir)
     if formalism is not None:
+        from vaft.validation.model_contracts import safe_ordering_provenance
+
         record.plasma_formalism = formalism.as_dict()
+        record.ordering_check = safe_ordering_provenance(formalism, getattr(config, "ordering_state", None))
 
 
 def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:

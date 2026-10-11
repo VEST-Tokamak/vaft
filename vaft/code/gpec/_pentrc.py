@@ -792,5 +792,8 @@ def run_pentrc(
 
         formalism = resolve_plasma_formalism("pentrc", record.workdir)
         if formalism is not None:
+            from vaft.validation.model_contracts import safe_ordering_provenance
+
             record.plasma_formalism = formalism.as_dict()
+            record.ordering_check = safe_ordering_provenance(formalism, getattr(config, "ordering_state", None))
     return record

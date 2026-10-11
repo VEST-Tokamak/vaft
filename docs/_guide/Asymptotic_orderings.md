@@ -251,6 +251,28 @@ result goes through `evaluate_contract` and is placed on the credibility `applic
 carry is `UNASSESSED`, never a pass. This covers a mode's $k_\perp\rho_i$ without mode numbers, and a layer
 width. The check is advisory: it reports and never blocks a run.
 
+**Recorded in run provenance.** `ordering_provenance(formalism, state, points)` reduces the check to a strict-JSON
+record. It lists the contracts consumed with their roles, statuses, limiting orderings, margins and point counts.
+A missing margin is `null`. Three adapters store it, one per family:
+
+| Adapter | Where | State it adds itself | State a caller passes |
+| --- | --- | --- | --- |
+| EFIT | `ordering_check` in the resolved configuration: `efit_configuration.json`, `EFITResult.configuration` and each slice's provenance | none (EFIT's inputs carry no $n_e$, $T_e$ or $\dot I_p$) | `EFITConfig.ordering_state`, e.g. from `vaft.process.ordering_state` |
+| GPEC suite | `GPECModuleRun.ordering_check` of each prepared cell, carried by the `asdict` run manifest | none | `GPECSuiteConfig.ordering_state` |
+| CGYRO | `CGYROResult.provenance["ordering_check"]` | $\rho_i/L_{T_i}$ and $\lambda_D/L_{T_e}$ from the local input (`cgyro.local_ordering_state`) | `run_cgyro(..., ordering_state=...)`: a mode's frequency or $k_\parallel/k_\perp$, a measured flow |
+
+The state is advisory. It never enters EFIT's scientific identity and never changes a namelist or an input file.
+A failure inside the check is recorded as an `error` entry; it never costs a run its result. For CGYRO, a finite
+caller value takes precedence over a derived one, and a caller's NaN does not hide it. If `extra_parameters`
+override species keys (a gradient scan), nothing is derived from the staged input, and the record says why.
+State keys that are not ordering quantities are listed under `ignored`.
+
+**For now this is plumbing.** No production workflow passes `ordering_state` yet, so a routine EFIT or GPEC
+record lists the consumed contracts with every ordering `UNASSESSED`. The kinetic EFIT chain
+(`KineticEFITConfig`) builds its own `EFITConfig` and has no `ordering_state` yet.
+CGYRO's two local quantities are in GACODE's units: $\rho_s$ is deuterium-normalised in $B_{unit}$. That is an
+order-one difference from the local field, inside the order-unity thresholds.
+
 **Known gap.** The drift-kinetic contract orders $\omega/\Omega_{ci}$ and $k_\perp\rho_i$. A steady
 axisymmetric solve (NEO) or a zero-frequency one (DCON kinetic) has neither as an input, so that contract stays
 `UNASSESSED` for those modes. A NaN at a profile point never hides a finite state value. The reported point is
