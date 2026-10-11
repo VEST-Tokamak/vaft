@@ -70,6 +70,7 @@ _SUBMODULES = {
     "mhd_stability": ".mhd_stability",
     "q_profile_context": ".q_profile_context",
     "ordering_state": ".ordering_state",
+    "ntv_coil_response": ".ntv_coil_response",
 }
 
 #: The order this package star-imported its submodules in when it loaded them
@@ -149,6 +150,9 @@ _IMPORT_ORDER = (
     # Asymptotic ordering quantities of measured states (#1627 §2, #1629);
     # nothing it exports collides.
     "ordering_state",
+    # Quadratic coil-response model of a signed NTV torque and its
+    # qualification (#1887); solver-free, nothing it exports collides.
+    "ntv_coil_response",
 )
 
 #: Reached as attributes but never star-imported, then or now: ``cocos`` is a
