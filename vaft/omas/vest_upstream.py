@@ -1399,6 +1399,13 @@ _EDDY_INPUT_COMPONENTS = {
 }
 
 
+#: The EFIT constraints' inputs that only the diagnostics stage provides:
+#: BTOR comes from the TF coil current, and nothing else measures it.
+_EFIT_CONSTRAINT_INPUT_COMPONENTS = {
+    "tf.b_field_tor_vacuum_r.data": "tf",
+}
+
+
 def eddy_inputs_absent_from_data(diagnostics_ods: str | Path, diagnostics_manifest: str | Path) -> str | None:
     """Why the eddy solve has no inputs, when the diagnostics stage recorded the raw data as absent.
 
@@ -1411,8 +1418,27 @@ def eddy_inputs_absent_from_data(diagnostics_ods: str | Path, diagnostics_manife
     without such a record, or unavailable for another reason -- stays an error,
     because it can be a configuration fault.
     """
+    return _inputs_absent_from_data(diagnostics_ods, diagnostics_manifest, _EDDY_INPUT_COMPONENTS)
+
+
+def efit_constraint_inputs_absent_from_data(
+    diagnostics_ods: str | Path, diagnostics_manifest: str | Path
+) -> str | None:
+    """Why EFIT constraints cannot be built, when the raw record lacks a required signal.
+
+    The same rule as :func:`eddy_inputs_absent_from_data`, for the inputs only
+    the diagnostics product supplies to the constraints: the TF coil current
+    (BTOR). A shot whose raw dump has no TF waveform (42675, #1799) gets a
+    ``not applicable`` result; a TF missing for any other reason stays an error.
+    """
+    return _inputs_absent_from_data(diagnostics_ods, diagnostics_manifest, _EFIT_CONSTRAINT_INPUT_COMPONENTS)
+
+
+def _inputs_absent_from_data(
+    diagnostics_ods: str | Path, diagnostics_manifest: str | Path, required: dict[str, str]
+) -> str | None:
     diagnostics, _ = load_ods(Path(diagnostics_ods))
-    missing = sorted({component for path, component in _EDDY_INPUT_COMPONENTS.items() if path not in diagnostics})
+    missing = sorted({component for path, component in required.items() if path not in diagnostics})
     if not missing:
         return None
     try:
