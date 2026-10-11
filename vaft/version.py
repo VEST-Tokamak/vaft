@@ -29,8 +29,9 @@ __all__ = ["__version__"]
 #   registry lists PENTRC as run through vaft.code.gpec (#1883)
 # - vaft.process.local_mhd_criteria: Mercier D_I, GGJ H and D_R from flux-
 #   surface averages of one equilibrium (DCON's mercier_scan, coordinate-
-#   free), an ODS path and a DCON comparison; matches DCON di/dr to 2e-3 on
-#   the packaged VEST 39915@319 g-file outside psi_N 0.4 (#1902)
+#   free, with V'' and q' on each surface from the flux map), an ODS path
+#   and a DCON comparison; D_I matches DCON within 0.5 % from psi_N 0.1 on
+#   the packaged VEST 39915@319 g-file (#1902)
 # 0.8.0
 # - development release line 2026-09-18 .. 2026-10-08 merged into main: 488
 #   pull requests (first-parent merges on develop since v0.7.1); the

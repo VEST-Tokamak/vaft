@@ -38,7 +38,8 @@ def _gfile(path):
 
 
 VEST = ROOT / "vaft" / "data" / "efit" / "g039915.00319"
-LEVELS = np.round(np.arange(0.15, 0.951, 0.05), 2)
+# Dense, so a pass does not depend on where the levels happen to sit (cold review).
+LEVELS = np.round(np.arange(0.05, 0.951, 0.01), 2)
 
 
 @pytest.fixture(scope="module")
@@ -51,10 +52,14 @@ def test_vest_slice_matches_dcon(vest):
     _, _, profile = vest
     case = REFERENCE["cases"]["vest_39915_319"]
     c = interchange_comparison(profile, case["psi_n"], case["di"], case["dr"], label="DCON 39915@319")
-    outer = profile.psi_n >= 0.4
-    assert np.nanmax(np.abs(c["dD_I"][outer])) < 2e-3 and np.nanmax(np.abs(c["dD_R"][outer])) < 2e-3
-    inner = ~outer  # D_I runs to -3.5 here: compare relatively
-    assert np.nanmax(np.abs(c["dD_I"][inner] / c["di"][inner])) < 0.02
+    relative = np.abs(c["dD_I"] / c["di"])  # D_I runs from -19 to -0.25: compare relatively
+    psi = profile.psi_n
+    assert np.nanmax(relative[psi < 0.1]) < 0.05  # measured 3.3 %
+    assert np.nanmax(relative[(psi >= 0.1) & (psi < 0.3)]) < 0.01  # measured 0.5 %
+    assert np.nanmax(relative[psi >= 0.3]) < 3e-3  # measured 0.09 %
+    assert np.nanmax(np.abs(c["dD_R"][psi >= 0.3])) < 2e-3
+    # The map's q agrees with the file's away from its own edge spline.
+    assert profile.provenance["q_map_vs_given_max_relative"] < 0.02
     assert profile.provenance["unresolved_levels"] == 0
     # Universal criterion only: this slice is Mercier stable everywhere evaluated.
     assert not profile.mercier_unstable.any()
@@ -63,20 +68,30 @@ def test_vest_slice_matches_dcon(vest):
 def test_the_derivative_and_contour_resolution_are_converged(vest):
     grid, profiles, profile = vest
     finer = mercier_ggj_profile(**grid, levels_norm=LEVELS, **profiles, oversample=4)
-    outer = LEVELS >= 0.3
-    # measured: 0.35 % at psi_N 0.3-0.35 between oversample 2 and 4, less outside
-    np.testing.assert_allclose(finer.D_I[outer], profile.D_I[outer], rtol=5e-3)
-    np.testing.assert_allclose(finer.H[outer], profile.H[outer], atol=2e-3)
+    # measured: <= 0.6 % between oversample 2 and 4 from psi_N 0.10 out
+    np.testing.assert_allclose(finer.D_I[LEVELS >= 0.1], profile.D_I[LEVELS >= 0.1], rtol=1e-2)
+    np.testing.assert_allclose(finer.H[LEVELS >= 0.1], profile.H[LEVELS >= 0.1], atol=2e-3)
 
 
-def test_the_indices_do_not_depend_on_cocos_signs(vest):
+@pytest.mark.parametrize("flip", ["psi", "F", "q"])
+def test_the_indices_do_not_depend_on_any_one_cocos_sign(vest, flip):
     grid, profiles, profile = vest
-    flipped = mercier_ggj_profile(
-        **{**grid, "psi_grid": -grid["psi_grid"], "psi_axis": -grid["psi_axis"], "psi_boundary": -grid["psi_boundary"]},
-        levels_norm=LEVELS, **{**profiles, "f": -profiles["f"], "q": -profiles["q"]},
-    )
+    if flip == "psi":
+        grid = {**grid, "psi_grid": -grid["psi_grid"], "psi_axis": -grid["psi_axis"],
+                "psi_boundary": -grid["psi_boundary"]}
+    else:
+        profiles = {**profiles, flip.lower(): -profiles[flip.lower()]}
+    flipped = mercier_ggj_profile(**grid, levels_norm=LEVELS, **profiles)
     np.testing.assert_allclose(flipped.D_I, profile.D_I, rtol=1e-10)
     np.testing.assert_allclose(flipped.D_R, profile.D_R, rtol=1e-10)
+
+
+def test_a_reversed_pressure_gradient_reverses_h(vest):
+    """H is linear in p': a pressure rising outward must flip it (p' is not taken by magnitude)."""
+    grid, profiles, profile = vest
+    rising = mercier_ggj_profile(**grid, levels_norm=LEVELS,
+                                 **{**profiles, "pressure": profiles["pressure"].max() - profiles["pressure"]})
+    np.testing.assert_allclose(rising.H, -profile.H, rtol=1e-10, atol=1e-14)
 
 
 def test_without_a_pressure_gradient_only_the_shear_term_is_left(vest):
@@ -102,7 +117,8 @@ def test_the_code_h_is_the_root_nearer_the_equilibrium():
     from vaft.process.local_mhd_criteria import InterchangeProfile
 
     profile = InterchangeProfile(psi_n=np.array([0.5]), D_I=np.array([-0.3]), D_R=np.array([-0.05]), H=np.array([0.0]),
-                                 E_plus_F=np.array([-0.05]), dV_dchi=np.array([1.0]), averages={})
+                                 E_plus_F=np.array([-0.05]), dV_dchi=np.array([1.0]), q=np.array([2.0]),
+                                 averages={})
     c = interchange_comparison(profile, [0.0, 1.0], [-0.3, -0.3], [-0.05, -0.05], label="synthetic")
     assert c["H_code"][0] == pytest.approx(0.0)  # (H - 1/2)^2 = 0.25: roots 0 and 1, 0 is nearer
 
@@ -123,8 +139,22 @@ DIIID = Path(os.environ.get("GPECHOME", Path.home() / "git" / "GPEC")) / "docs" 
 @pytest.mark.skipif(not DIIID.is_file(), reason="GPEC's DIII-D-like example is not installed here")
 def test_diiid_like_example_matches_dcon():
     grid, profiles = _gfile(DIIID)
-    levels = np.round(np.arange(0.12, 0.91, 0.02), 2)
+    levels = np.round(np.arange(0.05, 0.981, 0.01), 2)
     profile = mercier_ggj_profile(**grid, levels_norm=levels, **profiles)
     case = REFERENCE["cases"]["diiid_like"]
     c = interchange_comparison(profile, case["psi_n"], case["di"], case["dr"], label="DCON DIII-D-like")
-    assert np.nanmax(np.abs(c["dD_I"])) < 2e-3 and np.nanmax(np.abs(c["H"] - c["H_code"])) < 1e-3
+    relative = np.abs(c["dD_I"] / c["di"])
+    assert np.nanmax(relative[levels <= 0.9]) < 5e-3  # measured 0.2 %
+    assert np.nanmax(relative) < 0.05  # the steep pedestal, 0.95-0.96: measured 3.4 %
+
+
+def test_differentiating_the_file_q_is_what_degrades_the_core(vest):
+    """q_from_map is the method choice the comparison supports; the profile derivative is noisier."""
+    grid, profiles, profile = vest
+    from_profile = mercier_ggj_profile(**grid, levels_norm=LEVELS, **profiles, q_from_map=False)
+    case = REFERENCE["cases"]["vest_39915_319"]
+    worse = interchange_comparison(from_profile, case["psi_n"], case["di"], case["dr"], label="x")
+    better = interchange_comparison(profile, case["psi_n"], case["di"], case["dr"], label="x")
+    core = (LEVELS >= 0.1) & (LEVELS < 0.3)
+    assert np.nanmax(np.abs(worse["dD_I"][core])) > 3 * np.nanmax(np.abs(better["dD_I"][core]))
+

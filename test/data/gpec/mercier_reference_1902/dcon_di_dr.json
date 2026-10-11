@@ -6,7 +6,7 @@
   "vest_39915_319": {
    "description": "VEST 39915 at 319 ms, packaged raw EFIT g-file",
    "gfile": "vaft/data/efit/g039915.00319",
-   "dcon": "mer_flag=t, mpsi=512, mtheta=1024, grid_type ldp",
+   "dcon": "vaft/data/gpec templates, mer_flag=t, mpsi=512, mtheta=1024, grid_type ldp, psilow=0.01, psihigh=0.994",
    "psi_n": [
     0.01,
     0.010148181201467524,
@@ -399,12 +399,13 @@
     -0.001199869973264083,
     -0.001098128969171704,
     -0.0010177803286364104
-   ]
+   ],
+   "gfile_sha256": "50dd1b14784e8b68b9d6c59ba13e70e8fa2942e246dfd00dcffc8220b4654cb4"
   },
   "diiid_like": {
    "description": "upstream GPEC docs/examples/DIIID_ideal_example (artificial TokaMaker DIII-D-like H-mode, not #147131)",
    "gfile": "$GPECHOME/docs/examples/DIIID_ideal_example/TkMkr_D3Dlike_Hmode.geqdsk",
-   "dcon": "mer_flag=t, mpsi=512, mtheta=1024, grid_type ldp",
+   "dcon": "upstream example namelists, mer_flag=t, mpsi=512, mtheta=1024, grid_type ldp, psilow=1e-4, psihigh=0.995",
    "psi_n": [
     0.0001,
     0.0002498226395732107,
@@ -797,7 +798,9 @@
     -0.07302829824369596,
     -0.07276786691135716,
     -0.09916911879672068
-   ]
+   ],
+   "gfile_sha256": "9449e54b84880c52524387f8bf2b1223c2bf324fbd97f5a676274c460a0f00dc"
   }
- }
+ },
+ "note": "di, dr as DCON's netCDF writes them (locstab divided by psifac: the true indices); DCON recomputes q from the flux map and clamps p >= 0. Every 4th point of DCON's 513 is kept."
 }

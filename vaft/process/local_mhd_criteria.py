@@ -86,6 +86,8 @@ class InterchangeProfile:
     E_plus_F: np.ndarray
     #: dV/dchi, chi the total poloidal flux increasing outward [m^3/Wb].
     dV_dchi: np.ndarray
+    #: |q| from the flux map on each surface, F/(2 pi) closed(dl/(R |grad psi|)) [-].
+    q: np.ndarray
     #: The five surface averages, keyed as in the module notation [SI].
     averages: Mapping[str, np.ndarray]
     provenance: Mapping[str, Any] = field(default_factory=dict)
@@ -116,6 +118,7 @@ def mercier_ggj_profile(
     axis_rz: tuple[float, float],
     min_points: int = 40,
     oversample: int = 2,
+    q_from_map: bool = True,
 ) -> InterchangeProfile:
     """Mercier ``D_I``, GGJ ``H`` and ``D_R`` on flux surfaces of a flux map.
 
@@ -141,7 +144,9 @@ def mercier_ggj_profile(
     pressure : sequence of float
         Plasma pressure on ``profile_psi_n`` [Pa].
     q : sequence of float
-        Safety factor on ``profile_psi_n``, either sign [-].
+        Safety factor on ``profile_psi_n``, either sign; used for ``q'`` only
+        when ``q_from_map`` is false, and otherwise compared with the map's
+        ``q`` as a consistency check [-].
     axis_rz : tuple of float
         Magnetic-axis position, which picks the confined contour [m].
     min_points : int, optional
@@ -149,9 +154,12 @@ def mercier_ggj_profile(
         numerical-resolution control [-].
     oversample : int, optional
         Contours are traced on the flux map refined this many times by its own
-        quintic spline; a numerical-resolution control.  On the reference
-        slice 1 leaves D_I 0.18 off DCON at psi_N 0.05 and 0.017 at 0.11; 2
-        brings both to <= 0.03 and <= 1e-3 [-].
+        quintic spline; a numerical-resolution control [-].
+    q_from_map : bool, optional
+        Take ``q`` and ``q'`` from the flux map on each surface, as DCON does,
+        instead of differentiating the given profile.  A choice of method: the
+        given profile's derivative near a flat-q core is noise-dominated
+        (Limitations) [-].
 
     Returns
     -------
@@ -171,9 +179,11 @@ def mercier_ggj_profile(
     1. Trace each level and keep the closed contour enclosing the axis.
     2. On it, ``|grad psi|`` from a quintic spline of the flux map and
        ``B^2 = (|grad psi|^2 + F^2) / R^2``; volume-weighted averages.
-    3. ``p'``, ``q'`` from cubic splines of the profiles; ``V''`` by a central
-       difference of ``V'`` over contours traced ``2e-3`` either side of each
-       level; all per unit ``chi``.
+    3. ``p'`` from a cubic spline of the pressure; ``V''`` and (by default)
+       ``q'`` on each surface itself, via ``d/dpsi closed(g dl/|grad psi|) =
+       closed(div(g grad psi / |grad psi|^2) dl/|grad psi|)`` with ``g = R``
+       and ``1/R`` and second derivatives of the spline, so no difference is
+       taken across levels; all per unit ``chi``.
     4. ``D_I``, ``H``, ``D_R`` as in the module notation.
 
     Convention
@@ -189,9 +199,15 @@ def mercier_ggj_profile(
 
     Limitations
     -----------
-    Near the axis the flux gradient is small and every average loses accuracy;
-    near the boundary the profiles' own derivatives dominate.  The reference
-    comparison is in the tests.  Ideal, static, isotropic pressure; no flow.
+    Measured against DCON (mpsi 512, mtheta 1024) with the defaults, D_I on
+    a 0.01 grid of levels: the packaged VEST 39915@319 g-file (129 x 129)
+    within 3.3 % for psi_N 0.05-0.1, 0.5 % for 0.1-0.3 and 0.1 % beyond; the
+    upstream DIII-D-like example (257 x 257) within 0.2 % to psi_N 0.9 and
+    3.4 % in its steep pedestal (0.95-0.96).  With ``q_from_map=False`` the
+    VEST core error rises to 19 % (0.05-0.1) and 5 % (0.1-0.3).  Near the
+    axis the flux gradient vanishes and every average loses accuracy.  DCON
+    clamps p >= 0; this uses the pressure as given.  Ideal, static,
+    isotropic pressure; no flow.
 
     Provenance
     ----------
@@ -221,44 +237,48 @@ def mercier_ggj_profile(
     flux = RectBivariateSpline(r_axis, z_axis, psi, kx=5, ky=5)
     chi_span = 2.0 * np.pi * abs(psi_boundary - psi_axis)
 
-    # V'' by a central difference over a narrow +/- step around each level: local,
-    # so it does not depend on which other levels were asked for (a spline across
-    # the requested levels put end-condition errors of 1e-2 into D_I).
-    step = min(2e-3, 0.5 * float(levels[0]), 0.5 * (1.0 - float(levels[-1])))
-    traced = np.unique(np.concatenate([levels - step, levels, levels + step]))
     if int(oversample) < 1:
         raise ValueError("oversample must be a positive integer")
     r_fine = np.linspace(r_axis[0], r_axis[-1], (r_axis.size - 1) * int(oversample) + 1)
     z_fine = np.linspace(z_axis[0], z_axis[-1], (z_axis.size - 1) * int(oversample) + 1)
     psi_fine = psi if int(oversample) == 1 else flux(r_fine, z_fine)
-    contours = extract_flux_surface_contours(psi_fine, r_fine, z_fine, psi_axis, psi_boundary, traced)
+    contours = extract_flux_surface_contours(psi_fine, r_fine, z_fine, psi_axis, psi_boundary, levels)
     names = ("b2_over_gchi2", "inv_gchi2", "inv_b2", "inv_b2_gchi2", "b2")
     averages = {name: np.full(levels.size, np.nan) for name in names}
     dV = np.full(levels.size, np.nan)
     d2V = np.full(levels.size, np.nan)
-
-    def surface(level):
+    q_surface = np.full(levels.size, np.nan)
+    dq_surface = np.full(levels.size, np.nan)
+    orientation = np.sign(psi_boundary - psi_axis)
+    for i, level in enumerate(levels):
         segment = _enclosing_segment(contours.get(float(level), []), axis_rz, min_points)
         if segment is None:
-            return None
+            continue
         rc, zc = _closed_contour(*segment)
         rm, zm = 0.5 * (rc[1:] + rc[:-1]), 0.5 * (zc[1:] + zc[:-1])
         dl = np.hypot(np.diff(rc), np.diff(zc))
-        grad_psi = np.hypot(flux(rm, zm, dx=1, grid=False), flux(rm, zm, dy=1, grid=False))
-        return rm, dl, grad_psi
-
-    for i, level in enumerate(levels):
-        here, below, above = surface(level), surface(level - step), surface(level + step)
-        if here is None or below is None or above is None:
-            continue
-        rm, dl, grad_psi = here
-        b2 = (grad_psi**2 + float(f_spline(level)) ** 2) / rm**2
-        grad_chi2 = (2.0 * np.pi * grad_psi) ** 2
+        pr, pz = flux(rm, zm, dx=1, grid=False), flux(rm, zm, dy=1, grid=False)
+        prr, pzz, prz = flux(rm, zm, dx=2, grid=False), flux(rm, zm, dy=2, grid=False), flux(rm, zm, dx=1, dy=1, grid=False)
+        g2 = pr**2 + pz**2
+        grad_psi = np.sqrt(g2)
+        b2 = (g2 + float(f_spline(level)) ** 2) / rm**2
+        grad_chi2 = (2.0 * np.pi) ** 2 * g2
         weight = rm * dl / grad_psi
         dV[i] = weight.sum()
-        dV_below = float(np.sum(below[0] * below[1] / below[2]))
-        dV_above = float(np.sum(above[0] * above[1] / above[2]))
-        d2V[i] = (dV_above - dV_below) / (2.0 * step * chi_span)
+        # V'' locally, with no difference across levels: d/dpsi closed(R dl/|grad psi|)
+        # = closed(div(R grad psi / |grad psi|^2) dl/|grad psi|), the 2-D divergence in (R, Z).
+        divergence = (pr * g2 + rm * (prr + pzz) * g2
+                      - 2.0 * rm * (pr * pr * prr + 2.0 * pr * pz * prz + pz * pz * pzz)) / g2**2
+        d2V[i] = orientation * float(np.sum(divergence * dl / grad_psi)) / (2.0 * np.pi)  # d/dchi = d/dpsi / 2 pi
+        # q from the flux map, as DCON does, and q' by the same identity with weight
+        # 1/R: q = F/(2 pi) closed(dl/(R |grad psi|)).
+        f_here = float(f_spline(level))
+        loop = float(np.sum(dl / (rm * grad_psi)))
+        div_inv_r = (-pr / rm**2 * g2 + (prr + pzz) / rm * g2
+                     - 2.0 / rm * (pr * pr * prr + 2.0 * pr * pz * prz + pz * pz * pzz)) / g2**2
+        dloop = orientation * float(np.sum(div_inv_r * dl / grad_psi)) / (2.0 * np.pi)
+        q_surface[i] = f_here * loop / (2.0 * np.pi)
+        dq_surface[i] = (float(f_spline(level, 1)) / chi_span * loop + f_here * dloop) / (2.0 * np.pi)
         for name, values in zip(names, (b2 / grad_chi2, 1.0 / grad_chi2, 1.0 / b2, 1.0 / (b2 * grad_chi2), b2)):
             averages[name][i] = float(np.sum(values * weight) / dV[i])
 
@@ -270,7 +290,7 @@ def mercier_ggj_profile(
         v1 = dV[resolved]
         v2 = d2V[resolved]
         p1 = p_spline(lv, 1) / chi_span
-        q1 = q_spline(lv, 1) / chi_span
+        q1 = dq_surface[resolved] if q_from_map else q_spline(lv, 1) / chi_span
         two_pi_f = 2.0 * np.pi * f_spline(lv)
         a = {name: averages[name][resolved] for name in names}
         term = two_pi_f * p1 * v1 / q1 * a["inv_gchi2"]
@@ -278,11 +298,15 @@ def mercier_ggj_profile(
                          + p1 * (v1 / q1) ** 2 * a["b2_over_gchi2"]
                          * (p1 * (a["inv_b2"] + two_pi_f**2 * a["inv_b2_gchi2"]) - v2 / v1))
         h[resolved] = two_pi_f * p1 * v1 / q1 * (a["inv_gchi2"] - a["b2_over_gchi2"] / a["b2"])
+    given_q = q_spline(levels)
+    q_mismatch = float(np.nanmax(np.abs(q_surface - given_q) / given_q)) if resolved.any() else float("nan")
     return InterchangeProfile(
-        psi_n=levels, D_I=d_I, D_R=d_I + (h - 0.5) ** 2, H=h, E_plus_F=d_I - h + 0.25, dV_dchi=dV,
+        psi_n=levels, D_I=d_I, D_R=d_I + (h - 0.5) ** 2, H=h, E_plus_F=d_I - h + 0.25, dV_dchi=dV, q=q_surface,
         averages=averages,
         provenance={"formulas": "DCON mercier_scan (dcon/mercier.f), coordinate-free", "oversample": int(oversample),
-                    "derivative_step": step,
+                    "V''": "local surface integral of div(R grad psi / |grad psi|^2)",
+                    "q": "from the flux map (as DCON)" if q_from_map else "the given profile, spline derivative",
+                    "q_map_vs_given_max_relative": q_mismatch,
                     "orientation": "chi increasing outward, |F|, |q|", "unresolved_levels": int((~resolved).sum())},
     )
 
@@ -300,7 +324,8 @@ def mercier_ggj_from_ods(ods: Any, time_slice: int = 0, *, levels_norm: Sequence
     time_slice : int, optional
         The slice to read [-].
     levels_norm : sequence of float, optional
-        Surfaces to evaluate; by default 0.02 to 0.98 in steps of 0.01 [-].
+        Surfaces to evaluate; by default 0.05 to 0.98 in steps of 0.01, the
+        range the reference comparison covers [-].
     min_points : int, optional
         Passed to :func:`mercier_ggj_profile`; a numerical-resolution control [-].
     oversample : int, optional
@@ -363,7 +388,7 @@ def mercier_ggj_from_ods(ods: Any, time_slice: int = 0, *, levels_norm: Sequence
     psi_1d = np.asarray(ods[f"{base}.profiles_1d.psi"], dtype=float) * factor
     psi_n = (psi_1d - axis) / (boundary - axis)
     order = np.argsort(psi_n)
-    levels = np.arange(0.02, 0.985, 0.01) if levels_norm is None else np.asarray(levels_norm, dtype=float)
+    levels = np.arange(0.05, 0.985, 0.01) if levels_norm is None else np.asarray(levels_norm, dtype=float)
     profile = mercier_ggj_profile(
         np.asarray(ods[f"{base}.profiles_2d.0.psi"], dtype=float) * factor,
         np.asarray(ods[f"{base}.profiles_2d.0.grid.dim1"], dtype=float),
