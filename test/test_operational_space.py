@@ -1006,3 +1006,16 @@ def test_the_companion_views_draw_the_population_without_boundaries(key):
     fig, ax = operational_space_population(_beta_table(), key)
     assert ax.vaft_overlay.curves == ()
     assert len(ax.collections[0].get_offsets()) == len(_beta_table())
+
+
+@pytest.mark.parametrize("style", ["shade", "inline"])
+def test_the_4_li_envelope_is_drawn_without_a_forbidden_side(style):
+    rng = np.random.default_rng(5)
+    table = pd.DataFrame({"internal_inductance_li1": rng.uniform(0.5, 1.0, 20),
+                          "normalized_beta": rng.uniform(0.3, 2.4, 20)})
+    table.attrs["units"] = {"normalized_beta": "% m T/MA"}
+    fig, ax = operational_space_population(table, "beta_n_li1", boundary_style=style)
+    assert "strait_1994_beta_n_li" in ax.vaft_overlay.keys
+    hatched = [p for p in ax.patches + ax.collections if getattr(p, "get_hatch", lambda: None)()]
+    fills = [c for c in ax.collections if type(c).__name__ in ("PolyCollection", "FillBetweenPolyCollection")]
+    assert not hatched and not fills   # a reference (Troyon) and an envelope: nothing is forbidden

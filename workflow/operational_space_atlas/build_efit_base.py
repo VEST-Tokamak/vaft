@@ -20,6 +20,8 @@ population renderer can check identity and unit:
     plasma_surface_area       LCFS surface area S (derive_global_descriptors), for L-H thresholds
     inverse_cylindrical_q     |I_p| R_geo / (5 a^2 kappa_a B_T(R_geo)), B_T(R_geo) = |b0| R_0 / R_geo,
                               R_0 = resolve_reference_major_radius (the r0 leaf can be corrupt, #325)
+    internal_inductance_li1   <B_p^2>/B_pa^2, B_pa = mu0 |I_p| / Gamma (Strait 1994's l_i), <B_p^2> on the same grid
+                              cells as li3_grid_integral, Gamma the boundary outline's circumference
     volume_beta               100 * 2 mu0 int p dV / int B^2 dV, B the total equilibrium field (#1691 stage 1),
                               from the summary's own helper so the atlas and the summary share one definition, %
     normalized_volume_beta    volume_beta a B_0 / |I_p| with the a and B_0 of normalized_current: Menard's <beta_N>
@@ -80,6 +82,7 @@ UNITS = {
     "poloidal_beta": "-",
     "plasma_surface_area": "m^2",
     "inverse_cylindrical_q": "-",
+    "internal_inductance_li1": "-",
     "volume_beta": "%",
     "normalized_volume_beta": "% m T/MA",
     "aspect_ratio": "-",
@@ -125,6 +128,21 @@ def _leaf(ods, path):
 
 def _bp2_volume_integral(ods, k: int) -> float:
     """int B_p^2 dV [T^2 m^3] over the grid cells inside the boundary outline of slice k."""
+    return _bp2_and_volume(ods, k)[0]
+
+
+def _boundary_perimeter(ods, k: int) -> float:
+    """Poloidal circumference Gamma [m] of slice k's boundary outline, closed on itself."""
+    ts = f"equilibrium.time_slice.{k}"
+    r = np.asarray(ods[f"{ts}.boundary.outline.r"], dtype=float)
+    z = np.asarray(ods[f"{ts}.boundary.outline.z"], dtype=float)
+    ok = np.isfinite(r) & np.isfinite(z)
+    r, z = np.append(r[ok], r[ok][:1]), np.append(z[ok], z[ok][:1])
+    return float(np.sum(np.hypot(np.diff(r), np.diff(z))))
+
+
+def _bp2_and_volume(ods, k: int):
+    """(int B_p^2 dV [T^2 m^3], int dV [m^3]) over the same grid cells inside slice k's boundary outline."""
     from matplotlib.path import Path as _Path
     from vaft.omas import ods_psi_to_wb_per_radian_factor
 
@@ -140,7 +158,7 @@ def _bp2_volume_integral(ods, k: int) -> float:
     # Per-cell widths: the DD allows a non-equispaced grid, and a stretched grid with
     # the first spacing applied everywhere gave a fraction of the integral.
     dv = 2.0 * np.pi * rr * np.gradient(r)[:, None] * np.gradient(z)[None, :]
-    return float(np.sum((dpsi_dr**2 + dpsi_dz**2) / rr**2 * dv * inside))
+    return float(np.sum((dpsi_dr**2 + dpsi_dz**2) / rr**2 * dv * inside)), float(np.sum(dv * inside))
 
 
 def _routine_diagnostic(ods, k: int):
@@ -199,7 +217,7 @@ def _crosscheck(li3_routine, li3_grid, bn_routine, bn_desc, routine_status) -> s
 
 
 def _row(ods, t_s: float) -> dict:
-    from vaft.formula.equilibrium import li_3_from_Bp2_volume_integral
+    from vaft.formula.equilibrium import li_1_from_Bp2_volume_integral, li_3_from_Bp2_volume_integral
     from vaft.omas import resolve_reference_major_radius
     from vaft.process.equilibrium import as_equilibrium, derive_global_descriptors
 
@@ -209,7 +227,7 @@ def _row(ods, t_s: float) -> dict:
     if abs(dt) > TIME_TOLERANCE_S:
         return {"base_status": "time_unmatched", "base_reason": f"nearest slice {dt:+.4g} s away", "dt_slice_s": dt}
     d = derive_global_descriptors(as_equilibrium(ods, time_index=k)).values
-    bp2 = _bp2_volume_integral(ods, k)
+    bp2, grid_volume = _bp2_and_volume(ods, k)
     r_ref = float(resolve_reference_major_radius(ods))
     li3 = li_3_from_Bp2_volume_integral(bp2, abs(float(ods[f"equilibrium.time_slice.{k}.global_quantities.ip"])), r_ref)
     li3_routine, bn_routine, routine_status = _routine_diagnostic(ods, k)
@@ -260,6 +278,9 @@ def _row(ods, t_s: float) -> dict:
         "poloidal_beta": pick("beta_p_boundary_average"),
         "plasma_surface_area": pick("surface_area"),
         "inverse_cylindrical_q": ip_ma * r_geo / (5.0 * a * a * kappa_a * b_geo),
+        # <B_p^2> over the same grid cells as the l_i(3) integral, so the two l_i differ only in normalization
+        "internal_inductance_li1": li_1_from_Bp2_volume_integral(bp2, grid_volume, ip_ma * 1e6,
+                                                                 _boundary_perimeter(ods, k)),
         "volume_beta": 100.0 * beta_b,
         "normalized_volume_beta": beta_n_b,
         "aspect_ratio": r_geo / a,

@@ -93,7 +93,7 @@ def _is_spherical(machine_class: Optional[str]) -> bool:
 #: Shorter names written along a line in the inline style, where the legend's full name would not fit the curve.
 ALONG_LINE_NAMES = {"murakami_hugill": "Murakami (reference)", "sykes_2000_st_hugill": "Hugill (Sykes 2000)",
                     "greenwald_hugill_st": "Greenwald (ST)", "cheng_1987_li_qa_upper": "Resistive kink",
-                    "cheng_1987_li_qa_lower": "Ideal external kink"}
+                    "cheng_1987_li_qa_lower": "Ideal external kink", "strait_1994_beta_n_li": r"$4\,l_i(1)$"}
 #: Display names for ``boundary_style="inline"``; a boundary not listed shows its key.
 BOUNDARY_NAMES = {
     "freidberg_2008_kink_qstar": "External kink limit",
@@ -103,6 +103,7 @@ BOUNDARY_NAMES = {
     "taylor_1995_diiid_beta_n_record": "DIII-D, wall-stabilised",
     "garstka_2002_st_beta_n_reference": "ST (START, PEGASUS)",
     "sabbagh_2006_nstx_beta_n_record": "NSTX, wall-stabilised",
+    "strait_1994_beta_n_li": r"DIII-D/JET, $\beta_N = 4\,l_i(1)$",
     "wesson_1989_jet_li_qpsi_lower": "Kink / double-tearing limit",
     "wesson_1989_jet_li_qpsi_upper": "Density-limit disruptions",
     "cheng_1987_li_qa_lower": "Lower: ideal external kink",

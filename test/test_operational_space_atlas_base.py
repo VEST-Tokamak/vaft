@@ -75,3 +75,17 @@ def test_the_volume_beta_columns_share_the_normalization_of_the_troyon_plane(pro
     # the DD routine's beta_N and this <beta_N> take a and I_p by different paths, which agree to about 1 %
     assert row["normalized_beta"] / row["normalized_volume_beta"] == pytest.approx(
         row["toroidal_beta"] / row["volume_beta"], rel=0.02)
+
+
+def test_li1_shares_the_li3_integral_and_differs_by_the_shape_factor(product):
+    beb = _build_efit_base()
+    times = np.asarray(product["equilibrium.time"], dtype=float)
+    reconstructed = [i for i in range(times.size) if f"equilibrium.time_slice.{i}.boundary.outline.r" in product]
+    k = reconstructed[0]
+    row = beb._row(product, float(times[k]))
+    _, volume = beb._bp2_and_volume(product, k)
+    gamma = beb._boundary_perimeter(product, k)
+    assert row["internal_inductance_li1"] == pytest.approx(
+        row["li3_grid_integral"] * row["r_reference_m"] * gamma**2 / (2 * volume))
+    assert row["internal_inductance_li1"] > row["li3_grid_integral"]   # elongated: Gamma^2 > 4 pi A
+    assert beb.UNITS["internal_inductance_li1"] == "-"
