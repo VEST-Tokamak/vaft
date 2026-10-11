@@ -48,8 +48,12 @@ def server(ods, monkeypatch, request):
     ``@pytest.mark.parametrize("server", [ms], indirect=True)`` sets how long a
     session no browser connects to is kept (default: a minute, longer than a test).
     """
-    lifetime = getattr(request, "param", 60_000)
-    monkeypatch.setattr("vaft.gui.state.load_source", lambda source: ods)
+    import copy
+
+    lifetime = getattr(request, "param", 120_000)
+    # Each session gets its own data, as sample_ods() gives in production, so
+    # a session changing its ODS could not leak into another unnoticed.
+    monkeypatch.setattr("vaft.gui.state.load_source", lambda source: copy.deepcopy(ods))
     shells = []
     real_build = gui_app.build_shell
 
@@ -66,14 +70,19 @@ def server(ods, monkeypatch, request):
         websocket_origin=[f"127.0.0.1:{port}"],
         # A session without a browser connection is discarded after this,
         # as a closed tab is.
-        unused_session_lifetime=lifetime, check_unused_sessions=100,
+        # (Bokeh's names: unknown keywords would silently become tornado
+        # settings and leave its 15 s / 17 s defaults in force.)
+        unused_session_lifetime_milliseconds=lifetime, check_unused_sessions_milliseconds=200,
     )
-    deadline = time.time() + 20
-    while time.time() < deadline:
+    deadline = time.time() + 30
+    while True:
         try:
             urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=5).read()
             break
         except OSError:
+            if time.time() > deadline:
+                thread.stop()
+                pytest.fail(f"the GUI server on port {port} did not answer within 30 s")
             time.sleep(0.2)
     shells.clear()  # the readiness probe's session is not one of ours
 
@@ -81,8 +90,12 @@ def server(ods, monkeypatch, request):
         before = len(shells)
         urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=30).read()
         assert len(shells) == before + 1, "each page request builds its own shell"
+        opened.append(time.time())
         return shells[-1]
 
+    opened = []
+
+    open_session.opened = opened
     try:
         yield open_session, shells
     finally:
@@ -117,6 +130,7 @@ def test_two_sessions_share_nothing_a_reader_changes(server):
     # browser connects, which none does here).
     assert first.selection.value.sources == (Source("sample", 39915),) and first.selection.value.time
     assert second.selection.value.sources == () and second.selection.value.time is None
+    assert second.workspaces, "the second session is still open (not vacuously empty)"
     assert second.active == "plots" and "database" not in second.workspaces
     assert two.session.plot is None and two.session.figure is None and two.session.ods is None
 
@@ -130,11 +144,14 @@ def test_session_activity_leaves_the_process_wide_registry_alone(server):
     assert [(spec.name, spec.factory) for spec in WORKSPACES.specs()] == before
 
 
-@pytest.mark.parametrize("server", [3000], indirect=True)
+@pytest.mark.parametrize("server", [8000], indirect=True)
 def test_a_discarded_session_releases_its_data_figures_and_uploads(server):
+    import gc
+    import weakref
+
     import matplotlib.pyplot as plt
 
-    open_session, _shells = server
+    open_session, shells = server
     baseline = set(plt.get_fignums())
     shell = open_session()
     explorer = shell.workspaces["plots"].app
@@ -145,7 +162,16 @@ def test_a_discarded_session_releases_its_data_figures_and_uploads(server):
     assert uploaded and folder.exists() and explorer.session.ods is not None
 
     # No browser ever connected: the server discards the session like a closed tab.
-    assert _wait(lambda: not shell.workspaces), "the shell was closed when its session ended"
+    assert _wait(lambda: not shell.workspaces, timeout=25), "the shell was closed when its session ended"
+    closed_after = time.time() - open_session.opened[-1]
+    assert closed_after < 14, f"closed {closed_after:.1f} s after opening: the 8 s lifetime was not applied"
     assert explorer.session.ods is None and explorer.session.figure is None
     assert not folder.exists(), "uploads are deleted with the session"
     assert set(plt.get_fignums()) <= baseline, "no figure outlives its session"
+
+    # Nothing in the process keeps the closed session's shell or data alive.
+    shell_ref, session_ref = weakref.ref(shell), weakref.ref(explorer.session)
+    shells.clear()
+    del shell, explorer
+    gc.collect()
+    assert shell_ref() is None and session_ref() is None, "a discarded session is garbage"

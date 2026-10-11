@@ -287,8 +287,10 @@ memory until its tab closes. `MemoryMax` in the unit bounds the whole service.
 Every browser tab is its own session on the server.
 
 - **Isolation.** A session has its own shell, workspaces, loaded data, selection, time slice and
-  uploads. What one reader opens or changes is never visible to another. The only things
-  sessions share are code and the list of workspaces.
+  uploads. What one reader opens or changes is never visible to another. Sessions share
+  code, the list of workspaces and the server process's settings. One known leak of the
+  latter: the Database workspace's **Test connection** changes the process-wide logging
+  level.
 - **Clean-up.** When a tab is closed, the server discards its session once Bokeh's
   unused-session lifetime has passed: 15 s, checked every 17 s, so within about half a minute.
   Discarding a session closes its shell, which releases its figures, loaded data and uploaded
