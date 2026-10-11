@@ -212,6 +212,26 @@ def test_an_override_names_the_position_it_rewires():
         (36822, True),
         (36905, True),
         (36906, False),
+        # #1896 neighbour-gain windows: first and last bad plasma shot of each
+        (37559, False),
+        (37586, True),
+        (37800, True),
+        (37801, False),
+        (38125, False),
+        (38126, True),
+        (38252, True),
+        (38253, False),
+        (38254, True),
+        (38622, True),
+        (38623, False),
+        (38691, False),
+        (38692, True),
+        (38740, True),
+        (38741, False),
+        (39039, False),
+        (39040, True),
+        (39098, True),
+        (39099, False),
         (39438, False),
     ],
 )
@@ -221,7 +241,7 @@ def test_the_z_plus_006_probe_is_recorded_broken_where_the_scan_found_it(shot, f
     assert set(faults) <= {("b_field_pol_probe", 35), ("b_field_pol_probe", 45)}
 
 
-@pytest.mark.parametrize("shot", [29350, 36480, 36481, 36822, 36905, 36906, 39437, 39915, 41524, 41672, 48000])
+@pytest.mark.parametrize("shot", [29350, 36480, 36481, 36822, 36905, 36906, 37586, 38126, 38254, 38692, 39040, 39437, 39915, 41524, 41672, 48000])
 def test_c4_04_is_recorded_broken_on_every_shot(shot):
     """Anticorrelated with the vacuum model on every reference shot and 70% of
     a statistical-sigma chi-square (#977, #924). Revisions replace ``probes``
