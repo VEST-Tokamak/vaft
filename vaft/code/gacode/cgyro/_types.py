@@ -170,10 +170,15 @@ def plasma_formalism(config: Optional[CGYROConfig] = None, *,
     if parameters is None:
         # What cgyro_parameters writes for these keys from the configuration alone.
         parameters = {"COLLISION_MODEL": int(configuration.collision_model),
+                      "N_FIELD": int(configuration.n_field),
+                      "NONLINEAR_FLAG": int(bool(configuration.nonlinear)),
                       **{str(key).upper(): value for key, value in configuration.extra_parameters.items()}}
     physics = cgyro_input_physics(parameters)
+    # The field model and the regime are what was written (N_FIELD, NONLINEAR_FLAG),
+    # so an extra_parameters override cannot leave the record describing another run.
+    field_model, nonlinear = physics["field_model"], physics["nonlinear"]
     return PlasmaFormalism(
-        scientific_operation="turbulent_transport" if configuration.nonlinear else "microstability",
+        scientific_operation="turbulent_transport" if nonlinear else "microstability",
         bulk_description="kinetic",
         kinetic_equation="gyrokinetic",
         kinetic_population=physics["kinetic_population"],
@@ -181,12 +186,14 @@ def plasma_formalism(config: Optional[CGYROConfig] = None, *,
         orbit_representation="gyrocenter",
         spatial_domain=physics["spatial_domain"],
         topology_domain="closed_flux_surface",
-        regime=configuration.regime,
-        field_model="electrostatic" if configuration.field_model == "es" else "electromagnetic",
+        regime="nonlinear" if nonlinear else "linear",
+        field_model=("electrostatic" if field_model == "es" else "unknown" if field_model == "unknown"
+                     else "electromagnetic"),
         solver="cgyro",
         extensions={
-            "field_model": configuration.field_model,
+            "field_model": field_model,
             "numerical_representation": "continuum",
+            "profile_model": physics["profile_model"],
             "geometry_model": physics["geometry_model"],
             "species_model": physics["species_model"],
             "global_flag": physics["global_flag"],

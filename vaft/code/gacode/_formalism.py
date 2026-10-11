@@ -74,7 +74,10 @@ _TGLF_DEFAULTS = {
 
 #: CGYRO's own defaults (``cgyro/bin/cgyro_parse.py``).
 _CGYRO_DEFAULTS = {"AE_FLAG": 0, "EQUILIBRIUM_MODEL": 2, "GLOBAL_FLAG": 0, "COLLISION_MODEL": 4,
-                   "ROTATION_MODEL": 1, "GAMMA_E": 0.0, "GAMMA_P": 0.0, "MACH": 0.0}
+                   "ROTATION_MODEL": 1, "GAMMA_E": 0.0, "GAMMA_P": 0.0, "MACH": 0.0,
+                   "N_FIELD": 1, "NONLINEAR_FLAG": 0, "PROFILE_MODEL": 1}
+#: N_FIELD -> VAFT's CGYRO field-model name (cgyro_check.f90: 1 phi, 2 + A_par, 3 + B_par).
+_CGYRO_FIELDS = {1: "es", 2: "em-aperp", 3: "em-aperp-bpar"}
 #: ``cgyro/src/cgyro_check.f90``. Model 2 is upstream's Miller extended harmonic (MXH);
 #: VAFT has always called it ``miller``, and the #1353 record keeps that name.
 _CGYRO_GEOMETRY = {1: "s_alpha", 2: "miller"}
@@ -148,8 +151,7 @@ def neo_plasma_formalism(parameters: Optional[Mapping[str, Any]] = None) -> Plas
     if sim not in _NEO_NUMERICAL:
         # Analytic theory or the NEO neural network: a reduced model of drift-kinetic
         # neoclassical theory, with no distribution solved for.
-        return PlasmaFormalism(bulk_description="reduced", derived_from="drift_kinetic",
-                               kinetic_population=population, **common)
+        return PlasmaFormalism(bulk_description="reduced", derived_from="drift_kinetic", **common)
     return PlasmaFormalism(bulk_description="kinetic", kinetic_equation="drift_kinetic",
                            kinetic_population=population, distribution_formulation="delta_f",
                            orbit_representation="guiding_center", **common)
@@ -167,8 +169,9 @@ def tglf_effective_controls(parameters: Optional[Mapping[str, Any]] = None) -> d
     sat = _integer(p, _TGLF_DEFAULTS, "SAT_RULE")
     if not 0 <= sat <= 3:
         raise ValueError(f"SAT_RULE={sat} is not 0, 1, 2 or 3")
-    units = str(_value(p, _TGLF_DEFAULTS, "UNITS")).strip().upper()
-    nmodes = _integer(p, _TGLF_DEFAULTS, "NMODES")
+    # Compared exactly as tglf_startup.f90 does (units_in.eq."GYRO"), not normalised.
+    units = _value(p, _TGLF_DEFAULTS, "UNITS")
+    nmodes = _value(p, _TGLF_DEFAULTS, "NMODES")
     if sat in (2, 3):
         xnu, wdia = 3, 1.0
         units = "CGYRO" if units == "GYRO" else units
@@ -176,6 +179,7 @@ def tglf_effective_controls(parameters: Optional[Mapping[str, Any]] = None) -> d
         xnu, wdia = 2, 0.0
     else:
         xnu, wdia, units = 2, 0.0, "GYRO"
+        nmodes = _integer(p, _TGLF_DEFAULTS, "NMODES")
         nmodes = 4 if nmodes > 2 else nmodes
     return {"sat_rule": sat, "units": units, "xnu_model": xnu, "wdia_trapped": wdia, "nmodes": nmodes}
 
@@ -218,15 +222,21 @@ def tglf_surrogate_plasma_formalism(
     does not say, the field is :data:`~vaft.code.formalism.UNKNOWN`. ``parameters`` --
     the request -- supply only what the model identity cannot (geometry, species model).
     """
-    requested = _upper(parameters)
+    # Only what the model identity cannot say comes from the request: geometry and the
+    # electron model. A malformed request key is not this record's business.
+    requested = {key: value for key, value in _upper(parameters).items()
+                 if key in ("GEOMETRY_FLAG", "ADIABATIC_ELEC")}
     base = _tglf_physics({**requested, "USE_TRANSPORT_MODEL": True})
     extensions = dict(base["extensions"])
     for key in ("sat_rule", "units", "xnu_model", "wdia_trapped", "nmodes", "use_bper", "use_bpar"):
         extensions.pop(key, None)       # these belong to the trained variant, not the request
+    # The SAT rule implies XNU_MODEL and WDIA_TRAPPED unconditionally; the variant's
+    # UNITS and NMODES depend on its own training inputs, which the identity does not state.
+    extensions.update({"sat_rule": UNKNOWN if sat_rule is None else int(sat_rule),
+                       "units": UNKNOWN, "nmodes": UNKNOWN})
     if sat_rule is not None:
-        extensions.update(tglf_effective_controls({"SAT_RULE": int(sat_rule)}))
-    else:
-        extensions["sat_rule"] = UNKNOWN
+        implied = tglf_effective_controls({"SAT_RULE": int(sat_rule)})
+        extensions.update(xnu_model=implied["xnu_model"], wdia_trapped=implied["wdia_trapped"])
     extensions.update({"realization": "learned_surrogate", "surrogate_of": "tglf", "model": str(model)})
     base["extensions"] = extensions
     base["field_model"] = (UNKNOWN if electromagnetic is None
@@ -249,7 +259,18 @@ def cgyro_input_physics(parameters: Optional[Mapping[str, Any]] = None) -> dict[
     global_flag = _integer(p, _CGYRO_DEFAULTS, "GLOBAL_FLAG")
     collision = _integer(p, _CGYRO_DEFAULTS, "COLLISION_MODEL")
     shear = {key.lower(): float(_value(p, _CGYRO_DEFAULTS, key)) for key in ("GAMMA_E", "GAMMA_P", "MACH")}
+    n_field = _integer(p, _CGYRO_DEFAULTS, "N_FIELD")
+    profile_model = _integer(p, _CGYRO_DEFAULTS, "PROFILE_MODEL")
+    if profile_model != 1:
+        # PROFILE_MODEL=2 takes the shear and Mach number from input.gacode
+        # (cgyro_make_profiles.f90), not from the zeros VAFT writes in input.cgyro.
+        rotation: Any = UNKNOWN
+    else:
+        rotation = "none" if all(value == 0.0 for value in shear.values()) else shear
     return {
+        "field_model": _CGYRO_FIELDS.get(n_field, UNKNOWN),
+        "nonlinear": _integer(p, _CGYRO_DEFAULTS, "NONLINEAR_FLAG") == 1,
+        "profile_model": profile_model,
         "species_model": "adiabatic_electrons" if adiabatic else "kinetic_electrons",
         "kinetic_population": ("ions",) if adiabatic else ("all",),
         "geometry_model": _CGYRO_GEOMETRY.get(equilibrium, UNKNOWN),
@@ -258,5 +279,5 @@ def cgyro_input_physics(parameters: Optional[Mapping[str, Any]] = None) -> dict[
         "collision_model": collision,
         "collision_model_name": _CGYRO_COLLISIONS.get(collision, UNKNOWN),
         "rotation_model": _integer(p, _CGYRO_DEFAULTS, "ROTATION_MODEL"),
-        "rotation": "none" if all(value == 0.0 for value in shear.values()) else shear,
+        "rotation": rotation,
     }

@@ -621,6 +621,7 @@ GACODE suite
 
 - **NEO.**
   - `AE_FLAG=1` removes the electrons from the kinetic population.
+  - The analytic models carry no kinetic population, because they solve for no distribution.
   - `EQUILIBRIUM_MODEL` (s-α / large aspect ratio / Miller) applies only with `PROFILE_MODEL=1`. With
     `PROFILE_MODEL=2`, VAFT's default, the shape is `input_gacode_shape`.
   - The collision, rotation, Spitzer and 3-D switches stay in `extensions`.
@@ -628,16 +629,21 @@ GACODE suite
   - The saturation rule is recorded with the linear controls TGLF's start-up presets impose with it (`XNU_MODEL`,
     `WDIA_TRAPPED`, `UNITS`, `NMODES`), as the *effective* values, together with the field switches, the geometry
     and the electron model.
-  - `vaft.code.mitim.compare.effective_tglf_controls` uses the same preset implementation.
+  - `vaft.code.mitim.compare.effective_tglf_controls`, used to compare MITIM's inputs with VAFT's, keeps its own
+    implementation. A test pins that the two agree on every canonical input.
 - **TGLF-NN.**
   - The physical fields are those of the TGLF variant, read from the model identity (SAT rule, field model), never
     from the request; `unknown` where the model does not say.
+  - The SAT rule implies `XNU_MODEL` and `WDIA_TRAPPED`. The variant's `UNITS` and `NMODES` are recorded as
+    `unknown`.
   - The realization is `extensions.realization="learned_surrogate"`, `surrogate_of="tglf"`. No kinetic equation is
     "neural network".
 - **CGYRO.**
-  - `plasma_formalism(config, parameters=...)` reads the electron model, the geometry (`EQUILIBRIUM_MODEL` 1 s-α,
+  - `plasma_formalism(config, parameters=...)` reads the field model (`N_FIELD`), the regime (`NONLINEAR_FLAG`), the
+    electron model, the geometry (`EQUILIBRIUM_MODEL` 1 s-α,
     2 MXH, recorded as VAFT's historical `miller`), `GLOBAL_FLAG` (1 gives `spatial_domain="unknown"`, never a
-    bare global), the collision model and the rotation (`"none"` when `GAMMA_E`, `GAMMA_P` and `MACH` are all zero).
+    bare global), the collision model and the rotation. The rotation is `"none"` when `GAMMA_E`, `GAMMA_P` and
+    `MACH` are all zero, and `unknown` with `PROFILE_MODEL=2`, which takes them from `input.gacode`.
   - The #1353 `formalism()` is still derived from this record.
 - **Not covered.** The classical (Braginskii) result in `vaft.process.transport_state` has no record yet: the
   vocabulary has no operation for classical collisional transport, and adding one is a `SCHEMA_VERSION` change for

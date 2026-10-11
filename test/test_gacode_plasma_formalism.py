@@ -53,7 +53,8 @@ def test_neo_reads_what_was_written_not_what_was_configured():
     config = neo.NEOConfig(extra_parameters={"sim_model": 0, "ae_flag": 1})
     record = neo.plasma_formalism(config)
     assert record.bulk_description == "reduced" and record.derived_from == "drift_kinetic"
-    assert record.kinetic_equation is None and record.kinetic_population == ("ions",)
+    assert record.kinetic_equation is None and record.kinetic_population is None   # analytic: no distribution
+    assert record.extensions["species_model"] == "adiabatic_electrons"
     written = neo_parameters(neo.NEOConfig(n_species=3, extra_parameters={"sim_model": 0, "ae_flag": 1}))
     assert neo.plasma_formalism(parameters=written) == record      # config path == written-input path
 
@@ -110,6 +111,23 @@ def test_cgyro_reads_electrons_geometry_and_domain_from_the_written_input():
     assert global_spectral.spatial_domain == UNKNOWN          # never a bare "global"
 
 
+def test_cgyro_field_model_and_regime_follow_the_written_input():
+    """An extra_parameters N_FIELD / NONLINEAR_FLAG is what CGYRO runs (merged last)."""
+    record = cgyro.plasma_formalism(cgyro.CGYROConfig(field_model="es", extra_parameters={"N_FIELD": 3}))
+    assert record.field_model == "electromagnetic" and record.extensions["field_model"] == "em-aperp-bpar"
+    nonlinear = cgyro.plasma_formalism(parameters={"NONLINEAR_FLAG": 1, "N_FIELD": 2})
+    assert (nonlinear.regime, nonlinear.scientific_operation) == ("nonlinear", "turbulent_transport")
+    from_gacode = cgyro.plasma_formalism(parameters={"PROFILE_MODEL": 2})
+    assert from_gacode.extensions["rotation"] == UNKNOWN    # shear then comes from input.gacode
+
+
+def test_the_1353_record_of_a_default_cgyro_run_is_unchanged():
+    assert cgyro.formalism(cgyro.CGYROConfig(), solver_version="v") == {
+        "distribution_formulation": "delta_f", "spatial_domain": "local", "numerical_representation": "continuum",
+        "field_model": "es", "regime": "linear", "topology_domain": "closed_flux_surface",
+        "geometry_model": "miller", "species_model": "kinetic_electrons", "solver": "cgyro", "solver_version": "v"}
+
+
 # --------------------------------------------------------------------------- TGLF
 def test_tglf_is_a_reduced_model_derived_from_gyrokinetics():
     record = tglf_plasma_formalism(_input_tglf("tglf_vest_39915_r0.70_sat3-em-bper"))
@@ -143,15 +161,22 @@ def test_tglf_follows_an_extra_parameters_override_of_the_saturation_rule():
     assert record.extensions["sat_rule"] == 3 and record.extensions["xnu_model"] == 3
 
 
-def test_mitim_comparison_uses_the_same_preset_implementation():
+@pytest.mark.parametrize("sat", range(4))
+@pytest.mark.parametrize("units", [None, "GYRO", "CGYRO"])
+@pytest.mark.parametrize("nmodes", [None, 2, 4])
+def test_mitim_comparison_and_the_record_agree_on_the_presets(sat, units, nmodes):
+    """Two implementations of tglf_startup.f90's presets (MITIM's input comparison keeps
+    its own, unchanged); on every canonical input they must give the same values."""
     from vaft.code.mitim.compare import effective_tglf_controls
 
-    for sat in range(4):
-        effective = effective_tglf_controls({"SAT_RULE": sat, "UNITS": "GYRO", "NMODES": 4})
-        controls = tglf_effective_controls({"SAT_RULE": sat, "UNITS": "GYRO", "NMODES": 4})
-        assert effective["XNU_MODEL"] == controls["xnu_model"]
-        assert effective["WDIA_TRAPPED"] == controls["wdia_trapped"]
-        assert effective["UNITS"] == controls["units"]
+    parameters = {"SAT_RULE": sat, **({} if units is None else {"UNITS": units}),
+                  **({} if nmodes is None else {"NMODES": nmodes})}
+    mitim = effective_tglf_controls(parameters)
+    record = tglf_effective_controls(parameters)
+    assert mitim["XNU_MODEL"] == record["xnu_model"]
+    assert mitim["WDIA_TRAPPED"] == record["wdia_trapped"]
+    assert mitim.get("UNITS", "GYRO") == record["units"]
+    assert mitim.get("NMODES", 2) == record["nmodes"]
 
 
 # --------------------------------------------------------------------------- TGLF-NN
@@ -164,6 +189,9 @@ def test_tglf_nn_is_the_tglf_variant_it_reproduces_realized_by_a_network():
     assert surrogate.solver == "tglf-nn" and parent.solver == "tglf"
     assert surrogate.extensions["realization"] == "learned_surrogate"
     assert surrogate.extensions["surrogate_of"] == "tglf" and surrogate.extensions["sat_rule"] == 2
+    # SAT2 implies XNU_MODEL=3 and WDIA_TRAPPED=1; the variant's own UNITS/NMODES are not stated.
+    assert (surrogate.extensions["xnu_model"], surrogate.extensions["wdia_trapped"]) == (3, 1.0)
+    assert surrogate.extensions["units"] == surrogate.extensions["nmodes"] == UNKNOWN
     assert surrogate.kinetic_equation is None                  # a network is no governing equation
     _roundtrip(surrogate)
 
@@ -172,6 +200,9 @@ def test_tglf_nn_takes_its_variant_from_the_model_not_the_request():
     unknown = tglf_surrogate_plasma_formalism(sat_rule=None, electromagnetic=None, model="m",
                                               parameters={"SAT_RULE": 3, "USE_BPER": True})
     assert unknown.extensions["sat_rule"] == UNKNOWN and unknown.field_model == UNKNOWN
+    # A malformed request key never breaks the record of a prediction already made.
+    assert tglf_surrogate_plasma_formalism(sat_rule=3, electromagnetic=True, model="m",
+                                           parameters={"SAT_RULE": 9, "NMODES": "x"}).extensions["sat_rule"] == 3
 
 
 # --------------------------------------------------------------------------- run provenance
