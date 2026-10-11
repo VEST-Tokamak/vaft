@@ -224,11 +224,15 @@ def population_overlay(table: pd.DataFrame, projection, *, x: Optional[str] = No
 _POWER_OF_TEN = re.compile(r"\b1e(-?\d+)\b")
 
 
+_ANGLE = re.compile(r"<([^<>]+)>")
+
+
 def _label(quantity: _b.BoundaryQuantity, column: str) -> str:
     if column != quantity.name:
         return column
     symbol = re.sub(r"(?<![\\A-Za-z])(beta|kappa|delta|epsilon|psi)(?![A-Za-z])", r"\\\1", quantity.symbol)
     symbol = re.sub(r"_([A-Za-z0-9]+)", r"_{\1}", symbol)
+    symbol = _ANGLE.sub(r"\\langle \1\\rangle", symbol)   # <beta_N>, a volume average
     from vaft.plot.display import unit_markup
 
     # "1e19 m^-2 T^-1" reads as 10^19 m^-2 T^-1, typeset like every other vaft.plot axis
@@ -348,6 +352,7 @@ def _math(symbol: str) -> str:
     """A registry symbol (``kappa_a``, ``B_T``, ``|I_p|``) as mathtext."""
     text = re.sub(r"(?<![\\A-Za-z])(beta|kappa|delta|epsilon|psi|rho|mu)(?![A-Za-z])", r"\\\1", symbol)
     text = re.sub(r"_([A-Za-z0-9]+)", r"_{\1}", text)
+    text = _ANGLE.sub(r"\\langle \1\\rangle", text)
     return f"${text}$"
 
 
@@ -1205,6 +1210,18 @@ def operational_space_population(table: pd.DataFrame, projection, *, x: Optional
                              label=textwrap.fill(text + " (Theoretical)", width=46, subsequent_indent="  ")))
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
+    if proj.equality_line and (x, y) == (proj.x.name, proj.y.name):
+        # two normalizations of one ratio (#1691): y = x is where they agree, a guide and not a boundary
+        lo, hi = max(xlim[0], ylim[0]), min(xlim[1], ylim[1])
+        label = f"{_math(proj.y.symbol)} = {_math(proj.x.symbol)}"
+        if hi > lo:
+            ax.plot([lo, hi], [lo, hi], color="0.35", linestyle=":", linewidth=1.2 * line_scale, zorder=1,
+                    label=None if inline else label)
+            if inline:
+                from matplotlib.lines import Line2D
+                patches.append(Line2D([], [], color="0.35", linestyle=":", linewidth=1.2 * line_scale, label=label))
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
     placed = []   # extents of the notes and names already written, so a later one does not cover them
     if inline:
         for curve in plan.curves:
