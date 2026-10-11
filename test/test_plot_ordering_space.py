@@ -43,11 +43,17 @@ def test_the_issue_spaces_are_registered_with_their_axes():
         OrderingSpace("bad", "not_a_quantity", "beta", "t", ("a", "b"), ("c", "d"))
 
 
-@pytest.mark.parametrize("margin, label", [(3.0, "strong"), (2.0, "moderate"), (1.5, "moderate"), (0.5, "marginal"),
-                                           (0.0, "violated"), (-0.01, "violated"), (math.nan, "unassessed")])
+@pytest.mark.parametrize("margin, label", [(3.0, "over 2 decades"), (2.0, "1-2 decades"), (1.5, "1-2 decades"),
+                                           (0.5, "0-1 decade"), (0.0, "outside"), (-0.01, "outside"),
+                                           (math.nan, "unassessed")])
 def test_margin_labels_are_documented_bands(margin, label):
     assert margin_label(margin) == label
     assert [b for b, _ in MARGIN_LABELS] == sorted([b for b, _ in MARGIN_LABELS], reverse=True)
+    # band names, not statuses: the only shared word is "outside", whose band (m <= 0) is exactly OUTSIDE
+    from vaft.validation.applicability import APPLICABILITY_STATUSES
+
+    names = {label.lower() for _, label in MARGIN_LABELS}
+    assert names & {s.lower() for s in APPLICABILITY_STATUSES} == {"outside"} and "marginal" not in names
 
 
 def _states():
@@ -98,11 +104,43 @@ def test_the_both_hold_label_sits_in_the_shaded_permitted_region(x, y):
 
 
 def test_margins_plot_reports_fraction_and_count_per_ordering():
-    fig, ax = ordering_margins_plot(_states(), ["lundquist_number", "ion_skin_depth_over_a"])
+    fig, ax = ordering_margins_plot(_states(), quantities=["lundquist_number", "ion_skin_depth_over_a"])
     texts = [t.get_text() for t in ax.texts]
     assert "100% hold, n=5" in texts           # S = 3e4..1e5 >> 1 everywhere
     assert "67% hold, n=3" in texts            # d_i/a: 0.2 and 0.5 hold, 2.0 fails, two unassessable
-    assert {"strong", "moderate", "marginal", "violated"} <= set(texts)
+    assert {"over 2 decades", "1-2 decades", "0-1 decade", "outside"} <= set(texts)
     with pytest.raises(ValueError):
         ordering_margins_plot(pd.DataFrame({"x": [1.0]}))
+    plt.close(fig)
+
+
+def test_margins_plot_counts_global_orderings_per_state_like_ordering_margins():
+    from vaft.process.ordering_state import ordering_margins
+
+    states = pd.DataFrame({"shot": [1, 2], "lundquist_number": [1e5, 0.5]})
+    # three profile points per state, each carrying its state's S as a joined table would
+    points = pd.DataFrame({"shot": [1, 1, 1, 2, 2, 2], "lundquist_number": [1e5] * 3 + [0.5] * 3,
+                           "rho_s_over_LTe": [0.01, 0.02, 2.0, 0.05, 0.1, 0.3]})
+    fig, ax = ordering_margins_plot(states, points, quantities=["lundquist_number", "rho_s_over_LTe"])
+    texts = [t.get_text() for t in ax.texts]
+    reference = ordering_margins(CONTRACTS, states, points)
+    s_row = reference.loc["lundquist_number (large)"]
+    rho_row = reference.loc["rho_s_over_LTe (small)"]
+    assert (s_row.per, int(s_row.n)) == ("state", 2)
+    assert f"{100 * s_row.permitted:.0f}% hold, n={int(s_row.n)}" in texts        # 50%, n=2, not n=6
+    assert f"{100 * rho_row.permitted:.0f}% hold, n={int(rho_row.n)}" in texts    # per point
+    plt.close(fig)
+
+
+def test_a_sourced_threshold_moves_the_lines_and_the_margin(monkeypatch):
+    import vaft.validation.orderings as orderings
+
+    monkeypatch.setattr(orderings, "ordering_threshold",
+                        lambda q: 0.1 if q == "ion_skin_depth_over_a" else 1.0)
+    fig, ax = ordering_space(_states(), "resistive_two_fluid")
+    assert 0.1 in [line.get_xdata()[0] for line in ax.lines]       # the threshold line, not x = 1
+    assert "\\ll 0.1" in ax.get_xlabel()
+    plt.close(fig)
+    fig, ax = ordering_margins_plot(_states(), quantities=["ion_skin_depth_over_a"])
+    assert "0% hold, n=3" in [t.get_text() for t in ax.texts]      # 0.2, 0.5 and 2.0 all exceed 0.1
     plt.close(fig)

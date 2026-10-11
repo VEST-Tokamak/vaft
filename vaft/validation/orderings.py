@@ -54,6 +54,7 @@ __all__ = [
     "SYMBOLS",
     "contract",
     "margin_label",
+    "ordering_threshold",
     "required_ordering",
 ]
 
@@ -355,32 +356,44 @@ SYMBOLS = {
 }
 
 
+def _ordering_of(quantity: str) -> Tuple[str, float]:
+    found = {(a.ordering, a.threshold) for c in CONTRACTS.values() for a in c.assumptions if a.quantity == quantity}
+    if not found:
+        raise KeyError(f"no contract orders {quantity!r}")
+    if len(found) > 1:
+        raise ValueError(f"contracts disagree on the ordering of {quantity!r}: {sorted(found)}")
+    return found.pop()
+
+
 def required_ordering(quantity: str) -> str:
     """``"small"`` or ``"large"``: the side every contract that uses ``quantity`` requires.
 
-    A quantity is ordered the same way by every model that orders it; a
-    registry that asked one model for ``x << 1`` and another for ``x >> 1``
-    would be an error, and this raises on it.
+    A quantity is ordered the same way, against the same threshold, by every
+    model that orders it; a registry that asked one model for ``x << 1`` and
+    another for ``x >> 1`` would be an error, and this raises on it.
     """
-    sides = {a.ordering for c in CONTRACTS.values() for a in c.assumptions if a.quantity == quantity}
-    if not sides:
-        raise KeyError(f"no contract orders {quantity!r}")
-    if len(sides) > 1:
-        raise ValueError(f"contracts disagree on the side of {quantity!r}: {sorted(sides)}")
-    return sides.pop()
+    return _ordering_of(quantity)[0]
 
 
-#: Reporting labels for an ordering margin m (decades), by exclusive lower bound: m > 2 is "strong",
-#: 1 < m <= 2 "moderate", 0 < m <= 1 "marginal", m <= 0 "violated". A margin of exactly zero is
-#: violated, as in :func:`~vaft.validation.applicability.evaluate_contract`. They are a reading
-#: convention -- one decade of scale separation is "moderate", two "strong" -- not a validity
-#: threshold: the continuous margin is the result, the label only names a band of it (#1627).
-MARGIN_LABELS: Tuple[Tuple[float, str], ...] = ((2.0, "strong"), (1.0, "moderate"), (0.0, "marginal"),
-                                                (float("-inf"), "violated"))
+def ordering_threshold(quantity: str) -> float:
+    """The threshold every contract that uses ``quantity`` orders it against (order unity unless sourced)."""
+    return _ordering_of(quantity)[1]
+
+
+#: Names of the margin bands m (decades), by exclusive lower bound. They name how many decades of
+#: scale separation a value has; they are NOT an applicability status. The status stays the
+#: two-sided SUPPORTED / OUTSIDE of :func:`~vaft.validation.applicability.evaluate_contract`,
+#: which has no "marginal" on purpose, and a margin of exactly zero is "outside" as it is OUTSIDE
+#: there. The continuous margin is the result; a band name only reads it (#1627).
+MARGIN_LABELS: Tuple[Tuple[float, str], ...] = ((2.0, "over 2 decades"), (1.0, "1-2 decades"),
+                                                (0.0, "0-1 decade"), (float("-inf"), "outside"))
 
 
 def margin_label(margin: float) -> str:
-    """The :data:`MARGIN_LABELS` band of an ordering margin in decades; ``"unassessed"`` for NaN."""
+    """The :data:`MARGIN_LABELS` band of an ordering margin in decades; ``"unassessed"`` for NaN.
+
+    A band name, not an applicability status (see :data:`MARGIN_LABELS`).
+    """
     m = float(margin)
     if m != m:
         return "unassessed"

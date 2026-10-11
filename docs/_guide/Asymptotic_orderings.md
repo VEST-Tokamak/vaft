@@ -141,7 +141,7 @@ reaches one. They are not empirical stability or operating boundaries. The space
 from vaft.plot.ordering_space import ordering_space, ordering_margins_plot
 
 fig, ax = ordering_space(states, "resistive_two_fluid", group="efit_quality")
-fig, ax = ordering_margins_plot(states, ["lundquist_number", "ion_skin_depth_over_a"])
+fig, ax = ordering_margins_plot(states, points)   # global orderings per state, profile ones per point
 ```
 
 `ordering_space` draws a population on log axes. It shows:
@@ -154,22 +154,25 @@ A quadrant name describes only these two orderings. "Ideal, single-fluid" says n
 other orderings of the ideal-MHD contract. A row whose value is missing or not positive is counted as
 unassessed and left off, never placed at a guessed position.
 
-`ordering_margins_plot` shows, for each ordering, the margin $m = \mp\log_{10}x$ of every state or point,
-its median, the fraction on the permitted side and the number assessed. The background bands are
-`MARGIN_LABELS`:
+`ordering_margins_plot(states, points)` shows, for each ordering, the margin $m = \mp\log_{10}(x/x_0)$ of
+every state or point, its median, the fraction with $m > 0$ and the number assessed. A global or
+time-history ordering is read from `states`, once per state. Any other ordering is read from `points`,
+once per flux-surface point. So $n$ and the fraction match `vaft.process.ordering_state.ordering_margins`
+on the same data. A row without one quantity is left out of that ordering only. Each ordering is drawn
+against its contract threshold $x_0$ (`ordering_threshold`), which is order unity today. The background
+bands are `MARGIN_LABELS`:
 
-| Margin $m$ [decades] | Label |
+| Margin $m$ [decades] | Band |
 | --- | --- |
-| $m > 2$ | strong |
-| $1 < m \le 2$ | moderate |
-| $0 < m \le 1$ | marginal |
-| $m \le 0$ | violated |
+| $m > 2$ | over 2 decades |
+| $1 < m \le 2$ | 1-2 decades |
+| $0 < m \le 1$ | 0-1 decade |
+| $m \le 0$ | outside |
 
-The bands are a reading convention: one decade of scale separation is "moderate", two are "strong".
-They are not validity thresholds. The continuous margin is the result, and `margin_label` only names its
-band. A margin of exactly zero, an ordering parameter of exactly one, is violated, as in `evaluate_contract`.
-The "% hold" column counts $m > 0$, and $n$ is per ordering: a row without one quantity is left out of that
-ordering only.
+The bands name the scale separation. They are **not an applicability status**: that stays the two-sided
+`SUPPORTED` / `OUTSIDE` of `evaluate_contract`, which has no "marginal" on purpose. A margin of exactly
+zero, a quantity at its threshold, falls in "outside", as it is `OUTSIDE` there. The continuous margin
+is the result, and `margin_label` only names its band.
 
 ## References
 
