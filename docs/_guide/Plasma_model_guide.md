@@ -291,7 +291,9 @@ whether a model applies to a given state is an ordering question, answered per s
 The scales these orderings compare, and why a model can hold on one scale and fail on another, are
 the *Characteristic scales and orderings* reference (#1724, PR #1985).
 
-**Time scales.** The families above separate along these time scales, written from fast to slow *as a class*:
+### Time scales
+
+The families above separate along these time scales, written from fast to slow *as a class*:
 
 ```text
 gyration 1/Omega_c  ->  bounce / transit 1/omega_b, 1/omega_t  ->  drift precession 1/omega_D  ->  Alfven tau_A
@@ -303,8 +305,12 @@ $T$, $B$, the collisionality and the mode frequency; the collision time in parti
 chain, and in a low-field device the electron transit frequency can reach the ion gyrofrequency. Drift kinetics
 needs the dynamics slower than gyration; gyrokinetics also slower than gyration, but with fluctuations on the
 drift scale; MHD needs it slower than the kinetic times its closure averages over; an equilibrium needs
-$\tau_{evol}\gg\tau_A$. `vaft.diagram.timescale_hierarchy` evaluates eight of these times for one labelled
-illustrative state and places them by value.
+$\tau_{evol}\gg\tau_A$. `vaft.diagram.timescale_hierarchy` evaluates these times for one labelled illustrative
+state (`ILLUSTRATIVE_STATE`; its assumed values are listed in the figure caption) and places them by value. Drift
+precession has no formula kernel and $\tau_E$ needs an energy inventory the state does not carry, so the figure
+omits both and says so (#1724).
+
+### Spatial scales
 
 *Figure pending (#1739 §25.3, spatial scales): `vaft.diagram.spatial_scale_orderings`, built from the diagram contract posted on #1739.* In short: $\rho$, orbit width, $L$, $a$ and $qR$ on one log axis for an
 explicitly labelled illustrative state, with the ratios $\rho/L$, $k_\perp\rho$, $k_\parallel/k_\perp$ and
