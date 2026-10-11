@@ -19,6 +19,7 @@ from vaft.process.ordering_state import (
     global_ordering_quantities,
     ordering_margins,
     ordering_coverage,
+    ordering_inputs_from_ods,
     ordering_table,
     profile_ordering_quantities,
     time_history_ordering_quantities,
@@ -247,3 +248,195 @@ def test_no_assessable_ordering_reads_as_no_evidence_not_as_failure():
     summary = summarize_population(evaluate_population(c, pd.DataFrame({"unrelated": [1.0, 2.0]})), c)
     assert math.isnan(summary["evaluated_hold"])
     assert summary["UNASSESSED"] == 1.0 and summary["assessable"] == ()
+
+
+# --------------------------------------------------------------------------- #
+# ordering_inputs_from_ods (#1823 follow-up)
+# --------------------------------------------------------------------------- #
+
+RHO = np.linspace(0.0, 0.95, 20)
+
+
+def _ods(*, cp_times=(0.0112, 0.0102), zeff=None):
+    """Two equilibrium slices (1 ms apart) and core_profiles slices stored out of time order."""
+    from omas import ODS
+
+    ods = ODS()
+    ods["equilibrium.time"] = np.array([0.010, 0.011])
+    ods["equilibrium.vacuum_toroidal_field.r0"] = 0.40
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([-0.10, -0.12])
+    for i, ip in enumerate((1.00e5, 1.02e5)):
+        ts = ods["equilibrium.time_slice"][i]
+        ts["time"] = ods["equilibrium.time"][i]
+        ts["global_quantities.ip"] = -ip
+        ts["global_quantities.beta_tor"] = 0.02
+        ts["boundary.minor_radius"] = 0.30
+        ts["boundary.geometric_axis.r"] = 0.45
+        ts["profiles_1d.rho_tor_norm"] = RHO
+        ts["profiles_1d.q"] = -(1.2 + 2.0 * RHO ** 2)
+    ods["core_profiles.time"] = np.array(cp_times)
+    for j, (t, scale) in enumerate(zip(cp_times, (3.0, 1.0))):
+        prof = ods["core_profiles.profiles_1d"][j]
+        prof["time"] = t
+        prof["grid.rho_tor_norm"] = RHO
+        prof["electrons.density_thermal"] = scale * 1e19 * (1.0 - 0.8 * RHO ** 2)
+        prof["electrons.temperature"] = scale * 100.0 * (1.0 - 0.9 * RHO ** 2)
+        if zeff is not None:
+            prof["zeff"] = np.full(RHO.shape, zeff)
+    return ods
+
+
+def _area_mean(f):
+    return float(np.trapezoid(f * RHO, RHO) / np.trapezoid(RHO, RHO))
+
+
+def test_inputs_from_an_ods_match_the_builders_on_the_time_matched_slices():
+    result = ordering_inputs_from_ods(_ods(), 0.0101, z_eff=2.0, ln_lambda=15.0, plasma_onset=0.002)
+    # t = 0.0101 -> equilibrium slice 0 (0.010); core_profiles slice at 0.0102 is the
+    # SECOND stored one: the pairing is by time, not by index.
+    assert result.provenance["equilibrium_time"] == pytest.approx(0.010)
+    assert result.provenance["core_profiles_time"] == pytest.approx(0.0102)
+    n_e = _area_mean(1e19 * (1.0 - 0.8 * RHO ** 2))
+    t_e = _area_mean(100.0 * (1.0 - 0.9 * RHO ** 2))
+    b0 = 0.10 * 0.40 / 0.45
+    common = dict(minor_radius=0.30, b0=b0, n_e=n_e, t_e=t_e, z_eff=2.0, ln_lambda=15.0)
+    expected = global_ordering_quantities(major_radius=0.45, beta=0.02, **common)
+    expected.update(time_history_ordering_quantities(plasma_current=1.0e5, current_rate=2.0e6,
+                                                     plasma_age=0.008, **common))
+    for name, value in expected.items():
+        assert result.state[name] == pytest.approx(value, rel=1e-9), name
+    assert set(result.state) <= set(ORDERING_QUANTITIES)
+    profile = profile_ordering_quantities(
+        minor_radius_coordinate=RHO * 0.30, n_e=1e19 * (1.0 - 0.8 * RHO ** 2), t_e=100.0 * (1.0 - 0.9 * RHO ** 2),
+        magnetic_field=b0 * 0.45 / (0.45 + RHO * 0.30), safety_factor=1.2 + 2.0 * RHO ** 2, major_radius=0.45,
+        z_eff=2.0, ln_lambda=15.0)
+    for name, values in profile.items():
+        np.testing.assert_allclose(result.points[name], values, rtol=1e-12, equal_nan=True, err_msg=name)
+
+
+def test_inputs_refuse_a_time_with_no_equilibrium_slice_within_tolerance():
+    with pytest.raises(ValueError, match="no equilibrium slice"):
+        ordering_inputs_from_ods(_ods(), 0.0130)
+
+
+def test_profiles_outside_the_tolerance_leave_the_kinetic_quantities_unassessed():
+    result = ordering_inputs_from_ods(_ods(cp_times=(0.0150, 0.0160)), 0.010, z_eff=2.0)
+    assert result.points is None
+    assert result.provenance["core_profiles_time"] is None
+    assert math.isnan(result.state["lundquist_number"])
+    assert result.state["inverse_aspect_ratio"] == pytest.approx(0.30 / 0.45)
+    assert any("core_profiles" in note for note in result.provenance["notes"])
+
+
+def test_z_eff_comes_from_the_caller_then_the_profiles_and_is_never_assumed():
+    stored = ordering_inputs_from_ods(_ods(zeff=1.7), 0.010)
+    assert stored.provenance["z_eff"] == pytest.approx(1.7)
+    assert stored.provenance["z_eff_source"] == "core_profiles zeff area mean"
+    missing = ordering_inputs_from_ods(_ods(), 0.010)
+    assert missing.provenance["z_eff"] is None
+    assert math.isnan(missing.state["lundquist_number"])
+    # gyroradius and Debye orderings do not use Z_eff and survive its absence
+    assert np.isfinite(missing.points["rho_s_over_LTe"][1:]).all()
+    assert np.isfinite(missing.points["debye_length_over_L"][1:]).all()
+    assert np.isnan(missing.points["electron_magnetization"]).all()
+
+
+@pytest.mark.parametrize("make", ["sample", "synthetic"])
+def test_inputs_never_write_into_the_ods(make):
+    import vaft
+
+    ods = vaft.omas.sample_ods() if make == "sample" else _ods()   # the sample has no minor_radius
+    before = set(ods.flat())
+    result = ordering_inputs_from_ods(ods, float(ods["equilibrium.time_slice"][0]["time"]), use_ion_temperature=True)
+    assert set(ods.flat()) == before
+    if make == "sample":
+        assert result.provenance["minor_radius_source"] == "boundary.outline.r half width"
+
+
+def test_slices_stored_out_of_order_are_matched_and_differentiated_by_time():
+    ods = _ods()
+    ods["equilibrium.time"] = np.array([0.011, 0.010])     # the vector b0 is defined on
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([-0.12, -0.10])
+    for i, (t, ip) in enumerate(((0.011, 1.02e5), (0.010, 1.00e5))):
+        ts = ods["equilibrium.time_slice"][i]
+        ts["time"], ts["global_quantities.ip"] = t, -ip
+    result = ordering_inputs_from_ods(ods, 0.010, z_eff=2.0)
+    assert result.provenance["equilibrium_time"] == pytest.approx(0.010)
+    assert result.provenance["b0"] == pytest.approx(0.10 * 0.40 / 0.45)
+    assert result.provenance["current_rate"] == pytest.approx(2.0e6)
+
+
+def test_b0_is_matched_on_the_ids_time_vector_not_on_slice_position():
+    ods = _ods()
+    ods["equilibrium.time"] = np.array([0.009, 0.010, 0.011])   # three b0 samples, two slices
+    ods["equilibrium.vacuum_toroidal_field.b0"] = np.array([-0.08, -0.10, -0.12])
+    result = ordering_inputs_from_ods(ods, 0.010, z_eff=2.0)
+    assert result.provenance["b0"] == pytest.approx(0.10 * 0.40 / 0.45)
+
+
+def test_a_non_finite_time_is_refused_with_the_matching_message():
+    with pytest.raises(ValueError, match="no equilibrium slice"):
+        ordering_inputs_from_ods(_ods(), float("nan"))
+
+
+def test_without_a_coulomb_logarithm_only_the_collisional_quantities_are_lost():
+    out = profile_ordering_quantities(
+        minor_radius_coordinate=RHO[1:] * 0.3, n_e=1e19 * (1 - 0.8 * RHO[1:] ** 2), t_e=100 * (1 - 0.9 * RHO[1:] ** 2),
+        magnetic_field=0.1, safety_factor=1.2 + 2 * RHO[1:] ** 2, major_radius=0.45, z_eff=2.0,
+        ln_lambda=float("nan"), t_i=80 * (1 - 0.9 * RHO[1:] ** 2))
+    for kept in ("rho_s_over_LTe", "rho_i_over_LTi", "debye_length_over_L"):
+        assert np.isfinite(out[kept]).all(), kept
+    for lost in ("electron_magnetization", "ion_magnetization", "electron_parallel_knudsen_number",
+                 "ion_parallel_knudsen_number", "electron_collisionality", "ion_collisionality"):
+        assert np.isnan(out[lost]).all(), lost
+
+
+def test_the_stored_ion_temperature_is_used_only_when_asked():
+    ods = _ods()
+    for j in range(2):
+        prof = ods["core_profiles.profiles_1d"][j]
+        prof["ion"][0]["temperature"] = 80.0 * (1.0 - 0.9 * RHO ** 2)
+    default = ordering_inputs_from_ods(ods, 0.010, z_eff=2.0)
+    assert np.isnan(default.points["rho_i_over_LTi"]).all()
+    assert default.provenance["ion_temperature"] == "not used"
+    used = ordering_inputs_from_ods(ods, 0.010, z_eff=2.0, use_ion_temperature=True)
+    assert np.isfinite(used.points["rho_i_over_LTi"][1:]).all()
+
+
+def test_the_inputs_feed_an_adapter_advisory_check():
+    from vaft.validation.model_contracts import adapter_mode, ordering_provenance
+
+    result = ordering_inputs_from_ods(_ods(), 0.010, z_eff=2.0)
+    record = ordering_provenance(adapter_mode("gpec:dcon_ideal").formalism, result.state, result.points)
+    assert record["ignored"] == []
+    ideal = [c for c in record["contracts"] if c["contract"] == "ideal_single_fluid_mhd"]
+    assert ideal and ideal[0]["values"]["lundquist_number"] == pytest.approx(result.state["lundquist_number"])
+
+
+def test_kinetic_efit_passes_its_ordering_state_to_every_scale_run(tmp_path, monkeypatch):
+    from vaft.code.efit import kinetic as km
+
+    seen = []
+
+    class _Run:
+        returncode, gfiles, logs = 1, (), ""
+
+    def fake_run_efit(inputs, config):
+        seen.append(dict(config.ordering_state))
+        return _Run()
+
+    monkeypatch.setattr(km, "_resolve_efit_executable", lambda config: "efit")
+    monkeypatch.setattr(km, "scale_plasma", lambda text, scale: text)
+    monkeypatch.setattr(km, "inject_pressure_constraint", lambda text, points, encoding: text)
+    monkeypatch.setattr(km, "run_efit", fake_run_efit)
+    state = {"lundquist_number": 1.0e5}
+    config = km.KineticEFITConfig(workdir=str(tmp_path), scales=(1.0, 0.9), ordering_state=state)
+    km.run_kinetic_efit(km.KineticEFITInputs(workdir=tmp_path, base_kfile_text="x", points=object()), config)
+    assert seen == [state, state]
+    assert km.KineticEFITConfig().ordering_state == {}
+
+
+def test_the_pairing_tolerance_is_the_transport_state_one():
+    from vaft.process import ordering_state, transport_state
+
+    assert ordering_state._TIME_TOLERANCE_S == transport_state.DEFAULT_TIME_TOLERANCE_S

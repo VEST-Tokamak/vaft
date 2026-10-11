@@ -267,9 +267,15 @@ caller value takes precedence over a derived one, and a caller's NaN does not hi
 override species keys (a gradient scan), nothing is derived from the staged input, and the record says why.
 State keys that are not ordering quantities are listed under `ignored`.
 
-**For now this is plumbing.** No production workflow passes `ordering_state` yet, so a routine EFIT or GPEC
-record lists the consumed contracts with every ordering `UNASSESSED`. The kinetic EFIT chain
-(`KineticEFITConfig`) builds its own `EFITConfig` and has no `ordering_state` yet.
+**Building the state from an ODS.** `vaft.process.ordering_state.ordering_inputs_from_ods(ods, t)` returns
+`state`, `points` and a `provenance` record for one equilibrium slice. It matches that slice to `t`, and the
+`core_profiles` slice to the equilibrium, by time within 0.5 ms, never by index. $Z_{\rm eff}$ comes from the
+caller or from the stored profile, never from an assumption; without it the resistive orderings stay
+`UNASSESSED`. The plasma age needs the caller's onset time. The kinetic EFIT chain passes
+`KineticEFITConfig.ordering_state` to every PLASMA-scale run's `EFITConfig`.
+
+**Not yet wired.** No production workflow passes `ordering_state` yet, so a routine EFIT or GPEC record lists
+the consumed contracts with every ordering `UNASSESSED` until its stage calls the builder (#1823).
 CGYRO's two local quantities are in GACODE's units: $\rho_s$ is deuterium-normalised in $B_{unit}$. That is an
 order-one difference from the local field, inside the order-unity thresholds.
 

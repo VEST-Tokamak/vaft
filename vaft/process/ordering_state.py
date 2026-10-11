@@ -63,16 +63,19 @@ Provenance
 from __future__ import annotations
 
 import math
-from typing import Any, Mapping
+from dataclasses import dataclass, field
+from typing import Any, Mapping, Optional
 
 import numpy as np
 
 __all__ = [
     "COVERAGE_TIERS",
     "DEFAULT_COLUMNS",
+    "OrderingInputs",
     "contract_population",
     "global_ordering_quantities",
     "ordering_coverage",
+    "ordering_inputs_from_ods",
     "ordering_margins",
     "ordering_table",
     "profile_ordering_quantities",
@@ -372,9 +375,10 @@ def profile_ordering_quantities(
     major_radius : float
         Major radius for the connection length ``qR`` and ``epsilon = r/R`` [m].
     z_eff : float
-        Effective charge for the electron collisions [-].
+        Effective charge for the electron collisions; NaN leaves the electron
+        collisional quantities NaN and the gyroradius and Debye ones intact [-].
     ln_lambda : float
-        Coulomb logarithm [-].
+        Coulomb logarithm; NaN leaves every collisional quantity NaN [-].
     ion_mass_amu : float, optional
         Main-ion mass number [-].
     t_i : array-like, optional
@@ -462,8 +466,12 @@ def profile_ordering_quantities(
              "electron_magnetization", "ion_magnetization", "electron_collisionality", "ion_collisionality",
              "debye_length_over_L")
     out = {name: np.full(r.shape, np.nan) for name in names}
-    if not _finite_positive(major, z_eff, ln_lambda, ion_mass_amu) or r.size < 2:
+    if not _finite_positive(major, ion_mass_amu) or r.size < 2:
         return out
+    # The collisional quantities need lnLambda (and Z_eff for the electrons); the
+    # gyroradius and Debye orderings do not, and survive a missing Z_eff.
+    electron_collisional = _finite_positive(z_eff, ln_lambda)
+    ion_collisional = _finite_positive(ln_lambda)
 
     def ok(*arrays):
         mask = np.ones(r.shape, dtype=bool)
@@ -481,10 +489,11 @@ def profile_ordering_quantities(
     if e_base.any():
         rho_s = sound_gyroradius(safe["te"], m_i, safe["b"])
         out["rho_s_over_LTe"] = _masked(ok(te, b, r) & np.isfinite(inv_lte), rho_s * inv_lte)
-        tau_e = braginskii_electron_collision_time(safe["ne"], safe["te"], float(ln_lambda), float(z_eff))
-        out["electron_magnetization"] = _masked(e_base, magnetization(np.abs(gyrofrequency(-QE, ME, safe["b"])), tau_e))
         out["debye_length_over_L"] = _masked(ok(ne, te, r) & np.isfinite(inv_lte),
                                              debye_length(safe["ne"], safe["te"]) * inv_lte)
+    if e_base.any() and electron_collisional:
+        tau_e = braginskii_electron_collision_time(safe["ne"], safe["te"], float(ln_lambda), float(z_eff))
+        out["electron_magnetization"] = _masked(e_base, magnetization(np.abs(gyrofrequency(-QE, ME, safe["b"])), tau_e))
         if e_q.any():
             lam_e = mean_free_path(thermal_speed(safe["te"], ME), tau_e)
             out["electron_parallel_knudsen_number"] = _masked(e_q, knudsen_number(lam_e, safe["q"] * major))
@@ -500,6 +509,8 @@ def profile_ordering_quantities(
             v_ti = thermal_speed(safe_ti, m_i)
             rho_i = larmor_radius(QE, m_i, v_ti, safe["b"])
             out["rho_i_over_LTi"] = _masked(ok(ti, b, r) & np.isfinite(inv_lti), np.abs(rho_i) * inv_lti)
+        if i_base.any() and ion_collisional:
+            v_ti = thermal_speed(safe_ti, m_i)
             tau_i = braginskii_ion_collision_time(safe["ne"], safe_ti, float(ln_lambda), float(ion_mass_amu), 1.0)
             out["ion_magnetization"] = _masked(i_base, magnetization(np.abs(gyrofrequency(QE, m_i, safe["b"])), tau_i))
             if i_q.any():
@@ -752,3 +763,327 @@ def contract_population(contract, states, points=None):
     evaluated = evaluate_population(contract, table)
     evaluated.attrs["evaluated_on"] = "states" if table is states else "points"
     return evaluated
+
+
+#: Largest |t_core_profiles - t_equilibrium| and |t_equilibrium - time| accepted by
+#: :func:`ordering_inputs_from_ods` [s]; the value ``transport_state.DEFAULT_TIME_TOLERANCE_S``
+#: pairs its slices with (kept private here: one public name per value in vaft.process).
+_TIME_TOLERANCE_S = 5e-4
+
+
+@dataclass(frozen=True)
+class OrderingInputs:
+    """The ordering quantities of one ODS state, ready for an adapter's advisory check.
+
+    ``state`` holds the global and time-history quantities by
+    :data:`~vaft.validation.orderings.ORDERING_QUANTITIES` name -- the mapping
+    ``EFITConfig.ordering_state``, ``GPECSuiteConfig.ordering_state`` and
+    ``run_cgyro(ordering_state=...)`` take. ``points`` holds the profile
+    quantities per flux surface (``None`` without core_profiles), the
+    ``points`` argument of
+    :func:`vaft.validation.model_contracts.advisory_ordering_check`.
+    ``provenance`` records every source and assumption, JSON-ready.
+    """
+
+    state: Mapping[str, float]
+    points: Optional[Mapping[str, Any]] = None
+    provenance: Mapping[str, Any] = field(default_factory=dict)
+
+
+def _read(node: Any, path: str) -> Any:
+    """``node[path]`` if it is filled, else ``None``; never creates the path (OMAS reads do)."""
+    try:
+        if path not in node:
+            return None
+        return node[path]
+    except Exception:
+        return None
+
+
+def _array(node: Any, path: str) -> Optional[np.ndarray]:
+    value = _read(node, path)
+    if value is None:
+        return None
+    try:
+        values = np.asarray(value, float).reshape(-1)
+    except (TypeError, ValueError):
+        return None
+    return values if values.size else None
+
+
+def _scalar(node: Any, path: str) -> float:
+    values = _array(node, path)
+    return float(values[0]) if values is not None and values.size == 1 else float("nan")
+
+
+def _slice_times(ods: Any, ids: str, container: str) -> Optional[np.ndarray]:
+    """Each slice's own ``time``; the IDS ``time`` vector only fills slices that lack one."""
+    count = len(ods[f"{ids}.{container}"]) if f"{ids}.{container}" in ods else 0
+    if not count:
+        return None
+    own = np.array([_scalar(ods[f"{ids}.{container}"][i], "time") for i in range(count)], float)
+    vector = _array(ods, f"{ids}.time")
+    if vector is not None and vector.size == count:
+        own = np.where(np.isfinite(own), own, vector)
+    return own
+
+
+def _nearest_slice(times: Optional[np.ndarray], target: float, tolerance: float) -> tuple[Optional[int], float]:
+    if times is None or not np.isfinite(times).any() or not math.isfinite(target):
+        return None, float("nan")
+    index = int(np.nanargmin(np.abs(times - target)))
+    dt = float(times[index] - target)
+    return (index, dt) if abs(dt) <= tolerance else (None, dt)
+
+
+def _area_mean(rho: np.ndarray, values: Optional[np.ndarray]) -> float:
+    """``int f rho drho / int rho drho`` over the finite samples: the cross-section mean."""
+    if values is None or values.size != rho.size:
+        return float("nan")
+    ok = np.isfinite(rho) & np.isfinite(values)
+    if ok.sum() < 2:
+        return float("nan")
+    r, f = rho[ok], values[ok]
+    order = np.argsort(r)
+    r, f = r[order], f[order]
+    weight = np.trapezoid(r, r) if hasattr(np, "trapezoid") else np.trapz(r, r)
+    total = np.trapezoid(f * r, r) if hasattr(np, "trapezoid") else np.trapz(f * r, r)
+    return float(total / weight) if weight > 0 else float("nan")
+
+
+def ordering_inputs_from_ods(ods, time, *, time_tolerance=_TIME_TOLERANCE_S, z_eff=None,
+                             ln_lambda=None, ion_mass_amu=1.0, plasma_onset=None,
+                             use_ion_temperature=False):
+    r"""The ordering quantities of one ODS state, by name, for an adapter's advisory check (#1823).
+
+    $$\left\{S,\ \frac{d_i}{a},\ \epsilon,\ \beta,\ \frac{\beta}{\epsilon},\
+      \frac{\tau_{evol}}{\tau_A},\ \frac{\tau_{age}}{\tau_R}\right\}
+      \ \text{per state},\qquad
+      \left\{\frac{\rho_s}{L_{T_e}},\ Kn_e,\ \Omega_{ce}\tau_e,\ \nu_{*e},\ \ldots\right\}
+      \ \text{per flux surface}$$
+
+    Parameters
+    ----------
+    ods : omas.ODS
+        Carries ``equilibrium`` and, optionally, ``core_profiles``; read only,
+        never modified [-].
+    time : float
+        State time; the equilibrium slice nearest to it is used [s].
+    time_tolerance : float, optional
+        Largest accepted |t_equilibrium - time| and |t_core_profiles -
+        t_equilibrium| [s].
+    z_eff : float, optional
+        Effective charge for the resistivity and the electron collisions;
+        when ``None``, the area mean of ``core_profiles`` ``zeff`` if the
+        matched slice carries it, otherwise the resistive quantities are NaN [-].
+    ln_lambda : float, optional
+        Coulomb logarithm; ``None`` evaluates the NRL electron value at the
+        mean ``n_e`` and ``T_e``, a form valid above about 10 eV [-].
+    ion_mass_amu : float, optional
+        Main-ion mass number [-].
+    plasma_onset : float, optional
+        Plasma onset time for the plasma age; without it
+        ``tau_age_over_tau_resistive`` is NaN [s].
+    use_ion_temperature : bool, optional
+        Use ``core_profiles`` ion temperature for the ion quantities. Off by
+        default: a stored ``T_i`` may be a ratio fill or a pressure partition,
+        which this function cannot tell from a measurement [-].
+
+    Returns
+    -------
+    OrderingInputs
+        ``state`` (global and time-history quantities by registry name),
+        ``points`` (profile quantities per surface with a ``rho_tor_norm``
+        column, or ``None``) and ``provenance`` [-].
+
+    Raises
+    ------
+    ValueError
+        The ODS has no equilibrium slice within ``time_tolerance`` of ``time``,
+        or the slice has no positive minor radius, major radius or vacuum field.
+
+    Processing steps
+    ----------------
+    1. Match the equilibrium slice to ``time`` by its own ``time`` (the IDS
+       ``time`` vector fills a slice without one), within the tolerance; never
+       by index. The vacuum ``b0`` is matched on the IDS ``time`` vector.
+    2. Read ``a`` (``boundary.minor_radius``, else half the outline's radial
+       width), ``R0`` (``boundary.geometric_axis.r``, else the outline's radial
+       centre), the vacuum ``b0`` at that slice scaled to ``R0``, ``I_p``,
+       ``beta_tor`` and the ``q`` profile.
+    3. ``dI_p/dt`` from the equilibrium ``I_p`` history,
+       ``numpy.gradient(I_p, t)`` at the slice.
+    4. Match the ``core_profiles`` slice to the equilibrium time within the
+       tolerance; area-mean ``n_e`` and ``T_e`` for the global quantities.
+    5. :func:`global_ordering_quantities` and
+       :func:`time_history_ordering_quantities` give ``state``;
+       :func:`profile_ordering_quantities` on ``r = rho_tor_norm a`` gives
+       ``points``.
+
+    Convention
+    ----------
+    ``b0`` is the vacuum field scaled to the geometric centre,
+    ``B0 = b0 r0 / R0``; the profile field is ``B0 R0 / (R0 + r)`` (vacuum,
+    outboard midplane) and ``r = rho_tor_norm a`` (circular approximation).
+    The global ``n_e`` and ``T_e`` are cross-section means
+    ``int f rho drho / int rho drho``. ``beta`` is IMAS ``beta_tor``, a
+    fraction. These are the conventions of the #1629 ordering atlas.
+
+    Defaults
+    --------
+    ``time_tolerance`` = 0.5 ms is a validated-workflow default, the pairing
+    tolerance of :mod:`vaft.process.transport_state`. ``use_ion_temperature``
+    = False is a conventional choice: no ion temperature is assumed.
+
+    Limitations
+    -----------
+    Mode and layer quantities (``k_perp_rho_i``, ``ion_skin_depth_over_layer``,
+    ...) need mode numbers or a layer width the ODS does not carry; the caller
+    adds them to ``state``. The circular ``r`` overstates ``r`` in an elongated
+    plasma by up to ``sqrt(kappa)``, which shortens ``L_T`` in metres by the
+    same factor.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Provenance
+    ----------
+    .. [1] Issue #1823 (advisory ordering check in adapter run provenance) and
+       its follow-up proposal: one builder from a stage's ODS to the
+       ``ordering_state`` mapping, matched by time.
+    """
+    from vaft.formula.equilibrium import coulomb_logarithm_from_n_T
+
+    time = float(time)
+    notes: list[str] = []
+    eq_times = _slice_times(ods, "equilibrium", "time_slice")
+    eq_index, eq_dt = _nearest_slice(eq_times, time, time_tolerance)
+    if eq_index is None:
+        raise ValueError(f"no equilibrium slice within {time_tolerance:g} s of t = {time:g} s")
+    eq_time = float(eq_times[eq_index])
+    ts = ods["equilibrium.time_slice"][eq_index]
+
+    outline = _array(ts, "boundary.outline.r")
+    a = _scalar(ts, "boundary.minor_radius")
+    a_source = "boundary.minor_radius"
+    if not (np.isfinite(a) and a > 0) and outline is not None and outline.size >= 3:
+        a, a_source = 0.5 * float(np.ptp(outline)), "boundary.outline.r half width"
+    r0 = _scalar(ts, "boundary.geometric_axis.r")
+    r0_source = "boundary.geometric_axis.r"
+    if not (np.isfinite(r0) and r0 > 0) and outline is not None and outline.size >= 3:
+        r0, r0_source = 0.5 * float(np.max(outline) + np.min(outline)), "boundary.outline.r centre"
+    # b0 is defined on the IDS time vector, not on slice position: match it by time.
+    b0_vac = _array(ods, "equilibrium.vacuum_toroidal_field.b0")
+    r_vac = _scalar(ods, "equilibrium.vacuum_toroidal_field.r0")
+    b0_slice = float("nan")
+    if b0_vac is not None and b0_vac.size == 1:
+        b0_slice = float(b0_vac[0])
+    elif b0_vac is not None:
+        b0_times = _array(ods, "equilibrium.time")
+        if b0_times is not None and b0_times.size == b0_vac.size:
+            b0_index, _ = _nearest_slice(b0_times, eq_time, time_tolerance)
+            if b0_index is not None:
+                b0_slice = float(b0_vac[b0_index])
+    b0 = abs(b0_slice) * r_vac / r0 if _finite_positive(abs(b0_slice), r_vac, r0) else float("nan")
+    if not _finite_positive(a, r0, b0):
+        raise ValueError(f"equilibrium slice at t = {eq_time:g} s lacks a positive a, R0 or vacuum b0")
+
+    ip_history = np.array([_scalar(ods["equilibrium.time_slice"][i], "global_quantities.ip")
+                           for i in range(len(eq_times))], float)
+    plasma_current = abs(float(ip_history[eq_index]))
+    current_rate = float("nan")
+    ok = np.isfinite(ip_history) & np.isfinite(eq_times)
+    t_ok, first = np.unique(eq_times[ok], return_index=True)   # sorted; a repeated time is kept once
+    ip_ok = ip_history[ok][first]
+    if ok.sum() > t_ok.size:
+        notes.append("repeated equilibrium slice times: the first I_p of each time is used for dI_p/dt")
+    if np.isfinite(ip_history[eq_index]) and t_ok.size >= 2:
+        current_rate = abs(float(np.interp(eq_time, t_ok, np.gradient(ip_ok, t_ok))))
+    else:
+        notes.append("dI_p/dt needs at least two equilibrium slices with I_p at distinct times")
+    beta = _scalar(ts, "global_quantities.beta_tor")
+    q = _array(ts, "profiles_1d.q")
+    q_rho = _array(ts, "profiles_1d.rho_tor_norm")
+
+    cp_times = _slice_times(ods, "core_profiles", "profiles_1d")
+    cp_index, cp_dt = _nearest_slice(cp_times, eq_time, time_tolerance)
+    n_e_profile = t_e_profile = t_i_profile = rho = None
+    zeff_mean = float("nan")
+    if cp_index is None:
+        notes.append("no core_profiles slice within the tolerance: kinetic quantities are NaN")
+    else:
+        prof = ods["core_profiles.profiles_1d"][cp_index]
+        rho = _array(prof, "grid.rho_tor_norm")
+        n_e_profile = _array(prof, "electrons.density_thermal")
+        if n_e_profile is None:
+            n_e_profile = _array(prof, "electrons.density")
+        t_e_profile = _array(prof, "electrons.temperature")
+        if use_ion_temperature and _read(prof, "ion") is not None and len(prof["ion"]):
+            t_i_profile = _array(prof["ion"][0], "temperature")
+        if rho is not None:
+            zeff_mean = _area_mean(rho, _array(prof, "zeff"))
+    n_e = _area_mean(rho, n_e_profile) if rho is not None else float("nan")
+    t_e = _area_mean(rho, t_e_profile) if rho is not None else float("nan")
+
+    if z_eff is not None:
+        z_eff_value, z_eff_source = float(z_eff), "caller"
+    elif np.isfinite(zeff_mean):
+        z_eff_value, z_eff_source = zeff_mean, "core_profiles zeff area mean"
+    else:
+        z_eff_value, z_eff_source = float("nan"), "missing"
+        notes.append("no Z_eff given or stored: resistive quantities are NaN")
+    if ln_lambda is not None:
+        ln_lambda_value, ln_lambda_source = float(ln_lambda), "caller"
+    elif _finite_positive(n_e, t_e):
+        ln_lambda_value, ln_lambda_source = float(coulomb_logarithm_from_n_T(n_e, t_e)), "NRL at mean n_e, T_e"
+    else:
+        ln_lambda_value, ln_lambda_source = float("nan"), "missing"
+    age = eq_time - float(plasma_onset) if plasma_onset is not None else None
+    if age is None:
+        notes.append("no plasma_onset given: tau_age_over_tau_resistive is NaN")
+
+    common = dict(minor_radius=a, b0=b0, n_e=n_e, t_e=t_e, z_eff=z_eff_value,
+                  ln_lambda=ln_lambda_value, ion_mass_amu=ion_mass_amu)
+    state = dict(global_ordering_quantities(major_radius=r0, beta=beta if np.isfinite(beta) else None,
+                                            **common))
+    state.update(time_history_ordering_quantities(plasma_current=plasma_current, current_rate=current_rate,
+                                                  plasma_age=age, **common))
+
+    points = None
+    if rho is not None and n_e_profile is not None and t_e_profile is not None \
+            and n_e_profile.size == rho.size == t_e_profile.size and q is not None and q_rho is not None \
+            and q.size == q_rho.size:
+        order = np.argsort(rho)
+        rho_sorted = rho[order]
+        r = rho_sorted * a
+        finite = np.isfinite(q_rho) & np.isfinite(q)
+        q_order = np.argsort(q_rho[finite])
+        q_on = (np.interp(rho_sorted, q_rho[finite][q_order], np.abs(q[finite])[q_order], left=np.nan, right=np.nan)
+                if finite.sum() >= 2 else np.full(rho_sorted.shape, np.nan))
+        t_i_on = t_i_profile[order] if t_i_profile is not None and t_i_profile.size == rho.size else None
+        quantities = profile_ordering_quantities(
+            minor_radius_coordinate=r, n_e=n_e_profile[order], t_e=t_e_profile[order],
+            magnetic_field=b0 * r0 / (r0 + r), safety_factor=q_on, major_radius=r0,
+            z_eff=z_eff_value, ln_lambda=ln_lambda_value, ion_mass_amu=ion_mass_amu, t_i=t_i_on)
+        points = {"rho_tor_norm": rho_sorted, **quantities}
+    elif cp_index is not None:
+        notes.append("core_profiles or the q profile is incomplete: no profile quantities")
+
+    provenance = {
+        "time": time, "equilibrium_time": eq_time, "equilibrium_dt": eq_dt,
+        "core_profiles_time": None if cp_index is None else float(cp_times[cp_index]),
+        "core_profiles_dt": None if cp_index is None else cp_dt,
+        "minor_radius": a, "minor_radius_source": a_source,
+        "major_radius": r0, "major_radius_source": r0_source,
+        "b0": b0, "b0_convention": "vacuum b0 r0 / R0", "plasma_current": plasma_current,
+        "current_rate": current_rate, "beta_tor": beta if np.isfinite(beta) else None,
+        "n_e_mean": n_e, "t_e_mean": t_e, "mean": "int f rho drho / int rho drho",
+        "z_eff": z_eff_value, "z_eff_source": z_eff_source,
+        "ln_lambda": ln_lambda_value, "ln_lambda_source": ln_lambda_source,
+        "plasma_onset": None if plasma_onset is None else float(plasma_onset),
+        "ion_temperature": "core_profiles ion[0]" if t_i_profile is not None else "not used",
+        "radial_coordinate": "r = rho_tor_norm a (circular)", "notes": notes,
+    }
+    provenance = {k: (None if isinstance(v, float) and not math.isfinite(v) else v) for k, v in provenance.items()}
+    return OrderingInputs(state=state, points=points, provenance=provenance)
