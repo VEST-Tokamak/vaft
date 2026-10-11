@@ -94,9 +94,10 @@ def write_all(harvester, shot, **statuses):
 class FakeRunner:
     """Writes the manifests a run would, as scripted per shot; records the plans it was given."""
 
-    def __init__(self, harvester, script, *, busy=False, interrupted=False, exit_code=0):
+    def __init__(self, harvester, script, *, busy=False, interrupted=False, exit_code=0, timed_out=False):
         self.harvester, self.script = harvester, script
         self.plans, self.busy, self.interrupted, self.exit_code = [], busy, interrupted, exit_code
+        self.timed_out = timed_out
         self.stopped = False
         self.unlocked = False
 
@@ -109,7 +110,8 @@ class FakeRunner:
                 script = self.script[shot]
                 if script is not None:
                     write_all(self.harvester, shot, **script)
-        return RunResult(exit_code=self.exit_code, log_path="log", busy=self.busy, interrupted=self.interrupted)
+        return RunResult(exit_code=self.exit_code, log_path="log", busy=self.busy, interrupted=self.interrupted,
+                         timed_out=self.timed_out)
 
     def unlock_if_stale(self):
         self.unlocked = True
@@ -545,3 +547,22 @@ def test_the_example_loads_once_its_variables_and_paths_exist(tmp_path, monkeypa
     assert config.hold_file == tmp_path / "filedb" / "pipeline" / "corrective" / "HOLD"
     assert config.paths_workflow_dir == checkout / "workflow" / "automatic_pipeline_1_routine_data_processing"
     assert config.snakemake_cmd == ("snakemake",) and config.stages is None
+
+
+
+@pytest.mark.parametrize("runner_kwargs", [{"timed_out": True, "exit_code": None}, {"exit_code": 1}])
+def test_a_run_that_did_not_finish_never_completes_a_shot_on_its_manifests(
+        config, harvester, pipeline_config, runner_kwargs):
+    """Manifests from an earlier run read as complete; a timeout or a nonzero exit retries instead."""
+    scanner = FakeScanner({48226: signature("Shot48226_v9.mat")})
+    runner = FakeRunner(harvester, {48226: {"thomson": "success", "core_profiles": "success"}}, **runner_kwargs)
+    worker = make_worker(config, harvester, pipeline_config, scanner, runner, Clock())
+    report = worker.run_cycle()
+    assert report.outcomes[48226] != cw.COMPLETED
+    row = worker.state.shot(48226)
+    assert row["attempts"] == 1 and "may be stale" in row["reason"]
+
+
+@pytest.mark.parametrize("value, expected", [("false", False), ("0", False), (None, False), ("true", True), (True, True)])
+def test_the_replication_switch_is_read_as_the_snakefile_reads_it(value, expected):
+    assert cw._flag(value, False) is expected

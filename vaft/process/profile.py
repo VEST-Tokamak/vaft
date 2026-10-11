@@ -2402,12 +2402,30 @@ def strip_electron_only_pressure(ods):
         return
     for index in range(len(ods["core_profiles.profiles_1d"])):
         base = f"core_profiles.profiles_1d.{index}"
-        if f"{base}.ion.0.temperature" in ods:  # a real kinetic slice keeps its pressure
+        if _has_measured_ion_temperature(ods, index):  # a real kinetic slice keeps its pressure
             continue
         for leaf in TOTAL_PRESSURE_LEAVES:
             key = f"{base}.{leaf}"
             if key in ods:
                 del ods[key]
+
+
+def _has_measured_ion_temperature(ods, index):
+    """Whether slice ``index`` stores an ion temperature that is a measurement.
+
+    Presence alone is not enough: the composition stage writes an *assumed*
+    ``T_i = T_e`` and the corrective ``ti_inferred`` stage an *inferred* one, and
+    neither makes the slice kinetic.  The record grammar decides
+    (:func:`vaft.machine_mapping.core_profiles.classify_ti_record`; no record
+    means measured).
+    """
+    from vaft.machine_mapping.core_profiles import classify_ti_record
+
+    base = f"core_profiles.profiles_1d.{index}.ion.0"
+    if f"{base}.temperature" not in ods:
+        return False
+    record = ods[f"{base}.temperature_fit.parameters"] if f"{base}.temperature_fit.parameters" in ods else None
+    return classify_ti_record(record) == "measured"
 
 
 def _optional_channel_errors(ods, quantity, num_channels, time_index):

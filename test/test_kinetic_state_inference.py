@@ -272,7 +272,7 @@ def test_an_unknown_ion_temperature_mode_is_refused(sample, tables):
 
 
 def test_the_inferred_ion_temperature_closes_the_pressure_with_the_romero_composition(sample, tables):
-    _, result = _run(sample, tables, ion_temperature="inferred")
+    _, result = _run(sample, tables, ion_temperature="inferred", equilibrium_lineage="magnetics")
     assert result.stage("impurity_amplitude").ok, "the Romero-closed composition is unchanged by the T_i mode"
     closure = result.stage("pressure_closure")
     if not closure.ok:  # the sample's pressure may leave no significant p_i: named, not guessed
@@ -301,7 +301,7 @@ def test_the_ratio_estimate_is_widened_by_the_radial_spread_not_just_the_formal_
 
 
 def test_the_ratio_mode_puts_one_t_i_over_t_e_on_the_whole_profile(sample, tables):
-    _, result = _run(sample, tables, ion_temperature="inferred_ratio")
+    _, result = _run(sample, tables, ion_temperature="inferred_ratio", equilibrium_lineage="magnetics")
     closure = result.stage("pressure_closure")
     if not closure.ok:
         assert "T_i" in closure.reason or "p_i" in closure.reason or "ratio" in closure.reason
@@ -327,7 +327,7 @@ def test_the_ratio_profile_picks_the_order_the_points_support():
 
 
 def test_the_ratio_profile_mode_is_continuous_and_marks_its_extrapolation(sample, tables):
-    _, result = _run(sample, tables, ion_temperature="inferred_profile")
+    _, result = _run(sample, tables, ion_temperature="inferred_profile", equilibrium_lineage="magnetics")
     closure = result.stage("pressure_closure")
     if not closure.ok:
         assert "T_i" in closure.reason or "p_i" in closure.reason or "ratio" in closure.reason
@@ -359,3 +359,15 @@ def test_a_sloped_fit_over_a_wide_axis_gap_warns_that_the_axis_is_extrapolated()
     flat = _ti_ratio_profile(rho, np.full(60, 1.2), np.full(60, 1.0), np.full(60, 100.0),
                              np.linspace(0, 1, 11), n_independent=10)
     assert flat["order"] == 0 and flat["warnings"] == [], "a constant ratio has no axis to extrapolate"
+
+
+@pytest.mark.parametrize("mode", ["inferred", "inferred_ratio", "inferred_profile"])
+def test_an_inferred_t_i_needs_the_equilibrium_lineage_stated(sample, tables, mode):
+    with pytest.raises(ValueError, match="equilibrium_lineage must be stated"):
+        _run(sample, tables, ion_temperature=mode)
+
+
+def test_an_inferred_t_i_refuses_a_kinetic_equilibrium(sample, tables):
+    _, result = _run(sample, tables, ion_temperature="inferred_profile", equilibrium_lineage="electron_kinetic")
+    closure = result.stage("pressure_closure")
+    assert not closure.ok and "magnetics" in closure.reason

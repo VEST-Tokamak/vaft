@@ -572,3 +572,15 @@ def test_the_inferred_ti_replaces_the_one_the_composition_assumed(tmp_path, tabl
     record = ti_record_fields(ods["core_profiles.profiles_1d.1.ion.0.temperature_fit.parameters"])
     assert record["origin"] == "inferred"
     assert manifest["slices"]["measured"] == 1
+
+
+
+def test_an_assumed_or_inferred_ion_temperature_does_not_make_a_slice_kinetic(tmp_path, tables):
+    """With the default T_i = T_e a Thomson-only shot stays in the electron lineage (cold review #1842)."""
+    ods, _ = _build(tmp_path, tables, assume_ti_eq_te=True)
+    assert ti_record_fields(ods["core_profiles.profiles_1d.1.ion.0.temperature_fit.parameters"])["status"] == "assumed"
+    assert vu._has_kinetic_slice(ods), "slice 0 carries the fixture's measured T_i"
+    del ods["core_profiles.profiles_1d.0.ion.0.temperature"]
+    assert not vu._has_kinetic_slice(ods), "an assumed T_i alone is not kinetic"
+    ods["core_profiles.profiles_1d.1.ion.0.temperature_fit.parameters"] = "origin=inferred; method=equilibrium_pressure_partition"
+    assert not vu._has_kinetic_slice(ods), "an inferred T_i alone is not kinetic"

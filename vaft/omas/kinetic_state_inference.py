@@ -299,8 +299,9 @@ def _ti_ratio_estimate(
     """Inverse-variance mean of the significant ``T_i/T_e`` points, with a conservative sigma.
 
     The points of one profile are strongly correlated (smooth fits of a few Thomson
-    channels), so treating them as independent understates the error.  The reported
-    ``sigma`` is the larger of the formal error (scaled by ``sqrt(chi2/dof)`` when
+    channels), so treating them as independent understates the error.  The formal
+    error is rescaled from ``N`` points to ``n_independent``; the reported
+    ``sigma`` is the larger of that formal error (scaled by ``sqrt(chi2/dof)`` when
     the points scatter more than their sigmas allow) and the radial spread of the
     points, half the 16-84 percentile range, divided by ``sqrt(n_independent)``
     (the Thomson channel count).  A radially varying ``T_i/T_e`` therefore widens it.
@@ -316,6 +317,8 @@ def _ti_ratio_estimate(
     chi2 = float(np.sum(w * (ratio[ok] - mean) ** 2) / (ok.sum() - 1))
     q16, q50, q84 = (float(x) for x in np.percentile(ratio[ok], [16, 50, 84]))
     spread = 0.5 * (q84 - q16) / float(np.sqrt(max(1, n_independent)))
+    # N grid points carry the information of n_independent channels, as in _ti_ratio_profile
+    formal *= float(np.sqrt(ok.sum() / max(1, n_independent)))
     return {"ratio": mean, "sigma_formal": formal,
             "sigma": max(formal * float(np.sqrt(max(1.0, chi2))), spread), "n_independent": int(n_independent),
             "chi2_per_dof": chi2, "points": int(ok.sum()), "median": q50, "p16": q16, "p84": q84}
@@ -325,7 +328,7 @@ def kinetic_state_stages(
     ods: ODS,
     *,
     time: float,
-    equilibrium_lineage: str = "magnetics",
+    equilibrium_lineage: str | None = None,
     elemental_weights: Mapping[str, float] | None = None,
     conductivity_model: str = "redl",
     ln_lambda: Any = "sauter",
@@ -348,8 +351,12 @@ def kinetic_state_stages(
     current-carrying window, not one slice), the ``core_profiles`` slice at ``time``
     (the Thomson fits) and, optionally, the ``thomson_scattering`` channels.  It is
     not modified.  ``equilibrium_lineage`` is the caller's statement of where the
-    equilibrium came from, recorded in the stored provenance; nothing is inferred
-    from it here because ``T_i`` is assumed, not partitioned out of the pressure.
+    equilibrium came from, recorded in the stored provenance (``"magnetics"`` when
+    omitted with ``T_i`` assumed).  The inferred ``ion_temperature`` modes partition
+    ``T_i`` out of that equilibrium's pressure, so they require it to be stated and
+    accept only ``"magnetics"``: an electron-kinetic EFIT was fitted with an assumed
+    ``T_i/T_e`` and would return it (#1426).  Nothing in an ODS records the lineage,
+    so it cannot be read here -- the caller must know where it loaded it from.
 
     ``elemental_weights`` is the fixed elemental ratio (default ``C : O = 1 : 1``);
     ``ionization`` is ``"transient"`` (needs ``plasma_age_s``) or ``"coronal"``;
@@ -370,6 +377,13 @@ def kinetic_state_stages(
     if ion_temperature not in ION_TEMPERATURE_MODES:
         raise ValueError(f"ion_temperature must be one of {ION_TEMPERATURE_MODES}, got {ion_temperature!r}")
     pointwise = ion_temperature in ("inferred", "inferred_ratio", "inferred_profile")
+    if equilibrium_lineage is None:
+        if pointwise:
+            raise ValueError(
+                f"ion_temperature={ion_temperature!r} partitions T_i out of the equilibrium pressure, so "
+                "equilibrium_lineage must be stated (only 'magnetics' is accepted)"
+            )
+        equilibrium_lineage = "magnetics"
     from vaft.omas.vest_upstream import (
         PRESSURE_CLOSURE_RECORD,
         _append_record_fields,

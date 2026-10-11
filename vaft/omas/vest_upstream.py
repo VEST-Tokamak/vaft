@@ -2429,6 +2429,14 @@ def build_composition_ods(
     manifest["composition"].update(onset_s=onset, onset_source=onset_source)
 
     composed, assumed_ti, skipped = 0, 0, []
+    # The machine policy's ratio sigma travels with the assumption, so a reader that
+    # weights the pressure (the spline EFIT encoding, #1414) sees its uncertainty.
+    from vaft.machine_mapping.core_profiles import vest_core_profiles_policy
+
+    assumed_ti_sigma = float(vest_core_profiles_policy(shot).ti_te_ratio_sigma)
+    assumed_ti_record = (
+        f"ti_te_ratio=1; sigma={assumed_ti_sigma:g}; status=assumed; source=assumption; assume_ti_eq_te=1"
+    )
     pressures = {"ion": 0, "electron_only": 0, "unchanged": 0}
     for index, time_s in enumerate(times):
         base = f"core_profiles.profiles_1d.{index}"
@@ -2471,9 +2479,7 @@ def build_composition_ods(
         if assume_ti_eq_te and path_value(ods, f"{base}.ion.0.temperature", None) is None:
             for k in range(len(ods[f"{base}.ion"])):
                 ods[f"{base}.ion.{k}.temperature"] = te.copy()
-                ods[f"{base}.ion.{k}.temperature_fit.parameters"] = (
-                    "ti_te_ratio=1; status=assumed; source=assumption; assume_ti_eq_te=1"
-                )
+                ods[f"{base}.ion.{k}.temperature_fit.parameters"] = assumed_ti_record
             ods[f"{base}.t_i_average"] = te.copy()
             assumed_ti += 1
             closure = infer_kinetic_closure(ods, time=float(time_s), dilution="species", ti_te_ratio=1.0)
@@ -2757,8 +2763,11 @@ def build_ti_inferred_ods(
         has_ti = path_value(ods, f"{base_i}.temperature", None) is not None
         # A T_i the composition stage *assumed* (T_i = T_e) is not a measurement: it is
         # the electron-only state this stage exists to improve on.
-        if has_ti and classify_ti_record(path_value(ods, f"{base_i}.temperature_fit.parameters", None)) != "assumed":
-            counts["measured"] += 1
+        kind = classify_ti_record(path_value(ods, f"{base_i}.temperature_fit.parameters", None)) if has_ti else None
+        if kind is not None and kind != "assumed":
+            # measured, or a T_i some earlier writer inferred / left unclassifiable: kept, and named as such
+            key = "measured" if kind == "measured" else f"kept_{kind}"
+            counts[key] = counts.get(key, 0) + 1
             continue
         try:
             infer_slice(index, float(time_s))
@@ -2785,7 +2794,8 @@ def build_ti_inferred_ods(
     else:
         manifest["error"] = (
             skipped[0]["reason"] if skipped
-            else "every slice already carries a measured ion temperature"
+            else "every slice already carries an ion temperature that is not assumed: "
+            + ", ".join(f"{k}={v}" for k, v in counts.items() if k != "inferred" and v)
         )
     return ods, manifest
 
@@ -3110,8 +3120,13 @@ def _has_kinetic_slice(ods: ODS) -> bool:
         count = len(ods["core_profiles.profiles_1d"])
     except TypeError:  # an AoS that is not a list is an AoS with no slices
         return False
+    from vaft.process import profile as _profile
+
+    # A T_i the composition stage assumed (T_i = T_e) or ti_inferred inferred
+    # does not make a slice kinetic: the record decides, as in strip_electron_only_pressure.
     return any(
         _path_present(ods, f"core_profiles.profiles_1d.{index}.ion.0.temperature")
+        and _profile._has_measured_ion_temperature(ods, index)
         for index in range(count)
     )
 

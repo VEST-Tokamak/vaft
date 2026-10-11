@@ -314,8 +314,9 @@ executable and the named EFIT preset used for the base magnetic k-file.
 
 Pipeline 1's EFIT and constraints products are passed to these rules as `params`, not `input`: a shot that
 pipeline 1 never reconstructed is then *recorded* as unavailable instead of making Snakemake raise. Which of
-the two kinetic lineages runs for a shot is decided by whether the `core_profiles` slice carries ion
-temperature, not by configuration. The destinations come from `STAGE_REPLICATION` in
+the two kinetic lineages runs for a shot is decided by whether a `core_profiles` slice carries a *measured* ion
+temperature (read from its fit record; the assumed `T_i = T_e` of `composition` and an inferred `T_i` do not
+count), not by configuration. The destinations come from `STAGE_REPLICATION` in
 `vaft/database/sources.py`; the two kinetic lineages go to their own sources because they share the
 `equilibrium` IDS with the baseline EFIT.
 

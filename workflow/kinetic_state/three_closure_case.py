@@ -76,6 +76,7 @@ def main() -> int:
     summary = []
     for row, (shot, time_s) in enumerate(wanted):
         efit = _product(args.filedb, "efit/magnetic", shot, "efit")
+        lineage = vu._magnetic_efit_lineage(efit)  # read from where it was loaded, never asserted
         ods = ODS(consistency_check=False)
         ods["equilibrium"] = load_ods(efit)[0]["equilibrium"]
         ods["core_profiles"] = load_ods(_product(args.filedb, "core_profiles", shot))[0]["core_profiles"]
@@ -84,7 +85,8 @@ def main() -> int:
         times = np.atleast_1d(np.asarray(ods["core_profiles.time"], dtype=float))
         t = float(times[int(np.argmin(np.abs(times - time_s)))])
         age = None if onset is None else t - onset
-        kwargs = dict(time=t, ionization="transient", plasma_age_s=age if age and age > 0 else None)
+        kwargs = dict(time=t, ionization="transient", plasma_age_s=age if age and age > 0 else None,
+                          equilibrium_lineage=lineage)
         three = kinetic_state_stages(ods, ion_temperature="inferred", **kwargs)
         base = kinetic_state_stages(ods, ion_temperature="assumed", **kwargs)
         ratio_run = kinetic_state_stages(ods, ion_temperature="inferred_ratio", **kwargs)

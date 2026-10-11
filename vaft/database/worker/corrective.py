@@ -613,7 +613,7 @@ class CorrectiveHarvester:
         if self.paths.layout != module.FILEDB:
             raise WorkerConfigError("pipeline 2 requires layout: filedb")
         self.scope = stage_scope(config.get("stages"))
-        self.replicate = bool((config.get("hsds") or {}).get("replicate", False))
+        self.replicate = _flag((config.get("hsds") or {}).get("replicate"), False)
 
     def targets(self, shot: int) -> list[StageTarget]:
         targets = []
@@ -769,14 +769,36 @@ class CorrectiveWorker:
             return
         outcome = "timed_out" if result.timed_out else ("ok" if result.exit_code == 0 else "errors")
         self.state.finish_run(run_id, exit_code=result.exit_code, outcome=outcome, at=self.clock())
+        incomplete = None if outcome == "ok" else (
+            "the run timed out" if result.timed_out else f"snakemake exited with {result.exit_code}"
+        )
         for row in rows:
-            self.settle(row, run_id, report)
+            self.settle(row, run_id, report, incomplete=incomplete, forced=force)
 
-    def settle(self, row: Any, run_id: int, report: CorrectiveCycleReport) -> None:
+    def settle(self, row: Any, run_id: int, report: CorrectiveCycleReport, *,
+               incomplete: str | None = None, forced: bool = False) -> None:
+        """Judge one shot from its manifests -- unless the run did not finish.
+
+        Stage scripts always exit 0 and record failure in their manifest, so a
+        nonzero exit or a timeout means Snakemake stopped part-way: manifests from
+        an *earlier* run can still be on disk and would read as complete.  Such a
+        shot is retried (counted as an attempt, forced again if this run was).
+        """
         shot = int(row["shot"])
         verdict = self.harvester.harvest(shot)
         self.state.record_stages(shot, verdict.stages, run_id=run_id)
         attempts = int(row["attempts"])
+        if incomplete is not None and verdict.state != FAILED:
+            attempts += 1
+            if attempts >= self.config.max_attempts:
+                state, force = GAVE_UP, True
+                report.gave_up.append(shot)
+            else:
+                state, force = PENDING, forced
+            self.state.settle(shot, state=state, reason=f"{incomplete}; the manifests may be stale",
+                              attempts=attempts, force=force, at=self.clock())
+            report.outcomes[shot] = state
+            return
         if verdict.state == FAILED:
             attempts += 1
             if attempts >= self.config.max_attempts:
@@ -815,6 +837,20 @@ class CorrectiveWorker:
     def stop(self) -> None:
         self._stop.set()
         self.runner.stop()
+
+
+def _flag(value: Any, default: bool) -> bool:
+    """A configuration switch read as the Pipeline 2 Snakefile reads it.
+
+    ``--config hsds={"replicate": false}`` reaches both as the *string* "false";
+    ``bool()`` would call that true and expect replication records the workflow
+    never writes, so every shot would be judged failed.
+    """
+    if value is None:
+        return default
+    if isinstance(value, str):
+        return value.strip().lower() not in ("", "false", "0", "no", "off", "none", "null")
+    return bool(value)
 
 
 __all__ = [

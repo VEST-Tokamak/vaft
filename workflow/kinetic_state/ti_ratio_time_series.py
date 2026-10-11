@@ -41,15 +41,18 @@ def main() -> int:
     args.out.mkdir(parents=True, exist_ok=True)
     rows = []
     for shot in args.shots:
+        efit = _product(args.filedb, "efit/magnetic", shot, "efit")
+        lineage = vu._magnetic_efit_lineage(efit)  # read from where it was loaded, never asserted
         ods = ODS(consistency_check=False)
-        ods["equilibrium"] = load_ods(_product(args.filedb, "efit/magnetic", shot, "efit"))[0]["equilibrium"]
+        ods["equilibrium"] = load_ods(efit)[0]["equilibrium"]
         ods["core_profiles"] = load_ods(_product(args.filedb, "core_profiles", shot))[0]["core_profiles"]
         ods["thomson_scattering"] = load_ods(_product(args.filedb, "thomson", shot))[0]["thomson_scattering"]
         onset, _ = vu._plasma_onset(_product(args.filedb, "diagnostics", shot))
         for t in np.atleast_1d(np.asarray(ods["core_profiles.time"], dtype=float)):
             t = float(t)
             age = None if onset is None else t - onset
-            kwargs = dict(time=t, ionization="transient", plasma_age_s=age if age and age > 0 else None)
+            kwargs = dict(time=t, ionization="transient", plasma_age_s=age if age and age > 0 else None,
+                          equilibrium_lineage=lineage)
             prof = kinetic_state_stages(ods, ion_temperature="inferred_profile", **kwargs)
             base = kinetic_state_stages(ods, ion_temperature="assumed", **kwargs)
             tier = tier_a_row(tier_a, shot, t)
