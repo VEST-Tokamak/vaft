@@ -746,6 +746,37 @@
               probes:
                 - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe acquisition saturated at the DAQ rail (field 170)"}
                 - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            # Z=+0.06 (field 170 in the pre-39438 layout) fault windows found by
+            # a per-shot neighbour-gain scan of every >=30 kA plasma shot in
+            # 37400-39500 (#1896): the probe's least-squares gain against the
+            # interpolation of its two array neighbours. Healthy shots read
+            # 0.99-1.05 (a drift to 1.07-1.18 over 37861-38068 is not recorded);
+            # bounds are the first and last bad plasma shot.
+            - from_shot: 37586
+              to_shot: 37800
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) sign-flipped: gain -0.3 to -0.6 against its array neighbours, 37586-37800 (37559 and 37832 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - from_shot: 38126
+              to_shot: 38252
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 0.24-0.29 against its array neighbours, 38126-38252 (38068 and 38253 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - from_shot: 38254
+              to_shot: 38622
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 1.5-2.6 against its array neighbours, 38254-38622 (38253 and 38672 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - from_shot: 38692
+              to_shot: 38740
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 1.3-3.4 against its array neighbours, 38692-38740 (38675 and 38743 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
+            - from_shot: 39040
+              to_shot: 39098
+              probes:
+                - {index: 35, r: 0.796, z: 0.06, reason: "Z=+0.06 probe (field 170) gain 1.2-1.5 against its array neighbours, 39040-39098 (39038 and 39107 read 0.99-1.18) (#1896)"}
+                - {index: 45, r: 0.796, z: -0.34, reason: "C4-04 contradicts its array and the vacuum model (PF-only wall model correlation -0.44/-0.63/-0.84 on 39915/41524/41672; EFIT residual 42-270%); excluded on every shot pending sensor diagnosis (issue #977)"}
             # Flux-loop acquisition faults (issue #1543), from a per-shot scan of
             # every loop's integrated amplitude against its siblings. A dead loop
             # reads 1e-5..2e-3 Wb/rad where the others read ~1e-2; the waveform
