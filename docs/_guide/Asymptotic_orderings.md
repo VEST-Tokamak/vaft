@@ -174,6 +174,53 @@ The bands name the scale separation. They are **not an applicability status**: t
 zero, a quantity at its threshold, falls in "outside", as it is `OUTSIDE` there. The continuous margin
 is the result, and `margin_label` only names its band.
 
+## Which codes consume which contracts
+
+A contract says what a model assumes. A run's `vaft.code.formalism.PlasmaFormalism` record (#1727) says which
+model the run used. `vaft.validation.model_contracts` joins the two (#1823).
+
+`contracts_for(formalism)` maps a record to the contracts it consumes, as `(contract, region)` pairs. It reads
+the record's fields as they are. A matched or hybrid calculation consumes different contracts in different
+regions:
+
+| Region | Meaning | Example |
+| --- | --- | --- |
+| `whole` | the model governs the whole calculation | DCON ideal, CGYRO, NEO |
+| `outer`, `layer` | the ideal outer region and the resistive layer of a matched calculation | RDCON + RMATCH; STRIDE is `outer` only |
+| `fluid_part`, `kinetic_response` | a fluid energy principle and the kinetic term added to it | DCON kinetic, GPEC kinetic |
+| `closure` | a kinetic quantity on a given fluid displacement, not fed back | PENTRC |
+| `parent_theory` | the theory a reduced model is derived from | TGLF (gyrokinetics) |
+| `transport_use` | local turbulent fluxes used for transport | CGYRO nonlinear, TGLF |
+
+An equilibrium (EFIT, CHEASE, TokaMaker, TES, NICE) consumes the equilibrium-sequence contract: static force
+balance, re-established faster than the state moves. A part of a formalism that no contract covers is returned
+as a reason, never as a guessed contract:
+- test-particle orbit orderings (NUBEAM);
+- full-$f$ gyrokinetics;
+- a reduced model's own closure.
+
+`ADAPTER_MODES` lists the modes of VAFT's adapters with their formalisms, from the audit in
+[Plasma models](Plasma_models.md). CGYRO's two modes are the records its own `plasma_formalism` builds. A test
+checks the GPEC-suite modes field by field against the records `vaft.code.gpec` resolves from the packaged
+namelists. The modes the audit leaves unresolved are listed with no record, together with the reason. Today
+these are the GPEC threshold layer models. The contract map draws the modes as a second matrix under the
+contract columns.
+
+`advisory_ordering_check(formalism, state, points)` evaluates those contracts on a run's input:
+- `state` is the global and time-history quantities of `vaft.process.ordering_state`;
+- `points` is its profile quantities.
+
+A contract with a local ordering is evaluated at every point, and the most constraining point is reported. Each
+result goes through `evaluate_contract` and is placed on the credibility `applicability` axis with
+`as_evidence`. The statuses are the four of applicability, with no "marginal". A quantity the input does not
+carry is `UNASSESSED`, never a pass. This covers a mode's $k_\perp\rho_i$ without mode numbers, and a layer
+width. The check is advisory: it reports and never blocks a run.
+
+**Known gap.** The drift-kinetic contract orders $\omega/\Omega_{ci}$ and $k_\perp\rho_i$. A steady
+axisymmetric solve (NEO) or a zero-frequency one (DCON kinetic) has neither as an input, so that contract stays
+`UNASSESSED` for those modes. A NaN at a profile point never hides a finite state value. The reported point is
+the DataFrame's index label when `points` is a DataFrame.
+
 ## References
 
 1. S. I. Braginskii, in *Reviews of Plasma Physics*, Vol. 1, Consultants Bureau (1965), p. 205.

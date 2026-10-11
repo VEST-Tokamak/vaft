@@ -34,3 +34,15 @@ def test_rows_are_grouped_by_scale_and_empty_cells_are_unordered():
     # slow evolution belongs to the equilibrium sequence, not to MHD
     assert not d.scene.role("cell:ideal_single_fluid_mhd:tau_evolution_over_tau_alfven")
     assert d.scene.role("cell:quasi_static_equilibrium:tau_evolution_over_tau_alfven")
+
+
+def test_the_adapter_matrix_is_the_model_contracts_registry():
+    from vaft.validation.model_contracts import ADAPTER_MODES
+
+    d = vaft.diagram.ordering_contract_map()
+    expected = {(m.key, u.contract): u.region for m in ADAPTER_MODES for u in m.contracts()[0]}
+    assert d.model["uses"] == expected
+    assert d.scene.role("use:gpec:rdcon_rmatch:resistive_mhd")[-1].text == "L"
+    # without the adapters the figure is the contract map alone
+    plain = vaft.diagram.ordering_contract_map(adapters=False)
+    assert plain.model["uses"] == {} and not plain.scene.role("adapters")
