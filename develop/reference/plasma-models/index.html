@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>68c76ab</code>. What is described
+  <code>e3c3f1b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1347,7 +1347,9 @@ profiles.</p>
 <h2 id="7-orderings-and-scales">7. Orderings and scales</h2>
 
 <p><strong>Purpose of this section.</strong> It is a compact map from scales to the classifications above. The full reference for
-characteristic scales and orderings is #1724. The ordering parameters themselves are #1627.</p>
+characteristic scales and orderings is #1724. The ordering parameters themselves are #1627. The ordering contracts
+each mode of §3–§5 and §12 consumes are <code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts.ADAPTER_MODES</code> (#1823), drawn under the
+contract map in <a href="/vaft/develop/reference/asymptotic-orderings/">Asymptotic orderings</a>.</p>
 
 <p><strong>Frequencies.</strong> For thermal <strong>ions</strong> they are typically ordered as</p>
 
@@ -1792,6 +1794,77 @@ the upstream defaults. MATCH and RMATCH get no record of their own: they are num
 complete, recorded in those runs’ extensions. No named kinetic limit (Kruskal-Oberman, …) is recorded from
 <code class="language-plaintext highlighter-rouge">kin_flag</code> alone.</p>
 
+<h2 id="12-equilibrium-codes">12. Equilibrium codes</h2>
+
+<p>Added with #1823, so that every adapter whose results feed the ordering contracts has a classified mode.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>mode</th>
+      <th>operation</th>
+      <th>bulk</th>
+      <th>fluid model</th>
+      <th>topology</th>
+      <th>regime</th>
+      <th>ordering contract</th>
+      <th>confidence</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EFIT reconstruction (magnetic, kinetic)</td>
+      <td>Grad–Shafranov fit to measurements</td>
+      <td>fluid</td>
+      <td>ideal MHD (static force balance)</td>
+      <td>across the separatrix</td>
+      <td>static</td>
+      <td>equilibrium sequence</td>
+      <td>verified (equation class)</td>
+    </tr>
+    <tr>
+      <td>CHEASE fixed boundary</td>
+      <td>Grad–Shafranov solve for given $p’$, $FF’$ or $j$</td>
+      <td>fluid</td>
+      <td>ideal MHD (static force balance)</td>
+      <td>closed flux surfaces</td>
+      <td>static</td>
+      <td>equilibrium sequence</td>
+      <td>verified (equation class)</td>
+    </tr>
+    <tr>
+      <td>TokaMaker, TES free boundary</td>
+      <td>Grad–Shafranov with coils and conductors</td>
+      <td>fluid</td>
+      <td>ideal MHD (static force balance)</td>
+      <td>across the separatrix</td>
+      <td>static</td>
+      <td>equilibrium sequence</td>
+      <td>verified (equation class)</td>
+    </tr>
+    <tr>
+      <td>NICE reconstruction</td>
+      <td>Grad–Shafranov fit to measurements</td>
+      <td>fluid</td>
+      <td>ideal MHD (static force balance)</td>
+      <td>across the separatrix</td>
+      <td>static</td>
+      <td>equilibrium sequence</td>
+      <td>provisional (experimental adapter)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Notes:</strong></p>
+<ul>
+  <li>An equilibrium solves $\mathbf j\times\mathbf B = \nabla p$ with a scalar pressure and no flow. Its ordering is
+that force balance is re-established faster than the state moves, $\tau_{evol}/\tau_A \gg 1$, with subsonic
+and sub-Alfvénic flow. It is not the ideal-MHD stability contract: an equilibrium makes no claim about
+$S$, $k\,d_i$ or $k_\perp\rho_i$, which concern perturbations.</li>
+  <li>A kinetic-profile constraint (§6 category C) does not change this classification.</li>
+  <li>A time series of reconstructions is a sequence of equilibria, not a time-dependent MHD calculation.</li>
+</ul>
+
 
 
 </section>
@@ -1872,7 +1945,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-why-one-fidelity-axis-does-not-work" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Why one “fidelity” axis does not work</a></li><li class="page-toc-item page-toc-level-2"><a href="#2-theory-foundations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Theory foundations</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#21-fluid-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.1 Fluid hierarchy</a></li><li class="page-toc-item page-toc-level-3"><a href="#22-drift-kinetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.2 Drift kinetics</a></li><li class="page-toc-item page-toc-level-3"><a href="#23-gyrokinetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.3 Gyrokinetics</a></li><li class="page-toc-item page-toc-level-3"><a href="#24-particle-orbit-descriptions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.4 Particle-orbit descriptions</a></li><li class="page-toc-item page-toc-level-3"><a href="#25-kinetic-mhd-and-hybrid-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.5 Kinetic-MHD and hybrid models</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#3-the-gpec-suite-mode-by-mode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. The GPEC suite, mode by mode</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#31-dcon-ideal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.1 DCON ideal</a></li><li class="page-toc-item page-toc-level-3"><a href="#32-dcon-kinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.2 DCON kinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#33-gpec-kinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.3 GPEC kinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#34-rdcon-stride-and-rmatch" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.4 RDCON, STRIDE and RMATCH</a></li><li class="page-toc-item page-toc-level-3"><a href="#35-pentrc" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.5 PENTRC</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#4-gacode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. GACODE</a></li><li class="page-toc-item page-toc-level-2"><a href="#5-orbit-and-fast-ion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">5. Orbit and fast-ion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#6-what-kinetic-means-in-vaft-names" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">6. What “kinetic” means in VAFT names</a></li><li class="page-toc-item page-toc-level-2"><a href="#7-orderings-and-scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">7. Orderings and scales</a></li><li class="page-toc-item page-toc-level-2"><a href="#8-unresolved" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">8. Unresolved</a></li><li class="page-toc-item page-toc-level-2"><a href="#9-stress-test-against-external-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">9. Stress test against external codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#10-recommended-minimal-vocabulary-for-phase-b-1727" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">10. Recommended minimal vocabulary for Phase B (#1727)</a></li><li class="page-toc-item page-toc-level-2"><a href="#11-the-implemented-record-1727" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">11. The implemented record (#1727)</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-why-one-fidelity-axis-does-not-work" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. Why one “fidelity” axis does not work</a></li><li class="page-toc-item page-toc-level-2"><a href="#2-theory-foundations" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. Theory foundations</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#21-fluid-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.1 Fluid hierarchy</a></li><li class="page-toc-item page-toc-level-3"><a href="#22-drift-kinetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.2 Drift kinetics</a></li><li class="page-toc-item page-toc-level-3"><a href="#23-gyrokinetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.3 Gyrokinetics</a></li><li class="page-toc-item page-toc-level-3"><a href="#24-particle-orbit-descriptions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.4 Particle-orbit descriptions</a></li><li class="page-toc-item page-toc-level-3"><a href="#25-kinetic-mhd-and-hybrid-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2.5 Kinetic-MHD and hybrid models</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#3-the-gpec-suite-mode-by-mode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. The GPEC suite, mode by mode</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#31-dcon-ideal" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.1 DCON ideal</a></li><li class="page-toc-item page-toc-level-3"><a href="#32-dcon-kinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.2 DCON kinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#33-gpec-kinetic" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.3 GPEC kinetic</a></li><li class="page-toc-item page-toc-level-3"><a href="#34-rdcon-stride-and-rmatch" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.4 RDCON, STRIDE and RMATCH</a></li><li class="page-toc-item page-toc-level-3"><a href="#35-pentrc" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3.5 PENTRC</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#4-gacode" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. GACODE</a></li><li class="page-toc-item page-toc-level-2"><a href="#5-orbit-and-fast-ion-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">5. Orbit and fast-ion codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#6-what-kinetic-means-in-vaft-names" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">6. What “kinetic” means in VAFT names</a></li><li class="page-toc-item page-toc-level-2"><a href="#7-orderings-and-scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">7. Orderings and scales</a></li><li class="page-toc-item page-toc-level-2"><a href="#8-unresolved" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">8. Unresolved</a></li><li class="page-toc-item page-toc-level-2"><a href="#9-stress-test-against-external-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">9. Stress test against external codes</a></li><li class="page-toc-item page-toc-level-2"><a href="#10-recommended-minimal-vocabulary-for-phase-b-1727" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">10. Recommended minimal vocabulary for Phase B (#1727)</a></li><li class="page-toc-item page-toc-level-2"><a href="#11-the-implemented-record-1727" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">11. The implemented record (#1727)</a></li><li class="page-toc-item page-toc-level-2"><a href="#12-equilibrium-codes" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">12. Equilibrium codes</a></li></ul>
     </nav>
 </aside>
 
@@ -1990,7 +2063,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 11:00:37 +0000"
+        "time": "2026-10-11 11:41:57 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

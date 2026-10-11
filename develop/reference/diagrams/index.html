@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>68c76ab</code>. What is described
+  <code>e3c3f1b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -1060,6 +1060,7 @@ explains them.</p>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">timescale_hierarchy</span><span class="p">()</span>
 <span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">ordering_contract_map</span><span class="p">()</span>
+<span class="n">vaft</span><span class="p">.</span><span class="n">diagram</span><span class="p">.</span><span class="nf">adapter_contract_map</span><span class="p">()</span>
 </code></pre></div></div>
 
 <table>
@@ -1076,7 +1077,11 @@ explains them.</p>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">ordering_contract_map</code></td>
-      <td>Which model needs which ordering, read from <code class="language-plaintext highlighter-rouge">vaft.validation.orderings.CONTRACTS</code>. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered</td>
+      <td>Which model needs which ordering, read from <code class="language-plaintext highlighter-rouge">vaft.validation.orderings.CONTRACTS</code>. Quantities are grouped by scale (foundational, global, profile, perturbation, inner layer, time history) and models by family (fluid, reduced MHD, kinetic, neoclassical, evolution). Each cell is a separate assumption with its own margin, and an empty cell is not ordered.</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">adapter_contract_map</code></td>
+      <td>Which ordering contracts each VAFT code-adapter mode consumes, and how each enters the calculation: governing (filled), RDCON’s outer solution and layer solution, DCON-kinetic’s fluid part and kinetic part, PENTRC’s closure, inherited by a reduced model that does not solve its parent theory (dashed). An empty cell is no registered contract, not physical independence (<code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts</code>, #1823)</td>
     </tr>
   </tbody>
 </table>
@@ -5335,7 +5340,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 11:00:37 +0000"
+        "time": "2026-10-11 11:41:57 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>68c76ab</code>. What is described
+  <code>e3c3f1b</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -761,6 +761,168 @@ bands are <code class="language-plaintext highlighter-rouge">MARGIN_LABELS</code
 zero, a quantity at its threshold, falls in “outside”, as it is <code class="language-plaintext highlighter-rouge">OUTSIDE</code> there. The continuous margin
 is the result, and <code class="language-plaintext highlighter-rouge">margin_label</code> only names its band.</p>
 
+<h2 id="which-codes-consume-which-contracts">Which codes consume which contracts</h2>
+
+<p>A contract says what a model assumes. A run’s <code class="language-plaintext highlighter-rouge">vaft.code.formalism.PlasmaFormalism</code> record (#1727) says which
+model the run used. <code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts</code> joins the two (#1823).</p>
+
+<p><code class="language-plaintext highlighter-rouge">contracts_for(formalism)</code> maps a record to the contracts it consumes, as <code class="language-plaintext highlighter-rouge">(contract, role)</code> pairs. It reads
+the record’s fields as they are. The <strong>role</strong> says how the assumption enters the calculation. It is not a
+statement about how much of the plasma the assumption covers:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Role</th>
+      <th>How the assumption enters</th>
+      <th>Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">governing</code></td>
+      <td>the model the calculation solves rests on it</td>
+      <td>DCON ideal, CGYRO, NEO, EFIT</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">outer_solution</code>, <code class="language-plaintext highlighter-rouge">layer_solution</code></td>
+      <td>it holds for the ideal outer solution, or for the resistive inner-layer solution, of a matched calculation</td>
+      <td>RDCON + RMATCH; STRIDE is <code class="language-plaintext highlighter-rouge">outer_solution</code> only</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">fluid_part</code>, <code class="language-plaintext highlighter-rouge">kinetic_response</code></td>
+      <td>it underlies a fluid energy principle, or the kinetic term added to it</td>
+      <td>DCON kinetic, GPEC kinetic</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">closure</code></td>
+      <td>it underlies a kinetic quantity evaluated on a given fluid displacement, not fed back</td>
+      <td>PENTRC</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">inherited</code></td>
+      <td>a reduced model is derived from a theory that rests on it, but does not solve that theory</td>
+      <td>TGLF, TGLF-NN (gyrokinetics); NEO’s analytic values</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">transport_coupling</code></td>
+      <td>local turbulent fluxes drive a transport solver</td>
+      <td>none yet (opt-in, see below)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/adapter_contract_map.svg" alt="adapter contracts" /></p>
+
+<p><strong>How to read the figure:</strong></p>
+<ul>
+  <li>The figure is deliberately simple. The validity conditions behind each cell are listed below, not drawn.</li>
+  <li><strong>An empty cell means no registered contract.</strong> It does not mean the calculation is independent of that
+physics. A part of a formalism that no contract covers is returned as a reason, never as a guessed contract:
+    <ul>
+      <li>test-particle orbit orderings (NUBEAM);</li>
+      <li>full-$f$ gyrokinetics;</li>
+      <li>a reduced model’s own closure or fit.</li>
+    </ul>
+  </li>
+  <li><strong>Governing vs inherited.</strong> CGYRO solves gyrokinetics, so the gyrokinetic contract governs it. TGLF and
+TGLF-NN only inherit it. Their gyro-Landau-fluid closure, saturation rule and, for TGLF-NN, the training
+domain add assumptions that no ordering contract states. A gyrokinetic ordering that holds is therefore
+necessary for TGLF, not sufficient.</li>
+</ul>
+
+<p><strong>Validity conditions by mode.</strong> All modes are checked against the adapter code.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Mode</th>
+      <th>Contracts and the conditions behind them</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>EFIT, CHEASE, TokaMaker, TES, NICE</td>
+      <td>equilibrium sequence: $\tau_{evol}/\tau_A \gg 1$, $M \ll 1$, $M_A \ll 1$. These are static force balance with scalar pressure, and make no claim about $S$, $k\,d_i$ or $k_\perp\rho_i$.</td>
+    </tr>
+    <tr>
+      <td>DCON ideal, GPEC ideal</td>
+      <td>ideal MHD governs: $S \gg 1$, $d_i/a$, $k\,d_i$, $k_\perp\rho_i$, $\rho_i/L_{T_i} \ll 1$, quasineutral, low frequency, scalar pressure</td>
+    </tr>
+    <tr>
+      <td>RDCON + RMATCH</td>
+      <td>ideal MHD for the outer solution; single-fluid resistive MHD (GGJ) for the inner layer, with $d_i/\delta \ll 1$ and $\rho_s/\delta \ll 1$. <strong>A large $S$ does not establish single-fluid validity in the layer.</strong> The layer width falls as a power of $S$: $\delta/a \propto S^{-2/5}$ for a $\Delta’$-driven tearing layer, and $S^{-1/3}$ for a resistive kink. So a larger $S$ makes the layer thinner and pushes $d_i/\delta$ and $\rho_s/\delta$ up. Two-fluid (drift-tearing) physics then enters even though the global ordering $S \gg 1$ holds better. The layer orderings are evaluated on $\delta$, never inferred from $S$.</td>
+    </tr>
+    <tr>
+      <td>STRIDE</td>
+      <td>the ideal outer solution and its $\Delta’$ only; no resistivity is solved. Its empty resistive-MHD cell is not independence from layer physics: reading $\Delta’&gt;0$ as tearing-unstable passes through an inner-layer model STRIDE does not solve (constant-$\psi$, single-fluid), so the layer orderings of the RDCON row apply to that interpretation.</td>
+    </tr>
+    <tr>
+      <td>DCON kinetic, GPEC kinetic</td>
+      <td>ideal MHD for the fluid part; drift kinetics for the $\delta W_k$ term ($\omega/\Omega_{ci}$, $\rho_i/L$, $k_\perp\rho_i \ll 1$)</td>
+    </tr>
+    <tr>
+      <td>PENTRC</td>
+      <td>drift kinetics as a closure on a given ideal or kinetic GPEC displacement; the displacement’s own contract is the fluid part</td>
+    </tr>
+    <tr>
+      <td>NEO</td>
+      <td>drift kinetics and local neoclassical transport govern: $\rho_i/L$, $\Delta_b/L_p$, $M \ll 1$. All collisionality regimes are solved, so neither the banana nor the Pfirsch–Schlüter contract applies.</td>
+    </tr>
+    <tr>
+      <td>NEO analytic</td>
+      <td>the analytic, fitted and moment-method theory values a NEO run writes out (Hinton–Hazeltine, Chang–Hinton, Sauter, Redl, Hinton–Rosenbluth, NCLASS). They inherit the same contracts, plus each model’s own assumptions.</td>
+    </tr>
+    <tr>
+      <td>CGYRO linear, nonlinear</td>
+      <td>δf gyrokinetics governs: $\rho_i/L_{T_i}$, $k_\parallel/k_\perp$, $\omega/\Omega_{ci}$, $\delta n/n$, $M \ll 1$. $k_\perp\rho_i$ is not ordered. $M \ll 1$ is VAFT’s choice: its input writer sets <code class="language-plaintext highlighter-rouge">MACH=0</code>, while CGYRO itself supports sonic rotation.</td>
+    </tr>
+    <tr>
+      <td>TGLF linear, TGLF, TGLF-NN</td>
+      <td>gyrokinetics inherited: necessary, not sufficient (see above)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Gyrokinetic–transport separation is opt-in.</strong> A standalone flux-tube run, linear or nonlinear, imposes a
+fixed background. Comparing its fluxes with experiment still assumes $\tau_{transp}/\tau_{turb} \gg 1$. The δf
+ordering makes turbulence-driven profile evolution $\rho_*^{-2}$ slower than the turbulence. It says nothing
+about evolution driven by the current ramp or actuators, which dominates VEST’s ~10 ms discharges. The registry
+books the separate contract only when the run’s fluxes drive a transport solver, as in a PORTALS-type
+flux-matching loop (#1588, not yet in VAFT). This is a bookkeeping choice. The record has no
+field that says so. A workflow therefore passes <code class="language-plaintext highlighter-rouge">contracts_for(..., transport_coupled=True)</code>, or sets
+<code class="language-plaintext highlighter-rouge">AdapterMode.transport_coupled</code>. No VAFT mode sets it today, so the figure has no coupling column.</p>
+
+<p><strong>Sources and checks:</strong></p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">ADAPTER_MODES</code> lists the modes of VAFT’s adapters with their formalisms, from the audit in
+<a href="/vaft/develop/reference/plasma-models/">Plasma models</a>.</li>
+  <li>CGYRO’s two modes are the records its own <code class="language-plaintext highlighter-rouge">plasma_formalism</code> builds.</li>
+  <li>A test checks the GPEC-suite modes field by field against the records <code class="language-plaintext highlighter-rouge">vaft.code.gpec</code> resolves from the
+packaged namelists.</li>
+  <li>Modes VAFT does not run are not listed. RDCON’s RPEC path is one: <code class="language-plaintext highlighter-rouge">rdcon.in</code> sets <code class="language-plaintext highlighter-rouge">coil%rpec_flag=f</code>, even
+though the resolver can classify it.</li>
+  <li>The modes the audit leaves unresolved, today the GPEC threshold layer models, are listed with no record and
+a reason.</li>
+</ul>
+
+<p><code class="language-plaintext highlighter-rouge">advisory_ordering_check(formalism, state, points)</code> evaluates those contracts on a run’s input:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">state</code> is the global and time-history quantities of <code class="language-plaintext highlighter-rouge">vaft.process.ordering_state</code>;</li>
+  <li><code class="language-plaintext highlighter-rouge">points</code> is its profile quantities.</li>
+</ul>
+
+<p>A contract with a local ordering is evaluated at every point, and the most constraining point is reported. Each
+result goes through <code class="language-plaintext highlighter-rouge">evaluate_contract</code> and is placed on the credibility <code class="language-plaintext highlighter-rouge">applicability</code> axis with
+<code class="language-plaintext highlighter-rouge">as_evidence</code>. The statuses are the four of applicability, with no “marginal”. A quantity the input does not
+carry is <code class="language-plaintext highlighter-rouge">UNASSESSED</code>, never a pass. This covers a mode’s $k_\perp\rho_i$ without mode numbers, and a layer
+width. The check is advisory: it reports and never blocks a run.</p>
+
+<p><strong>Known gap.</strong> The drift-kinetic contract orders $\omega/\Omega_{ci}$ and $k_\perp\rho_i$. A steady
+axisymmetric solve (NEO) or a zero-frequency one (DCON kinetic) has neither as an input, so that contract stays
+<code class="language-plaintext highlighter-rouge">UNASSESSED</code> for those modes. A NaN at a profile point never hides a finite state value. The reported point is
+the DataFrame’s index label when <code class="language-plaintext highlighter-rouge">points</code> is a DataFrame.</p>
+
 <h2 id="references">References</h2>
 
 <ol>
@@ -879,7 +1041,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-parameters-and-what-they-test" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The parameters and what they test</a></li><li class="page-toc-item page-toc-level-2"><a href="#a-worked-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A worked hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#ordering-contracts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ordering contracts</a></li><li class="page-toc-item page-toc-level-2"><a href="#ordering-spaces-and-margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ordering spaces and margins</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-parameters-and-what-they-test" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The parameters and what they test</a></li><li class="page-toc-item page-toc-level-2"><a href="#a-worked-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A worked hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#ordering-contracts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ordering contracts</a></li><li class="page-toc-item page-toc-level-2"><a href="#ordering-spaces-and-margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ordering spaces and margins</a></li><li class="page-toc-item page-toc-level-2"><a href="#which-codes-consume-which-contracts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Which codes consume which contracts</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -997,7 +1159,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 11:00:37 +0000"
+        "time": "2026-10-11 11:41:57 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
