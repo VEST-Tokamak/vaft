@@ -775,5 +775,9 @@ def _zeff_reference(ods: Any, t_core: float, record_path: str, record_text: str 
     target = _target_zeff(record_path, record_text)
     if target is None:
         return None
-    return (target, rf"target $\langle Z_{{\mathrm{{eff}}}}\rangle = {target:g}$ ({zeff_role})",
-            f"{record_path} target_zeff", zeff_role)
+    # the composition writer states which target it closed on (#1842): an axis target is Z_eff(0)
+    if _fields(record_path, record_text).get("normalization") == "axis":
+        label = rf"target $Z_{{\mathrm{{eff}}}}(0) = {target:g}$ ({zeff_role})"
+    else:
+        label = rf"target $\langle Z_{{\mathrm{{eff}}}}\rangle = {target:g}$ ({zeff_role})"
+    return (target, label, f"{record_path} target_zeff", zeff_role)

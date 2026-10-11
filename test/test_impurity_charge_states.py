@@ -184,6 +184,7 @@ def test_the_record_states_what_the_amplitude_was_closed_on(tables):
     preset = resolve_radial_composition(TE, NE, RHO, {"C": 1, "O": 1}, tables=tables, time=0.3)
     fields = ti_record_fields(populate_radial_impurity_profiles(ods, preset)[f"{base}.zeff_fit.parameters"])
     assert fields["normalization"] == "ne_weighted_mean" and float(fields["target_zeff"]) == 2.0
+    assert fields["weighting"].startswith("n_e")
     assert float(fields["scale"]) == pytest.approx(preset.scale, rel=1e-5)
     closed = resolve_radial_composition(TE, NE, RHO, {"C": 1, "O": 1}, normalization="resistive_closure",
                                         resistive_target=1.7, projection=lambda z: float(np.nanmean(z)),
@@ -195,11 +196,16 @@ def test_the_record_states_what_the_amplitude_was_closed_on(tables):
         assert fields["origin"] == "inferred" and fields["normalization"] == "resistive_closure"
         assert float(fields["resistive_target"]) == 1.7 and fields["resistive_method"] == "romero"
         assert float(fields["resistive_sigma"]) == 0.21 and "target_zeff" not in fields
-    for clash in ({"resistive_target": 1.6}, {"normalization": "axis"}, {"origin": "measured"}):
+    for clash in ({"resistive_target": 1.6}, {"normalization": "axis"}, {"origin": "measured"},
+                  {"temperature": "measured"}, {"weighting": "flat"}):
         with pytest.raises(ValueError, match="may not restate"):
             populate_radial_impurity_profiles(ods, closed, record_fields=clash)
     with pytest.raises(ValueError, match="separator"):
         populate_radial_impurity_profiles(ods, closed, record_fields={"assumption": "n_C=n_O"})
+    with pytest.raises(ValueError, match="not a record key"):
+        populate_radial_impurity_profiles(ods, closed, record_fields={"bad;key": 1})
+    with pytest.raises(ValueError, match="string or a number"):
+        populate_radial_impurity_profiles(ods, closed, record_fields={"resistive_window": (0.31, 0.33)})
 
 
 def test_the_resistive_closure_projection_must_ignore_undefined_points(tables):
