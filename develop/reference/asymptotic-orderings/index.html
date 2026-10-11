@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1a4773c</code>. What is described
+  <code>1b7a133</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -654,6 +654,113 @@ Full Vlasov–Maxwell kinetics assumes none of these orderings and has no contra
 gyrokinetic orderings and differs only in its closure. The plateau regime between banana and
 Pfirsch–Schlüter has no ordering of its own.</p>
 
+<h2 id="ordering-spaces-and-margins">Ordering spaces and margins</h2>
+
+<p>Two orderings read together form an <strong>ordering space</strong>. Its lines are where an expansion parameter
+reaches one. They are not empirical stability or operating boundaries. The spaces are registered in
+<code class="language-plaintext highlighter-rouge">vaft.validation.orderings.ORDERING_SPACES</code>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Space</th>
+      <th>$x$</th>
+      <th>$y$</th>
+      <th>Reading</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">resistive_two_fluid</code></td>
+      <td>$d_i/a$</td>
+      <td>$S$</td>
+      <td>Hall / two-fluid separation against resistive separation</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">closure_magnetization</code></td>
+      <td>$\lambda_e/qR$</td>
+      <td>$\Omega_{ce}\tau_e$</td>
+      <td>local fluid closure against strong magnetization</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">flr_collisional</code></td>
+      <td>$\lambda_i/qR$</td>
+      <td>$\rho_i/L_{T_i}$</td>
+      <td>collisional fluid against FLR smallness</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">flr_collisional_electron</code></td>
+      <td>$\lambda_e/qR$</td>
+      <td>$\rho_s/L_{T_e}$</td>
+      <td>the same with electrons, for data without a trustworthy $T_i$</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium_relaxation</code></td>
+      <td>$\tau_{age}/\tau_R$</td>
+      <td>$\tau_{evol}/\tau_A$</td>
+      <td>resistive current relaxation against quasi-static equilibrium</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft.plot.ordering_space</span> <span class="kn">import</span> <span class="n">ordering_space</span><span class="p">,</span> <span class="n">ordering_margins_plot</span>
+
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="nf">ordering_space</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="sh">"</span><span class="s">resistive_two_fluid</span><span class="sh">"</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="sh">"</span><span class="s">efit_quality</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="nf">ordering_margins_plot</span><span class="p">(</span><span class="n">states</span><span class="p">,</span> <span class="n">points</span><span class="p">)</span>   <span class="c1"># global orderings per state, profile ones per point
+</span></code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">ordering_space</code> draws a population on log axes. It shows:</p>
+<ul>
+  <li>the order-unity line of each axis;</li>
+  <li>the region where both orderings hold, shaded;</li>
+  <li>dashed lines one and two decades into the permitted side;</li>
+  <li>the four quadrants, named by the regime each side means.</li>
+</ul>
+
+<p>A quadrant name describes only these two orderings. “Ideal, single-fluid” says nothing about the
+other orderings of the ideal-MHD contract. A row whose value is missing or not positive is counted as
+unassessed and left off, never placed at a guessed position.</p>
+
+<p><code class="language-plaintext highlighter-rouge">ordering_margins_plot(states, points)</code> shows, for each ordering, the margin $m = \mp\log_{10}(x/x_0)$ of
+every state or point, its median, the fraction with $m &gt; 0$ and the number assessed. A global or
+time-history ordering is read from <code class="language-plaintext highlighter-rouge">states</code>, once per state. Any other ordering is read from <code class="language-plaintext highlighter-rouge">points</code>,
+once per flux-surface point. So $n$ and the fraction match <code class="language-plaintext highlighter-rouge">vaft.process.ordering_state.ordering_margins</code>
+on the same data. A row without one quantity is left out of that ordering only. Each ordering is drawn
+against its contract threshold $x_0$ (<code class="language-plaintext highlighter-rouge">ordering_threshold</code>), which is order unity today. The background
+bands are <code class="language-plaintext highlighter-rouge">MARGIN_LABELS</code>:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Margin $m$ [decades]</th>
+      <th>Band</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>$m &gt; 2$</td>
+      <td>over 2 decades</td>
+    </tr>
+    <tr>
+      <td>$1 &lt; m \le 2$</td>
+      <td>1-2 decades</td>
+    </tr>
+    <tr>
+      <td>$0 &lt; m \le 1$</td>
+      <td>0-1 decade</td>
+    </tr>
+    <tr>
+      <td>$m \le 0$</td>
+      <td>outside</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The bands name the scale separation. They are <strong>not an applicability status</strong>: that stays the two-sided
+<code class="language-plaintext highlighter-rouge">SUPPORTED</code> / <code class="language-plaintext highlighter-rouge">OUTSIDE</code> of <code class="language-plaintext highlighter-rouge">evaluate_contract</code>, which has no “marginal” on purpose. A margin of exactly
+zero, a quantity at its threshold, falls in “outside”, as it is <code class="language-plaintext highlighter-rouge">OUTSIDE</code> there. The continuous margin
+is the result, and <code class="language-plaintext highlighter-rouge">margin_label</code> only names its band.</p>
+
 <h2 id="references">References</h2>
 
 <ol>
@@ -772,7 +879,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-parameters-and-what-they-test" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The parameters and what they test</a></li><li class="page-toc-item page-toc-level-2"><a href="#a-worked-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A worked hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#ordering-contracts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ordering contracts</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#the-parameters-and-what-they-test" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The parameters and what they test</a></li><li class="page-toc-item page-toc-level-2"><a href="#a-worked-hierarchy" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">A worked hierarchy</a></li><li class="page-toc-item page-toc-level-2"><a href="#ordering-contracts" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ordering contracts</a></li><li class="page-toc-item page-toc-level-2"><a href="#ordering-spaces-and-margins" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Ordering spaces and margins</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
     </nav>
 </aside>
 
@@ -890,7 +997,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 09:10:51 +0000"
+        "time": "2026-10-11 10:05:06 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
