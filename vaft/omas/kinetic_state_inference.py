@@ -195,7 +195,67 @@ def _full(inside: np.ndarray, values: np.ndarray) -> np.ndarray:
 
 #: ``assumed`` T_i = T_e; ``inferred`` the pointwise pressure partition (NaN where it
 #: carries no information); ``inferred_ratio`` one T_i/T_e from that partition.
-ION_TEMPERATURE_MODES = ("assumed", "inferred", "inferred_ratio")
+ION_TEMPERATURE_MODES = ("assumed", "inferred", "inferred_ratio", "inferred_profile")
+
+#: Highest polynomial order in rho of the ``inferred_profile`` T_i/T_e.
+TI_PROFILE_MAX_ORDER = 2
+
+
+def _ti_ratio_profile(
+    rho: np.ndarray, ti_te: np.ndarray, sigma_t_i: np.ndarray, t_e: np.ndarray, rho_out: np.ndarray,
+    *, n_independent: int = 5, max_order: int = TI_PROFILE_MAX_ORDER,
+) -> dict[str, Any]:
+    """A smooth ``T_i/T_e(rho)`` from the significant points: a polynomial in ``rho`` of order 0..max.
+
+    Weighted least squares with weights ``1/sigma^2``.  The points of one profile
+    are smooth fits of ``n_independent`` Thomson channels, so chi-square and the
+    covariance are rescaled to that many independent points (the covariance by
+    ``N/n_independent``, then by ``chi2/dof`` when it exceeds one).  The order is
+    the lowest BIC, ``chi2_eff + k ln(n_independent)``; an order whose ratio is not
+    positive everywhere on ``rho_out``, or that has no degree of freedom left, is
+    rejected.  Returns the ratio and its one-sigma on ``rho_out``, the chosen
+    order, coefficients and every order's BIC; outside the span of the points the
+    values are an extrapolation (``extrapolated`` mask).
+    """
+    rho, ratio = np.asarray(rho, dtype=float), np.asarray(ti_te, dtype=float)
+    sigma = np.asarray(sigma_t_i, dtype=float) / np.asarray(t_e, dtype=float)
+    ok = np.isfinite(rho) & np.isfinite(ratio) & np.isfinite(sigma) & (sigma > 0)
+    if ok.sum() < 3:
+        raise ValueError("fewer than three significant T_i/T_e points: no ratio profile can be fitted")
+    x, y, w = rho[ok], ratio[ok], 1.0 / sigma[ok] ** 2
+    n, n_eff = int(ok.sum()), max(1, int(n_independent))
+    out = np.asarray(rho_out, dtype=float)
+    fits: dict[int, dict[str, Any]] = {}
+    for order in range(max_order + 1):
+        k = order + 1
+        if k >= n_eff:
+            break
+        design = np.vander(x, k, increasing=True)
+        normal = design.T @ (w[:, None] * design)
+        try:
+            cov = np.linalg.inv(normal)
+        except np.linalg.LinAlgError:
+            continue
+        coef = cov @ (design.T @ (w * y))
+        chi2 = float(np.sum(w * (y - design @ coef) ** 2))
+        chi2_eff = chi2 * n_eff / n
+        scale = (n / n_eff) * max(1.0, chi2_eff / max(1, n_eff - k))
+        basis = np.vander(out, k, increasing=True)
+        values = basis @ coef
+        if not np.all(values[np.isfinite(values)] > 0):
+            continue
+        band = np.sqrt(np.einsum("ij,jk,ik->i", basis, cov * scale, basis))
+        fits[order] = {"coef": coef, "ratio": values, "sigma": band,
+                       "bic": chi2_eff + k * float(np.log(n_eff)), "chi2_eff": chi2_eff}
+    if not fits:
+        raise ValueError("no polynomial T_i/T_e stays positive over the profile")
+    best = min(fits, key=lambda o: fits[o]["bic"])
+    span = (float(x.min()), float(x.max()))
+    return {"order": int(best), "coefficients": [float(c) for c in fits[best]["coef"]],
+            "ratio": fits[best]["ratio"], "sigma": fits[best]["sigma"],
+            "bic": {int(o): float(f["bic"]) for o, f in fits.items()},
+            "rho_span": span, "extrapolated": (out < span[0]) | (out > span[1]),
+            "points": n, "n_independent": n_eff}
 
 
 def _ti_ratio_estimate(
@@ -274,7 +334,7 @@ def kinetic_state_stages(
     """
     if ion_temperature not in ION_TEMPERATURE_MODES:
         raise ValueError(f"ion_temperature must be one of {ION_TEMPERATURE_MODES}, got {ion_temperature!r}")
-    pointwise = ion_temperature in ("inferred", "inferred_ratio")
+    pointwise = ion_temperature in ("inferred", "inferred_ratio", "inferred_profile")
     from vaft.omas.vest_upstream import (
         PRESSURE_CLOSURE_RECORD,
         _append_record_fields,
@@ -575,6 +635,7 @@ def kinetic_state_stages(
         ])
         ctx["ti_ratio"] = _full(inside, result["ti_te"])
         ctx["ti_result"] = (result, inside)
+        ctx["ti_sigma"] = _full(inside, result["sigma_t_i"])
         return t_i, record
 
     def pressure_closure() -> InferenceStage:
@@ -584,6 +645,23 @@ def kinetic_state_stages(
         lineage = {"equilibrium_lineage": equilibrium_lineage, "equilibrium_occurrence": 0}
         if pointwise:
             t_i, ti_record = partition_ti()
+            if ion_temperature == "inferred_profile":
+                result, inside = ctx["ti_result"]
+                n_ts = int(np.size(ctx["thomson"]["rho"])) if ctx.get("thomson") else 5
+                try:
+                    fit = _ti_ratio_profile(ctx["rho"][inside], result["ti_te"], result["sigma_t_i"],
+                                            te[inside], ctx["rho"], n_independent=n_ts)
+                except ValueError as error:
+                    raise _Stop(str(error))
+                ctx["ti_pointwise"], ctx["ti_profile"] = t_i, fit
+                t_i = fit["ratio"] * te
+                ti_record = "; ".join([
+                    "origin=inferred; method=equilibrium_pressure_partition_profile",
+                    f"ti_te_order={fit['order']}",
+                    "ti_te_coefficients=" + ",".join(f"{c:.4g}" for c in fit["coefficients"]),
+                    f"rho_valid={fit['rho_span'][0]:.4g}:{fit['rho_span'][1]:.4g}",
+                    "extrapolated_outside_rho_valid=1", "not measured",
+                ])
             if ion_temperature == "inferred_ratio":
                 result, inside = ctx["ti_result"]
                 try:
@@ -649,11 +727,19 @@ def kinetic_state_stages(
         return _stage(
             "pressure_closure",
             fields={"T_i": t_i, "T_i_over_T_e": t_i / te, "T_i_pointwise": ctx.get("ti_pointwise"),
-                    "ti_ratio_estimate": ctx.get("ti_estimate"), "p_e": np.asarray(pressure.p_e, dtype=float), "p_i": p_main,
+                    "ti_ratio_estimate": ctx.get("ti_estimate"), "ti_ratio_profile": ctx.get("ti_profile"),
+                    "T_i_pointwise_sigma": ctx.get("ti_sigma"),
+                    "p_e": np.asarray(pressure.p_e, dtype=float), "p_i": p_main,
                     "p_imp": p_imp, "p_thermal": np.asarray(pressure.p_thermal, dtype=float), "p_eq": p_eq,
                     "residual": residual, "relative_residual": relative, "closure_summary": summary},
             provenance=(
-                ({"origin": "inferred", "method": "equilibrium_pressure_partition_scalar", "dilution": "species",
+                ({"origin": "inferred", "method": "equilibrium_pressure_partition_profile", "dilution": "species",
+                  "role": "closure_profile",
+                  "note": "a low-order T_i/T_e(rho) fitted to the significant points of the pressure partition "
+                          "(order by BIC); continuous over the profile, extrapolated outside rho_valid; the "
+                          "residual to p_eq is reported"}
+                 if ion_temperature == "inferred_profile" else
+                 {"origin": "inferred", "method": "equilibrium_pressure_partition_scalar", "dilution": "species",
                   "role": "closure_scalar",
                   "note": "one T_i/T_e from the significant points of the pressure partition (Romero-closed "
                           "n_i); T_i = r T_e over the whole profile, so the profile shape is assumed and the "
@@ -669,7 +755,8 @@ def kinetic_state_stages(
                  "note": "T_i = T_e and the impurity amplitude are fixed before this stage; the residual "
                          "is reported, never minimised"}),
             assumptions={"assume_ti_eq_te": int(ion_temperature == "assumed")}
-            | ({"assume_ti_profile_shape_eq_te": 1} if ion_temperature == "inferred_ratio" else {}),
+            | ({"assume_ti_profile_shape_eq_te": 1} if ion_temperature == "inferred_ratio" else {})
+            | ({"ti_extrapolated_outside_rho_valid": 1} if ion_temperature == "inferred_profile" else {}),
             lands={"p_e": f"{_CP}.electrons.pressure", "p_i_total": f"{_CP}.pressure_ion_total",
                    "p_thermal": f"{_CP}.pressure_thermal", "T_i": f"{_CP}.t_i_average"},
         )

@@ -311,3 +311,28 @@ def test_the_ratio_mode_puts_one_t_i_over_t_e_on_the_whole_profile(sample, table
     assert np.allclose(f["T_i_over_T_e"], r) and f["T_i_pointwise"] is not None
     assert closure.provenance["role"] == "closure_scalar"
     assert closure.assumptions == {"assume_ti_eq_te": 0, "assume_ti_profile_shape_eq_te": 1}
+
+
+def test_the_ratio_profile_picks_the_order_the_points_support():
+    from vaft.omas.kinetic_state_inference import _ti_ratio_profile
+
+    rho = np.linspace(0.1, 0.9, 60)
+    te, sig = np.full(60, 100.0), np.full(60, 2.0)
+    flat = _ti_ratio_profile(rho, np.full(60, 1.3), sig, te, np.linspace(0, 1, 11), n_independent=8)
+    assert flat["order"] == 0 and flat["ratio"] == pytest.approx(1.3)
+    slope = _ti_ratio_profile(rho, 1.0 + rho, sig, te, np.linspace(0, 1, 11), n_independent=8)
+    assert slope["order"] >= 1 and slope["ratio"][-1] == pytest.approx(2.0, rel=0.05)
+    out = np.linspace(0, 1, 11)
+    assert slope["extrapolated"][0] and slope["extrapolated"][-1] and not slope["extrapolated"][5]
+
+
+def test_the_ratio_profile_mode_is_continuous_and_marks_its_extrapolation(sample, tables):
+    _, result = _run(sample, tables, ion_temperature="inferred_profile")
+    closure = result.stage("pressure_closure")
+    if not closure.ok:
+        assert "T_i" in closure.reason or "p_i" in closure.reason or "ratio" in closure.reason
+        return
+    f = closure.fields
+    assert np.all(np.isfinite(f["T_i"])), "continuous over the whole profile"
+    assert closure.provenance["role"] == "closure_profile"
+    assert closure.assumptions["ti_extrapolated_outside_rho_valid"] == 1
