@@ -142,24 +142,25 @@ PRODUCT_SUFFIXES = {
 }
 
 
-def _product_file(stage: str, outputs: list[Path], manifest: dict | None) -> Path:
-    """The file a stage product directory's reader would open.
+def _product_file(stage: str, outputs: list[Path], manifest: dict | None) -> tuple[Path, str]:
+    """The file FileDB's reader opens, and how it was chosen.
 
-    Order: the name the stage manifest records; else the canonical
-    ``<stage><suffix>`` FileDB.omas_product resolves; else the newest file
-    named after the stage.  Never "the first file alphabetically": 1,640 of
-    2,850 production EFIT directories still hold a pre-10-02 ``efit.json``
-    beside the current ``efit.json.gz``.
+    ``FileDB.omas_product`` opens the canonical ``<stage><suffix>`` and never
+    consults the manifest, so that file wins whenever it exists.  Otherwise
+    (legacy, unmigrated directories) the manifest's recorded name, else the
+    newest file named after the stage.  Never "the first file
+    alphabetically": 1,640 of 2,850 production EFIT directories still hold a
+    pre-10-02 ``efit.json`` beside the current ``efit.json.gz``.
     """
     by_name = {p.name: p for p in outputs}
-    recorded = (manifest or {}).get("output")
-    if isinstance(recorded, dict) and recorded.get("name") in by_name:
-        return by_name[recorded["name"]]
     canonical = stage + PRODUCT_SUFFIXES.get(stage, PRODUCT_SUFFIX)
     if canonical in by_name:
-        return by_name[canonical]
+        return by_name[canonical], "canonical"
+    recorded = (manifest or {}).get("output")
+    if isinstance(recorded, dict) and recorded.get("name") in by_name:
+        return by_name[recorded["name"]], "manifest"
     named = [p for p in outputs if p.name.split(".")[0] == stage] or outputs
-    return max(named, key=lambda p: p.stat().st_mtime)
+    return max(named, key=lambda p: p.stat().st_mtime), "newest"
 
 
 def _scan_product(root: Path, product_dir: Path) -> dict:
@@ -173,13 +174,23 @@ def _scan_product(root: Path, product_dir: Path) -> dict:
     manifest = _read_json(product_dir / "metadata" / "manifest.json")
     outputs = sorted(p for p in (product_dir / "output").glob("*") if p.is_file())
     if outputs:
-        out = _product_file(rel[1], outputs, manifest)
-        record["output"] = {"name": out.name, "size": out.stat().st_size, "mtime": _mtime(out)}
-        siblings = [p.name for p in outputs if p != out]
-        if siblings:
-            # Stale artifacts of an older writer (efit.json beside the
-            # current efit.json.gz): reported, never mistaken for the product.
-            record["output"]["stale_siblings"] = siblings
+        out, chosen_by = _product_file(rel[1], outputs, manifest)
+        record["output"] = {
+            "name": out.name, "size": out.stat().st_size, "mtime": _mtime(out), "chosen_by": chosen_by,
+        }
+        recorded = (manifest or {}).get("output")
+        if isinstance(recorded, dict) and recorded.get("name") and recorded["name"] != out.name:
+            # The manifest describes another file than the one read: its
+            # status/sha may not belong to this product.
+            record["output"]["manifest_names"] = recorded["name"]
+        others = [p for p in outputs if p != out]
+        if others:
+            # Usually an older writer's artifact (efit.json beside the
+            # current efit.json.gz); reported with its date, never read.
+            record["output"]["other_files"] = [
+                {"name": p.name, "mtime": _mtime(p), "newer_than_product": p.stat().st_mtime > out.stat().st_mtime}
+                for p in others
+            ]
         stub = _stub_comment(out)
         if stub:
             record["output"]["stub"] = stub

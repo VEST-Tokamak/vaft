@@ -1,5 +1,5 @@
 {
- "scanned_at": "2026-10-11T13:29:10+00:00",
+ "scanned_at": "2026-10-11T13:37:37+00:00",
  "roots": [
   "/srv/vest.filedb",
   "/home/user1/runs/campaign/filedb"
@@ -24,7 +24,8 @@
    "output": {
     "name": "camera_visible.h5",
     "size": 94920453,
-    "mtime": "2026-10-04T09:53:45+00:00"
+    "mtime": "2026-10-04T09:53:45+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -43,7 +44,8 @@
    "output": {
     "name": "camera_visible.h5",
     "size": 95428378,
-    "mtime": "2026-10-05T21:39:39+00:00"
+    "mtime": "2026-10-05T21:39:39+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -62,7 +64,8 @@
    "output": {
     "name": "ces.json",
     "size": 33015,
-    "mtime": "2026-09-15T06:42:51+00:00"
+    "mtime": "2026-09-15T06:42:51+00:00",
+    "chosen_by": "manifest"
    },
    "manifest": {
     "status": "success",
@@ -84,7 +87,8 @@
    "output": {
     "name": "chease.json",
     "size": 49724238,
-    "mtime": "2026-09-02T13:56:03+00:00"
+    "mtime": "2026-09-02T13:56:03+00:00",
+    "chosen_by": "newest"
    },
    "manifest": {
     "status": "success",
@@ -102,7 +106,8 @@
    "output": {
     "name": "core_profiles.json",
     "size": 38600,
-    "mtime": "2026-09-15T07:10:47+00:00"
+    "mtime": "2026-09-15T07:10:47+00:00",
+    "chosen_by": "manifest"
    },
    "manifest": {
     "status": "unavailable",
@@ -138,7 +143,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 9568202,
-    "mtime": "2026-10-01T12:43:22+00:00"
+    "mtime": "2026-10-01T12:43:22+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "partial",
@@ -177,7 +183,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 9592581,
-    "mtime": "2026-10-01T12:43:23+00:00"
+    "mtime": "2026-10-01T12:43:23+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "partial",
@@ -216,7 +223,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 9428416,
-    "mtime": "2026-10-02T17:32:19+00:00"
+    "mtime": "2026-10-02T17:32:19+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "partial",
@@ -255,7 +263,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 9257752,
-    "mtime": "2026-10-02T21:43:17+00:00"
+    "mtime": "2026-10-02T21:43:17+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "partial",
@@ -294,7 +303,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 10759088,
-    "mtime": "2026-10-03T01:23:20+00:00"
+    "mtime": "2026-10-03T01:23:20+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "partial",
@@ -333,7 +343,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 17369856,
-    "mtime": "2026-10-03T01:25:28+00:00"
+    "mtime": "2026-10-03T01:25:28+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -369,7 +380,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 45589633,
-    "mtime": "2026-10-10T16:35:55+00:00"
+    "mtime": "2026-10-10T16:35:55+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -405,7 +417,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 49029010,
-    "mtime": "2026-10-07T03:32:04+00:00"
+    "mtime": "2026-10-07T03:32:04+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -441,7 +454,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 48978246,
-    "mtime": "2026-10-07T03:32:20+00:00"
+    "mtime": "2026-10-07T03:32:20+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -477,7 +491,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22360802,
-    "mtime": "2026-10-02T11:14:53+00:00"
+    "mtime": "2026-10-02T11:14:53+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -496,7 +511,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22347697,
-    "mtime": "2026-10-02T11:14:52+00:00"
+    "mtime": "2026-10-02T11:14:52+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -515,7 +531,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22373119,
-    "mtime": "2026-10-02T18:53:01+00:00"
+    "mtime": "2026-10-02T18:53:01+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -534,7 +551,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22411284,
-    "mtime": "2026-10-02T23:03:36+00:00"
+    "mtime": "2026-10-02T23:03:36+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -553,7 +571,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22438988,
-    "mtime": "2026-10-03T02:45:06+00:00"
+    "mtime": "2026-10-03T02:45:06+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -572,7 +591,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22434756,
-    "mtime": "2026-10-03T02:40:49+00:00"
+    "mtime": "2026-10-03T02:40:49+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -591,7 +611,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22740016,
-    "mtime": "2026-10-10T17:46:36+00:00"
+    "mtime": "2026-10-10T17:46:36+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -610,7 +631,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22726356,
-    "mtime": "2026-10-07T04:53:31+00:00"
+    "mtime": "2026-10-07T04:53:31+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -629,7 +651,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22709087,
-    "mtime": "2026-10-07T04:53:53+00:00"
+    "mtime": "2026-10-07T04:53:53+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -651,8 +674,13 @@
     "name": "efit.json.gz",
     "size": 2938924,
     "mtime": "2026-10-07T00:16:30+00:00",
-    "stale_siblings": [
-     "efit.json"
+    "chosen_by": "canonical",
+    "other_files": [
+     {
+      "name": "efit.json",
+      "mtime": "2026-09-02T13:54:43+00:00",
+      "newer_than_product": false
+     }
     ]
    },
    "manifest": {
@@ -674,8 +702,13 @@
     "name": "efit.json.gz",
     "size": 2929857,
     "mtime": "2026-10-02T12:25:34+00:00",
-    "stale_siblings": [
-     "efit.json"
+    "chosen_by": "canonical",
+    "other_files": [
+     {
+      "name": "efit.json",
+      "mtime": "2026-09-03T14:39:35+00:00",
+      "newer_than_product": false
+     }
     ]
    },
    "manifest": {
@@ -697,8 +730,13 @@
     "name": "efit.json.gz",
     "size": 1375921,
     "mtime": "2026-10-07T00:35:25+00:00",
-    "stale_siblings": [
-     "efit.json"
+    "chosen_by": "canonical",
+    "other_files": [
+     {
+      "name": "efit.json",
+      "mtime": "2026-09-03T12:19:18+00:00",
+      "newer_than_product": false
+     }
     ]
    },
    "manifest": {
@@ -720,8 +758,13 @@
     "name": "efit.json.gz",
     "size": 1388781,
     "mtime": "2026-10-07T00:16:26+00:00",
-    "stale_siblings": [
-     "efit.json"
+    "chosen_by": "canonical",
+    "other_files": [
+     {
+      "name": "efit.json",
+      "mtime": "2026-09-03T11:57:42+00:00",
+      "newer_than_product": false
+     }
     ]
    },
    "manifest": {
@@ -743,8 +786,13 @@
     "name": "efit.json.gz",
     "size": 4065064,
     "mtime": "2026-10-03T03:58:32+00:00",
-    "stale_siblings": [
-     "efit.json"
+    "chosen_by": "canonical",
+    "other_files": [
+     {
+      "name": "efit.json",
+      "mtime": "2026-09-03T11:31:50+00:00",
+      "newer_than_product": false
+     }
     ]
    },
    "manifest": {
@@ -766,8 +814,13 @@
     "name": "efit.json.gz",
     "size": 1537902,
     "mtime": "2026-10-03T04:17:46+00:00",
-    "stale_siblings": [
-     "efit.json"
+    "chosen_by": "canonical",
+    "other_files": [
+     {
+      "name": "efit.json",
+      "mtime": "2026-09-03T11:02:18+00:00",
+      "newer_than_product": false
+     }
     ]
    },
    "manifest": {
@@ -789,6 +842,7 @@
     "name": "efit.json.gz",
     "size": 179,
     "mtime": "2026-10-10T18:52:36+00:00",
+    "chosen_by": "canonical",
     "stub": "EFIT output unavailable: completed_no_gfiles: returncode=0; gfiles=0"
    },
    "manifest": {
@@ -810,6 +864,7 @@
     "name": "efit.json",
     "size": 216,
     "mtime": "2026-09-14T14:36:47+00:00",
+    "chosen_by": "newest",
     "stub": "EFIT output unavailable: completed_no_gfiles: returncode=0; gfiles=0"
    },
    "manifest": {
@@ -830,7 +885,8 @@
    "output": {
     "name": "efit.json",
     "size": 1265598,
-    "mtime": "2026-09-14T14:36:47+00:00"
+    "mtime": "2026-09-14T14:36:47+00:00",
+    "chosen_by": "newest"
    },
    "manifest": {
     "status": "success",
@@ -849,6 +905,7 @@
     "name": "electron_efit.json",
     "size": 244,
     "mtime": "2026-09-15T07:10:48+00:00",
+    "chosen_by": "manifest",
     "stub": "VEST electron efit; machine era vest-45967-plus-pf2507"
    },
    "manifest": {
@@ -875,6 +932,7 @@
     "name": "kinetic_efit.json",
     "size": 243,
     "mtime": "2026-09-15T07:10:48+00:00",
+    "chosen_by": "manifest",
     "stub": "VEST kinetic efit; machine era vest-45967-plus-pf2507"
    },
    "manifest": {
@@ -902,7 +960,8 @@
    "output": {
     "name": "mhd_linear.json",
     "size": 37336,
-    "mtime": "2026-09-03T01:34:18+00:00"
+    "mtime": "2026-09-03T01:34:18+00:00",
+    "chosen_by": "manifest"
    },
    "manifest": {
     "status": "success",
@@ -922,6 +981,7 @@
     "name": "shotlog.json.gz",
     "size": 896,
     "mtime": "2026-09-18T16:14:29+00:00",
+    "chosen_by": "canonical",
     "stub": "Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured."
    },
    "manifest": {
@@ -942,6 +1002,7 @@
     "name": "shotlog.json.gz",
     "size": 896,
     "mtime": "2026-09-18T16:14:29+00:00",
+    "chosen_by": "canonical",
     "stub": "Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured."
    },
    "manifest": {
@@ -962,6 +1023,7 @@
     "name": "shotlog.json.gz",
     "size": 724,
     "mtime": "2026-09-18T16:14:35+00:00",
+    "chosen_by": "canonical",
     "stub": "Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured."
    },
    "manifest": {
@@ -982,6 +1044,7 @@
     "name": "shotlog.json.gz",
     "size": 729,
     "mtime": "2026-09-18T16:14:43+00:00",
+    "chosen_by": "canonical",
     "stub": "Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured."
    },
    "manifest": {
@@ -1002,6 +1065,7 @@
     "name": "shotlog.json.gz",
     "size": 921,
     "mtime": "2026-09-18T16:14:44+00:00",
+    "chosen_by": "canonical",
     "stub": "Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured."
    },
    "manifest": {
@@ -1022,6 +1086,7 @@
     "name": "shotlog.json.gz",
     "size": 772,
     "mtime": "2026-09-18T16:14:53+00:00",
+    "chosen_by": "canonical",
     "stub": "Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured."
    },
    "manifest": {
@@ -1042,6 +1107,7 @@
     "name": "shotlog.json.gz",
     "size": 770,
     "mtime": "2026-09-18T16:15:11+00:00",
+    "chosen_by": "canonical",
     "stub": "Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured."
    },
    "manifest": {
@@ -1062,6 +1128,7 @@
     "name": "shotlog.json.gz",
     "size": 1004,
     "mtime": "2026-09-18T16:15:36+00:00",
+    "chosen_by": "canonical",
     "stub": "Planned triggers logged by VEST operators in the ShotLog; times on the DAQ clock. Not measured."
    },
    "manifest": {
@@ -1081,7 +1148,8 @@
    "output": {
     "name": "shotlog.json.gz",
     "size": 1040,
-    "mtime": "2026-09-18T16:15:36+00:00"
+    "mtime": "2026-09-18T16:15:36+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1100,7 +1168,8 @@
    "output": {
     "name": "thomson.json",
     "size": 5789,
-    "mtime": "2026-09-15T06:42:51+00:00"
+    "mtime": "2026-09-15T06:42:51+00:00",
+    "chosen_by": "manifest"
    },
    "manifest": {
     "status": "success",
@@ -1121,6 +1190,7 @@
     "name": "ces.json.gz",
     "size": 210,
     "mtime": "2026-09-30T07:08:11+00:00",
+    "chosen_by": "canonical",
     "stub": "VEST charge exchange; machine era vest-pre-43017-pf1906"
    },
    "manifest": {
@@ -1147,6 +1217,7 @@
     "name": "ces.json.gz",
     "size": 210,
     "mtime": "2026-09-30T07:22:48+00:00",
+    "chosen_by": "canonical",
     "stub": "VEST charge exchange; machine era vest-pre-43017-pf1906"
    },
    "manifest": {
@@ -1173,6 +1244,7 @@
     "name": "ces.json.gz",
     "size": 208,
     "mtime": "2026-09-30T07:21:14+00:00",
+    "chosen_by": "canonical",
     "stub": "VEST charge exchange; machine era vest-pre-43017-pf1906"
    },
    "manifest": {
@@ -1198,7 +1270,8 @@
    "output": {
     "name": "core_profiles.json.gz",
     "size": 46988,
-    "mtime": "2026-09-30T09:56:28+00:00"
+    "mtime": "2026-09-30T09:56:28+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1218,7 +1291,8 @@
    "output": {
     "name": "core_profiles.json.gz",
     "size": 75348,
-    "mtime": "2026-09-30T09:56:05+00:00"
+    "mtime": "2026-09-30T09:56:05+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1238,7 +1312,8 @@
    "output": {
     "name": "core_profiles.json.gz",
     "size": 54124,
-    "mtime": "2026-09-30T09:55:59+00:00"
+    "mtime": "2026-09-30T09:55:59+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1258,7 +1333,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 9588811,
-    "mtime": "2026-09-30T06:03:57+00:00"
+    "mtime": "2026-09-30T06:03:57+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "partial",
@@ -1297,7 +1373,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 9603259,
-    "mtime": "2026-09-30T06:16:42+00:00"
+    "mtime": "2026-09-30T06:16:42+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "partial",
@@ -1336,7 +1413,8 @@
    "output": {
     "name": "diagnostics.json.gz",
     "size": 17369856,
-    "mtime": "2026-09-30T06:29:09+00:00"
+    "mtime": "2026-09-30T06:29:09+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1372,7 +1450,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22359029,
-    "mtime": "2026-09-30T06:04:07+00:00"
+    "mtime": "2026-09-30T06:04:07+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1391,7 +1470,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22348609,
-    "mtime": "2026-09-30T06:16:58+00:00"
+    "mtime": "2026-09-30T06:16:58+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1410,7 +1490,8 @@
    "output": {
     "name": "eddy.json.gz",
     "size": 22434772,
-    "mtime": "2026-09-30T06:29:28+00:00"
+    "mtime": "2026-09-30T06:29:28+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1431,7 +1512,8 @@
    "output": {
     "name": "efit.json.gz",
     "size": 2971709,
-    "mtime": "2026-09-30T06:50:08+00:00"
+    "mtime": "2026-09-30T06:50:08+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1451,7 +1533,8 @@
    "output": {
     "name": "efit.json.gz",
     "size": 3478972,
-    "mtime": "2026-09-30T06:53:06+00:00"
+    "mtime": "2026-09-30T06:53:06+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1471,7 +1554,8 @@
    "output": {
     "name": "efit.json.gz",
     "size": 1392781,
-    "mtime": "2026-09-30T06:50:58+00:00"
+    "mtime": "2026-09-30T06:50:58+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1489,7 +1573,8 @@
    "output": {
     "name": "electron_efit.json.gz",
     "size": 176177,
-    "mtime": "2026-09-30T09:57:06+00:00"
+    "mtime": "2026-09-30T09:57:06+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1509,7 +1594,8 @@
    "output": {
     "name": "electron_efit.json.gz",
     "size": 177229,
-    "mtime": "2026-09-30T09:56:11+00:00"
+    "mtime": "2026-09-30T09:56:11+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1529,7 +1615,8 @@
    "output": {
     "name": "electron_efit.json.gz",
     "size": 169108,
-    "mtime": "2026-09-30T09:56:25+00:00"
+    "mtime": "2026-09-30T09:56:25+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1550,6 +1637,7 @@
     "name": "kinetic_efit.json.gz",
     "size": 189,
     "mtime": "2026-09-30T09:56:30+00:00",
+    "chosen_by": "canonical",
     "stub": "VEST kinetic efit; machine era vest-pre-43017-pf1906"
    },
    "manifest": {
@@ -1576,6 +1664,7 @@
     "name": "kinetic_efit.json.gz",
     "size": 189,
     "mtime": "2026-09-30T09:56:08+00:00",
+    "chosen_by": "canonical",
     "stub": "VEST kinetic efit; machine era vest-pre-43017-pf1906"
    },
    "manifest": {
@@ -1602,6 +1691,7 @@
     "name": "kinetic_efit.json.gz",
     "size": 189,
     "mtime": "2026-09-30T09:56:03+00:00",
+    "chosen_by": "canonical",
     "stub": "VEST kinetic efit; machine era vest-pre-43017-pf1906"
    },
    "manifest": {
@@ -1627,7 +1717,8 @@
    "output": {
     "name": "thomson.json.gz",
     "size": 2073,
-    "mtime": "2026-09-30T07:08:11+00:00"
+    "mtime": "2026-09-30T07:08:11+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1647,7 +1738,8 @@
    "output": {
     "name": "thomson.json.gz",
     "size": 2184,
-    "mtime": "2026-09-30T07:21:58+00:00"
+    "mtime": "2026-09-30T07:21:58+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
@@ -1667,7 +1759,8 @@
    "output": {
     "name": "thomson.json.gz",
     "size": 2196,
-    "mtime": "2026-09-30T07:20:57+00:00"
+    "mtime": "2026-09-30T07:20:57+00:00",
+    "chosen_by": "canonical"
    },
    "manifest": {
     "status": "success",
