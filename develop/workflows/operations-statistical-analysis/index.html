@@ -378,7 +378,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>1b7a133</code>. What is described
+  <code>d3b151c</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -803,7 +803,7 @@ two density arguments are <strong>not</strong> interchangeable.</p>
 
 \[\tau_{E,\rm th}^{\rm fit} = C \prod_i x_i^{\alpha_i}\]
 
-<p>with the product running <strong>only</strong> over the variables the selected scaling actually declares. Five
+<p>with the product running <strong>only</strong> over the variables the selected scaling actually declares. Eight
 <code class="language-plaintext highlighter-rouge">scaling</code> names are accepted; anything else raises <code class="language-plaintext highlighter-rouge">ValueError</code> listing the available keys.</p>
 
 <table>
@@ -829,6 +829,12 @@ two density arguments are <strong>not</strong> interchangeable.</p>
       <td>IPB98(y,2) ELMy H-mode scaling</td>
     </tr>
     <tr>
+      <td><code class="language-plaintext highlighter-rouge">"ITER97L"</code></td>
+      <td>0.023</td>
+      <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">epsilon</code>, <code class="language-plaintext highlighter-rouge">kappa</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">Mi</code>, <code class="language-plaintext highlighter-rouge">P_MW</code></td>
+      <td>Kaye <em>et al.</em>, Nucl. Fusion <strong>37</strong>, 1303 (1997), thermal L-mode</td>
+    </tr>
+    <tr>
       <td><code class="language-plaintext highlighter-rouge">"NSTX2006H"</code></td>
       <td>0.0715</td>
       <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">P_MW</code></td>
@@ -846,8 +852,36 @@ two density arguments are <strong>not</strong> interchangeable.</p>
       <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">P_MW</code>, <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">kappa</code></td>
       <td>Kurskiev <em>et al.</em>, Nucl. Fusion <strong>62</strong>, 016011 (2022), ST multi-machine H-mode</td>
     </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"ITPA20"</code></td>
+      <td>0.053</td>
+      <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">P_MW</code>, <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">one_plus_delta</code>, <code class="language-plaintext highlighter-rouge">kappa</code>, <code class="language-plaintext highlighter-rouge">epsilon</code>, <code class="language-plaintext highlighter-rouge">Mi</code></td>
+      <td>Verdoolaege <em>et al.</em>, Nucl. Fusion <strong>61</strong>, 076006 (2021), eq. (7), all DB5.2.3-STD5 ELMy H-modes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">"ITPA20_IL"</code></td>
+      <td>0.067</td>
+      <td><code class="language-plaintext highlighter-rouge">Ip_MA</code>, <code class="language-plaintext highlighter-rouge">Bt</code>, <code class="language-plaintext highlighter-rouge">n_19</code>, <code class="language-plaintext highlighter-rouge">P_MW</code>, <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">one_plus_delta</code>, <code class="language-plaintext highlighter-rouge">kappa</code>, <code class="language-plaintext highlighter-rouge">Mi</code></td>
+      <td>same paper, eq. (5), the ITER-like subset (ITPA20-IL, the basis of $H_{20}$)</td>
+    </tr>
   </tbody>
 </table>
+
+<p>The ITPA20 fits add a triangularity factor $(1+\delta)^{\alpha}$: pass <code class="language-plaintext highlighter-rouge">delta=</code> (the average of the upper and
+lower LCFS triangularity) or they raise <code class="language-plaintext highlighter-rouge">ValueError</code>; the other scalings ignore it. Their <code class="language-plaintext highlighter-rouge">kappa</code> is the volume
+elongation $\kappa_a = V/(2\pi R\,\pi a^2)$ and their power the thermal loss power through the LCFS with
+radiation not subtracted. The paper’s ITER point (15 MA, 5.3 T, $10.3\times10^{19}$ m⁻³, 87 MW, 6.2 m,
+$\delta = 0.48$, $\kappa_a = 1.7$, $\epsilon = 0.32$, $M = 2.5$) gives 3.08 s (ITPA20) and 2.89 s (ITPA20-IL)
+with the printed coefficients, against the paper’s 3.07 s and 2.90 s from the unrounded fits.
+ITPA20-IL was fitted on the paper’s ITER-like subset (Sec. 2.1: eight conventional tokamaks, $q_{95} &gt; 2.8$,
+$1.3 &lt; \kappa &lt; 2.2$, $\epsilon &lt; 0.5$, $Z_{eff} &lt; 5$), so it is an ITER extrapolation tool, not a fit for a
+spherical tokamak.</p>
+
+<p>On the ODS path, <code class="language-plaintext highlighter-rouge">vaft.omas.formula_wrapper.compute_tau_E_scaling</code> takes $\delta$ from
+<code class="language-plaintext highlighter-rouge">equilibrium.time_slice[i].boundary</code>: the mean of <code class="language-plaintext highlighter-rouge">triangularity_upper</code> and <code class="language-plaintext highlighter-rouge">triangularity_lower</code> when both
+exist, else <code class="language-plaintext highlighter-rouge">triangularity</code>. Without either, an ITPA20 scaling does not raise there: the slice gets <code class="language-plaintext highlighter-rouge">NaN</code> and a
+warning that names the missing triangularity, as the wrapper does for every input it cannot map. That wrapper
+passes <code class="language-plaintext highlighter-rouge">boundary.elongation</code> (b/a) as <code class="language-plaintext highlighter-rouge">kappa</code> for every scaling, not $\kappa_a$.</p>
 
 <p>The two NSTX entries omit <code class="language-plaintext highlighter-rouge">R</code>, <code class="language-plaintext highlighter-rouge">epsilon</code>, <code class="language-plaintext highlighter-rouge">kappa</code> and <code class="language-plaintext highlighter-rouge">Mi</code> on purpose: only the dependencies the paper
 publishes are implemented, and unspecified ones are not assumed. The signature is the same for every
@@ -863,7 +897,7 @@ not even range-checked, when the selected scaling ignores them.</p>
 papers’ SI-like form into this common convention, so the stored $C$ is only correct with the inputs above.</li>
   <li><strong>Every variable used by the selected scaling must be finite and strictly positive</strong>, or you get a
 <code class="language-plaintext highlighter-rouge">ValueError</code> naming the offending argument.</li>
-  <li><strong>Density definitions are explicit.</strong> Each table entry declares a <code class="language-plaintext highlighter-rouge">density_definition</code>; all five
+  <li><strong>Density definitions are explicit.</strong> Each table entry declares a <code class="language-plaintext highlighter-rouge">density_definition</code>; all eight
 currently declare <code class="language-plaintext highlighter-rouge">"line_avg"</code>. If your <code class="language-plaintext highlighter-rouge">input_density_definition</code> differs from the entry’s target,
 you must also pass <code class="language-plaintext highlighter-rouge">line_to_volume_factor</code> — the evaluator refuses to guess and raises <code class="language-plaintext highlighter-rouge">ValueError</code>.</li>
 </ul>
@@ -1298,7 +1332,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 10:05:06 +0000"
+        "time": "2026-10-11 10:26:44 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
