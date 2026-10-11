@@ -326,3 +326,49 @@ def test_flat_walks_every_element_of_a_long_lazy_aos():
     flat = ods["pf_active"].flat()
     assert flat["coil.11.element.0.turns_with_sign"] == 11.0
     assert flat["coil.2.name"] == "c2"
+
+
+def _in_flight_probe(monkeypatch, delay=0.05):
+    """Make every FakeDataset read take ``delay`` and record the peak concurrency."""
+    import threading
+    import time
+
+    state = {"now": 0, "peak": 0}
+    lock = threading.Lock()
+    original = FakeDataset.__getitem__
+
+    def slow(self, selection):
+        with lock:
+            state["now"] += 1
+            state["peak"] = max(state["peak"], state["now"])
+        time.sleep(delay)
+        try:
+            return original(self, selection)
+        finally:
+            with lock:
+                state["now"] -= 1
+
+    monkeypatch.setattr(FakeDataset, "__getitem__", slow)
+    return state
+
+
+def test_prefetch_reads_its_datasets_concurrently(monkeypatch):
+    """#1870: prefetch issued one full-dataset GET after another (207 for 39915's
+    three IDS), each a whole round trip. They are independent, so they overlap."""
+    state = _in_flight_probe(monkeypatch)
+    ods = _long_aos_ods()
+    assert ods.prefetch("pf_active.coil") == 4
+    assert state["peak"] > 1
+    assert ods["pf_active"].flat()["coil.11.element.0.turns_with_sign"] == 11.0
+
+
+def test_one_prefetch_worker_reads_the_same_values_one_at_a_time(monkeypatch):
+    monkeypatch.setenv("VAFT_HSDS_PREFETCH_WORKERS", "1")
+    state = _in_flight_probe(monkeypatch, delay=0.0)
+    serial, parallel = _long_aos_ods(), None
+    assert serial.prefetch("pf_active.coil") == 4
+    assert state["peak"] == 1
+    monkeypatch.delenv("VAFT_HSDS_PREFETCH_WORKERS")
+    parallel = _long_aos_ods()
+    parallel.prefetch("pf_active.coil")
+    assert serial["pf_active"].flat() == parallel["pf_active"].flat()

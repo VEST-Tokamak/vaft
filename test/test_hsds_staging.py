@@ -90,7 +90,8 @@ def test_selective_staging_only_materializes_requested_ids_and_partial_master(
         "public", 123, output, requested_ids=("equilibrium",), cache="off"
     )
 
-    assert calls == ["master.h5", "dataset_description.h5", "equilibrium.h5"]
+    assert calls[0] == "master.h5"  # IDS domains follow concurrently (#1870)
+    assert sorted(calls[1:]) == ["dataset_description.h5", "equilibrium.h5"]
     assert plan["files"] == ["master.h5", "dataset_description.h5", "equilibrium.h5"]
     assert _external_names(output / "master.h5") == {
         "equilibrium.h5",
@@ -105,12 +106,8 @@ def test_full_staging_retains_historical_all_linked_behavior(fake_hsds, tmp_path
 
     staging.stage_imas_shot("public", 123, output, requested_ids=None, cache="off")
 
-    assert calls == [
-        "master.h5",
-        "dataset_description.h5",
-        "equilibrium.h5",
-        "magnetics.h5",
-    ]
+    assert calls[0] == "master.h5"  # IDS domains follow concurrently (#1870)
+    assert sorted(calls[1:]) == ["dataset_description.h5", "equilibrium.h5", "magnetics.h5"]
     assert _external_names(output / "master.h5") == {
         "equilibrium.h5",
         "magnetics.h5",
@@ -125,7 +122,9 @@ def test_cache_hit_avoids_hsget_and_revision_change_redownloads(fake_hsds, tmp_p
     staging.stage_imas_shot(
         "public", 123, tmp_path / "cold", requested_ids=("equilibrium",), cache=cache
     )
-    assert calls == ["master.h5", "dataset_description.h5", "equilibrium.h5"]
+    # The master first; its IDS domains are fetched concurrently (#1870).
+    assert calls[0] == "master.h5"
+    assert sorted(calls[1:]) == ["dataset_description.h5", "equilibrium.h5"]
 
     calls.clear()
     warm = staging.stage_imas_shot(
@@ -229,3 +228,47 @@ def test_strict_h5image_transport_does_not_fallback(fake_hsds, tmp_path):
             transport="h5image",
         )
     assert calls == []
+
+
+def test_domains_are_fetched_concurrently_and_all_reach_the_cache_manifest(fake_hsds, monkeypatch, tmp_path):
+    """#1870: the IDS domains were fetched one after another -- on a warm cache
+    eleven revision probes in a row, on a cold one every hsget in turn. They now
+    overlap; the shared manifest still records every domain, so the next load is
+    all cache hits."""
+    import threading
+    import time
+
+    _remote, calls, _revisions = fake_hsds
+    original = staging.run_hsget
+    state = {"now": 0, "peak": 0}
+    lock = threading.Lock()
+
+    def slow_hsget(uri, target):
+        with lock:
+            state["now"] += 1
+            state["peak"] = max(state["peak"], state["now"])
+        time.sleep(0.05)
+        try:
+            return original(uri, target)
+        finally:
+            with lock:
+                state["now"] -= 1
+
+    monkeypatch.setattr(staging, "run_hsget", slow_hsget)
+    cache = tmp_path / "cache"
+    first = staging.stage_imas_shot("public", 123, tmp_path / "a", requested_ids=None, cache=cache)
+    assert state["peak"] > 1
+    assert sorted(first["cache_hits"]) == sorted(["master.h5", "equilibrium.h5", "magnetics.h5", "dataset_description.h5"])
+
+    calls.clear()
+    second = staging.stage_imas_shot("public", 123, tmp_path / "b", requested_ids=None, cache=cache)
+    assert calls == [] and all(second["cache_hits"].values())
+
+
+def test_one_domain_worker_restores_the_sequential_fetch(fake_hsds, monkeypatch, tmp_path):
+    monkeypatch.setenv("VAFT_HSDS_DOMAIN_WORKERS", "1")
+    _remote, calls, _revisions = fake_hsds
+    plan = staging.stage_imas_shot("public", 123, tmp_path / "s", requested_ids=None, cache="off")
+    assert calls[0] == "master.h5" and sorted(calls[1:]) == ["dataset_description.h5", "equilibrium.h5", "magnetics.h5"]
+    assert plan["files"][0] == "master.h5"
+    assert staging.domain_workers() == 1

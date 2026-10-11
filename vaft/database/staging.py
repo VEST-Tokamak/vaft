@@ -8,10 +8,13 @@ not mutable IMAS/OMAS Python objects.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
+import threading
 import time
 from typing import Any, Iterable, Literal
 
@@ -156,6 +159,9 @@ class HSDSDomainCache:
         self.enabled = cache != "off"
         self.root: Path | None = None
         self._manifest: dict[str, Any] = {"schema_version": 1, "domains": {}}
+        # Domains are materialized concurrently (stage_imas_shot); the manifest
+        # is the one thing they share.
+        self._manifest_lock = threading.Lock()
         if self.enabled:
             self.root = self._cache_root(cache)
             self.root.mkdir(parents=True, exist_ok=True)
@@ -261,7 +267,8 @@ class HSDSDomainCache:
         if self.enabled and remote is not None:
             assert self.root is not None
             cached = self.root / filename
-            record = self._manifest["domains"].get(filename, {})
+            with self._manifest_lock:
+                record = dict(self._manifest["domains"].get(filename, {}))
             if self._valid_local(cached, record, remote):
                 shutil.copy2(cached, target)
                 return (
@@ -313,13 +320,27 @@ class HSDSDomainCache:
                         "last_modified": None,
                         "backend_version": None,
                     }
-            self._manifest["domains"][filename] = {
-                **remote,
-                "local_size": cached.stat().st_size,
-                "transport": used_transport,
-            }
-            self._write_manifest()
+            with self._manifest_lock:
+                self._manifest["domains"][filename] = {
+                    **remote,
+                    "local_size": cached.stat().st_size,
+                    "transport": used_transport,
+                }
+                self._write_manifest()
         return target, False, used_transport, transfer
+
+
+#: Concurrent IDS-domain fetches per eager load; ``VAFT_HSDS_DOMAIN_WORKERS``
+#: overrides it (``1`` restores the sequential behaviour).
+DEFAULT_DOMAIN_WORKERS = 4
+
+
+def domain_workers() -> int:
+    """How many IDS domains one eager load fetches at once."""
+    try:
+        return max(1, int(os.environ.get("VAFT_HSDS_DOMAIN_WORKERS", DEFAULT_DOMAIN_WORKERS)))
+    except ValueError:
+        return DEFAULT_DOMAIN_WORKERS
 
 
 def stage_imas_shot(
@@ -377,12 +398,21 @@ def stage_imas_shot(
     transports = {"master.h5": master_transport}
     transfers = {"master.h5": master_transfer}
     domain_fetch_seconds: dict[str, float] = {}
-    for filename in selected:
+
+    def fetch(filename: str) -> tuple[str, float, tuple[Path, bool, str, dict[str, Any]]]:
         started = time.perf_counter()
-        _, hits[filename], transports[filename], transfers[filename] = (
-            cache_store.materialize(filename, staging_dir, transport=transport)
-        )
-        domain_fetch_seconds[filename] = time.perf_counter() - started
+        result = cache_store.materialize(filename, staging_dir, transport=transport)
+        return filename, time.perf_counter() - started, result
+
+    # One IDS domain per file, independent of each other once the master is
+    # known: their revision probes (a warm cache) and downloads (a cold one)
+    # overlap instead of queueing (#1870). Bounded, so a few clients do not
+    # multiply into a request storm on the server.
+    workers = min(domain_workers(), max(len(selected), 1))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        for filename, seconds, (_, hit, used, transfer) in executor.map(fetch, selected):
+            hits[filename], transports[filename], transfers[filename] = hit, used, transfer
+            domain_fetch_seconds[filename] = seconds
     return {
         "files": ["master.h5", *selected],
         "cache_hits": hits,

@@ -7,7 +7,9 @@ selection corresponding to the requested OMAS leaf.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
+import os
 from typing import Any, Iterable, Optional
 
 import numpy as np
@@ -26,6 +28,19 @@ from .utils import _require_h5pyd
 
 
 _AOS = object()
+
+
+#: Concurrent dataset reads in one ``prefetch``; ``VAFT_HSDS_PREFETCH_WORKERS``
+#: overrides it (``1`` restores the sequential behaviour).
+DEFAULT_PREFETCH_WORKERS = 8
+
+
+def prefetch_workers() -> int:
+    """How many datasets one ``prefetch`` reads at once."""
+    try:
+        return max(1, int(os.environ.get("VAFT_HSDS_PREFETCH_WORKERS", DEFAULT_PREFETCH_WORKERS)))
+    except ValueError:
+        return DEFAULT_PREFETCH_WORKERS
 
 
 class LazyODSClosedError(RuntimeError):
@@ -250,27 +265,42 @@ class HSDSStore(dynamic_ODS):
         def under(template: tuple[Any, ...]) -> bool:
             return self._prefix_matches(template, parts)
 
-        def in_memory(dataset: Any) -> Any:
-            if isinstance(dataset, np.ndarray):
-                return dataset
-            self._metrics["payload_selection_count"] += 1
-            return np.asarray(dataset[...])
+        # Everything to read, then one concurrent pass over it: the reads are
+        # independent full-dataset selections, and done one after another each
+        # waits a whole round trip (#1870). The pattern is h5pyd's own
+        # MultiManager (datasets sharing a connection, read from a pool).
+        tables = (self._shape_datasets[ids_name], self._aos_shape_datasets[ids_name])
+        pending: list[Any] = [
+            record.dataset
+            for record in self._records[ids_name]
+            if under(record.template) and not isinstance(record.dataset, np.ndarray)
+        ]
+        pending += [
+            dataset
+            for table in tables
+            for template, dataset in table.items()
+            if under(template) and not isinstance(dataset, np.ndarray)
+        ]
+        if not pending:
+            return 0
+        with ThreadPoolExecutor(max_workers=min(prefetch_workers(), len(pending))) as executor:
+            values = list(executor.map(lambda dataset: np.asarray(dataset[...]), pending))
+        loaded = {id(dataset): value for dataset, value in zip(pending, values)}
+        self._metrics["payload_selection_count"] += len(pending)
 
-        read = 0
-        records = []
-        for record in self._records[ids_name]:
-            if under(record.template) and not isinstance(record.dataset, np.ndarray):
-                record = _DatasetRecord(record.template, in_memory(record.dataset))
-                read += 1
-            records.append(record)
+        records = [
+            _DatasetRecord(record.template, loaded[id(record.dataset)])
+            if id(record.dataset) in loaded and under(record.template)
+            else record
+            for record in self._records[ids_name]
+        ]
         self._records[ids_name] = records
         self._record_by_template[ids_name] = {record.template: record for record in records}
-        for table in (self._shape_datasets[ids_name], self._aos_shape_datasets[ids_name]):
+        for table in tables:
             for template, dataset in list(table.items()):
-                if under(template) and not isinstance(dataset, np.ndarray):
-                    table[template] = in_memory(dataset)
-                    read += 1
-        return read
+                if under(template) and id(dataset) in loaded:
+                    table[template] = loaded[id(dataset)]
+        return len(pending)
 
     def keys(self, location: Any) -> list[Any]:
         parts = _path_parts(location)
