@@ -123,6 +123,57 @@ Full Vlasov–Maxwell kinetics assumes none of these orderings and has no contra
 gyrokinetic orderings and differs only in its closure. The plateau regime between banana and
 Pfirsch–Schlüter has no ordering of its own.
 
+## Ordering spaces and margins
+
+Two orderings read together form an **ordering space**. Its lines are where an expansion parameter
+reaches one. They are not empirical stability or operating boundaries. The spaces are registered in
+`vaft.validation.orderings.ORDERING_SPACES`:
+
+| Space | $x$ | $y$ | Reading |
+| --- | --- | --- | --- |
+| `resistive_two_fluid` | $d_i/a$ | $S$ | Hall / two-fluid separation against resistive separation |
+| `closure_magnetization` | $\lambda_e/qR$ | $\Omega_{ce}\tau_e$ | local fluid closure against strong magnetization |
+| `flr_collisional` | $\lambda_i/qR$ | $\rho_i/L_{T_i}$ | collisional fluid against FLR smallness |
+| `flr_collisional_electron` | $\lambda_e/qR$ | $\rho_s/L_{T_e}$ | the same with electrons, for data without a trustworthy $T_i$ |
+| `equilibrium_relaxation` | $\tau_{age}/\tau_R$ | $\tau_{evol}/\tau_A$ | resistive current relaxation against quasi-static equilibrium |
+
+```python
+from vaft.plot.ordering_space import ordering_space, ordering_margins_plot
+
+fig, ax = ordering_space(states, "resistive_two_fluid", group="efit_quality")
+fig, ax = ordering_margins_plot(states, points)   # global orderings per state, profile ones per point
+```
+
+`ordering_space` draws a population on log axes. It shows:
+- the order-unity line of each axis;
+- the region where both orderings hold, shaded;
+- dashed lines one and two decades into the permitted side;
+- the four quadrants, named by the regime each side means.
+
+A quadrant name describes only these two orderings. "Ideal, single-fluid" says nothing about the
+other orderings of the ideal-MHD contract. A row whose value is missing or not positive is counted as
+unassessed and left off, never placed at a guessed position.
+
+`ordering_margins_plot(states, points)` shows, for each ordering, the margin $m = \mp\log_{10}(x/x_0)$ of
+every state or point, its median, the fraction with $m > 0$ and the number assessed. A global or
+time-history ordering is read from `states`, once per state. Any other ordering is read from `points`,
+once per flux-surface point. So $n$ and the fraction match `vaft.process.ordering_state.ordering_margins`
+on the same data. A row without one quantity is left out of that ordering only. Each ordering is drawn
+against its contract threshold $x_0$ (`ordering_threshold`), which is order unity today. The background
+bands are `MARGIN_LABELS`:
+
+| Margin $m$ [decades] | Band |
+| --- | --- |
+| $m > 2$ | over 2 decades |
+| $1 < m \le 2$ | 1-2 decades |
+| $0 < m \le 1$ | 0-1 decade |
+| $m \le 0$ | outside |
+
+The bands name the scale separation. They are **not an applicability status**: that stays the two-sided
+`SUPPORTED` / `OUTSIDE` of `evaluate_contract`, which has no "marginal" on purpose. A margin of exactly
+zero, a quantity at its threshold, falls in "outside", as it is `OUTSIDE` there. The continuous margin
+is the result, and `margin_label` only names its band.
+
 ## References
 
 1. S. I. Braginskii, in *Reviews of Plasma Physics*, Vol. 1, Consultants Bureau (1965), p. 205.

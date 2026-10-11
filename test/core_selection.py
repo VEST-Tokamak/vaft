@@ -360,6 +360,9 @@ CORE_MODULES: tuple[str, ...] = (
     # Ordering contracts (#1627 phase C): the registry against applicability's rules,
     # the cited kernels against the catalog, and evaluation on synthetic states.
     "test_validation_orderings.py",
+    # Ordering spaces and margins (#1627 §3): the space registry, the margin bands and both plots
+    # on a synthetic population. Under 5 s.
+    "test_plot_ordering_space.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
     "test_q_profile_context.py",
