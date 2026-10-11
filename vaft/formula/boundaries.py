@@ -547,7 +547,10 @@ class BoundaryPropagation:
       from the uncertainty its source reports for the coefficient and the
       exponents, and ``source_scatter_relative`` -- the source's RMS scatter
       of individual points about the fit.  ``None`` means the source reports
-      none (unknown, not zero); ``source_note`` says what was assumed;
+      none, or none that can be propagated (unknown, not zero).
+      ``source_parameters_complete`` is False when the source reports only
+      some of the parameters: the value then covers those alone and is a lower
+      bound.  ``source_note`` says what was assumed and what was left out;
     * ``margin_std_from_source_*`` -- the same two components carried to the
       margin.
 
@@ -566,6 +569,9 @@ class BoundaryPropagation:
     margin_std_from_source_parameters: Optional[float]
     margin_std_from_source_scatter: Optional[float]
     source_note: str
+    source_parameters_complete: bool = False
+    extrapolated: tuple = ()
+    warnings: tuple = ()
 
 
 def _source_relative_spread(boundary: "Boundary", inputs: Mapping) -> tuple:
@@ -573,35 +579,60 @@ def _source_relative_spread(boundary: "Boundary", inputs: Mapping) -> tuple:
 
     $\sigma_{\ln b}^2 = \sigma_{\ln C}^2 + \sum_i (\sigma_{\alpha_i}\ln x_i)^2$, with
     the parameters taken as independent because sources rarely publish their
-    covariance.  ``None`` when the source reports nothing usable.
+    covariance.  Returns ``(value, complete, notes)``: ``value`` is ``None``
+    when nothing usable is reported, and ``complete`` is False when only some
+    of the parameters are (the value then covers those alone).
     """
     u = boundary.uncertainty
-    terms, notes = [], []
+    terms, notes, complete = [], [], True
     if u.coefficient_factor is not None:
         terms.append(np.log(u.coefficient_factor) ** 2)
+        notes.append("the coefficient factor e^s is taken as one sigma (the source's confidence level, if "
+                     "stated, is in source.note)")
     elif u.coefficient is not None:
         if boundary.coefficient:
             terms.append((u.coefficient / boundary.coefficient) ** 2)
         else:
+            complete = False
             notes.append("the coefficient uncertainty is absolute but the boundary states no coefficient to "
                          "normalise it by; it is not propagated")
+    elif boundary.form == "power_law":
+        complete = False
+        notes.append("the source reports no coefficient uncertainty")
     for name, sigma in u.exponents.items():
         if name not in inputs:
+            complete = False
             notes.append(f"the exponent uncertainty of {name} names no input; it is not propagated")
             continue
-        terms.append((sigma * np.log(float(inputs[name]))) ** 2)
+        value = float(inputs[name])
+        if not value > 0:
+            complete = False
+            notes.append(f"{name} = {value} is not positive, so its exponent uncertainty has no log-space "
+                         "spread; it is not propagated")
+            continue
+        terms.append((sigma * np.log(value)) ** 2)
+    if boundary.form == "power_law":
+        missing = [name for name in boundary.exponents if name not in u.exponents]
+        if missing:
+            complete = False
+            notes.append(f"the source reports no uncertainty for the exponents of {', '.join(missing)}")
     if u.exponents and boundary.form != "power_law":
         notes.append("exponent uncertainties are applied as if the boundary were a power law in those inputs")
     if not terms:
-        return None, notes
+        return None, False, notes
     notes.append("source coefficient and exponent uncertainties are taken as independent (no covariance is "
                  "published), so the spread may be over- or under-stated")
-    return float(np.sqrt(sum(terms))), notes
+    if not complete:
+        notes.append("source_parameters_relative covers the reported parameters only: a lower bound")
+    spread = float(np.sqrt(sum(terms)))
+    if spread > 0.3:
+        notes.append(f"the spread of ln b is {spread:.2f}: first order in it understates the margin spread")
+    return spread, complete, notes
 
 
 def propagate_boundary_uncertainty(boundary: "Boundary", operating_value: float, *, inputs: Mapping[str, float],
                                    std=None, covariance=None, input_names=None, method: str = "linear",
-                                   samples: int = 2000, seed: int = 0) -> BoundaryPropagation:
+                                   fd_step=None, samples: int = 2000, seed: int = 0) -> BoundaryPropagation:
     r"""Propagate measured-input uncertainty into a boundary value and a state's margin (#1874).
 
     $$\Sigma_b \approx J_b\Sigma J_b^{\mathsf T},\qquad
@@ -630,6 +661,9 @@ def propagate_boundary_uncertainty(boundary: "Boundary", operating_value: float,
     method : str, optional
         ``"linear"`` or ``"monte_carlo"``, as in
         :func:`vaft.formula.sensitivity.propagate_formula_uncertainty` [-].
+    fd_step : float, array-like or mapping, optional
+        Finite-difference steps in ``input_names`` order (or by name), needed
+        for a quantity whose mean is zero [varies].
     samples : int, optional
         Monte Carlo draws [-].
     seed : int, optional
@@ -662,7 +696,11 @@ def propagate_boundary_uncertainty(boundary: "Boundary", operating_value: float,
 
     Limitations
     -----------
-    Scalar inputs only. The source parameters are taken as uncorrelated.
+    Scalar inputs only. The source parameters are taken as uncorrelated. A
+    boundary with a jump (a branch switch) near the inputs gives a spread a
+    finite difference cannot describe; ``warnings`` says so when the margin's
+    linearity check fails. With ``method="monte_carlo"`` the margin and the
+    boundary value are sampled separately, so their draws are not joint.
 
     References
     ----------
@@ -710,18 +748,30 @@ def propagate_boundary_uncertainty(boundary: "Boundary", operating_value: float,
     cov = sensitivity._covariance_from(std, covariance, len(names))
     in_margin = {"operating_value": float(operating_value), **{name: float(inputs[name]) for name in names_in}}
     margin = sensitivity.propagate_formula_uncertainty(margin_of, in_margin, input_names=names, covariance=cov,
-                                                       method=method, samples=samples, seed=seed, domain=positive)
+                                                       method=method, samples=samples, seed=seed, domain=positive,
+                                                       fd_step=_steps_for(fd_step, names, names))
     boundary_names = tuple(name for name in names if name != "operating_value")
     if boundary_names:
         index = [names.index(name) for name in boundary_names]
         boundary_result = sensitivity.propagate_formula_uncertainty(
             value_of, {name: float(inputs[name]) for name in names_in}, input_names=boundary_names,
-            covariance=cov[np.ix_(index, index)], method=method, samples=samples, seed=seed, domain=positive)
+            covariance=cov[np.ix_(index, index)], method=method, samples=samples, seed=seed, domain=positive,
+            fd_step=_steps_for(fd_step, names, boundary_names))
     else:
         boundary_result = None  # every boundary input exact: b carries no measurement uncertainty
 
-    parameters_relative, notes = _source_relative_spread(boundary, inputs)
+    parameters_relative, complete, notes = _source_relative_spread(boundary, inputs)
     scatter = boundary.uncertainty.rms_relative
+    extrapolated = _extrapolated(boundary, inputs)
+    warnings = tuple(
+        f"{name} lies outside the range {boundary.applicability.ranges[name]} "
+        f"[{boundary.input(name).unit}] covered by {boundary.key!r}" for name in extrapolated)
+    if boundary.kind != "limit":
+        warnings += (f"{boundary.key!r} is a {boundary.kind.replace('_', ' ')}, not a limit: the margin is a "
+                     "signed distance from it",)
+    if margin.linearity is not None and not margin.linearity < 0.3:
+        warnings += (f"the margin's linearity ratio is {margin.linearity:.3g}: first order does not describe the "
+                     "spread here (a nonlinear or discontinuous boundary); compare method='monte_carlo'",)
     # m = sign (x - b)/b, so dm/d ln b = -sign x/b
     dm_dlnb = abs(float(operating_value) / b0)
     return BoundaryPropagation(
@@ -735,7 +785,22 @@ def propagate_boundary_uncertainty(boundary: "Boundary", operating_value: float,
         margin_std_from_source_scatter=None if scatter is None else dm_dlnb * scatter,
         source_note="; ".join(notes) if notes else (
             "the source reports no coefficient or exponent uncertainty" if parameters_relative is None else ""),
+        source_parameters_complete=complete,
+        extrapolated=extrapolated,
+        warnings=warnings,
     )
+
+
+def _steps_for(fd_step, names: tuple, subset: tuple):
+    """``fd_step`` restricted to ``subset``: a mapping by name, an array in ``names`` order, or a scalar."""
+    if fd_step is None or np.ndim(fd_step) == 0 and not isinstance(fd_step, Mapping):
+        return fd_step
+    if isinstance(fd_step, Mapping):
+        return {name: fd_step[name] for name in subset if name in fd_step} or None
+    steps = np.asarray(fd_step, dtype=float)
+    if steps.shape != (len(names),):
+        raise ValueError(f"fd_step has {steps.size} entries for {len(names)} uncertain quantities")
+    return steps[[names.index(name) for name in subset]]
 
 
 def evaluate_window(window: BoundaryWindow, operating_value, **inputs) -> WindowEvaluation:

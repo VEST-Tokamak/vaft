@@ -384,12 +384,13 @@ def test_the_source_uncertainty_is_reported_apart_from_the_measurement():
     result = B.propagate_boundary_uncertainty(m, 0.3, inputs=inputs, std=[0.0, 0.0, 0.0, 0.0])
     assert result.margin.std[0] == 0.0  # exact measurements: no measurement spread ...
     u = m.uncertainty
-    expected = np.sqrt(np.log(u.coefficient_factor) ** 2 + sum(
-        (sigma * np.log(inputs[name])) ** 2 for name, sigma in u.exponents.items()))
-    np.testing.assert_allclose(result.source_parameters_relative, expected, rtol=1e-12)  # ... but the source's own
+    # by hand: sqrt(ln(1.05866)^2 + (0.035 ln 1)^2 + (0.032 ln 0.2)^2 + (0.019 ln 3)^2)
+    expected = 0.0796063
+    np.testing.assert_allclose(result.source_parameters_relative, expected, rtol=1e-5)  # ... but the source's own
+    assert result.source_parameters_complete
     assert result.source_scatter_relative == u.rms_relative
     b = float(B.boundary_value(m, **inputs))
-    np.testing.assert_allclose(result.margin_std_from_source_parameters, 0.3 / b * expected, rtol=1e-12)
+    np.testing.assert_allclose(result.margin_std_from_source_parameters, 0.3 / b * expected, rtol=1e-5)
     assert result.source is u  # boundaries.Uncertainty passes through untouched
     assert "independent" in result.source_note
 
@@ -419,3 +420,69 @@ def test_a_boundary_with_no_margin_at_the_inputs_is_refused():
     with pytest.raises(ValueError, match="has no input"):
         B.propagate_boundary_uncertainty(B.get_boundary("greenwald"), 2.0, inputs=GREENWALD_INPUTS,
                                          input_names=("operating_value", "elongation"), std=[0.1, 0.1])
+
+
+def test_a_partly_reported_source_uncertainty_is_a_lower_bound_not_a_complete_value():
+    import dataclasses
+
+    B = _boundaries()
+    m = B.get_boundary("martin_2008_lh")
+    partial = dataclasses.replace(m, uncertainty=B.Uncertainty(exponents={"line_average_density": 0.035}))
+    inputs = {"line_average_density": 2.0, "toroidal_field": 0.2, "plasma_surface_area": 3.0}
+    result = B.propagate_boundary_uncertainty(partial, 0.3, inputs=inputs, std=[0.0, 0.0, 0.0, 0.0])
+    np.testing.assert_allclose(result.source_parameters_relative, 0.035 * np.log(2.0), rtol=1e-12)
+    assert not result.source_parameters_complete
+    assert "lower bound" in result.source_note and "toroidal_field" in result.source_note
+
+
+def test_a_threshold_boundary_has_an_exact_value_and_an_uncertain_margin():
+    B = _boundaries()
+    result = B.propagate_boundary_uncertainty(B.get_boundary("low_q"), 2.5, inputs={}, std=[0.1])
+    assert result.boundary is None
+    np.testing.assert_allclose([result.margin.value, result.margin.std[0]], [0.25, 0.05], rtol=1e-6)
+
+
+def test_a_function_boundary_with_an_absolute_coefficient_uncertainty_is_not_propagated_silently():
+    B = _boundaries()
+    g = B.get_boundary("giacomin_edge")
+    inputs = {"mass_number": 2.0, "minor_radius": 0.5, "separatrix_power": 1.0, "major_radius": 1.7,
+              "edge_safety_factor_95": 4.0, "elongation": 1.7, "toroidal_field": 2.0}
+    result = B.propagate_boundary_uncertainty(g, 0.3, inputs=inputs, input_names=("operating_value",), std=[0.03])
+    assert result.source_parameters_relative is None and "not propagated" in result.source_note
+
+
+def test_monte_carlo_on_a_margin_counts_rejected_draws():
+    B = _boundaries()
+    result = B.propagate_boundary_uncertainty(
+        B.get_boundary("martin_2008_lh"), 0.3,
+        inputs={"line_average_density": 0.1, "toroidal_field": 0.2, "plasma_surface_area": 3.0},
+        std=[0.03, 0.08, 0.0, 0.0], method="monte_carlo", samples=4000, seed=5)
+    assert result.margin.rejected > 0  # density draws below zero leave the boundary undefined
+
+
+def test_a_zero_mean_input_takes_an_explicit_step_and_extrapolation_is_warned():
+    B = _boundaries()
+    a = B.get_boundary("akers_2000_q95_current")
+    inputs = {"minor_radius": 0.3, "major_radius": 0.45, "toroidal_field": 0.1, "elongation": 1.6,
+              "triangularity": 0.0}
+    with pytest.raises(ValueError, match="fd_step"):
+        B.propagate_boundary_uncertainty(a, 0.1, inputs=inputs, std=[0.01, 0.0, 0.0, 0.0, 0.0, 0.05])
+    result = B.propagate_boundary_uncertainty(a, 0.1, inputs=inputs, std=[0.01, 0.0, 0.0, 0.0, 0.0, 0.05],
+                                              fd_step=[1e-4, 1e-4, 1e-4, 1e-4, 1e-4, 1e-4])
+    assert result.margin.std[0] > 0
+    vest = {"mass_number": 1.0, "minor_radius": 0.3, "separatrix_power": 0.2, "major_radius": 0.45,
+            "edge_safety_factor_95": 6.0, "elongation": 1.6, "toroidal_field": 0.1}  # VEST: far below 1.4 T
+    edge = B.propagate_boundary_uncertainty(B.get_boundary("giacomin_edge"), 0.05, inputs=vest,
+                                            input_names=("operating_value",), std=[0.01])
+    assert set(edge.extrapolated) == {"major_radius", "toroidal_field"} and len(edge.warnings) == 2
+
+
+def test_a_reordered_correlated_request_matches_the_canonical_order():
+    B = _boundaries()
+    g = B.get_boundary("greenwald")
+    cov = np.array([[0.04, 6e-4, 0.0], [6e-4, 2.5e-5, 0.0], [0.0, 0.0, 1e-4]])
+    canonical = B.propagate_boundary_uncertainty(g, 2.0, inputs=GREENWALD_INPUTS, covariance=cov)
+    order = [2, 0, 1]
+    reordered = B.propagate_boundary_uncertainty(g, 2.0, inputs=GREENWALD_INPUTS, covariance=cov[np.ix_(order, order)],
+                                                 input_names=("minor_radius", "operating_value", "plasma_current"))
+    np.testing.assert_allclose(reordered.margin.std, canonical.margin.std, rtol=1e-12)
