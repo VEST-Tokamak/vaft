@@ -166,3 +166,66 @@ def test_missing_commit_is_reported_as_a_provenance_gap(tmp_path):
         "available",
         "provenance gap: manifest records no VAFT commit",
     )
+
+
+def test_suffix_mirror_matches_filedb():
+    from vaft.database import filedb
+
+    assert AUDIT.PRODUCT_SUFFIX == filedb.OMAS_PRODUCT_SUFFIX
+    assert AUDIT.PRODUCT_SUFFIXES == filedb.OMAS_PRODUCT_SUFFIXES
+
+
+def test_canonical_product_wins_over_a_stale_sibling(tmp_path):
+    # Production EFIT directories hold a 09-02 efit.json beside the current
+    # efit.json.gz; the alphabetically first file is the stale one.
+    directory = _product(tmp_path, "efit", 1, 5_000, lineage=("magnetic",))
+    current = directory / "output" / "efit.json"
+    current.rename(directory / "output" / "efit.json.gz")
+    stale = directory / "output" / "efit.json"
+    stale.write_text("{}")
+    os.utime(stale, (1_000, 1_000))
+    (product,) = AUDIT.scan([str(tmp_path)], ["1"])["products"]
+    assert product["output"]["name"] == "efit.json.gz"
+    assert product["output"]["chosen_by"] == "canonical"
+    assert [f["name"] for f in product["output"]["other_files"]] == ["efit.json"]
+
+
+def test_canonical_wins_even_when_a_sibling_is_newer(tmp_path):
+    # FileDB.omas_product opens the canonical name regardless of dates.
+    directory = _product(tmp_path, "efit", 1, 1_000, lineage=("magnetic",))
+    (directory / "output" / "efit.json").rename(directory / "output" / "efit.json.gz")
+    newer = directory / "output" / "efit.json"
+    newer.write_text("{}")
+    os.utime(newer, (9_000, 9_000))
+    (product,) = AUDIT.scan([str(tmp_path)], ["1"])["products"]
+    assert product["output"]["name"] == "efit.json.gz"
+    assert product["output"]["other_files"][0]["newer_than_product"] is True
+
+
+def test_newest_stage_file_when_no_canonical_or_manifest_name(tmp_path):
+    directory = _product(tmp_path, "efit", 1, 1_000, lineage=("magnetic",))
+    (directory / "metadata" / "manifest.json").write_text(json.dumps({"status": "success"}))
+    newer = directory / "output" / "efit.json.bak"
+    newer.write_text("{}")
+    os.utime(newer, (9_000, 9_000))
+    (product,) = AUDIT.scan([str(tmp_path)], ["1"])["products"]
+    assert (product["output"]["name"], product["output"]["chosen_by"]) == ("efit.json.bak", "newest")
+
+
+def test_manifest_name_used_for_legacy_dirs_and_mismatch_flagged(tmp_path):
+    # Pipeline 2 writes thomson.json (non-canonical) and records it.
+    directory = _product(tmp_path, "thomson", 1, 1_000)
+    manifest = directory / "metadata" / "manifest.json"
+    manifest.write_text(json.dumps({"status": "success", "output": {"name": "thomson.json", "sha256": "x"}}))
+    other = directory / "output" / "thomson.json.bak"
+    other.write_text("{}")
+    os.utime(other, (9_000, 9_000))
+    (product,) = AUDIT.scan([str(tmp_path)], ["1"])["products"]
+    assert (product["output"]["name"], product["output"]["chosen_by"]) == ("thomson.json", "manifest")
+    assert "manifest_names" not in product["output"]
+    # A canonical file appearing later is what the reader opens; the stale
+    # manifest name is surfaced instead of silently trusted.
+    (directory / "output" / "thomson.json.gz").write_text("{}")
+    (product,) = AUDIT.scan([str(tmp_path)], ["1"])["products"]
+    assert product["output"]["name"] == "thomson.json.gz"
+    assert product["output"]["manifest_names"] == "thomson.json"
