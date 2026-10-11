@@ -221,7 +221,9 @@ def test_the_run_config_reads_the_filedb_root_from_the_environment(tmp_path):
     env = dict(os.environ, VAFT_FILEDB_DIR=str(root))
     result = _dry_run(tmp_path, base_dir="${VAFT_FILEDB_DIR}", env=env)
     assert result.returncode == 0, result.stderr[-3000:]
-    assert str(root) in result.stdout
+    # Snakemake may print a Windows path with either separator: compare separator-free
+    printed = result.stdout.replace("\\", "/")
+    assert root.as_posix() in printed, result.stdout[-3000:]
     assert "${VAFT_FILEDB_DIR}" not in result.stdout
 
     env.pop("VAFT_FILEDB_DIR")
