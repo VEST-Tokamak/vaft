@@ -35,19 +35,21 @@ def manufactured_source(rho, r, volp, rho_k, nodes):
     return q
 
 
-def manufacture_error(got, required):
-    """Largest node error of the targets, relative to the largest |required| flux.
+def manufacture_error(got, required, floor=1e-2):
+    """Largest node error of the targets, each relative to its own required flux.
 
-    Normalising by the largest flux rather than node by node keeps a legitimate
-    near-zero (or sign-changing) flux at one node from reading as divergence.
+    A node's own flux is the scale, so a small-flux node is checked as tightly as a
+    large one. The scale is floored at ``floor`` times the largest |required|, so a
+    legitimately near-zero (or sign-changing) node is not read as divergence.
     """
     import numpy as np
 
     got, required = np.asarray(got, dtype=float), np.asarray(required, dtype=float)
-    scale = float(np.max(np.abs(required)))
-    if not np.all(np.isfinite(got)) or not scale > 0:
+    largest = float(np.max(np.abs(required)))
+    if not np.all(np.isfinite(got)) or not largest > 0:
         return float("inf")
-    return float(np.max(np.abs(got - required)) / scale)
+    scale = np.maximum(np.abs(required), floor * largest)
+    return float(np.max(np.abs(got - required) / scale))
 
 
 def manufacture_converged(history, tolerance=1e-4):

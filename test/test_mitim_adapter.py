@@ -540,7 +540,9 @@ def test_manufacture_error_and_gate_accept_signed_fluxes_and_refuse_divergence()
 
     required = np.array([0.0007, -1e-7, 0.0195])          # a near-zero, negative node is legitimate
     assert manufacture_error(required * (1 + 1e-6), required) < 1e-5
-    assert manufacture_error(required + np.array([0, 1e-6, 0]), required) < 1e-4
+    assert manufacture_error(required + np.array([0, 1e-6, 0]), required) < 1e-2   # vs the 1 % floor
+    # A small-flux node is held to its own scale, not the largest node's:
+    assert manufacture_error(required + np.array([0.0007 * 0.01, 0, 0]), required) == pytest.approx(0.01)
     assert manufacture_error([np.nan, 0, 0], required) == float("inf")
     assert manufacture_converged([0.012, 1.1e-4, 8.9e-7, 7.4e-9])
     assert not manufacture_converged([14.75, 217.7, 3211.0, 47372.8])     # the standalone r/a 0.55 run
@@ -552,3 +554,32 @@ def test_the_runner_stages_the_shared_helper_and_records_its_hash(ready, profile
     staged = tmp_path / "run" / "_manufacture.py"
     assert staged.is_file()
     assert result.record["helper_sha256"]["_manufacture.py"] == mitim.runner._sha256(staged)
+
+
+@pytest.mark.parametrize("driver, optimiser", [("portals_tglf_closed_loop", "STRATEGYtools.MITIM_BO(run_pf"),
+                                               ("portals_closed_loop", "perturbed.flux_match(")])
+def test_each_driver_gates_the_source_before_optimising(driver, optimiser):
+    """The helpers are tested above; this pins that each driver calls the gate, raises on
+    failure, and does so before its optimiser (no MITIM is needed to read the order)."""
+    text = (Path(mitim.__file__).parent / "drivers" / f"{driver}.py").read_text(encoding="utf-8")
+    gate = text.index("if not manufacture_converged(history, tolerance):")
+    assert text.index("raise RuntimeError", gate) < text.index(optimiser)
+    assert "manufactured_source(" in text and "PchipInterpolator" not in text
+
+
+def test_the_staged_helper_imports_from_the_run_directory(ready, profile, tmp_path):
+    import importlib.util
+
+    mitim.run_portals_closed_loop(profile, [0.3, 0.6], tmp_path / "run", ready)
+    spec = importlib.util.spec_from_file_location("_manufacture_staged", tmp_path / "run" / "_manufacture.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert callable(module.manufactured_source) and callable(module.manufacture_converged)
+
+
+def test_stopping_overrides_are_refused_for_the_analytic_model(ready, profile, tmp_path):
+    from vaft.code.mitim.portals import NO_EARLY_STOP
+
+    with pytest.raises(ValueError, match="tglf_neo"):
+        mitim.run_portals_closed_loop(profile, [0.55], tmp_path / "run", ready,
+                                      stopping_criteria_parameters=NO_EARLY_STOP)

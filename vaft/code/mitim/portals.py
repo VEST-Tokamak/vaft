@@ -137,6 +137,9 @@ def run_portals_closed_loop(
                  "model": model, "chi_e": float(chi_e), "chi_i": float(chi_i),
                  "perturbation": float(perturbation),
                  "input_gacode_sha256": _sha256(input_path)}
+    if stopping_criteria_parameters and model != "tglf_neo":
+        raise ValueError("stopping_criteria_parameters applies to PORTALS (model='tglf_neo') only; "
+                         "the analytic model is root-solved, not optimised")
     if model == "tglf_neo":
         arguments.update(folder=str(workdir / "portals"), tglf_code_settings=tglf_code_settings,
                          tglf_extra_options=dict(tglf_extra_options or {}),
