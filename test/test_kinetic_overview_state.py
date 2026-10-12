@@ -496,7 +496,8 @@ def test_the_composition_comes_from_the_writer(case_40326):
     """``origin=derived; method=openadas_transient`` is the writer's spelling, and it filled one point."""
     record = case_40326.ods[f"{CP}.zeff_fit.parameters"]
     assert record.startswith("origin=derived; method=openadas_transient; normalization=ne_weighted_mean")
-    assert "filled_points=1" in record and record.endswith("target_zeff=2")
+    assert "filled_points=1" in record and record.count("target_zeff=") == 1
+    assert record.split("target_zeff=")[1].split(";")[0].strip() == "2"
     zeff = np.asarray(case_40326.ods[f"{CP}.zeff"], float)
     assert np.isfinite(zeff).all() and not np.isfinite(case_40326.zeff).all()
 

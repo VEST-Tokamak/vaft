@@ -35,8 +35,9 @@ Hand-built, because no writer exists yet (each says so in a comment below):
   profile), ``electrons.pressure = e n_e T_e``;
 * ``t_i_average`` / ``pressure_ion_total`` (Lane KP #1842 item 3) and the
   ``equilibrium_lineage=...; equilibrium_occurrence=...`` fields on the T_i
-  records and ``target_zeff=...`` on the ``zeff`` record (the amended
-  contract; the writers do not emit them yet);
+  records (the amended contract; the writers do not emit them yet) --
+  ``target_zeff=...`` on the ``zeff`` record now comes from the composition
+  writer itself;
 * the equilibrium slice and the Thomson channels.
 
 **Thomson positions and the psi map are synthetic, and say so.**  The archive
@@ -406,8 +407,6 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
                   for k in (1, 2) for q in range(len(ods[f"{cpb}.ion.{k}.state"])))
     _check("charged impurity density", charged, comp["nimp"], defined)
     _check("Z_eff", ods[f"{cpb}.zeff"], comp["zeff"], defined)
-    # The amended contract's target field; the writer does not emit it yet.
-    ods[f"{cpb}.zeff_fit.parameters"] = f"{ods[f'{cpb}.zeff_fit.parameters']}; target_zeff={comp['target_zeff']:g}"
 
     # --- t_i_average and pressure_ion_total (Lane KP #1842 item 3: no writer yet)
     ods[f"{cpb}.t_i_average"] = t_ion
