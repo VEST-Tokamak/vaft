@@ -60,7 +60,7 @@ pages:
     modules: [vaft.code]
   - slug: gui
     title: vaft.gui
-    modules: [vaft.gui]
+    modules: [vaft.gui, vaft.deploy.gui.smoke]
   - slug: cli
     title: vaft.cli
     modules: [vaft.cli]
