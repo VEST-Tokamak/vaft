@@ -181,9 +181,15 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
                     
-                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
                     </li>
                 
                     
@@ -384,7 +390,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4ee9bf3</code>. What is described
+  <code>7ebacdc</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -793,7 +799,8 @@ is the result, and <code class="language-plaintext highlighter-rouge">margin_lab
 <h2 id="which-codes-consume-which-contracts">Which codes consume which contracts</h2>
 
 <p>A contract says what a model assumes. A run’s <code class="language-plaintext highlighter-rouge">vaft.code.formalism.PlasmaFormalism</code> record (#1727) says which
-model the run used. <code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts</code> joins the two (#1823).</p>
+model the run used. <code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts</code> joins the two (#1823).
+Every mode with its record and its contracts is tabulated, generated from the registry, in <a href="/vaft/develop/reference/plasma-model-guide/">Plasma models: a guide</a>, §9.</p>
 
 <p><code class="language-plaintext highlighter-rouge">contracts_for(formalism)</code> maps a record to the contracts it consumes, as <code class="language-plaintext highlighter-rouge">(contract, role)</code> pairs. It reads
 the record’s fields as they are. The <strong>role</strong> says how the assumption enters the calculation. It is not a
@@ -1245,7 +1252,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 23:39:24 +0000"
+        "time": "2026-10-12 00:21:41 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

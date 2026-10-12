@@ -1,0 +1,1375 @@
+<!DOCTYPE HTML>
+<html lang="en" >
+    <head><meta charset="UTF-8">
+<meta content="text/html; charset=utf-8" http-equiv="Content-Type"><title>Plasma models: a guide · VAFT</title><meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="description" content="VAFT is a standardized, verifiable, and interoperable scientific framework for machine-agnostic tokamak research. It integrates experimental data, reconstructed and simulated plasma states, and analysis workflows so that fusion science knowledge can be discovered, verified, compared, and studied, with its full implementation on the VEST tokamak at Seoul National University.
+"><meta name="generator" content="Jekyll (using style of GitBook 3.2.3)"><meta name="author" content="VEST-team"><meta name="robots" content="noindex, nofollow"><link rel="stylesheet" href="/vaft/develop/assets/gitbook/style.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/website.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/rouge/monokai.css">
+
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom.css">
+<link rel="stylesheet" href="/vaft/develop/assets/gitbook/custom-local.css?v=20261007-1">
+
+<meta name="HandheldFriendly" content="true"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon-precomposed" sizes="152x152" href="/vaft/develop/assets/gitbook/images/apple-touch-icon-precomposed-152.png">
+<link rel="shortcut icon" href="/vaft/develop/assets/gitbook/images/favicon.ico" type="image/x-icon">
+
+
+
+
+            <link rel="prev" href="/vaft/develop/reference/process/resonant_coil_response/" />
+        
+
+        
+            <link rel="next" href="/vaft/develop/reference/characteristic-scales/" />
+        
+    </head>
+    <body>
+        
+        
+        <div class="book has-page-toc"><div class="book-summary">
+    <script type="text/javascript">
+        // Fixes the page links scroll problem on both desktop and mobile browsers
+        function pageScrollToTop(element) {
+            // both mobile and non-mobile
+            $('div.body-inner').animate({scrollTop: 0});
+            $(element).parent().find('li>ul>li').removeClass('active');
+            return true;  // propagate
+        }
+        // Fixes the anchor links scroll problem on mobile browsers
+        function mobilePageScrollToAnchor(element) {
+            $(element).closest('nav').find('li').removeClass('active');
+            $(element).parent().addClass('active');
+            if ($(document).width() <= 1240) {
+                let target = $($(element).attr('href'));
+                if (target.length) {
+                    $('div.body-inner').animate({
+                        scrollTop: target.get(0).offsetTop,
+                    });
+                }
+            }
+            return true;
+        }
+    </script>
+
+    <nav role="navigation">
+        <div id="book-search-input" role="search">
+            <input type="text" placeholder="Type to search" />
+        </div>
+        <div id="book-search-input-link" role="search">
+            <a href="/vaft/develop/assets/search.html">Click to Search</a>
+        </div>
+        <ul class="summary">
+            
+            <li class="chapter" data-level="home.1" data-path="/vaft/develop">
+            
+                <a href="/vaft/develop/" onclick="pageScrollToTop(this)">
+                    VAFT
+                </a>
+            </li>
+
+            <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="workflows">Research workflows</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.start-here" data-path="/vaft/develop/workflows/start-here/">
+                    
+                        <a href="/vaft/develop/workflows/start-here/" onclick="pageScrollToTop(this)">Start here</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.data-access-imas" data-path="/vaft/develop/workflows/data-access-imas/">
+                    
+                        <a href="/vaft/develop/workflows/data-access-imas/" onclick="pageScrollToTop(this)">Data access and IMAS</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.experimental-interpretation" data-path="/vaft/develop/workflows/experimental-interpretation/">
+                    
+                        <a href="/vaft/develop/workflows/experimental-interpretation/" onclick="pageScrollToTop(this)">Experimental interpretation</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.equilibrium-kinetic-profiles" data-path="/vaft/develop/workflows/equilibrium-kinetic-profiles/">
+                    
+                        <a href="/vaft/develop/workflows/equilibrium-kinetic-profiles/" onclick="pageScrollToTop(this)">Equilibrium and kinetic profiles</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.plasma-parameter-inference" data-path="/vaft/develop/workflows/plasma-parameter-inference/">
+                    
+                        <a href="/vaft/develop/workflows/plasma-parameter-inference/" onclick="pageScrollToTop(this)">Plasma parameter inference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.electromagnetic-modeling" data-path="/vaft/develop/workflows/electromagnetic-modeling/">
+                    
+                        <a href="/vaft/develop/workflows/electromagnetic-modeling/" onclick="pageScrollToTop(this)">Electromagnetic modeling</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.mhd-stability" data-path="/vaft/develop/workflows/mhd-stability/">
+                    
+                        <a href="/vaft/develop/workflows/mhd-stability/" onclick="pageScrollToTop(this)">MHD stability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.fluctuation-coherence" data-path="/vaft/develop/workflows/fluctuation-coherence/">
+                    
+                        <a href="/vaft/develop/workflows/fluctuation-coherence/" onclick="pageScrollToTop(this)">Cross-diagnostic fluctuation coherence</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.operations-statistical-analysis" data-path="/vaft/develop/workflows/operations-statistical-analysis/">
+                    
+                        <a href="/vaft/develop/workflows/operations-statistical-analysis/" onclick="pageScrollToTop(this)">Operations and statistical analysis</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.automated-pipelines" data-path="/vaft/develop/workflows/automated-pipelines/">
+                    
+                        <a href="/vaft/develop/workflows/automated-pipelines/" onclick="pageScrollToTop(this)">Automated pipelines</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.workflows.gui" data-path="/vaft/develop/workflows/gui/">
+                    
+                        <a href="/vaft/develop/workflows/gui/" onclick="pageScrollToTop(this)">Browser GUI</a>
+                    </li>
+                
+                <li class="divider"></li>
+            
+                <li class="nav-section-label" data-nav-section="reference">Library and data reference</li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.scientific-architecture" data-path="/vaft/develop/reference/scientific-architecture/">
+                    
+                        <a href="/vaft/develop/reference/scientific-architecture/" onclick="pageScrollToTop(this)">Scientific architecture</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.research-domains" data-path="/vaft/develop/reference/research-domains/">
+                    
+                        <a href="/vaft/develop/reference/research-domains/" onclick="pageScrollToTop(this)">Research domains</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.api" data-path="/vaft/develop/reference/api/">
+                    
+                        <a href="/vaft/develop/reference/api/" onclick="pageScrollToTop(this)">VAFT API</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.computational-layers" data-path="/vaft/develop/reference/computational-layers/">
+                    
+                        <a href="/vaft/develop/reference/computational-layers/" onclick="pageScrollToTop(this)">Computational layers</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.credibility-applicability" data-path="/vaft/develop/reference/credibility-applicability/">
+                    
+                        <a href="/vaft/develop/reference/credibility-applicability/" onclick="pageScrollToTop(this)">Credibility and applicability</a>
+                    </li>
+                
+                    
+                    <li class="chapter active" data-level="nav.v1.reference.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
+                    
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.dependency-graph" data-path="/vaft/develop/reference/dependency-graph/">
+                    
+                        <a href="/vaft/develop/reference/dependency-graph/" onclick="pageScrollToTop(this)">Dependency explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.pipeline-graph" data-path="/vaft/develop/reference/pipeline-graph/">
+                    
+                        <a href="/vaft/develop/reference/pipeline-graph/" onclick="pageScrollToTop(this)">Pipeline lineage explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ontology" data-path="/vaft/develop/reference/ontology/">
+                    
+                        <a href="/vaft/develop/reference/ontology/" onclick="pageScrollToTop(this)">Scientific ontology explorer</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.software-dependencies" data-path="/vaft/develop/reference/software-dependencies/">
+                    
+                        <a href="/vaft/develop/reference/software-dependencies/" onclick="pageScrollToTop(this)">Software dependencies</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.external-codes" data-path="/vaft/develop/reference/external-codes/">
+                    
+                        <a href="/vaft/develop/reference/external-codes/" onclick="pageScrollToTop(this)">External scientific codes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.mcp" data-path="/vaft/develop/reference/mcp/">
+                    
+                        <a href="/vaft/develop/reference/mcp/" onclick="pageScrollToTop(this)">MCP server for agents</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.formula-reference" data-path="/vaft/develop/reference/formula/">
+                    
+                        <a href="/vaft/develop/reference/formula/" onclick="pageScrollToTop(this)">Formula reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-representations" data-path="/vaft/develop/reference/reduced-representations/">
+                    
+                        <a href="/vaft/develop/reference/reduced-representations/" onclick="pageScrollToTop(this)">Reduced representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagrams" data-path="/vaft/develop/reference/diagrams/">
+                    
+                        <a href="/vaft/develop/reference/diagrams/" onclick="pageScrollToTop(this)">Scientific diagrams</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.geometric-approximations" data-path="/vaft/develop/reference/geometric-approximations/">
+                    
+                        <a href="/vaft/develop/reference/geometric-approximations/" onclick="pageScrollToTop(this)">Geometric approximations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.characteristic-scales" data-path="/vaft/develop/reference/characteristic-scales/">
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" onclick="pageScrollToTop(this)">Characteristic scales and orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.asymptotic-orderings" data-path="/vaft/develop/reference/asymptotic-orderings/">
+                    
+                        <a href="/vaft/develop/reference/asymptotic-orderings/" onclick="pageScrollToTop(this)">Asymptotic orderings</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.reduced-stability-diagnostics" data-path="/vaft/develop/reference/reduced-stability-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/reduced-stability-diagnostics/" onclick="pageScrollToTop(this)">Reduced stability diagnostics</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.ballooning-formulations" data-path="/vaft/develop/reference/ballooning-formulations/">
+                    
+                        <a href="/vaft/develop/reference/ballooning-formulations/" onclick="pageScrollToTop(this)">Ballooning formulations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.equilibrium-representations" data-path="/vaft/develop/reference/equilibrium-representations/">
+                    
+                        <a href="/vaft/develop/reference/equilibrium-representations/" onclick="pageScrollToTop(this)">Equilibrium representations</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.gyrokinetic-plotting" data-path="/vaft/develop/reference/gyrokinetic-plotting/">
+                    
+                        <a href="/vaft/develop/reference/gyrokinetic-plotting/" onclick="pageScrollToTop(this)">Gyrokinetic plotting</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.process-reference" data-path="/vaft/develop/reference/process/">
+                    
+                        <a href="/vaft/develop/reference/process/" onclick="pageScrollToTop(this)">Process reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.plot-reference" data-path="/vaft/develop/reference/plot/">
+                    
+                        <a href="/vaft/develop/reference/plot/" onclick="pageScrollToTop(this)">Plot reference</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.diagram-reference" data-path="/vaft/develop/reference/diagram/">
+                    
+                        <a href="/vaft/develop/reference/diagram/" onclick="pageScrollToTop(this)">Diagram gallery</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.kinetic-profile-files" data-path="/vaft/develop/reference/kinetic-profile-files/">
+                    
+                        <a href="/vaft/develop/reference/kinetic-profile-files/" onclick="pageScrollToTop(this)">Kinetic profile file formats</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-modes" data-path="/vaft/develop/reference/wall-modes/">
+                    
+                        <a href="/vaft/develop/reference/wall-modes/" onclick="pageScrollToTop(this)">Wall eigenmodes</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.wall-reduction" data-path="/vaft/develop/reference/wall-reduction/">
+                    
+                        <a href="/vaft/develop/reference/wall-reduction/" onclick="pageScrollToTop(this)">Reduced-wall order study</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.imas-concepts" data-path="/vaft/develop/reference/imas-concepts/">
+                    
+                        <a href="/vaft/develop/reference/imas-concepts/" onclick="pageScrollToTop(this)">Fusion data structure and IMAS concepts</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.database-data-sources" data-path="/vaft/develop/reference/database-data-sources/">
+                    
+                        <a href="/vaft/develop/reference/database-data-sources/" onclick="pageScrollToTop(this)">Database and data sources</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-tokamak-physics" data-path="/vaft/develop/reference/vest-tokamak-physics/">
+                    
+                        <a href="/vaft/develop/reference/vest-tokamak-physics/" onclick="pageScrollToTop(this)">VEST and tokamak physics background</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.vest-diagnostics" data-path="/vaft/develop/reference/vest-diagnostics/">
+                    
+                        <a href="/vaft/develop/reference/vest-diagnostics/" onclick="pageScrollToTop(this)">VEST diagnostics and data availability</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.notebooks" data-path="/vaft/develop/reference/notebooks/">
+                    
+                        <a href="/vaft/develop/reference/notebooks/" onclick="pageScrollToTop(this)">Notebooks</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.references" data-path="/vaft/develop/reference/references/">
+                    
+                        <a href="/vaft/develop/reference/references/" onclick="pageScrollToTop(this)">References</a>
+                    </li>
+                
+                    
+                    <li class="chapter" data-level="nav.v1.reference.contacts" data-path="/vaft/develop/reference/contacts/">
+                    
+                        <a href="/vaft/develop/reference/contacts/" onclick="pageScrollToTop(this)">Contacts</a>
+                    </li>
+                
+                
+            
+        </ul>
+    </nav>
+</div>
+<div class="book-body">
+                <div class="book-header" role="navigation">
+                    
+                    <a class="btn pull-right page-toc-toggle js-page-toc-toggle" href="#page-toc" role="button" aria-label="Toggle page table of contents" aria-controls="page-toc" aria-expanded="false">
+                        <i class="fa fa-list-ul" aria-hidden="true"></i>
+                    </a>
+                    
+                    <!-- Title -->
+                    <h1>
+                        <i class="fa fa-circle-o-notch fa-spin"></i>
+                        
+                            <a href="." >Plasma models: a guide</a>
+                        
+                    </h1>
+                </div>
+
+                <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
+  <strong>Development documentation.</strong>
+  Built from <code>develop</code> at
+  <code>7ebacdc</code>. What is described
+  here may change before it is released.
+  <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
+</div>
+<style>
+.vaft-track-banner{max-width:800px;margin:1rem auto 0;padding:.7rem 1rem;
+  border:1px solid #d9a441;border-left-width:4px;border-radius:3px;
+  background:#fdf6e3;color:#5a4413;font-size:.9rem;line-height:1.5}
+.vaft-track-banner code{background:rgba(0,0,0,.06);padding:0 .25em;border-radius:2px}
+.vaft-track-banner a{color:#8a5a00;text-decoration:underline}
+</style><div class="page-wrapper" tabindex="-1" role="main">
+    
+
+    <div class="page-inner">
+        <div id="book-search-results">
+            <div class="search-noresults">
+                <section class="normal markdown-section">
+                    
+                        <h1 id="/reference/Plasma_model_guide">Plasma models: a guide</h1>
+                    
+<aside class="guide-overview" aria-labelledby="guide-overview-title">
+  <h2 id="guide-overview-title">At a glance</h2>
+  <dl>
+    <dt>Architecture position</dt><dd>The user-facing map of plasma descriptions - fluid, hybrid, kinetic, particle and reduced - as independent axes rather than one fidelity ladder, with every VAFT backend mode placed on them from the shared vocabulary (issue #1739, Phase E of #1723).</dd>
+    <dt>Prerequisites / inputs</dt><dd>None. The Plasma models audit page holds the evidence behind each classification.</dd>
+    <dt>Expected result</dt><dd>Which assumptions separate MHD, drift kinetics, gyrokinetics, orbit following and their hybrids; what each VAFT mode solves and which ordering contracts it consumes; and what the word "kinetic" means in each VAFT name.</dd>
+    <dt>Status</dt><dd>Maintained against the pinned develop baseline.</dd>
+  </dl>
+</aside>
+
+<p><strong>The design principle of this page:</strong> a plasma model is described by <em>which assumptions it changes</em>, not by
+where it sits on a ladder from “simple” to “accurate”. Ideal MHD, resistive MHD, drift kinetics, gyrokinetics and
+orbit following each answer a different question under a different ordering. None is the refinement of another.</p>
+
+<p>This page is the entry point. The evidence behind every classification - upstream source lines, primary
+literature, confidence marks - is the audit page,
+<a href="/vaft/develop/reference/plasma-models/">Plasma models, orderings, and scales</a> (#1725), cited below as
+“audit §n”. The machine-readable record is <code class="language-plaintext highlighter-rouge">vaft.code.formalism.PlasmaFormalism</code> (#1727). The tables on this page
+marked <em>generated</em> are rendered from that record, and every other table cell that names a record value (a column
+or row headed by a field name, and the glossary) is checked against it, by <code class="language-plaintext highlighter-rouge">test/test_docs_plasma_model_guide.py</code>.
+Confidence is not part of the record: the audit marks each classification verified, provisional or unresolved,
+and §9 below says where a row is provisional.</p>
+
+<p>Two other classifications are independent of this one and are only linked here:</p>
+<ul>
+  <li><strong>Where a computation lives in VAFT</strong> (Formula, Process, Code, Actor, Run, Study) is
+<a href="/vaft/develop/reference/computational-layers/">Computational layers</a>. A gyrokinetic run and an ideal
+MHD run are both <code class="language-plaintext highlighter-rouge">Code</code>; the layer says nothing about the physics.</li>
+  <li><strong>Representation conventions</strong> (COCOS, signs of $I_p$ and $B_t$, Fourier signs, coordinates, normalizations) are
+owned by the conventions documentation, for example <a href="/vaft/develop/reference/process/cocos/">COCOS</a> and
+the “Solver convention” section of
+<a href="/vaft/develop/reference/equilibrium-representations/">Equilibrium representations</a>. A model ordering
+never fixes a sign convention.</li>
+</ul>
+
+<h2 id="1-one-starting-point-many-reductions">1. One starting point, many reductions</h2>
+
+<p>Every model on this page can be read as an approximation of the collisional Vlasov–Maxwell system for each species
+$s$ [1]:</p>
+
+\[\frac{\partial f_s}{\partial t} + \mathbf v\cdot\nabla f_s
+  + \frac{q_s}{m_s}\left(\mathbf E + \mathbf v\times\mathbf B\right)\cdot\frac{\partial f_s}{\partial \mathbf v}
+  = C_s(f),\]
+
+<p>closed by Maxwell’s equations with the charge and current of all species. VAFT runs no solver of this full system.
+The models it does run come from <strong>different reductions</strong>, not from one chain:</p>
+
+<p><img src="/vaft/develop/assets/diagrams/plasma_model_reduction_map.svg" alt="plasma model reduction map" /></p>
+
+<p><em><code class="language-plaintext highlighter-rouge">vaft.diagram.plasma_model_reduction_map</code>: every reduction from one kinetic starting point, arrows typed as in the table below; the mode ids under each node are read from the registry.</em></p>
+
+<p>Arrow labels name the approximation, not “faster” or “more approximate”. Arrows on this page have four meanings,
+and a diagram must not mix them:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>arrow</th>
+      <th>meaning</th>
+      <th>example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>asymptotic reduction</td>
+      <td>an ordering removes a scale or a variable</td>
+      <td>Vlasov → drift kinetics by gyro-averaging at $\rho/L\ll1$</td>
+    </tr>
+    <tr>
+      <td>model coupling</td>
+      <td>one model supplies a term to another at run time</td>
+      <td>δW_k from a drift-kinetic response added to ideal MHD</td>
+    </tr>
+    <tr>
+      <td>software dependency</td>
+      <td>one program calls or reads another</td>
+      <td>GPEC reads DCON’s <code class="language-plaintext highlighter-rouge">euler.bin</code></td>
+    </tr>
+    <tr>
+      <td>surrogate ancestry</td>
+      <td>a model is trained on another model’s outputs and stands in for it</td>
+      <td>TGLF-NN trained on TGLF fluxes</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="2-the-axes-are-independent">2. The axes are independent</h2>
+
+<p>A model is a point in several independent axes, not a node of one tree. The record keeps them as separate fields
+(audit §1, §10, §11). <em>Generated from <code class="language-plaintext highlighter-rouge">vaft.code.formalism</code>:</em></p>
+
+<!-- generated:formalism-axes -->
+<p>| axis | field | controlled values |
+| — | — | — |
+| what is computed | <code class="language-plaintext highlighter-rouge">scientific_operation</code> | <code class="language-plaintext highlighter-rouge">equilibrium</code>, <code class="language-plaintext highlighter-rouge">ideal_stability</code>, <code class="language-plaintext highlighter-rouge">resistive_stability</code>, <code class="language-plaintext highlighter-rouge">perturbed_equilibrium</code>, <code class="language-plaintext highlighter-rouge">toroidal_torque</code>, <code class="language-plaintext highlighter-rouge">neoclassical_transport</code>, <code class="language-plaintext highlighter-rouge">microstability</code>, <code class="language-plaintext highlighter-rouge">turbulent_transport</code>, <code class="language-plaintext highlighter-rouge">orbit_following</code>, <code class="language-plaintext highlighter-rouge">fast_ion_sources</code> |
+| bulk description | <code class="language-plaintext highlighter-rouge">bulk_description</code> | <code class="language-plaintext highlighter-rouge">fluid</code>, <code class="language-plaintext highlighter-rouge">hybrid</code>, <code class="language-plaintext highlighter-rouge">kinetic</code>, <code class="language-plaintext highlighter-rouge">particle</code>, <code class="language-plaintext highlighter-rouge">reduced</code> |
+| fluid model | <code class="language-plaintext highlighter-rouge">fluid_model</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code>, <code class="language-plaintext highlighter-rouge">resistive_mhd</code>, <code class="language-plaintext highlighter-rouge">extended_mhd</code> |
+| kinetic equation | <code class="language-plaintext highlighter-rouge">kinetic_equation</code> | <code class="language-plaintext highlighter-rouge">drift_kinetic</code>, <code class="language-plaintext highlighter-rouge">gyrokinetic</code>, <code class="language-plaintext highlighter-rouge">fokker_planck</code> |
+| kinetic coupling | <code class="language-plaintext highlighter-rouge">kinetic_coupling</code> | <code class="language-plaintext highlighter-rouge">energy</code>, <code class="language-plaintext highlighter-rouge">pressure</code>, <code class="language-plaintext highlighter-rouge">current</code>, <code class="language-plaintext highlighter-rouge">closure</code>, <code class="language-plaintext highlighter-rouge">sources</code> |
+| distribution formulation | <code class="language-plaintext highlighter-rouge">distribution_formulation</code> | <code class="language-plaintext highlighter-rouge">delta_f</code>, <code class="language-plaintext highlighter-rouge">full_f</code> |
+| orbit representation | <code class="language-plaintext highlighter-rouge">orbit_representation</code> | <code class="language-plaintext highlighter-rouge">full_orbit</code>, <code class="language-plaintext highlighter-rouge">guiding_center</code>, <code class="language-plaintext highlighter-rouge">gyrocenter</code>, <code class="language-plaintext highlighter-rouge">bounce_averaged</code> |
+| spatial domain | <code class="language-plaintext highlighter-rouge">spatial_domain</code> | <code class="language-plaintext highlighter-rouge">local</code>, <code class="language-plaintext highlighter-rouge">radially_global</code>, <code class="language-plaintext highlighter-rouge">whole_volume</code> |
+| topology domain | <code class="language-plaintext highlighter-rouge">topology_domain</code> | <code class="language-plaintext highlighter-rouge">closed_flux_surface</code>, <code class="language-plaintext highlighter-rouge">open_field_line</code>, <code class="language-plaintext highlighter-rouge">across_separatrix</code> |
+| regime | <code class="language-plaintext highlighter-rouge">regime</code> | <code class="language-plaintext highlighter-rouge">static</code>, <code class="language-plaintext highlighter-rouge">linear</code>, <code class="language-plaintext highlighter-rouge">nonlinear</code>, <code class="language-plaintext highlighter-rouge">quasilinear</code>, <code class="language-plaintext highlighter-rouge">steady_state</code>, <code class="language-plaintext highlighter-rouge">time_dependent</code> |
+| field model | <code class="language-plaintext highlighter-rouge">field_model</code> | <code class="language-plaintext highlighter-rouge">mhd_displacement</code>, <code class="language-plaintext highlighter-rouge">electrostatic</code>, <code class="language-plaintext highlighter-rouge">electromagnetic</code>, <code class="language-plaintext highlighter-rouge">prescribed</code> |
+<!-- /generated --></p>
+
+<p><strong>Why the words combine freely.</strong> “Global δf gyrokinetic PIC” names four independent choices: a radially global
+<code class="language-plaintext highlighter-rouge">spatial_domain</code>, the <code class="language-plaintext highlighter-rouge">delta_f</code> <code class="language-plaintext highlighter-rouge">distribution_formulation</code>, the <code class="language-plaintext highlighter-rouge">gyrokinetic</code> <code class="language-plaintext highlighter-rouge">kinetic_equation</code>, and a
+particle-in-cell numerical method (ORB5 is such a code; audit §9). None of the four implies another. Likewise
+“local”, “linear” and “electrostatic” are three axes of one CGYRO run, not three levels of approximation.</p>
+
+<p><strong>Numerical representation is not physics.</strong> Continuum (Eulerian grid), particle-in-cell, Monte Carlo markers,
+finite elements and spectral or shooting methods are ways to <em>solve</em> a model. The record keeps them out of the
+common axes and in <code class="language-plaintext highlighter-rouge">extensions</code> (audit §11), because the same equation can be solved either way:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>governing model</th>
+      <th>numerical realization</th>
+      <th>example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>gyrokinetic</td>
+      <td>continuum</td>
+      <td>CGYRO (in VAFT), GENE</td>
+    </tr>
+    <tr>
+      <td>gyrokinetic</td>
+      <td>particle-in-cell</td>
+      <td>ORB5, GTC</td>
+    </tr>
+    <tr>
+      <td>test-particle Fokker–Planck, guiding centre</td>
+      <td>Monte Carlo markers</td>
+      <td>NUBEAM (in VAFT), ASCOT5</td>
+    </tr>
+    <tr>
+      <td>linear ideal MHD energy principle</td>
+      <td>Euler–Lagrange ODE integration in a Fourier poloidal basis</td>
+      <td>DCON (in VAFT)</td>
+    </tr>
+    <tr>
+      <td>extended / resistive MHD</td>
+      <td>finite elements</td>
+      <td>NIMROD, M3D-C1</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><img src="/vaft/develop/assets/diagrams/formalism_axes_map.svg" alt="formalism axes" /></p>
+
+<p><em><code class="language-plaintext highlighter-rouge">vaft.diagram.formalism_axes_map</code>: one column per axis; three runs (CGYRO nonlinear, DCON kinetic, NUBEAM) drawn across them, so no column is a level of another. Numerical representation sits apart, in <code class="language-plaintext highlighter-rouge">extensions</code>.</em></p>
+
+<h2 id="3-fluid-models">3. Fluid models</h2>
+
+<p>A fluid model evolves velocity moments (density, momentum, pressure) and must <strong>close</strong> the moment hierarchy. The
+fluid models differ in which terms of the generalized Ohm’s law and the pressure tensor they keep [2, 3]:</p>
+
+\[\mathbf E + \mathbf v\times\mathbf B = \underbrace{\eta\mathbf J}_{\text{resistive}}
+ + \underbrace{\frac{\mathbf J\times\mathbf B}{ne}}_{\text{Hall}}
+ - \underbrace{\frac{\nabla p_e}{ne}}_{\text{electron pressure}}
+ + \underbrace{\frac{m_e}{ne^2}\frac{d\mathbf J}{dt}}_{\text{electron inertia}}\]
+
+<p>Ideal MHD [3] is the momentum equation, the ideal induction equation and an adiabatic pressure law,</p>
+
+\[\rho\frac{d\mathbf v}{dt} = \mathbf J\times\mathbf B - \nabla p,\qquad
+  \frac{\partial\mathbf B}{\partial t} = \nabla\times(\mathbf v\times\mathbf B),\qquad
+  \frac{d}{dt}\left(p\rho^{-\gamma}\right) = 0,\]
+
+<p>with $\mu_0\mathbf J=\nabla\times\mathbf B$. Resistive MHD adds $\eta\nabla^2\mathbf B/\mu_0$ to the induction
+equation (for uniform $\eta$); the other fluid models change Ohm’s law and the closure:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>model</th>
+      <th>Ohm’s law keeps</th>
+      <th>pressure closure</th>
+      <th><code class="language-plaintext highlighter-rouge">fluid_model</code></th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ideal MHD</td>
+      <td>$\mathbf E+\mathbf v\times\mathbf B=0$</td>
+      <td>scalar, adiabatic</td>
+      <td><code class="language-plaintext highlighter-rouge">ideal_mhd</code></td>
+    </tr>
+    <tr>
+      <td>resistive MHD</td>
+      <td>$+\,\eta\mathbf J$ (matters in thin layers at rational surfaces)</td>
+      <td>scalar</td>
+      <td><code class="language-plaintext highlighter-rouge">resistive_mhd</code></td>
+    </tr>
+    <tr>
+      <td>Hall / two-fluid / extended MHD</td>
+      <td>$+$ Hall, $\nabla p_e$, electron inertia; separate ion and electron momentum</td>
+      <td>gyroviscous (FLR), anisotropic, heat-flux closures</td>
+      <td><code class="language-plaintext highlighter-rouge">extended_mhd</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Reduced MHD is an ordering, not a fourth fluid model.</strong> It expands any of these in $\epsilon=a/R$, $\beta$ and
+$k_\parallel/k_\perp$ [4]; low aspect ratio weakens its premise. The fluid axis is not the same axis as drift- or
+gyrokinetics: a fluid model has <em>no</em> kinetic equation (<code class="language-plaintext highlighter-rouge">kinetic_equation=None</code>), and adding Hall or FLR terms does
+not make it kinetic (audit §2.1).</p>
+
+<p><strong>Equilibrium</strong> is a static fluid problem, $\mathbf J\times\mathbf B=\nabla p$, with the ordering that force
+balance is restored faster than the state moves ($\tau_{evol}/\tau_A\gg1$). EFIT, CHEASE, TokaMaker, TES and NICE
+are all this one model (audit §12; NICE provisionally, as an experimental adapter); a kinetic-profile pressure
+constraint changes their inputs, not their physics.</p>
+
+<h2 id="4-kinetic-models">4. Kinetic models</h2>
+
+<h3 id="41-trajectories-are-not-distributions">4.1 Trajectories are not distributions</h3>
+
+<p>Two different things are often both called “guiding centre”:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>single particle (trajectory variables of ONE particle)       distribution function (a density in phase space)
+    |                                                            |
+    +-- full orbit:      m dv/dt = q(E + v x B)                  +-- drift kinetic:  f(R, E, mu, t)
+    |                                                            |
+    +-- guiding-centre orbit: dR/dt = v_par b + v_E              +-- gyrokinetic:    h(R, E, mu, t), finite k_perp rho
+                              + v_gradB + v_curv,  mu conserved
+</code></pre></div></div>
+
+<p>Guiding-centre theory [5] reduces the <em>equations of motion</em> of a particle. Drift kinetics evolves a <em>distribution
+function</em> over the reduced phase space $(\mathbf R, \mathcal E, \mu)$:</p>
+
+\[\frac{\partial f}{\partial t} + \left(v_\parallel\mathbf b + \mathbf v_d\right)\cdot\nabla f
+  + \dot{\mathcal E}\,\frac{\partial f}{\partial\mathcal E} = C(f).\]
+
+<p>An orbit integrator alone (SIMPLE) evolves no distribution and is not a drift-kinetic solver. A Monte Carlo code
+that follows markers <em>with</em> collision kicks (NUBEAM with guiding centres; ASCOT5 with full or guiding-centre
+orbits) solves a test-particle Fokker–Planck
+equation by sampling; it is still a statement about a test population in a fixed background, not about the bulk
+plasma (audit §2.4, §5).</p>
+
+<h3 id="42-drift-kinetics-and-gyrokinetics">4.2 Drift kinetics and gyrokinetics</h3>
+
+<p>Both remove the gyro-phase. They differ in what they keep.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>drift kinetic</th>
+      <th>gyrokinetic</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>shared</td>
+      <td>$\omega/\Omega_c\ll1$; gyro-phase averaged; $\rho/L\ll1$ for the background</td>
+      <td>the same</td>
+    </tr>
+    <tr>
+      <td>perpendicular scale</td>
+      <td>long wavelength, $k_\perp\rho\ll1$</td>
+      <td>$k_\perp\rho\sim O(1)$ kept, by gyro-averaging the fields</td>
+    </tr>
+    <tr>
+      <td>what is ordered small instead</td>
+      <td>—</td>
+      <td>$\omega/\Omega_i\sim k_\parallel/k_\perp\sim\delta f/F\sim\rho_*$</td>
+    </tr>
+    <tr>
+      <td>dynamics kept</td>
+      <td>guiding-centre drifts, parallel streaming, trapped and passing orbits, bounce resonances</td>
+      <td>gyro-averaged fluctuating fields acting on gyrocentres</td>
+    </tr>
+    <tr>
+      <td>typical use</td>
+      <td>neoclassical transport (NEO), NTV and kinetic stabilization (PENTRC, DCON kinetic)</td>
+      <td>microinstability and turbulence (CGYRO)</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kinetic_equation</code></td>
+      <td><code class="language-plaintext highlighter-rouge">drift_kinetic</code></td>
+      <td><code class="language-plaintext highlighter-rouge">gyrokinetic</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The gyrokinetic equation in its electrostatic δf form [6] reads, schematically, for the non-adiabatic part $h$ of
+$\delta f = -q\phi F_0/T + h$:</p>
+
+\[\frac{\partial h}{\partial t} + \left(v_\parallel\mathbf b + \mathbf v_d
+  + \langle\mathbf v_E\rangle_{\mathbf R}\right)\cdot\nabla h - C(h)
+  = \frac{qF_0}{T}\frac{\partial\langle\phi\rangle_{\mathbf R}}{\partial t}
+  - \langle\mathbf v_E\rangle_{\mathbf R}\cdot\nabla F_0 .\]
+
+<p>The gyro-average $\langle\cdot\rangle_{\mathbf R}$ is what keeps finite $k_\perp\rho$. At $k_\perp\rho\to0$ it
+reduces to a drift-kinetic form. So <strong>drift kinetics is not a coarse gyrokinetics and gyrokinetics is not an
+accurate drift kinetics</strong>: each keeps physics the other orders out. Neoclassical drift kinetics is also δf, but
+its $f_1$ is a steady axisymmetric departure, not a fluctuation (audit §2.2–§2.3). The details of <em>which kind</em> of
+gyrokinetic formulation a run uses (field model, geometry, species, collision operator) belong to
+<a href="https://github.com/VEST-Tokamak/vaft/issues/1353">#1353</a>.</p>
+
+<h2 id="5-kinetic-mhd-is-a-coupling-not-an-equation">5. Kinetic-MHD is a coupling, not an equation</h2>
+
+<p>A hybrid model keeps a fluid bulk and lets a kinetic population supply part of the force:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>          fluid / MHD bulk  (ideal MHD displacement xi, fields)
+                |
+                |  displacement / perturbed fields
+                v
+        kinetic population  (drift-kinetic or gyrokinetic response)
+                |
+                |  pressure tensor / current / energy delta W_k / closure
+                v
+          fluid / MHD bulk
+</code></pre></div></div>
+
+<p>“Kinetic-MHD” is a <strong>family</strong> [7]: the population (thermal ions, electrons, energetic particles), the kinetic
+equation (drift kinetic, gyrokinetic), the coupling (<code class="language-plaintext highlighter-rouge">kinetic_coupling</code>: <code class="language-plaintext highlighter-rouge">energy</code>, <code class="language-plaintext highlighter-rouge">pressure</code>, <code class="language-plaintext highlighter-rouge">current</code>,
+<code class="language-plaintext highlighter-rouge">closure</code>) and the orbit treatment all vary inside it (audit §2.5). VAFT’s hybrid modes are all in the GPEC suite;
+the table shows them with the fluid modes around them. Their record values and contract roles are the generated
+rows of §9.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>mode</th>
+      <th>what it is</th>
+      <th>hybrid?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gpec:dcon_ideal</code></td>
+      <td>ideal-MHD energy principle</td>
+      <td>no</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gpec:dcon_kinetic</code></td>
+      <td>ideal MHD + drift-kinetic δW_k added to the Euler–Lagrange coefficients, self-consistent; calling it “drift-kinetic MHD” is provisional (audit §8)</td>
+      <td>yes, energy coupling</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gpec:gpec_ideal</code></td>
+      <td>ideal-MHD perturbed equilibrium</td>
+      <td>no</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gpec:gpec_kinetic</code></td>
+      <td>perturbed equilibrium; kinetic content inherited from the DCON run it reads</td>
+      <td>yes, inherited</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">pentrc:ntv_closure</code></td>
+      <td>drift-kinetic <strong>closure</strong> evaluated on a given displacement; not self-consistent</td>
+      <td>yes, closure</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">gpec:rdcon_rmatch</code></td>
+      <td>outer ideal MHD matched to inner resistive layers</td>
+      <td>no</td>
+    </tr>
+  </tbody>
+</table>
+
+<p><strong>Why RDCON with $T_e$ and $n_e$ is not kinetic-MHD.</strong> VAFT passes $T_e$, $n_e$, $Z_{\rm eff}$ and $\ln\Lambda$ to
+RDCON only to compute the Spitzer resistivity and mass density of each layer (audit §3.4). No kinetic equation is
+solved. Kinetic <em>profiles</em> as input never make a model kinetic (§8 below).</p>
+
+<p><img src="/vaft/develop/assets/diagrams/kinetic_mhd_coupling.svg" alt="kinetic-MHD coupling" /></p>
+
+<p><em><code class="language-plaintext highlighter-rouge">vaft.diagram.kinetic_mhd_coupling</code>: the GPEC-suite modes on the fluid–kinetic loop with their contract roles; RDCON stays outside, with a profile-informed coefficient, not a coupling.</em></p>
+
+<h2 id="6-reduced-models-and-surrogates">6. Reduced models and surrogates</h2>
+
+<p>A reduced model keeps the <em>parent theory</em> of what it approximates, adds a <em>model reduction</em>, and may then be
+realized by a <em>computational surrogate</em>. These are three separate facts:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>parent theory</th>
+      <th>model reduction</th>
+      <th>computational realization</th>
+      <th>VAFT mode</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>gyrokinetics</td>
+      <td>linear eigenmodes of a gyro-Landau-fluid moment system [8] + saturation rule (SAT0–3) → quasilinear fluxes</td>
+      <td>TGLF</td>
+      <td><code class="language-plaintext highlighter-rouge">gacode:tglf_linear</code>, <code class="language-plaintext highlighter-rouge">gacode:tglf</code></td>
+    </tr>
+    <tr>
+      <td>gyrokinetics (through TGLF)</td>
+      <td>as TGLF, for the SAT variant it was trained on</td>
+      <td>neural-network surrogate, valid only in its training domain</td>
+      <td><code class="language-plaintext highlighter-rouge">gacode:tglf_nn</code></td>
+    </tr>
+    <tr>
+      <td>drift kinetics</td>
+      <td>asymptotic reductions of drift-kinetic neoclassical theory reported in a NEO run’s theory output: Hinton–Hazeltine asymptotics, Sauter fits to drift-kinetic solutions, NCLASS moment solutions</td>
+      <td>closed-form or moment formulas (an asymptotic reduction, not a surrogate)</td>
+      <td><code class="language-plaintext highlighter-rouge">gacode:neo_analytic</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The record writes this as <code class="language-plaintext highlighter-rouge">bulk_description="reduced"</code> with <code class="language-plaintext highlighter-rouge">derived_from</code> set to the parent kinetic equation. A
+reduced model <strong>inherits</strong> the orderings of its parent (role <code class="language-plaintext highlighter-rouge">inherited</code> in the contract map) and adds a closure
+or a fit that no ordering contract covers; the advisory check reports that as unmapped, never as a pass.</p>
+
+<p><img src="/vaft/develop/assets/diagrams/reduced_model_ancestry.svg" alt="reduced-model ancestry" /></p>
+
+<p><em><code class="language-plaintext highlighter-rouge">vaft.diagram.reduced_model_ancestry</code>: parent theory, model reduction and computational realization of every reduced mode.</em></p>
+
+<h2 id="7-what-each-family-is-for">7. What each family is for</h2>
+
+<p>Each family is designed for a type of question. This is not a recommendation engine and carries no thresholds:
+whether a model applies to a given state is an ordering question, answered per state by the contracts of
+<a href="/vaft/develop/reference/asymptotic-orderings/">Asymptotic orderings</a>.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>family</th>
+      <th>designed for</th>
+      <th>representative assumptions</th>
+      <th>typically missing</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>ideal MHD</td>
+      <td>macroscopic ideal stability and response</td>
+      <td>$S\gg1$, $\rho/L\ll1$, $\omega\ll\Omega_i$, scales $\gg d_i$, scalar pressure</td>
+      <td>resistive layers, FLR, kinetic resonances</td>
+    </tr>
+    <tr>
+      <td>resistive MHD</td>
+      <td>tearing, reconnection, resistive layers</td>
+      <td>as ideal MHD outside thin layers; Spitzer η inside</td>
+      <td>two-fluid and kinetic layer physics when $d_i$ or $\rho_s$ exceeds the layer width</td>
+    </tr>
+    <tr>
+      <td>drift kinetic</td>
+      <td>neoclassical transport, orbit-averaged response, NTV</td>
+      <td>$\omega/\Omega\ll1$, $\rho/L\ll1$, $k_\perp\rho\ll1$</td>
+      <td>finite-$k_\perp\rho$ fluctuations, turbulence</td>
+    </tr>
+    <tr>
+      <td>gyrokinetic</td>
+      <td>low-frequency microinstability and turbulence</td>
+      <td>$\omega/\Omega_i\sim k_\parallel/k_\perp\sim\delta f/F\sim\rho_*$</td>
+      <td>equilibrium evolution, macroscopic MHD (in a local δf run)</td>
+    </tr>
+    <tr>
+      <td>particle orbit</td>
+      <td>confinement, losses, fast-ion slowing down and sources</td>
+      <td>$\rho/L_B$ small for guiding centre; fixed fields and background</td>
+      <td>feedback of the particles on fields and bulk</td>
+    </tr>
+    <tr>
+      <td>hybrid kinetic-MHD</td>
+      <td>macroscopic modes modified by a kinetic population</td>
+      <td>the fluid ordering for the bulk plus the kinetic ordering for the population</td>
+      <td>whatever the coupling leaves out (e.g. finite orbit width, which PENTRC appears not to keep: inferred, not stated in its source)</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The scales these orderings compare, and why a model can hold on one scale and fail on another, are
+the <em>Characteristic scales and orderings</em> reference (#1724, PR #1985).</p>
+
+<h3 id="time-scales">Time scales</h3>
+
+<p>The families above separate along these time scales, written from fast to slow <em>as a class</em>:</p>
+
+<div class="language-text highlighter-rouge"><div class="highlight"><pre class="highlight"><code>gyration 1/Omega_c  -&gt;  bounce / transit 1/omega_b, 1/omega_t  -&gt;  drift precession 1/omega_D  -&gt;  Alfven tau_A
+-&gt;  sound tau_s  -&gt;  collision tau_c  -&gt;  resistive diffusion tau_R  -&gt;  transport, equilibrium evolution tau_evol
+</code></pre></div></div>
+
+<p><strong>This is not a universal numerical order.</strong> The actual order depends on the species, the machine, the radius,
+$T$, $B$, the collisionality and the mode frequency; the collision time in particular can sit anywhere in the
+chain, and in a low-field device the electron transit frequency can reach the ion gyrofrequency. Drift kinetics
+needs the dynamics slower than gyration; gyrokinetics also slower than gyration, but with fluctuations on the
+drift scale; MHD needs it slower than the kinetic times its closure averages over; an equilibrium needs
+$\tau_{evol}\gg\tau_A$. <code class="language-plaintext highlighter-rouge">vaft.diagram.timescale_hierarchy</code> evaluates these times for one labelled illustrative
+state (<code class="language-plaintext highlighter-rouge">ILLUSTRATIVE_STATE</code>; its assumed values are listed in the figure caption) and places them by value. Drift
+precession has no formula kernel and $\tau_E$ needs an energy inventory the state does not carry, so the figure
+omits both and says so (#1724).</p>
+
+<p><img src="/vaft/develop/assets/diagrams/timescale_hierarchy.svg" alt="timescale hierarchy" /></p>
+
+<h3 id="spatial-scales">Spatial scales</h3>
+
+<p><img src="/vaft/develop/assets/diagrams/spatial_scale_orderings.svg" alt="spatial scale orderings" /></p>
+
+<p><em><code class="language-plaintext highlighter-rouge">vaft.diagram.spatial_scale_orderings</code>: the lengths of one labelled illustrative state on a log axis, with the ratios the orderings compare; the order is state-dependent.</em></p>
+
+<h2 id="8-kinetic-means-seven-different-things">8. “Kinetic” means seven different things</h2>
+
+<p>The same word names a datum, a profile container, a reconstruction constraint, a profile-informed coefficient, a
+hybrid model, a governing equation and a fitted model. Only the last three describe physics:</p>
+
+<table>
+  <thead>
+    <tr>
+      <th> </th>
+      <th>meaning</th>
+      <th>VAFT example</th>
+      <th>describes physics?</th>
+      <th><code class="language-plaintext highlighter-rouge">bulk_description</code> of the model run</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>A</td>
+      <td>measurement or data</td>
+      <td>“kinetic diagnostics” (Thomson, CES)</td>
+      <td>no</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>B</td>
+      <td>profile container</td>
+      <td><code class="language-plaintext highlighter-rouge">KineticProfiles</code>, GPEC/PENTRC <code class="language-plaintext highlighter-rouge">kinetic_file</code></td>
+      <td>no</td>
+      <td>—</td>
+    </tr>
+    <tr>
+      <td>C</td>
+      <td>kinetically constrained reconstruction</td>
+      <td><code class="language-plaintext highlighter-rouge">run_kinetic_efit</code> (EFIT with a pressure constraint)</td>
+      <td>no</td>
+      <td><code class="language-plaintext highlighter-rouge">fluid</code></td>
+    </tr>
+    <tr>
+      <td>D</td>
+      <td>profile-informed coefficient or closure</td>
+      <td>RDCON’s $T_e$, $n_e$ → Spitzer η; CHEASE <code class="language-plaintext highlighter-rouge">closure="kinetic_pressure"</code></td>
+      <td>no</td>
+      <td><code class="language-plaintext highlighter-rouge">fluid</code></td>
+    </tr>
+    <tr>
+      <td>E</td>
+      <td>hybrid fluid–kinetic model</td>
+      <td>DCON <code class="language-plaintext highlighter-rouge">kin_flag=t</code>, PENTRC</td>
+      <td>yes</td>
+      <td><code class="language-plaintext highlighter-rouge">hybrid</code></td>
+    </tr>
+    <tr>
+      <td>F</td>
+      <td>kinetic governing equation</td>
+      <td>NEO, CGYRO</td>
+      <td>yes</td>
+      <td><code class="language-plaintext highlighter-rouge">kinetic</code></td>
+    </tr>
+    <tr>
+      <td>G</td>
+      <td>derived from kinetic theory</td>
+      <td>TGLF, Sauter fits</td>
+      <td>yes</td>
+      <td><code class="language-plaintext highlighter-rouge">reduced</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>The full list of names in each category, and the seven names most likely to mislead, is audit §6. <strong>Kinetic-profile
+input never implies a kinetic governing equation.</strong></p>
+
+<h2 id="9-every-vaft-mode-placed">9. Every VAFT mode, placed</h2>
+
+<p><em>Generated from <code class="language-plaintext highlighter-rouge">vaft.validation.model_contracts.ADAPTER_MODES</code>:</em> one row per scientifically distinct mode, not per
+executable. “Contracts (role)” are the ordering contracts the mode consumes, which the advisory ordering check
+evaluates on a run’s input (#1823; wiring per stage is #1987); “not covered” is what no contract checks.</p>
+
+<p><strong>Confidence of the rows</strong> (audit §3–§5, §12): verified for the equation class of every classified row, except
+<code class="language-plaintext highlighter-rouge">nice:reconstruction</code> and <code class="language-plaintext highlighter-rouge">tglf_nn</code> (provisional, as their audit cell says) and the <em>name</em> “drift-kinetic MHD”
+for the DCON and GPEC kinetic modes (provisional). <code class="language-plaintext highlighter-rouge">nubeam:fast_ions</code> records <code class="language-plaintext highlighter-rouge">guiding_center</code> as its dominant
+orbit representation; its FLR position sampling sits in <code class="language-plaintext highlighter-rouge">extensions</code> and fits neither orbit value (§10).</p>
+
+<!-- generated:formalism-matrix -->
+<p>| mode | operation | bulk | fluid model | kinetic equation | coupling | orbit | domain | regime | contracts (role) | not covered | audit |
+| — | — | — | — | — | — | — | — | — | — | — | — |
+| <code class="language-plaintext highlighter-rouge">efit:reconstruction</code> | <code class="language-plaintext highlighter-rouge">equilibrium</code> | <code class="language-plaintext highlighter-rouge">fluid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | — | — | — | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">quasi_static_equilibrium</code> (governing) | — | Plasma_models.md §12 |
+| <code class="language-plaintext highlighter-rouge">chease:fixed_boundary</code> | <code class="language-plaintext highlighter-rouge">equilibrium</code> | <code class="language-plaintext highlighter-rouge">fluid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | — | — | — | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">quasi_static_equilibrium</code> (governing) | — | Plasma_models.md §12 |
+| <code class="language-plaintext highlighter-rouge">tokamaker:free_boundary</code> | <code class="language-plaintext highlighter-rouge">equilibrium</code> | <code class="language-plaintext highlighter-rouge">fluid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | — | — | — | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">quasi_static_equilibrium</code> (governing) | — | Plasma_models.md §12 |
+| <code class="language-plaintext highlighter-rouge">tes:free_boundary</code> | <code class="language-plaintext highlighter-rouge">equilibrium</code> | <code class="language-plaintext highlighter-rouge">fluid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | — | — | — | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">quasi_static_equilibrium</code> (governing) | — | Plasma_models.md §12 |
+| <code class="language-plaintext highlighter-rouge">nice:reconstruction</code> | <code class="language-plaintext highlighter-rouge">equilibrium</code> | <code class="language-plaintext highlighter-rouge">fluid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | — | — | — | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">quasi_static_equilibrium</code> (governing) | — | Plasma_models.md §12 |
+| <code class="language-plaintext highlighter-rouge">gpec:dcon_ideal</code> | <code class="language-plaintext highlighter-rouge">ideal_stability</code> | <code class="language-plaintext highlighter-rouge">fluid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | — | — | — | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code> (governing) | — | Plasma_models.md §3.1 |
+| <code class="language-plaintext highlighter-rouge">gpec:dcon_kinetic</code> | <code class="language-plaintext highlighter-rouge">ideal_stability</code> | <code class="language-plaintext highlighter-rouge">hybrid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | <code class="language-plaintext highlighter-rouge">drift_kinetic</code> | <code class="language-plaintext highlighter-rouge">energy</code> | <code class="language-plaintext highlighter-rouge">bounce_averaged</code> | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code> (fluid_part), <code class="language-plaintext highlighter-rouge">drift_kinetic</code> (kinetic_response) | — | Plasma_models.md §3.2 |
+| <code class="language-plaintext highlighter-rouge">gpec:gpec_ideal</code> | <code class="language-plaintext highlighter-rouge">perturbed_equilibrium</code> | <code class="language-plaintext highlighter-rouge">fluid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | — | — | — | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code> (governing) | — | Plasma_models.md §3 |
+| <code class="language-plaintext highlighter-rouge">gpec:gpec_kinetic</code> | <code class="language-plaintext highlighter-rouge">perturbed_equilibrium</code> | <code class="language-plaintext highlighter-rouge">hybrid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | <code class="language-plaintext highlighter-rouge">drift_kinetic</code> | <code class="language-plaintext highlighter-rouge">energy</code> | <code class="language-plaintext highlighter-rouge">bounce_averaged</code> | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code> (fluid_part), <code class="language-plaintext highlighter-rouge">drift_kinetic</code> (kinetic_response) | — | Plasma_models.md §3.3 |
+| <code class="language-plaintext highlighter-rouge">gpec:rdcon_rmatch</code> | <code class="language-plaintext highlighter-rouge">resistive_stability</code> | <code class="language-plaintext highlighter-rouge">fluid</code> | <code class="language-plaintext highlighter-rouge">resistive_mhd</code> | — | — | — | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">linear</code> | <code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code> (outer_solution), <code class="language-plaintext highlighter-rouge">resistive_mhd</code> (layer_solution) | — | Plasma_models.md §3.4 |
+| <code class="language-plaintext highlighter-rouge">gpec:stride</code> | <code class="language-plaintext highlighter-rouge">resistive_stability</code> | <code class="language-plaintext highlighter-rouge">fluid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | — | — | — | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">linear</code> | <code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code> (outer_solution) | — | Plasma_models.md §3.4 |
+| <code class="language-plaintext highlighter-rouge">gpec:thresholds</code> | <em>unclassified</em> | — | — | — | — | — | — | — | — | the singthresh_* layer models (SLAYER, Callen) are auxiliary reduced layer models whose classification is unresolved in the audit | Plasma_models.md §3 (provisional) |
+| <code class="language-plaintext highlighter-rouge">pentrc:ntv_closure</code> | <code class="language-plaintext highlighter-rouge">toroidal_torque</code> | <code class="language-plaintext highlighter-rouge">hybrid</code> | <code class="language-plaintext highlighter-rouge">ideal_mhd</code> | <code class="language-plaintext highlighter-rouge">drift_kinetic</code> | <code class="language-plaintext highlighter-rouge">closure</code> | <code class="language-plaintext highlighter-rouge">bounce_averaged</code> | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">static</code> | <code class="language-plaintext highlighter-rouge">ideal_single_fluid_mhd</code> (fluid_part), <code class="language-plaintext highlighter-rouge">drift_kinetic</code> (closure) | — | Plasma_models.md §3.5 |
+| <code class="language-plaintext highlighter-rouge">gacode:neo</code> | <code class="language-plaintext highlighter-rouge">neoclassical_transport</code> | <code class="language-plaintext highlighter-rouge">kinetic</code> | — | <code class="language-plaintext highlighter-rouge">drift_kinetic</code> | — | — | <code class="language-plaintext highlighter-rouge">local</code> | <code class="language-plaintext highlighter-rouge">steady_state</code> | <code class="language-plaintext highlighter-rouge">drift_kinetic</code> (governing), <code class="language-plaintext highlighter-rouge">local_neoclassical</code> (governing) | — | Plasma_models.md §4 |
+| <code class="language-plaintext highlighter-rouge">gacode:neo_analytic</code> | <code class="language-plaintext highlighter-rouge">neoclassical_transport</code> | <code class="language-plaintext highlighter-rouge">reduced</code> | — | — | — | — | <code class="language-plaintext highlighter-rouge">local</code> | <code class="language-plaintext highlighter-rouge">steady_state</code> | <code class="language-plaintext highlighter-rouge">drift_kinetic</code> (inherited), <code class="language-plaintext highlighter-rouge">local_neoclassical</code> (inherited) | a reduced model adds its own closure or fit, which no ordering contract covers | Plasma_models.md §4 (Hinton-Hazeltine, Sauter values in a NEO run’s theory output) |
+| <code class="language-plaintext highlighter-rouge">gacode:cgyro_linear</code> | <code class="language-plaintext highlighter-rouge">microstability</code> | <code class="language-plaintext highlighter-rouge">kinetic</code> | — | <code class="language-plaintext highlighter-rouge">gyrokinetic</code> | — | <code class="language-plaintext highlighter-rouge">gyrocenter</code> | <code class="language-plaintext highlighter-rouge">local</code> | <code class="language-plaintext highlighter-rouge">linear</code> | <code class="language-plaintext highlighter-rouge">gyrokinetic_delta_f</code> (governing) | — | Plasma_models.md §4 (cgyro.plasma_formalism) |
+| <code class="language-plaintext highlighter-rouge">gacode:cgyro_nonlinear</code> | <code class="language-plaintext highlighter-rouge">turbulent_transport</code> | <code class="language-plaintext highlighter-rouge">kinetic</code> | — | <code class="language-plaintext highlighter-rouge">gyrokinetic</code> | — | <code class="language-plaintext highlighter-rouge">gyrocenter</code> | <code class="language-plaintext highlighter-rouge">local</code> | <code class="language-plaintext highlighter-rouge">nonlinear</code> | <code class="language-plaintext highlighter-rouge">gyrokinetic_delta_f</code> (governing) | — | Plasma_models.md §4 (cgyro.plasma_formalism) |
+| <code class="language-plaintext highlighter-rouge">gacode:tglf_linear</code> | <code class="language-plaintext highlighter-rouge">microstability</code> | <code class="language-plaintext highlighter-rouge">reduced</code> | — | — | — | — | <code class="language-plaintext highlighter-rouge">local</code> | <code class="language-plaintext highlighter-rouge">linear</code> | <code class="language-plaintext highlighter-rouge">gyrokinetic_delta_f</code> (inherited) | a reduced model adds its own closure or fit, which no ordering contract covers | Plasma_models.md §4 |
+| <code class="language-plaintext highlighter-rouge">gacode:tglf</code> | <code class="language-plaintext highlighter-rouge">turbulent_transport</code> | <code class="language-plaintext highlighter-rouge">reduced</code> | — | — | — | — | <code class="language-plaintext highlighter-rouge">local</code> | <code class="language-plaintext highlighter-rouge">quasilinear</code> | <code class="language-plaintext highlighter-rouge">gyrokinetic_delta_f</code> (inherited) | a reduced model adds its own closure or fit, which no ordering contract covers | Plasma_models.md §4 |
+| <code class="language-plaintext highlighter-rouge">gacode:tglf_nn</code> | <code class="language-plaintext highlighter-rouge">turbulent_transport</code> | <code class="language-plaintext highlighter-rouge">reduced</code> | — | — | — | — | <code class="language-plaintext highlighter-rouge">local</code> | <code class="language-plaintext highlighter-rouge">quasilinear</code> | <code class="language-plaintext highlighter-rouge">gyrokinetic_delta_f</code> (inherited) | a reduced model adds its own closure or fit, which no ordering contract covers | Plasma_models.md §4 (provisional; a learned surrogate, valid only in its training domain) |
+| <code class="language-plaintext highlighter-rouge">nubeam:fast_ions</code> | <code class="language-plaintext highlighter-rouge">fast_ion_sources</code> | <code class="language-plaintext highlighter-rouge">particle</code> | — | <code class="language-plaintext highlighter-rouge">fokker_planck</code> | <code class="language-plaintext highlighter-rouge">sources</code> | <code class="language-plaintext highlighter-rouge">guiding_center</code> | <code class="language-plaintext highlighter-rouge">whole_volume</code> | <code class="language-plaintext highlighter-rouge">time_dependent</code> | — | test-particle orbit orderings (rho/L_B, slowing down on a fixed background) are not a registered contract | Plasma_models.md §5 |
+| <code class="language-plaintext highlighter-rouge">genray:ray_tracing</code> | <em>unclassified</em> | — | — | — | — | — | — | — | — | ray tracing (WKB) is neither a fluid nor a kinetic bulk description in the vocabulary | not audited |
+| <code class="language-plaintext highlighter-rouge">transp:integrated</code> | <em>unclassified</em> | — | — | — | — | — | — | — | — | an integrated-modelling run combines several formalisms; its components are classified | not audited |
+| <code class="language-plaintext highlighter-rouge">flare:field_lines</code> | <em>unclassified</em> | — | — | — | — | — | — | — | — | field-line tracing through a given equilibrium and 3-D perturbation: magnetic topology only, no plasma model is solved, so no plasma formalism applies | vaft/code/flare.py |
+| <code class="language-plaintext highlighter-rouge">mitim:drivers</code> | <em>unclassified</em> | — | — | — | — | — | — | — | — | a driver: the NEO and TGLF runs it launches are the gacode:neo and gacode:tglf modes; PORTALS flux matching (#1588, not yet in VAFT) will be transport_coupled | vaft/code/mitim (#1588) |
+<!-- /generated --></p>
+
+<p><strong>Not in VAFT.</strong> These codes are classified for comparison and interoperability only. The ASCOT5 row is verified
+from upstream documentation (audit §5); the others are provisional, from literature (audit §5, §9). None has a
+VAFT run adapter; ASCOT5 appears only as a diagram catalogue entry.</p>
+
+<!-- generated:external-codes -->
+<p>| code | bulk | kinetic equation / fluid model | domain | numerical realization |
+| — | — | — | — | — |
+| GENE / GENE-X | kinetic | gyrokinetic; GENE-X full-f, across the separatrix | local or global; GENE-X whole volume | continuum |
+| GTC | kinetic | gyrokinetic ions and energetic particles (GTC-X: no primary reference identified) | global | PIC |
+| ORB5 | kinetic | gyrokinetic, δf with control variates | global | PIC |
+| MARS-F / MARS-K | fluid / hybrid | resistive MHD with flow and wall; MARS-K adds drift-kinetic resonances | whole volume | — |
+| ASCOT5 | particle | test-particle Fokker–Planck | whole volume | Monte Carlo, full or guiding-centre orbit |
+| SIMPLE | particle | none (orbit integration) | whole volume | symplectic guiding-centre integrator |
+<!-- /generated --></p>
+
+<p><img src="/vaft/develop/assets/diagrams/solver_placement_map.svg" alt="solver placement map" /></p>
+
+<p><em><code class="language-plaintext highlighter-rouge">vaft.diagram.solver_placement_map</code>: every registered mode against the axes of §2; codes not in VAFT (<code class="language-plaintext highlighter-rouge">vaft.diagram.EXTERNAL_CODES</code>) are hollow.</em></p>
+
+<h2 id="10-still-unresolved">10. Still unresolved</h2>
+
+<p>These classifications are open and are shown as such, not smoothed over (audit §8):</p>
+<ul>
+  <li><strong>No record:</strong> the GPEC threshold layer models (<code class="language-plaintext highlighter-rouge">gpec:thresholds</code>; SLAYER, Callen), GENRAY ray tracing (WKB is
+neither a fluid nor a kinetic bulk description), TRANSP integrated runs (combinations of formalisms),
+FLARE field-line tracing (topology only, no plasma model) and the MITIM drivers (the NEO and TGLF runs
+they launch carry their own records). They are
+listed in the matrix as <em>unclassified</em> with the reason.</li>
+  <li><strong>No contract:</strong> NUBEAM’s test-particle orbit orderings ($\rho/L_B$, slowing down on a fixed background) are not
+a registered ordering contract, and a reduced model’s own closure or fit is covered by none.</li>
+  <li><strong>DCON and GPEC (evidence missing):</strong>
+    <ul>
+      <li>whether DCON kinetic is “drift-kinetic MHD” in the sense of Park (2011) and Park &amp; Logan (2017);</li>
+      <li>the Kruskal–Oberman correspondence (PENTRC implements a CGL limit; no KO-labelled limit exists in its source);</li>
+      <li>how the fluid compressional term and δW_k are partitioned (possible double counting);</li>
+      <li>finite orbit width in PENTRC (inferred absent, not stated);</li>
+      <li>the derivation of the “harmonic” collision model;</li>
+      <li>the physics of the SLAYER and Callen threshold models.</li>
+    </ul>
+  </li>
+  <li><strong>GACODE (evidence missing):</strong> the class of CGYRO’s collision operator, and whether NEO’s and CGYRO’s operators
+share a category; the FLR content of TGLF’s moments; the training provenance of the TGLF-NN models VAFT resolves.</li>
+  <li><strong>Taxonomy design:</strong> NUBEAM’s guiding centre + FLR sampling fits neither orbit value; whether full orbit belongs
+under the kinetic equation or the orbit representation (the record puts it under orbit representation);
+pressure versus current coupling in hybrid codes (MEGA, MARS-K); how kinetic reduced MHD (KRMHD) is
+represented.</li>
+  <li><strong>Pending backend adoption:</strong> the GACODE records still trust parts of the run configuration (#1735).</li>
+</ul>
+
+<h2 id="11-glossary">11. Glossary</h2>
+
+<p>Where a term has a controlled value in <code class="language-plaintext highlighter-rouge">vaft.code.formalism</code>, the value is given; the test checks that every value
+named here exists. A term without one is not part of the record, on purpose.</p>
+
+<!-- glossary -->
+<p>| term | meaning | record value |
+| — | — | — |
+| MHD | single-fluid magnetohydrodynamics; ideal (no dissipation) or resistive | <code class="language-plaintext highlighter-rouge">fluid_model</code>: <code class="language-plaintext highlighter-rouge">ideal_mhd</code>, <code class="language-plaintext highlighter-rouge">resistive_mhd</code> |
+| extended MHD | fluid closures beyond resistive MHD: Hall, electron pressure and inertia, gyroviscosity, anisotropic pressure | <code class="language-plaintext highlighter-rouge">fluid_model</code>: <code class="language-plaintext highlighter-rouge">extended_mhd</code> |
+| kinetic MHD | a fluid bulk with a kinetic response of selected populations; a family of couplings | <code class="language-plaintext highlighter-rouge">bulk_description</code>: <code class="language-plaintext highlighter-rouge">hybrid</code> |
+| hybrid | any fluid–kinetic coupled description | <code class="language-plaintext highlighter-rouge">bulk_description</code>: <code class="language-plaintext highlighter-rouge">hybrid</code> |
+| closure | the relation that ends a moment hierarchy; in the record, a kinetic result evaluated on a given fluid displacement | <code class="language-plaintext highlighter-rouge">kinetic_coupling</code>: <code class="language-plaintext highlighter-rouge">closure</code> |
+| Vlasov / Fokker–Planck | the full kinetic equation, collisionless or collisional; no VAFT solver evolves it for the bulk plasma | none for the bulk |
+| test-particle Fokker–Planck | the kinetic equation of a test population in a fixed background, as NUBEAM solves it | <code class="language-plaintext highlighter-rouge">kinetic_equation</code>: <code class="language-plaintext highlighter-rouge">fokker_planck</code> |
+| guiding centre | the gyro-averaged position of a particle and its drift equations of motion | <code class="language-plaintext highlighter-rouge">orbit_representation</code>: <code class="language-plaintext highlighter-rouge">guiding_center</code> |
+| full orbit | the particle trajectory under the full Lorentz force | <code class="language-plaintext highlighter-rouge">orbit_representation</code>: <code class="language-plaintext highlighter-rouge">full_orbit</code> |
+| drift kinetic | a kinetic equation for the gyro-averaged distribution at $k_\perp\rho\ll1$ | <code class="language-plaintext highlighter-rouge">kinetic_equation</code>: <code class="language-plaintext highlighter-rouge">drift_kinetic</code> |
+| gyrokinetic | a kinetic equation for the gyrocentre distribution keeping $k_\perp\rho\sim1$ | <code class="language-plaintext highlighter-rouge">kinetic_equation</code>: <code class="language-plaintext highlighter-rouge">gyrokinetic</code>; <code class="language-plaintext highlighter-rouge">orbit_representation</code>: <code class="language-plaintext highlighter-rouge">gyrocenter</code> |
+| FLR | finite-Larmor-radius effects: corrections in $k_\perp\rho$ or $\rho/L$ | none (solver detail) |
+| δf | the distribution split into a known background and a small perturbation that is evolved | <code class="language-plaintext highlighter-rouge">distribution_formulation</code>: <code class="language-plaintext highlighter-rouge">delta_f</code> |
+| full-f | the whole distribution is evolved | <code class="language-plaintext highlighter-rouge">distribution_formulation</code>: <code class="language-plaintext highlighter-rouge">full_f</code> |
+| local | a flux tube or a single surface, with profiles and gradients taken at one radius | <code class="language-plaintext highlighter-rouge">spatial_domain</code>: <code class="language-plaintext highlighter-rouge">local</code> |
+| global | a radial range with profile variation, or the whole plasma volume | <code class="language-plaintext highlighter-rouge">spatial_domain</code>: <code class="language-plaintext highlighter-rouge">radially_global</code>, <code class="language-plaintext highlighter-rouge">whole_volume</code> |
+| continuum | a solution on a phase-space grid (Eulerian) | none (<code class="language-plaintext highlighter-rouge">extensions</code>) |
+| PIC | particle-in-cell: markers sample the distribution; fields on a grid | none (<code class="language-plaintext highlighter-rouge">extensions</code>) |
+| Monte Carlo | stochastic markers, e.g. for collisions in a test-particle Fokker–Planck solution | none (<code class="language-plaintext highlighter-rouge">extensions</code>) |
+| surrogate | a model trained on another model’s outputs to stand in for it (an analytic fit to a theory is a reduction, not a surrogate) | <code class="language-plaintext highlighter-rouge">bulk_description</code>: <code class="language-plaintext highlighter-rouge">reduced</code>; <code class="language-plaintext highlighter-rouge">derived_from</code>: <code class="language-plaintext highlighter-rouge">gyrokinetic</code> |
+<!-- /glossary --></p>
+
+<h2 id="references">References</h2>
+
+<ol>
+  <li>P. Helander and D. J. Sigmar, <em>Collisional Transport in Magnetized Plasmas</em>, Cambridge University Press (2002).</li>
+  <li>S. I. Braginskii, in <em>Reviews of Plasma Physics</em>, Vol. 1, Consultants Bureau (1965), p. 205.</li>
+  <li>J. P. Freidberg, <em>Ideal MHD</em>, Cambridge University Press (2014).</li>
+  <li>H. R. Strauss, Phys. Fluids 19 (1976) 134.</li>
+  <li>R. G. Littlejohn, J. Plasma Phys. 29 (1983) 111; J. R. Cary and A. J. Brizard, Rev. Mod. Phys. 81 (2009) 693.</li>
+  <li>E. A. Frieman and L. Chen, Phys. Fluids 25 (1982) 502; A. J. Brizard and T. S. Hahm, Rev. Mod. Phys. 79 (2007) 421.</li>
+  <li>M. D. Kruskal and C. R. Oberman, Phys. Fluids 1 (1958) 275; C. Z. Cheng, Phys. Rep. 211 (1992) 1.</li>
+  <li>G. M. Staebler, J. E. Kinsey and R. E. Waltz, Phys. Plasmas 14 (2007) 055909; G. W. Hammett and F. W. Perkins,
+Phys. Rev. Lett. 64 (1990) 3019.</li>
+</ol>
+
+<p>Primary sources for each backend mode (upstream source lines, solver papers) are in the audit page.</p>
+
+
+<section class="related-resources" aria-labelledby="related-resources-title">
+  <h2 id="related-resources-title">Related resources</h2>
+  <div class="related-resources-grid">
+    
+    
+    <div class="related-resource-group" data-resource-kind="api">
+      <h3>API</h3>
+      <ul>
+        
+          
+          <li data-resource-id="code"><a href="/vaft/develop/reference/api/code/"><code>vaft.code</code></a></li>
+        
+          
+          <li data-resource-id="validation"><a href="/vaft/develop/reference/api/validation/"><code>vaft.validation</code></a></li>
+        
+      </ul>
+    </div>
+    
+    
+    
+  </div>
+</section>
+
+</section>
+            </div><div class="search-results">
+    <div class="has-results">
+        <h1 class="search-results-title"><span class='search-results-count'></span> results matching "<span class='search-query'></span>"</h1>
+        <ul class="search-results-list"></ul>
+    </div>
+    <div class="no-results">
+        <h1 class="search-results-title">No results matching "<span class='search-query'></span>"</h1>
+    </div>
+</div></div>
+    </div>
+</div>
+
+<!-- introduce mathjax support -->
+<script>
+window.MathJax = {
+  tex: {
+    inlineMath: [ ['$', '$'], ['\\(', '\\)'] ]
+  },
+  svg: {
+    fontCache: 'global'
+  }
+};
+</script>
+<script
+  type="text/javascript" id="MathJax-script" async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+</script>
+
+
+<!-- introduce per-page mermaid support -->
+
+
+<!-- introduce mathjax support -->
+<script>
+    function fixes_chrome_anchors() {
+        let chrome = /Chrome/.test(navigator.userAgent) && /Google Inc/.test(navigator.vendor);
+        if (window.location.hash && chrome) {
+            setTimeout(function () {
+                var hash = window.location.hash;
+                window.location.hash = "";
+                window.location.hash = hash;
+            }, 300);
+        }
+    }
+
+    if (document.readyState === "loading") {
+        // Loading hasn't finished yet
+        document.addEventListener("DOMContentLoaded", fixes_chrome_anchors);
+    } else {
+        // `DOMContentLoaded` has already fired
+        fixes_chrome_anchors();
+    }
+</script>
+
+
+                        <a href="/vaft/develop/reference/process/resonant_coil_response/" class="navigation navigation-prev navigation-unique" aria-label="Previous page: Process reference: resonant_coil_response">
+                            <i class="fa fa-angle-left"></i>
+                        </a>
+                    
+
+                    
+                        <a href="/vaft/develop/reference/characteristic-scales/" class="navigation navigation-next navigation-unique" aria-label="Next page: Characteristic scales and orderings">
+                            <i class="fa fa-angle-right"></i>
+                        </a>
+                    
+                </div>
+            </div>
+
+            
+                <aside id="page-toc" class="page-toc" aria-label="On this page" tabindex="-1">
+    <div class="page-toc-header">
+        <span>On this page</span>
+        <button type="button" class="page-toc-close js-page-toc-toggle" aria-label="Close page table of contents" aria-controls="page-toc" aria-expanded="false">
+            <i class="fa fa-times" aria-hidden="true"></i>
+        </button>
+    </div>
+    <nav class="page-toc-nav" aria-label="Page table of contents">
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#1-one-starting-point-many-reductions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">1. One starting point, many reductions</a></li><li class="page-toc-item page-toc-level-2"><a href="#2-the-axes-are-independent" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">2. The axes are independent</a></li><li class="page-toc-item page-toc-level-2"><a href="#3-fluid-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">3. Fluid models</a></li><li class="page-toc-item page-toc-level-2"><a href="#4-kinetic-models" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4. Kinetic models</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#41-trajectories-are-not-distributions" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4.1 Trajectories are not distributions</a></li><li class="page-toc-item page-toc-level-3"><a href="#42-drift-kinetics-and-gyrokinetics" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">4.2 Drift kinetics and gyrokinetics</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#5-kinetic-mhd-is-a-coupling-not-an-equation" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">5. Kinetic-MHD is a coupling, not an equation</a></li><li class="page-toc-item page-toc-level-2"><a href="#6-reduced-models-and-surrogates" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">6. Reduced models and surrogates</a></li><li class="page-toc-item page-toc-level-2"><a href="#7-what-each-family-is-for" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">7. What each family is for</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#time-scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Time scales</a></li><li class="page-toc-item page-toc-level-3"><a href="#spatial-scales" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Spatial scales</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#8-kinetic-means-seven-different-things" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">8. “Kinetic” means seven different things</a></li><li class="page-toc-item page-toc-level-2"><a href="#9-every-vaft-mode-placed" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">9. Every VAFT mode, placed</a></li><li class="page-toc-item page-toc-level-2"><a href="#10-still-unresolved" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">10. Still unresolved</a></li><li class="page-toc-item page-toc-level-2"><a href="#11-glossary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">11. Glossary</a></li><li class="page-toc-item page-toc-level-2"><a href="#references" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">References</a></li></ul>
+    </nav>
+</aside>
+
+            
+
+            <script>
+            var gitbook = gitbook || [];
+            gitbook.push(function() {
+                gitbook.page.hasChanged({
+    "page": {
+        "title": "Introduction",
+        "level": "1.1",
+        "depth": 1,
+        
+        "next": {
+            "title": "Characteristic scales and orderings",
+            "level": "1.2",
+            "depth": 1,
+            "path": "_guide/Characteristic_scales_and_orderings.md",
+            "ref": "_guide/Characteristic_scales_and_orderings.md",
+            "articles": []
+        },
+        
+        "dir": "ltr"
+    },    "config": {
+        "plugins": ["fontsettings", "highlight", "livereload", "lunr", "search", "sharing", "theme-default", "livereload"],
+        "styles": {
+            "ebook": "styles/ebook.css",
+            "epub": "styles/epub.css",
+            "mobi": "styles/mobi.css",
+            "pdf": "styles/pdf.css",
+            "print": "styles/print.css",
+            "website": "styles/website.css"
+        },
+        "pluginsConfig": {
+            "expandable-chapter-small2": {
+                "articlesExpand": true,
+            },
+            "fontsettings": {
+                "family": "sans",
+                "size": 2,
+                "theme": "white"
+            },
+            "highlight": {},
+            "livereload": {},
+            "lunr": {
+                "ignoreSpecialCharacters": false,
+                "maxIndexSize": 1000000
+            },
+            "search": {},            "sharing": {
+                "facebook": true,
+
+                "google": false,
+
+                "github": true,
+              
+                "github_link": "https://github.com",
+              
+
+                "telegram": false,
+                "telegram_link": "https://t.me",
+
+                "instapaper": false,
+
+                "twitter": true,
+              
+
+                "vk": false,
+
+                "weibo": false,
+
+                "all": ["facebook", "google", "twitter", "weibo", "instapaper", "github", "telegram"]
+            },
+"theme-default": {
+                "showLevel": false,
+                "styles": {
+                    "ebook": "styles/ebook.css",
+                    "epub": "styles/epub.css",
+                    "mobi": "styles/mobi.css",
+                    "pdf": "styles/pdf.css",
+                    "print": "styles/print.css",
+                    "website": "styles/website.css"
+                }
+            },
+        },
+        "theme": "default",
+        "author": "Tao He",
+        "pdf": {
+            "pageNumbers": true,
+            "fontSize": 12,
+            "fontFamily": "Arial",
+            "paperSize": "a4",
+            "chapterMark": "pagebreak",
+            "pageBreaksBefore": "/",
+            "margin": {
+                "right": 62,
+                "left": 62,
+                "top": 56,
+                "bottom": 56
+            }
+        },
+        "structure": {
+            "langs": "LANGS.md",
+            "readme": "README.md",
+        },
+        "variables": {},
+        "title": "VAFT",
+        "language": "en",
+        "gitbook": "*"
+    },
+    "file": {
+        "path": "_guide/Plasma_model_guide.md",
+        "mtime": "2026-10-11 09:00:00 +0000",
+        "type": "markdown"
+    },
+    "gitbook": {
+        "version": "3.2.3",
+        "time": "2026-10-12 00:21:41 +0000"
+    },
+    "basePath": "/vaft/develop",
+    "book": {
+        "language": ""
+    }
+});
+            });
+            </script>
+        </div><script src="/vaft/develop/assets/gitbook/gitbook.js"></script>
+<script src="/vaft/develop/assets/gitbook/theme.js"></script>
+
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-back-to-top-button/plugin.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-copy-code-button/toggle.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-expandable-chapters-small2/expandable-chapters-small.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-fontsettings/fontsettings.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/jquery.mark.min.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-search-pro/search.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-sharing/buttons.js"></script>
+<script src="/vaft/develop/assets/gitbook/gitbook-plugin-splitter/splitter.js"></script>
+
+<!--
+<script src="../gitbook/gitbook-plugin-lunr/lunr.min.js"></script>
+<script src="../gitbook/gitbook-plugin-lunr/search-lunr.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search-engine.js"></script>
+<script src="../gitbook/gitbook-plugin-search/search.js"></script>
+-->
+
+<script src="/vaft/develop/assets/gitbook/custom.js"></script>
+<script src="/vaft/develop/assets/gitbook/custom-local.js?v=20260921-1"></script>
+
+</body>
+</html>

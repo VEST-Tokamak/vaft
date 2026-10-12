@@ -181,9 +181,15 @@
                     </li>
                 
                     
+                    <li class="chapter" data-level="nav.v1.reference.plasma-model-guide" data-path="/vaft/develop/reference/plasma-model-guide/">
+                    
+                        <a href="/vaft/develop/reference/plasma-model-guide/" onclick="pageScrollToTop(this)">Plasma models: a guide</a>
+                    </li>
+                
+                    
                     <li class="chapter" data-level="nav.v1.reference.plasma-models" data-path="/vaft/develop/reference/plasma-models/">
                     
-                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models, orderings, and scales</a>
+                        <a href="/vaft/develop/reference/plasma-models/" onclick="pageScrollToTop(this)">Plasma models: audit record</a>
                     </li>
                 
                     
@@ -384,7 +390,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4ee9bf3</code>. What is described
+  <code>7ebacdc</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -420,6 +426,10 @@ of the <em>same</em> scientific operation. Most VAFT calculations do not need on
 vocabulary (issue #1078, under the umbrella #1077) so that contributors put new work in the right
 place. How these layers fit with data, validation, orchestration and the other architecture views is
 mapped on <a href="/vaft/develop/reference/scientific-architecture/">Scientific architecture</a>.</p>
+
+<p><strong>Independent of the physics.</strong> These layers say <em>where</em> a computation lives. <em>What physical model</em> it
+represents (MHD, drift kinetic, gyrokinetic, hybrid, orbit) is a separate classification, in <a href="/vaft/develop/reference/plasma-model-guide/">Plasma models: a guide</a>. A Code-layer
+adapter can run several models, and one model can appear in several layers.</p>
 
 <h2 id="terminology">Terminology</h2>
 
@@ -904,7 +914,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-11 23:39:24 +0000"
+        "time": "2026-10-12 00:21:41 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
