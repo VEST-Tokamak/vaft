@@ -8,6 +8,7 @@ from numpy import ndarray
 from scipy.interpolate import interp1d
 from omas import *
 import logging
+import warnings
 
 logger = logging.getLogger(__name__)
 from vaft.omas.process_wrapper import compute_volume_averaged_pressure
@@ -601,7 +602,27 @@ def compute_tau_E_exp(ods, time_slice: int, Z_eff: float = 2.0) -> float:
     -------
     float
         Experimental confinement time [s]
+
+    Definition (legacy, #1905)
+    --------------------------
+    This is the *modelled* power budget: heating is the Spitzer
+    $\\int \\eta J^2 dV$ of the core profiles (Z_eff = 2, ln Lambda = 17, #1188),
+    the radiation is modelled (line + bremsstrahlung + synchrotron) and always
+    subtracted, and W = (3/2) <p> V with p = 2 n_e T_e (T_i = T_e). The
+    experimental Ohmic confinement time of VAFT -- P_OH = I_p V_res from the
+    measured loop voltage with the internal-inductive part removed, P_net =
+    P_OH - dW/dt with unmeasured radiation left unsubtracted, and an
+    explicit stored-energy source -- is
+    :func:`vaft.omas.confinement.ohmic_confinement_ods`. The two answer
+    different questions and are kept apart; the persisted summary columns
+    ``p_loss_MW`` and ``tau_e_s`` keep this definition.
     """
+    warnings.warn(
+        "compute_tau_E_exp divides by the legacy modelled loss power (Spitzer heating, modelled radiation, "
+        "W from core profiles with T_i = T_e); the experimental Ohmic confinement time is "
+        "vaft.omas.confinement.ohmic_confinement_ods (#1905). The definition here is kept unchanged.",
+        FutureWarning, stacklevel=2,
+    )
     eq_ts = ods['equilibrium.time_slice'][time_slice]
     
     # Get stored thermal energy W_th using compute_volume_averaged_pressure (core_profiles option)
@@ -1216,6 +1237,12 @@ def compute_power_balance(
     - P_heat = P_ohm_diss + P_aux = P_ohm_diss
     - P_loss = P_heat - dW/dt - P_rad
 
+    This is the *modelled* budget (#1905): Spitzer heating, modelled radiation
+    always subtracted, W from core profiles with T_i = T_e, and dW/dt set to 0
+    for a single slice. ``P_ohm_flux`` is returned for comparison but does not
+    enter ``P_loss``. The experimental Ohmic confinement chain is
+    :func:`vaft.omas.confinement.ohmic_confinement_ods`.
+
     OPEN-ADAS line-radiation model:
     - Uses ADF11 equilibrium line cooling coefficients from VAFT's atomic modules.
     - Computes P_rad_line = ∫ n_e * n_imp * Lz_line(Te, ne) dV.
@@ -1495,7 +1522,11 @@ def compute_confiment_time_paramters(
     H_factor : float
         H = tau_exp / tau_ITER89P (uses confinement_factor_ITER89P).
     tau_exp : float
-        Experimental confinement time tau_exp = W_th / P_loss.
+        Experimental confinement time tau_exp = W_th / P_loss, on the legacy
+        modelled budget of :func:`compute_power_balance` (see
+        :func:`compute_tau_E_exp`); the scalings take that P_loss too, and the
+        H factor is the plain ratio with no energy- or power-basis check
+        (the basis-aware one is :func:`vaft.data.public.h_factor`, #1713).
 
     Notes
     -----

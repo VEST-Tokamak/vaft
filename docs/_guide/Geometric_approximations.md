@@ -354,6 +354,7 @@ The tearing diagrams (`rational_surface`, `delta_prime`, `tearing_layer_matching
 cylinder and sheared slab described here. The current-sheet, X-point, reconnection and MHD-wave
 diagrams (`current_sheet`, `x_point`, `magnetic_reconnection`, `shear_alfven_wave`, `mhd_wave_family`)
 use the slab frame of this page. See [Scientific diagrams]({{ '/reference/diagrams/' | relative_url }}).
+The scales these orderings compare, and how to name them, are [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}).
 
 ## References
 

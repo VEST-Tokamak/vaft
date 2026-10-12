@@ -53,8 +53,11 @@ sections:
       - id: credibility-applicability
         title: Credibility and applicability
         url: /reference/credibility-applicability/
+      - id: plasma-model-guide
+        title: "Plasma models: a guide"
+        url: /reference/plasma-model-guide/
       - id: plasma-models
-        title: Plasma models, orderings, and scales
+        title: "Plasma models: audit record"
         url: /reference/plasma-models/
       - id: dependency-graph
         title: Dependency explorer
@@ -86,6 +89,9 @@ sections:
       - id: geometric-approximations
         title: Geometric approximations
         url: /reference/geometric-approximations/
+      - id: characteristic-scales
+        title: Characteristic scales and orderings
+        url: /reference/characteristic-scales/
       - id: asymptotic-orderings
         title: Asymptotic orderings
         url: /reference/asymptotic-orderings/

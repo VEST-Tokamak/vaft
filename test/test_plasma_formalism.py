@@ -245,4 +245,6 @@ def test_cgyro_runs_record_the_shared_record_beside_the_1353_one():
 
     from vaft.code.gacode.cgyro import runner
 
-    assert '"plasma_formalism": plasma_formalism(configuration).as_dict()' in inspect.getsource(runner)
+    # Since #1735 the record is read from the written input, not the configuration alone.
+    source = inspect.getsource(runner)
+    assert '"plasma_formalism": plasma_formalism(configuration, parameters=inputs.parameters).as_dict()' in source

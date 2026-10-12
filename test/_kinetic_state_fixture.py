@@ -14,5 +14,6 @@ if str(_WORKFLOW) not in sys.path:
     sys.path.insert(0, str(_WORKFLOW))
 
 from archive_to_ods import (  # noqa: E402,F401
-    ARCHIVE, CASES, E, LINEAGES, KineticStateCase, kinetic_state_case, kinetic_state_ods, load_archive,
+    ARCHIVE, CASES, E, LINEAGES, SYNTHETIC_ZEFF_ROMERO, SYNTHETIC_ZEFF_ROMERO_SIGMA, TI_EQUALS_TE_RECORD,
+    KineticStateCase, kinetic_state_case, kinetic_state_ods, load_archive, romero_first_case,
 )

@@ -1898,6 +1898,10 @@ diagnostics_time_policies:
 # changed between discharges could not group them.
 equilibrium_regime:
 
+  # Carried on every label and every exported row, so a cohort table says
+  # which rule drew it. Bump it when a threshold or a label set changes.
+  version: 2
+
   phase:
     # `level`: flat where |Ip| >= flat_fraction_of_peak * peak|Ip|, and
     # ramp_up / ramp_down by which side of the peak the slice falls on.
@@ -1953,6 +1957,34 @@ equilibrium_regime:
       values are listed because EFIT can write them, not because VEST has
       been observed to produce one -- shot 46742 was checked and its eight
       converged slices are all IN. Nothing here claims VEST diverts.
+
+  current_bins:
+    # |Ip| bin edges; below the first edge is the vacuum bin, the same number
+    # as phase.vacuum_current_amperes and EFIT's CUTIP. Labels are derived
+    # from the edges ("15-50kA", "ge150kA").
+    edges_amperes: [15000.0, 50000.0, 100000.0, 150000.0]
+    status: measured
+    provenance: >-
+      Every attempted EFIT slice in production on 2026-10-11 (2,703 shots,
+      38,246 slices from the constraints ODS, so slices that wrote no g-file
+      count too): |Ip| percentiles 5/25/50/75/95 = 18/36/65/107/207 kA, and
+      38 %, 72 % and 87 % of slices lie below 50, 100 and 150 kA. The edges
+      are round numbers near the quartiles, so no bin is starved.
+
+  ramp_rate_bins:
+    # Bins of d|Ip|/dt -- the rate of the current's magnitude, so "rising"
+    # means the same thing whichever way the current flows.
+    edges_amperes_per_second: [-1.0e7, -2.0e6, 2.0e6, 1.0e7]
+    labels: [falling_fast, falling, steady, rising, rising_fast]
+    status: measured
+    provenance: >-
+      Same 38,246 slices: d|Ip|/dt percentiles 5/25/50/75/95 = -27.7/-8.8/
+      -0.1/+9.6/+31.0 MA/s; 21 % of slices lie within +-2 MA/s and 53 %
+      within +-10 MA/s. +-2 MA/s is the steady band (a 100 kA plasma changing
+      by under 2 % per ms), +-10 MA/s splits the ramps near their quartiles.
+      This is an absolute rate, unlike phase: a cohort axis wants the same
+      MA/s everywhere, whereas phase asks how flat a plasma is relative to
+      its own peak.
 
 # How an edge safety factor is estimated for a shot with no equilibrium
 # (#1583). Pipeline policy like `equilibrium_regime`, outside the `0:` / shot

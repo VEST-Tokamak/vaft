@@ -116,6 +116,22 @@ vaft.omas.plot_turbulent_transport_overview({f"TGLF SAT{n}": ct for n, ct in sat
 
 **Radial family.** `core_transport` with one anomalous model per SAT rule over r/a 0.6-0.8. Each model gets one color, with electrons solid and ions dashed.
 
+## Turbulence–zonal-flow (predator–prey) views
+
+Three native views in `vaft.plot.gyrokinetics` (#1820) draw what `vaft.process.gyrokinetics` derived from a nonlinear run. They do not detect peaks, correlate or fit anything themselves.
+
+| view | draws | takes |
+| --- | --- | --- |
+| `plot_predator_prey_trace` | $N(t)$, $E(t)$ and optionally $Q(t)$ in stacked panels | the traces, plus an optional `PredatorPreyFit` (dashed, on its own window) and an optional `PredatorPreyCycleMetrics` (peak markers) |
+| `plot_predator_prey_phase_space` | the measured $N$–$E$ trajectory, coloured by time and with direction arrows | an optional fit, which adds the fitted orbit, both nullclines ($\dot N=0$: $E=\gamma_\mathrm{eff}/c_1$; $\dot E=0$: $N=\gamma_Z/c_2$), the fixed point and the model vector field, all evaluated from `vaft.formula.turbulence` |
+| `plot_predator_prey_lag` | the cross-correlation $\mathrm{corr}(N(t), E(t+\tau))$ against $\tau$ | the curve from `predator_prey_cycle_metrics`, plus the correlation maximum, the mean peak response lag and a model lag (e.g. the linearized $T/4$) as markers |
+
+$N$ and $E$ are potential-intensity proxies (`zonal_turbulence_intensity`). Fitted couplings $c_1, c_2$ depend on that definition, and the fit records it.
+
+The classical Lotka–Volterra orbit is one of a family of neutrally stable closed orbits, not an attracting limit cycle. A good fit means the traces are compatible with predator–prey dynamics; it does not prove the mechanism.
+
 ## What stays outside plotting
 
 Descriptors such as $\gamma_{max}$, the $k_y$ of the flux peak, $f_e$ and $f_{EM}$ are computed in the analysis layer (`workflow/transport_atlas`, `vaft.process`) and only drawn here. The plot layer infers no turbulence-mode labels (ITG, TEM, ETG, KBM, MTM).
+
+Which orderings a gyrokinetic run assumes ($\rho_s/L_T$, $k_\perp\rho_i$, $\omega/\Omega_i$), and why drift kinetics is not a lower-fidelity gyrokinetic model, is [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}).
