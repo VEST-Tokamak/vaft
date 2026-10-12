@@ -29,9 +29,14 @@ incomplete are reported rather than absorbed:
 
 from __future__ import annotations
 
+import csv
+import json
 from collections import Counter
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
+
+import numpy as np
 
 from .equilibrium_regime import (
     RegimeLabels,
@@ -42,8 +47,11 @@ __all__ = [
     "FAILURE_MODES",
     "SliceOutcome",
     "CohortJoin",
+    "cohort_rows",
     "join_regime_and_termination",
+    "representative_cases",
     "summarize_by_cohort",
+    "write_cohort_table",
 ]
 
 #: What became of a slice, in one word. ``unknown`` is a real answer: it means
@@ -75,6 +83,12 @@ class SliceOutcome:
     #: when the log has no slice at this instant.
     termination: Mapping[str, Any] | None
     mode: str
+    #: The product's graded status for this slice (``usable``,
+    #: ``output_failed``, ``physical_failed``, ...), or ``unknown``.
+    quality: str = "unknown"
+    shot: int | None = None
+    #: Which run or database the slice came from, for grouping across sources.
+    source: str = "unknown"
 
     @property
     def phase(self) -> str:
@@ -83,6 +97,36 @@ class SliceOutcome:
     @property
     def topology(self) -> str:
         return self.regime.topology
+
+    @property
+    def current_bin(self) -> str:
+        return self.regime.current_bin
+
+    @property
+    def rate_bin(self) -> str:
+        return self.regime.rate_bin
+
+    @property
+    def era(self) -> str:
+        return self.regime.era
+
+    @property
+    def event(self) -> str:
+        return self.regime.event
+
+    @property
+    def succeeded(self) -> bool | None:
+        """Whether the slice is a usable reconstruction.
+
+        The graded status decides when there is one -- EFIT accepting a slice
+        says nothing about whether its pressure is positive -- and the log's
+        mode only when there is not. ``None`` when neither knows.
+        """
+        if self.quality != "unknown":
+            return self.quality == "usable"
+        if self.mode == "unknown":
+            return None
+        return self.mode == "accepted"
 
     @property
     def solver_routines(self) -> tuple[str, ...]:
@@ -105,8 +149,11 @@ class SliceOutcome:
     def as_dict(self) -> dict[str, Any]:
         """A JSON-safe record carrying both halves and their inputs."""
         return {
+            "shot": self.shot,
+            "source": self.source,
             "time": float(self.time),
             "mode": self.mode,
+            "quality": self.quality,
             "regime": self.regime.as_dict(),
             "exit_path": None if not self.termination else self.termination.get("exit_path"),
             "iterations_n": None if not self.termination else self.termination.get("iterations_n"),
@@ -159,13 +206,36 @@ def join_regime_and_termination(
     slices: Sequence[Mapping[str, Any]],
     *,
     policy=None,
+    slice_statuses: Sequence[Mapping[str, Any]] | None = None,
+    shot: int | None = None,
+    source: str = "unknown",
+    **evidence: Any,
 ) -> CohortJoin:
     """Put each reconstruction slice's regime beside how EFIT ended it.
 
     ``slices`` is what :func:`vaft.code.efit.parse_slices` returns for the run
-    that produced this reconstruction.
+    that produced this reconstruction. ``slice_statuses`` is the product
+    manifest's per-slice grading (``{"time", "overall_status", ...}``),
+    matched by millisecond like the log. ``evidence`` goes to
+    :func:`classify_equilibrium_regimes` (``era``, ``passive_current``,
+    ``events``, ``limloc``).
+
+    Pass the run's constraints ODS to cohort every *attempted* slice; a
+    reconstruction holds only those that wrote a g-file, so its failures
+    would surface only as ``unmatched_log_times``.
     """
-    labels = classify_equilibrium_regimes(ods, policy=policy)
+    labels = classify_equilibrium_regimes(ods, policy=policy, **evidence)
+    status_by_ms: dict[int, str] = {}
+    for record in slice_statuses or ():
+        if record.get("time") is None:
+            continue  # a status for no instant grades nothing
+        key = int(round(float(record["time"]) * 1000.0))
+        if key in status_by_ms:
+            raise ValueError(
+                f"two slice statuses fall on the same millisecond ({key}); "
+                "joining them would grade a slice with another's status"
+            )
+        status_by_ms[key] = str(record.get("overall_status") or "unknown")
 
     by_ms: dict[int, int] = {}
     collisions: list[int] = []
@@ -194,10 +264,26 @@ def join_regime_and_termination(
                 regime=label,
                 termination=record,
                 mode=_mode(record),
+                quality=status_by_ms.get(key, "unknown"),
+                shot=None if shot is None else int(shot),
+                source=str(source),
             )
         )
     unmatched = tuple(sorted(set(log_by_ms) - set(by_ms)))
     return CohortJoin(outcomes=tuple(outcomes), unmatched_log_times=unmatched)
+
+
+def _check_group_by(group_by: Sequence[str]) -> tuple[str, ...]:
+    from dataclasses import fields as dataclass_fields
+
+    fields = tuple(group_by)
+    if not fields:
+        raise ValueError("group_by must name at least one field")
+    known = {item.name for item in dataclass_fields(SliceOutcome)}
+    for field in fields:
+        if field not in known and not isinstance(getattr(SliceOutcome, field, None), property):
+            raise ValueError(f"SliceOutcome has no '{field}' to group by")
+    return fields
 
 
 def summarize_by_cohort(
@@ -205,8 +291,9 @@ def summarize_by_cohort(
 ) -> dict[str, Any]:
     """Outcome counts per cohort, plus what each cohort's failures blame.
 
-    ``group_by`` names attributes of :class:`SliceOutcome` -- ``phase`` and
-    ``topology`` today -- and cohorts are keyed by their values joined with
+    ``group_by`` names attributes of :class:`SliceOutcome` -- ``phase``,
+    ``topology``, ``current_bin``, ``rate_bin``, ``era``, ``event``,
+    ``quality``, ``source`` -- and cohorts are keyed by their values joined with
     ``|``, in the order given.
 
     The warning tally is reported separately from the mode because it answers
@@ -215,14 +302,8 @@ def summarize_by_cohort(
     VEST those are mostly ``findax`` reporting a separatrix it could not use.
     A cohort can be dominated by one while its modes name the other.
     """
-    fields = tuple(group_by)
-    if not fields:
-        raise ValueError("group_by must name at least one field")
-
+    fields = _check_group_by(group_by)
     items = list(outcomes)
-    for field in fields:
-        if not hasattr(SliceOutcome, field):
-            raise ValueError(f"SliceOutcome has no '{field}' to group by")
 
     cohorts: dict[str, dict[str, Any]] = {}
     for item in items:
@@ -235,6 +316,7 @@ def summarize_by_cohort(
                 "solver_routines": Counter(),
                 "warning_routines": Counter(),
                 "failure_codes": Counter(),
+                "quality": Counter(),
             },
         )
         bucket["slices"] += 1
@@ -242,6 +324,7 @@ def summarize_by_cohort(
         bucket["solver_routines"].update(item.solver_routines)
         bucket["warning_routines"].update(item.warning_routines)
         bucket["failure_codes"].update(item.failure_codes)
+        bucket["quality"][item.quality] += 1
 
     return {
         "group_by": list(fields),
@@ -253,7 +336,152 @@ def summarize_by_cohort(
                 "solver_routines": dict(sorted(bucket["solver_routines"].items())),
                 "warning_routines": dict(sorted(bucket["warning_routines"].items())),
                 "failure_codes": {str(k): v for k, v in sorted(bucket["failure_codes"].items())},
+                "quality": dict(sorted(bucket["quality"].items())),
             }
             for key, bucket in sorted(cohorts.items())
         },
+    }
+
+
+#: Exported columns, in order. Lists are ``;``-joined so a CSV cell holds one.
+_COLUMNS = (
+    "shot", "source", "time", "era", "phase", "topology", "limloc",
+    "current", "fraction_of_peak", "current_bin", "current_rate",
+    "magnitude_rate", "rate_bin", "eddy_current", "eddy_fraction", "event",
+    "mode", "quality", "exit_path", "iterations_n", "solver_routines",
+    "warning_routines", "failure_codes", "reasons", "rule",
+    "classification_version",
+)
+
+
+def cohort_rows(outcomes: Iterable[SliceOutcome]) -> list[dict[str, Any]]:
+    """One flat record per slice, every column of :data:`_COLUMNS`."""
+    rows = []
+    for item in outcomes:
+        regime = item.regime
+        termination = item.termination or {}
+        rows.append(
+            {
+                "shot": item.shot,
+                "source": item.source,
+                "time": float(item.time),
+                "era": regime.era,
+                "phase": regime.phase,
+                "topology": regime.topology,
+                "limloc": regime.limloc,
+                "current": regime.current,
+                "fraction_of_peak": regime.fraction_of_peak,
+                "current_bin": regime.current_bin,
+                "current_rate": regime.current_rate,
+                "magnitude_rate": regime.magnitude_rate,
+                "rate_bin": regime.rate_bin,
+                "eddy_current": regime.eddy_current,
+                "eddy_fraction": regime.eddy_fraction,
+                "event": regime.event,
+                "mode": item.mode,
+                "quality": item.quality,
+                "exit_path": termination.get("exit_path"),
+                "iterations_n": termination.get("iterations_n"),
+                "solver_routines": ";".join(item.solver_routines),
+                "warning_routines": ";".join(item.warning_routines),
+                "failure_codes": ";".join(str(code) for code in item.failure_codes),
+                "reasons": ";".join(regime.reasons),
+                "rule": regime.rule,
+                "classification_version": int(regime.version),
+            }
+        )
+    return rows
+
+
+def write_cohort_table(
+    rows: Sequence[Mapping[str, Any]],
+    path: str | Path,
+    *,
+    policy=None,
+) -> Path:
+    """Write the joined table as CSV or Parquet (by suffix), with its rule.
+
+    The thresholds every label depends on go to ``<path>.meta.json`` beside
+    it, whatever the format, and the version is also a column -- a table
+    whose rule is not recorded cannot be re-cut or compared. Parquet needs
+    ``pandas`` with ``pyarrow``; CSV needs nothing.
+    """
+    from vaft.machine_mapping.equilibrium_regime import vest_equilibrium_regime_policy
+
+    resolved = policy or vest_equilibrium_regime_policy()
+    versions = {row.get("classification_version") for row in rows}
+    if versions - {resolved.version}:
+        raise ValueError(
+            f"rows were classified under version(s) {sorted(versions, key=str)} but the policy "
+            f"whose thresholds would be recorded is version {resolved.version}; pass that policy"
+        )
+    target = Path(path)
+    suffix = target.suffix.lower()
+    if suffix not in {".csv", ".parquet"}:
+        raise ValueError(f"write_cohort_table writes .csv or .parquet, not {target.suffix!r}")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    if suffix == ".csv":
+        with target.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(_COLUMNS), extrasaction="ignore")
+            writer.writeheader()
+            for row in rows:
+                writer.writerow({key: ("" if row.get(key) is None else row.get(key)) for key in _COLUMNS})
+    else:
+        import pandas as pd
+
+        pd.DataFrame([{key: row.get(key) for key in _COLUMNS} for row in rows], columns=list(_COLUMNS)).to_parquet(
+            target, index=False
+        )
+    meta = target.with_name(target.name + ".meta.json")
+    meta.write_text(
+        json.dumps({"rows": len(rows), "columns": list(_COLUMNS), "thresholds": resolved.thresholds()}, indent=2),
+        encoding="utf-8",
+    )
+    return target
+
+
+def representative_cases(
+    outcomes: Iterable[SliceOutcome],
+    *,
+    group_by: Sequence[str] = ("phase",),
+    per_cohort: int = 1,
+) -> dict[str, dict[str, list[dict[str, Any]]]]:
+    """Deterministic example slices per cohort: successes and failures.
+
+    Within a cohort, the cases chosen are those whose ``|Ip|`` is nearest the
+    median of the *whole* cohort (successes and failures together, so both
+    lists are typical of the same population), ties broken by shot then time -- the same input always
+    gives the same cases, and a "typical" case is typical of its cohort
+    rather than the first one a loop met. Success follows
+    :attr:`SliceOutcome.succeeded`; a slice where it is ``None`` is neither.
+    """
+    fields = _check_group_by(group_by)
+    groups: dict[str, list[SliceOutcome]] = {}
+    for item in outcomes:
+        groups.setdefault("|".join(str(getattr(item, f)) for f in fields), []).append(item)
+
+    def median_current(items: list[SliceOutcome]) -> float:
+        currents = [abs(i.regime.current) for i in items if i.regime.current is not None]
+        return float(np.median(currents)) if currents else 0.0
+
+    def pick(items: list[SliceOutcome], median: float) -> list[dict[str, Any]]:
+        ranked = sorted(
+            items,
+            key=lambda i: (
+                abs(abs(i.regime.current) - median) if i.regime.current is not None else float("inf"),
+                -1 if i.shot is None else int(i.shot),
+                float(i.time),
+            ),
+        )
+        return [
+            {"shot": i.shot, "time": float(i.time), "current": i.regime.current, "mode": i.mode, "quality": i.quality}
+            for i in ranked[: int(per_cohort)]
+        ]
+
+    return {
+        key: {
+            "successful": pick([i for i in items if i.succeeded is True], median_current(items)),
+            "failed": pick([i for i in items if i.succeeded is False], median_current(items)),
+        }
+        for key, items in sorted(groups.items())
     }
