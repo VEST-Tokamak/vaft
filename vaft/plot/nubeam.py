@@ -204,10 +204,18 @@ def _birth_columns(native: "NUBEAMOutputs") -> dict[str, np.ndarray]:
     return {k: np.asarray(v, dtype=float) for k, v in native.birth.columns.items()}
 
 
+def _deposition_label(native: "NUBEAMOutputs") -> str:
+    # `birth` is one step's deposition (the last one), not the whole run's.
+    step = native.birth.step
+    which = f"step {step}" if step is not None else "one step"
+    return f"deposition, {which} ({native.birth.count} markers)"
+
+
 def build_nubeam_deposition_poloidal(outputs: Any, *, title: Optional[str] = None) -> GeometryLayers:
     """Beam deposition markers in the poloidal plane.
 
-    Converted from the birth file's centimetres to metres.
+    Shows the last step's markers (``native.birth``); earlier steps are in
+    ``native.birth_steps``. Converted from the birth file's centimetres to metres.
     """
     native = _native(outputs)
     columns = _birth_columns(native)
@@ -215,7 +223,7 @@ def build_nubeam_deposition_poloidal(outputs: Any, *, title: Optional[str] = Non
         r=columns["r"] / _CM_PER_M,
         z=columns["z"] / _CM_PER_M,
         kind="points",
-        label=f"deposition ({native.birth.count} markers)",
+        label=_deposition_label(native),
         style={"marker": "o", "markersize": 2, "color": "palette:8", "alpha": 0.6},
     )
     return GeometryLayers(
@@ -225,7 +233,7 @@ def build_nubeam_deposition_poloidal(outputs: Any, *, title: Optional[str] = Non
 
 
 def build_nubeam_deposition_topview(outputs: Any, *, title: Optional[str] = None) -> GeometryLayers:
-    """Beam deposition markers seen from above.
+    """Beam deposition markers seen from above, for the last step.
 
     The historical VEST workflow looks at deposition this way, and the geometry
     supports it: the birth file stores a toroidal angle per marker. Projected
@@ -244,7 +252,7 @@ def build_nubeam_deposition_topview(outputs: Any, *, title: Optional[str] = None
             r=radius * np.cos(angle),
             z=radius * np.sin(angle),
             kind="points",
-            label=f"deposition ({native.birth.count} markers)",
+            label=_deposition_label(native),
             style={"marker": "o", "markersize": 2, "color": "palette:8", "alpha": 0.6},
         )
     ]

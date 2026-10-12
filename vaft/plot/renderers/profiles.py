@@ -115,6 +115,8 @@ def render_profile_1d(
         axes.ticklabel_format(style="sci", axis="y", scilimits=(0, 0))
     if model.x_limits is not None:
         axes.set_xlim(model.x_limits)
+    if model.y_limits is not None:
+        axes.set_ylim(model.y_limits)
     if grid:
         axes.grid(True, alpha=0.3)
     apply_legend(axes, legend=legend, title=legend_title,

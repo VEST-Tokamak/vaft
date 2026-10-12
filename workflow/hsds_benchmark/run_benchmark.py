@@ -39,7 +39,6 @@ import json
 import multiprocessing
 import os
 import platform
-import resource
 import shutil
 import subprocess
 import sys
@@ -125,6 +124,40 @@ def read_probes(ods: Any, *, large: bool, errors: list[str] | None = None) -> di
     return digests
 
 
+def _peak_rss_mb() -> float:
+    """Peak resident memory of this process in MB.
+
+    ``resource`` is POSIX-only (macOS reports bytes, Linux kB); Windows has the
+    peak working set from ``GetProcessMemoryInfo`` instead.
+    """
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        class _Counters(ctypes.Structure):
+            _fields_ = [("cb", wintypes.DWORD), ("PageFaultCount", wintypes.DWORD),
+                        ("PeakWorkingSetSize", ctypes.c_size_t), ("WorkingSetSize", ctypes.c_size_t),
+                        ("QuotaPeakPagedPoolUsage", ctypes.c_size_t), ("QuotaPagedPoolUsage", ctypes.c_size_t),
+                        ("QuotaPeakNonPagedPoolUsage", ctypes.c_size_t), ("QuotaNonPagedPoolUsage", ctypes.c_size_t),
+                        ("PagefileUsage", ctypes.c_size_t), ("PeakPagefileUsage", ctypes.c_size_t)]
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        # Declared, or ctypes truncates the 64-bit pseudo-handle to a C int and
+        # the query fails (Package CI run 38159036002 read NaN).
+        kernel32.GetCurrentProcess.restype = wintypes.HANDLE
+        kernel32.K32GetProcessMemoryInfo.argtypes = [wintypes.HANDLE, ctypes.POINTER(_Counters), wintypes.DWORD]
+        kernel32.K32GetProcessMemoryInfo.restype = wintypes.BOOL
+        counters = _Counters()
+        counters.cb = ctypes.sizeof(counters)
+        if not kernel32.K32GetProcessMemoryInfo(kernel32.GetCurrentProcess(), ctypes.byref(counters), counters.cb):
+            return float("nan")
+        return counters.PeakWorkingSetSize / (1024 * 1024)
+    import resource
+
+    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return rss / (1024 * 1024) if sys.platform == "darwin" else rss / 1024
+
+
 def run_scenario(scenario: str, shot: int, source: str, cache_dir: str | None) -> dict[str, Any]:
     """One client: run ``scenario`` and return wall time, I/O summary, peak RSS and probe digests."""
     import vaft.database as database
@@ -151,9 +184,7 @@ def run_scenario(scenario: str, shot: int, source: str, cache_dir: str | None) -
                 digests = read_probes(ods, large=scenario == "lazy_large", errors=probe_errors)
         except Exception as exc:  # a failed client is a result, recorded with the rest
             error = f"{type(exc).__name__}: {exc}"[:300]
-    rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    peak_mb = rss_kb / (1024 * 1024) if sys.platform == "darwin" else rss_kb / 1024
-    return {"wall_s": time.perf_counter() - started, "io": recorder.summary(), "peak_rss_mb": peak_mb,
+    return {"wall_s": time.perf_counter() - started, "io": recorder.summary(), "peak_rss_mb": _peak_rss_mb(),
             "digests": digests, "probe_errors": probe_errors, "error": error, "pid": os.getpid()}
 
 

@@ -475,6 +475,43 @@ class _OutsideDomain(ValueError):
     """An evaluation point the formula declares itself undefined at."""
 
 
+def _covariance_from(std, covariance, n: int) -> np.ndarray:
+    """The ``(n, n)`` input covariance from exactly one of ``std`` and ``covariance``, validated.
+
+    An unstated uncertainty is unknown, not zero; NaN, inf, negative,
+    non-symmetric, non-PSD and ambiguously shaped inputs are refused.
+    """
+    if (covariance is None) == (std is None):
+        raise ValueError("give exactly one of covariance and std: an unstated uncertainty is unknown, not zero")
+    if std is not None:
+        sigma = np.asarray(std, dtype=float)
+        if sigma.ndim == 0 and n == 1:
+            sigma = sigma.reshape(1)
+        if sigma.shape != (n,):
+            raise ValueError(f"std must be 1-D with one entry per input: shape {sigma.shape} for {n} inputs")
+        if np.any(np.isnan(sigma)) or np.any(sigma < 0) or not np.all(np.isfinite(sigma)):
+            raise ValueError("standard deviations must be known (not NaN), finite and non-negative")
+        cov = np.diag(sigma ** 2)
+    else:
+        raw = np.asarray(covariance, dtype=float)
+        if raw.ndim == 0 and n == 1:
+            raw = raw.reshape(1, 1)
+        if np.any(np.isnan(raw)):
+            raise ValueError("covariance must be known: NaN is an unknown uncertainty, not a value")
+        if not np.all(np.isfinite(raw)):
+            raise ValueError("covariance must be finite")
+        if raw.ndim == 1 and np.any(raw < 0):
+            raise ValueError("variances must be non-negative")
+        if raw.ndim > 2:
+            raise ValueError(f"covariance must be (n, n) or 1-D variances, got shape {raw.shape}")
+        cov = _covariance(raw, n)
+    eigenvalues = np.linalg.eigvalsh(cov)
+    if eigenvalues.size and eigenvalues.min() < -1e-12 * max(abs(eigenvalues.max()), np.finfo(float).tiny):
+        raise ValueError("input covariance must be positive semi-definite")
+
+    return cov
+
+
 def propagate_formula_uncertainty(
     formula: Callable,
     inputs: Mapping[str, object],
@@ -599,33 +636,7 @@ def propagate_formula_uncertainty(
         raise ValueError("uncertain inputs must be finite")
     fixed = {name: value for name, value in inputs.items() if name not in names}
 
-    if (covariance is None) == (std is None):
-        raise ValueError("give exactly one of covariance and std: an unstated uncertainty is unknown, not zero")
-    if std is not None:
-        sigma = np.asarray(std, dtype=float)
-        if sigma.ndim == 0 and len(names) == 1:
-            sigma = sigma.reshape(1)
-        if sigma.shape != (len(names),):
-            raise ValueError(f"std must be 1-D with one entry per input: shape {sigma.shape} for {len(names)} inputs")
-        if np.any(np.isnan(sigma)) or np.any(sigma < 0) or not np.all(np.isfinite(sigma)):
-            raise ValueError("standard deviations must be known (not NaN), finite and non-negative")
-        cov = np.diag(sigma ** 2)
-    else:
-        raw = np.asarray(covariance, dtype=float)
-        if raw.ndim == 0 and len(names) == 1:
-            raw = raw.reshape(1, 1)
-        if np.any(np.isnan(raw)):
-            raise ValueError("covariance must be known: NaN is an unknown uncertainty, not a value")
-        if not np.all(np.isfinite(raw)):
-            raise ValueError("covariance must be finite")
-        if raw.ndim == 1 and np.any(raw < 0):
-            raise ValueError("variances must be non-negative")
-        if raw.ndim > 2:
-            raise ValueError(f"covariance must be (n, n) or 1-D variances, got shape {raw.shape}")
-        cov = _covariance(raw, len(names))
-    eigenvalues = np.linalg.eigvalsh(cov)
-    if eigenvalues.size and eigenvalues.min() < -1e-12 * max(abs(eigenvalues.max()), np.finfo(float).tiny):
-        raise ValueError("input covariance must be positive semi-definite")
+    cov = _covariance_from(std, covariance, len(names))
 
     defined = domain if domain is not None else formula_domain(formula)
 

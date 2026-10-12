@@ -111,6 +111,10 @@ class ControlSpec:
         if self.kind == "toggle":
             return bool(value)
         if self.kind == "choice":
+            if value is None and self.default is None:
+                # A choice whose default leaves the option out can return to it
+                # (#1957: the full figure after a stage was picked).
+                return None
             if value not in self.options:
                 raise ValueError(f"{self.name} must be one of {', '.join(map(str, self.options))}; got {value!r}")
             return value
@@ -201,6 +205,15 @@ def _slice_controls(record: Any) -> list[ControlSpec]:
     """
     sequence = getattr(record, "sequence", None) or {}
     option = sequence.get("option")
+    if sequence.get("kind") == "categorical":
+        # States that are not times (#1957): a labelled choice, unset where
+        # the static call draws none of them.
+        states = tuple(sequence["states"])
+        labels = tuple(sequence.get("labels") or ()) or tuple(map(str, states))
+        return [ControlSpec(
+            option, "choice", sequence.get("label") or option.replace("_", " ").capitalize(),
+            sequence.get("selected"), states, labels, group="slice",
+        )]
     if option in _DENSE_INDEX_LABELS:
         states = sequence["states"]
         return [ControlSpec(

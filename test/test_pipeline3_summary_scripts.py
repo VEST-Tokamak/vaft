@@ -1,12 +1,7 @@
-"""The Pipeline 3 summary wrappers against what their consumers actually call.
+"""Contracts of the legacy Pipeline 3 summary wrappers (issues #151/#181).
 
-`notebooks/verification_and_validation.ipynb` imports these scripts and calls
-their `generate_*` entry points. Nothing covered this package before, so when
-the scripts were rewritten into thin `vaft.database` wrappers the notebook broke
-silently (issues #151/#181). These tests pin the contract the notebook relies
-on: the entry point exists, its keyword arguments are the ones the notebook
-passes, and the sheet schema comes from a `vaft.database` summary preset rather
-than a constant duplicated in the script.
+These scripts still provide their own workbook interfaces, although the
+verification notebook now reads the Tier A Atlas snapshot instead.
 """
 
 from __future__ import annotations

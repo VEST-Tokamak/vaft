@@ -137,3 +137,27 @@ class NEOResult(CodeResult):
             and self.outputs_native is not None
             and self.outputs_native.solved
         )
+
+
+def plasma_formalism(config: Optional[NEOConfig] = None, *,
+                     parameters: Optional[Mapping[str, Any]] = None):
+    """The #1727 record of a NEO run (:class:`vaft.code.formalism.PlasmaFormalism`, #1735).
+
+    Derived from ``parameters``, the ``KEY=VALUE`` pairs the run was written with
+    (:func:`vaft.code.gacode.neo.inputs.neo_parameters`), or, without them, from the
+    model switches the configuration itself writes. See
+    :func:`vaft.code.gacode._formalism.neo_plasma_formalism` for the classification.
+    """
+    from .._formalism import neo_plasma_formalism
+
+    if parameters is None:
+        configuration = config or NEOConfig()
+        parameters = {
+            "EQUILIBRIUM_MODEL": int(configuration.equilibrium_model),
+            "COLLISION_MODEL": int(configuration.collision_model),
+            "PROFILE_MODEL": int(configuration.profile_model),
+            "ROTATION_MODEL": int(configuration.rotation_model),
+            "SPITZER_MODEL": int(configuration.spitzer_model),
+            **{str(key).upper(): value for key, value in configuration.extra_parameters.items()},
+        }
+    return neo_plasma_formalism(parameters)

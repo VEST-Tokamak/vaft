@@ -93,6 +93,12 @@ def renderer_for(spec: PlotSpec, model: Any, backend: str) -> Callable[..., Any]
     from .plotly import PLOTLY_MODELS, require_plotly
 
     require_plotly()
+    members = model.models if isinstance(model, Panels) else (model,)
+    only = next((getattr(m, "metadata", {}).get("matplotlib_only") for m in members
+                 if getattr(m, "metadata", {}).get("matplotlib_only")), None)
+    if only:
+        # A builder states a layout no Plotly renderer can draw (issue #1957).
+        raise NotImplementedError(f"plot_{spec.stem} draws this with Matplotlib only: {only}")
     kinds = [type(model)] + ([type(member) for member in model.models] if isinstance(model, Panels) else [])
     missing = [kind.__name__ for kind in kinds if kind not in PLOTLY_MODELS]
     if missing:
