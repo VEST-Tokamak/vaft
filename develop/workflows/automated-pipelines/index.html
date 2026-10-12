@@ -390,7 +390,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4cf4fad</code>. What is described
+  <code>9744dbd</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -455,8 +455,8 @@ calibration, mappings and conventions, the processing and model configuration, a
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">automatic_pipeline_2_corrective_data_update</code></td>
-      <td>none (long-running daemon)</td>
-      <td>Back-fills Thomson scattering and fitted core profiles into already-stored shots</td>
+      <td>Snakemake DAG (8 stages + one replication rule each)</td>
+      <td>Builds Thomson, CES, <code class="language-plaintext highlighter-rouge">core_profiles</code> and the two kinetic EFIT lineages from externally uploaded profile diagnostics</td>
     </tr>
     <tr>
       <td><code class="language-plaintext highlighter-rouge">automatic_pipeline_3_data_summary</code></td>
@@ -767,77 +767,250 @@ leave them behind.</p>
 
 <h2 id="pipeline-2--corrective-data-update">Pipeline 2 — corrective data update</h2>
 
-<p>This pipeline back-fills data that arrives <em>after</em> a shot has already been processed. It consists of one
-polling daemon (<code class="language-plaintext highlighter-rouge">update_thomson_scattering_and_core_profile.py</code>); the sibling <code class="language-plaintext highlighter-rouge">update_equilibrium.py</code> is an
-empty placeholder with no behavior.</p>
+<p>This pipeline builds the products that depend on data uploaded <em>after</em> a shot was processed: Thomson
+scattering, charge exchange (CES), the <code class="language-plaintext highlighter-rouge">core_profiles</code> mapped from them, and the two kinetic EFIT lineages.
+It is a Snakemake stage-product DAG, like pipeline 1. The <code class="language-plaintext highlighter-rouge">composition</code> stage then adds the assumed impurity
+composition, the diluted ion density and <code class="language-plaintext highlighter-rouge">Z_eff(rho)</code> to the measured profiles.</p>
 
 <div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>workflow/automatic_pipeline_2_corrective_data_update
-<span class="nb">nohup </span>python3 update_thomson_scattering_and_core_profile.py <span class="se">\</span>
-    <span class="o">&gt;</span> thomson_scattering_update_fitting.log 2&gt;&amp;1 &amp;
+snakemake <span class="nt">--snakefile</span> Snakefile <span class="nt">--configfile</span> config.yaml <span class="nt">--cores</span> 8
 </code></pre></div></div>
 
-<p>There are no command-line flags; the paths are module constants (<code class="language-plaintext highlighter-rouge">WATCH_DIAG = /srv/vest.diagnostic</code>,
-<code class="language-plaintext highlighter-rouge">PUBLIC_BASE = /srv/vest.filedb/public</code>, <code class="language-plaintext highlighter-rouge">CHECK_INTERVAL = 10</code> seconds). Despite what its docstring says, the
-daemon does <strong>not</strong> use <code class="language-plaintext highlighter-rouge">watchdog</code> — <code class="language-plaintext highlighter-rouge">main()</code> is a <code class="language-plaintext highlighter-rouge">while True:</code> loop that re-lists the watch directory every
-ten seconds.</p>
+<p><code class="language-plaintext highlighter-rouge">config.yaml</code> ships with <code class="language-plaintext highlighter-rouge">base_dir: /srv/vest.filedb</code>, <code class="language-plaintext highlighter-rouge">shots: [48226]</code> and <code class="language-plaintext highlighter-rouge">layout: filedb</code>. Only the
+canonical <code class="language-plaintext highlighter-rouge">filedb</code> layout is accepted; these stages have no shot-first equivalent. <code class="language-plaintext highlighter-rouge">external.data_root</code> is
+where the hand-uploaded <code class="language-plaintext highlighter-rouge">.mat</code> files are searched for, <code class="language-plaintext highlighter-rouge">external.ces_options</code> picks the ion layout (<code class="language-plaintext highlighter-rouge">ces</code> for
+<code class="language-plaintext highlighter-rouge">CES_{shot}.mat</code>, <code class="language-plaintext highlighter-rouge">ids</code> for <code class="language-plaintext highlighter-rouge">IDS_{shot}.mat</code>), and <code class="language-plaintext highlighter-rouge">kinetic.*</code> selects the pressure-point encoding, the EFIT
+executable and the named EFIT preset used for the base magnetic k-file.</p>
 
-<p>Each cycle it scans for new Thomson <code class="language-plaintext highlighter-rouge">*.mat</code> files, parses the shot number (both <code class="language-plaintext highlighter-rouge">Shot40330_v10.mat</code> and
-<code class="language-plaintext highlighter-rouge">40330_NeTe.mat</code> spellings are accepted), skips files whose mtime it has already recorded, copies the file
-into the shot’s <code class="language-plaintext highlighter-rouge">diagnostics/</code> directory, and then:</p>
-
-<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">vaft</span> <span class="kn">import</span> <span class="n">database</span><span class="p">,</span> <span class="n">machine_mapping</span><span class="p">,</span> <span class="n">process</span>
-
-<span class="n">ods</span> <span class="o">=</span> <span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shotnumber</span><span class="p">,</span> <span class="sh">'</span><span class="s">public</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">machine_mapping</span><span class="p">.</span><span class="nf">thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">,</span> <span class="n">filepath</span><span class="p">)</span>
-<span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shotnumber</span><span class="p">)</span>
-
-<span class="c1"># and, when a refined equilibrium exists for that shot, per time slice:
-</span><span class="n">mapped</span> <span class="o">=</span> <span class="n">process</span><span class="p">.</span><span class="nf">equilibrium_mapping_thomson_scattering</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">geq</span><span class="p">)</span>   <span class="c1"># psi_norm, rho_pol_norm, rho_tor_norm
-</span><span class="n">n_e_fn</span><span class="p">,</span> <span class="n">T_e_fn</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="o">=</span> <span class="n">process</span><span class="p">.</span><span class="nf">profile_fitting_thomson_scattering</span><span class="p">(</span>
-    <span class="n">ods</span><span class="p">,</span> <span class="n">time_ms</span><span class="p">,</span> <span class="n">mapped</span><span class="p">,</span> <span class="n">Te_order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">Ne_order</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>                    <span class="c1"># fitted in rho_tor_norm by default
-</span>    <span class="n">fitting_function_te</span><span class="o">=</span><span class="sh">'</span><span class="s">polynomial</span><span class="sh">'</span><span class="p">,</span> <span class="n">fitting_function_ne</span><span class="o">=</span><span class="sh">'</span><span class="s">exponential</span><span class="sh">'</span><span class="p">)</span>
-<span class="n">ods</span> <span class="o">=</span> <span class="n">process</span><span class="p">.</span><span class="nf">core_profiles</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">time_ms</span><span class="p">,</span> <span class="n">mapped</span><span class="p">,</span> <span class="n">n_e_fn</span><span class="p">,</span> <span class="n">T_e_fn</span><span class="p">)</span>
-</code></pre></div></div>
-
-<p>The equilibrium it maps against is the CHEASE-refined g-file at
-<code class="language-plaintext highlighter-rouge">{base}/{shot}/chease/g0{shot}.00{ms:03d}</code>, so profile fitting only happens for shots pipeline 1 has already
-refined. Shots with Thomson data but no refined equilibrium get the raw Thomson IDS and nothing more.</p>
-
-<h3 id="the-registry">The registry</h3>
-
-<p>Progress is recorded in an HSDS-backed registry, <code class="language-plaintext highlighter-rouge">hdf5://public/processed_shots.h5</code>, keyed by shot with a
-timestamp and one of three statuses:</p>
+<h3 id="stages">Stages</h3>
 
 <table>
   <thead>
     <tr>
-      <th>Status</th>
-      <th>Meaning</th>
+      <th>Stage</th>
+      <th>Builder (<code class="language-plaintext highlighter-rouge">vaft.omas.vest_upstream</code>)</th>
+      <th>Needs</th>
+      <th>Replicated IDS and source</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">core_profile</code></td>
-      <td>Thomson stored <strong>and</strong> profile fits succeeded</td>
+      <td><code class="language-plaintext highlighter-rouge">thomson</code></td>
+      <td><code class="language-plaintext highlighter-rouge">build_thomson_ods</code></td>
+      <td>an uploaded Thomson file</td>
+      <td><code class="language-plaintext highlighter-rouge">thomson_scattering</code> → <code class="language-plaintext highlighter-rouge">main</code></td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">thomson_only</code></td>
-      <td>Thomson stored, no fits (usually: no refined equilibrium yet)</td>
+      <td><code class="language-plaintext highlighter-rouge">ces</code></td>
+      <td><code class="language-plaintext highlighter-rouge">build_ces_ods</code></td>
+      <td>an uploaded CES file</td>
+      <td><code class="language-plaintext highlighter-rouge">charge_exchange</code> → <code class="language-plaintext highlighter-rouge">main</code></td>
     </tr>
     <tr>
-      <td><code class="language-plaintext highlighter-rouge">invalid</code></td>
-      <td>load or parse failed</td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles</code></td>
+      <td><code class="language-plaintext highlighter-rouge">build_core_profiles_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">thomson</code> (+ <code class="language-plaintext highlighter-rouge">ces</code>), pipeline 1’s EFIT</td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles</code> → <code class="language-plaintext highlighter-rouge">main</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">composition</code></td>
+      <td><code class="language-plaintext highlighter-rouge">build_composition_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles</code>, pipeline 1’s EFIT and diagnostics</td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles</code> → <code class="language-plaintext highlighter-rouge">main</code>, after the stage above</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">ti_inferred</code> (opt-in)</td>
+      <td><code class="language-plaintext highlighter-rouge">build_ti_inferred_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">composition</code>, pipeline 1’s magnetic EFIT</td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles</code> → <code class="language-plaintext highlighter-rouge">main</code>, after <code class="language-plaintext highlighter-rouge">composition</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">resistive_zeff</code> (opt-in)</td>
+      <td><code class="language-plaintext highlighter-rouge">build_resistive_zeff_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">ti_inferred</code>, pipeline 1’s magnetic EFIT</td>
+      <td><code class="language-plaintext highlighter-rouge">core_profiles</code> → <code class="language-plaintext highlighter-rouge">main</code>, after <code class="language-plaintext highlighter-rouge">ti_inferred</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">electron_efit</code></td>
+      <td><code class="language-plaintext highlighter-rouge">build_kinetic_efit_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">composition</code> (else <code class="language-plaintext highlighter-rouge">core_profiles</code>) without ion data</td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium</code> → <code class="language-plaintext highlighter-rouge">electron-efit</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">kinetic_efit</code></td>
+      <td><code class="language-plaintext highlighter-rouge">build_kinetic_efit_ods</code></td>
+      <td><code class="language-plaintext highlighter-rouge">composition</code> (else <code class="language-plaintext highlighter-rouge">core_profiles</code>) with ion data</td>
+      <td><code class="language-plaintext highlighter-rouge">equilibrium</code> → <code class="language-plaintext highlighter-rouge">kinetic-efit</code></td>
     </tr>
   </tbody>
 </table>
 
-<p>An existing <code class="language-plaintext highlighter-rouge">core_profile</code> / <code class="language-plaintext highlighter-rouge">thomson_only</code> entry is never downgraded to <code class="language-plaintext highlighter-rouge">invalid</code>. <strong>This registry is the
-input to pipeline 3</strong> — three of its generators take their shot list from it, so if this daemon has never
-run, those sheets come out empty no matter how much data sits on disk. The module also contains a registry
-reset routine that wipes the H5 file and strips <code class="language-plaintext highlighter-rouge">thomson_scattering</code> / <code class="language-plaintext highlighter-rouge">core_profiles</code> back out of every ODS.
-It is commented out in <code class="language-plaintext highlighter-rouge">__main__</code>, it is destructive, and its default branch iterates the wrong keys. Do not
-run it.</p>
+<p>Pipeline 1’s EFIT and constraints products are passed to these rules as <code class="language-plaintext highlighter-rouge">params</code>, not <code class="language-plaintext highlighter-rouge">input</code>: a shot that
+pipeline 1 never reconstructed is then <em>recorded</em> as unavailable instead of making Snakemake raise. Which of
+the two kinetic lineages runs for a shot is decided by whether a <code class="language-plaintext highlighter-rouge">core_profiles</code> slice carries a <em>measured</em> ion
+temperature (read from its fit record; the assumed <code class="language-plaintext highlighter-rouge">T_i = T_e</code> of <code class="language-plaintext highlighter-rouge">composition</code> and an inferred <code class="language-plaintext highlighter-rouge">T_i</code> do not
+count), not by configuration. The destinations come from <code class="language-plaintext highlighter-rouge">STAGE_REPLICATION</code> in
+<code class="language-plaintext highlighter-rouge">vaft/database/sources.py</code>; the two kinetic lineages go to their own sources because they share the
+<code class="language-plaintext highlighter-rouge">equilibrium</code> IDS with the baseline EFIT.</p>
+
+<h3 id="the-composition-overlay">The composition overlay</h3>
+
+<p><code class="language-plaintext highlighter-rouge">composition</code> takes the measured <code class="language-plaintext highlighter-rouge">core_profiles</code> product and adds, per slice, the C/O composition of
+<code class="language-plaintext highlighter-rouge">machine_mapping/vest.yaml</code>’s <code class="language-plaintext highlighter-rouge">impurity_model</code> (equal carbon and oxygen elemental densities, <code class="language-plaintext highlighter-rouge">n_e dV</code>-mean
+<code class="language-plaintext highlighter-rouge">Z_eff = 2</code>): <code class="language-plaintext highlighter-rouge">ion[]</code> with charge states, the diluted main ion and <code class="language-plaintext highlighter-rouge">zeff</code>. Everything it writes is an assumption
+(<code class="language-plaintext highlighter-rouge">origin=assumed|derived</code> in the <code class="language-plaintext highlighter-rouge">*_fit.parameters</code> record, with <code class="language-plaintext highlighter-rouge">target_zeff=</code>), and a <code class="language-plaintext highlighter-rouge">zeff</code> labelled measured is
+never overwritten. Each composed slice also records the equilibrium it was matched to
+(<code class="language-plaintext highlighter-rouge">equilibrium_lineage=magnetics; equilibrium_occurrence=0; equilibrium_time_s=...</code>) in its electron temperature
+fit record and, when it has an ion temperature, in that record.</p>
+
+<ul>
+  <li><strong><code class="language-plaintext highlighter-rouge">ionization</code></strong> (<code class="language-plaintext highlighter-rouge">composition.ionization</code>, default <code class="language-plaintext highlighter-rouge">transient</code>) needs the plasma age, <code class="language-plaintext highlighter-rouge">t - onset</code>, with the onset
+from <code class="language-plaintext highlighter-rouge">plasma_timing</code> on pipeline 1’s diagnostics product. A slice with no positive age is skipped and named in the
+manifest rather than silently computed as <code class="language-plaintext highlighter-rouge">coronal</code>, which overstates the charge on VEST’s short discharges.</li>
+  <li><strong>ADF11 atomic data</strong> come from OPEN-ADAS and are fetched on first use. A server without network needs the cache
+warmed and <code class="language-plaintext highlighter-rouge">composition.adf11_cache_dir</code> pointing at it.</li>
+  <li><strong>Pressure counts the diluted ions.</strong> The composed slice’s <code class="language-plaintext highlighter-rouge">pressure_thermal</code> is recomputed with the species
+kinetic closure (<code class="language-plaintext highlighter-rouge">infer_kinetic_closure</code>), so it no longer counts one ion per electron: a measured <code class="language-plaintext highlighter-rouge">T_i</code> gives
+<code class="language-plaintext highlighter-rouge">electrons.pressure</code>, <code class="language-plaintext highlighter-rouge">pressure_ion_total</code> and <code class="language-plaintext highlighter-rouge">pressure_thermal</code>; a slice with no <code class="language-plaintext highlighter-rouge">T_i</code> gets the electron pressure
+only; a <code class="language-plaintext highlighter-rouge">T_i</code> the product assumed keeps the pressure it was written with. The closure is named in
+<code class="language-plaintext highlighter-rouge">ion.0.density_fit.parameters</code> (<code class="language-plaintext highlighter-rouge">pressure_closure=infer_kinetic_closure; dilution=species</code>).</li>
+  <li><strong>Replication is an overlay.</strong> <code class="language-plaintext highlighter-rouge">core_profiles</code> and <code class="language-plaintext highlighter-rouge">composition</code> both own the <code class="language-plaintext highlighter-rouge">core_profiles</code> IDS in <code class="language-plaintext highlighter-rouge">main</code>,
+which the registry otherwise avoids. The <code class="language-plaintext highlighter-rouge">composition</code> replication waits for the <code class="language-plaintext highlighter-rouge">core_profiles</code> record, so <code class="language-plaintext highlighter-rouge">main</code>
+holds the composed product when the stage succeeded and the measured one when it was skipped.</li>
+</ul>
+
+<h3 id="the-inferred-ion-temperature">The inferred ion temperature</h3>
+
+<p>The default scope does not build <code class="language-plaintext highlighter-rouge">ti_inferred</code> or <code class="language-plaintext highlighter-rouge">resistive_zeff</code>: <code class="language-plaintext highlighter-rouge">main</code> gets <code class="language-plaintext highlighter-rouge">⟨Z_eff⟩ = 2</code> and, on slices with no measured <code class="language-plaintext highlighter-rouge">T_i</code>, the stated assumption <code class="language-plaintext highlighter-rouge">T_i = T_e</code> from <code class="language-plaintext highlighter-rouge">composition</code> (#1842; on the Tier A shots the pressure partition returned <code class="language-plaintext highlighter-rouge">T_i/T_e</code> ≈ 2 and the resistive <code class="language-plaintext highlighter-rouge">Z_eff</code> was identifiable on few shots). Name the stages in <code class="language-plaintext highlighter-rouge">stages</code> to build them; <code class="language-plaintext highlighter-rouge">ti_inferred</code> replaces an assumed <code class="language-plaintext highlighter-rouge">T_i</code>, never a measured one.</p>
+
+<p><code class="language-plaintext highlighter-rouge">ti_inferred</code> gives the slices that have <strong>no measured <code class="language-plaintext highlighter-rouge">T_i</code></strong> an ion temperature from the pressure partition of
+pipeline 1’s magnetic EFIT: <code class="language-plaintext highlighter-rouge">T_i = p_eq / (e f n_e) - T_e / f</code>, with <code class="language-plaintext highlighter-rouge">p_eq</code> sampled on the slice’s own flux surfaces
+and <code class="language-plaintext highlighter-rouge">f = n_i,tot / n_e</code> the composed product’s diluted ion density
+(<code class="language-plaintext highlighter-rouge">vaft.process.kinetic_closure.infer_ti_pressure_partition</code>, which moved there from
+<code class="language-plaintext highlighter-rouge">vaft.validation.kinetic_state</code> and keeps a warning alias in the old place).</p>
+
+<ul>
+  <li><strong>Inferred, never measured.</strong> The ion records say <code class="language-plaintext highlighter-rouge">origin=inferred; method=equilibrium_pressure_partition</code>
+together with <code class="language-plaintext highlighter-rouge">equilibrium_lineage</code>, <code class="language-plaintext highlighter-rouge">equilibrium_occurrence</code>, <code class="language-plaintext highlighter-rouge">equilibrium_time_s</code>, <code class="language-plaintext highlighter-rouge">sigma_p_eq_basis</code> and
+<code class="language-plaintext highlighter-rouge">valid_points</code>; <code class="language-plaintext highlighter-rouge">classify_ti_record</code> reads them back as <code class="language-plaintext highlighter-rouge">inferred</code>. Points where <code class="language-plaintext highlighter-rouge">p_i</code> is not positive and
+significant stay NaN (flagged, never filled), and <code class="language-plaintext highlighter-rouge">t_i_average</code>, <code class="language-plaintext highlighter-rouge">pressure_ion_total</code> and <code class="language-plaintext highlighter-rouge">pressure_thermal</code> follow:
+<code class="language-plaintext highlighter-rouge">p_thermal</code> equals the equilibrium pressure there by construction, a closure identity and not an agreement test.</li>
+  <li><strong>Only the magnetic lineage.</strong> The lineage is read from where the EFIT product lives (<code class="language-plaintext highlighter-rouge">omas/efit/magnetic</code>), never
+asserted; a pressure from elsewhere is refused. The electron-kinetic EFIT was fitted with an assumed <code class="language-plaintext highlighter-rouge">T_i/T_e</code>
+and would return that assumption. For the same reason <code class="language-plaintext highlighter-rouge">ti_inferred</code> is a leaf: the kinetic EFIT stages read
+<code class="language-plaintext highlighter-rouge">composition</code>, never this product.</li>
+  <li><strong><code class="language-plaintext highlighter-rouge">sigma(p_EFIT)</code></strong> is the spread over the usable neighbouring slices within <code class="language-plaintext highlighter-rouge">ti_inference.window_s</code>, floored at
+<code class="language-plaintext highlighter-rouge">ti_inference.floor</code> (0.17, #874) of the pressure; <code class="language-plaintext highlighter-rouge">n_e</code> and <code class="language-plaintext highlighter-rouge">T_e</code> take the Thomson channels’ median relative error.</li>
+  <li><strong>Skipped, and named, rather than guessed:</strong> a slice with a measured <code class="language-plaintext highlighter-rouge">T_i</code>, with no composition (the ion density is
+half the formula), with no equilibrium within the tolerance, or with no significant point.</li>
+  <li>On the archived 40326 / 322 ms case the stage reproduces the notebook’s <code class="language-plaintext highlighter-rouge">T_i</code> to 1e-14 wherever both are valid, and
+voids 8 more edge points (<code class="language-plaintext highlighter-rouge">rho_tor_norm &gt; 0.86</code>) because it carries a different <code class="language-plaintext highlighter-rouge">sigma(p_EFIT)</code>.</li>
+</ul>
+
+<h3 id="the-resistive-z_eff">The resistive Z_eff</h3>
+
+<p><code class="language-plaintext highlighter-rouge">resistive_zeff</code> stores Lane Z’s Romero estimate (issue #1214) in
+<code class="language-plaintext highlighter-rouge">core_profiles.global_quantities.z_eff_resistive</code>, beside the composition <code class="language-plaintext highlighter-rouge">Z_eff</code> (<code class="language-plaintext highlighter-rouge">profiles_1d.zeff</code>) and never over it.
+Romero’s transformer balance over the current-carrying window of the magnetic EFIT (boundary flux, <code class="language-plaintext highlighter-rouge">I_p</code>, <code class="language-plaintext highlighter-rouge">l_i</code>) gives the
+observed plasma resistance; the one <code class="language-plaintext highlighter-rouge">Z_eff</code> that makes the conductivity model, run on each kinetic slice’s <code class="language-plaintext highlighter-rouge">T_e</code>, <code class="language-plaintext highlighter-rouge">n_e</code>
+and Grad-Shafranov geometry, match it is the estimate. The physics is Lane Z’s (<code class="language-plaintext highlighter-rouge">vaft.omas.resistive_zeff</code>,
+<code class="language-plaintext highlighter-rouge">vaft.process.resistive_zeff</code>); this stage orchestrates it.</p>
+
+<ul>
+  <li><strong>A window scalar, not a per-slice value.</strong> One slice carries the full noise of a differentiated <code class="language-plaintext highlighter-rouge">V_R</code>, so the
+estimate is a single number for the window (#1214 Sec. 9): it is written at every usable kinetic slice and is NaN
+elsewhere. The per-slice solutions are in the manifest as a labelled diagnostic and are not stored in the IDS. An
+estimate that sits on a bound (<code class="language-plaintext highlighter-rouge">bound_hit</code>), or is not identifiable, is recorded and not stored.</li>
+  <li><strong>Stated settings.</strong> The estimator has no defaults: <code class="language-plaintext highlighter-rouge">resistive_zeff.model</code> (<code class="language-plaintext highlighter-rouge">redl</code>), <code class="language-plaintext highlighter-rouge">ln_lambda</code> (<code class="language-plaintext highlighter-rouge">sauter</code>), <code class="language-plaintext highlighter-rouge">bounds</code>
+(1-8), <code class="language-plaintext highlighter-rouge">i_ni_a</code> (0, a purely Ohmic window), <code class="language-plaintext highlighter-rouge">smoothing</code> (none) and the two state filters (a state with more than 5 % of
+<code class="language-plaintext highlighter-rouge">j_tor</code> outside its profiles, or <code class="language-plaintext highlighter-rouge">|V_I|/|V_B| &gt;= 1</code>, is dropped) are config and are recorded in the product.</li>
+  <li><strong>Provenance</strong> is <code class="language-plaintext highlighter-rouge">resistive_*</code> fields in the slice’s <code class="language-plaintext highlighter-rouge">zeff_fit.parameters</code> (<code class="language-plaintext highlighter-rouge">resistive_origin=inferred</code>,
+<code class="language-plaintext highlighter-rouge">resistive_model=romero_transformer</code>, <code class="language-plaintext highlighter-rouge">resistive_conductivity</code>, <code class="language-plaintext highlighter-rouge">resistive_window</code>, <code class="language-plaintext highlighter-rouge">resistive_status</code>,
+<code class="language-plaintext highlighter-rouge">resistive_sigma</code>, <code class="language-plaintext highlighter-rouge">resistive_equilibrium_lineage</code>, <code class="language-plaintext highlighter-rouge">resistive_equilibrium_occurrence</code>, <code class="language-plaintext highlighter-rouge">resistive_i_ni_a</code>,
+<code class="language-plaintext highlighter-rouge">resistive_smoothing</code>): prefixed so they cannot be read as the composition record’s <code class="language-plaintext highlighter-rouge">origin</code>/<code class="language-plaintext highlighter-rouge">method</code>.</li>
+  <li><strong>Cross-check.</strong> The manifest turns the stored composition <code class="language-plaintext highlighter-rouge">Z_eff(rho)</code> into the scalar the same estimator would report
+were it the truth (<code class="language-plaintext highlighter-rouge">vaft.process.zeff_projection</code>) and compares it with the estimate (<code class="language-plaintext highlighter-rouge">crosscheck</code>: the equivalent, the
+difference and the relative difference). It needs a real toroidal-flux coordinate: with the <code class="language-plaintext highlighter-rouge">sqrt(psi_N)</code> proxy in
+<code class="language-plaintext highlighter-rouge">rho_tor_norm</code> it is withheld and says why, and the estimate still stands.</li>
+  <li>Only the <code class="language-plaintext highlighter-rouge">efit/magnetic</code> lineage is accepted (read from where the product lives), as for <code class="language-plaintext highlighter-rouge">ti_inferred</code>. It is a leaf.</li>
+</ul>
+
+<h3 id="dilution-in-the-kinetic-efit">Dilution in the kinetic EFIT</h3>
+
+<p>Both kinetic lineages read the <code class="language-plaintext highlighter-rouge">composition</code> product (the measured one itself when composition was skipped, so they
+never depend on its outcome). With <code class="language-plaintext highlighter-rouge">kinetic.dilution: species</code> (the default) the raw pressure points are
+<code class="language-plaintext highlighter-rouge">p = e n_e (T_e + f T_i)</code> with <code class="language-plaintext highlighter-rouge">f = n_i,tot / n_e</code> at each Thomson radius, from the stored ions; the <code class="language-plaintext highlighter-rouge">spline</code> encoding
+gets the same through <code class="language-plaintext highlighter-rouge">pressure_thermal</code>. <code class="language-plaintext highlighter-rouge">f</code> is an assumed composition and is not added to <code class="language-plaintext highlighter-rouge">SIGPRE</code>. The effect is
+<code class="language-plaintext highlighter-rouge">f - 1</code> times the ion term: about 2-3 % of the pressure where <code class="language-plaintext highlighter-rouge">T_i/T_e ~ 0.15</code> (48224), and up to ~8 % for the assumed
+<code class="language-plaintext highlighter-rouge">T_i = T_e</code> of <code class="language-plaintext highlighter-rouge">electron_efit</code>. A slice with no composition falls back to <code class="language-plaintext highlighter-rouge">n_i = n_e</code>; the manifest <code class="language-plaintext highlighter-rouge">dilution</code> block
+and <code class="language-plaintext highlighter-rouge">equilibrium.code.parameters</code> (<code class="language-plaintext highlighter-rouge">kinetic_efit.dilution</code>) say which was used and why. <code class="language-plaintext highlighter-rouge">kinetic.dilution: none</code> restores
+the legacy pressure.</p>
+
+<h3 id="reading-the-result">Reading the result</h3>
+
+<p>Every stage always writes a product and a manifest and exits 0; read the manifest <code class="language-plaintext highlighter-rouge">status</code>, not the exit code.</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Manifest status</th>
+      <th>Meaning</th>
+      <th>Replicated?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">success</code> (also <code class="language-plaintext highlighter-rouge">partial</code>, <code class="language-plaintext highlighter-rouge">completed</code>)</td>
+      <td>the stage produced its product</td>
+      <td>yes</td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">unavailable</code></td>
+      <td>the upstream data does not exist for this shot (the normal case for most shots)</td>
+      <td>no — recorded as <code class="language-plaintext highlighter-rouge">skipped</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">no_output</code></td>
+      <td>the stage ran and had nothing to write</td>
+      <td>no — recorded as <code class="language-plaintext highlighter-rouge">skipped</code></td>
+    </tr>
+    <tr>
+      <td><code class="language-plaintext highlighter-rouge">failed</code></td>
+      <td>the builder raised; the product is an empty ODS</td>
+      <td>no — recorded as <code class="language-plaintext highlighter-rouge">skipped</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>All five stages are <code class="language-plaintext highlighter-rouge">optional</code>, so a skipped replication does not change the pipeline’s exit state.
+<code class="language-plaintext highlighter-rouge">hsds.replicate: true</code> adds one <code class="language-plaintext highlighter-rouge">replicate_&lt;stage&gt;_to_hsds</code> rule per stage; each stage owns only its own IDS,
+and readers union the stages explicitly with <code class="language-plaintext highlighter-rouge">vaft.database.composition.compose_stage_products</code>.</p>
+
+<h3 id="the-legacy-daemons-and-the-registry">The legacy daemons and the registry</h3>
+
+<p>The pre-Snakemake implementation — three polling scripts that wrote the shot-first <code class="language-plaintext highlighter-rouge">public/</code> tree and the
+HSDS registry <code class="language-plaintext highlighter-rouge">processed_shots.h5</code> — is quarantined under <code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_2_corrective_data_update/legacy/</code>
+with its own README. It is not part of the supported pipeline and must not be run against <code class="language-plaintext highlighter-rouge">main</code>.</p>
+
+<p>The registry is therefore no longer maintained. <code class="language-plaintext highlighter-rouge">vaft.database.exist_shot(data_filter='ts'|'cx'|'cp')</code> still
+reads whatever the old daemons left in it, and returns <code class="language-plaintext highlighter-rouge">None</code> for a source that never had one; treat it as a
+historical record. <strong>Pipeline 3 does not use it</strong>: its generators list shots with
+<code class="language-plaintext highlighter-rouge">vaft.database.exist_shot(source=..., strict=True)</code> (no filter) inside <code class="language-plaintext highlighter-rouge">vaft.database.summary</code>, i.e. the shots
+present in the named HSDS source.</p>
+
+<h3 id="running-it-unattended">Running it unattended</h3>
+
+<p><code class="language-plaintext highlighter-rouge">vaft corrective-worker</code> watches the upload directory (<code class="language-plaintext highlighter-rouge">external.data_root</code>) and runs this pipeline for a shot when
+an upload for it appears or changes and has been quiet for <code class="language-plaintext highlighter-rouge">quiet_seconds</code>. It is independent of
+<code class="language-plaintext highlighter-rouge">vaft pipeline-worker</code> (its own state file, lock and run directories), judges each shot by the stage manifests of the
+stages in scope (<code class="language-plaintext highlighter-rouge">stages</code>; <code class="language-plaintext highlighter-rouge">unavailable</code> and <code class="language-plaintext highlighter-rouge">no_output</code> are results, <code class="language-plaintext highlighter-rouge">failed</code> is retried), forces the rerun of a
+changed or failed shot (the root rules have no input files, so Snakemake would otherwise call it up to date), and stops
+starting runs while its <code class="language-plaintext highlighter-rouge">hold_file</code> exists, which is how it stays off shots a regeneration owns. It does not notice a
+change in pipeline 1’s products. Each stage also has an optional validation figure set (<code class="language-plaintext highlighter-rouge">plots.enabled</code>) that the worker
+does not judge. See <code class="language-plaintext highlighter-rouge">workflow/automatic_pipeline_2_corrective_data_update/DEPLOYMENT.md</code>.</p>
+
+<p>There is no era table or static product for this pipeline: the machine era enters through <code class="language-plaintext highlighter-rouge">vest.yaml</code> (the impurity
+model and the Thomson/CES mappers), not through a per-era product.</p>
 
 <hr />
 
@@ -955,21 +1128,6 @@ schema that can no longer be joined. Do not run it. <code class="language-plaint
   <li><code class="language-plaintext highlighter-rouge">gen_efit_reliability.py</code> currently emits only diamagnetic-flux rows — the append calls in its magnetic-probe
 and flux-loop branches are unreachable — so do not read its output as per-probe reliability data.</li>
 </ul>
-
-<h3 id="known-breakage-on-main">Known breakage on <code class="language-plaintext highlighter-rouge">main</code></h3>
-
-<p>The three incremental generators listed above resolve their shot list from pipeline 2’s registry, and load each
-shot, by calling two helpers on <code class="language-plaintext highlighter-rouge">vaft.database.ods</code> that the module <strong>does not define on <code class="language-plaintext highlighter-rouge">main</code></strong> — it exposes
-<code class="language-plaintext highlighter-rouge">load_ods</code> and <code class="language-plaintext highlighter-rouge">save_ods</code>. As committed they will raise <code class="language-plaintext highlighter-rouge">AttributeError</code> before doing any work. The equivalent
-supported entry points are:</p>
-
-<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
-<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">vaft</span>
-<span class="n">ods</span> <span class="o">=</span> <span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">load</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="sh">"</span><span class="s">public</span><span class="sh">"</span><span class="p">)</span>   <span class="c1"># -&gt; ODS
-</span><span class="n">vaft</span><span class="p">.</span><span class="n">database</span><span class="p">.</span><span class="nf">save</span><span class="p">(</span><span class="n">ods</span><span class="p">,</span> <span class="n">shot</span><span class="p">)</span>
-</code></pre></div></div>
-
-<p>See <a href="/vaft/develop/guide/Data_structures/">Data structures</a> for the loader’s semantics.</p>
 
 <hr />
 
@@ -1264,7 +1422,7 @@ window.MathJax = {
         </button>
     </div>
     <nav class="page-toc-nav" aria-label="Page table of contents">
-        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline-1--routine-data-processing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline 1 — routine data processing</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#running-it" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running it</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-dag" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The DAG</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-library-calls-verbatim" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The library calls, verbatim</a></li><li class="page-toc-item page-toc-level-3"><a href="#configuration" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configuration</a></li><li class="page-toc-item page-toc-level-3"><a href="#failure-semantics--a-green-run-does-not-mean-everything-ran" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Failure semantics — a green run does not mean everything ran</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pipeline-2--corrective-data-update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline 2 — corrective data update</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#the-registry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The registry</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pipeline-3--data-summary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline 3 — data summary</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#reading-these-sheets-correctly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reading these sheets correctly</a></li><li class="page-toc-item page-toc-level-3"><a href="#known-breakage-on-main" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Known breakage on main</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#running_linear_stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">running_linear_stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#related" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Related</a></li></ul>
+        <ul class="page-toc-list"><li class="page-toc-item page-toc-level-2"><a href="#pipeline-1--routine-data-processing" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline 1 — routine data processing</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#running-it" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running it</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-dag" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The DAG</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-library-calls-verbatim" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The library calls, verbatim</a></li><li class="page-toc-item page-toc-level-3"><a href="#configuration" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Configuration</a></li><li class="page-toc-item page-toc-level-3"><a href="#failure-semantics--a-green-run-does-not-mean-everything-ran" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Failure semantics — a green run does not mean everything ran</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pipeline-2--corrective-data-update" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline 2 — corrective data update</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#stages" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Stages</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-composition-overlay" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The composition overlay</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-inferred-ion-temperature" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The inferred ion temperature</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-resistive-z_eff" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The resistive Z_eff</a></li><li class="page-toc-item page-toc-level-3"><a href="#dilution-in-the-kinetic-efit" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Dilution in the kinetic EFIT</a></li><li class="page-toc-item page-toc-level-3"><a href="#reading-the-result" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reading the result</a></li><li class="page-toc-item page-toc-level-3"><a href="#the-legacy-daemons-and-the-registry" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">The legacy daemons and the registry</a></li><li class="page-toc-item page-toc-level-3"><a href="#running-it-unattended" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Running it unattended</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#pipeline-3--data-summary" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Pipeline 3 — data summary</a><ul class="page-toc-submenu page-toc-level-2"><li class="page-toc-item page-toc-level-3"><a href="#reading-these-sheets-correctly" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Reading these sheets correctly</a></li></ul></li><li class="page-toc-item page-toc-level-2"><a href="#running_linear_stability" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">running_linear_stability</a></li><li class="page-toc-item page-toc-level-2"><a href="#related" onclick="mobilePageScrollToAnchor(this)"  class="page-toc-link">Related</a></li></ul>
     </nav>
 </aside>
 
@@ -1382,7 +1540,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-12 15:11:19 +0000"
+        "time": "2026-10-12 15:45:50 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

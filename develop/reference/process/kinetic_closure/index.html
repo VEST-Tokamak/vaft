@@ -390,7 +390,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4cf4fad</code>. What is described
+  <code>9744dbd</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -421,7 +421,7 @@
 </aside>
 
 <p class="ref-intro">Generated from the docstrings of <code>vaft.process.kinetic_closure</code>:
-<strong>3</strong> public functions. Each entry is what
+<strong>4</strong> public functions. Each entry is what
 <code>vaft.process.describe("kinetic_closure.&lt;name&gt;")</code> prints.
 <a href="/vaft/develop/reference/process/">All process categories</a></p>
 
@@ -466,7 +466,7 @@ the fast-ion inputs are in <code class="language-plaintext highlighter-rouge">pr
 <h2 id="functions">Functions</h2>
 
 <div class="ref-index" data-ref-index="">
-<input class="ref-filter" type="search" placeholder="Filter 3 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
+<input class="ref-filter" type="search" placeholder="Filter 4 functions by name or summary" aria-label="Filter functions" data-ref-filter="" />
 <div class="ref-table-wrap"><table class="ref-table ref-index-table">
   <tbody>
   <tr data-ref-row="assemble_pressure"><td><a href="#assemble_pressure"><code>assemble_pressure</code></a></td><td>Electron, per-species ion, thermal, fast and total pressure, each kept separate.
@@ -474,6 +474,8 @@ the fast-ion inputs are in <code class="language-plaintext highlighter-rouge">pr
   <tr data-ref-row="fast_ion_slowing_down_estimate"><td><a href="#fast_ion_slowing_down_estimate"><code>fast_ion_slowing_down_estimate</code></a></td><td>Classical slowing-down density, energy and pressure of one fast-ion source on a grid.
 </td></tr>
   <tr data-ref-row="infer_kinetic_closure"><td><a href="#infer_kinetic_closure"><code>infer_kinetic_closure</code></a></td><td>Densities, temperatures and separated pressures of one core_profiles slice, dilution-aware.
+ <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
+  <tr data-ref-row="infer_ti_pressure_partition"><td><a href="#infer_ti_pressure_partition"><code>infer_ti_pressure_partition</code></a></td><td>Ion temperature from the equilibrium pressure partition, <code class="language-plaintext highlighter-rouge">T_i = p_eq / (e f n_e) - T_e / f</code>.
  <span class="ref-flag ref-flag-convention">Convention</span></td></tr>
   </tbody>
 </table></div>
@@ -486,11 +488,11 @@ the fast-ion inputs are in <code class="language-plaintext highlighter-rouge">pr
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#assemble_pressure"><code>assemble_pressure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="assemble_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/4cf4fad0735d02aa27ed132a5cb22aaf355b8bc5/vaft/process/kinetic_closure.py#L121-L194" title="vaft/process/kinetic_closure.py, lines 121–194 at 4cf4fad">source</a>
+<a class="ref-source" data-source="assemble_pressure" href="https://github.com/VEST-Tokamak/vaft/blob/9744dbd73eebc1ca3a03857f19e35360c4052488/vaft/process/kinetic_closure.py#L140-L213" title="vaft/process/kinetic_closure.py, lines 140–213 at 9744dbd">source</a>
 </header>
     <pre class="ref-signature"><code>assemble_pressure(n_e, T_e, ion_densities, ion_temperatures, *, p_fast=None, provenance=None)</code></pre>
 
-    <details class="ref-code" data-source-code="assemble_pressure"><summary>Show source <span class="ref-note">vaft/process/kinetic_closure.py, lines 121–194</span></summary>
+    <details class="ref-code" data-source-code="assemble_pressure"><summary>Show source <span class="ref-note">vaft/process/kinetic_closure.py, lines 140–213</span></summary>
 
 <figure class="highlight"><pre><code class="language-python" data-lang="python"><span class="k">def</span> <span class="nf">assemble_pressure</span><span class="p">(</span>
     <span class="n">n_e</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
@@ -633,7 +635,7 @@ and <code class="language-plaintext highlighter-rouge">vaft.formula.equilibrium.
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#fast_ion_slowing_down_estimate"><code>fast_ion_slowing_down_estimate</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span></span>
-<a class="ref-source" data-source="fast_ion_slowing_down_estimate" href="https://github.com/VEST-Tokamak/vaft/blob/4cf4fad0735d02aa27ed132a5cb22aaf355b8bc5/vaft/process/kinetic_closure.py#L197-L334" title="vaft/process/kinetic_closure.py, lines 197–334 at 4cf4fad">source</a>
+<a class="ref-source" data-source="fast_ion_slowing_down_estimate" href="https://github.com/VEST-Tokamak/vaft/blob/9744dbd73eebc1ca3a03857f19e35360c4052488/vaft/process/kinetic_closure.py#L216-L353" title="vaft/process/kinetic_closure.py, lines 216–353 at 9744dbd">source</a>
 </header>
     <pre class="ref-signature"><code>fast_ion_slowing_down_estimate(n_e, T_e, field_ions, source_rate, beam_energy_eV, *, A_b, Z_b=1.0, ln_Lambda=None, time=None, rho=None)</code></pre>
 
@@ -730,7 +732,7 @@ profiles differ more, most at the edge, where orbit losses concentrate
     <header class="ref-head">
 <h3 class="ref-name no_toc"><a href="#infer_kinetic_closure"><code>infer_kinetic_closure</code></a></h3>
 <span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
-<a class="ref-source" data-source="infer_kinetic_closure" href="https://github.com/VEST-Tokamak/vaft/blob/4cf4fad0735d02aa27ed132a5cb22aaf355b8bc5/vaft/process/kinetic_closure.py#L365-L577" title="vaft/process/kinetic_closure.py, lines 365–577 at 4cf4fad">source</a>
+<a class="ref-source" data-source="infer_kinetic_closure" href="https://github.com/VEST-Tokamak/vaft/blob/9744dbd73eebc1ca3a03857f19e35360c4052488/vaft/process/kinetic_closure.py#L384-L596" title="vaft/process/kinetic_closure.py, lines 384–596 at 9744dbd">source</a>
 </header>
     <pre class="ref-signature"><code>infer_kinetic_closure(ods, *, time=None, tolerance=0.0005, dilution=&#39;species&#39;, composition=None, machine_preset=None, shot=None, ti_te_ratio=None, ti_record=None, use_stored_inferred_ti=False, fast_ion=None)</code></pre>
 
@@ -833,6 +835,110 @@ is run here.</p>
 
       <ol class="ref-cites">
   <li>#1606 Sec. 1-2 and 5; #1565 (composition); #1526 (the T_i record grammar, cold review 0.8.0 delta-absorb-19 physics F1).
+</li>
+</ol>
+
+    </details>
+
+  </section>
+
+  <section class="ref-entry" id="infer_ti_pressure_partition" data-catalog="process">
+    <header class="ref-head">
+<h3 class="ref-name no_toc"><a href="#infer_ti_pressure_partition"><code>infer_ti_pressure_partition</code></a></h3>
+<span class="ref-flags"><span class="ref-flag">Machine-independent</span><span class="ref-flag ref-flag-convention">Convention-sensitive</span></span>
+<a class="ref-source" data-source="infer_ti_pressure_partition" href="https://github.com/VEST-Tokamak/vaft/blob/9744dbd73eebc1ca3a03857f19e35360c4052488/vaft/process/kinetic_closure.py#L599-L736" title="vaft/process/kinetic_closure.py, lines 599–736 at 9744dbd">source</a>
+</header>
+    <pre class="ref-signature"><code>infer_ti_pressure_partition(p_eq, n_e, t_e, *, composition, sigma_p_eq, sigma_n_e, sigma_t_e, equilibrium_lineage)</code></pre>
+
+    <p>Ion temperature from the equilibrium pressure partition, <code class="language-plaintext highlighter-rouge">T_i = p_eq / (e f n_e) - T_e / f</code>.</p>
+
+    <div class="ref-table-wrap"><table class="ref-table">
+  <thead><tr><th>Name</th><th>Type</th><th>Unit</th><th>Description</th></tr></thead>
+  <tbody class="ref-params">
+  <tr><td><code>p_eq</code></td><td class="ref-type">array-like</td><td class="ref-unit">Pa</td><td><p>Equilibrium total pressure on the points.</p>
+</td></tr>
+  <tr><td><code>n_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>Electron density on the same points.</p>
+</td></tr>
+  <tr><td><code>t_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">eV</td><td><p>Electron temperature on the same points.</p>
+</td></tr>
+  <tr><td><code>composition</code></td><td class="ref-type">mapping</td><td class="ref-unit">-</td><td><p><code class="language-plaintext highlighter-rouge">ion_density_per_electron</code> – <code class="language-plaintext highlighter-rouge">f = sum_s n_s / n_e</code>, a number or an array on the points [-] – and <code class="language-plaintext highlighter-rouge">composition_source</code>, a description of where it came from.</p>
+</td></tr>
+  <tr><td><code>sigma_p_eq</code></td><td class="ref-type">array-like</td><td class="ref-unit">Pa</td><td><p>One-sigma uncertainty of <code class="language-plaintext highlighter-rouge">p_eq</code>.</p>
+</td></tr>
+  <tr><td><code>sigma_n_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">m^-3</td><td><p>One-sigma uncertainty of <code class="language-plaintext highlighter-rouge">n_e</code>; NaN where unknown.</p>
+</td></tr>
+  <tr><td><code>sigma_t_e</code></td><td class="ref-type">array-like</td><td class="ref-unit">eV</td><td><p>One-sigma uncertainty of <code class="language-plaintext highlighter-rouge">t_e</code>; NaN where unknown.</p>
+</td></tr>
+  <tr><td><code>equilibrium_lineage</code></td><td class="ref-type">str</td><td class="ref-unit">-</td><td><p>Where <code class="language-plaintext highlighter-rouge">p_eq</code> was reconstructed, one of the lineages the caller derived from the product’s stage; the inference is refused unless it is in <code class="language-plaintext highlighter-rouge">INDEPENDENT_LINEAGES</code>.</p>
+</td></tr>
+  </tbody>
+  <tbody class="ref-returns">
+  <tr class="ref-group"><th colspan="4">Returns</th></tr>
+  <tr><td>&mdash;</td><td class="ref-type">dict</td><td class="ref-unit">any</td><td><p>Refused (<code class="language-plaintext highlighter-rouge">eligible = False</code>): <code class="language-plaintext highlighter-rouge">origin</code>, <code class="language-plaintext highlighter-rouge">method</code> and the <code class="language-plaintext highlighter-rouge">reason</code>. Otherwise <code class="language-plaintext highlighter-rouge">eligible = True</code>, <code class="language-plaintext highlighter-rouge">origin = "inferred"</code>, <code class="language-plaintext highlighter-rouge">method</code>, <code class="language-plaintext highlighter-rouge">equilibrium_lineage</code>, <code class="language-plaintext highlighter-rouge">assumptions</code>, <code class="language-plaintext highlighter-rouge">p_e</code> and <code class="language-plaintext highlighter-rouge">p_i</code> [Pa], <code class="language-plaintext highlighter-rouge">sigma_p_i</code> [Pa], <code class="language-plaintext highlighter-rouge">t_i</code> and <code class="language-plaintext highlighter-rouge">sigma_t_i</code> [eV], <code class="language-plaintext highlighter-rouge">ti_te</code> [-] and <code class="language-plaintext highlighter-rouge">flags</code>, one list per point [any].  <code class="language-plaintext highlighter-rouge">t_i</code>, <code class="language-plaintext highlighter-rouge">sigma_t_i</code> and <code class="language-plaintext highlighter-rouge">ti_te</code> are NaN where a point carries a flag of <code class="language-plaintext highlighter-rouge">TI_FLAGS</code>.</p>
+</td></tr>
+  </tbody>
+</table></div>
+
+    <div class="ref-callout ref-callout-convention">
+      <p class="ref-label">Convention</p>
+
+      <p>The uncertainty is propagated through <code class="language-plaintext highlighter-rouge">T_i = p_eq / (e f n_e) - T_e / f</code>,
+which keeps the <code class="language-plaintext highlighter-rouge">n_e</code> correlation between <code class="language-plaintext highlighter-rouge">p_e</code> and the ion density::</p>
+
+      <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>dT_i/dp_eq = 1/(e f n_e), dT_i/dn_e = -p_eq/(e f n_e^2), dT_i/dT_e = -1/f
+</code></pre></div>      </div>
+
+      <p>Points are flagged, never filled.  Scalars broadcast against arrays; every
+input is brought to one shape.  <code class="language-plaintext highlighter-rouge">f</code> is taken as exact, and <code class="language-plaintext highlighter-rouge">p_eq</code> is
+the caller’s pressure with the caller’s uncertainty.</p>
+
+    </div>
+
+    <div class="ref-callout ref-callout-raises">
+<p class="ref-label">Raises</p>
+<ul class="ref-raises">
+  <li><code>KeyError</code> <code class="language-plaintext highlighter-rouge">composition</code> lacks <code class="language-plaintext highlighter-rouge">ion_density_per_electron</code> or <code class="language-plaintext highlighter-rouge">composition_source</code>.
+</li>
+</ul>
+</div>
+
+    <details class="ref-more">
+      <summary>Processing steps · Assumptions · Applicability · Limitations · Provenance</summary>
+
+      <h4 class="ref-label no_toc">Processing steps</h4>
+
+      <ol>
+        <li>Refuse a lineage outside <code class="language-plaintext highlighter-rouge">INDEPENDENT_LINEAGES</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">p_e = e n_e T_e</code> and <code class="language-plaintext highlighter-rouge">p_i = p_eq - p_e</code>.</li>
+        <li><code class="language-plaintext highlighter-rouge">T_i = p_i / (e f n_e)</code> for one common ion temperature of <code class="language-plaintext highlighter-rouge">n_i = f n_e</code> ions.</li>
+        <li>Propagate the one-sigma inputs linearly (below).</li>
+        <li>Void <code class="language-plaintext highlighter-rouge">p_i &lt;= 0</code> (<code class="language-plaintext highlighter-rouge">p_i_nonpositive</code>), <code class="language-plaintext highlighter-rouge">p_i &lt; sigma(p_i)</code>
+(<code class="language-plaintext highlighter-rouge">p_i_not_significant</code>) and non-finite or non-positive inputs
+(<code class="language-plaintext highlighter-rouge">non_finite_input</code>); a missing input uncertainty only adds the note
+<code class="language-plaintext highlighter-rouge">sigma_unavailable</code> and skips the significance test at that point.</li>
+      </ol>
+
+      <h4 class="ref-label no_toc">Assumptions</h4>
+
+      <p>A single ion temperature for every ion species; <code class="language-plaintext highlighter-rouge">f</code> from a composition
+the caller names.  The result is an inferred quantity, never a measurement.</p>
+
+      <h4 class="ref-label no_toc">Applicability</h4>
+
+      <p>Machine-independent.</p>
+
+      <h4 class="ref-label no_toc">Limitations</h4>
+
+      <p>The guard trusts the declared lineage.  Equilibrium products carry no
+machine-readable record of one, so a caller must derive
+<code class="language-plaintext highlighter-rouge">equilibrium_lineage</code> from where the pressure came from (the FileDB stage
+it loaded), never from intent.  An <code class="language-plaintext highlighter-rouge">electron_kinetic</code> pressure was fitted
+with an assumed <code class="language-plaintext highlighter-rouge">T_i/T_e</code> and is refused as circular.</p>
+
+      <h4 class="ref-label no_toc">Provenance</h4>
+
+      <ol class="ref-cites">
+  <li>#1426 (pressure-partition T_i); moved here from <code class="language-plaintext highlighter-rouge">vaft.validation.kinetic_state</code> by #1842.
 </li>
 </ol>
 
@@ -1060,7 +1166,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-12 15:11:19 +0000"
+        "time": "2026-10-12 15:45:50 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {

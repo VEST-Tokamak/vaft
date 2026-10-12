@@ -390,7 +390,7 @@
                 <div class="body-inner"><div class="vaft-track-banner" role="note" aria-label="Documentation track">
   <strong>Development documentation.</strong>
   Built from <code>develop</code> at
-  <code>4cf4fad</code>. What is described
+  <code>9744dbd</code>. What is described
   here may change before it is released.
   <a href="https://vest-tokamak.github.io/vaft/">Read the stable documentation instead</a>.
 </div>
@@ -520,7 +520,7 @@ $\sum_s n_{i,s} = f\,n_e$ (common ion temperature),</p>
 
 \[p_i = p_{\mathrm{eq}} - e\,n_e T_e, \qquad T_i = \frac{p_i}{e\,f\,n_e} = \frac{p_{\mathrm{eq}}}{e f n_e} - \frac{T_e}{f}.\]
 
-<p><code class="language-plaintext highlighter-rouge">vaft.validation.kinetic_state.infer_ti_pressure_partition</code> implements this (#1426). It propagates
+<p><code class="language-plaintext highlighter-rouge">vaft.process.kinetic_closure.infer_ti_pressure_partition</code> implements this (#1426). It propagates
 the uncertainty linearly — keeping the $n_e$ correlation between $p_e$ and the ion density — and
 <strong>flags points, never fills them</strong>: $p_i \le 0$ and $p_i &lt; \sigma(p_i)$ return <code class="language-plaintext highlighter-rouge">NaN</code>. It also refuses a
 circular input: a pressure reconstructed with an assumed $T_i/T_e$ (a kinetic EFIT) returns that
@@ -688,7 +688,7 @@ and the shared shape are assumptions, not data.</p>
 <h3 id="b--ion-temperature-from-the-equilibrium-pressure-inferred">B — ion temperature from the equilibrium pressure (inferred)</h3>
 
 <div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">import</span> <span class="n">numpy</span> <span class="k">as</span> <span class="n">np</span>
-<span class="kn">from</span> <span class="n">vaft.validation.kinetic_state</span> <span class="kn">import</span> <span class="n">infer_ti_pressure_partition</span>
+<span class="kn">from</span> <span class="n">vaft.process.kinetic_closure</span> <span class="kn">import</span> <span class="n">infer_ti_pressure_partition</span>
 
 <span class="n">result</span> <span class="o">=</span> <span class="nf">infer_ti_pressure_partition</span><span class="p">(</span>
     <span class="n">np</span><span class="p">.</span><span class="nf">array</span><span class="p">([</span><span class="mf">500.0</span><span class="p">,</span> <span class="mf">330.0</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">]),</span>              <span class="c1"># p_eq [Pa], magnetic-only equilibrium
@@ -984,7 +984,7 @@ window.MathJax = {
     },
     "gitbook": {
         "version": "3.2.3",
-        "time": "2026-10-12 15:11:19 +0000"
+        "time": "2026-10-12 15:45:50 +0000"
     },
     "basePath": "/vaft/develop",
     "book": {
