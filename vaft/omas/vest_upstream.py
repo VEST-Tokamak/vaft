@@ -8,6 +8,7 @@ from datetime import datetime
 import gzip
 import hashlib
 import json
+import math
 from pathlib import Path
 import shutil
 import tempfile
@@ -2207,12 +2208,935 @@ def _path_present(ods: ODS, path: str) -> bool:
         return False
 
 
+def _append_record_fields(
+    ods: ODS, path: str, fields: Mapping[str, Any], *, when_absent: str = ""
+) -> None:
+    """Add ``key=value`` fields to a provenance record, keeping what it holds.
+
+    A record is read by key, so an appended field never disturbs a parser of the
+    grammar already there; a key the record carries is left as written.
+
+    ``when_absent`` starts a record that does not exist yet.  It matters for an
+    ion temperature: an absent record is read as *measured*, while a record with
+    only these fields is read as *unknown* and a measured ``T_i`` would be
+    refused downstream -- so the caller states what the absence meant.
+    """
+    from vaft.machine_mapping.core_profiles import ti_record_fields
+    from vaft.ods_access import path_value
+
+    current = path_value(ods, path, None)
+    text = "" if current is None else str(current).strip().rstrip(";").strip()
+    text = text or when_absent
+    present = ti_record_fields(text)
+    added = "; ".join(f"{key}={value}" for key, value in fields.items() if key not in present)
+    if added:
+        ods[path] = f"{text}; {added}" if text else added
+
+
+def _volume_weights_on_grid(solution: ODS, index: int, rho: np.ndarray) -> np.ndarray | None:
+    """``dV`` per ``rho_tor_norm`` point from the equilibrium's own ``V(rho)`` at ``index``.
+
+    The composition normalisation is an ``n_e dV`` mean, so it needs the volume
+    element of the surface each point sits on.  Points beyond the equilibrium's
+    ``rho`` range are clamped by ``np.interp`` and so get ``dV = 0``.
+    """
+    from vaft.ods_access import path_value
+
+    base = f"equilibrium.time_slice.{index}.profiles_1d"
+    rho_eq = path_value(solution, f"{base}.rho_tor_norm", None)
+    volume = path_value(solution, f"{base}.volume", None)
+    if rho_eq is None or volume is None or rho.size < 2:
+        return None
+    rho_eq, volume = np.asarray(rho_eq, dtype=float), np.asarray(volume, dtype=float)
+    ok = np.isfinite(rho_eq) & np.isfinite(volume)
+    if not ok.any():
+        return None
+    order = np.argsort(rho_eq[ok])
+    edges = np.concatenate(([0.0], 0.5 * (rho[1:] + rho[:-1]), [rho[-1]]))
+    return np.clip(np.diff(np.interp(edges, rho_eq[ok][order], volume[ok][order])), 0.0, None)
+
+
+def _plasma_onset(diagnostics_product: str | Path | None) -> tuple[float | None, str]:
+    """``(onset [s], source)`` of the discharge, or ``(None, why)`` when there is none."""
+    if diagnostics_product is None or not Path(diagnostics_product).exists():
+        return None, "no diagnostics product"
+    try:
+        from vaft.omas.plasma_timing import plasma_timing
+
+        diagnostics, _ = load_ods(Path(diagnostics_product))
+        timing = plasma_timing(diagnostics)
+    except Exception as error:  # noqa: BLE001 - recorded; the stage reports it per slice
+        return None, f"{type(error).__name__}: {error}"[:120]
+    return (float(timing.onset), str(timing.source)) if timing.found else (None, "no plasma found")
+
+
+COMPOSITION_IONIZATIONS = ("transient", "coronal")
+
+#: Recorded beside the main-ion density so a reader can tell a pressure that
+#: counts the diluted ions from the legacy ``e n_e (T_e + T_i)`` (n_i = n_e).
+PRESSURE_CLOSURE_RECORD = {"pressure_closure": "infer_kinetic_closure", "dilution": "species"}
+
+
+def _write_species_pressures(ods: ODS, base: str) -> None:
+    """``ion[k].pressure`` = e n_k T_i for every ion of a slice that has an ion temperature.
+
+    Only the total ``pressure_ion_total`` was stored, so a reader drawing the
+    impurity pressure had to rebuild it; this states it per species.  A slice with
+    no ion temperature gets none (its total was not written either).
+    """
+    from vaft.ods_access import path_value
+
+    t_i = path_value(ods, f"{base}.ion.0.temperature", None)
+    if t_i is None:
+        return
+    t_i = np.asarray(t_i, dtype=float)
+    for k in range(len(ods[f"{base}.ion"])):
+        n_k = path_value(ods, f"{base}.ion.{k}.density", None)
+        if n_k is None:
+            continue
+        p_k = 1.602176634e-19 * np.asarray(n_k, dtype=float) * t_i
+        ods[f"{base}.ion.{k}.pressure"] = p_k
+        ods[f"{base}.ion.{k}.pressure_thermal"] = p_k
+
+
+def _write_closure_pressures(ods: ODS, index: int, time_s: float) -> str:
+    """Rewrite one slice's pressures from its (now diluted) composition; say what was done.
+
+    The measured product stored ``pressure_thermal = e n_e (T_e + T_i)``, which
+    counts one ion per electron.  Once the main ion is diluted that value is no
+    longer the pressure of the ions the slice carries, so it is recomputed with
+    :func:`vaft.process.kinetic_closure.infer_kinetic_closure` (``species``):
+
+    * a **measured** ion temperature gives ``electrons.pressure``,
+      ``electrons.pressure_thermal``, ``pressure_ion_total`` and
+      ``pressure_thermal = p_e + p_i``;
+    * **no** ion temperature gives the electron pressure only -- the slice stays
+      free of any assumed-``T_i`` total, as it was;
+    * an ion temperature the product itself assumed or inferred is not a
+      measurement, so its own pressure is left as it was written.
+
+    Returns ``"ion"``, ``"electron_only"`` or ``"unchanged"``.
+    """
+    from vaft.formula.equilibrium import electron_pressure
+    from vaft.ods_access import path_value
+    from vaft.process.kinetic_closure import infer_kinetic_closure
+
+    base = f"core_profiles.profiles_1d.{index}"
+    try:
+        closure = infer_kinetic_closure(ods, time=float(time_s), dilution="species")
+    except ValueError as error:
+        if "stores no ion temperature" not in str(error):
+            raise
+        closure = None
+    if closure is None:
+        ne = path_value(ods, f"{base}.electrons.density_thermal", None)
+        ne = np.asarray(ods[f"{base}.electrons.density"] if ne is None else ne, dtype=float)
+        te = np.asarray(ods[f"{base}.electrons.temperature"], dtype=float)
+        p_e = np.where(np.isfinite(ne) & np.isfinite(te),
+                       np.asarray(electron_pressure(np.nan_to_num(ne), np.nan_to_num(te)), dtype=float),
+                       np.nan)
+        ods[f"{base}.electrons.pressure"] = p_e
+        ods[f"{base}.electrons.pressure_thermal"] = p_e
+        return "electron_only"
+    if closure.provenance["ti"]["status"] != "measured":
+        return "unchanged"
+    pressure = closure.pressure
+    ods[f"{base}.electrons.pressure"] = pressure.p_e
+    ods[f"{base}.electrons.pressure_thermal"] = pressure.p_e
+    ods[f"{base}.pressure_ion_total"] = pressure.p_i_thermal
+    ods[f"{base}.pressure_thermal"] = pressure.p_thermal
+    _append_record_fields(ods, f"{base}.ion.0.density_fit.parameters", PRESSURE_CLOSURE_RECORD)
+    return "ion"
+
+
+def build_composition_ods(
+    *,
+    shot: int,
+    core_profiles_product: str | Path,
+    efit_product: str | Path | None = None,
+    diagnostics_product: str | Path | None = None,
+    ionization: str = "transient",
+    normalization: str = "ne_weighted_mean",
+    equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+    cache_dir: str | None = None,
+    tables: Mapping[str, Any] | None = None,
+    assume_ti_eq_te: bool = True,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Add the VEST impurity composition, ``n_i`` and plasma ``Z_eff(rho)`` to measured core profiles.
+
+    Each ``core_profiles`` slice of the measured product is given the charge-state
+    resolved C/O composition of ``machine_mapping/vest.yaml`` ``impurity_model``:
+    the elemental ratio and the ``n_e dV``-mean ``Z_eff`` target are the model's,
+    the radial charge states come from ADF11 data at the slice's ``T_e(rho)`` and
+    ``n_e(rho)``, and the main ion is diluted accordingly.  Everything written is
+    an *assumption* (``origin=assumed``/``derived``); a measured ``zeff`` is never
+    overwritten.
+
+    ``transient`` ionization needs the plasma age, ``t - onset``, with the onset
+    from ``plasma_timing`` on the diagnostics product.  A slice with no positive
+    age is skipped and named in the manifest -- it is never silently computed as
+    coronal, which overstates the charge on VEST's tens-of-ms discharges.
+
+    The slice's pressures are recomputed from the diluted ions with the
+    ``species`` kinetic closure, so ``pressure_thermal`` no longer counts one
+    ion per electron; the closure is named in ``ion.0.density_fit.parameters``
+    (``pressure_closure=infer_kinetic_closure``).
+
+    Each composed slice also records which equilibrium it was matched to
+    (``equilibrium_lineage``, ``equilibrium_occurrence``, ``equilibrium_time_s``),
+    in the electron temperature fit record and, when the slice has an ion
+    temperature, in its record (an ion temperature with no record is stated as
+    ``origin=measured`` first, which is what its absence meant): the pipeline-1
+    EFIT is the magnetic lineage.
+    The product is the measured one plus these additions; the replicated IDS is
+    ``core_profiles``, which this product replaces in ``main`` only when it exists.
+
+    A slice with **no measured** ion temperature is given ``T_i = T_e`` when
+    ``assume_ti_eq_te`` (the default): written as an *assumption* in the ratio
+    grammar (``ti_te_ratio=1; status=assumed``), with ``t_i_average`` and the
+    total pressure following from it.  A measured ``T_i`` is never replaced.
+
+    ``cache_dir`` is where the OPEN-ADAS ADF11 files are kept (they are fetched on
+    first use, so a server without network needs the cache warmed); ``tables``
+    overrides them with ``{element: (acd, scd)}`` paths and exists for tests.
+    """
+    from vaft.machine_mapping.core_profiles import vest_impurity_model
+    from vaft.ods_access import path_value
+    from vaft.process.impurity import populate_radial_impurity_profiles, resolve_radial_composition
+    from vaft.process.kinetic_closure import infer_kinetic_closure
+
+    if ionization not in COMPOSITION_IONIZATIONS:
+        raise ValueError(f"ionization must be one of {COMPOSITION_IONIZATIONS}, got {ionization!r}")
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    manifest = _external_profile_manifest("composition", shot, run, era.name)
+    manifest["input"] = {
+        "core_profiles_product": str(core_profiles_product),
+        "efit_product": str(efit_product) if efit_product is not None else None,
+        "diagnostics_product": str(diagnostics_product) if diagnostics_product is not None else None,
+    }
+    manifest["configuration"].update(
+        ionization=ionization, normalization=normalization,
+        equilibrium_tolerance_ms=float(equilibrium_tolerance_ms),
+        assume_ti_eq_te=bool(assume_ti_eq_te),
+    )
+
+    if not Path(core_profiles_product).exists():
+        # A path that does not resolve is a caller error, not an absent product.
+        raise FileNotFoundError(f"the core_profiles product is missing: {core_profiles_product}")
+    ods, _ = load_ods(Path(core_profiles_product))
+    times = path_value(ods, "core_profiles.time", None)
+    if times is None or np.asarray(times).size == 0:
+        manifest["error"] = "the core_profiles product carries no slices"
+        return ods, manifest
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+
+    model = vest_impurity_model(shot)
+    if model is None:
+        manifest["error"] = f"vest.yaml defines no impurity_model for shot {shot}"
+        return ods, manifest
+    weights = {item["element"]: float(item["relative_density"]) for item in model["species"]}
+    target_zeff = float(model["target_zeff"])
+    manifest["composition"] = {
+        "model_status": model["status"], "elemental_weights": weights,
+        "target_zeff": target_zeff, "main_ion": model["main_ion"],
+    }
+
+    solution = eq_times_ms = None
+    if efit_product is not None and Path(efit_product).exists():
+        solution, _ = load_ods(Path(efit_product))
+        eq_times_ms = _time_array_ms(solution, "equilibrium.time")
+    onset, onset_source = _plasma_onset(diagnostics_product)
+    manifest["composition"].update(onset_s=onset, onset_source=onset_source)
+
+    composed, assumed_ti, skipped = 0, 0, []
+    # The machine policy's ratio sigma travels with the assumption, so a reader that
+    # weights the pressure (the spline EFIT encoding, #1414) sees its uncertainty.
+    from vaft.machine_mapping.core_profiles import vest_core_profiles_policy
+
+    assumed_ti_sigma = float(vest_core_profiles_policy(shot).ti_te_ratio_sigma)
+    assumed_ti_record = (
+        f"ti_te_ratio=1; sigma={assumed_ti_sigma:g}; status=assumed; source=assumption; assume_ti_eq_te=1"
+    )
+    pressures = {"ion": 0, "electron_only": 0, "unchanged": 0}
+    for index, time_s in enumerate(times):
+        base = f"core_profiles.profiles_1d.{index}"
+        rho = path_value(ods, f"{base}.grid.rho_tor_norm", None)
+        te = path_value(ods, f"{base}.electrons.temperature", None)
+        ne = path_value(ods, f"{base}.electrons.density_thermal", None)
+        if ne is None:
+            ne = path_value(ods, f"{base}.electrons.density", None)
+        if rho is None or te is None or ne is None:
+            skipped.append({"time_s": float(time_s), "reason": "slice lacks rho, T_e or n_e"})
+            continue
+        rho, te, ne = (np.atleast_1d(np.asarray(v, dtype=float)) for v in (rho, te, ne))
+
+        equilibrium_index = None
+        if solution is not None and eq_times_ms is not None:
+            nearest = int(np.argmin(np.abs(eq_times_ms - time_s * 1e3)))
+            if abs(float(eq_times_ms[nearest]) - time_s * 1e3) <= equilibrium_tolerance_ms:
+                equilibrium_index = nearest
+        dv = (
+            _volume_weights_on_grid(solution, equilibrium_index, rho)
+            if equilibrium_index is not None else None
+        )
+
+        age = None if onset is None else float(time_s) - onset
+        positive_age = age if age is not None and age > 0.0 else None
+        if ionization == "transient" and positive_age is None:
+            skipped.append({"time_s": float(time_s), "reason": f"no positive plasma age ({onset_source})"})
+            continue
+        try:
+            radial = resolve_radial_composition(
+                te, ne, rho, weights, normalization=normalization, target_zeff=target_zeff,
+                ionization=ionization, plasma_age_s=positive_age, volume_weights=dv,
+                cache_dir=cache_dir, tables=tables, time=float(time_s),
+            )
+            ods = populate_radial_impurity_profiles(ods, radial, time=float(time_s))
+        except Exception as error:  # noqa: BLE001 - one slice that cannot be composed is a skipped one
+            skipped.append({"time_s": float(time_s), "reason": f"{type(error).__name__}: {error}"[:200]})
+            continue
+        composed += 1
+        if assume_ti_eq_te and path_value(ods, f"{base}.ion.0.temperature", None) is None:
+            for k in range(len(ods[f"{base}.ion"])):
+                ods[f"{base}.ion.{k}.temperature"] = te.copy()
+                ods[f"{base}.ion.{k}.temperature_fit.parameters"] = assumed_ti_record
+            ods[f"{base}.t_i_average"] = te.copy()
+            ods[f"{base}.t_i_average_fit.parameters"] = assumed_ti_record
+            assumed_ti += 1
+            closure = infer_kinetic_closure(ods, time=float(time_s), dilution="species", ti_te_ratio=1.0)
+            pressure = closure.pressure
+            ods[f"{base}.electrons.pressure"] = pressure.p_e
+            ods[f"{base}.electrons.pressure_thermal"] = pressure.p_e
+            ods[f"{base}.pressure_ion_total"] = pressure.p_i_thermal
+            ods[f"{base}.pressure_thermal"] = pressure.p_thermal
+            pressures["ion"] += 1
+        else:
+            pressures[_write_closure_pressures(ods, index, float(time_s))] += 1
+
+        _append_record_fields(ods, f"{base}.zeff_fit.parameters", {"target_zeff": target_zeff})
+        # the record that states the normalization also states what it normalised to
+        for k in range(len(ods[f"{base}.ion"])):
+            _append_record_fields(ods, f"{base}.ion.{k}.density_fit.parameters", {"target_zeff": target_zeff})
+        _write_species_pressures(ods, base)
+        if equilibrium_index is not None:
+            lineage = {
+                "equilibrium_lineage": "magnetics", "equilibrium_occurrence": 0,
+                "equilibrium_time_s": round(float(eq_times_ms[equilibrium_index]) * 1e-3, 6),
+            }
+            _append_record_fields(ods, f"{base}.electrons.temperature_fit.parameters", lineage)
+            if path_value(ods, f"{base}.ion.0.temperature", None) is not None:
+                # No record on a stored T_i means "measured" to every reader
+                # (classify_ti_record); say so before adding to it.
+                _append_record_fields(
+                    ods, f"{base}.ion.0.temperature_fit.parameters", lineage,
+                    when_absent="origin=measured",
+                )
+
+    manifest["slices"] = {
+        "composed": composed, "skipped": len(skipped), "total": int(times.size),
+    }
+    manifest["ion_temperature"] = {"assumed_ti_eq_te": assumed_ti}
+    manifest["pressure"] = {"closure": "infer_kinetic_closure", "dilution": "species", **pressures}
+    manifest["skipped_slices"] = skipped[:20]
+    if composed:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        if skipped:
+            manifest["quality_summary"]["missing"] = [
+                f"composition:t={item['time_s']:.4f}s" for item in skipped[:20]
+            ]
+    else:
+        manifest["error"] = skipped[0]["reason"] if skipped else "no slice could be composed"
+    return ods, manifest
+
+
+#: Relative one-sigma model-form uncertainty of the EFIT pressure (#874), and the
+#: window of neighbouring slices whose spread can exceed it (#1426).
+TI_INFERENCE_FLOOR = 0.17
+TI_INFERENCE_WINDOW_S = 1e-3
+
+
+class _SliceSkipped(Exception):
+    """A slice the T_i inference cannot be made for; the message is the reason recorded."""
+
+
+def _magnetic_efit_lineage(efit_product: str | Path) -> str | None:
+    """``"magnetics"`` when the product lives under the FileDB ``efit/magnetic`` stage, else ``None``.
+
+    The pressure-partition guard trusts the lineage it is given, and nothing in
+    an equilibrium product records one, so it is read off *where the product
+    was loaded from* -- never asserted by the caller.
+    """
+    parts = Path(str(efit_product)).parts
+    return "magnetics" if any(pair == ("efit", "magnetic") for pair in zip(parts, parts[1:])) else None
+
+
+def _thomson_relative_errors(ods: ODS, time_s: float) -> tuple[float, float]:
+    """Median relative one-sigma of ``n_e`` and ``T_e`` over the valid channels nearest ``time_s``.
+
+    The fitted ``core_profiles`` carry no uncertainty of their own, so the
+    channels' median relative error is transferred to the fit (``NaN`` when the
+    product has no usable channel, which the kernel records as a missing sigma).
+    """
+    from vaft.ods_access import path_value
+
+    times = path_value(ods, "thomson_scattering.time", None)
+    if times is None or not _path_present(ods, "thomson_scattering.channel"):
+        return math.nan, math.nan
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+    it = int(np.argmin(np.abs(times - time_s)))
+    rel_n, rel_t = [], []
+    for i in range(len(ods["thomson_scattering.channel"])):
+        base = f"thomson_scattering.channel.{i}"
+        for leaf, store in (("n_e", rel_n), ("t_e", rel_t)):
+            data = path_value(ods, f"{base}.{leaf}.data", None)
+            error = path_value(ods, f"{base}.{leaf}.data_error_upper", None)
+            if data is None or error is None:
+                continue
+            data, error = np.atleast_1d(np.asarray(data, float)), np.atleast_1d(np.asarray(error, float))
+            if it < data.size and it < error.size and data[it] > 0 and np.isfinite(error[it]) and error[it] > 0:
+                store.append(float(error[it] / data[it]))
+    return (
+        float(np.median(rel_n)) if rel_n else math.nan,
+        float(np.median(rel_t)) if rel_t else math.nan,
+    )
+
+
+def _equilibrium_pressure_on(solution: ODS, index: int, psi_norm: np.ndarray) -> np.ndarray | None:
+    """The reconstructed pressure of slice ``index`` interpolated onto ``psi_norm`` points."""
+    from vaft.ods_access import path_value
+    from vaft.validation import kinetic_state as ks
+
+    grid = ks.rho_tor_norm_of(solution, index).get("psi_norm")
+    pressure = path_value(solution, f"equilibrium.time_slice.{index}.profiles_1d.pressure", None)
+    if grid is None or pressure is None:
+        return None
+    grid, pressure = np.asarray(grid, dtype=float), np.asarray(pressure, dtype=float)
+    if grid.size != pressure.size:
+        return None
+    order = np.argsort(grid)
+    return np.interp(psi_norm, grid[order], pressure[order])
+
+
+def build_ti_inferred_ods(
+    *,
+    shot: int,
+    core_profiles_product: str | Path,
+    efit_product: str | Path,
+    floor: float = TI_INFERENCE_FLOOR,
+    window_s: float = TI_INFERENCE_WINDOW_S,
+    equilibrium_tolerance_ms: float = EQUILIBRIUM_TIME_TOLERANCE_MS,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Give the electron-only slices an ion temperature inferred from the magnetic pressure partition.
+
+    On a slice with no measured ``T_i``, ``T_i = p_eq / (e f n_e) - T_e / f`` with
+    ``p_eq`` the pipeline-1 magnetic EFIT pressure at the slice's own flux
+    surfaces and ``f = n_i,tot / n_e`` the composed product's diluted ion
+    density (:func:`vaft.process.kinetic_closure.infer_ti_pressure_partition`).
+    The result is **inferred**, never measured: it is written with
+    ``origin=inferred`` in the ion ``temperature_fit.parameters`` record (the
+    spelling ``classify_ti_record`` reads back), points where ``p_i`` is not
+    positive and significant stay NaN, and the slice's pressures are recomputed
+    from it, so ``p_thermal`` equals the equilibrium pressure there by
+    construction -- a closure identity, not an agreement test.
+
+    Only the ``efit/magnetic`` lineage is accepted, read from where the product
+    lives; the electron-kinetic EFIT was fitted with an assumed ``T_i/T_e`` and
+    would return that assumption.  Slices that already carry a measured ``T_i``
+    are left alone.  A slice with no composition is skipped rather than inferred
+    with ``n_i = n_e``: the ion density is half of the formula.  The stage reads
+    the *composed* product and must never be read by the kinetic EFIT stages.
+    """
+    from vaft.machine_mapping.core_profiles import classify_ti_record, inferred_ti_text, ti_record_fields
+    from vaft.ods_access import path_value
+    from vaft.process.kinetic_closure import (
+        TI_FLAGS,
+        assemble_pressure,
+        infer_kinetic_closure,
+        infer_ti_pressure_partition,
+    )
+    from vaft.validation import kinetic_state as ks
+
+    shot = int(shot)
+    era = machine_era_for_shot(shot)
+    manifest = _external_profile_manifest("ti_inferred", shot, run, era.name)
+    manifest["input"] = {
+        "core_profiles_product": str(core_profiles_product),
+        "efit_product": str(efit_product),
+    }
+    manifest["configuration"].update(
+        floor=float(floor), window_s=float(window_s),
+        equilibrium_tolerance_ms=float(equilibrium_tolerance_ms),
+    )
+    if not Path(core_profiles_product).exists():
+        raise FileNotFoundError(f"the core_profiles product is missing: {core_profiles_product}")
+    ods, _ = load_ods(Path(core_profiles_product))
+    times = path_value(ods, "core_profiles.time", None)
+    if times is None or np.asarray(times).size == 0:
+        manifest["error"] = "the core_profiles product carries no slices"
+        return ods, manifest
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+
+    lineage = _magnetic_efit_lineage(efit_product)
+    manifest["configuration"]["equilibrium_lineage"] = lineage
+    if lineage is None:
+        manifest["error"] = (
+            f"the efit product {efit_product} is not under omas/efit/magnetic, so its lineage is "
+            "not established; the inference is refused rather than guessed"
+        )
+        return ods, manifest
+    if not Path(efit_product).exists():
+        manifest["error"] = f"the magnetic efit product is missing: {efit_product}"
+        return ods, manifest
+    solution, _ = load_ods(Path(efit_product))
+    eq_times_ms = _time_array_ms(solution, "equilibrium.time")
+    if eq_times_ms is None:
+        manifest["error"] = "the efit product carries no equilibrium.time"
+        return ods, manifest
+    usable_ms = usable_equilibrium_times_ms(solution)
+
+    counts = {"inferred": 0, "measured": 0, "unavailable": 0}
+    skipped: list[dict[str, Any]] = []
+    flag_totals: dict[str, int] = {}
+    ratios: list[float] = []
+
+    def infer_slice(index: int, time_s: float) -> None:
+        base = f"core_profiles.profiles_1d.{index}"
+        nearest = int(np.argmin(np.abs(eq_times_ms - time_s * 1e3)))
+        if abs(float(eq_times_ms[nearest]) - time_s * 1e3) > equilibrium_tolerance_ms:
+            raise _SliceSkipped(
+                f"no magnetic equilibrium within {equilibrium_tolerance_ms:g} ms of the slice"
+            )
+        origin = ti_record_fields(path_value(ods, f"{base}.zeff_fit.parameters", None)).get("origin")
+        if origin not in ("assumed", "derived"):
+            raise _SliceSkipped(f"the slice carries no composition (zeff record origin={origin})")
+        # n_i,tot/n_e from the stored ions; the ratio only lets the closure run
+        # on a slice with no ion temperature -- no T_i enters the densities.
+        closure = infer_kinetic_closure(ods, time=time_s, dilution="species", ti_te_ratio=1.0)
+        with np.errstate(invalid="ignore", divide="ignore"):
+            fraction = np.sum(list(closure.ion_densities.values()), axis=0) / closure.n_e
+
+        electron = ks.core_profiles_electron_pressure(ods, time_s=time_s, tolerance_s=5e-4)
+        if not electron["available"] or electron["index"] != index:
+            raise _SliceSkipped(electron.get("reason", "the profile slice cannot be matched by time"))
+        placed = ks.core_profiles_grid_on_slice(ks.rho_tor_norm_of(solution, nearest), electron)
+        if not placed["available"]:
+            raise _SliceSkipped(placed["reason"])
+        psi = np.asarray(placed["psi_norm"], dtype=float)
+        inside = psi <= 1.0
+        if inside.sum() < 3:
+            raise _SliceSkipped("fewer than three profile points inside the last closed flux surface")
+        p_eq = _equilibrium_pressure_on(solution, nearest, psi[inside])
+        if p_eq is None:
+            raise _SliceSkipped("the equilibrium pressure cannot be sampled on the profile grid")
+        others = []
+        for k, eq_ms in enumerate(eq_times_ms):
+            if k == nearest or abs(eq_ms * 1e-3 - time_s) > window_s + 1e-9:
+                continue
+            if usable_ms is not None and not np.any(np.abs(usable_ms - eq_ms) < 1e-6):
+                continue
+            pressure = _equilibrium_pressure_on(solution, k, psi[inside])
+            if pressure is not None:
+                others.append(pressure)
+        sigma_p, basis = ks.pressure_sigma(p_eq, others, floor=floor)
+        rel_n, rel_t = _thomson_relative_errors(ods, time_s)
+        n_e, t_e = np.asarray(electron["n_e"], float)[inside], np.asarray(electron["t_e"], float)[inside]
+        result = infer_ti_pressure_partition(
+            p_eq, n_e, t_e,
+            composition={"ion_density_per_electron": fraction[inside],
+                         "composition_source": f"composition stage ions (zeff record origin={origin})"},
+            sigma_p_eq=sigma_p, sigma_n_e=rel_n * n_e, sigma_t_e=rel_t * t_e,
+            equilibrium_lineage=lineage,
+        )
+        if not result["eligible"]:
+            raise _SliceSkipped(result["reason"])
+        valid = np.isfinite(result["t_i"])
+        if not valid.any():
+            seen = sorted({f for flags in result["flags"] for f in flags})
+            raise _SliceSkipped(f"no point has a positive, significant p_i (flags: {', '.join(seen) or 'none'})")
+
+        rho = np.asarray(electron["rho_tor_norm"], dtype=float)
+        t_i = np.full(rho.shape, np.nan)
+        t_i[inside] = result["t_i"]
+        record = "; ".join([
+            inferred_ti_text("equilibrium_pressure_partition"),
+            f"equilibrium_lineage={lineage}", "equilibrium_occurrence=0",
+            f"equilibrium_time_s={float(eq_times_ms[nearest]) * 1e-3:.6f}",
+            f"sigma_p_eq_basis={basis}", f"valid_points={int(valid.sum())}/{valid.size}",
+            f"rho_valid={float(rho[inside][valid].min()):.4g}:{float(rho[inside][valid].max()):.4g}",
+            "not measured",
+        ])
+        for k in range(len(ods[f"{base}.ion"])):
+            ods[f"{base}.ion.{k}.temperature"] = t_i
+            ods[f"{base}.ion.{k}.temperature_fit.parameters"] = record
+        ods[f"{base}.t_i_average"] = t_i
+        pressure = assemble_pressure(
+            closure.n_e, closure.T_e, closure.ion_densities,
+            {label: t_i for label in closure.ion_densities},
+        )
+        ods[f"{base}.pressure_ion_total"] = pressure.p_i_thermal
+        ods[f"{base}.pressure_thermal"] = pressure.p_thermal
+        ods[f"{base}.t_i_average_fit.parameters"] = record
+        _write_species_pressures(ods, base)  # the composed ones were built on the assumed T_i
+        _append_record_fields(ods, f"{base}.ion.0.density_fit.parameters", PRESSURE_CLOSURE_RECORD)
+        for flags in result["flags"]:
+            for flag in flags:
+                flag_totals[flag] = flag_totals.get(flag, 0) + 1
+        ratios.extend(float(x) for x in result["ti_te"][valid])
+
+    for index, time_s in enumerate(times):
+        base_i = f"core_profiles.profiles_1d.{index}.ion.0"
+        has_ti = path_value(ods, f"{base_i}.temperature", None) is not None
+        # A T_i the composition stage *assumed* (T_i = T_e) is not a measurement: it is
+        # the electron-only state this stage exists to improve on.
+        kind = classify_ti_record(path_value(ods, f"{base_i}.temperature_fit.parameters", None)) if has_ti else None
+        if kind is not None and kind != "assumed":
+            # measured, or a T_i some earlier writer inferred / left unclassifiable: kept, and named as such
+            key = "measured" if kind == "measured" else f"kept_{kind}"
+            counts[key] = counts.get(key, 0) + 1
+            continue
+        try:
+            infer_slice(index, float(time_s))
+        except _SliceSkipped as skip:
+            counts["unavailable"] += 1
+            skipped.append({"time_s": float(time_s), "reason": str(skip)[:240]})
+            continue
+        counts["inferred"] += 1
+
+    manifest["slices"] = {**counts, "total": int(times.size)}
+    manifest["skipped_slices"] = skipped[:20]
+    manifest["inference"] = {
+        "method": "equilibrium_pressure_partition", "equilibrium_lineage": lineage,
+        "flags": {f: flag_totals.get(f, 0) for f in (*TI_FLAGS, "sigma_unavailable")},
+        "ti_te_median": float(np.median(ratios)) if ratios else None,
+    }
+    if counts["inferred"]:
+        manifest["status"] = "success"
+        manifest["quality_summary"]["unavailable"] = []
+        if skipped:
+            manifest["quality_summary"]["missing"] = [
+                f"ti_inferred:t={item['time_s']:.4f}s" for item in skipped[:20]
+            ]
+    else:
+        manifest["error"] = (
+            skipped[0]["reason"] if skipped
+            else "every slice already carries an ion temperature that is not assumed: "
+            + ", ".join(f"{k}={v}" for k, v in counts.items() if k != "inferred" and v)
+        )
+    return ods, manifest
+
+
+#: The conductivity models Lane Z's estimator offers (#1214); ``redl`` is the neoclassical one.
+RESISTIVE_MODELS = ("redl", "sauter", "spitzer_nrl")
+
+
+def _composition_equivalent_scalar(
+    states: Sequence[Any], solution: ODS, ods: ODS, *, model: str, ln_lambda: Any, bounds: tuple[float, float]
+) -> dict[str, Any]:
+    """The resistive scalar the stored composition ``Z_eff(rho)`` would give, for the cross-check.
+
+    Each state's surfaces are put on the composition's ``rho_tor_norm`` through
+    the equilibrium's own ``rho_tor(psi_N)``, and Lane L's projection
+    (:func:`vaft.process.zeff_projection.project_window_to_resistive_scalar`)
+    turns the profiles into the scalar Lane Z's estimator would report if they
+    were the truth -- the same objective, so the two numbers are comparable.
+    """
+    from vaft.machine_mapping.core_profiles import ti_record_fields
+    from vaft.ods_access import path_value
+    from vaft.process.zeff_projection import project_window_to_resistive_scalar
+    from vaft.validation import kinetic_state as ks
+
+    profiles, used, skipped = [], [], []
+    for state in states:
+        base = f"core_profiles.profiles_1d.{state.source['cp_index']}"
+        origin = ti_record_fields(path_value(ods, f"{base}.zeff_fit.parameters", None)).get("origin")
+        zeff = path_value(ods, f"{base}.zeff", None)
+        rho_cp = path_value(ods, f"{base}.grid.rho_tor_norm", None)
+        if origin not in ("assumed", "derived") or zeff is None or rho_cp is None:
+            skipped.append(f"t={state.time:.4f}: no composition Z_eff")
+            continue
+        coordinate = ks.rho_tor_norm_of(solution, int(state.source["eq_index"]))
+        if coordinate.get("coordinate") != "rho_tor_norm":
+            skipped.append(f"t={state.time:.4f}: {coordinate.get('reason')}")
+            continue
+        order = np.argsort(coordinate["psi_norm"])
+        rho_state = np.interp(state.psi_norm, coordinate["psi_norm"][order], coordinate["rho_tor_norm"][order])
+        rho_cp, zeff = np.asarray(rho_cp, dtype=float), np.asarray(zeff, dtype=float)
+        good = np.isfinite(zeff) & np.isfinite(rho_cp)
+        if good.sum() < 2:
+            skipped.append(f"t={state.time:.4f}: composition Z_eff undefined")
+            continue
+        sort = np.argsort(rho_cp[good])
+        # Surfaces beyond the composition's support take its end values (np.interp holds them).
+        profiles.append(np.interp(rho_state, rho_cp[good][sort], zeff[good][sort]))
+        used.append(state)
+    if not used:
+        return {"available": False, "reason": "; ".join(skipped) or "no state"}
+    projection = project_window_to_resistive_scalar(
+        used, profiles, model=model, ln_lambda=ln_lambda, bounds=bounds,
+        weights="uniform", profile_source="composition stage",
+    )
+    return {"available": True, "zeff_equivalent": float(projection.zeff_equivalent),
+            "status": str(projection.convergence["status"]), "states": len(used), "skipped": skipped}
+
+
+def _romero_window(
+    work: ODS,
+    *,
+    model: str,
+    ln_lambda: Any,
+    bounds: tuple[float, float],
+    i_ni_a: float,
+    smoothing: Any,
+    time_range: tuple[float, float] | None,
+    max_excluded_current: float,
+    inductive_max: float,
+    time_tolerance_s: float,
+) -> dict[str, Any]:
+    """Lane Z's Romero window estimate on an ODS with an equilibrium and ``core_profiles`` slices.
+
+    The orchestration the resistive stage and the staged kinetic-state inference
+    share: Romero's boundary-flux balance and the flux-surface states from
+    :func:`vaft.omas.resistive_zeff.compute_resistive_zeff_ods`, the two state
+    filters of Lane Z's atlas, then the window estimate and the per-slice
+    diagnostic.  Nothing is stored and nothing is judged: the result carries
+    ``error`` (a message) when no estimate could be made, and ``inference`` is
+    ``None`` then.
+
+    Keys: ``result`` (Lane Z's dict), ``window``, ``observed``, ``states``,
+    ``skipped``, ``usable``, ``inference``, ``diagnostic``, ``error``.
+    """
+    from vaft.omas.resistive_zeff import compute_resistive_zeff_ods
+    from vaft.process.resistive_zeff import infer_resistive_zeff, per_slice_resistive_zeff
+
+    out: dict[str, Any] = {
+        "result": None, "window": None, "observed": None, "states": [], "skipped": [], "usable": [],
+        "inference": None, "diagnostic": None, "error": None,
+    }
+    try:
+        result = compute_resistive_zeff_ods(
+            work, time_range=time_range, model=model, ln_lambda=ln_lambda, bounds=bounds,
+            I_ni=float(i_ni_a), smoothing=smoothing, time_tolerance_s=time_tolerance_s,
+        )
+    except (ValueError, KeyError, IndexError) as error:
+        # Lane Z refuses on purpose (an undetected flux unit, no current window, ...):
+        # that is an absence for this shot, with the reason, not a failed stage.
+        out["error"] = f"{type(error).__name__}: {error}"[:300]
+        return out
+    observed, states = result["observed"], result["states"]
+    out.update(result=result, window=result["window"], observed=observed, states=states,
+               skipped=result["skipped"])
+
+    # The model leaves out the surfaces beyond the profiles' support -- the cold, most
+    # resistive edge -- while the observed R_p includes them, so a state missing much of
+    # the current would bias Z_eff high; and where V_I dwarfs V_B, V_R is a small
+    # difference of large numbers. Lane Z's atlas applies the same two filters.
+    def inductive_at(state):
+        return float(observed.inductive_fraction[int(np.argmin(np.abs(observed.time - state.time)))])
+
+    usable = [
+        s for s in states
+        if (s.source.get("excluded_current_fraction") or 0.0) <= max_excluded_current
+        and inductive_at(s) < inductive_max
+    ]
+    out["usable"] = usable
+    if not usable:
+        out["error"] = (
+            f"no kinetic state is usable: {len(states)} built, each either beyond "
+            f"{max_excluded_current:g} of j_tor outside the profiles or with |V_I|/|V_B| >= {inductive_max:g}"
+            if states else "no core_profiles slice in the window has electron profiles at an equilibrium time"
+        )
+        return out
+    kwargs = dict(model=model, ln_lambda=ln_lambda, bounds=bounds, time_tolerance_s=time_tolerance_s)
+    out["inference"] = infer_resistive_zeff(observed, usable, weights="uniform", **kwargs)
+    out["diagnostic"] = per_slice_resistive_zeff(observed, usable, **kwargs)
+    return out
+
+
+def build_resistive_zeff_ods(
+    *,
+    shot: int,
+    core_profiles_product: str | Path,
+    efit_product: str | Path,
+    model: str = "redl",
+    ln_lambda: Any = "sauter",
+    bounds: tuple[float, float] = (1.0, 8.0),
+    i_ni_a: float = 0.0,
+    smoothing_window_s: float | None = None,
+    smoothing_order: int = 2,
+    time_range: tuple[float, float] | None = None,
+    max_excluded_current: float = 0.05,
+    inductive_max: float = 1.0,
+    time_tolerance_s: float = 5e-5,
+    run: int = 1,
+) -> tuple[ODS, dict[str, Any]]:
+    """Add the Romero resistive ``Z_eff`` to ``core_profiles.global_quantities.z_eff_resistive``.
+
+    The pipeline-1 magnetic EFIT supplies the boundary flux, ``I_p`` and
+    ``l_i`` over the current-carrying window (Romero's transformer balance,
+    :func:`vaft.omas.resistive_zeff.compute_resistive_zeff_ods`) and the
+    Grad-Shafranov geometry at each kinetic slice; the profiles supply
+    ``T_e`` and ``n_e``.  Lane Z's estimator then finds the one ``Z_eff`` that
+    makes the model resistance match the observed one.  Nothing of that physics
+    is re-implemented here.
+
+    What is stored is the **window estimate**: one scalar for the whole window
+    (#1214 Sec. 9), written at every usable kinetic slice and NaN elsewhere.
+    The per-slice solutions are a diagnostic -- each carries the full noise of a
+    differentiated ``V_R`` -- and go to the manifest, labelled so, not into the
+    IDS.  A fit that sits on a bound (``bound_hit``) or is not identifiable is
+    recorded and not stored.  The value is a model-inferred estimate, kept apart
+    from the composition ``Z_eff`` (``profiles_1d.zeff``), which stays as it was.
+
+    Provenance goes in the slice's ``zeff_fit.parameters`` as ``resistive_*``
+    fields (never ``origin``/``method``, which belong to the composition):
+    model, conductivity, window, status, uncertainty, the equilibrium lineage
+    and occurrence, ``I_ni`` and the smoothing -- stated, because Lane Z's
+    estimator has no defaults for them.
+
+    The manifest cross-checks the result against the composition: the stored
+    ``Z_eff(rho)`` is turned into the scalar the same estimator would report
+    were it the truth (Lane L's projection) and the two are compared.
+
+    Only the ``efit/magnetic`` lineage is accepted, read from where the product
+    lives: the geometry and ``<J.B>`` must not come from a pressure fitted with
+    an assumed ``T_i``.  The product is read from the inferred-``T_i`` stage's,
+    so the overlay that replaces ``core_profiles`` in ``main`` keeps what that
+    stage and the composition wrote.
+    """
+    import copy
+
+    from vaft.omas.resistive_zeff import compute_resistive_zeff_ods
+    from vaft.ods_access import path_value
+    from vaft.process.resistive_zeff import (
+        Smoothing,
+        infer_resistive_zeff,
+        per_slice_resistive_zeff,
+    )
+
+    if model not in RESISTIVE_MODELS:
+        raise ValueError(f"model must be one of {RESISTIVE_MODELS}, got {model!r}")
+    shot = int(shot)
+    bounds = (float(bounds[0]), float(bounds[1]))
+    smoothing = (
+        Smoothing("none") if smoothing_window_s is None
+        else Smoothing("local_polynomial", window_s=float(smoothing_window_s), order=int(smoothing_order))
+    )
+    era = machine_era_for_shot(shot)
+    manifest = _external_profile_manifest("resistive_zeff", shot, run, era.name)
+    manifest["input"] = {
+        "core_profiles_product": str(core_profiles_product), "efit_product": str(efit_product),
+    }
+    lineage = _magnetic_efit_lineage(efit_product)
+    manifest["configuration"].update(
+        model=model, ln_lambda=str(ln_lambda), bounds=list(bounds), i_ni_a=float(i_ni_a),
+        smoothing=smoothing.describe(), max_excluded_current=float(max_excluded_current),
+        inductive_max=float(inductive_max), equilibrium_lineage=lineage,
+        time_range=None if time_range is None else [float(time_range[0]), float(time_range[1])],
+    )
+    if not Path(core_profiles_product).exists():
+        raise FileNotFoundError(f"the core_profiles product is missing: {core_profiles_product}")
+    ods, _ = load_ods(Path(core_profiles_product))
+    times = path_value(ods, "core_profiles.time", None)
+    if times is None or np.asarray(times).size == 0:
+        manifest["error"] = "the core_profiles product carries no slices"
+        return ods, manifest
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+    if lineage is None:
+        manifest["error"] = (
+            f"the efit product {efit_product} is not under omas/efit/magnetic, so its lineage is "
+            "not established; the geometry is refused rather than guessed"
+        )
+        return ods, manifest
+    if not Path(efit_product).exists():
+        manifest["error"] = f"the magnetic efit product is missing: {efit_product}"
+        return ods, manifest
+    solution, _ = load_ods(Path(efit_product))
+    if not _path_present(solution, "equilibrium.time_slice") or len(solution["equilibrium.time_slice"]) < 3:
+        manifest["error"] = "the efit product has fewer than three equilibrium slices; the balance needs a window"
+        return ods, manifest
+
+    work = ODS(consistency_check=False)
+    work["core_profiles"] = copy.deepcopy(ods["core_profiles"])
+    work["equilibrium"] = solution["equilibrium"]
+    window = _romero_window(
+        work, model=model, ln_lambda=ln_lambda, bounds=bounds, i_ni_a=i_ni_a, smoothing=smoothing,
+        time_range=time_range, max_excluded_current=max_excluded_current,
+        inductive_max=inductive_max, time_tolerance_s=time_tolerance_s,
+    )
+    if window["result"] is None:
+        manifest["error"] = window["error"]
+        return ods, manifest
+    observed, states, usable = window["observed"], window["states"], window["usable"]
+    manifest["window"] = {"t_start_s": float(window["window"][0]), "t_end_s": float(window["window"][1])}
+    manifest["states"] = {
+        "built": len(states), "skipped": [{"time_s": t, "reason": r[:200]} for t, r in window["skipped"][:20]],
+        "usable": len(usable),
+    }
+    if window["inference"] is None:
+        manifest["error"] = window["error"]
+        return ods, manifest
+    inference, diagnostic = window["inference"], window["diagnostic"]
+    result = {"window": window["window"]}
+    estimate = inference.estimate
+    manifest["inference"] = {
+        "status": inference.status, "zeff": inference.zeff, "uncertainty": estimate.get("uncertainty"),
+        "reason": inference.reason, "median_inductive_fraction": float(np.nanmedian(observed.inductive_fraction)),
+    }
+    manifest["per_slice_diagnostic"] = {
+        "note": "each solved alone: the full noise of a differentiated V_R; a diagnostic, not the estimate",
+        "time_s": [float(t) for t in diagnostic["time"]],
+        "zeff": [None if not np.isfinite(z) else float(z) for z in diagnostic["zeff"]],
+        "status": list(diagnostic["status"]),
+    }
+    manifest["crosscheck"] = _composition_equivalent_scalar(
+        usable, solution, ods, model=model, ln_lambda=ln_lambda, bounds=bounds)
+    if manifest["crosscheck"]["available"] and inference.zeff is not None:
+        check = manifest["crosscheck"]
+        check["resistive_zeff"] = float(inference.zeff)
+        check["difference"] = check["zeff_equivalent"] - float(inference.zeff)
+        check["relative_difference"] = check["difference"] / float(inference.zeff)
+
+    if inference.status != "ok":
+        manifest["error"] = (
+            f"the window estimate is {inference.status}"
+            + (f" ({inference.reason})" if inference.reason else "")
+            + "; it is recorded here and not stored as z_eff_resistive"
+        )
+        return ods, manifest
+
+    stored = np.full(times.shape, np.nan)
+    fields = {
+        "resistive_origin": "inferred", "resistive_model": "romero_transformer",
+        "resistive_conductivity": model, "resistive_scope": "window",
+        "resistive_window": f"{result['window'][0]:.4f}:{result['window'][1]:.4f}",
+        "resistive_status": inference.status, "resistive_n_states": len(usable),
+        "resistive_equilibrium_lineage": lineage, "resistive_equilibrium_occurrence": 0,
+        "resistive_i_ni_a": float(i_ni_a), "resistive_smoothing": smoothing.describe().replace("=", ":"),
+        "resistive_ln_lambda": str(ln_lambda),
+    }
+    if estimate.get("uncertainty") is not None and np.isfinite(estimate["uncertainty"]):
+        fields["resistive_sigma"] = f"{float(estimate['uncertainty']):.4g}"
+    for state in usable:
+        index = int(state.source["cp_index"])
+        stored[index] = float(inference.zeff)
+        _append_record_fields(ods, f"core_profiles.profiles_1d.{index}.zeff_fit.parameters", fields)
+    ods["core_profiles.global_quantities.z_eff_resistive"] = stored
+    manifest["status"] = "success"
+    manifest["quality_summary"]["unavailable"] = []
+    manifest["stored"] = {"slices": int(np.isfinite(stored).sum()), "total": int(times.size)}
+    return ods, manifest
+
+
 def _has_kinetic_slice(ods: ODS) -> bool:
     """Whether any core_profiles slice carries a measured ion temperature.
 
-    The same predicate :func:`vaft.process.profile.strip_electron_only_pressure`
-    uses to decide which slices may keep a total pressure, so the two cannot
-    disagree about what counts as kinetic.
+    Measured is read from the slice's ion temperature record
+    (:func:`vaft.machine_mapping.core_profiles.classify_ti_record`), not from the
+    presence of ``ion.0.temperature``.
     """
     # `in` is not total over a reloaded product. OMAS walks the path segment by
     # segment, so a membership test whose parent resolves to a scalar raises
@@ -2225,13 +3149,100 @@ def _has_kinetic_slice(ods: ODS) -> bool:
         count = len(ods["core_profiles.profiles_1d"])
     except TypeError:  # an AoS that is not a list is an AoS with no slices
         return False
-    return any(
-        _path_present(ods, f"core_profiles.profiles_1d.{index}.ion.0.temperature")
-        for index in range(count)
+    # A T_i the composition stage assumed (T_i = T_e) or ti_inferred inferred does
+    # not make a slice kinetic: its record decides (no record means measured).
+    # strip_electron_only_pressure keys on presence, which agrees on the measured
+    # core_profiles product it runs on -- no assumed or inferred T_i exists there.
+    from vaft.machine_mapping.core_profiles import classify_ti_record
+
+    def measured(index: int) -> bool:
+        base = f"core_profiles.profiles_1d.{index}.ion.0"
+        if not _path_present(ods, f"{base}.temperature"):
+            return False
+        record = ods[f"{base}.temperature_fit.parameters"] if _path_present(
+            ods, f"{base}.temperature_fit.parameters") else None
+        return classify_ti_record(record) == "measured"
+
+    return any(measured(index) for index in range(count))
+
+
+KINETIC_DILUTIONS = ("species", "none")
+
+
+def _ion_density_ratio_function(
+    ods: ODS, time_ms: float, *, tolerance_s: float = 5e-4
+) -> tuple[Callable[[np.ndarray], np.ndarray] | None, dict[str, Any]]:
+    """``f(psi_N) = n_i,tot / n_e`` of the composed slice at ``time_ms``, and the record of it.
+
+    Taken from the ions the composition stage stored, through the species
+    kinetic closure, so the EFIT pressure points count the same ions the
+    product's ``pressure_thermal`` does.  ``(None, {"applied": False, ...})``
+    names why when the slice carries no composition -- the pressure is then the
+    legacy ``n_i = n_e``, and the record says so rather than leaving it to be
+    inferred from a number.  ``T_i`` plays no part: a placeholder ratio only
+    lets the closure run on a slice with no ion temperature.
+    """
+    from vaft.machine_mapping.core_profiles import ti_record_fields
+    from vaft.ods_access import path_value
+    from vaft.process.kinetic_closure import infer_kinetic_closure
+
+    record: dict[str, Any] = {"mode": "species", "applied": False}
+    times = path_value(ods, "core_profiles.time", None)
+    if times is None:
+        record["reason"] = "the product carries no core_profiles slice"
+        return None, record
+    times = np.atleast_1d(np.asarray(times, dtype=float))
+    index = int(np.argmin(np.abs(times - time_ms * 1e-3)))
+    if abs(float(times[index]) - time_ms * 1e-3) > tolerance_s:
+        record["reason"] = "no core_profiles slice at the reconstruction time"
+        return None, record
+    base = f"core_profiles.profiles_1d.{index}"
+    origin = ti_record_fields(path_value(ods, f"{base}.zeff_fit.parameters", None)).get("origin")
+    if origin not in ("assumed", "derived"):
+        record["reason"] = f"the slice carries no composition (zeff record origin={origin})"
+        return None, record
+    try:
+        closure = infer_kinetic_closure(
+            ods, time=float(times[index]), dilution="species", ti_te_ratio=1.0
+        )
+    except ValueError as error:
+        record["reason"] = f"{type(error).__name__}: {error}"[:200]
+        return None, record
+    with np.errstate(invalid="ignore", divide="ignore"):
+        ratio = np.sum(list(closure.ion_densities.values()), axis=0) / closure.n_e
+    psi = path_value(ods, f"{base}.grid.psi", None)
+    if psi is not None:
+        psi = np.asarray(psi, dtype=float)
+        psi_n = (psi - psi[0]) / (psi[-1] - psi[0])
+    else:
+        rho_pol = path_value(ods, f"{base}.grid.rho_pol_norm", None)
+        if rho_pol is None:
+            record["reason"] = "the slice has neither grid.psi nor grid.rho_pol_norm"
+            return None, record
+        psi_n = np.asarray(rho_pol, dtype=float) ** 2
+    ok = np.isfinite(ratio) & np.isfinite(psi_n) & (ratio > 0.0)
+    if ok.sum() < 2:
+        record["reason"] = "fewer than two usable n_i/n_e points"
+        return None, record
+    order = np.argsort(psi_n[ok])
+    x, y = psi_n[ok][order], ratio[ok][order]
+
+    def ion_density_ratio(psi_normalised: np.ndarray) -> np.ndarray:
+        # np.interp holds the end values, so a point in the scrape-off layer
+        # (psi_N > 1) takes the last confined ratio rather than extrapolating.
+        return np.interp(np.asarray(psi_normalised, dtype=float), x, y)
+
+    record.update(
+        applied=True, closure="infer_kinetic_closure", slice_time_s=float(times[index]),
+        n_i_over_n_e_axis=float(y[0]), n_i_over_n_e_edge=float(y[-1]),
+        composition_source=str(closure.provenance["composition"]["source"]),
     )
+    return ion_density_ratio, record
 
 
-def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
+def kinetic_efit_parameters(
+    stage: str, efit_preset: str | None, dilution: Mapping[str, Any] | None = None
+) -> str:
     """The ``equilibrium.code.parameters`` payload of a kinetic EFIT product.
 
     Names the preset that built the base k-file and, as the top-level
@@ -2240,6 +3251,10 @@ def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
     named is the default (``DEFAULT_PRESET``), which is what
     :func:`vaft.code.efit.kinetic.prepare_kinetic_efit_inputs` builds the
     k-file with then, so it is recorded by that name.
+
+    ``dilution`` is the record of the ion-density correction the pressure
+    constraint was built with (:func:`_ion_density_ratio_function`), so a
+    reader can tell ``n_i = n_e`` from a diluted composition.
     """
     from vaft.code.efit.presets import DEFAULT_PRESET
     from vaft.code.efit.presets import efit_preset as _efit_preset
@@ -2249,7 +3264,10 @@ def kinetic_efit_parameters(stage: str, efit_preset: str | None) -> str:
     scientific = preset.scientific
     return json.dumps(
         {
-            "kinetic_efit": {"stage": stage, "efit_preset": record},
+            "kinetic_efit": {
+                "stage": stage, "efit_preset": record,
+                **({"dilution": dict(dilution)} if dilution is not None else {}),
+            },
             "uncertainty_model": scientific.constraints.uncertainty_mode,
         },
         sort_keys=True,
@@ -2359,6 +3377,7 @@ def build_kinetic_efit_ods(
     encoding: str = "raw6",
     run: int = 1,
     efit_preset: str | None = None,
+    dilution: str = "species",
 ) -> tuple[ODS, dict[str, Any]]:
     """Reconstruct a kinetic-pressure equilibrium from products already on disk.
 
@@ -2382,6 +3401,13 @@ def build_kinetic_efit_ods(
     that quietly produced the other kind would be published into the wrong
     lineage.  A mismatch is recorded, not raised, because both stages are asked
     for and only one of them can apply to a given shot.
+
+    ``dilution="species"`` (default) builds the raw pressure points with the ion
+    density the composition stage stored, ``p = e n_e (T_e + f T_i)`` with
+    ``f = n_i,tot / n_e`` at each Thomson radius; a slice that carries no
+    composition falls back to ``n_i = n_e`` and the manifest says why.
+    ``"none"`` is the legacy pressure.  Read the composed product
+    (``composition``) to get the dilution; the measured one has none to apply.
     """
     from vaft.code.efit.kinetic import KineticEFITConfig, run_kinetic_chain
     from vaft.data.eqdsk import from_equilibrium, to_omas
@@ -2389,6 +3415,8 @@ def build_kinetic_efit_ods(
 
     if stage not in ("electron_efit", "kinetic_efit"):
         raise ValueError(f"stage must be electron_efit or kinetic_efit; got {stage!r}")
+    if dilution not in KINETIC_DILUTIONS:
+        raise ValueError(f"dilution must be one of {KINETIC_DILUTIONS}, got {dilution!r}")
 
     shot = int(shot)
     era = machine_era_for_shot(shot)
@@ -2399,6 +3427,7 @@ def build_kinetic_efit_ods(
         "efit_product": str(efit_product),
     }
     manifest["configuration"]["encoding"] = encoding
+    manifest["configuration"]["dilution"] = dilution
     # Always: a product names the configuration that built it, the default
     # included (DEFAULT_PRESET when none was named).
     from vaft.code.efit.presets import DEFAULT_PRESET
@@ -2551,6 +3580,11 @@ def build_kinetic_efit_ods(
                 record(time_ms, status="unavailable", reason=message)
                 continue
 
+            if dilution == "species":
+                ion_density_ratio, dilution_record = _ion_density_ratio_function(ods, float(time_ms))
+            else:
+                ion_density_ratio, dilution_record = None, {"mode": "none", "applied": False}
+            manifest["dilution"] = dilution_record
             config = KineticEFITConfig(
                 executable=executable,
                 workdir=work / f"t{time_ms:.3f}" if retry else work,
@@ -2561,6 +3595,7 @@ def build_kinetic_efit_ods(
                 # has no ion data -- which is exactly the electron_efit case.
                 ti_te_ratio="auto",
                 efit_preset=efit_preset or None,
+                ion_density_ratio=ion_density_ratio,
             )
             try:
                 chain = run_kinetic_chain(ods, geq, float(time_ms), efit_config=config)
@@ -2603,7 +3638,9 @@ def build_kinetic_efit_ods(
             # The g-file carries no record of how the constraints were weighted;
             # the preset (or its absence) does.  Serialized, as `code.parameters`
             # is a STR_0D that a nested tree does not survive (#380/#642).
-            out["equilibrium.code.parameters"] = kinetic_efit_parameters(stage, efit_preset)
+            out["equilibrium.code.parameters"] = kinetic_efit_parameters(
+                stage, efit_preset, manifest.get("dilution")
+            )
             manifest["status"] = "success"
             manifest["quality_summary"]["unavailable"] = []
             # Recording a path under a directory about to be deleted would name a

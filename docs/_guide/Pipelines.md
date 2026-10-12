@@ -37,7 +37,7 @@ calibration, mappings and conventions, the processing and model configuration, a
 | Pipeline | Orchestration | Purpose |
 |---|---|---|
 | `automatic_pipeline_1_routine_data_processing` | Snakemake DAG (10 rules) + `Makefile` | Per shot: raw DAQ dump → diagnostics/eddy/constraints ODS → EFIT → CHEASE → GPEC suite |
-| `automatic_pipeline_2_corrective_data_update` | none (long-running daemon) | Back-fills Thomson scattering and fitted core profiles into already-stored shots |
+| `automatic_pipeline_2_corrective_data_update` | Snakemake DAG (8 stages + one replication rule each) | Builds Thomson, CES, `core_profiles` and the two kinetic EFIT lineages from externally uploaded profile diagnostics |
 | `automatic_pipeline_3_data_summary` | partial Snakefile (2 rules) + manual scripts | Mines the file database into cross-shot `.xlsx` history sheets and plots |
 | `running_linear_stability` | Snakemake DAG (1 rule, fanned out) | Runs DCON / RDCON / STRIDE per (shot, time, n-mode) on refined equilibria |
 
@@ -283,62 +283,170 @@ leave them behind.
 
 ## Pipeline 2 — corrective data update
 
-This pipeline back-fills data that arrives *after* a shot has already been processed. It consists of one
-polling daemon (`update_thomson_scattering_and_core_profile.py`); the sibling `update_equilibrium.py` is an
-empty placeholder with no behavior.
+This pipeline builds the products that depend on data uploaded *after* a shot was processed: Thomson
+scattering, charge exchange (CES), the `core_profiles` mapped from them, and the two kinetic EFIT lineages.
+It is a Snakemake stage-product DAG, like pipeline 1. The `composition` stage then adds the assumed impurity
+composition, the diluted ion density and `Z_eff(rho)` to the measured profiles.
 
 ```bash
 cd workflow/automatic_pipeline_2_corrective_data_update
-nohup python3 update_thomson_scattering_and_core_profile.py \
-    > thomson_scattering_update_fitting.log 2>&1 &
+snakemake --snakefile Snakefile --configfile config.yaml --cores 8
 ```
 
-There are no command-line flags; the paths are module constants (`WATCH_DIAG = /srv/vest.diagnostic`,
-`PUBLIC_BASE = /srv/vest.filedb/public`, `CHECK_INTERVAL = 10` seconds). Despite what its docstring says, the
-daemon does **not** use `watchdog` — `main()` is a `while True:` loop that re-lists the watch directory every
-ten seconds.
+`config.yaml` ships with `base_dir: /srv/vest.filedb`, `shots: [48226]` and `layout: filedb`. Only the
+canonical `filedb` layout is accepted; these stages have no shot-first equivalent. `external.data_root` is
+where the hand-uploaded `.mat` files are searched for, `external.ces_options` picks the ion layout (`ces` for
+`CES_{shot}.mat`, `ids` for `IDS_{shot}.mat`), and `kinetic.*` selects the pressure-point encoding, the EFIT
+executable and the named EFIT preset used for the base magnetic k-file.
 
-Each cycle it scans for new Thomson `*.mat` files, parses the shot number (both `Shot40330_v10.mat` and
-`40330_NeTe.mat` spellings are accepted), skips files whose mtime it has already recorded, copies the file
-into the shot's `diagnostics/` directory, and then:
+### Stages
 
-<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
-```python
-from vaft import database, machine_mapping, process
+| Stage | Builder (`vaft.omas.vest_upstream`) | Needs | Replicated IDS and source |
+|---|---|---|---|
+| `thomson` | `build_thomson_ods` | an uploaded Thomson file | `thomson_scattering` → `main` |
+| `ces` | `build_ces_ods` | an uploaded CES file | `charge_exchange` → `main` |
+| `core_profiles` | `build_core_profiles_ods` | `thomson` (+ `ces`), pipeline 1's EFIT | `core_profiles` → `main` |
+| `composition` | `build_composition_ods` | `core_profiles`, pipeline 1's EFIT and diagnostics | `core_profiles` → `main`, after the stage above |
+| `ti_inferred` (opt-in) | `build_ti_inferred_ods` | `composition`, pipeline 1's magnetic EFIT | `core_profiles` → `main`, after `composition` |
+| `resistive_zeff` (opt-in) | `build_resistive_zeff_ods` | `ti_inferred`, pipeline 1's magnetic EFIT | `core_profiles` → `main`, after `ti_inferred` |
+| `electron_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) without ion data | `equilibrium` → `electron-efit` |
+| `kinetic_efit` | `build_kinetic_efit_ods` | `composition` (else `core_profiles`) with ion data | `equilibrium` → `kinetic-efit` |
 
-ods = database.load(shotnumber, 'public')
-machine_mapping.thomson_scattering(ods, shotnumber, filepath)
-database.save(ods, shotnumber)
+Pipeline 1's EFIT and constraints products are passed to these rules as `params`, not `input`: a shot that
+pipeline 1 never reconstructed is then *recorded* as unavailable instead of making Snakemake raise. Which of
+the two kinetic lineages runs for a shot is decided by whether a `core_profiles` slice carries a *measured* ion
+temperature (read from its fit record; the assumed `T_i = T_e` of `composition` and an inferred `T_i` do not
+count), not by configuration. The destinations come from `STAGE_REPLICATION` in
+`vaft/database/sources.py`; the two kinetic lineages go to their own sources because they share the
+`equilibrium` IDS with the baseline EFIT.
 
-# and, when a refined equilibrium exists for that shot, per time slice:
-mapped = process.equilibrium_mapping_thomson_scattering(ods, geq)   # psi_norm, rho_pol_norm, rho_tor_norm
-n_e_fn, T_e_fn, *_ = process.profile_fitting_thomson_scattering(
-    ods, time_ms, mapped, Te_order=2, Ne_order=2,                    # fitted in rho_tor_norm by default
-    fitting_function_te='polynomial', fitting_function_ne='exponential')
-ods = process.core_profiles(ods, time_ms, mapped, n_e_fn, T_e_fn)
-```
+### The composition overlay
 
-The equilibrium it maps against is the CHEASE-refined g-file at
-`{base}/{shot}/chease/g0{shot}.00{ms:03d}`, so profile fitting only happens for shots pipeline 1 has already
-refined. Shots with Thomson data but no refined equilibrium get the raw Thomson IDS and nothing more.
+`composition` takes the measured `core_profiles` product and adds, per slice, the C/O composition of
+`machine_mapping/vest.yaml`'s `impurity_model` (equal carbon and oxygen elemental densities, `n_e dV`-mean
+`Z_eff = 2`): `ion[]` with charge states, the diluted main ion and `zeff`. Everything it writes is an assumption
+(`origin=assumed|derived` in the `*_fit.parameters` record, with `target_zeff=`), and a `zeff` labelled measured is
+never overwritten. Each composed slice also records the equilibrium it was matched to
+(`equilibrium_lineage=magnetics; equilibrium_occurrence=0; equilibrium_time_s=...`) in its electron temperature
+fit record and, when it has an ion temperature, in that record.
 
-### The registry
+* **`ionization`** (`composition.ionization`, default `transient`) needs the plasma age, `t - onset`, with the onset
+  from `plasma_timing` on pipeline 1's diagnostics product. A slice with no positive age is skipped and named in the
+  manifest rather than silently computed as `coronal`, which overstates the charge on VEST's short discharges.
+* **ADF11 atomic data** come from OPEN-ADAS and are fetched on first use. A server without network needs the cache
+  warmed and `composition.adf11_cache_dir` pointing at it.
+* **Pressure counts the diluted ions.** The composed slice's `pressure_thermal` is recomputed with the species
+  kinetic closure (`infer_kinetic_closure`), so it no longer counts one ion per electron: a measured `T_i` gives
+  `electrons.pressure`, `pressure_ion_total` and `pressure_thermal`; a slice with no `T_i` gets the electron pressure
+  only; a `T_i` the product assumed keeps the pressure it was written with. The closure is named in
+  `ion.0.density_fit.parameters` (`pressure_closure=infer_kinetic_closure; dilution=species`).
+* **Replication is an overlay.** `core_profiles` and `composition` both own the `core_profiles` IDS in `main`,
+  which the registry otherwise avoids. The `composition` replication waits for the `core_profiles` record, so `main`
+  holds the composed product when the stage succeeded and the measured one when it was skipped.
 
-Progress is recorded in an HSDS-backed registry, `hdf5://public/processed_shots.h5`, keyed by shot with a
-timestamp and one of three statuses:
+### The inferred ion temperature
 
-| Status | Meaning |
-|---|---|
-| `core_profile` | Thomson stored **and** profile fits succeeded |
-| `thomson_only` | Thomson stored, no fits (usually: no refined equilibrium yet) |
-| `invalid` | load or parse failed |
+The default scope does not build `ti_inferred` or `resistive_zeff`: `main` gets `⟨Z_eff⟩ = 2` and, on slices with no measured `T_i`, the stated assumption `T_i = T_e` from `composition` (#1842; on the Tier A shots the pressure partition returned `T_i/T_e` ≈ 2 and the resistive `Z_eff` was identifiable on few shots). Name the stages in `stages` to build them; `ti_inferred` replaces an assumed `T_i`, never a measured one.
 
-An existing `core_profile` / `thomson_only` entry is never downgraded to `invalid`. **This registry is the
-input to pipeline 3** — three of its generators take their shot list from it, so if this daemon has never
-run, those sheets come out empty no matter how much data sits on disk. The module also contains a registry
-reset routine that wipes the H5 file and strips `thomson_scattering` / `core_profiles` back out of every ODS.
-It is commented out in `__main__`, it is destructive, and its default branch iterates the wrong keys. Do not
-run it.
+`ti_inferred` gives the slices that have **no measured `T_i`** an ion temperature from the pressure partition of
+pipeline 1's magnetic EFIT: `T_i = p_eq / (e f n_e) - T_e / f`, with `p_eq` sampled on the slice's own flux surfaces
+and `f = n_i,tot / n_e` the composed product's diluted ion density
+(`vaft.process.kinetic_closure.infer_ti_pressure_partition`, which moved there from
+`vaft.validation.kinetic_state` and keeps a warning alias in the old place).
+
+* **Inferred, never measured.** The ion records say `origin=inferred; method=equilibrium_pressure_partition`
+  together with `equilibrium_lineage`, `equilibrium_occurrence`, `equilibrium_time_s`, `sigma_p_eq_basis` and
+  `valid_points`; `classify_ti_record` reads them back as `inferred`. Points where `p_i` is not positive and
+  significant stay NaN (flagged, never filled), and `t_i_average`, `pressure_ion_total` and `pressure_thermal` follow:
+  `p_thermal` equals the equilibrium pressure there by construction, a closure identity and not an agreement test.
+* **Only the magnetic lineage.** The lineage is read from where the EFIT product lives (`omas/efit/magnetic`), never
+  asserted; a pressure from elsewhere is refused. The electron-kinetic EFIT was fitted with an assumed `T_i/T_e`
+  and would return that assumption. For the same reason `ti_inferred` is a leaf: the kinetic EFIT stages read
+  `composition`, never this product.
+* **`sigma(p_EFIT)`** is the spread over the usable neighbouring slices within `ti_inference.window_s`, floored at
+  `ti_inference.floor` (0.17, #874) of the pressure; `n_e` and `T_e` take the Thomson channels' median relative error.
+* **Skipped, and named, rather than guessed:** a slice with a measured `T_i`, with no composition (the ion density is
+  half the formula), with no equilibrium within the tolerance, or with no significant point.
+* On the archived 40326 / 322 ms case the stage reproduces the notebook's `T_i` to 1e-14 wherever both are valid, and
+  voids 8 more edge points (`rho_tor_norm > 0.86`) because it carries a different `sigma(p_EFIT)`.
+
+### The resistive Z_eff
+
+`resistive_zeff` stores Lane Z's Romero estimate (issue #1214) in
+`core_profiles.global_quantities.z_eff_resistive`, beside the composition `Z_eff` (`profiles_1d.zeff`) and never over it.
+Romero's transformer balance over the current-carrying window of the magnetic EFIT (boundary flux, `I_p`, `l_i`) gives the
+observed plasma resistance; the one `Z_eff` that makes the conductivity model, run on each kinetic slice's `T_e`, `n_e`
+and Grad-Shafranov geometry, match it is the estimate. The physics is Lane Z's (`vaft.omas.resistive_zeff`,
+`vaft.process.resistive_zeff`); this stage orchestrates it.
+
+* **A window scalar, not a per-slice value.** One slice carries the full noise of a differentiated `V_R`, so the
+  estimate is a single number for the window (#1214 Sec. 9): it is written at every usable kinetic slice and is NaN
+  elsewhere. The per-slice solutions are in the manifest as a labelled diagnostic and are not stored in the IDS. An
+  estimate that sits on a bound (`bound_hit`), or is not identifiable, is recorded and not stored.
+* **Stated settings.** The estimator has no defaults: `resistive_zeff.model` (`redl`), `ln_lambda` (`sauter`), `bounds`
+  (1-8), `i_ni_a` (0, a purely Ohmic window), `smoothing` (none) and the two state filters (a state with more than 5 % of
+  `j_tor` outside its profiles, or `|V_I|/|V_B| >= 1`, is dropped) are config and are recorded in the product.
+* **Provenance** is `resistive_*` fields in the slice's `zeff_fit.parameters` (`resistive_origin=inferred`,
+  `resistive_model=romero_transformer`, `resistive_conductivity`, `resistive_window`, `resistive_status`,
+  `resistive_sigma`, `resistive_equilibrium_lineage`, `resistive_equilibrium_occurrence`, `resistive_i_ni_a`,
+  `resistive_smoothing`): prefixed so they cannot be read as the composition record's `origin`/`method`.
+* **Cross-check.** The manifest turns the stored composition `Z_eff(rho)` into the scalar the same estimator would report
+  were it the truth (`vaft.process.zeff_projection`) and compares it with the estimate (`crosscheck`: the equivalent, the
+  difference and the relative difference). It needs a real toroidal-flux coordinate: with the `sqrt(psi_N)` proxy in
+  `rho_tor_norm` it is withheld and says why, and the estimate still stands.
+* Only the `efit/magnetic` lineage is accepted (read from where the product lives), as for `ti_inferred`. It is a leaf.
+
+### Dilution in the kinetic EFIT
+
+Both kinetic lineages read the `composition` product (the measured one itself when composition was skipped, so they
+never depend on its outcome). With `kinetic.dilution: species` (the default) the raw pressure points are
+`p = e n_e (T_e + f T_i)` with `f = n_i,tot / n_e` at each Thomson radius, from the stored ions; the `spline` encoding
+gets the same through `pressure_thermal`. `f` is an assumed composition and is not added to `SIGPRE`. The effect is
+`f - 1` times the ion term: about 2-3 % of the pressure where `T_i/T_e ~ 0.15` (48224), and up to ~8 % for the assumed
+`T_i = T_e` of `electron_efit`. A slice with no composition falls back to `n_i = n_e`; the manifest `dilution` block
+and `equilibrium.code.parameters` (`kinetic_efit.dilution`) say which was used and why. `kinetic.dilution: none` restores
+the legacy pressure.
+
+### Reading the result
+
+Every stage always writes a product and a manifest and exits 0; read the manifest `status`, not the exit code.
+
+| Manifest status | Meaning | Replicated? |
+|---|---|---|
+| `success` (also `partial`, `completed`) | the stage produced its product | yes |
+| `unavailable` | the upstream data does not exist for this shot (the normal case for most shots) | no — recorded as `skipped` |
+| `no_output` | the stage ran and had nothing to write | no — recorded as `skipped` |
+| `failed` | the builder raised; the product is an empty ODS | no — recorded as `skipped` |
+
+All five stages are `optional`, so a skipped replication does not change the pipeline's exit state.
+`hsds.replicate: true` adds one `replicate_<stage>_to_hsds` rule per stage; each stage owns only its own IDS,
+and readers union the stages explicitly with `vaft.database.composition.compose_stage_products`.
+
+### The legacy daemons and the registry
+
+The pre-Snakemake implementation — three polling scripts that wrote the shot-first `public/` tree and the
+HSDS registry `processed_shots.h5` — is quarantined under `workflow/automatic_pipeline_2_corrective_data_update/legacy/`
+with its own README. It is not part of the supported pipeline and must not be run against `main`.
+
+The registry is therefore no longer maintained. `vaft.database.exist_shot(data_filter='ts'|'cx'|'cp')` still
+reads whatever the old daemons left in it, and returns `None` for a source that never had one; treat it as a
+historical record. **Pipeline 3 does not use it**: its generators list shots with
+`vaft.database.exist_shot(source=..., strict=True)` (no filter) inside `vaft.database.summary`, i.e. the shots
+present in the named HSDS source.
+
+### Running it unattended
+
+`vaft corrective-worker` watches the upload directory (`external.data_root`) and runs this pipeline for a shot when
+an upload for it appears or changes and has been quiet for `quiet_seconds`. It is independent of
+`vaft pipeline-worker` (its own state file, lock and run directories), judges each shot by the stage manifests of the
+stages in scope (`stages`; `unavailable` and `no_output` are results, `failed` is retried), forces the rerun of a
+changed or failed shot (the root rules have no input files, so Snakemake would otherwise call it up to date), and stops
+starting runs while its `hold_file` exists, which is how it stays off shots a regeneration owns. It does not notice a
+change in pipeline 1's products. Each stage also has an optional validation figure set (`plots.enabled`) that the worker
+does not judge. See `workflow/automatic_pipeline_2_corrective_data_update/DEPLOYMENT.md`.
+
+There is no era table or static product for this pipeline: the machine era enters through `vest.yaml` (the impurity
+model and the Thomson/CES mappers), not through a per-era product.
 
 ---
 
@@ -410,22 +518,6 @@ generators rebuild from scratch and overwrite.
   schema that can no longer be joined. Do not run it. `plot_stability_history.py` is an empty file.
 * `gen_efit_reliability.py` currently emits only diamagnetic-flux rows — the append calls in its magnetic-probe
   and flux-loop branches are unreachable — so do not read its output as per-probe reliability data.
-
-### Known breakage on `main`
-
-The three incremental generators listed above resolve their shot list from pipeline 2's registry, and load each
-shot, by calling two helpers on `vaft.database.ods` that the module **does not define on `main`** — it exposes
-`load_ods` and `save_ods`. As committed they will raise `AttributeError` before doing any work. The equivalent
-supported entry points are:
-
-<!-- docs-snippet: skip needs-database (talks to a VEST database source) -->
-```python
-import vaft
-ods = vaft.database.load(shot, source="public")   # -> ODS
-vaft.database.save(ods, shot)
-```
-
-See [Data structures]({{ site.baseurl }}/guide/Data_structures/) for the loader's semantics.
 
 ---
 

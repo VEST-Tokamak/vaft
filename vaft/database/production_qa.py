@@ -207,6 +207,42 @@ STAGE_VALIDATION_PLOTS: dict[str, tuple[ValidationPlot, ...]] = {
             required=False,
         ),
     ),
+    # The corrective (Thomson lineage) stages, #1842. Every figure is optional: most
+    # shots carry no Thomson upload, and a stage that finds its data missing records
+    # `unavailable` with an empty-bodied product, which is a normal result and must
+    # not make a figure a stage failure. A figure whose data is present but which
+    # fails to render still raises, as everywhere else in this registry.
+    "thomson": (
+        ValidationPlot("thomson_scattering_time_electron_temperature", "thomson_te_time.png", required=False),
+        ValidationPlot("thomson_scattering_time_electron_density", "thomson_ne_time.png", required=False),
+    ),
+    "ces": (
+        ValidationPlot("charge_exchange_time_ion_temperature", "ces_ti_time.png", required=False),
+    ),
+    "core_profiles": (
+        ValidationPlot("kinetic_overview_profiles", "core_profiles_overview.png", required=False),
+    ),
+    # The composed profiles: the assumed C/O composition behind Z_eff(rho), and the
+    # ion-density-aware pressure (the figure labels a derived Z_eff as such).
+    "composition": (
+        ValidationPlot("impurity_profile_composition", "composition_profile.png", required=False),
+        ValidationPlot("thermal_pressure_profile", "composition_pressure.png", required=False),
+    ),
+    "ti_inferred": (
+        ValidationPlot("ion_temperature_profile", "ti_inferred_profile.png", required=False),
+        ValidationPlot("thermal_pressure_profile", "ti_inferred_pressure.png", required=False),
+    ),
+    "resistive_zeff": (
+        ValidationPlot("core_profiles_profile_zeff", "resistive_zeff_profile.png", required=False),
+    ),
+    "electron_efit": (
+        ValidationPlot("equilibrium_profile_pressure", "electron_efit_pressure.png", required=False),
+        ValidationPlot("equilibrium_profile_q", "electron_efit_q.png", required=False),
+    ),
+    "kinetic_efit": (
+        ValidationPlot("equilibrium_profile_pressure", "kinetic_efit_pressure.png", required=False),
+        ValidationPlot("equilibrium_profile_q", "kinetic_efit_q.png", required=False),
+    ),
     # CHEASE refines an EFIT equilibrium at fixed boundary: the per-slice
     # comparison figure (`chease_comparison.png`, one per time label) stays a
     # side effect of `run_chease`, tracked by its own manifest, because its

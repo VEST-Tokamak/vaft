@@ -96,6 +96,8 @@ class DocumentationPipeline:
     branches: tuple[str, ...] = ()
 
 
+from vaft.database.corrective_lineage import CORRECTIVE_LINEAGE  # noqa: E402
+
 PIPELINES = (
     DocumentationPipeline(
         id="routine",
@@ -121,7 +123,10 @@ PIPELINES = (
         directory="automatic_pipeline_2_corrective_data_update",
         target="all",
         shot=48226,
-        config={"layout": "filedb", "hsds": {"replicate": True}, "conda": None},
+        # stages: every stage, so the opt-in ones are drawn although a run builds
+        # only the default scope.
+        config={"layout": "filedb", "hsds": {"replicate": True}, "conda": None,
+                "stages": list(CORRECTIVE_LINEAGE)},
         branches=("HSDS replication", "kinetic profiles"),
     ),
 )
@@ -361,9 +366,16 @@ def rule_locations(snakefile: Path) -> tuple[dict[str, int], set[str], list[tupl
     checkpoints = {match.group(1) for match in _CHECKPOINT_LINE.finditer(text)}
     templates = []
     for match in _DYNAMIC_NAME.finditer(text):
-        literals = re.findall(r'"([^"]*)"', match.group(1))
+        expression = match.group(1).strip()
+        literals = re.findall(r'"([^"]*)"', expression)
         if literals:
-            pattern = re.compile("^" + ".+".join(re.escape(piece) for piece in literals) + "$")
+            # A name that starts or ends with a variable (`"plot_" + stage`) has an
+            # unknown head or tail, which is as much a wildcard as one in the middle.
+            head = "" if expression.startswith(('"', "'")) else ".+"
+            tail = "" if expression.endswith(('"', "'")) else ".+"
+            pattern = re.compile(
+                "^" + head + ".+".join(re.escape(piece) for piece in literals) + tail + "$"
+            )
             templates.append((pattern, line_of(match.start())))
     return static, checkpoints, templates
 

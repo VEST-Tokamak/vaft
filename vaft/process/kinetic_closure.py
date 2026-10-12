@@ -37,6 +37,7 @@ the fast-ion inputs are in ``provenance``.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Sequence
 
@@ -45,11 +46,15 @@ import numpy as np
 __all__ = [
     "DILUTION_MODES",
     "FastIonEstimate",
+    "INDEPENDENT_LINEAGES",
     "KineticClosure",
     "PressureAssembly",
+    "TI_FLAGS",
+    "TI_NOTES",
     "assemble_pressure",
     "fast_ion_slowing_down_estimate",
     "infer_kinetic_closure",
+    "infer_ti_pressure_partition",
 ]
 
 #: ``species``: ion densities from the composition (main ion diluted);
@@ -57,6 +62,20 @@ __all__ = [
 DILUTION_MODES = ("species", "none")
 
 _QE = 1.602176634e-19
+
+#: Equilibrium lineages whose pressure carries information independent of the
+#: ion temperature being inferred.  ``electron_kinetic`` is excluded: its
+#: pressure was fitted to ``n_e T_e (1 + Ti/Te)`` with Ti/Te *assumed*, so
+#: inverting it returns the assumption (#1426 section 6).
+INDEPENDENT_LINEAGES = ("magnetics",)
+
+#: The flags that void a pressure-partition point: a flagged point has no T_i.
+TI_FLAGS = ("p_i_nonpositive", "p_i_not_significant", "non_finite_input")
+
+#: Notes a point can carry that leave its T_i in place.  ``sigma_unavailable``:
+#: an input uncertainty is missing, so neither sigma(T_i) nor the significance
+#: test exists for that point.
+TI_NOTES = ("sigma_unavailable",)
 
 
 @dataclass(frozen=True)
@@ -575,3 +594,143 @@ def infer_kinetic_closure(
     return KineticClosure(time=_slice_time(ods, index), rho=None if rho is None else np.asarray(rho, float),
                           n_e=ne, T_e=te, ion_densities=densities, ion_temperatures=temperatures,
                           pressure=pressure, composition=resolved, fast_ion=fast_ion, provenance=provenance)
+
+
+def infer_ti_pressure_partition(
+    p_eq: Any,
+    n_e: Any,
+    t_e: Any,
+    *,
+    composition: Mapping[str, Any],
+    sigma_p_eq: Any,
+    sigma_n_e: Any,
+    sigma_t_e: Any,
+    equilibrium_lineage: str,
+) -> dict[str, Any]:
+    """Ion temperature from the equilibrium pressure partition, ``T_i = p_eq / (e f n_e) - T_e / f``.
+
+    Parameters
+    ----------
+    p_eq : array-like
+        Equilibrium total pressure on the points [Pa].
+    n_e : array-like
+        Electron density on the same points [m^-3].
+    t_e : array-like
+        Electron temperature on the same points [eV].
+    composition : mapping
+        ``ion_density_per_electron`` -- ``f = sum_s n_s / n_e``, a number or an
+        array on the points [-] -- and ``composition_source``, a description of
+        where it came from [-].
+    sigma_p_eq : array-like
+        One-sigma uncertainty of ``p_eq`` [Pa].
+    sigma_n_e : array-like
+        One-sigma uncertainty of ``n_e``; NaN where unknown [m^-3].
+    sigma_t_e : array-like
+        One-sigma uncertainty of ``t_e``; NaN where unknown [eV].
+    equilibrium_lineage : str
+        Where ``p_eq`` was reconstructed, one of the lineages the caller derived
+        from the product's stage; the inference is refused unless it is in
+        :data:`INDEPENDENT_LINEAGES` [-].
+
+    Returns
+    -------
+    dict
+        Refused (``eligible = False``): ``origin``, ``method`` and the ``reason``.
+        Otherwise ``eligible = True``, ``origin = "inferred"``, ``method``,
+        ``equilibrium_lineage``, ``assumptions``, ``p_e`` and ``p_i`` [Pa],
+        ``sigma_p_i`` [Pa], ``t_i`` and ``sigma_t_i`` [eV], ``ti_te`` [-] and
+        ``flags``, one list per point [any].  ``t_i``, ``sigma_t_i`` and ``ti_te``
+        are NaN where a point carries a flag of :data:`TI_FLAGS` [any].
+
+    Raises
+    ------
+    KeyError
+        ``composition`` lacks ``ion_density_per_electron`` or ``composition_source``.
+
+    Processing steps
+    ----------------
+    1. Refuse a lineage outside :data:`INDEPENDENT_LINEAGES`.
+    2. ``p_e = e n_e T_e`` and ``p_i = p_eq - p_e``.
+    3. ``T_i = p_i / (e f n_e)`` for one common ion temperature of ``n_i = f n_e`` ions.
+    4. Propagate the one-sigma inputs linearly (below).
+    5. Void ``p_i <= 0`` (``p_i_nonpositive``), ``p_i < sigma(p_i)``
+       (``p_i_not_significant``) and non-finite or non-positive inputs
+       (``non_finite_input``); a missing input uncertainty only adds the note
+       ``sigma_unavailable`` and skips the significance test at that point.
+
+    Convention
+    ----------
+    The uncertainty is propagated through ``T_i = p_eq / (e f n_e) - T_e / f``,
+    which keeps the ``n_e`` correlation between ``p_e`` and the ion density::
+
+        dT_i/dp_eq = 1/(e f n_e), dT_i/dn_e = -p_eq/(e f n_e^2), dT_i/dT_e = -1/f
+
+    Points are flagged, never filled.  Scalars broadcast against arrays; every
+    input is brought to one shape.  ``f`` is taken as exact, and ``p_eq`` is
+    the caller's pressure with the caller's uncertainty.
+
+    Assumptions
+    -----------
+    A single ion temperature for every ion species; ``f`` from a composition
+    the caller names.  The result is an inferred quantity, never a measurement.
+
+    Applicability
+    -------------
+    Machine-independent.
+
+    Limitations
+    -----------
+    The guard trusts the declared lineage.  Equilibrium products carry no
+    machine-readable record of one, so a caller must derive
+    ``equilibrium_lineage`` from where the pressure came from (the FileDB stage
+    it loaded), never from intent.  An ``electron_kinetic`` pressure was fitted
+    with an assumed ``T_i/T_e`` and is refused as circular.
+
+    Provenance
+    ----------
+    .. [issue] #1426 (pressure-partition T_i); moved here from
+       ``vaft.validation.kinetic_state`` by #1842.
+    """
+    if equilibrium_lineage not in INDEPENDENT_LINEAGES:
+        return {"eligible": False, "origin": "inferred", "method": "equilibrium_pressure_partition",
+                "reason": (f"circular: the {equilibrium_lineage!r} equilibrium pressure was reconstructed with an "
+                           "assumed Ti/Te, so partitioning it returns that assumption")}
+    p_eq, n_e, t_e, s_p, s_n, s_t = np.broadcast_arrays(
+        *(np.asarray(x, dtype=float) for x in (p_eq, n_e, t_e, sigma_p_eq, sigma_n_e, sigma_t_e)))
+    fraction = np.broadcast_to(np.asarray(composition["ion_density_per_electron"], dtype=float), p_eq.shape)
+    p_e = _QE * n_e * t_e
+    p_i = p_eq - p_e
+    sigma_p_e = _QE * np.hypot(t_e * s_n, n_e * s_t)
+    sigma_p_i = np.hypot(s_p, sigma_p_e)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t_i = p_i / (_QE * fraction * n_e)
+        d_p = 1.0 / (_QE * fraction * n_e)
+        d_n = -p_eq / (_QE * fraction * n_e ** 2)
+        d_t = -1.0 / fraction
+        sigma_t_i = np.sqrt((d_p * s_p) ** 2 + (d_n * s_n) ** 2 + (d_t * s_t) ** 2)
+        ti_te = t_i / t_e
+    flags: list[list[str]] = []
+    for k in range(p_eq.size):
+        point: list[str] = []
+        values = (p_eq.flat[k], n_e.flat[k], t_e.flat[k])
+        sigmas_known = all(math.isfinite(v) for v in (s_p.flat[k], s_n.flat[k], s_t.flat[k]))
+        if not all(math.isfinite(v) for v in values) or n_e.flat[k] <= 0 or t_e.flat[k] <= 0:
+            point.append("non_finite_input")
+        elif p_i.flat[k] <= 0:
+            point.append("p_i_nonpositive")
+        elif sigmas_known and p_i.flat[k] < sigma_p_i.flat[k]:
+            point.append("p_i_not_significant")
+        if not point and not sigmas_known:
+            point.append("sigma_unavailable")
+        flags.append(point)
+    bad = np.array([any(f in TI_FLAGS for f in point) for point in flags], dtype=bool).reshape(p_eq.shape)
+    t_i = np.where(bad, np.nan, t_i)
+    sigma_t_i = np.where(bad, np.nan, sigma_t_i)
+    ti_te = np.where(bad, np.nan, ti_te)
+    return {
+        "eligible": True, "origin": "inferred", "method": "equilibrium_pressure_partition",
+        "equilibrium_lineage": equilibrium_lineage,
+        "assumptions": ("common ion temperature", composition["composition_source"]),
+        "p_e": p_e, "p_i": p_i, "sigma_p_i": sigma_p_i,
+        "t_i": t_i, "sigma_t_i": sigma_t_i, "ti_te": ti_te, "flags": flags,
+    }

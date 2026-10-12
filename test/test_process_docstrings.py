@@ -759,6 +759,8 @@ CONVENTION_SENSITIVE = frozenset({
     # kinetic_closure (#1606): thermal and fast never share a field; the legacy fallback
     "assemble_pressure",
     "infer_kinetic_closure",
+    # kinetic_closure (#1426, moved by #1842): the propagation form and the lineage guard
+    "infer_ti_pressure_partition",
     # zeff_projection (#1566): same model, states and objective on both sides
     "profile_conductivity_model",
     "spitzer_resistive_equivalent_zeff",

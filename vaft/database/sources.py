@@ -855,6 +855,42 @@ STAGE_REPLICATION: Mapping[str, StageReplication] = {
         note="requires thomson; ion channels only when ces is present",
         produced_by="corrective",
     ),
+    # The measured profiles plus the assumed C/O composition, diluted n_i and
+    # Z_eff(rho). It owns `core_profiles` in the same source as the stage above,
+    # which the rule at the top of this class normally forbids: it is an
+    # explicit overlay. The replicate rule orders it after `core_profiles`, so
+    # `main` holds the composed product when this stage succeeded and the
+    # measured one when it was skipped (no impurity model, no plasma age, ...).
+    "composition": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("core_profiles",),
+        optional=True,
+        note="overlays core_profiles with the assumed impurity composition; replicated after it",
+        produced_by="corrective",
+    ),
+    # The composed profiles plus T_i inferred from the magnetic equilibrium's
+    # pressure partition on the slices with no measured T_i. A third overlay on
+    # `core_profiles` in this source, replicated after `composition`; its T_i
+    # records say `origin=inferred`, and it is never read by the kinetic EFIT
+    # stages (their pressure would then partition itself).
+    "ti_inferred": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("core_profiles",),
+        optional=True,
+        note="overlays composition with an inferred T_i; replicated after it",
+        produced_by="corrective",
+    ),
+    # The Romero resistive Z_eff of the discharge window, in
+    # `core_profiles.global_quantities.z_eff_resistive`. The last overlay on
+    # `core_profiles` in this source: it is built on the inferred-T_i product, so
+    # replacing the IDS keeps the composition and T_i written before it.
+    "resistive_zeff": StageReplication(
+        source=DEFAULT_SOURCE,
+        ids=("core_profiles",),
+        optional=True,
+        note="overlays ti_inferred with the window resistive Z_eff; replicated after it",
+        produced_by="corrective",
+    ),
     # Both share the `equilibrium` IDS with the EFIT baseline and with each
     # other, so all three are separated by source rather than occurrence. Which
     # of the two runs for a shot is decided by whether CES data exist, not by

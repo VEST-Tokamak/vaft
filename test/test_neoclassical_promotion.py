@@ -252,7 +252,12 @@ def test_the_source_hangs_beneath_the_lineage_that_can_feed_it():
 
 
 def test_it_does_not_publish_into_the_source_that_owns_the_kinetic_profiles():
-    """core_profiles has two owners now; only a source split keeps them apart."""
+    """core_profiles has two writers per source family; only a source split keeps neoclassical apart.
+
+    The corrective composition, ti_inferred and resistive_zeff stages overlay the
+    measured core_profiles in the same source on purpose (#1842); neoclassical must
+    still publish to a source none of them writes.
+    """
     from vaft.database.sources import STAGE_REPLICATION
 
     owners = {
@@ -260,8 +265,10 @@ def test_it_does_not_publish_into_the_source_that_owns_the_kinetic_profiles():
         for stage, entry in STAGE_REPLICATION.items()
         if "core_profiles" in entry.ids
     }
-    assert set(owners) == {"core_profiles", "neoclassical"}
-    assert len(set(owners.values())) == 2
+    overlay = {"core_profiles", "composition", "ti_inferred", "resistive_zeff"}
+    assert set(owners) == overlay | {"neoclassical"}
+    assert len({owners[stage] for stage in overlay}) == 1, "the overlay shares one source"
+    assert owners["neoclassical"] not in {owners[stage] for stage in overlay}
 
 
 @requires_sample
