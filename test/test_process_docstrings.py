@@ -81,6 +81,9 @@ DEFINITIONAL = frozenset({
     "assess_neo_readiness",
     "run_identity",
     "physics_parameters",
+    # transport_state (#1567 Phase C): the resolved profile's species list read as a
+    # canonical state -- a representation change, no physics of its own.
+    "transport_species_state",
     # Signed sums and magnitude shares of fluxes the models already computed.
     "transport_partition",
     # A comparison of two solver inputs, no physics of its own.
@@ -119,10 +122,18 @@ DEFINITIONAL = frozenset({
     "low_shear_regions",
     # mhd_stability (#1852): reading the atlas tables -- bookkeeping.
     "load_stability_atlas",
+    # ntv_coil_response (#1887): phasors and the probe set -- pure bookkeeping.
+    "coil_phasors",
+    "quadratic_probe_design",
+    "quadratic_torque",
 })
 
 #: Multi-stage routines: the order of operations decides what the output means.
 PIPELINE = frozenset({
+    # gyrokinetics (#1820): peaks -> periods -> peak lag -> correlation lag -> verdict;
+    # initial guess -> integrate -> log residual -> least squares
+    "predator_prey_cycle_metrics",
+    "fit_predator_prey_model",
     # ordering_state (#1627 §2): inputs -> v_A, eta -> ratios; gradients -> gyroradii,
     # collision times -> Knudsen, magnetization, collisionality; columns -> rows
     "global_ordering_quantities",
@@ -130,8 +141,37 @@ PIPELINE = frozenset({
     "profile_ordering_quantities",
     "ordering_table",
     "ordering_margins",
+    # #1823 follow-up: equilibrium slice by time -> core_profiles by time -> means -> builders
+    "ordering_inputs_from_ods",
     # mode_frequency (#460): resolve q = m/n -> rotation at the root -> bracket in time
     "mode_frequency_tracks",
+    # ntv_coil_response (#1887): probes -> Q; expected -> tolerance -> per-kind check;
+    # drop failed -> compare -> status; generalized eigen -> scale; grid -> polish
+    "ntv_operating_space",
+    "hermitian_torque_matrix",
+    "quadratic_invariance_checks",
+    "qualify_torque_matrix",
+    "fit_inhomogeneous_torque",
+    "two_group_phase_extrema",
+    "budgeted_torque_extrema",
+    "fixed_amplitude_phase_extrema",
+    # coil_operating_space (#1178): ratio against group 0 -> wrapped phase, NaN at A = 0
+    "relative_coil_coordinates",
+    # resonant_coil_response (#1884): set aside failed -> compare -> status; stack ->
+    # lstsq -> SVD; eigvec at mu -> bisect; reduce per window -> model rows
+    "qualify_response_operator",
+    "match_resonant_target",
+    "constrained_window_extremum",
+    "resonant_operating_space",
+    # local_mhd_criteria (#1902): trace -> averages -> derivatives -> indices;
+    # read and convert the slice; interpolate -> differences -> implied H
+    "mercier_ggj_profile",
+    "mercier_ggj_from_ods",
+    "interchange_comparison",
+    "flux_surface_curvature",
+    "curvature_map",
+    "s_alpha_profile",
+    "s_alpha_from_ods",
     # resistive_zeff (#1214): smooth -> balance -> resistance; sigma -> power -> R_p;
     # match -> scan -> minimise; nominal -> perturbed re-fits
     "smooth_local_polynomial",
@@ -142,6 +182,8 @@ PIPELINE = frozenset({
     "resistive_zeff_sensitivity",
     # transport_state (#1428): times -> Ti hierarchy -> geometry -> composition/convert
     "resolve_transport_state",
+    # transport_state (#1567 Phase C): canonical species -> projection -> projected profile
+    "project_transport_state",
     # impurity (#1565): match time -> choose by precedence -> close at Z_eff -> reduce
     "resolve_impurity_composition",
     # impurity (#1565 Sec. 8): ADF11 states -> moments -> S1/S2 -> one scale -> check
@@ -296,6 +338,9 @@ PIPELINE = frozenset({
 #: C and D add the equilibrium mappers, the profile fitters and the
 #: reconstructions.
 STATEFUL = frozenset({
+    "s_alpha_from_ods",
+    # local_mhd_criteria (#1902): ODS equilibrium in, raw indices out (no QA cut)
+    "mercier_ggj_from_ods",
     # soft_x_rays (#886): prescribed island -> synthetic chord signal
     "synthetic_island_soft_x_rays",
     # wall_modes (#571): element space <-> mode space
@@ -335,10 +380,18 @@ STATEFUL = frozenset({
 
 #: Sign, phase, coordinate or normalisation choices change the number.
 CONVENTION_SENSITIVE = frozenset({
+    # gyrokinetics (#1820): |phi|^2 is a proxy, ky = 0 is zonal, positive lag = zonal
+    # after turbulence, c1/c2 carry the intensity normalisation
+    "zonal_turbulence_intensity",
+    "zonal_shear_proxy",
+    "predator_prey_cycle_metrics",
+    "fit_predator_prey_model",
     # #1627 §2: S and tau ratios on a, n_i = n_e, v_t = sqrt(T/m), L_T on r in metres
     "global_ordering_quantities",
     "time_history_ordering_quantities",
     "profile_ordering_quantities",
+    # #1823 follow-up: vacuum b0 r0/R0, r = rho_tor_norm a, cross-section means, beta_tor fraction
+    "ordering_inputs_from_ods",
     # #1608: COCOS source profiles versus full-weber Green response orientation.
     "fit_free_boundary_coils",
     # resistive_zeff (#1214): Romero's full-Wb V = -dpsi/dt, not Ejima's (#354);
@@ -376,6 +429,36 @@ CONVENTION_SENSITIVE = frozenset({
     # #460: |q| = |m/n|, f_pred keeps the sign of n and of the stored rotation,
     # a velocity divided by R_out of the surface (never R_axis)
     "mode_frequency_tracks",
+    # #1887: c_k = A_k exp(+i phi_k) and T = c^H Q c fix the sign of every Im Q_ij;
+    # torques stay signed
+    "coil_phasors",
+    "quadratic_probe_design",
+    "ntv_operating_space",
+    "hermitian_torque_matrix",
+    "quadratic_torque",
+    "quadratic_invariance_checks",
+    "qualify_torque_matrix",
+    "fit_inhomogeneous_torque",
+    "two_group_phase_extrema",
+    "budgeted_torque_extrema",
+    "fixed_amplitude_phase_extrema",
+    # #1178: I_k = A cos(n phi_k + delta), relative phase of group g minus group 0
+    "relative_coil_coordinates",
+    # #1884: Phi = H conj(c) (GPEC's exp(-i n phi) coefficient); Q = conj(H^H W H)
+    "resonant_response_operator",
+    "qualify_response_operator",
+    "window_weights",
+    "match_resonant_target",
+    "constrained_window_extremum",
+    "resonant_operating_space",
+    # #1902: DCON's sign (D_I < 0 stable), chi increasing outward, |F|, |q|
+    "mercier_ggj_profile",
+    "mercier_ggj_from_ods",
+    "interchange_comparison",
+    "flux_surface_curvature",
+    "curvature_map",
+    "s_alpha_profile",
+    "s_alpha_from_ods",
     "magnetic_island_topology",
     "island_emissivity",
     "build_line_integral_operator",
@@ -690,6 +773,8 @@ CONVENTION_SENSITIVE = frozenset({
     "species_state_from_composition",
     "composition_moments",
     "project_species_state",
+    # transport_state (#1567 Phase C): bundled lumps and the closure's density origin
+    "transport_species_state",
     # mhd_stability (#940): DCON's signs (D_I, D_R > 0 and C_A, dW < 0 unstable)
     # and its edge-scan peak search.
     "dcon_local_stability",

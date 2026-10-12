@@ -184,7 +184,7 @@ def _partition(peq, ne, te, comp, lineage):
     return ti, valid_ti, ""
 
 
-def _radial_composition(comp: dict, rho, te, ne, time):
+def _radial_composition(comp: dict, rho, te, ne, time, *, kind: str = "derived", normalization=None):
     """The archived charge states as the composition writer's input type."""
     from vaft.process.impurity import RadialImpurityComposition
 
@@ -197,13 +197,13 @@ def _radial_composition(comp: dict, rho, te, ne, time):
     main = 1.0 - scale * s1
     nan = np.full(mean.shape, np.nan)
     return RadialImpurityComposition(
-        kind="derived", rho=rho, te_eV=te, ne_m3=ne, elements=("C", "O"), weights=weights, scale=scale,
+        kind=kind, rho=rho, te_eV=te, ne_m3=ne, elements=("C", "O"), weights=weights, scale=scale,
         elemental_fractions=np.broadcast_to(scale * weights, mean.shape).copy(),
         charge_state_fractions=(fC, fO), mean_charge=mean, mean_square_charge=mean2, S1=s1, S2=s2,
         effective_charge=s2 / s1, zeff=main + scale * s2, main_ion_fraction=main,
         dilution_fraction=1.0 - main, coronal_mean_charge=nan, relaxation_time_s=nan, coronal_valid=None,
         main_ion="H", time=time,
-        normalization={"method": comp["normalization"], "target_zeff": comp["target_zeff"]},
+        normalization=normalization or {"method": comp["normalization"], "target_zeff": comp["target_zeff"]},
         provenance={"ionization": comp["ionization"], "source": "#1839 archive charge states"},
     )
 
@@ -447,3 +447,145 @@ def kinetic_state_case(shot: int = 40326, lineage: str = "magnetics", *, occurre
 def kinetic_state_ods(shot: int = 40326, lineage: str = "magnetics", **options: Any):
     """Just the ODS of :func:`kinetic_state_case`."""
     return kinetic_state_case(shot, lineage, **options).ods
+
+
+# ---------------------------------------------------------------------------
+# The Romero-first chain (#1957): a SYNTHETIC variant, until Lane KP's stages exist
+# ---------------------------------------------------------------------------
+
+#: The scalar Romero Z_eff the synthetic chain is given.  **Synthetic**: no
+#: Romero balance (#781) was run for it; it stands in for the stage-4 product.
+SYNTHETIC_ZEFF_ROMERO = 2.0
+#: Its 1 sigma, as synthetic as the value.
+SYNTHETIC_ZEFF_ROMERO_SIGMA = 0.2
+
+#: The T_i record of the chain's assumption, in the composition grammar.
+TI_EQUALS_TE_RECORD = "origin=assumed; method=ti_equals_te; assumption=T_i=T_e"
+
+
+def romero_first_case(shot: int = 40326, *, zeff_romero: float = SYNTHETIC_ZEFF_ROMERO,
+                      zeff_romero_sigma: float = SYNTHETIC_ZEFF_ROMERO_SIGMA) -> KineticStateCase:
+    """The maintainer's Romero-first chain (#1957) on one archived case, as a plot-ready ODS.
+
+    Inputs are the archive's **magnetic equilibrium and Thomson** only, with
+    the archived electron fits standing in for the stage-2 Thomson fits:
+
+    1. data -- the Thomson channels and ``p_eq``, as :func:`kinetic_state_case`;
+    2. ``n_e``, ``T_e`` fits -- ``coordinate=rho_tor_norm; method=external``;
+    3. ``T_i = T_e`` -- ``t_i_average`` and ``ion[0].temperature`` equal to
+       ``T_e``, record :data:`TI_EQUALS_TE_RECORD` (``origin=assumed``);
+    4. Romero ``Z_eff`` -- ``zeff_romero`` in
+       ``global_quantities.z_eff_resistive``, and ``resistive_target=``,
+       ``resistive_sigma=`` (``zeff_romero_sigma``), ``resistive_method=romero;
+       resistive_source=synthetic`` on every record stating the
+       ``normalization=`` (main ion, C, O, ``zeff``).  **Synthetic**;
+    5. ``n_I,eff`` -- C and O with ``n_C = n_O``, the amplitude closing the
+       ``n_e``-weighted volume mean of ``Z_eff(rho)`` at ``zeff_romero`` (the
+       archive's own normalization, with the Romero value as its target), through
+       the real writer :func:`vaft.process.impurity.populate_radial_impurity_profiles`
+       as an ``inferred`` composition (``method=romero_partition;
+       normalization=resistive_closure``) with ``assumption=n_C=n_O`` appended
+       to the impurity and ``zeff`` records.  The charge-state fractions are
+       the archive's OpenADAS replay (the ADF11 tables are not downloaded in
+       tests) -- an input beyond equilibrium + Thomson, stated here;
+    6. ``n_i`` -- quasineutrality, written by the same writer;
+    7. ``Z_eff(rho)`` -- the writer's ``zeff``;
+    8. closure -- ``electrons.pressure = e n_e T_e``, ``ion[k].pressure = e
+       n_k T_i`` (impurities by their charged density) and
+       ``pressure_ion_total`` their sum, hand-built (no writer yet).
+
+    ``p_e + p_i`` is **not** ``p_eq`` here: nothing partitions the equilibrium
+    pressure, so the closure is a test, not an identity.
+    """
+    from omas import ODS  # noqa: F401  (the ODS comes from kinetic_state_case)
+
+    from vaft.process.impurity import populate_radial_impurity_profiles
+
+    zeff_romero = float(zeff_romero)
+    if not np.isfinite(zeff_romero) or zeff_romero <= 1.0:
+        raise ValueError(f"zeff_romero must be a finite Z_eff > 1; got {zeff_romero!r}")
+    base_case = kinetic_state_case(shot, "magnetics", records=True)
+    ods = base_case.ods
+    s = load_archive(shot)
+    t = base_case.time
+    rho, ne, te = base_case.rho, base_case.n_e, base_case.t_e
+    volume = np.asarray(s["magnetic_equilibrium"]["volume_m3"], float)
+
+    # --- 5: n_C = n_O, the amplitude closing <Z_eff> at the Romero value -------
+    unit = json.loads(json.dumps(s))
+    unit["impurity_model"]["scale"] = 1.0
+    shape = _composition(unit, ne, rho, volume)            # Z_eff = 1 + scale * excess
+    excess = shape["zeff"] - 1.0
+    edges = np.r_[0, .5 * (rho[:-1] + rho[1:]), rho[-1]]
+    dV = np.clip(np.diff(np.interp(edges, rho, volume)), 0, None)
+    valid = shape["valid_charge"]
+    scale = (zeff_romero - 1.0) / (np.nansum((ne * dV * excess)[valid]) / np.nansum((ne * dV)[valid]))
+    model = json.loads(json.dumps(s))
+    model["impurity_model"].update(scale=float(scale), target_zeff=zeff_romero, normalization="resistive_closure")
+    comp = _composition(model, ne, rho, volume)
+    if not np.isclose(comp["zeff_mean"], zeff_romero, rtol=1e-10):
+        raise ValueError(f"the closure gives <Z_eff> = {comp['zeff_mean']!r}, not {zeff_romero!r}")
+
+    cpb = "core_profiles.profiles_1d.0"
+    # Strip the archive's composition, T_i and pressures: this chain writes its own.
+    for path in [p for p in ods.flat() if p.startswith(f"{cpb}.ion.") or p.startswith(f"{cpb}.t_i_average")
+                 or p.startswith(f"{cpb}.zeff") or p.startswith(f"{cpb}.pressure_ion_total")]:
+        del ods[path]
+    ods[f"{cpb}.ion.0.label"] = "H+"
+    ods[f"{cpb}.ion.0.z_ion"] = 1.0
+    ods[f"{cpb}.ion.0.element.0.z_n"] = 1.0
+    ods[f"{cpb}.ion.0.element.0.a"] = 1.008
+    ods[f"{cpb}.ion.0.element.0.atoms_n"] = 1
+
+    # --- 3: T_i = T_e (assumed) --------------------------------------------------
+    lineage = "; equilibrium_lineage=magnetics; equilibrium_occurrence=0"
+    ods[f"{cpb}.ion.0.temperature"] = te
+    ods[f"{cpb}.ion.0.temperature_fit.parameters"] = TI_EQUALS_TE_RECORD + lineage
+    ods[f"{cpb}.t_i_average"] = te
+    ods[f"{cpb}.t_i_average_fit.parameters"] = TI_EQUALS_TE_RECORD + lineage
+
+    # --- 5-7: the composition through the real writer ---------------------------
+    radial = _radial_composition(comp, rho, te, ne, t, kind="inferred",
+                                 normalization={"method": "resistive_closure", "resistive_target": zeff_romero})
+    ods = populate_radial_impurity_profiles(ods, radial, time=t, method="romero_partition")
+    defined = comp["valid_charge"]
+    _check("main-ion density", ods[f"{cpb}.ion.0.density"], comp["nH"], defined)
+    charged = {k: sum(np.asarray(ods[f"{cpb}.ion.{k}.state.{q}.density"], float)
+                      for q in range(len(ods[f"{cpb}.ion.{k}.state"]))) for k in (1, 2)}
+    _check("charged impurity density", charged[1] + charged[2], comp["nimp"], defined)
+    _check("Z_eff", ods[f"{cpb}.zeff"], comp["zeff"], defined)
+    # The closure's own value on every record that states the normalization
+    # (the writer emits only normalization=resistive_closure yet).
+    closure = (f"; resistive_target={zeff_romero:g}; resistive_sigma={zeff_romero_sigma:g}; "
+               "resistive_method=romero; resistive_source=synthetic")
+    for path in (f"{cpb}.ion.0.density_fit.parameters", f"{cpb}.ion.1.density_fit.parameters",
+                 f"{cpb}.ion.2.density_fit.parameters", f"{cpb}.zeff_fit.parameters"):
+        assumption = "" if path.endswith("ion.0.density_fit.parameters") else "; assumption=n_C=n_O"
+        ods[path] = f"{ods[path]}{assumption}{closure}"
+
+    # --- 4: the Romero scalar (SYNTHETIC) ----------------------------------------
+    ods["core_profiles.global_quantities.z_eff_resistive"] = np.array([zeff_romero])
+
+    # --- 8: the pressures (hand-built: no writer yet) -----------------------------
+    n_h = np.asarray(ods[f"{cpb}.ion.0.density"], float)
+    ods[f"{cpb}.ion.0.pressure"] = E * n_h * te
+    for k in (1, 2):
+        ods[f"{cpb}.ion.{k}.pressure"] = E * charged[k] * te
+    pi = E * (n_h + charged[1] + charged[2]) * te
+    ods[f"{cpb}.pressure_ion_total"] = pi
+    ods["core_profiles.code.name"] = ("workflow/kinetic_state/archive_to_ods.py romero_first_case (#1957): "
+                                      "SYNTHETIC Romero Z_eff, T_i = T_e, n_C = n_O")
+    pe = E * ne * te
+    return KineticStateCase(
+        ods=ods, shot=shot, time=t, lineage="magnetics", rho=rho, p_eq=base_case.p_eq, rho_eq=base_case.rho_eq,
+        p_e=pe, p_i=pi, p_kin=pe + pi, n_e=ne, n_h=comp["nH"], n_imp=comp["nimp"], t_e=te, t_i=te,
+        zeff=comp["zeff"], valid_charge=defined, valid_ti=np.ones(rho.size, bool),
+        ts_rho=base_case.ts_rho, ts_psi_norm=base_case.ts_psi_norm, ts_r=base_case.ts_r,
+        ts_p_e=base_case.ts_p_e, ts_sigma_p_e=base_case.ts_sigma_p_e, ts_n_e=base_case.ts_n_e,
+        ts_t_e=base_case.ts_t_e, target_zeff=zeff_romero,
+        notes={"zeff_mean": comp["zeff_mean"], "scale": float(scale), "p_imp": E * (charged[1] + charged[2]) * te,
+               "synthetic": ("z_eff_resistive (no Romero balance was run)",
+                             "n_C = n_O composition closed at that value",
+                             "T_i = T_e")},
+    )
+

@@ -240,6 +240,12 @@ class KineticEFITConfig:
     # from the Thomson/CX points; the ``spline`` encoding reads
     # ``core_profiles.pressure_thermal``, which already carries it.
     ion_density_ratio: Optional[Callable[[np.ndarray], np.ndarray]] = None
+    #: Ordering quantities of the state being reconstructed (#1823), by
+    #: ``vaft.validation.orderings.ORDERING_QUANTITIES`` name, e.g.
+    #: ``vaft.process.ordering_state.ordering_inputs_from_ods(ods, t).state``.
+    #: Advisory only: passed to every PLASMA-scale run's ``EFITConfig`` and
+    #: recorded there as ``ordering_check``; never part of the k-file.
+    ordering_state: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -1106,6 +1112,7 @@ def run_kinetic_efit(
             args=(str(int(config.grid_size)),),  # EFIT needs the grid size: `efit <n>`
             env=config.env,
             timeout=config.timeout,
+            ordering_state=config.ordering_state,
         )
         efit_inputs = EFITInputs(
             workdir=scale_dir, kfiles=(kpath,), files=(kpath,)

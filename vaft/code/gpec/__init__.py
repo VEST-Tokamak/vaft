@@ -71,6 +71,7 @@ from ._gpec_output import (
     read_gpec_netcdf,
 )
 from ._matching_output import Pest3MatchingOutput, read_pest3_matching_output
+from ._ordering import ordering_state_for_case
 from ._pentrc_output import (
     PROFILE_VARIABLES,
     TORQUE_GRIDS,
@@ -452,7 +453,10 @@ def _attach_formalism(record: GPECModuleRun, config: GPECSuiteConfig, *, dcon_di
 
     formalism = resolve_plasma_formalism(record.module, record.workdir, config=config, dcon_dir=dcon_dir)
     if formalism is not None:
+        from vaft.validation.model_contracts import safe_ordering_provenance
+
         record.plasma_formalism = formalism.as_dict()
+        record.ordering_check = safe_ordering_provenance(formalism, getattr(config, "ordering_state", None))
 
 
 def _dcon_run_dir(inputs: GPECCaseInputs, mode: int, geqdsk: Path) -> Path:
@@ -919,6 +923,8 @@ __all__ = [
     "validate_pentrc_inputs",
     "write_threshold_pentrc_input",
     # The native PENTRC reader, owned here since #1883 (vaft.code.pentrc re-exports it).
+    # The advisory ordering state of a case, from its g-file or stage ODS (#1987).
+    "ordering_state_for_case",
     "PentrcFormatError",
     "PentrcOutput",
     "read_pentrc_output",

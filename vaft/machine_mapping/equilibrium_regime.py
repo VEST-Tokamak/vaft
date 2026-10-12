@@ -45,6 +45,8 @@ is a post-hoc classification and nothing here should be wired to real time.
 
 from __future__ import annotations
 
+import bisect
+import math
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Mapping
@@ -75,7 +77,52 @@ class EquilibriumRegimePolicy:
     topology_labels: Mapping[str, str]
     status: Mapping[str, str]
     provenance: Mapping[str, str]
+    #: ``|Ip|`` bin edges [A], strictly increasing.
+    current_edges: tuple[float, ...] = ()
+    #: ``d|Ip|/dt`` bin edges [A/s], strictly increasing, and one label more.
+    rate_edges: tuple[float, ...] = ()
+    rate_labels: tuple[str, ...] = ()
+    #: The rule's version, carried on every label and exported row.
+    version: int = 1
     source: str = "vest.yaml:equilibrium_regime"
+
+    def current_bin(self, current: float | None) -> str:
+        """The ``|Ip|`` bin of a current [A], or ``unknown``.
+
+        Labels come from the edges in kA: ``lt15kA``, ``15-50kA``, ...,
+        ``ge150kA``. A bin is half-open, ``[lower, upper)``.
+        """
+        if current is None or not math.isfinite(float(current)) or not self.current_edges:
+            return "unknown"
+        magnitude = abs(float(current))
+        kiloamperes = [f"{edge / 1e3:g}" for edge in self.current_edges]
+        index = bisect.bisect_right(self.current_edges, magnitude)
+        if index == 0:
+            return f"lt{kiloamperes[0]}kA"
+        if index == len(self.current_edges):
+            return f"ge{kiloamperes[-1]}kA"
+        return f"{kiloamperes[index - 1]}-{kiloamperes[index]}kA"
+
+    def rate_bin(self, magnitude_rate: float | None) -> str:
+        """The bin of ``d|Ip|/dt`` [A/s], or ``unknown``; ``[lower, upper)``."""
+        if magnitude_rate is None or not math.isfinite(float(magnitude_rate)) or not self.rate_edges:
+            return "unknown"
+        return self.rate_labels[bisect.bisect_right(self.rate_edges, float(magnitude_rate))]
+
+    def thresholds(self) -> dict[str, Any]:
+        """Every number a label depends on, for export beside the table."""
+        return {
+            "version": self.version,
+            "phase_rule": self.phase_rule,
+            "flat_fraction_of_peak": self.flat_fraction,
+            "slope_fraction_of_peak_rate": self.slope_fraction,
+            "vacuum_current_amperes": self.vacuum_current_amperes,
+            "current_bin_edges_amperes": list(self.current_edges),
+            "ramp_rate_bin_edges_amperes_per_second": list(self.rate_edges),
+            "ramp_rate_bin_labels": list(self.rate_labels),
+            "topology_limloc": dict(self.topology_labels),
+            "source": self.source,
+        }
 
     def topology(self, limloc: Any) -> str:
         """The topology name for an EFIT ``limloc``, or ``unknown``.
@@ -116,6 +163,22 @@ def _fraction(block: Mapping[str, Any], key: str, where: str) -> float:
     return value
 
 
+def _block(parent: Mapping[str, Any], key: str, where: str) -> Mapping[str, Any]:
+    block = _require(parent, key, where)
+    if not isinstance(block, Mapping):
+        raise VestConfigurationError(f"{where}.{key} must be a mapping")
+    return block
+
+
+def _edges(block: Mapping[str, Any], key: str, where: str) -> tuple[float, ...]:
+    edges = tuple(float(item) for item in _require(block, key, where))
+    if not edges or any(not math.isfinite(item) for item in edges) or any(
+        b <= a for a, b in zip(edges, edges[1:])
+    ):
+        raise VestConfigurationError(f"{where}.{key} must be finite and strictly increasing")
+    return edges
+
+
 def _build(document: Mapping[str, Any]) -> EquilibriumRegimePolicy:
     where = "equilibrium_regime"
     block = document.get(where)
@@ -148,13 +211,31 @@ def _build(document: Mapping[str, Any]) -> EquilibriumRegimePolicy:
     if not labels:
         raise VestConfigurationError(f"{where}.topology.limloc lists no values")
 
+    current_block = _block(block, "current_bins", where)
+    current_edges = _edges(current_block, "edges_amperes", f"{where}.current_bins")
+    if current_edges[0] < 0.0:
+        raise VestConfigurationError(f"{where}.current_bins.edges_amperes must be non-negative")
+    rate_block = _block(block, "ramp_rate_bins", where)
+    rate_edges = _edges(rate_block, "edges_amperes_per_second", f"{where}.ramp_rate_bins")
+    rate_labels = tuple(str(item) for item in _require(rate_block, "labels", f"{where}.ramp_rate_bins"))
+    if len(rate_labels) != len(rate_edges) + 1 or len(set(rate_labels)) != len(rate_labels):
+        raise VestConfigurationError(
+            f"{where}.ramp_rate_bins.labels must be {len(rate_edges) + 1} distinct names, "
+            "one more than the edges"
+        )
+    version = int(_require(block, "version", where))
+
     status = {
         "phase": _status(phase, f"{where}.phase"),
         "topology": _status(topology, f"{where}.topology"),
+        "current_bins": _status(current_block, f"{where}.current_bins"),
+        "ramp_rate_bins": _status(rate_block, f"{where}.ramp_rate_bins"),
     }
     provenance = {
         "phase": str(_require(phase, "provenance", f"{where}.phase")),
         "topology": str(_require(topology, "provenance", f"{where}.topology")),
+        "current_bins": str(_require(current_block, "provenance", f"{where}.current_bins")),
+        "ramp_rate_bins": str(_require(rate_block, "provenance", f"{where}.ramp_rate_bins")),
     }
     return EquilibriumRegimePolicy(
         phase_rule=rule,
@@ -164,6 +245,10 @@ def _build(document: Mapping[str, Any]) -> EquilibriumRegimePolicy:
         topology_labels=labels,
         status=status,
         provenance=provenance,
+        current_edges=current_edges,
+        rate_edges=rate_edges,
+        rate_labels=rate_labels,
+        version=version,
     )
 
 

@@ -9,7 +9,7 @@ return ``(Figure, Axes)``), and give each cohort a fixed colour *and* marker so
 identity never rests on colour alone.
 
 The measured-versus-reconstructed view keeps ``y = x`` as the reference and
-reports deviation from it (bias and RMS of ``z``), not a fitted regression.
+reports mean absolute error in the diagnostic's unit, not a fitted regression.
 """
 
 from __future__ import annotations
@@ -17,8 +17,12 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from .presentation import presented, resolve_presentation
+
 __all__ = [
     "COHORT_STYLE",
+    "equilibrium_quality_diagnostic_grid",
+    "equilibrium_quality_diagnostic_slides",
     "equilibrium_quality_measured_vs_reconstructed",
     "equilibrium_quality_reduced_chi2",
     "equilibrium_quality_residual_distribution",
@@ -26,12 +30,20 @@ __all__ = [
     "equilibrium_quality_validation_matrix",
 ]
 
+DIAGNOSTIC_FAMILIES = ("bpol_probe", "flux_loop", "ip", "diamagnetic_flux")
+
 #: Cohort -> (colour, marker, label), in report order (validated palette of
 #: vaft.plot.population; the failed cohort is the neutral grey).
 COHORT_STYLE = {
     "good": ("#2a78d6", "o", "good"),
     "admissible": ("#eb6834", "s", "admissible-only"),
     "unreconstructible": ("#8b8a82", "x", "unreconstructible attempt"),
+}
+
+COMPARISON_LABELS = {
+    "good": "High quality",
+    "admissible": "Admissible",
+    "unreconstructible": "Failure",
 }
 
 FAMILY_TITLES = {
@@ -83,52 +95,121 @@ def _cohorts(table: pd.DataFrame, by: str):
             yield cohort, mask, color, marker, label
 
 
+@presented(default_figsize=(5.2, 5.0))
 def equilibrium_quality_measured_vs_reconstructed(points: pd.DataFrame, *, family: str, by: str = "quality_label",
                                                   fitted_only: bool = True, ax=None, show: bool = False,
-                                                  figsize=(5.2, 5.0)):
+                                                  figsize=None, format: str | None = None,
+                                                  theme: str | None = None):
     """Measured (x) against reconstructed (y) for one constraint family, by cohort, with ``y = x``.
 
     ``points`` are :func:`~vaft.validation.equilibrium_quality.equilibrium_quality_constraint_points`
-    rows joined with each slice's ``quality_label``.  The legend gives, per
-    cohort, the number of channels and the bias and RMS of ``z`` -- deviation
-    from the identity line, not a regression.
+    rows joined with each slice's ``quality_label``.  The legend gives the
+    number of channels and mean absolute error from ``y = x`` in the family's
+    native unit, not a regression R².  The diamagnetic-flux view fixes both
+    axes to 0–8 mWb; cohort statistics still use all fitted points.
     """
-    fig, ax = _axes(ax, figsize)
+    fig, ax = _axes(ax, figsize or (5.2, 5.0))
     data = points[points["family"] == family]
     if fitted_only and "fitted" in data:
         data = data[data["fitted"].astype(bool)]
     x = pd.to_numeric(data["measured"], errors="coerce").to_numpy(float)
     y = pd.to_numeric(data["reconstructed"], errors="coerce").to_numpy(float)
-    z = pd.to_numeric(data.get("z", pd.Series(np.nan, index=data.index)), errors="coerce").to_numpy(float)
     finite = np.isfinite(x) & np.isfinite(y)
-    for _cohort, mask, color, marker, label in _cohorts(data, by):
+    unit = data["unit"].iloc[0] if "unit" in data and len(data) else ""
+    import matplotlib.pyplot as plt
+
+    font_scale = plt.rcParams["font.size"] / 10.0
+    for cohort, mask, color, marker, _label in _cohorts(data, by):
         use = mask & finite
         if not use.any():
             continue
-        zc = z[use][np.isfinite(z[use])]
-        stats = f", z bias {zc.mean():+.2f}, z rms {np.sqrt(np.mean(zc ** 2)):.2f}" if zc.size else ""
+        mae = float(np.mean(np.abs(y[use] - x[use])))
+        label = COMPARISON_LABELS.get(cohort, cohort)
+        error_label = f"{mae:.2f} {unit}" if unit else f"{mae:.2f}"
         # Failed attempts underneath and faint, good on top: the largest cohort
         # must not hide the one the figure is about.
-        layer = {"good": 3, "admissible": 2}.get(_cohort, 1)
-        ax.scatter(x[use], y[use], s=14 if layer > 1 else 8, marker=marker, color=color,
+        layer = {"good": 3, "admissible": 2}.get(cohort, 1)
+        ax.scatter(x[use], y[use], s=(14 if layer > 1 else 8) * font_scale ** 2, marker=marker, color=color,
                    alpha=0.8 if layer == 3 else 0.55 if layer == 2 else 0.2, zorder=layer,
                    linewidths=1.0 if marker == "x" else 0.4, edgecolors=None if marker == "x" else "white",
-                   label=f"{label} (n={int(use.sum())}{stats})")
+                   label=f"{label} (n={int(use.sum())}, MAE {error_label})")
     if finite.any():
         lo = float(np.nanmin(np.r_[x[finite], y[finite]]))
         hi = float(np.nanmax(np.r_[x[finite], y[finite]]))
         pad = 0.05 * (hi - lo or 1.0)
-        ax.plot([lo - pad, hi + pad], [lo - pad, hi + pad], color="#1a1a19", lw=1.0, ls="--", label="y = x")
+        reference = (0.0, 8.0) if family == "diamagnetic_flux" else (lo - pad, hi + pad)
+        ax.plot(reference, reference, color="#1a1a19", lw=1.0, ls="--", label="y = x")
         ax.set_xlim(lo - pad, hi + pad)
         ax.set_ylim(lo - pad, hi + pad)
-    unit = data["unit"].iloc[0] if "unit" in data and len(data) else ""
     ax.set_xlabel(f"measured [{unit}]" if unit else "measured")
     ax.set_ylabel(f"reconstructed [{unit}]" if unit else "reconstructed")
-    ax.set_title(FAMILY_TITLES.get(family, family))
+    if family == "diamagnetic_flux":
+        ax.set_xlim(0.0, 8.0)
+        ax.set_ylim(0.0, 8.0)
+        ax.set_title("Diamagnetic flux")
+    else:
+        ax.set_title(FAMILY_TITLES.get(family, family))
     ax.set_aspect("equal", adjustable="box")
-    ax.legend(fontsize=7, loc="upper left", frameon=False)
+    if font_scale >= 1.5:
+        ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1.0), frameon=False)
+    else:
+        ax.legend(loc="upper left", frameon=False)
     _finish(show)
     return fig, ax
+
+
+def equilibrium_quality_diagnostic_slides(points: pd.DataFrame, *, show: bool = False,
+                                          format: str = "slide", theme: str | None = None):
+    """Render one measured-versus-reconstructed slide per diagnostic family.
+
+    Keeping a single comparison on each slide leaves room for readable axes,
+    cohort statistics and the identity reference.  Returns figures keyed by
+    diagnostic family in presentation order.
+    """
+    return {
+        family: equilibrium_quality_measured_vs_reconstructed(
+            points, family=family, show=show, format=format, theme=theme,
+        )
+        for family in DIAGNOSTIC_FAMILIES
+        if "family" in points and (points["family"] == family).any()
+    }
+
+
+def equilibrium_quality_diagnostic_grid(points: pd.DataFrame, *, show: bool = False,
+                                        figsize: tuple[float, float] = (9.8, 10.0)):
+    """A presentation-size 2×2 overview of the four diagnostic comparisons.
+
+    The individual slides retain cohort counts and MAE.  This overview uses
+    one shared cohort legend so four panels remain readable together.  It
+    keeps the diamagnetic-flux 0–8 mWb focus of the individual view.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+
+    presentation = resolve_presentation("slide", None)
+    with presentation.context():
+        fig, axes = plt.subplots(2, 2, figsize=figsize)
+        for ax, family in zip(axes.ravel(), DIAGNOSTIC_FAMILIES):
+            if "family" not in points or not (points["family"] == family).any():
+                ax.set_axis_off()
+                continue
+            equilibrium_quality_measured_vs_reconstructed(points, family=family, ax=ax)
+            legend = ax.get_legend()
+            if legend is not None:
+                legend.remove()
+
+        handles = [
+            Line2D([], [], color=color, marker=marker, linestyle="none", markersize=10,
+                   label=COMPARISON_LABELS[cohort])
+            for cohort, (color, marker, _label) in COHORT_STYLE.items()
+        ]
+        handles.append(Line2D([], [], color="#1a1a19", linestyle="--", label="y = x"))
+        fig.legend(handles=handles, loc="lower center", bbox_to_anchor=(0.5, 0.015),
+                   ncol=4, frameon=False)
+        fig.tight_layout(rect=(0.0, 0.08, 1.0, 1.0), pad=0.8, w_pad=0.8, h_pad=1.2)
+    if show:
+        plt.show()
+    return fig, axes
 
 
 def equilibrium_quality_residual_distribution(points: pd.DataFrame, *, family: str, by: str = "quality_label",

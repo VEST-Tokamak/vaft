@@ -26,6 +26,9 @@ the inertial length calls the plasma frequency. The
 characteristic length, the resistivity and the collision time are always explicit arguments, so a global
 scale cannot be silently swapped for a layer scale.
 
+How a characteristic scale becomes an ordering, why the comparison length must be named, and how orderings
+differ from similarity coordinates and from resolution is [Characteristic scales and orderings]({{ '/reference/characteristic-scales/' | relative_url }}).
+
 ## The parameters and what they test
 
 | Quantity | Kernel | Tests | Must name |
@@ -61,6 +64,13 @@ than assuming it. Every time comes from a formula kernel; only the pulse length 
     $\tau_R$ carries no geometric factor, and the slowest cylindrical mode decays $j_{01}^2 \approx 5.8$
     times faster.
   - $d_i/a \approx 0.3$, so Hall corrections are not globally negligible.
+
+The axis also places the sound crossing time $a/c_s$ and the inverse thermal-ion transit and bounce
+frequencies (#1739). They show where neoclassical and drift-kinetic dynamics sit between $\tau_A$ and the
+evolution time. Drift precession has no formula kernel, and $\tau_E$ needs an energy inventory the state
+does not carry, so neither is drawn. `spatial_scale_orderings` places the lengths of the same state on one
+axis: the Larmor radii, $\rho_s$, $d_i$, the banana width, an illustrative gradient length, $a$, $R_0$ and
+$qR_0$.
 
 These numbers come from an illustrative state, not a measured discharge. Answering the same questions
 across the VEST database is the ordering atlas of #1629.
@@ -138,7 +148,20 @@ reaches one. They are not empirical stability or operating boundaries. The space
 | `equilibrium_relaxation` | $\tau_{age}/\tau_R$ | $\tau_{evol}/\tau_A$ | resistive current relaxation against quasi-static equilibrium |
 
 ```python
+import pandas as pd
+from vaft.process.ordering_state import ordering_table
 from vaft.plot.ordering_space import ordering_space, ordering_margins_plot
+
+# One row per state (illustrative VEST-like inputs); ordering_table adds the ordering columns.
+inputs = pd.DataFrame({
+    "a_m": [0.25, 0.25, 0.25], "r_geo_m": [0.45, 0.45, 0.45], "b_t_T": [0.15, 0.2, 0.25],
+    "n_e_m3": [5e18, 1e19, 2e19], "t_e_eV": [20.0, 50.0, 100.0], "z_eff": [2.0, 2.0, 2.0],
+    "ln_lambda": [12.0, 12.0, 12.0], "beta_t": [0.01, 0.02, 0.03],
+    "efit_quality": ["good", "good", "poor"],
+})
+states = ordering_table(inputs).join(inputs[["efit_quality"]])
+# One row per flux-surface point, with the profile orderings.
+points = pd.DataFrame({"rho_i_over_LTi": [0.02, 0.05, 0.2, 0.8]})
 
 fig, ax = ordering_space(states, "resistive_two_fluid", group="efit_quality")
 fig, ax = ordering_margins_plot(states, points)   # global orderings per state, profile ones per point
@@ -178,6 +201,7 @@ is the result, and `margin_label` only names its band.
 
 A contract says what a model assumes. A run's `vaft.code.formalism.PlasmaFormalism` record (#1727) says which
 model the run used. `vaft.validation.model_contracts` joins the two (#1823).
+Every mode with its record and its contracts is tabulated, generated from the registry, in [Plasma models: a guide]({{ '/reference/plasma-model-guide/' | relative_url }}), §9.
 
 `contracts_for(formalism)` maps a record to the contracts it consumes, as `(contract, role)` pairs. It reads
 the record's fields as they are. The **role** says how the assumption enters the calculation. It is not a
@@ -240,6 +264,10 @@ field that says so. A workflow therefore passes `contracts_for(..., transport_co
   though the resolver can classify it.
 - The modes the audit leaves unresolved, today the GPEC threshold layer models, are listed with no record and
   a reason.
+- **Every physics adapter in `vaft/code` has a mode.** A test enforces this. FLARE traces field lines through a
+  given equilibrium and perturbation, and solves no plasma model. MITIM is a driver: the NEO and TGLF runs it
+  launches are those modes, and its PORTALS loop (#1588) will be the first `transport_coupled` workflow. Both
+  are listed with a reason and no record.
 
 `advisory_ordering_check(formalism, state, points)` evaluates those contracts on a run's input:
 - `state` is the global and time-history quantities of `vaft.process.ordering_state`;
@@ -250,6 +278,34 @@ result goes through `evaluate_contract` and is placed on the credibility `applic
 `as_evidence`. The statuses are the four of applicability, with no "marginal". A quantity the input does not
 carry is `UNASSESSED`, never a pass. This covers a mode's $k_\perp\rho_i$ without mode numbers, and a layer
 width. The check is advisory: it reports and never blocks a run.
+
+**Recorded in run provenance.** `ordering_provenance(formalism, state, points)` reduces the check to a strict-JSON
+record. It lists the contracts consumed with their roles, statuses, limiting orderings, margins and point counts.
+A missing margin is `null`. Three adapters store it, one per family:
+
+| Adapter | Where | State it adds itself | State a caller passes |
+| --- | --- | --- | --- |
+| EFIT | `ordering_check` in the resolved configuration: `efit_configuration.json`, `EFITResult.configuration` and each slice's provenance | none (EFIT's inputs carry no $n_e$, $T_e$ or $\dot I_p$) | `EFITConfig.ordering_state`, e.g. from `vaft.process.ordering_state` |
+| GPEC suite | `GPECModuleRun.ordering_check` of each prepared cell, carried by the `asdict` run manifest | none | `GPECSuiteConfig.ordering_state` |
+| CGYRO | `CGYROResult.provenance["ordering_check"]` | $\rho_i/L_{T_i}$ and $\lambda_D/L_{T_e}$ from the local input (`cgyro.local_ordering_state`) | `run_cgyro(..., ordering_state=...)`: a mode's frequency or $k_\parallel/k_\perp$, a measured flow |
+
+The state is advisory. It never enters EFIT's scientific identity and never changes a namelist or an input file.
+A failure inside the check is recorded as an `error` entry; it never costs a run its result. For CGYRO, a finite
+caller value takes precedence over a derived one, and a caller's NaN does not hide it. If `extra_parameters`
+override species keys (a gradient scan), nothing is derived from the staged input, and the record says why.
+State keys that are not ordering quantities are listed under `ignored`.
+
+**Building the state from an ODS.** `vaft.process.ordering_state.ordering_inputs_from_ods(ods, t)` returns
+`state`, `points` and a `provenance` record for one equilibrium slice. It matches that slice to `t`, and the
+`core_profiles` slice to the equilibrium, by time within 0.5 ms, never by index. $Z_{\rm eff}$ comes from the
+caller or from the stored profile, never from an assumption; without it the resistive orderings stay
+`UNASSESSED`. The plasma age needs the caller's onset time. The kinetic EFIT chain passes
+`KineticEFITConfig.ordering_state` to every PLASMA-scale run's `EFITConfig`.
+
+**Not yet wired.** No production workflow passes `ordering_state` yet, so a routine EFIT or GPEC record lists
+the consumed contracts with every ordering `UNASSESSED` until its stage calls the builder (#1823).
+CGYRO's two local quantities are in GACODE's units: $\rho_s$ is deuterium-normalised in $B_{unit}$. That is an
+order-one difference from the local field, inside the order-unity thresholds.
 
 **Known gap.** The drift-kinetic contract orders $\omega/\Omega_{ci}$ and $k_\perp\rho_i$. A steady
 axisymmetric solve (NEO) or a zero-frequency one (DCON kinetic) has neither as an input, so that contract stays

@@ -318,6 +318,9 @@ def test_the_retired_atomic_defaults_are_gone():
     ("origin=inferred; method=equilibrium_pressure_partition; not measured", "inferred"),
     ("origin: inferred; method: equilibrium_pressure_partition", "inferred"),
     ("origin=pressure_inferred; method=x", "inferred"),
+    ("origin=assumed; method=ti_equals_te; assumption=T_i=T_e", "assumed"),
+    ("origin=Assumed", "assumed"),
+    ("origin=derived; method=x", "unknown"),
     ("origin=synthetic", "unknown"),
     ("free text", "unknown"),
 ])

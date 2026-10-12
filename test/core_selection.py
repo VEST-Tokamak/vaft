@@ -99,6 +99,8 @@ CORE_MODULES: tuple[str, ...] = (
     "test_diagnostics_interactive.py",
     "test_display_policy.py",
     "test_equilibrium_field_2d.py",
+    # Regime bins, export and cohort cases (#1891): hand-built ODS, no solver.
+    "test_equilibrium_regime_descriptors.py",
     "test_layout_contract.py",
     "test_line_abscissa.py",
     "test_machine_geometry_registry.py",
@@ -113,11 +115,29 @@ CORE_MODULES: tuple[str, ...] = (
     "test_plot_taxonomy.py",
     "test_process_magnetics_geometry.py",
     "test_profile_coordinates.py",
+    # Raw DAQ sources per registry id (#1742): resolver contract, no mapper run.
+    "test_raw_sources.py",
     "test_selection_validity.py",
     "test_spectrogram_methods.py",
     # Predicted mode-frequency tracks and the Mirnov mode_overlay (#460):
     # analytic fixtures only, a few seconds.
     "test_mode_frequency_overlay.py",
+    # Quadratic coil-response algebra of a signed NTV torque (#1887): synthetic
+    # Hermitian matrices, no solver, about a second.
+    "test_ntv_coil_response.py",
+    # The #1887 direct GPEC -> PENTRC reference replayed without a solver: the
+    # committed 18 + 4 run table qualifies Q at converged tolerances only.
+    "test_ntv_coil_reference_1887.py",
+    # The verified resonant-field operator Phi = H conj(c) and stages A-D (#1884):
+    # synthetic operators plus the committed 19-run GPEC reference, no solver.
+    "test_resonant_coil_response.py",
+    # The #1178 coil operating-space result schema (#1886 contract): synthetic
+    # fixtures only, under a second.
+    "test_coil_operating_space.py",
+    # Equilibrium-native Mercier / GGJ indices against DCON tables (#1902):
+    # packaged VEST g-file, no solver, a few seconds.
+    "test_local_mhd_criteria.py",
+    "test_local_mhd_criteria_plots.py",
     # The launch contract every external-code adapter goes through. Stub
     # programs only (`external_code_stubs`); no physics code is ever run.
     # The in-process memory guard beside it: fake cgroup trees and env only.
@@ -162,6 +182,9 @@ CORE_MODULES: tuple[str, ...] = (
     "contracts/test_dependency_policy_matrix.py",
     "test_data_resources.py",
     "test_docstring_engine.py",
+    # The plasma-model guide's generated tables and glossary against the
+    # formalism record (#1739): file read plus two registry imports.
+    "test_docs_plasma_model_guide.py",
     "test_formula_docstrings.py",
     "test_notebook_outputs.py",
     "test_packaging_issue45.py",
@@ -193,6 +216,11 @@ CORE_MODULES: tuple[str, ...] = (
     "test_ecosystem_catalog.py",
     "test_ontology_graph.py",
     "test_readme_consistency.py",
+    # Pipeline-3 summary sheets (#151, #1888): the checked-in xlsx carry every
+    # column of their summary preset, so a preset change regenerates its sheet
+    # in the same PR instead of failing the main gate weeks later (#1843,
+    # #1979). Reads three small workbooks; no database.
+    "test_pipeline3_summary_scripts.py",
     # Operational boundaries (#1067): every published limit is called and
     # checked against its source's numbers and its permitted side. Pure NumPy.
     "test_formula_boundaries.py",
@@ -265,6 +293,8 @@ CORE_MODULES: tuple[str, ...] = (
     # read back through the readers, the edge classifier and the ntms mapping,
     # and the #141 scan driver's template patching. No solver runs.
     "test_gpec_dcon_edge_reference.py",
+    # The advisory ordering state passed through every suite driver (#1987).
+    "test_gpec_ordering_passthrough.py",
     "test_gpec_plasma_formalism.py",
     "test_gpec_rdcon_criteria.py",
     "test_mhd_linear_dcon_payload.py",
@@ -292,6 +322,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_classical_transport_summary.py",
     "test_neoclassical_summary.py",
     "test_plot_transport_atlas.py",
+    "test_transport_projection.py",
     "test_transport_state.py",
     # Class-shot diagnostics (lane U, #1543): the checklist on synthetic ODS,
     # the recorded flux-loop and diagnostic fault boundaries (vest.yaml reads
@@ -318,6 +349,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_formula_fast_ion.py",
     "test_formula_impurity.py",
     "test_impurity_charge_states.py",
+    "test_kinetic_closure_nubeam.py",
     "test_process_impurity.py",
     "test_process_kinetic_closure.py",
     "test_process_species.py",
@@ -327,8 +359,10 @@ CORE_MODULES: tuple[str, ...] = (
     "test_vest_core_profiles_policy.py",
     "test_zeff_projection.py",
     # Turbulence-zonal-flow predator-prey reduced model (#1820): analytic kernels
-    # checked against a numerical orbit. Pure NumPy, under 5 s.
+    # checked against a numerical orbit, and the process layer (intensity split,
+    # cycle metrics, trajectory fit) on synthetic orbits. Under 30 s.
     "test_formula_turbulence.py",
+    "test_process_gyrokinetics.py",
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",
@@ -357,6 +391,9 @@ CORE_MODULES: tuple[str, ...] = (
     # records, the generic impossibilities, serialization and CGYRO's derived
     # #1353 record. Pure Python, ~3 s.
     "test_plasma_formalism.py",
+    # GACODE-suite formalism (#1735): NEO/TGLF/TGLF-NN/CGYRO records derived from the
+    # written input, and the distinctions that must not collapse. Pure Python, <1 s.
+    "test_gacode_plasma_formalism.py",
     # Ordering contracts (#1627 phase C): the registry against applicability's rules,
     # the cited kernels against the catalog, and evaluation on synthetic states.
     "test_validation_orderings.py",
@@ -366,6 +403,10 @@ CORE_MODULES: tuple[str, ...] = (
     # Adapter-mode ordering contracts (#1823): formalism mapping, registry vs the GPEC resolver and CGYRO,
     # and the advisory check. Under 5 s.
     "test_validation_model_contracts.py",
+    # Plasma-model guide figures (#1739 E2): nodes computed from ADAPTER_MODES and AXES. Under 5 s.
+    "test_diagram_plasma_models.py",
+    # Advisory ordering checks in EFIT, GPEC-suite and CGYRO run provenance (#1823). Under 10 s.
+    "test_adapter_ordering_provenance.py",
     # Core q / rational / low-shear / boundary context (lane N, #1798): synthetic
     # profiles with known answers and the packaged 39915 slice. Under 15 s.
     "test_q_profile_context.py",

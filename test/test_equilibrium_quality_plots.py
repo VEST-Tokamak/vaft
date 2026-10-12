@@ -23,11 +23,72 @@ def _points():
     return pd.DataFrame(rows)
 
 
-def test_measured_vs_reconstructed_keeps_the_identity_line_and_reports_z_stats():
+def test_measured_vs_reconstructed_keeps_identity_and_reports_absolute_error():
     fig, ax = plots.equilibrium_quality_measured_vs_reconstructed(_points(), family="bpol_probe")
     labels = [t.get_text() for t in ax.get_legend().get_texts()]
-    assert "y = x" in labels and any(t.startswith("good (n=20, z bias") for t in labels)
+    assert "y = x" in labels and any(t.startswith("High quality (n=20, MAE") for t in labels)
+    assert any(t.startswith("Admissible (n=20, MAE") for t in labels)
+    assert any(t.startswith("Failure (n=20, MAE") for t in labels)
     assert ax.get_xlabel() == "measured [mT]"
+    matplotlib.pyplot.close(fig)
+
+
+def test_measured_vs_reconstructed_uses_slide_presentation():
+    fig, ax = plots.equilibrium_quality_measured_vs_reconstructed(
+        _points(), family="bpol_probe", format="slide",
+    )
+    assert fig.get_size_inches()[0] == 11.0
+    assert ax.title.get_fontsize() >= 18
+    assert ax.get_legend().get_texts()[0].get_fontsize() >= 14
+    matplotlib.pyplot.close(fig)
+
+
+def test_diagnostic_slides_use_one_large_figure_per_present_family():
+    slides = plots.equilibrium_quality_diagnostic_slides(_points())
+    assert list(slides) == ["bpol_probe"]
+    fig, ax = slides["bpol_probe"]
+    assert fig.get_size_inches()[0] == 11.0
+    assert ax.get_title() == "Poloidal probes"
+    matplotlib.pyplot.close(fig)
+
+
+def test_diagnostic_grid_has_four_panels_and_one_shared_legend():
+    families = ("bpol_probe", "flux_loop", "ip", "diamagnetic_flux")
+    points = pd.concat([_points().assign(family=family) for family in families], ignore_index=True)
+    fig, axes = plots.equilibrium_quality_diagnostic_grid(points)
+    assert axes.shape == (2, 2)
+    assert fig.get_size_inches()[0] == 9.8
+    assert axes[0, 1].get_position().x0 - axes[0, 0].get_position().x1 < 0.15
+    assert all(ax.get_legend() is None for ax in axes.ravel())
+    assert [ax.get_title() for ax in axes.ravel()] == [
+        "Poloidal probes", "Flux loops", "Plasma current", "Diamagnetic flux",
+    ]
+    assert axes[1, 1].get_xlim() == (0.0, 8.0)
+    assert [text.get_text() for text in fig.legends[0].get_texts()] == [
+        "High quality", "Admissible", "Failure", "y = x",
+    ]
+    matplotlib.pyplot.close(fig)
+
+
+def test_diamagnetic_flux_view_focuses_both_axes_without_dropping_outliers():
+    points = pd.DataFrame({
+        "family": ["diamagnetic_flux", "diamagnetic_flux"],
+        "unit": ["mWb", "mWb"],
+        "measured": [5.0, 12.0],
+        "reconstructed": [6.0, 180.0],
+        "z": [0.1, 3.0],
+        "fitted": [True, True],
+        "quality_label": ["good", "good"],
+    })
+    fig, ax = plots.equilibrium_quality_measured_vs_reconstructed(
+        points, family="diamagnetic_flux", format="slide",
+    )
+    assert ax.get_xlim() == (0.0, 8.0)
+    assert ax.get_ylim() == (0.0, 8.0)
+    assert ax.get_title() == "Diamagnetic flux"
+    assert any(tuple(line.get_xdata()) == (0.0, 8.0) for line in ax.lines)
+    assert "n=2" in ax.get_legend().get_texts()[0].get_text()
+    assert "MAE 84.50 mWb" in ax.get_legend().get_texts()[0].get_text()
     matplotlib.pyplot.close(fig)
 
 
