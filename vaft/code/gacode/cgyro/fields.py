@@ -10,8 +10,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-
-from .time import time_coordinate_metadata
 from typing import Any
 
 import numpy as np
@@ -23,6 +21,7 @@ from .outputs import (
     parse_equilibrium,
     parse_grids,
 )
+from .time import time_coordinate_metadata
 
 __all__ = ["FieldHistory", "read_field_history"]
 
@@ -101,11 +100,17 @@ def read_field_history(
             records = np.append(records, last_record)
     if not records.size:
         raise ValueError("no complete field records in selected window")
-    ti = (
-        np.arange(nth)
-        if theta_indices is None
-        else np.atleast_1d(theta_indices).astype(int)
-    )
+    if theta_indices is None:
+        ti = np.arange(nth)
+    else:
+        selected_theta = np.atleast_1d(np.asarray(theta_indices, float))
+        if (
+            selected_theta.ndim != 1
+            or not np.isfinite(selected_theta).all()
+            or np.any(selected_theta != np.floor(selected_theta))
+        ):
+            raise ValueError("theta selection must contain integer indices")
+        ti = selected_theta.astype(int)
     if not ti.size or np.any(ti < 0) or np.any(ti >= nth):
         raise ValueError("theta selection outside saved angles")
     if nth == 1:
@@ -117,8 +122,8 @@ def read_field_history(
     start = 0 if grid["p"][0] > 0 else 1
     native_length = float(grid["length"])
     length = abs(native_length)
-    if length <= 0:
-        raise ValueError("nonpositive radial box length")
+    if not np.isfinite(length) or length <= 0:
+        raise ValueError("radial box length must be finite and positive")
     raw = np.memmap(path, mode="r", dtype=dtype, shape=(nr, nth, nk, steps), order="F")
     from ..result_identity import digest, read_native_input
 
@@ -127,7 +132,11 @@ def read_field_history(
         hashlib.sha256(input_path.read_bytes()).hexdigest() if input_path else None
     )
     record_path = directory / "record.json"
-    run_record = json.loads(record_path.read_text()) if record_path.is_file() else {}
+    run_record = (
+        json.loads(record_path.read_text(encoding="utf-8"))
+        if record_path.is_file()
+        else {}
+    )
     metadata = {
         "source": str(path.resolve()),
         "source_run_id": run_record.get("run_identity")

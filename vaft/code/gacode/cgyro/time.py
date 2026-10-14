@@ -1,7 +1,7 @@
 """CGYRO elapsed-time coordinates, separate from the input discharge timestamp.
 
 Native time is t*c_s/a. SI conversion preserves the solver origin and does not
-advance a frozen experimental background. GKDB time uses R0/sqrt(2)*c_s instead.
+advance a frozen experimental background. GKDB time uses R0/(sqrt(2)*c_s) instead.
 Native metadata units follow GACODE b493397 cgyro_write_initdata.f90 and
 cgyro_make_profiles.F90. Local-profile scales reuse TGLFNormalisation (#1064).
 """

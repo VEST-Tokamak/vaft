@@ -1115,7 +1115,7 @@ def reduce_time_series(
     ]
     n_samples = int(np.count_nonzero((t >= lo) & (t <= hi) & np.isfinite(y)))
     complete = all(
-        m is not None and count >= 2 and np.isclose(d, (hi - lo) / blocks)
+        m is not None and count >= 2 and np.isclose(d / ((hi - lo) / blocks), 1.0, rtol=0, atol=1e-10)
         for (m, d), count in zip(bm, block_samples)
     )
     stderr = (
@@ -1125,7 +1125,8 @@ def reduce_time_series(
     )
     halves = [integrate(lo, (lo + hi) / 2)[0], integrate((lo + hi) / 2, hi)[0]]
     drift = None if None in halves else halves[1] - halves[0]
-    scale = float(np.nanmax(np.abs(y))) if np.isfinite(y).any() else 0.0
+    selected_finite = y[(t >= lo) & (t <= hi) & np.isfinite(y)]
+    scale = float(np.max(np.abs(selected_finite))) if selected_finite.size else 0.0
     relative = (
         None
         if mean is None or abs(mean) <= 1e-8 * scale or mean == 0
@@ -1155,7 +1156,7 @@ def reduce_time_series(
             else "insufficient_data",
             "stationarity": "screen_passed"
             if n_samples >= 4
-            and duration >= hi - lo - 1e-10
+            and np.isclose(duration / (hi - lo), 1.0, rtol=0, atol=1e-10)
             and relative is not None
             and relative < 0.2
             else "unverified",

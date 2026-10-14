@@ -982,6 +982,15 @@ def plot_gyrokinetics_field_potential(
         if norm.get("status") != "available":
             raise ValueError("field history has no verified SI time normalization")
         time_normalization = CgyroTimeNormalization.from_metadata(norm)
+    if time_unit != "native" and time_normalization is not None:
+        from vaft.code.gacode.cgyro.time import CgyroTimeNormalization
+        recorded = history.metadata.get("time_normalization", {})
+        if recorded.get("status") == "available":
+            known = CgyroTimeNormalization.from_metadata(recorded)
+            supplied = _normalization(time_normalization)
+            for key in ("reference_length_m", "electron_temperature_j", "sound_speed_m_s"):
+                if not np.isclose(getattr(known, key), getattr(supplied, key), rtol=1e-4, atol=0):
+                    raise ValueError(f"supplied time normalization contradicts native field scales: {key}")
     display_times, time_label = _elapsed_coordinate(history.time, time_unit, time_normalization)
     display_unit = "a/c_s" if time_unit == "native" else time_unit
     # Align and censor in native time first; convert the retained coordinates together.

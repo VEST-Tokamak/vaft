@@ -91,7 +91,7 @@ def _parse_input(path):
     result = {}
     if not path.is_file():
         return result
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         line = line.split("#", 1)[0].split("!", 1)[0].strip()
         if not line:
             continue
@@ -348,7 +348,7 @@ def collection_record(
         native_record = Path(getattr(native, "directory", "")) / "record.json"
         if native_record.is_file():
             try:
-                source_record = json.loads(native_record.read_text())
+                source_record = json.loads(native_record.read_text(encoding="utf-8"))
             except (ValueError, OSError):
                 source_record = {}
             if source_record.get("run_identity"):
@@ -387,6 +387,7 @@ def prepare_target(ods, record, time, time_index):
     count = path_count(ods, "core_transport.model")
     model = count
     previous = None
+    matches = []
     for i in range(count):
         base = f"core_transport.model.{i}"
         old = parameters(ods.get(f"{base}.code.parameters", None))
@@ -395,16 +396,18 @@ def prepare_target(ods, record, time, time_index):
             and old.get("solver") == record["solver"]
             and old.get("realization_id") == record["realization_id"]
         ):
-            if old.get("configuration") != record["configuration"]:
-                raise ValueError(
-                    "realization identity collides with a different configuration"
-                )
-            model = i
-            previous = old
-            break
+            matches.append((i, old))
+    if len(matches) > 1:
+        raise ValueError("ambiguous duplicate realization identity in existing ODS")
+    if matches:
+        model, previous = matches[0]
+        if previous.get("configuration") != record["configuration"]:
+            raise ValueError("realization identity collides with a different configuration")
     base = f"core_transport.model.{model}"
     slices = list((previous or {}).get("slices", []))
     same = [s for s in slices if s["time"] == float(time)]
+    if len(same) > 1:
+        raise ValueError("ambiguous duplicate experimental time in existing realization")
     if same:
         if same[0]["state_identity"] != record["state_identity"]:
             raise ValueError("different plasma state at an existing experimental time")

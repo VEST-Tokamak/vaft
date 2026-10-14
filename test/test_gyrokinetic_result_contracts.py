@@ -168,7 +168,8 @@ def test_diagnostics_have_no_future_samples_or_bridged_gaps():
         {"q": {"time": [0, 1, 10, 11], "values": [1, 2, 3, 4], "max_gap": 2}}, [0.5, 10]
     )["q"]
     assert trace["frames"][0][0].tolist() == [0]
-    assert np.isnan(trace["frames"][1][1][-1])
+    assert np.isnan(trace["frames"][1][1][-2])
+    assert trace["frames"][1][1][-1] == 3
 
 
 def pair(sat):

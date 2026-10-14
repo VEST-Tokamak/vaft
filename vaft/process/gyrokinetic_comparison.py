@@ -28,13 +28,56 @@ class ComparisonAssessment:
 def _missing_evidence(value):
     if value is None:
         return True
+    if isinstance(value, np.ndarray):
+        return value.size == 0 or _missing_evidence(value.tolist())
     if isinstance(value, Mapping):
-        return any(_missing_evidence(v) for v in value.values())
+        return not value or any(_missing_evidence(v) for v in value.values())
     if isinstance(value, (list, tuple)):
-        return any(_missing_evidence(v) for v in value)
-    if isinstance(value, (float, np.floating)):
+        return not value or any(_missing_evidence(v) for v in value)
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, (float, complex, np.floating, np.complexfloating)):
         return not np.isfinite(value)
     return False
+
+
+def _equal_evidence(left, right, rtol):
+    if isinstance(left, np.ndarray):
+        left = left.tolist()
+    if isinstance(right, np.ndarray):
+        right = right.tolist()
+    if isinstance(left, Mapping) or isinstance(right, Mapping):
+        return (
+            isinstance(left, Mapping)
+            and isinstance(right, Mapping)
+            and left.keys() == right.keys()
+            and all(_equal_evidence(left[key], right[key], rtol) for key in left)
+        )
+    if isinstance(left, (list, tuple)) or isinstance(right, (list, tuple)):
+        return (
+            isinstance(left, (list, tuple))
+            and isinstance(right, (list, tuple))
+            and len(left) == len(right)
+            and all(_equal_evidence(a, b, rtol) for a, b in zip(left, right))
+        )
+    try:
+        return bool(np.isclose(left, right, rtol=rtol, atol=0, equal_nan=False))
+    except (TypeError, ValueError):
+        return bool(left == right)
+
+
+def _unverified_qualification(value):
+    if isinstance(value, np.ndarray):
+        value = value.tolist()
+    if isinstance(value, Mapping):
+        return any(_unverified_qualification(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_unverified_qualification(v) for v in value)
+    return isinstance(value, str) and value in (
+        "unverified",
+        "insufficient_data",
+        "unavailable",
+    )
 
 
 def assess_comparison(
@@ -97,10 +140,7 @@ def assess_comparison(
                 unknown = True
                 reasons.append(f"{key}: missing evidence")
                 continue
-            try:
-                equal = bool(np.allclose(x, y, rtol=rtol, atol=0, equal_nan=False))
-            except (TypeError, ValueError):
-                equal = x == y
+            equal = _equal_evidence(x, y, rtol)
             if not equal:
                 if f"{axis}.{key}" in controlled and axis != "display":
                     changed = True
@@ -109,8 +149,7 @@ def assess_comparison(
                     mismatch = True
                     reasons.append(f"{key}: differs")
             if axis == "qualification" and (
-                x in ("unverified", "insufficient_data")
-                or y in ("unverified", "insufficient_data")
+                _unverified_qualification(x) or _unverified_qualification(y)
             ):
                 unknown = True
                 reasons.append(f"{key}: qualification unverified")
@@ -225,6 +264,9 @@ def prepare_diagnostic_traces(diagnostics, frame_times):
     ----------
     .. [issue] #2030 four-axis comparison and time-selection contract; #2028 diagnostic ownership.
     """
+    frame_times = np.asarray(frame_times, float)
+    if frame_times.ndim != 1 or not np.isfinite(frame_times).all():
+        raise ValueError("frame times must be finite and one-dimensional")
     result = {}
     for label, trace in diagnostics.items():
         t = np.asarray(trace["time"], float)
@@ -240,16 +282,19 @@ def prepare_diagnostic_traces(diagnostics, frame_times):
         gap = trace.get(
             "max_gap", 3 * float(np.median(np.diff(t))) if len(t) > 1 else np.inf
         )
-        if gap <= 0:
-            raise ValueError("diagnostic max_gap must be positive")
+        gap = float(gap)
+        if np.isnan(gap) or gap <= 0:
+            raise ValueError("diagnostic max_gap must be positive and not NaN")
         frames = []
         for instant in frame_times:
             n = int(np.searchsorted(t, instant, side="right"))
             x = t[:n]
             v = y[:n].copy()
-            # Break each segment ending after a gap; no interpolation across it.
+            # Insert separators; retain the first observed sample after each gap.
             if n > 1:
-                v[1:][np.diff(x) > gap] = np.nan
+                breaks = np.flatnonzero(np.diff(x) > gap) + 1
+                x = np.insert(x, breaks, np.nan)
+                v = np.insert(v, breaks, np.nan)
             frames.append((x, v))
         finite = y[np.isfinite(y)]
         low, high = (

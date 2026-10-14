@@ -1,7 +1,7 @@
 ---
 title: Gyrokinetic scientific results
 author: VEST team
-date: 2026-10-14 22:00
+date: "2026-10-14T00:00:00+09:00"
 category: guide
 layout: post
 permalink: /reference/gyrokinetic-results/
