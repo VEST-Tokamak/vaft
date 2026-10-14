@@ -196,6 +196,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_check_vaft_nn.py",
     "test_ml_data_usage.py",
     "test_ml_graph_experiments.py",
+    "test_ml_validation_evidence.py",
     "test_process_ml_contract.py",
     "test_process_ml_sklearn.py",
     "test_process_ml_structured.py",

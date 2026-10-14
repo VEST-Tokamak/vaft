@@ -557,6 +557,21 @@ class ModelArtifact:
 
         return sha256_bytes(self.state)
 
+    @property
+    def contract_sha256(self) -> str:
+        """Bind weights, normalization, configuration and declared use history.
+
+        In-memory state identity alone does not distinguish changed transforms.
+        A validation report also needs this contract captured at evaluation time.
+        """
+        from ._provenance import sha256_bytes
+        return sha256_bytes(canonical_json({"state_sha256": self.state_sha256,
+            "name": self.name, "kind": self.kind, "outputs": self.outputs,
+            "input_shape": self.input_shape, "target_shape": self.target_shape, "input_names": self.input_names,
+            "model_spec": self.model_spec.to_dict(), "normalization": dict(self.normalization),
+            "tensor_schema": dict(self.tensor_schema), "training": dict(self.training),
+            "calibration": {k: v.to_dict() for k, v in self.calibration.items()}}).encode())
+
     def resolved_identity(self) -> ModelIdentity:
         """The identity to stamp on a result: the resolved one, else in-memory."""
         if self.identity is not None:
