@@ -204,7 +204,7 @@ def train_model(dataset, split, model_spec, config=None, *, name=None, train_mas
     )
     from .usage import _fit_uses
     data_uses = _fit_uses(dataset, split, config, np.flatnonzero(fit_mask), np.flatnonzero(val_mask),
-        iterative=backend.iterative, supervised=supervised)
+        iterative=backend.iterative, supervised=supervised, validation_used=backend.iterative or kind != "score")
     x = np.asarray(dataset.inputs, dtype=np.float64)
     x_mean, x_std = _moments(x[fit_mask], config.normalize_inputs, config.normalize_axes)
     xn = (x - x_mean) / x_std
@@ -487,10 +487,6 @@ def calibrate_threshold(
     _check_columns(model, dataset)
     _check_holdout(model, split, partition, allow_train_partition=False)
     from .usage import record_data_use
-    record_data_use(dataset, split, "calibrate", groups=split.groups(partition))
-    outputs = _forward(model, np.asarray(dataset.inputs), dataset.available)
-    if output not in outputs or outputs[output].ndim != 1:
-        raise ModelContractError(f"output {output!r} is not a per-sample scalar of this model")
     selected = split.mask(dataset, partition) & dataset.available_mask
     if mask is not None:
         extra = np.asarray(mask)
@@ -501,6 +497,10 @@ def calibrate_threshold(
         selected &= extra
     if not selected.any():
         raise ModelContractError(f"no available sample of partition {partition!r} is in the population")
+    usage = record_data_use(dataset, split, "calibrate", groups=set(dataset.group_labels[selected]))
+    outputs = _forward(model, np.asarray(dataset.inputs), dataset.available)
+    if output not in outputs or outputs[output].ndim != 1:
+        raise ModelContractError(f"output {output!r} is not a per-sample scalar of this model")
     return CalibrationResult(
         name=name or output,
         output=output,
@@ -511,5 +511,5 @@ def calibrate_threshold(
         n_samples=int(selected.sum()),
         groups=tuple(g for g in split.groups(partition) if (selected & (dataset.group_labels == g)).any()),
         population=population,
-        usage=record_data_use(dataset, split, "calibrate", groups=set(dataset.group_labels[selected])),
+        usage=usage,
     )
