@@ -111,3 +111,7 @@ __all__ = [
     "train_model",
     "window_dataset",
 ]
+
+from .structured import TensorSpec, StructuredSample, StructuredDatasetArtifact, build_structured_dataset
+
+__all__ += ["TensorSpec", "StructuredSample", "StructuredDatasetArtifact", "build_structured_dataset"]

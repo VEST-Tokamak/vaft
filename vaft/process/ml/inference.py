@@ -112,6 +112,12 @@ def predict(model, data):
     -------------
     Machine-independent.
     """
+    from .structured import StructuredDatasetArtifact
+    if isinstance(data, StructuredDatasetArtifact):
+        from ._structured_lifecycle import predict_structured
+        return predict_structured(model, data)
+    if model.tensor_schema:
+        raise ModelContractError("structured models require a StructuredDatasetArtifact")
     if isinstance(data, DatasetArtifact):
         _check_columns(model, data)
         x = np.asarray(data.inputs)
