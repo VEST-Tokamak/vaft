@@ -10,7 +10,8 @@ scientific sampling fractions (record those in provenance).
 The owner defines role permissions for `train`, `preprocess`, `calibrate`,
 `select`, `evaluate`, `infer`. Training records fit groups, enabled normalization
 and validation-loss checkpoint selection for iterative backends. Closed-form
-backends record validation evaluation rather than checkpoint selection. Pre-existing fitted transformations
+regression/reconstruction backends record validation evaluation; score backends
+that ignore validation create no use receipt for it. Pre-existing fitted transformations
 are checked but explicitly remain an external-owner declaration. Evaluation,
 calibration and dataset inference return usage receipts. Model selection or
 preprocessing outside these entrypoints must call `record_data_use` explicitly;
@@ -51,3 +52,30 @@ identities and the existing credibility axes; it does not promote models.
 #669 stays open. #973/#991/#1001/#1882 remain deferred for this project. A full
 immutable deployment example linking research preprocessing/geometry + network
 + evidence through canonical vaft-nn is subsequent work, not a challenge release.
+
+## Scientific evidence bridge
+
+`vaft.validation.ml.MetricCriterion` requires explicit bounds, axis, units,
+provider, source and criterion revision. Declare it before qualification; no
+bounds are inferred from scores. `build_ml_report` binds supplied numerical
+EvaluationResult to model identity **and the contract hash captured at evaluation
+time**, dataset, realized split, population, protocol and criteria. The contract
+includes shapes/names, weights, normalization, configuration, calibration and
+declared/observed history, covering in-memory models whose state-only identity
+would miss altered normalization.
+
+`ml_report_evidence(..., expected_report_sha256=trusted_reference)` verifies the
+sidecar and original metric values before creating existing credibility Evidence.
+Keep the expected hash outside the untrusted report. It provides integrity, not
+a signature/authentication. A report's own editable checksum is not its trust
+anchor. Store the reference in a trusted run/publication record; mutating a
+bound model manifest to insert a report hash creates a circular dependency.
+
+Fitted/calibration/selection populations route to inference evidence. Independent
+validation needs an opt-in role receipt, recorded training uses, disjoint groups
+and a role reserved from train/preprocess/calibrate/select. Prior external fits
+remain owner declarations; this is not proof of unknown external history. Missing
+metrics or evaluation populations are not_available; produced invalid metrics
+are indeterminate. Evidence stays per-axis, with protocol/population scope;
+there is no overall acceptance score, implicit physical applicability or
+production promotion. Domain providers still compute physics and official scores.
