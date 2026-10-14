@@ -123,12 +123,22 @@ def test_manifest_uses_utf8_even_with_windows_default_encoding(monkeypatch):
     assert catalog_rows()[1]["title"] == "E×B particle and guiding-centre motion"
 
 
-@pytest.mark.parametrize("level", [1, 6])
-def test_valid_compressor_size_variation_is_accepted(monkeypatch, level):
+def test_valid_compressor_size_variation_is_accepted(monkeypatch):
     compress = gzip.compress
-    raw = (ROOT / "docs" / catalog_rows()[0]["artifact"]).read_bytes()
-    assert len(compress(raw, compresslevel=level, mtime=0)) != len(compress(raw, mtime=0))
-    monkeypatch.setattr(gzip, "compress", lambda raw, **kwargs: compress(raw, compresslevel=level, **kwargs))
+
+    def with_extra_header(raw, **kwargs):
+        compressed = compress(raw, **kwargs)
+        # A valid optional gzip FEXTRA field changes size without assuming a
+        # particular compression level stays below budget on every backend.
+        alternate = (
+            compressed[:3] + bytes([compressed[3] | 4]) + compressed[4:10]
+            + b"\x01\x00x" + compressed[10:]
+        )
+        assert len(alternate) != len(compressed)
+        assert gzip.decompress(alternate) == raw
+        return alternate
+
+    monkeypatch.setattr(gzip, "compress", with_extra_header)
     assert len(catalog_rows()) == 2
 
 
