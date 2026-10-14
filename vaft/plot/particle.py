@@ -441,6 +441,8 @@ def particle_overview(
         frame_label=frame_label,
         options={
             "field": c.full.field.metadata(),
+            "full_orbit": c.full.provenance_record(),
+            "guiding_center": c.guiding_center.provenance_record(),
             "experiment": dict(c.metadata),
             "interpolation": "linear; no extrapolation",
         },

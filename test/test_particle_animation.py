@@ -83,6 +83,8 @@ def test_gif_and_provenance_are_deterministic(experiment, tmp_path):
     assert metadata["driver"]["values"] == [0.0, 1.0, 3.0]
     assert metadata["options"]["native_full_time_s"] == experiment.full.time.tolist()
     assert metadata["options"]["field"]["units"] == "SI"
+    assert metadata["options"]["full_orbit"]["charge_C"] == experiment.full.charge
+    assert metadata["options"]["guiding_center"]["solver"]["method"] == "DOP853"
 
 
 @pytest.mark.parametrize(
@@ -140,3 +142,59 @@ def test_static_only_parameters_are_not_silently_ignored(experiment):
         diagram.exb_drift(mass_ratio=9, trajectory=experiment, time=1)
     with pytest.raises(ValueError, match="phase"):
         diagram.canonical_toroidal_momentum(phase=0.2, trajectory=experiment, time=1)
+
+
+@pytest.mark.parametrize("builder", [diagram.gyration, particle_overview])
+def test_custom_orbit_animation_exports_complete_provenance(builder):
+    from vaft.process.particle import (trace_particle_orbit, trace_guiding_center,
+                                       particle_to_guiding_center, compare_particle_orbits)
+    from vaft.process.particle_fields import uniform_particle_field
+
+    records = []
+    field = uniform_particle_field()
+    for factor in (1., 2.):
+        full = trace_particle_orbit(factor, factor, [0, 0, 0], [1, 0, 0],
+                                   field, duration=8, dt=.1)
+        initial = particle_to_guiding_center(factor, factor, [0, 0, 0], [1, 0, 0], field)
+        gc = trace_guiding_center(factor, factor, initial["position"],
+                                 initial["p_parallel"], initial["mu"], field,
+                                 duration=8, dt=.2, rtol=1e-8, atol=1e-10)
+        comparison = compare_particle_orbits(full, gc)
+        source = (
+            {"model": ParticleOrbitView.from_comparison(comparison)}
+            if builder is particle_overview else {"trajectory": comparison}
+        )
+        movie = builder(**source, time=[0, 1], animation=True)
+        options = json.loads(json.dumps(movie.metadata, allow_nan=False))["options"]
+        assert options["full_orbit"]["charge_C"] == factor
+        assert options["full_orbit"]["mass_kg"] == factor
+        assert options["full_orbit"]["initial_state"]["velocity_m_per_s"] == [1, 0, 0]
+        assert options["full_orbit"]["solver"]["dt_s"] == .1
+        assert options["guiding_center"]["solver"]["method"] == "DOP853"
+        assert options["guiding_center"]["solver"]["rtol"] == 1e-8
+        assert options["guiding_center"]["solver"]["atol"] == 1e-10
+        records.append(options)
+    assert records[0] != records[1]
+
+
+def test_tilted_uniform_field_lines_follow_the_integrated_field():
+    from vaft.diagram._projection import project
+    from vaft.process.particle import (trace_particle_orbit, trace_guiding_center,
+                                       particle_to_guiding_center, compare_particle_orbits)
+    from vaft.process.particle_fields import uniform_particle_field
+
+    field = uniform_particle_field(B=[1, 0, 0])
+    full = trace_particle_orbit(1, 1, [0, 0, 0], [.2, 1, 0], field, duration=2, dt=.03)
+    initial = particle_to_guiding_center(1, 1, [0, 0, 0], [.2, 1, 0], field)
+    gc = trace_guiding_center(1, 1, initial["position"], initial["p_parallel"],
+                             initial["mu"], field, duration=2, dt=.1)
+    comparison = compare_particle_orbits(full, gc)
+    scene = diagram.gyration(trajectory=comparison, time=1, labels=False).scene
+    lines = [item for item in scene.items if item.role == "field_line"]
+    assert len(lines) == 3
+    expected = project(np.array([[0, 0, 0], [1, 0, 0]]))
+    expected = expected[1] - expected[0]
+    expected /= np.linalg.norm(expected)
+    for line in lines:
+        delta = np.asarray(line.points[-1]) - line.points[0]
+        np.testing.assert_allclose(delta / np.linalg.norm(delta), expected, atol=1e-12)

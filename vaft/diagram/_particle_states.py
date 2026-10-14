@@ -85,10 +85,26 @@ def _scene(comparison, time, projection, labels, name):
     field = full.field
     # Geometry is fixed over physical time; trajectories move through it.
     if kind in ("gyration", "exb_drift", "grad_b_drift"):
-        for offset in (-1.0, 0.0, 1.0):
-            line = np.array([[offset, 0, z] for z in np.linspace(-1.0, 5.0, 80)])
-            if projection != "perpendicular":
-                items.append(Polyline.of(screen(line), "surface", role="field_line"))
+        # Straight lines are exact only for these reference field geometries.
+        # For an arbitrary supplied field, retain the local field arrow instead
+        # of inventing background field lines from the requested scene name.
+        if (
+            field.provenance.get("geometry") == "uniform"
+            or field.name == "divergence-free slab gradient"
+        ):
+            origin = gc.position[0]
+            direction = field.magnetic(origin)
+            direction = direction / np.linalg.norm(direction)
+            axis = np.eye(3)[np.argmin(np.abs(direction))]
+            transverse = np.cross(direction, axis)
+            transverse /= np.linalg.norm(transverse)
+            for offset in (-1.0, 0.0, 1.0):
+                line = (
+                    origin + offset * transverse
+                    + np.linspace(-1.0, 5.0, 80)[:, None] * direction
+                )
+                if projection != "perpendicular":
+                    items.append(Polyline.of(screen(line), "surface", role="field_line"))
     elif kind in ("magnetic_mirror", "mirror_passing"):
         length = field.provenance["length_m"]
         z = np.linspace(-0.99 * length, 0.99 * length, 100)
@@ -271,6 +287,8 @@ def particle_states(
             "full_termination": comparison.full.termination,
             "gc_termination": comparison.guiding_center.termination,
             "field": comparison.full.field.metadata(),
+            "full_orbit": comparison.full.provenance_record(),
+            "guiding_center": comparison.guiding_center.provenance_record(),
             "experiment": dict(comparison.metadata),
         },
     )
