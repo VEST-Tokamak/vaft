@@ -735,6 +735,8 @@ CONVENTION_SENSITIVE = frozenset({
     "subtract_temporal_background",
     "summed_region_signal",
     "track_reference_frequency",
+    "import_data_roles",
+    "record_data_use",
     # ml (#669): train-only z-score; a stage alias is recorded, never substituted for the version
     "build_structured_dataset",
     "resolve_model",

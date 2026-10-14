@@ -504,9 +504,13 @@ class CalibrationResult:
     groups: tuple[str, ...] = ()
     #: How the calibration population was restricted within the partition, if at all.
     population: str | None = None
+    usage: dict | None = None
 
     def to_dict(self) -> dict:
-        return {**dataclasses.asdict(self), "groups": list(self.groups)}
+        record = {**dataclasses.asdict(self), "groups": list(self.groups)}
+        if self.usage is None:
+            record.pop("usage")
+        return record
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)
@@ -631,6 +635,8 @@ class EvaluationResult:
     per_group: Mapping[str, Mapping[str, float]]
     n_samples: int
     model_identity: ModelIdentity
+    #: Opt-in observed evaluation use, distinct from scientific validation.
+    provenance: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, kw_only=True, eq=False)
