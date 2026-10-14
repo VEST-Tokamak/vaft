@@ -39,6 +39,7 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         f"magnetic_island_{projection}.svg": ("magnetic_island", {**REFERENCE_ISLAND, "projection": projection})
         for projection in ("poloidal", "top", "3d")
     },
+    "magnetic_island_phase_scan.svg": ("magnetic_island", {"m": 2, "n": 1, "width": 0.24, "phase": 0.0, "projection": "poloidal", "labels": False}),
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
     # reduced stability diagnostics (#1635)

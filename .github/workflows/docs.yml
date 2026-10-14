@@ -96,6 +96,26 @@ jobs:
             --develop-ref "${DEVELOP_REF}" \
             --output "${RUNNER_TEMP}/site"
 
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install browser test dependencies
+        working-directory: docs
+        run: npm ci && npx playwright install --with-deps chromium webkit
+
+      - name: Validate animation and adaptive behavior on both tracks
+        working-directory: docs
+        env:
+          VAFT_DOCS_STATIC_ROOT: ${{ runner.temp }}/browser-root
+        run: |
+          mkdir -p "${RUNNER_TEMP}/browser-root"
+          ln -s "${RUNNER_TEMP}/site" "${RUNNER_TEMP}/browser-root/vaft"
+          VAFT_DOCS_URL=http://127.0.0.1:4000/vaft/ npx playwright test animations.spec.js
+          VAFT_DOCS_URL=http://127.0.0.1:4000/vaft/develop/ npx playwright test animations.spec.js
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:

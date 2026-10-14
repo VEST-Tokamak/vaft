@@ -185,6 +185,9 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
 
     from . import build
 
+    from ._replay import catalog_rows
+
+    animation_rows = catalog_rows(_ROOT)
     asset_dir = _ROOT / ASSET_DIR
     manifest_path = asset_dir / build.MANIFEST
     recorded = json.loads(manifest_path.read_text(encoding="utf-8")).get("diagrams", {})
@@ -246,8 +249,13 @@ def documentation_snapshot(provenance: Mapping[str, str] | None = None) -> dict:
                 "formula": formula_rows,
                 "assets": assets_by_builder.get(name, []),
                 "source": source_span(function, _ROOT),
+                "animations": [row for row in animation_rows if row["builder"] == name],
             }
         )
+
+    sources.add(_ROOT / "docs/assets/animations/manifest.json")
+    for animation in animation_rows:
+        sources.add(_ROOT / "docs" / animation["artifact"])
 
     snapshot: dict = {
         "schema_version": SCHEMA_VERSION,

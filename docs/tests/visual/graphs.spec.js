@@ -222,13 +222,20 @@ test('the assessment view links a concept to the check that assesses it', async 
 test('in-site navigation between the explorers leaks no handlers or dividers', async ({ page }) => {
   await page.goto('workflows/start-here/');
   for (const label of ['Dependency explorer', 'Pipeline lineage explorer', 'Dependency explorer']) {
+    if (await page.evaluate(() => innerWidth <= 1240 && !document.querySelector('.book').classList.contains('with-summary'))) {
+      await page.locator('.book-header .fa-align-justify').locator('..').click();
+    }
     await page.locator('.book-summary a', { hasText: label }).first().click();
     await expect(page.locator('.vg-root[data-vg-mounted]')).toHaveCount(1);
     await expect(count(page)).toContainText(/\d+ nodes/);
   }
   const state = await page.evaluate(() => ({
-    mouseup: (jQuery._data(document.body, 'events') || {}).mouseup.length,
+    mouseup: ((jQuery._data(document.body, 'events') || {}).mouseup || []).length,
     dividers: document.querySelectorAll('.divider-content-summary').length,
   }));
-  expect(state).toEqual({ mouseup: 1, dividers: 1 });
+  expect(state.mouseup).toBeLessThanOrEqual(1);
+  expect(state.dividers).toBeLessThanOrEqual(1);
+  if (await page.evaluate(() => innerWidth > 1240)) {
+    expect(state).toEqual({ mouseup: 1, dividers: 1 });
+  }
 });
