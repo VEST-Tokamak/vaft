@@ -386,9 +386,14 @@ def catalog_rows(root=ROOT):
         raw = (root / "docs" / path).read_bytes()
         if digest(raw) != row["sha256"] or len(raw) != row["bytes"]:
             raise ValueError(f"Animation integrity mismatch: {row['id']}")
+        # gzip size varies with the compressor (e.g. Windows zlib-ng).
+        # SHA-256 and raw length above establish integrity; check both the
+        # recorded generation metric and this platform's measured size budget.
+        recorded_size = row["gzip_bytes"]
         if (
-            len(gzip.compress(raw, mtime=0)) != row["gzip_bytes"]
-            or row["gzip_bytes"] > STATE_BUDGET
+            type(recorded_size) is not int
+            or not 0 < recorded_size <= STATE_BUDGET
+            or len(gzip.compress(raw, mtime=0)) > STATE_BUDGET
         ):
             raise ValueError("Animation size budget mismatch")
         data = json.loads(raw)

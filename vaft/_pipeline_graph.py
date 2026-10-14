@@ -144,6 +144,18 @@ def _environment(workspace: Path) -> dict[str, str]:
     environment = {key: os.environ[key] for key in _FORWARDED_ENVIRONMENT if key in os.environ}
     (workspace / "home").mkdir(parents=True, exist_ok=True)
     environment["HOME"] = environment["USERPROFILE"] = str(workspace / "home")
+    # Windows Shell/appdirs expands these paths while Snakemake parses --help.
+    # Missing common AppData breaks SHGetFolderPath; host AppData would expose
+    # real configuration. Give every scope an existing, isolated directory.
+    for names, relative in (
+        (("APPDATA",), "home/AppData/Roaming"),
+        (("LOCALAPPDATA",), "home/AppData/Local"),
+        (("PROGRAMDATA", "ALLUSERSPROFILE"), "ProgramData"),
+    ):
+        directory = workspace / relative
+        directory.mkdir(parents=True, exist_ok=True)
+        for name in names:
+            environment[name] = str(directory)
     for name in _DUMMY_ENVIRONMENT:
         environment[name] = str(workspace / "unused" / name.lower())
     # Snakemake keeps a source cache under the user cache directory; keep it here.

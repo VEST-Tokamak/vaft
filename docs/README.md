@@ -267,8 +267,11 @@ a future teaching project can consume exported states for its own scene design.
 Animation state transfer before activation must be zero. The shared JavaScript
 budget is 100 KiB gzip; each initial 2-D state artifact is limited to 300 KiB gzip.
 `--check` verifies hashes, provenance, shapes, orphan assets and budgets. Gzip
-bytes describe compressibility; actual transfer depends on hosting compression,
-so manifests also expose uncompressed sizes. The existing composed-site size
+bytes record the generation environment's compressibility; compressor versions
+can produce different sizes. Validation enforces the budget for both recorded
+and locally measured sizes, with raw SHA-256 and byte length proving integrity.
+Actual transfer depends on hosting compression, so manifests also expose
+uncompressed sizes. The existing composed-site size
 budget in `build.py` applies independently. External media hosting is deferred.
 
 The adaptive shell retains the 1240px three-region boundary. Below it,

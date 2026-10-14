@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
+import os
 import re
 import subprocess
 import sys
@@ -254,6 +256,30 @@ def test_generation_is_a_dry_run_without_credentials(monkeypatch, tmp_path):
     assert environment["HOME"].startswith(str(tmp_path))  # no ~/.hscfg or database config is reachable
     for name in ("EFIT", "CHEASE", "GPECHOME", "VAFT_FILEDB_DIR", "VAFT_DATA_DIR"):
         assert environment[name].startswith(str(tmp_path)) and not Path(environment[name]).exists()
+
+
+def test_windows_appdata_is_existing_and_isolated(monkeypatch, tmp_path):
+    names = ("APPDATA", "LOCALAPPDATA", "PROGRAMDATA", "ALLUSERSPROFILE")
+    for name in names:
+        monkeypatch.setenv(name, str(tmp_path / "host-configuration" / name))
+    before = dict(os.environ)
+    environment = pipeline_graph._environment(tmp_path / "workspace")
+    for name in names:
+        directory = Path(environment[name])
+        assert directory.is_relative_to(tmp_path / "workspace")
+        assert directory.is_dir()
+        assert environment[name] != before[name]
+    assert environment["PROGRAMDATA"] == environment["ALLUSERSPROFILE"]
+    assert dict(os.environ) == before
+    if os.name == "nt":
+        # Exercise the actual Shell API selected by appdirs/pywin32 in CI.
+        result = subprocess.run(
+            [sys.executable, "-c", "import appdirs,json; d=appdirs.AppDirs('snakemake'); "
+             "print(json.dumps([d.site_config_dir,d.user_config_dir,d.user_cache_dir]))"],
+            env=environment, capture_output=True, text=True, check=True,
+        )
+        for location in json.loads(result.stdout):
+            assert Path(location).is_relative_to(tmp_path / "workspace")
 
 
 def test_the_source_receipt_build_py_checks(snapshot):

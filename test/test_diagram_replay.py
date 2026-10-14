@@ -113,6 +113,33 @@ def test_committed_artifacts_and_manifest_integrity(tmp_path):
         catalog_rows(tmp_path)
 
 
+@pytest.mark.parametrize("level", [1, 6])
+def test_valid_compressor_size_variation_is_accepted(monkeypatch, level):
+    compress = gzip.compress
+    raw = (ROOT / "docs" / catalog_rows()[0]["artifact"]).read_bytes()
+    assert len(compress(raw, compresslevel=level, mtime=0)) != len(compress(raw, mtime=0))
+    monkeypatch.setattr(gzip, "compress", lambda raw, **kwargs: compress(raw, compresslevel=level, **kwargs))
+    assert len(catalog_rows()) == 2
+
+
+def test_locally_measured_size_still_enforces_budget(monkeypatch):
+    compress = gzip.compress
+    monkeypatch.setattr(gzip, "compress", lambda raw, **kwargs: compress(raw, compresslevel=0, **kwargs))
+    with pytest.raises(ValueError, match="size budget"):
+        catalog_rows()
+
+
+@pytest.mark.parametrize("size", [0, -1, True, "243628", 300 * 1024 + 1])
+def test_recorded_size_must_be_a_valid_budgeted_metric(tmp_path, size):
+    shutil.copytree(ROOT / "docs/assets/animations", tmp_path / "docs/assets/animations")
+    path = tmp_path / "docs/assets/animations/manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["animations"][0]["gzip_bytes"] = size
+    path.write_bytes(encode(manifest))
+    with pytest.raises(ValueError, match="size budget"):
+        catalog_rows(tmp_path)
+
+
 @pytest.mark.parametrize("field", ["driver", "parameters"])
 def test_valid_checksum_cannot_hide_scientific_metadata_drift(tmp_path, field):
     from vaft.diagram._replay import digest
