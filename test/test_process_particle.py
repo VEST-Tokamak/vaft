@@ -430,3 +430,59 @@ def test_physical_si_particle_scales_have_finite_gc_and_energy():
     np.testing.assert_allclose(
         gc.position[-1] - gc.position[0], [0, 0, 0.02], atol=1e-13
     )
+
+
+@pytest.mark.parametrize("t0,duration,dt", [(1e6, 1e-9, 1e-10), (1e9, 1e-5, 1e-8)])
+def test_unresolved_absolute_timestamps_are_rejected(t0, duration, dt):
+    with pytest.raises(ValueError, match="timestamp spacing"):
+        trace_particle_orbit(1, 1, [0, 0, 0], [0, 0, 1],
+                             uniform_particle_field(), t0=t0, duration=duration, dt=dt)
+
+
+def test_resolved_absolute_time_advances_for_every_stored_interval():
+    tr = trace_particle_orbit(1, 1, [0, 0, 0], [0, 0, 1],
+                             uniform_particle_field(), t0=1e6, duration=1e-6, dt=1e-8)
+    assert tr.termination == "completed"
+    assert tr.time[-1] == 1e6 + 1e-6
+    assert len(tr.time) > 1
+    np.testing.assert_allclose(tr.position[:, 2], tr.time - tr.time[0], atol=1e-20)
+
+
+def test_boundary_prefix_retains_local_diagnostics_and_can_be_compared():
+    def magnetic(x):
+        assert x[2] < 1  # No field callable may be evaluated outside its domain.
+        return np.array([0., 0., 1.])
+
+    field = ParticleField(magnetic, contains=lambda x: x[2] < 1, derivative_step=.1)
+    full = trace_particle_orbit(1, 1, [0, 0, 0], [0, 0, 1], field, duration=2, dt=.03)
+    gc = trace_guiding_center(1, 1, [0, 0, 0], 1, 0, field, duration=2, dt=.1)
+    assert full.termination == gc.termination == "outside_domain"
+    diagnostic = analyze_particle_orbit(full)
+    assert np.isfinite(diagnostic["energy"]).all()
+    assert np.isnan(diagnostic["rho_over_L_B"][-1])
+    assert diagnostic["derivative_audit"][-1]["reason"] == "stencil_outside_domain"
+    comparison = compare_particle_orbits(full, gc)
+    np.testing.assert_allclose(comparison.separation, 0, atol=1e-14)
+    assert comparison.metadata["derivative_diagnostics_complete"] is False
+    assert comparison.metadata["ordering_warning"] is True
+
+
+def test_trajectory_provenance_preserves_particle_field_and_solver_inputs():
+    import json
+
+    field = uniform_particle_field(B=[1, 0, 0], E=[0, .1, 0])
+    full = trace_particle_orbit(2, 3, [0, 0, 0], [1, 0, 0], field, duration=.1, dt=.01)
+    record = json.loads(json.dumps(full.provenance_record(), allow_nan=False))
+    assert record["charge_C"] == 2
+    assert record["mass_kg"] == 3
+    assert record["initial_state"]["velocity_m_per_s"] == [1, 0, 0]
+    assert record["solver"]["method"] == "centered_boris"
+    assert record["solver"]["dt_s"] == .01
+    assert record["field"]["provenance"]["B_T"] == [1, 0, 0]
+    gc = trace_guiding_center(2, 3, [0, 0, 0], 3, .1, field, duration=.1, dt=.02,
+                             rtol=1e-8, atol=1e-10)
+    record = json.loads(json.dumps(gc.provenance_record(), allow_nan=False))
+    assert record["initial_state"]["p_parallel_kg_m_per_s"] == 3
+    assert record["initial_state"]["mu_J_per_T"] == .1
+    assert record["solver"]["rtol"] == 1e-8
+    assert record["solver"]["atol"] == 1e-10

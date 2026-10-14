@@ -246,6 +246,29 @@ class ParticleTrajectory:
             value.setflags(write=False)
             object.__setattr__(self, name, value)
 
+    def provenance_record(self):
+        """Return JSON-compatible particle, initial-state and solver provenance."""
+        initial = {
+            "time_s": float(self.time[0]),
+            "position_m": self.position[0].tolist(),
+        }
+        if self.kind == "full_orbit":
+            initial["velocity_m_per_s"] = self.velocity[0].tolist()
+        else:
+            initial.update(
+                p_parallel_kg_m_per_s=float(self.p_parallel[0]),
+                mu_J_per_T=float(self.mu),
+            )
+        return {
+            "charge_C": float(self.charge),
+            "mass_kg": float(self.mass),
+            "kind": self.kind,
+            "initial_state": initial,
+            "termination": self.termination,
+            "field": self.field.metadata(),
+            "solver": dict(self.metadata),
+        }
+
     def sample(self, time):
         """Linearly interpolate states for presentation, with no extrapolation."""
         requested = np.atleast_1d(np.asarray(time, float))

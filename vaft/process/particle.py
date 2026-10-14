@@ -50,6 +50,8 @@ def _initial(q, m, x0, duration, dt, t0):
         raise ValueError(
             "duration must produce a representable finite end time after t0"
         )
+    if min(dt, duration) < abs(np.spacing(max(abs(t0), abs(t0 + duration)))):
+        raise ValueError("dt must resolve the floating-point timestamp spacing at t0")
     return x.copy()
 
 
@@ -117,6 +119,8 @@ def trace_particle_orbit(q, m, x0, v0, field, *, duration, dt, t0=0.0):
     -----------
     Fixed-step integration must resolve the largest gyrofrequency encountered.
     A boundary event retains the last valid step, not an inferred wall impact.
+    Steps smaller than the timestamp spacing are rejected; shift t0 toward zero
+    when resolving very short motion at a large absolute time origin.
 
     Provenance
     ----------
@@ -131,9 +135,9 @@ def trace_particle_orbit(q, m, x0, v0, field, *, duration, dt, t0=0.0):
     end = t0 + duration
     termination = "completed"
     while times[-1] < end:
-        h = min(dt, end - times[-1])
-        if h <= np.finfo(float).eps * max(abs(end), duration):
-            break
+        next_time = min(end, times[-1] + dt)
+        # Advance by the interval actually represented in the stored timestamps.
+        h = next_time - times[-1]
         try:
             new_x, new_v = _boris_step(q, m, x, v, field.electric, field.magnetic, h)
             _field_preflight(field, new_x)
@@ -143,7 +147,7 @@ def trace_particle_orbit(q, m, x0, v0, field, *, duration, dt, t0=0.0):
             termination = error.reason
             break
         x, v = new_x, new_v
-        times.append(min(end, times[-1] + h))
+        times.append(next_time)
         positions.append(x.copy())
         velocities.append(v.copy())
     return ParticleTrajectory(
@@ -445,6 +449,8 @@ def analyze_particle_orbit(trajectory, *, bounce_coordinate=None):
     Limitations
     -----------
     Full-orbit mu is an instantaneous estimate; its gyrovariation is physical.
+    Derivative diagnostics are NaN with an unavailable audit when their stencil
+    crosses the domain boundary; local state diagnostics remain available.
     Fixed GC mu is not an adiabaticity test. Finite orbit momentum changes
     under nonaxisymmetry alone do not demonstrate transport or NTV torque.
 
@@ -481,7 +487,15 @@ def analyze_particle_orbit(trajectory, *, bounce_coordinate=None):
     rho = m * vperp / (abs(q) * strength)
     grad, curls, divergence, audits = [], [], [], []
     for x in tr.position:
-        g, c, d, audit = field.derivatives(x)
+        try:
+            g, c, d, audit = field.derivatives(x)
+        except FieldEvaluationError as error:
+            if error.reason != "outside_domain":
+                raise
+            # The orbit sample is valid even if its central stencil is not.
+            # Preserve local energy/center diagnostics without extrapolation.
+            g, c, d = np.full(3, np.nan), np.full(3, np.nan), np.nan
+            audit = {"method": "unavailable", "reason": "stencil_outside_domain"}
         grad.append(g)
         curls.append(c)
         divergence.append(d)
@@ -776,9 +790,18 @@ def compare_particle_orbits(full, guiding_center, *, time=None):
             ),
             "initial_mu_mismatch": float(transformed["mu"] - guiding_center.mu),
             "initialization": transformed["transformation"],
-            "rho_over_L_B_max": float(np.max(diagnostics["rho_over_L_B"])),
-            "parallel_curvature_ordering_max": float(
-                np.max(diagnostics["parallel_curvature_ordering"])
+            "rho_over_L_B_max": (
+                float(np.nanmax(diagnostics["rho_over_L_B"]))
+                if np.any(np.isfinite(diagnostics["rho_over_L_B"]))
+                else None
+            ),
+            "parallel_curvature_ordering_max": (
+                float(np.nanmax(diagnostics["parallel_curvature_ordering"]))
+                if np.any(np.isfinite(diagnostics["parallel_curvature_ordering"]))
+                else None
+            ),
+            "derivative_diagnostics_complete": bool(
+                np.all(np.isfinite(diagnostics["rho_over_L_B"]))
             ),
             "exb_over_speed_max": (
                 float(np.max(diagnostics["exb_over_speed"]))
@@ -798,7 +821,8 @@ def compare_particle_orbits(full, guiding_center, *, time=None):
                 else []
             ),
             "ordering_warning": bool(
-                max(
+                not np.all(np.isfinite(diagnostics["rho_over_L_B"]))
+                or max(
                     np.max(diagnostics["rho_over_L_B"]),
                     np.max(diagnostics["parallel_curvature_ordering"]),
                     np.max(diagnostics["exb_over_speed"]),

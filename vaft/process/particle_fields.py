@@ -68,7 +68,10 @@ def uniform_particle_field(B=(0.0, 0.0, 1.0), E=(0.0, 0.0, 0.0)):
         vector_potential=lambda x: np.cross(B, x) / 2,
         derivative_step=1e-4,
         name="uniform Cartesian field",
-        provenance={"gauge": "A=B cross x/2; Phi=-E dot x", "geometry": "uniform"},
+        provenance={
+            "gauge": "A=B cross x/2; Phi=-E dot x", "geometry": "uniform",
+            "B_T": B.tolist(), "E_V_per_m": E.tolist(),
+        },
     )
 
 
