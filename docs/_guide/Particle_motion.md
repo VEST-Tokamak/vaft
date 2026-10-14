@@ -134,7 +134,7 @@ termination is not a computed wall-impact location.
 
 ## Reproduction and limits
 
-Run `python workflow/particle_motion/run.py` from the source root to generate
+Run `python -m workflow.particle_motion.run` from the source root to generate
 six reference families, their static SVGs, GIFs, diagnostic panels and artifact
 manifest under `docs/assets/particle-motion/`. Physical tests are in
 `test/test_process_particle.py`; replay tests are in

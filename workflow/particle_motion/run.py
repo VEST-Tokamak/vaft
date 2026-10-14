@@ -1,7 +1,7 @@
 """Reproduce particle-motion reference artifacts and numerical validation evidence.
 
 Run from the repository root:
-    python workflow/particle_motion/run.py --output docs/assets/particle-motion
+    python -m workflow.particle_motion.run --output docs/assets/particle-motion
 No external orbit solver, video encoder or display server is needed.
 """
 
@@ -17,10 +17,20 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
+import vaft
 import vaft.diagram as diagram
 from vaft.plot import ParticleOrbitView, particle_overview
 from vaft.process.particle import particle_motion_case
 
+
+if (
+    not Path(vaft.__file__)
+    .resolve()
+    .is_relative_to(Path(__file__).resolve().parents[2])
+):
+    raise RuntimeError(
+        "Run python -m workflow.particle_motion.run from this source checkout"
+    )
 
 EXAMPLES = (
     ("cartesian", "gyration", "gyration"),

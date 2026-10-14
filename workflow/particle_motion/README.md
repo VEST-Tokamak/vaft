@@ -6,7 +6,7 @@ NumPy, SciPy, Matplotlib, Pillow and, for canonical SVG export, LaTeX/dvisvgm.
 They require no external orbit solver or video encoder.
 
 ```sh
-python workflow/particle_motion/run.py --output docs/assets/particle-motion
+python -m workflow.particle_motion.run --output docs/assets/particle-motion
 python -m pytest -q test/test_process_particle.py test/test_particle_animation.py
 ```
 

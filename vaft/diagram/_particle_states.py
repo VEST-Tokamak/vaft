@@ -12,6 +12,9 @@ from functools import lru_cache
 import numpy as np
 
 from vaft.data.particle import ParticleComparison
+from vaft.formula.particle import boris_orbit, guiding_center_rhs
+
+from ._equations import formula_equation
 
 from ._projection import project
 from ._render import Diagram
@@ -33,6 +36,18 @@ def _reference(kind):
     from vaft.process.particle import particle_motion_case
 
     return particle_motion_case(kind)
+
+
+@lru_cache(maxsize=1)
+def _equation_labels():
+    """Display excerpts from canonical formula definitions, without restating physics."""
+    lorentz = formula_equation(boris_orbit).split(r"\qquad")[0].rstrip(", ")
+    star = formula_equation(guiding_center_rhs).split(r"\quad")[0].rstrip(", ")
+    # Mathtext needs braces for TeX's valid single-token bold arguments.
+    star = star.replace(r"\mathbf B", r"\mathbf{B}").replace(
+        r"\mathbf b", r"\mathbf{b}"
+    )
+    return lorentz, star
 
 
 def _project(points, projection):
@@ -188,11 +203,13 @@ def _scene(comparison, time, projection, labels, name):
                     role="time",
                 ),
                 Label(
+                    (0.0, -2.8), f"${_equation_labels()[0]}$", "note", role="equations"
+                ),
+                Label(
                     (0.0, -3.25),
-                    "$m\\dot{\\mathbf{v}}=q(\\mathbf{E}+\\mathbf{v}\\times\\mathbf{B})$; "
-                    "$\\dot{\\mathbf{X}},\\dot{p}_\\parallel$: Hamiltonian GC",
+                    f"${_equation_labels()[1]}$; Hamiltonian GC",
                     "note",
-                    role="equations",
+                    role="gc_equations",
                 ),
                 Label(
                     (0.0, -3.7),
