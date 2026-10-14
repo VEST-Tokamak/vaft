@@ -5,6 +5,8 @@ raw scientific observations. Paths/references are recorded only by the caller.
 """
 from __future__ import annotations
 
+__all__ = ['experiment_record', 'save_experiment', 'load_experiment', 'index_mlflow']
+
 import json
 from pathlib import Path
 import uuid

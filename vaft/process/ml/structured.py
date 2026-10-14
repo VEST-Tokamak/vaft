@@ -7,6 +7,8 @@ axes; ``True`` always means valid, including generated padding masks.
 """
 from __future__ import annotations
 
+__all__ = ['TensorSpec', 'StructuredSample', 'StructuredDatasetArtifact', 'build_structured_dataset']
+
 from dataclasses import dataclass, field
 import hashlib
 import re
