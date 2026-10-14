@@ -1,7 +1,7 @@
 ---
 title: Animation gallery
 author: VEST team
-date: 2026-10-14 23:00
+date: 2026-10-14 23:00:00 +0900
 category: guide
 layout: post
 permalink: /reference/animation/
