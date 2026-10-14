@@ -56,6 +56,10 @@ def _distribution_panel(ax, data, bins):
         ax.text(0.5, 0.5, "No available evidence", ha="center", va="center", transform=ax.transAxes)
     if not data.empty:
         ax.legend(frameon=False)
+        # Reserve vertical room for the coverage legend instead of covering
+        # the highest bins on presentation-size figures.
+        bottom, top = ax.get_ylim()
+        ax.set_ylim(bottom, top * 1.35)
 
 
 @presented(default_figsize=(12.0, 4.0))
@@ -118,6 +122,7 @@ def kinetic_state_virial_identity_distribution(evidence: pd.DataFrame, *, ax=Non
         _distribution_panel(axis, group, bins)
         axis.set(xlabel="Normalized E1, E2, E3 residual" if panel == "identity" else "RMS of normalized identity residuals",
                  ylabel="Identity count" if panel == "identity" else "State count")
+        axis.ticklabel_format(axis="x", style="plain", useOffset=False)
         if panel in limits:
             axis.set_xlim(limits[panel])
     if show:

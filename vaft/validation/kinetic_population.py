@@ -354,8 +354,8 @@ def assemble_kinetic_population(
         for column in CONDITIONING_QUANTITIES:
             if column not in virial_df:
                 virial_df[column] = np.nan
-        virial_df["rt_over_r0_available"] = virial_df["rt_over_r0_available"].replace(
-            {"True": 1, "False": 0, "true": 1, "false": 0})
+        virial_df["rt_over_r0_available"] = virial_df["rt_over_r0_available"].map(
+            lambda value: {"true": 1, "false": 0}.get(str(value).lower(), value))
         _normalise_key(virial_df, "virial")
         virial_df["identities_available"] = pd.to_numeric(virial_df["identities_available"], errors="coerce")
         for column in (*VIRIAL_QUANTITIES, *CONDITIONING_QUANTITIES):

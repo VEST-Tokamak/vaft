@@ -30,8 +30,24 @@ def capture_source(tmp_path, monkeypatch):
         (source / "confinement/MANIFEST.json").write_text('{"rows": 133}\n')
     with (source / "v1/virial_identity.csv").open(newline="") as stream:
         rows = list(csv.DictReader(stream))
+    filedb = tmp_path / "filedb"
+    with (source / "v1/state.csv").open(newline="") as stream:
+        reader = csv.DictReader(stream)
+        state_columns, state_rows = reader.fieldnames, list(reader)
+    product_hash = hashlib.sha256(b"fixture").hexdigest()
+    for row in rows:
+        product = filedb / row["efit_product"]
+        product.parent.mkdir(parents=True, exist_ok=True)
+        product.write_bytes(b"fixture")
+        row["efit_product_sha256"] = product_hash
+    for row in state_rows:
+        row["efit_product_sha256"] = product_hash
+    with (source / "v1/state.csv").open("w", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=state_columns)
+        writer.writeheader()
+        writer.writerows(state_rows)
     monkeypatch.setattr(module.exporter, "export", lambda *_: rows)
-    return module, source, tmp_path / "filedb", tmp_path / "captured"
+    return module, source, filedb, tmp_path / "captured"
 
 
 def test_capture_keeps_source_bytes_and_records_provenance(capture_source):
@@ -73,6 +89,27 @@ def test_capture_rejects_existing_output_and_changing_source(capture_source, mon
         return rows
     monkeypatch.setattr(module.exporter, "export", change)
     with pytest.raises(ValueError, match="source changed"):
+        module.capture(source, filedb, out)
+    assert not out.exists()
+
+
+def test_capture_rejects_wrong_quality_counts_and_changed_products(capture_source, monkeypatch):
+    module, source, filedb, out = capture_source
+    metadata = source / "equilibrium_quality/manifest.json"
+    original_metadata = metadata.read_text()
+    data = json.loads(original_metadata)
+    data["rows"] += 1
+    metadata.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match="manifest row count"):
+        module.capture(source, filedb, out)
+    metadata.write_text(original_metadata)
+    original = module.exporter.export
+    def change_product(*args):
+        rows = original(*args)
+        (filedb / rows[0]["efit_product"]).write_bytes(b"changed")
+        return rows
+    monkeypatch.setattr(module.exporter, "export", change_product)
+    with pytest.raises(ValueError, match="product changed"):
         module.capture(source, filedb, out)
     assert not out.exists()
 

@@ -66,6 +66,10 @@ def capture(atlas: Path, filedb: Path, out: Path) -> dict:
         population = read_kinetic_population(staged, strict=True)
         if len(rows) != len(population.population):
             raise ValueError("virial row count differs from the Atlas population")
+        product_hashes = {row["efit_product"]: row["efit_product_sha256"] for row in rows}
+        for relative, expected in product_hashes.items():
+            if exporter._sha256(filedb / relative) != expected:
+                raise ValueError(f"product changed during capture: {relative}")
         for relative, expected in source_hashes.items():
             if exporter._sha256(atlas / relative) != expected or exporter._sha256(staged / relative) != expected:
                 raise ValueError(f"source changed during capture: {relative}")
@@ -75,6 +79,11 @@ def capture(atlas: Path, filedb: Path, out: Path) -> dict:
             if relative.endswith(".csv"):
                 with (staged / relative).open(newline="", encoding="utf-8") as stream:
                     counts[relative] = sum(1 for _ in csv.DictReader(stream))
+        for name in ("equilibrium_quality", "confinement"):
+            source_metadata = json.loads((staged / name / ("manifest.json" if name == "equilibrium_quality" else "MANIFEST.json")).read_text())
+            table = f"{name}/{'cohort_table' if name == 'equilibrium_quality' else 'table'}.csv"
+            if int(source_metadata["rows"]) != counts[table]:
+                raise ValueError(f"manifest row count mismatch for {table}")
         export_script = "workflow/kinetic_state/export_virial_identity.py"
         capture_script = "workflow/kinetic_state/capture_verification_snapshot.py"
         revision = _git("rev-parse", "HEAD")
@@ -93,7 +102,7 @@ def capture(atlas: Path, filedb: Path, out: Path) -> dict:
             "virial_export_script_sha256": exporter._sha256(REPOSITORY / export_script),
             "snapshot_capture_script": capture_script,
             "snapshot_capture_script_sha256": exporter._sha256(REPOSITORY / capture_script),
-            "products_sha256": {row["efit_product"]: row["efit_product_sha256"] for row in rows},
+            "products_sha256": product_hashes,
             "rows": counts, "sha256": {relative: exporter._sha256(staged / relative) for relative in files},
         }
         (staged / "snapshot_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
