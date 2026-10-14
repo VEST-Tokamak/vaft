@@ -179,7 +179,7 @@ def test_masked_epoch_loss_is_independent_of_batch_grouping(scalar_name):
                 n = len(x["x"])
                 return {"flux": self.bias[:2].expand(n, 2), scalar_name: self.bias[2:].expand(n, 1)}
         return Constant()
-    ml.register_architecture("masked_constant", constant, kind="supervised")
+    ml.register_architecture("masked_constant_" + scalar_name, constant, kind="supervised")
     rows = [ml.StructuredSample({"x": np.zeros(1, np.float32)},
         {"flux": np.array([10. if i == 0 else 0., 0.], np.float32), scalar_name: np.array([2.], np.float32)},
         {"flux": np.array([True, i != 0]), scalar_name: np.array([i != 1])}) for i in range(3)]
@@ -189,7 +189,7 @@ def test_masked_epoch_loss_is_independent_of_batch_grouping(scalar_name):
         spec=ml.DatasetSpec(name="masked", task="regress", group_key="shot"))
     partition = ml.split_groups(data, ml.SplitSpec(fractions={"train": .5, "validation": .5, "test": 0.}, fixed={"train": "train", "val": "validation"}))
     for batch_size in (1, 2, 3):
-        result = ml.train_model(data, partition, ml.ModelSpec(architecture="masked_constant", task="regress"),
+        result = ml.train_model(data, partition, ml.ModelSpec(architecture="masked_constant_" + scalar_name, task="regress"),
             ml.TrainingConfig(epochs=1, batch_size=batch_size, learning_rate=1e-30,
                               normalize_inputs=False, normalize_targets=False, early_stopping_patience=None))
         assert result.history["validation_flux"] == pytest.approx([20.])
