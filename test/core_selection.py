@@ -367,6 +367,10 @@ CORE_MODULES: tuple[str, ...] = (
     # cycle metrics, trajectory fit) on synthetic orbits. Under 30 s.
     "test_formula_turbulence.py",
     "test_process_gyrokinetics.py",
+    # Retained native fields, scientific identity, statistics, comparisons and IMAS round trips.
+    "test_cgyro_time.py",
+    "test_gyrokinetic_cold_review.py",
+    "test_gyrokinetic_result_contracts.py",
     # Reduced MHD stability kernels (#1635): Suydam, circular Mercier, the GGJ
     # D_I/D_R identity, the magnetic well and Bussac against analytic limits.
     "test_formula_reduced_stability.py",

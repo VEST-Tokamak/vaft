@@ -136,13 +136,14 @@ def _channel(outputs: Any, name: str) -> Optional[np.ndarray]:
     return np.atleast_1d(np.asarray(gbflux[name], dtype=float))
 
 
-def core_transport_from_tglf(
+def _core_transport_from_tglf(
     ods: ODS,
     surfaces: Iterable[tuple[Any, Any]],
     profile: Any,
     *,
     time: float = 0.0,
     time_index: int = 0,
+    _target_model: Optional[int] = None,
 ) -> dict[str, Any]:
     """Write TGLF's particle, energy and momentum fluxes into ``core_transport``.
 
@@ -184,7 +185,7 @@ def core_transport_from_tglf(
             continue
         usable.append((local, native))
 
-    model = _model_position(ods)
+    model = _target_model if _target_model is not None else _model_position(ods)
     if not usable:
         skipped.append("everything (no surface both solved and carried a normalisation)")
         return {"model": model, "written": written, "skipped": skipped}
@@ -331,3 +332,43 @@ def core_transport_from_tglf(
         ods["core_transport.ids_properties.homogeneous_time"] = 1
 
     return {"model": model, "written": written, "skipped": skipped}
+
+
+def core_transport_from_tglf(ods, surfaces, profile, *, time=0.0, time_index=0,
+                             state_identity=None, realization_id=None,
+                             configuration=None, provenance=None):
+    """Map one radial realization transactionally, preserving scientific identity.
+
+    Existing positional entry points remain supported. Explicit state_identity,
+    realization_id and effective configuration are recommended. Legacy products
+    without identity are never reused. Same state/time is idempotent; a conflicting
+    time index or state raises before the original ODS changes.
+    """
+    from vaft.code.gacode.result_identity import collection_record, prepare_target, encode
+    surfaces = list(surfaces)
+    if not surfaces:
+        return {"written": [], "skipped": ["no surfaces"]}
+    pairs = [(row[0], getattr(row[1], "outputs_native", row[1])) for row in surfaces]
+    pairs = [(local,native) for local,native in pairs
+             if native is not None and getattr(native,"solved",False) and getattr(local,"normalisation",None) is not None]
+    if not pairs:
+        return _core_transport_from_tglf(ods.copy(), surfaces, profile, time=time, time_index=time_index)
+    record = collection_record("TGLF", pairs, state_identity=state_identity,
+        realization_id=realization_id, configuration=configuration,
+        windows=None)
+    model, index, record = prepare_target(ods, record, float(time), time_index)
+    candidate = ods.copy()
+    base = f"core_transport.model.{model}"
+    # Clear a re-applied slice so unavailable channels cannot leave stale data.
+    slice_path = f"{base}.profiles_1d.{index}"
+    if slice_path in candidate: candidate[slice_path].clear()
+    report = _core_transport_from_tglf(candidate, surfaces, profile, time=time, time_index=index,
+        _target_model=model)
+    if report.get("written"):
+        from vaft.code.gacode.result_identity import preserve_time_semantics, plain
+        if provenance: record["source_provenance"] = plain(provenance)
+        candidate[f"{base}.code.parameters"] = encode(record, candidate.get(f"{base}.code.parameters", None))
+        preserve_time_semantics(candidate)
+        ods["core_transport"] = candidate["core_transport"]
+    report["model"] = model
+    return report

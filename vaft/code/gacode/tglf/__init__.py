@@ -35,6 +35,7 @@ from .inputs import (
     bound_deriv,
     prepare_tglf_case,
     prepare_tglf_input,
+    read_local_input,
     tglf_parameters,
     write_input_tglf,
 )
@@ -65,6 +66,7 @@ def __dir__() -> list[str]:
 
 
 __all__ = [
+    "read_local_input",
     "plasma_formalism",
     "GBFLUX_QUANTITIES",
     "LocalConversionError",

@@ -4231,6 +4231,8 @@ def build_turbulent_transport_ods(
             bridge,
             time=float(state["time_efit_s"]),
             time_index=index,
+            state_identity=state.get("state_identity"),
+            configuration={"collection_label": configuration},
         )
         model = report["model"]
         base = f"core_transport.model.{model}.profiles_1d.{index}"

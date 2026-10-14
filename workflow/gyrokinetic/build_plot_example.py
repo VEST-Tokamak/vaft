@@ -176,7 +176,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             tglf = ODS()
             report = gyrokinetics_local_from_tglf(
                 tglf, local.tglf, collect_tglf_outputs(run),
-                parameters=read_input_tglf(run / "input.tglf"), time=key.time_efit_s)
+                parameters=read_input_tglf(run / "input.tglf"), time=key.time_efit_s,
+                provenance={"state_identity":state.identity})
             if report["written"]:
                 vaft.omas.save(tglf, args.out / f"gk_tglf_sat{args.tglf_sat}_{tag}_{surface}.json")
                 figure, _ = vaft.omas.plot_gyrokinetics_overview(tglf)
@@ -193,7 +194,8 @@ def main(argv: Optional[list[str]] = None) -> int:
         if not surfaces:
             continue
         ods = ODS()
-        report = core_transport_from_tglf(ods, surfaces, state.profile, time=key.time_efit_s)
+        report = core_transport_from_tglf(ods, surfaces, state.profile, time=key.time_efit_s,
+                                          state_identity=state.identity)
         if report["written"]:
             transport[f"TGLF SAT{sat}"] = ods
             vaft.omas.save(ods, args.out / f"core_transport_tglf_sat{sat}_{tag}.json")

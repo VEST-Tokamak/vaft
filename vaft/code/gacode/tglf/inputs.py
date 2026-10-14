@@ -52,6 +52,7 @@ from ._types import (
 )
 
 __all__ = [
+    "read_local_input",
     "TGLFNormalisation",
     "TGLFInput",
     "TGLFInputs",
@@ -786,3 +787,26 @@ def prepare_tglf_case(
             "species": tuple(local.names),
         },
     )
+
+
+def read_local_input(directory, *, normalisation, names, provenance=None):
+    """Restore a native local input with caller-retained SI scales and species names.
+
+    No plasma reconstruction or solver defaults are inferred. Generated controls
+    are read in their native value/KEY syntax; missing required physics raises.
+    """
+    from ..result_identity import read_native_input
+    raw,path=read_native_input(directory,"TGLF")
+    scalars=('rmin_loc','rmaj_loc','drmajdx_loc','zmaj_loc','dzmajdx_loc','q_loc','q_prime_loc',
+             'p_prime_loc','kappa_loc','s_kappa_loc','delta_loc','s_delta_loc','zeta_loc','s_zeta_loc',
+             'betae','xnue','zeff','debye','sign_bt','sign_it')
+    values={key:float(raw[key.upper()]) for key in scalars}
+    ns=int(raw['NS'])
+    for key,source in [('zs','ZS'),('mass','MASS'),('as_','AS'),('taus','TAUS'),('rlns','RLNS'),('rlts','RLTS')]:
+        values[key]=np.asarray([raw[f'{source}_{i+1}'] for i in range(ns)],float)
+    if len(names)!=ns:raise ValueError('retained species names must match native NS')
+    values['rho']=values['rmin_loc']
+    evidence=dict(provenance or {})
+    shear=evidence.get('vexb_shear',{})
+    values['vexb_shear']=None if shear.get('kind')=='unavailable' else raw.get('VEXB_SHEAR')
+    return TGLFInput(**values,normalisation=normalisation,names=tuple(names),provenance=evidence)
