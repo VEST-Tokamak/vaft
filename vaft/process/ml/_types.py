@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import math
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -421,10 +422,35 @@ class TrainingConfig:
     target_normalize_axes: tuple[int, ...] = ()
     augmentation: str | None = None
     device: str = "cpu"
+    optimizer: str = "adam"
+    scheduler: str | None = None
+    max_grad_norm: float | None = None
+    precision: str = "fp32"
+    loader_workers: int = 0
+    loader_pin_memory: bool = False
+    # Epoch-boundary checkpoint output; resume uses the same total epoch budget.
+    checkpoint_path: str | None = None
+    resume_from: str | None = None
+    warm_start_from: str | None = None
+    max_epochs_this_run: int | None = None
     train_partition: str = "train"
     validation_partition: str | None = "validation"
 
     def __post_init__(self):
+        if self.optimizer not in ("adam", "adamw") or self.scheduler not in (None, "onecycle"):
+            raise ModelContractError("optimizer must be adam/adamw; scheduler None/onecycle")
+        if self.precision not in ("fp32", "bf16", "fp16"):
+            raise ModelContractError("precision must be fp32/bf16/fp16")
+        if self.epochs < 1 or self.batch_size < 1 or not math.isfinite(self.learning_rate) or self.learning_rate <= 0 or self.loader_workers < 0:
+            raise ModelContractError("epochs/batch_size/lr must be positive and loader_workers nonnegative")
+        if not math.isfinite(self.weight_decay) or self.weight_decay < 0:
+            raise ModelContractError("weight_decay must be finite and nonnegative")
+        if self.max_grad_norm is not None and (not math.isfinite(self.max_grad_norm) or self.max_grad_norm <= 0):
+            raise ModelContractError("max_grad_norm must be positive")
+        if self.resume_from and self.warm_start_from:
+            raise ModelContractError("resume and warm-start are distinct; select only one")
+        if self.max_epochs_this_run is not None and self.max_epochs_this_run < 1:
+            raise ModelContractError("max_epochs_this_run must be positive")
         for key in ("normalize_axes", "target_normalize_axes"):
             axes = tuple(int(a) for a in getattr(self, key))
             if any(a < 1 for a in axes):
@@ -505,6 +531,7 @@ class ModelArtifact:
     training: Mapping[str, Any] = field(default_factory=dict)
     metrics: Mapping[str, Any] = field(default_factory=dict)
     calibration: Mapping[str, CalibrationResult] = field(default_factory=dict)
+    tensor_schema: Mapping[str, Any] = field(default_factory=dict)
     identity: ModelIdentity | None = None
 
     def __post_init__(self):
@@ -513,7 +540,7 @@ class ModelArtifact:
             object.__setattr__(self, "target_shape", tuple(int(s) for s in self.target_shape))
         object.__setattr__(self, "outputs", tuple(self.outputs))
         object.__setattr__(self, "input_names", tuple(self.input_names))
-        for key in ("normalization", "training", "metrics", "calibration"):
+        for key in ("normalization", "training", "metrics", "calibration", "tensor_schema"):
             object.__setattr__(self, key, _frozen_mapping(getattr(self, key)))
 
     @property

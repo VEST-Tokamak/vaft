@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+ "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="2062pt" height="263pt"
+ viewBox="0.00 0.00 2062.00 263.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="graph0" class="graph" transform="scale(1 1) rotate(0) translate(4 259)">
+<title>model</title>
+<polygon fill="white" stroke="none" points="-4,4 -4,-259 2058.25,-259 2058.25,4 -4,4"/>
+<text xml:space="preserve" text-anchor="middle" x="1027.12" y="-237.7" font-family="Times,serif" font-size="14.00">VAFT MLP | export | 21 parameters</text>
+<text xml:space="preserve" text-anchor="middle" x="1027.12" y="-221.2" font-family="Times,serif" font-size="14.00">Example&#45;specific trace; dynamic paths and other shapes are not certified.</text>
+<g id="node1" class="node">
+<title>p_net_0_weight</title>
+<path fill="#edf3fa" stroke="black" d="M432.5,-214C432.5,-214 331,-214 331,-214 325,-214 319,-208 319,-202 319,-202 319,-188 319,-188 319,-182 325,-176 331,-176 331,-176 432.5,-176 432.5,-176 438.5,-176 444.5,-182 444.5,-188 444.5,-188 444.5,-202 444.5,-202 444.5,-208 438.5,-214 432.5,-214"/>
+<text xml:space="preserve" text-anchor="middle" x="381.75" y="-196.7" font-family="Helvetica,sans-Serif" font-size="14.00">p_net_0_weight</text>
+<text xml:space="preserve" text-anchor="middle" x="381.75" y="-181.7" font-family="Helvetica,sans-Serif" font-size="14.00">(4, 3) torch.float32</text>
+</g>
+<g id="node7" class="node">
+<title>linear</title>
+<path fill="#edf3fa" stroke="black" d="M816,-173C816,-173 650,-173 650,-173 644,-173 638,-167 638,-161 638,-161 638,-117 638,-117 638,-111 644,-105 650,-105 650,-105 816,-105 816,-105 822,-105 828,-111 828,-117 828,-117 828,-161 828,-161 828,-167 822,-173 816,-173"/>
+<text xml:space="preserve" text-anchor="middle" x="733" y="-155.7" font-family="Helvetica,sans-Serif" font-size="14.00">torch._ops.aten.linear.default</text>
+<text xml:space="preserve" text-anchor="middle" x="733" y="-140.7" font-family="Helvetica,sans-Serif" font-size="14.00">net.0</text>
+<text xml:space="preserve" text-anchor="middle" x="733" y="-125.7" font-family="Helvetica,sans-Serif" font-size="14.00">(2, 4) torch.float32</text>
+<text xml:space="preserve" text-anchor="middle" x="733" y="-110.7" font-family="Helvetica,sans-Serif" font-size="14.00">16 parameters</text>
+</g>
+<g id="edge3" class="edge">
+<title>p_net_0_weight&#45;&gt;linear</title>
+<path fill="none" stroke="black" d="M444.8,-186.52C492.72,-179.81 560.66,-169.94 620,-160 622.16,-159.64 624.34,-159.27 626.54,-158.89"/>
+<polygon fill="black" stroke="black" points="626.89,-162.38 636.15,-157.22 625.69,-155.49 626.89,-162.38"/>
+<text xml:space="preserve" text-anchor="middle" x="563.38" y="-180.41" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+<g id="node2" class="node">
+<title>p_net_0_bias</title>
+<path fill="#edf3fa" stroke="black" d="M426.88,-158C426.88,-158 336.62,-158 336.62,-158 330.62,-158 324.62,-152 324.62,-146 324.62,-146 324.62,-132 324.62,-132 324.62,-126 330.62,-120 336.62,-120 336.62,-120 426.88,-120 426.88,-120 432.88,-120 438.88,-126 438.88,-132 438.88,-132 438.88,-146 438.88,-146 438.88,-152 432.88,-158 426.88,-158"/>
+<text xml:space="preserve" text-anchor="middle" x="381.75" y="-140.7" font-family="Helvetica,sans-Serif" font-size="14.00">p_net_0_bias</text>
+<text xml:space="preserve" text-anchor="middle" x="381.75" y="-125.7" font-family="Helvetica,sans-Serif" font-size="14.00">(4,) torch.float32</text>
+</g>
+<g id="edge4" class="edge">
+<title>p_net_0_bias&#45;&gt;linear</title>
+<path fill="none" stroke="black" d="M439.25,-139C489.69,-139 564.87,-139 626.41,-139"/>
+<polygon fill="black" stroke="black" points="626.22,-142.5 636.22,-139 626.22,-135.5 626.22,-142.5"/>
+<text xml:space="preserve" text-anchor="middle" x="563.38" y="-142.2" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+<g id="node3" class="node">
+<title>p_net_2_weight</title>
+<path fill="#edf3fa" stroke="black" d="M1117.75,-94C1117.75,-94 1016.25,-94 1016.25,-94 1010.25,-94 1004.25,-88 1004.25,-82 1004.25,-82 1004.25,-68 1004.25,-68 1004.25,-62 1010.25,-56 1016.25,-56 1016.25,-56 1117.75,-56 1117.75,-56 1123.75,-56 1129.75,-62 1129.75,-68 1129.75,-68 1129.75,-82 1129.75,-82 1129.75,-88 1123.75,-94 1117.75,-94"/>
+<text xml:space="preserve" text-anchor="middle" x="1067" y="-76.7" font-family="Helvetica,sans-Serif" font-size="14.00">p_net_2_weight</text>
+<text xml:space="preserve" text-anchor="middle" x="1067" y="-61.7" font-family="Helvetica,sans-Serif" font-size="14.00">(1, 4) torch.float32</text>
+</g>
+<g id="node9" class="node">
+<title>linear_1</title>
+<path fill="#edf3fa" stroke="black" d="M1484,-109C1484,-109 1318,-109 1318,-109 1312,-109 1306,-103 1306,-97 1306,-97 1306,-53 1306,-53 1306,-47 1312,-41 1318,-41 1318,-41 1484,-41 1484,-41 1490,-41 1496,-47 1496,-53 1496,-53 1496,-97 1496,-97 1496,-103 1490,-109 1484,-109"/>
+<text xml:space="preserve" text-anchor="middle" x="1401" y="-91.7" font-family="Helvetica,sans-Serif" font-size="14.00">torch._ops.aten.linear.default</text>
+<text xml:space="preserve" text-anchor="middle" x="1401" y="-76.7" font-family="Helvetica,sans-Serif" font-size="14.00">net.2</text>
+<text xml:space="preserve" text-anchor="middle" x="1401" y="-61.7" font-family="Helvetica,sans-Serif" font-size="14.00">(2, 1) torch.float32</text>
+<text xml:space="preserve" text-anchor="middle" x="1401" y="-46.7" font-family="Helvetica,sans-Serif" font-size="14.00">5 parameters</text>
+</g>
+<g id="edge7" class="edge">
+<title>p_net_2_weight&#45;&gt;linear_1</title>
+<path fill="none" stroke="black" d="M1130.06,-75C1176.14,-75 1240.1,-75 1294.2,-75"/>
+<polygon fill="black" stroke="black" points="1294.07,-78.5 1304.07,-75 1294.07,-71.5 1294.07,-78.5"/>
+<text xml:space="preserve" text-anchor="middle" x="1231.38" y="-78.2" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+<g id="node4" class="node">
+<title>p_net_2_bias</title>
+<path fill="#edf3fa" stroke="black" d="M1112.12,-38C1112.12,-38 1021.88,-38 1021.88,-38 1015.88,-38 1009.88,-32 1009.88,-26 1009.88,-26 1009.88,-12 1009.88,-12 1009.88,-6 1015.88,0 1021.88,0 1021.88,0 1112.12,0 1112.12,0 1118.12,0 1124.12,-6 1124.12,-12 1124.12,-12 1124.12,-26 1124.12,-26 1124.12,-32 1118.12,-38 1112.12,-38"/>
+<text xml:space="preserve" text-anchor="middle" x="1067" y="-20.7" font-family="Helvetica,sans-Serif" font-size="14.00">p_net_2_bias</text>
+<text xml:space="preserve" text-anchor="middle" x="1067" y="-5.7" font-family="Helvetica,sans-Serif" font-size="14.00">(1,) torch.float32</text>
+</g>
+<g id="edge8" class="edge">
+<title>p_net_2_bias&#45;&gt;linear_1</title>
+<path fill="none" stroke="black" d="M1124.57,-27.79C1169.04,-34.79 1232.52,-44.95 1288,-54.5 1290.16,-54.87 1292.33,-55.25 1294.53,-55.63"/>
+<polygon fill="black" stroke="black" points="1293.67,-59.03 1304.12,-57.32 1294.88,-52.14 1293.67,-59.03"/>
+<text xml:space="preserve" text-anchor="middle" x="1231.38" y="-57.7" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+<g id="node5" class="node">
+<title>x</title>
+<path fill="#edf3fa" stroke="black" d="M113.5,-102C113.5,-102 12,-102 12,-102 6,-102 0,-96 0,-90 0,-90 0,-76 0,-76 0,-70 6,-64 12,-64 12,-64 113.5,-64 113.5,-64 119.5,-64 125.5,-70 125.5,-76 125.5,-76 125.5,-90 125.5,-90 125.5,-96 119.5,-102 113.5,-102"/>
+<text xml:space="preserve" text-anchor="middle" x="62.75" y="-84.7" font-family="Helvetica,sans-Serif" font-size="14.00">x</text>
+<text xml:space="preserve" text-anchor="middle" x="62.75" y="-69.7" font-family="Helvetica,sans-Serif" font-size="14.00">(2, 3) torch.float32</text>
+</g>
+<g id="node6" class="node">
+<title>flatten</title>
+<path fill="#edf3fa" stroke="black" d="M476.75,-102C476.75,-102 286.75,-102 286.75,-102 280.75,-102 274.75,-96 274.75,-90 274.75,-90 274.75,-76 274.75,-76 274.75,-70 280.75,-64 286.75,-64 286.75,-64 476.75,-64 476.75,-64 482.75,-64 488.75,-70 488.75,-76 488.75,-76 488.75,-90 488.75,-90 488.75,-96 482.75,-102 476.75,-102"/>
+<text xml:space="preserve" text-anchor="middle" x="381.75" y="-84.7" font-family="Helvetica,sans-Serif" font-size="14.00">torch._ops.aten.flatten.using_ints</text>
+<text xml:space="preserve" text-anchor="middle" x="381.75" y="-69.7" font-family="Helvetica,sans-Serif" font-size="14.00">(2, 3) torch.float32</text>
+</g>
+<g id="edge1" class="edge">
+<title>x&#45;&gt;flatten</title>
+<path fill="none" stroke="black" d="M125.62,-83C164.66,-83 216.33,-83 262.97,-83"/>
+<polygon fill="black" stroke="black" points="262.88,-86.5 272.88,-83 262.88,-79.5 262.88,-86.5"/>
+<text xml:space="preserve" text-anchor="middle" x="200.12" y="-86.2" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+<g id="edge2" class="edge">
+<title>flatten&#45;&gt;linear</title>
+<path fill="none" stroke="black" d="M489.16,-98.17C530.11,-104.2 577.27,-111.4 620,-118.5 622.16,-118.86 624.34,-119.22 626.53,-119.6"/>
+<polygon fill="black" stroke="black" points="625.69,-123 636.14,-121.24 626.87,-116.1 625.69,-123"/>
+<text xml:space="preserve" text-anchor="middle" x="563.38" y="-121.7" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+<g id="node8" class="node">
+<title>relu</title>
+<path fill="#edf3fa" stroke="black" d="M1144.75,-165.5C1144.75,-165.5 989.25,-165.5 989.25,-165.5 983.25,-165.5 977.25,-159.5 977.25,-153.5 977.25,-153.5 977.25,-124.5 977.25,-124.5 977.25,-118.5 983.25,-112.5 989.25,-112.5 989.25,-112.5 1144.75,-112.5 1144.75,-112.5 1150.75,-112.5 1156.75,-118.5 1156.75,-124.5 1156.75,-124.5 1156.75,-153.5 1156.75,-153.5 1156.75,-159.5 1150.75,-165.5 1144.75,-165.5"/>
+<text xml:space="preserve" text-anchor="middle" x="1067" y="-148.2" font-family="Helvetica,sans-Serif" font-size="14.00">torch._ops.aten.relu.default</text>
+<text xml:space="preserve" text-anchor="middle" x="1067" y="-133.2" font-family="Helvetica,sans-Serif" font-size="14.00">net.1</text>
+<text xml:space="preserve" text-anchor="middle" x="1067" y="-118.2" font-family="Helvetica,sans-Serif" font-size="14.00">(2, 4) torch.float32</text>
+</g>
+<g id="edge5" class="edge">
+<title>linear&#45;&gt;relu</title>
+<path fill="none" stroke="black" d="M828.25,-139C871.1,-139 921.85,-139 965.44,-139"/>
+<polygon fill="black" stroke="black" points="965.42,-142.5 975.42,-139 965.42,-135.5 965.42,-142.5"/>
+<text xml:space="preserve" text-anchor="middle" x="902.62" y="-142.2" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+<g id="edge6" class="edge">
+<title>relu&#45;&gt;linear_1</title>
+<path fill="none" stroke="black" d="M1156.97,-121.85C1199.29,-113.69 1250.19,-103.88 1294.45,-95.35"/>
+<polygon fill="black" stroke="black" points="1294.91,-98.82 1304.07,-93.49 1293.58,-91.95 1294.91,-98.82"/>
+<text xml:space="preserve" text-anchor="middle" x="1231.38" y="-121.5" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+<g id="node10" class="node">
+<title>reshape</title>
+<path fill="#edf3fa" stroke="black" d="M1839,-94C1839,-94 1657.25,-94 1657.25,-94 1651.25,-94 1645.25,-88 1645.25,-82 1645.25,-82 1645.25,-68 1645.25,-68 1645.25,-62 1651.25,-56 1657.25,-56 1657.25,-56 1839,-56 1839,-56 1845,-56 1851,-62 1851,-68 1851,-68 1851,-82 1851,-82 1851,-88 1845,-94 1839,-94"/>
+<text xml:space="preserve" text-anchor="middle" x="1748.12" y="-76.7" font-family="Helvetica,sans-Serif" font-size="14.00">torch._ops.aten.reshape.default</text>
+<text xml:space="preserve" text-anchor="middle" x="1748.12" y="-61.7" font-family="Helvetica,sans-Serif" font-size="14.00">(2, 1) torch.float32</text>
+</g>
+<g id="edge9" class="edge">
+<title>linear_1&#45;&gt;reshape</title>
+<path fill="none" stroke="black" d="M1496.31,-75C1538.63,-75 1588.91,-75 1633.31,-75"/>
+<polygon fill="black" stroke="black" points="1633.24,-78.5 1643.24,-75 1633.24,-71.5 1633.24,-78.5"/>
+<text xml:space="preserve" text-anchor="middle" x="1570.62" y="-78.2" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+<g id="node11" class="node">
+<title>output</title>
+<path fill="#edf3fa" stroke="black" d="M2042.25,-93C2042.25,-93 2012.25,-93 2012.25,-93 2006.25,-93 2000.25,-87 2000.25,-81 2000.25,-81 2000.25,-69 2000.25,-69 2000.25,-63 2006.25,-57 2012.25,-57 2012.25,-57 2042.25,-57 2042.25,-57 2048.25,-57 2054.25,-63 2054.25,-69 2054.25,-69 2054.25,-81 2054.25,-81 2054.25,-87 2048.25,-93 2042.25,-93"/>
+<text xml:space="preserve" text-anchor="middle" x="2027.25" y="-69.2" font-family="Helvetica,sans-Serif" font-size="14.00">output</text>
+</g>
+<g id="edge10" class="edge">
+<title>reshape&#45;&gt;output</title>
+<path fill="none" stroke="black" d="M1851.14,-75C1899.11,-75 1953.38,-75 1988.62,-75"/>
+<polygon fill="black" stroke="black" points="1988.29,-78.5 1998.29,-75 1988.29,-71.5 1988.29,-78.5"/>
+<text xml:space="preserve" text-anchor="middle" x="1925.62" y="-78.2" font-family="Times,serif" font-size="14.00">data_flow / executed</text>
+</g>
+</g>
+</svg>

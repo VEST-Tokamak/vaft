@@ -15,7 +15,6 @@ sample shapes and keeps them (a sequence or image model).
 from __future__ import annotations
 
 import contextlib
-import copy
 import io
 import math
 
@@ -132,7 +131,8 @@ class TorchBackend(Backend):
     def _load(self, spec, state: bytes):
         torch = _torch()
         payload = torch.load(io.BytesIO(state), map_location="cpu", weights_only=True)
-        net = self.build(spec, tuple(payload["input_shape"]), tuple(payload["output_shape"]))
+        net = (self.build_structured(spec, payload["tensor_schema"]) if "tensor_schema" in payload
+               else self.build(spec, tuple(payload["input_shape"]), tuple(payload["output_shape"])))
         net.load_state_dict(payload["state_dict"])
         net.eval()
         return net, payload
@@ -145,7 +145,7 @@ class TorchBackend(Backend):
             raise ModelContractError(f"loss {name!r} is not registered; known: {['mse', *sorted(LOSSES)]}")
         return LOSSES[name](spec, dict(normalization))
 
-    def fit(self, spec, config, x_train, y_train, x_val, y_val, *, output_shape, normalization, augment=None):
+    def fit(self, spec, config, x_train, y_train, x_val, y_val, *, output_shape, normalization, augment=None, context=None):
         kind = self.kind(spec.architecture)
         if kind == "score":
             raise ModelContractError("the torch backend trains supervised or reconstruction networks")
@@ -157,75 +157,81 @@ class TorchBackend(Backend):
         with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
             torch.manual_seed(config.seed)
             return self._fit(spec, config, x_train, y_train, x_val, y_val, output_shape,
-                             normalization, augment, device)
+                             normalization, augment, device, context)
 
-    def _fit(self, spec, config, x_train, y_train, x_val, y_val, output_shape, normalization, augment, device):
+    def _fit(self, spec, config, x_train, y_train, x_val, y_val, output_shape, normalization, augment, device, context=None):
+        from ._torch_engine import DenseSamples, TrainingHistory, run_training
         torch = _torch()
         input_shape = tuple(x_train.shape[1:])
         net = self.build(spec, input_shape, output_shape).to(device)
-        optimiser = torch.optim.Adam(net.parameters(), lr=config.learning_rate, weight_decay=config.weight_decay)
-        loss_fn = self._loss(spec, normalization)
-
-        def tensor(a):
-            return torch.as_tensor(np.asarray(a, dtype=np.float32), device=device)
-
-        supervised = y_train is not None
-        has_val = x_val is not None and len(x_val) > 0
-        if has_val:
-            xv = tensor(x_val)
-            yv = tensor(y_val) if supervised else xv
-        generator = torch.Generator().manual_seed(config.seed)
-        rng = np.random.default_rng(config.seed)
-        batch = max(1, int(config.batch_size))
-        history: dict[str, list[float]] = {"train_loss": []}
-        if has_val:
-            history["validation_loss"] = []
-        best_loss, best_epoch, best_state, stale = math.inf, None, None, 0
-        xt_fixed = tensor(x_train)
-        yt_fixed = tensor(y_train) if supervised else xt_fixed
-        with _deterministic(torch, strict=device.type == "cpu"):
-            for epoch in range(int(config.epochs)):
-                if augment is not None:
-                    xa, ya = augment(x_train, y_train, rng)
-                    xt = tensor(xa)
-                    yt = tensor(ya) if supervised else xt
-                else:
-                    xt, yt = xt_fixed, yt_fixed
-                net.train()
-                order = torch.randperm(len(xt), generator=generator)
-                total = 0.0
-                for start in range(0, len(xt), batch):
-                    idx = order[start:start + batch].to(device)
-                    optimiser.zero_grad()
-                    loss = loss_fn(net(xt[idx]), yt[idx], xt[idx])
-                    loss.backward()
-                    optimiser.step()
-                    total += float(loss.detach()) * len(idx)
-                history["train_loss"].append(total / len(xt))
-                net.eval()
-                if has_val:
-                    with torch.no_grad():
-                        monitored = float(loss_fn(net(xv), yv, xv))
-                    history["validation_loss"].append(monitored)
-                else:
-                    monitored = history["train_loss"][-1]
-                if monitored < best_loss:
-                    best_loss, best_epoch, stale = monitored, epoch, 0
-                    best_state = copy.deepcopy(net.state_dict())
-                else:
-                    stale += 1
-                    patience = config.early_stopping_patience
-                    if patience is not None and stale >= patience:
-                        break
-        if best_state is not None:
-            net.load_state_dict(best_state)
+        def samples(x, y):
+            return DenseSamples(np.asarray(x, np.float32), None if y is None else np.asarray(y, np.float32))
+        def epoch_data(rng):
+            x, y = augment(x_train, y_train, rng)
+            return samples(x, y)
+        train = samples(x_train, y_train)
+        val = samples(x_val, y_val) if x_val is not None and len(x_val) else None
+        history, best_epoch, resources = run_training(net, spec, config, train, val, self._loss(spec, normalization),
+            normalization, context or {}, epoch_data=epoch_data if augment else None)
         buffer = io.BytesIO()
-        cpu_state = {k: v.detach().cpu() for k, v in net.state_dict().items()}
-        torch.save(
-            {"state_dict": cpu_state, "input_shape": list(input_shape), "output_shape": list(output_shape)},
-            buffer,
-        )
-        return buffer.getvalue(), history, best_epoch, None
+        torch.save({"state_dict": {k: v.detach().cpu() for k, v in net.state_dict().items()},
+                    "input_shape": list(input_shape), "output_shape": list(output_shape)}, buffer)
+        return buffer.getvalue(), TrainingHistory(history, resources), best_epoch, None
+
+    def build_structured(self, spec, schema):
+        arch = self.architecture(spec.architecture)
+        if arch.factory is None:
+            raise ModelContractError("structured data requires a registered architecture factory")
+        return arch.factory(spec, {k: tuple(v["shape"]) for k, v in schema["inputs"].items()},
+                            {k: tuple(v["shape"]) for k, v in schema["targets"].items()})
+
+    def fit_structured(self, spec, config, dataset, train_indices, val_indices, normalization, context):
+        from ._torch_engine import StructuredSamples, StructuredCollator, run_training
+        torch = _torch()
+        device = torch.device(config.device)
+        schema = dataset.schema()
+        def masked_mse(prediction, target, inputs):
+            terms, aggregation = {}, {}
+            for name, values in target.items():
+                mask = inputs["__target_masks__"][name]
+                count = int(mask.sum())
+                component = "target/loss" if name == "loss" else name
+                terms[component] = ((prediction[name] - values)[mask] ** 2).mean() if count else prediction[name].sum() * 0
+                aggregation[component] = (count, 1.0)
+            if not any(count for count, _ in aggregation.values()):
+                raise ModelContractError("batch has no supervised target elements")
+            return {"loss": sum(terms.values()), **terms, "__aggregation__": aggregation}
+        loss = masked_mse if spec.hyperparameters.get("loss", "mse") == "mse" else self._loss(spec, normalization)
+        with torch.random.fork_rng(devices=[device] if device.type == "cuda" else []):
+            torch.manual_seed(config.seed)
+            net = self.build_structured(spec, schema).to(device)
+            history, best_epoch, resources = run_training(net, spec, config,
+                StructuredSamples(dataset, train_indices, normalization),
+                StructuredSamples(dataset, val_indices, normalization) if len(val_indices) else None,
+                loss, normalization, context, structured=True, collate=StructuredCollator(dataset.input_specs))
+        buffer = io.BytesIO()
+        torch.save({"state_dict": {k: v.detach().cpu() for k, v in net.state_dict().items()},
+                    "tensor_schema": schema}, buffer)
+        return buffer.getvalue(), history, best_epoch, resources
+
+    def predict_structured(self, spec, state, dataset, normalization, batch_size=64):
+        from ._torch_engine import StructuredSamples, StructuredCollator
+        torch = _torch()
+        net, payload = self._load(spec, state)
+        loader = torch.utils.data.DataLoader(StructuredSamples(dataset, range(dataset.n_samples), normalization),
+            batch_size=batch_size, collate_fn=StructuredCollator(dataset.input_specs))
+        values = {name: [] for name in dataset.target_specs}
+        with torch.no_grad():
+            for inputs, targets, masks in loader:
+                output = net(inputs)
+                if not isinstance(output, dict) or set(output) != set(values):
+                    raise ModelContractError("structured predictions differ from target names")
+                for name, a in output.items():
+                    if tuple(a.shape) != tuple(targets[name].shape):
+                        raise ModelContractError(f"prediction {name!r} has an unexpected shape")
+                    a = a.float().numpy().astype(float)
+                    values[name].append(a * normalization[f"target.{name}.std"] + normalization[f"target.{name}.mean"])
+        return {name: np.concatenate(arrays) for name, arrays in values.items()}
 
     def predict(self, spec, state, x, output_shape):
         torch = _torch()

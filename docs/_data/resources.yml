@@ -1,4 +1,8 @@
 notebooks:
+  scientific-ml:
+    title: Scientific ML lifecycle and architecture graphs
+    path: notebooks/scientific_ml_lifecycle.ipynb
+    maturity: runnable
   database-initialization:
     title: Database initialization and load
     path: notebooks/database_initialization_and_load.ipynb

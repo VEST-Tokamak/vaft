@@ -736,6 +736,7 @@ CONVENTION_SENSITIVE = frozenset({
     "summed_region_signal",
     "track_reference_frequency",
     # ml (#669): train-only z-score; a stage alias is recorded, never substituted for the version
+    "build_structured_dataset",
     "resolve_model",
     "train_model",
     # fluctuation / transients (#1005): the phase is y relative to x, the ridge
