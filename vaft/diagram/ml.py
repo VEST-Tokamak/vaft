@@ -160,7 +160,10 @@ def extract_torch_graph(module, args, *, name="model", method="fx", provenance=N
                 with torch.no_grad():
                     ShapeProp(graph_module).propagate(*examples)
             else:
-                graph_module = torch.export.export(probe, examples, strict=False).graph_module
+                exported = torch.export.export(probe, examples, strict=False)
+                with torch.no_grad():
+                    torch.testing.assert_close(exported.module()(*examples), probe(*examples), rtol=1e-5, atol=1e-6)
+                graph_module = exported.graph_module
             nodes, edges = [], []
             charged = set()
             for node in graph_module.graph.nodes:
