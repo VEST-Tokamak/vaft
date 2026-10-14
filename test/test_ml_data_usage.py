@@ -92,3 +92,32 @@ def test_pep610_revision_is_owned_by_installed_vaft(monkeypatch):
     assert p.vaft_revision() == ("a"*40, None)
     monkeypatch.setattr(Installed, "locate_file", lambda self, name: p._PACKAGE_ROOT / "other" / name)
     assert p.vaft_revision() == (None, None)
+
+
+def test_score_backend_does_not_claim_unused_validation():
+    data, split, _ = declared()
+    result = ml.train_model(data, split, ml.ModelSpec(architecture="knn_distance", backend="numpy", task="score", hyperparameters={"k":1}))
+    assert result.history == {}
+    assert all("b" not in r["groups"] for r in result.artifact.training["data_uses"])
+
+
+def test_calibration_uses_only_selected_subset_groups():
+    data, split, _ = declared()
+    model = ml.train_model(data, split, ml.ModelSpec(architecture="pca_autoencoder", backend="numpy",
+        task="ae", hyperparameters={"n_components":1})).artifact
+    # Shared split can retain groups absent from a source view.
+    extended = replace(split, assignment={**split.assignment,"absent":"calibration"})
+    subset = data.subset([3])
+    result = ml.calibrate_threshold(model, subset, extended, partition="calibration")
+    assert result.usage["groups"] == ["c"]
+
+
+def test_integer_structured_input_does_not_claim_normalization():
+    from vaft.process.ml.usage import _fit_uses
+    rows = [ml.StructuredSample({"x":np.array([i],np.int64)}, {"y":np.array([i],np.float32)}) for i in range(2)]
+    data = ml.build_structured_dataset(rows, ["a","b"], input_specs={"x":ml.TensorSpec((1,),"int64")},
+        target_specs={"y":ml.TensorSpec((1,),normalize=False)}, spec=ml.DatasetSpec(name="integer",task="test"))
+    data, split = ml.import_data_roles(data, {"a":"fit","b":"holdout"}, {"fit":["train"],"holdout":["evaluate"]},
+        role_to_partition={"fit":"train","holdout":"test"})
+    records = _fit_uses(data, split, ml.TrainingConfig(validation_partition=None), [0], [])
+    assert [r["operation"] for r in records] == ["train"]

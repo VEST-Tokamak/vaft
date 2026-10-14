@@ -173,17 +173,17 @@ def record_data_use(dataset, split, operation, *, groups=None):
         "policy_sha256": _hash(policy), "history_basis": "declared_use_at_entrypoint"}
 
 
-def _fit_uses(dataset, split, config, train, validation, *, iterative=True, supervised=True):
+def _fit_uses(dataset, split, config, train, validation, *, iterative=True, supervised=True, validation_used=True):
     import numpy as np
     groups = lambda indices: sorted(set(dataset.group_labels[np.asarray(indices, dtype=int)]))
     records = [record_data_use(dataset, split, "train", groups=groups(train))]
     normalize = config.normalize_inputs or (config.normalize_targets and supervised)
     if hasattr(dataset, "input_specs"):
-        normalize = (config.normalize_inputs and any(v.normalize and np.dtype(v.dtype).kind != "b" for v in dataset.input_specs.values())) or (
-            config.normalize_targets and any(v.normalize and np.dtype(v.dtype).kind != "b" for v in dataset.target_specs.values()))
+        normalize = (config.normalize_inputs and any(v.normalize and np.dtype(v.dtype).kind == "f" for v in dataset.input_specs.values())) or (
+            config.normalize_targets and any(v.normalize and np.dtype(v.dtype).kind == "f" for v in dataset.target_specs.values()))
     if normalize:
         records.append(record_data_use(dataset, split, "preprocess", groups=groups(train)))
-    if len(validation):
+    if validation_used and len(validation):
         records.append(record_data_use(dataset, split, "select" if iterative else "evaluate", groups=groups(validation)))
     fitted = dataset.spec.metadata.get("fitted_transform_groups", ())
     if fitted:
