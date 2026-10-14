@@ -47,7 +47,8 @@ def _npz(arrays) -> bytes:
 def _manifest(model: ModelArtifact, version: str, files: dict, model_card=None, applicability=None) -> dict:
     backend = get_backend(model.model_spec.backend)
     return _jsonable({
-        "schema_version": MANIFEST_SCHEMA_VERSION,
+        "schema_version": 1 if model.tensor_schema else MANIFEST_SCHEMA_VERSION,
+        **({"tensor_schema": dict(model.tensor_schema)} if model.tensor_schema else {}),
         "kind": "model",
         "model": model.name,
         "version": version,
@@ -243,9 +244,9 @@ def load_model_artifact(directory, *, manifest=None, verify=True):
 
 
 def _load_artifact(directory: Path, record: dict, *, verify: bool, prefix: str = "") -> ModelArtifact:
-    if record.get("schema_version") != MANIFEST_SCHEMA_VERSION:
+    if record.get("schema_version") not in (MANIFEST_SCHEMA_VERSION, 1):
         raise ModelContractError(
-            f"manifest schema_version {record.get('schema_version')!r}; this VAFT reads {MANIFEST_SCHEMA_VERSION}"
+            f"manifest schema_version {record.get('schema_version')!r}; this VAFT reads 0 (dense) and 1 (structured)"
         )
     if verify:
         _verify_files(record, directory, prefix)
@@ -287,6 +288,7 @@ def _load_artifact(directory: Path, record: dict, *, verify: bool, prefix: str =
         training=record.get("training", {}),
         metrics=record.get("metrics", {}),
         calibration=calibration,
+        tensor_schema=record.get("tensor_schema", {}),
     )
 
 
@@ -337,6 +339,8 @@ def export_model(model, directory, *, format="onnx"):
     .. [vaft669] VEST-Tokamak/vaft#669, section 12: training and inference
        artifacts are separate, with numerical validation between them.
     """
+    if model.tensor_schema:
+        raise ModelContractError("structured ONNX export is not qualified; use the native artifact")
     directory = Path(directory)
     if directory.exists() and any(directory.iterdir()):
         raise ModelContractError(f"{directory} is not empty")

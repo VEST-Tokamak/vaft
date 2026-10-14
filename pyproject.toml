@@ -117,6 +117,8 @@ tokamaker = ["openfusiontoolkit"]
 # Kept out of [dev]: the default Linux torch wheel pulls CUDA, so CI installs
 # the CPU wheel explicitly instead (package-ci.yml).
 ml = ["torch", "onnx", "onnxruntime", "scikit-learn", "skl2onnx"]
+# Explicit local experiment index only; base ML never imports it.
+tracking = ["mlflow>=3,<4"]
 # 3-D scenes beyond Matplotlib and Plotly (#1087). vaft.plot.pyvista converts
 # Geometry3DLayers to PyVista/VTK and writes .vtm/.vtp files ParaView opens
 # (ParaView itself is never a dependency); vaft.plot.k3d draws them in Jupyter.
