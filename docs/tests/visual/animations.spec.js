@@ -49,6 +49,7 @@ test('reduced motion and failed data keep the canonical poster usable',async({pa
 test('charged particles retain scientific positions, species colours and gated downloads',async({page})=>{
   await page.goto('reference/animation/');
   const root=page.locator('[data-animation="exb_drift--particle_motion"]');
+  await root.locator('details').evaluate(el=>el.open=true);
   await expect(root.locator('[data-state-download]')).toBeHidden();
   await root.locator('[data-activate]').click();await expect(root.locator('.va-player')).toBeVisible();
   await expect(root.locator('[data-state-download]')).toBeVisible();
