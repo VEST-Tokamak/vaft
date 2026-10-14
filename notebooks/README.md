@@ -165,3 +165,5 @@ The notebook collection is mixed in maturity:
 - Add validation checks, provenance metadata, and quality-control summaries for each pipeline stage.
 - Decide how notebooks should be executed, rendered, or archived by the Snakemake pipeline.
 - ##### Keep existing notebooks available while gradually aligning them with the pipeline documentation structure.
+
+- `scientific_ml_lifecycle.ipynb`: Small CPU ML training/evaluation, architecture graph extraction and local experiment identity; structured and GPU qualification are documented in `workflow/ml_research/README.md`.

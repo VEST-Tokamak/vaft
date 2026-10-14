@@ -57,6 +57,8 @@ def train_structured(dataset, split, spec, config, *, name=None, train_mask=None
 
 
 def predict_structured(model, data):
+    if model.calibration:
+        raise ModelContractError("structured calibration is not qualified; apply calibration in the domain adapter")
     if not model.tensor_schema or model.tensor_schema != data.schema():
         raise ModelContractError("structured dataset tensor schema differs from model schema")
     backend = get_backend(model.model_spec.backend)
