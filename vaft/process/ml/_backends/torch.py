@@ -195,8 +195,9 @@ class TorchBackend(Backend):
             for name, values in target.items():
                 mask = inputs["__target_masks__"][name]
                 count = int(mask.sum())
-                terms[name] = ((prediction[name] - values)[mask] ** 2).mean() if count else prediction[name].sum() * 0
-                aggregation[name] = (count, 1.0)
+                component = "target/loss" if name == "loss" else name
+                terms[component] = ((prediction[name] - values)[mask] ** 2).mean() if count else prediction[name].sum() * 0
+                aggregation[component] = (count, 1.0)
             if not any(count for count, _ in aggregation.values()):
                 raise ModelContractError("batch has no supervised target elements")
             return {"loss": sum(terms.values()), **terms, "__aggregation__": aggregation}
