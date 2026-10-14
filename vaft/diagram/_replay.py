@@ -401,6 +401,10 @@ def catalog_rows(root=ROOT):
             data["sources"],
         ) != (row["builder"], row["variant"], row["count"], row["fps"], row["sources"]):
             raise ValueError("Manifest and scientific state disagree")
+        if any(data["driver"].get(key) != value for key, value in recipe["driver"].items()):
+            raise ValueError("Manifest and scientific driver disagree")
+        if any(data["parameters"].get(key) != value for key, value in recipe["parameters"].items()):
+            raise ValueError("Manifest and scientific inputs disagree")
         if not (root / "docs/assets/diagrams" / row["poster"]).is_file():
             raise ValueError("Missing canonical animation poster")
         for source in row["sources"]:
