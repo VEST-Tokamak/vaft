@@ -1,7 +1,7 @@
 ---
 title: "Scientific ML: structured observations, training and model graphs"
 author: VEST team
-date: 2026-10-14 21:00
+date: "2026-10-14 21:00:00 +0900"
 category: guide
 layout: post
 permalink: /reference/process/ml/research/
