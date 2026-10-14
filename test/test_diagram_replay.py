@@ -113,6 +113,16 @@ def test_committed_artifacts_and_manifest_integrity(tmp_path):
         catalog_rows(tmp_path)
 
 
+def test_manifest_uses_utf8_even_with_windows_default_encoding(monkeypatch):
+    from pathlib import Path
+
+    read_text = Path.read_text
+    def windows_read_text(path, encoding=None, errors=None):
+        return read_text(path, encoding=encoding or "cp1252", errors=errors)
+    monkeypatch.setattr(Path, "read_text", windows_read_text)
+    assert catalog_rows()[1]["title"] == "E×B particle and guiding-centre motion"
+
+
 @pytest.mark.parametrize("level", [1, 6])
 def test_valid_compressor_size_variation_is_accepted(monkeypatch, level):
     compress = gzip.compress
@@ -133,7 +143,7 @@ def test_locally_measured_size_still_enforces_budget(monkeypatch):
 def test_recorded_size_must_be_a_valid_budgeted_metric(tmp_path, size):
     shutil.copytree(ROOT / "docs/assets/animations", tmp_path / "docs/assets/animations")
     path = tmp_path / "docs/assets/animations/manifest.json"
-    manifest = json.loads(path.read_text())
+    manifest = json.loads(path.read_text(encoding="utf-8"))
     manifest["animations"][0]["gzip_bytes"] = size
     path.write_bytes(encode(manifest))
     with pytest.raises(ValueError, match="size budget"):
@@ -146,10 +156,10 @@ def test_valid_checksum_cannot_hide_scientific_metadata_drift(tmp_path, field):
 
     shutil.copytree(ROOT / "docs/assets/animations", tmp_path / "docs/assets/animations")
     manifest_path = tmp_path / "docs/assets/animations/manifest.json"
-    manifest = json.loads(manifest_path.read_text())
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     row = manifest["animations"][0]
     path = tmp_path / "docs" / row["artifact"]
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     if field == "driver":
         data[field]["unit"] = "degrees"
     else:

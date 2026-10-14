@@ -271,15 +271,18 @@ def test_windows_appdata_is_existing_and_isolated(monkeypatch, tmp_path):
         assert environment[name] != before[name]
     assert environment["PROGRAMDATA"] == environment["ALLUSERSPROFILE"]
     assert dict(os.environ) == before
-    if os.name == "nt":
-        # Exercise the actual Shell API selected by appdirs/pywin32 in CI.
-        result = subprocess.run(
-            [sys.executable, "-c", "import appdirs,json; d=appdirs.AppDirs('snakemake'); "
-             "print(json.dumps([d.site_config_dir,d.user_config_dir,d.user_cache_dir]))"],
-            env=environment, capture_output=True, text=True, check=True,
-        )
-        for location in json.loads(result.stdout):
-            assert Path(location).is_relative_to(tmp_path / "workspace")
+    # The same provider is used by the actual dry-run child on every platform.
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "from vaft._pipeline_graph import _configure_snakemake_appdirs; "
+         "_configure_snakemake_appdirs(); import snakemake.common,json; "
+         "print(json.dumps(vars(snakemake.common.get_appdirs())))"],
+        env=environment, capture_output=True, text=True, check=True,
+    )
+    for location in json.loads(result.stdout).values():
+        directory = Path(location)
+        assert directory.is_relative_to(tmp_path / "workspace")
+        assert directory.is_dir()
 
 
 def test_the_source_receipt_build_py_checks(snapshot):

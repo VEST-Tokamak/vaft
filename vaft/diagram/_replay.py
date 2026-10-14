@@ -359,7 +359,7 @@ def generate(output=ASSETS):
 def catalog_rows(root=ROOT):
     root = Path(root)
     directory = root / "docs/assets/animations"
-    manifest = json.loads((directory / "manifest.json").read_text())
+    manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
     if manifest.get("schema_version") != SCHEMA_VERSION:
         raise ValueError("Unsupported animation manifest version")
     rows = manifest["animations"]
