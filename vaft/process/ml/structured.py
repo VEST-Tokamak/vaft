@@ -173,7 +173,7 @@ class StructuredDatasetArtifact:
         for name, a in arrays["inputs"].items():
             s = self.input_specs[name]
             valid = valid_mask(arrays["inputs"].get(s.mask) if s.mask else None, a.shape)
-            if not np.isfinite(a[valid]).all():
+            if (self.available is None or bool(self.available[int(index)])) and not np.isfinite(a[valid]).all():
                 raise ModelContractError(f"valid input {name!r} contains nonfinite values")
         return StructuredSample(arrays["inputs"], arrays["targets"], masks)
 

@@ -115,3 +115,47 @@ def test_structured_backends_and_invalid_values_rejected():
                                  bad[0].targets, bad[0].target_masks)
     with pytest.raises(ml.ModelContractError, match="nonfinite"):
         ml.build_structured_dataset(bad, data.groups, input_specs=data.input_specs, target_specs=data.target_specs, spec=data.spec)
+
+
+def test_unavailable_samples_are_not_run_or_normalized():
+    data = dataset()
+    rows = list(data.source)
+    rows[0] = ml.StructuredSample({"tokens": np.full((1, 2), np.nan), "valid": np.ones(1, bool)},
+                                rows[0].targets, rows[0].target_masks)
+    available = np.ones(data.n_samples, bool)
+    available[0] = False
+    changed = ml.build_structured_dataset(rows, data.groups, input_specs=data.input_specs,
+        target_specs=data.target_specs, spec=data.spec, available=available)
+    result = ml.train_model(changed, split(changed), SPEC, replace(CFG, epochs=1, scheduler=None))
+    prediction = ml.predict(result.artifact, changed)
+    assert np.isnan(prediction.outputs["value"][0]).all()
+    assert not prediction.outputs["available"][0]
+    assert 0 not in result.train_indices
+    incompatible = result.artifact.with_calibration(ml.CalibrationResult(name="cut", output="value",
+        threshold=1., method="quantile", quantile=.9, partition="validation", groups=("val",),
+        n_samples=4))
+    with pytest.raises(ml.ModelContractError, match="structured calibration"):
+        ml.predict(incompatible, changed)
+
+
+class LazySource:
+    def __len__(self):
+        return 24
+
+    def __getitem__(self, i):
+        x = np.full((1 + i % 3, 2), i / 10, np.float32)
+        return ml.StructuredSample({"tokens": x, "valid": np.ones(len(x), bool)},
+                                   {"value": np.array([i / 20], np.float32)})
+
+
+def test_generated_lazy_source_matches_eager_content_and_training():
+    source = LazySource()
+    kwargs = dict(groups=np.repeat(np.arange(6), 4), input_specs=dataset().input_specs,
+                  target_specs=dataset().target_specs, spec=ml.DatasetSpec(name="lazy", task="regression"))
+    lazy = ml.build_structured_dataset(source, **kwargs)
+    eager = ml.build_structured_dataset([source[i] for i in range(len(source))], **kwargs)
+    assert lazy.fingerprint == eager.fingerprint
+    config = replace(CFG, epochs=1, scheduler=None)
+    a = ml.train_model(lazy, ml.split_groups(lazy), SPEC, config)
+    b = ml.train_model(eager, ml.split_groups(eager), SPEC, config)
+    assert a.history == b.history and a.artifact.state_sha256 == b.artifact.state_sha256

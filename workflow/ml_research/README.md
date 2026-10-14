@@ -38,7 +38,7 @@ Existing dense factories/losses/augmentations retain their signatures.
 `train_model`, `predict`, and `evaluate_model` dispatch on the dataset contract.
 Structured manifests use schema 1 and named dtype/shape/unit/normalization;
 legacy dense manifests remain schema 0. Both use the same hashes, bundles and
-`vaft-nn` resolver. Structured ONNX export is explicitly unqualified.
+`vaft-nn` resolver. Structured ONNX export and structured threshold calibration are explicitly unqualified; domain adapters own calibration.
 
 Sources are stable content providers: fingerprints stream every sample once,
 without retaining a corpus. Spawn workers require a picklable source; the
@@ -128,3 +128,5 @@ FX extracted PCA-MLP, CNN and Set PCA. FNO and current decoders failed FX becaus
 of symbolic shape/control-flow limitations; all six extracted with explicit
 `torch.export`. These failures remain visible and never produce a substitute
 conceptual graph labelled as executed.
+
+Sample-level unavailable structured inputs are excluded from moments and model execution and return NaN outputs. A generated lazy source is tested against identical eager content for fingerprint, history and model-state equality.
