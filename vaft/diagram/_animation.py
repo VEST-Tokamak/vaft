@@ -48,6 +48,9 @@ def _mix(name: str, percent: float, other: str = "white") -> tuple[float, float,
 #: Matplotlib equivalents of the template's styles (``\tikzset``).  TikZ widths
 #: are points, as Matplotlib's are.  A style not listed draws as a thin black line.
 _LINE = {
+    "orbit ion": {"color": _COLOURS["islandblue"], "lw": 0.9},
+    "orbit electron": {"color": _COLOURS["driftred"], "lw": 0.9},
+    "guiding centre": {"color": _COLOURS["driftred"], "lw": 1.0, "ls": "--"},
     "lcfs": {"color": "black", "lw": 0.95},
     "surface": {"color": _mix("gray", 55), "lw": 0.42},
     "rational": {"color": _mix("islandblue", 80, "black"), "lw": 0.65, "ls": "--"},
@@ -217,6 +220,7 @@ def animate_states(
     dpi: int | None = None,
     frame_label: bool = True,
     options: Mapping[str, Any] | None = None,
+    bounds: tuple[tuple[float, float], tuple[float, float]] | None = None,
 ) -> Any:
     """The animation result of a diagram over ``values`` of its ``driver`` coordinate.
 
@@ -248,7 +252,11 @@ def animate_states(
         return scene_at(values[int(chosen[driver])])
 
     def draw(scene: Any, *, ax: Any = None, show: bool = False) -> tuple[Any, Any]:
-        return draw_scene(scene, ax=ax)
+        figure, axes = draw_scene(scene, ax=ax)
+        if bounds is not None:
+            axes.set_xlim(bounds[0])
+            axes.set_ylim(bounds[1])
+        return figure, axes
 
     return Animation(
         plot=name, label="", driver=record, selection={"kind": driver, "value": list(values)},

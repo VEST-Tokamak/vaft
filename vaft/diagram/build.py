@@ -43,6 +43,8 @@ CANONICAL: Dict[str, Tuple[str, dict]] = {
         f"magnetic_island_{projection}.svg": ("magnetic_island", {**REFERENCE_ISLAND, "projection": projection})
         for projection in ("poloidal", "top", "3d")
     },
+    # Computed static references share the time-selected particle animation model (#2003).
+    **{f"{name}.svg": (name, {}) for name in ("gyration", "grad_b_drift", "magnetic_mirror")},
     # stability and operational-space charts, at their documented defaults
     **{f"{name}.svg": (name, {}) for name in ("peeling_ballooning", "s_alpha_ballooning", "hugill", "hugill_st", "troyon")},
     # reduced stability diagnostics (#1635)
