@@ -39,7 +39,7 @@ repository.
 
 ### Optional-dependency groups
 
-The project defines thirteen extras (eleven optional-dependency groups, the empty `gui` alias, and `dev`); none is needed for the first result on this page. The [software dependencies]({{ site.baseurl }}/reference/software-dependencies/) page groups every dependency and extra by the capability it provides, and [external scientific codes]({{ site.baseurl }}/reference/external-codes/) covers the solvers VAFT integrates but does not install as Python packages:
+The project defines fourteen extras (twelve optional-dependency groups, the empty `gui` alias, and `dev`); none is needed for the first result on this page. The [software dependencies]({{ site.baseurl }}/reference/software-dependencies/) page groups every dependency and extra by the capability it provides, and [external scientific codes]({{ site.baseurl }}/reference/external-codes/) covers the solvers VAFT integrates but does not install as Python packages:
 
 | Extra | Installs | Needed for |
 | --- | --- | --- |
@@ -47,6 +47,7 @@ The project defines thirteen extras (eleven optional-dependency groups, the empt
 | `surrogate` | onnxruntime | running a TGLF neural-network surrogate (`vaft.code.gacode.tglf.surrogate`); resolving a model and auditing an input need no extra |
 | `tokamaker` | openfusiontoolkit | `vaft.code.tokamaker`, the one external code VAFT drives in-process |
 | `ml` | torch, onnx, onnxruntime, scikit-learn, skl2onnx | the `torch` and `sklearn` backends of `vaft.process.ml` and ONNX export; datasets, splits, the `numpy` backend and resolving a published model need no extra |
+| `tracking` | mlflow | explicitly selected local SQLite experiment indexing; JSON and immutable model artifacts remain canonical (#2016) |
 | `vtk` | pyvista (VTK) | `vaft.plot.pyvista.to_pyvista` / `write_vtk`: 3-D scenes as PyVista multiblocks and `.vtm`/`.vtp` files for ParaView (#1087) |
 | `jupyter3d` | k3d | `vaft.plot.k3d.to_k3d` and `coil_phase_explorer`: interactive 3-D scenes in Jupyter (#1087) |
 | `video` | PyAV (av) | writing `.mp4`/`.webm` from `plot_*(..., animation=True)` and its inline notebook preview; `.gif` export needs no extra (#1050) |

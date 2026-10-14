@@ -196,6 +196,7 @@ CORE_MODULES: tuple[str, ...] = (
     "test_check_vaft_nn.py",
     "test_process_ml_contract.py",
     "test_process_ml_sklearn.py",
+    "test_process_ml_structured.py",
     "test_process_ml_torch.py",
     # Documentation drift. File reads and getattr only: what the READMEs claim
     # VAFT is, the site's navigation contract, and whether a documented snippet

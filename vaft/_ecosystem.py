@@ -125,6 +125,7 @@ RUNTIME_ROLES = {
 EXTRA_ROLES = {
     "sklearn": ("learning", "Gaussian-process profile fitting with scikit-learn"),
     "surrogate": ("learning", "TGLF neural-network surrogate inference"),
+    "tracking": ("learning", "explicit local experiment indexing; JSON and model identity stay canonical"),
     "ml": ("learning", "the torch and scikit-learn backends of vaft.process.ml and ONNX export"),
     "tokamaker": ("solvers", "TokaMaker free-boundary equilibria, in process (OpenFUSIONToolkit)"),
     "vtk": ("visualization3d", "3-D scenes as PyVista multiblocks and ParaView files"),
