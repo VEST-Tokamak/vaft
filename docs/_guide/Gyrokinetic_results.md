@@ -176,6 +176,7 @@ and GACODE's rounded energy constant (relative consistency tolerance 10^-4). If 
 the other verified quantities. Zero scales, including dimensionless
 `PROFILE_MODEL=1` output, cannot establish SI conversion.
 
+<!-- docs-snippet: skip needs-file (opens a user-supplied native run and its corresponding local input) -->
 ```python
 from vaft.code.gacode.cgyro import (
     collect_cgyro_outputs, CgyroTimeNormalization,
